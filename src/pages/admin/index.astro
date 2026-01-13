@@ -1,0 +1,271 @@
+---
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { db } from '../../lib/db';
+import { sports, locations, programs, seasons, registrations, users } from '../../lib/db/schema';
+import { count, eq, and, isNotNull, sql } from 'drizzle-orm';
+
+// Check if user is admin
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin');
+}
+
+// TODO: Check admin role - for now allow any authenticated user
+// In production, verify user has admin role
+
+// Get counts for dashboard
+let statsError = null;
+let stats = {
+  sports: 0,
+  locations: 0,
+  programs: 0,
+  activeSeasons: 0,
+  registrations: 0,
+  users: 0,
+  pendingRefunds: 0,
+  pendingRefundsAmountCents: 0,
+};
+
+try {
+  const [sportsCount] = await db.select({ count: count() }).from(sports);
+  const [locationsCount] = await db.select({ count: count() }).from(locations);
+  const [programsCount] = await db.select({ count: count() }).from(programs);
+  const [seasonsCount] = await db.select({ count: count() }).from(seasons).where(eq(seasons.status, 'open'));
+  const [registrationsCount] = await db.select({ count: count() }).from(registrations);
+  const [usersCount] = await db.select({ count: count() }).from(users);
+
+  // Get pending refunds count and total amount
+  const [pendingRefundsData] = await db
+    .select({
+      count: count(),
+      totalAmount: sql<number>`COALESCE(SUM(${registrations.refundAmountCents}), 0)`,
+    })
+    .from(registrations)
+    .where(eq(registrations.refundStatus, 'pending_approval'));
+
+  stats = {
+    sports: sportsCount.count,
+    locations: locationsCount.count,
+    programs: programsCount.count,
+    activeSeasons: seasonsCount.count,
+    registrations: registrationsCount.count,
+    users: usersCount.count,
+    pendingRefunds: pendingRefundsData.count,
+    pendingRefundsAmountCents: Number(pendingRefundsData.totalAmount) || 0,
+  };
+} catch (error) {
+  console.error('Error fetching stats:', error);
+  statsError = 'Failed to load dashboard statistics. Please check your database connection.';
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Admin Dashboard - Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <div class="space-y-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p class="text-gray-600 mt-1">Welcome to the Aspire Sports admin panel</p>
+        </div>
+
+        {statsError ? (
+          <Card class="border-destructive">
+            <CardContent class="pt-6">
+              <p class="text-destructive">{statsError}</p>
+              <p class="text-sm text-muted-foreground mt-2">
+                Make sure you have run <code class="bg-gray-100 px-1 rounded">npm run db:push</code> and <code class="bg-gray-100 px-1 rounded">npm run db:seed</code>
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader class="pb-2">
+                <CardDescription>Sports</CardDescription>
+                <CardTitle class="text-4xl">{stats.sports}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <a href="/admin/sports" class="text-sm text-primary hover:underline">
+                  Manage sports &rarr;
+                </a>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader class="pb-2">
+                <CardDescription>Locations</CardDescription>
+                <CardTitle class="text-4xl">{stats.locations}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <a href="/admin/locations" class="text-sm text-primary hover:underline">
+                  Manage locations &rarr;
+                </a>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader class="pb-2">
+                <CardDescription>Programs</CardDescription>
+                <CardTitle class="text-4xl">{stats.programs}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <a href="/admin/programs" class="text-sm text-primary hover:underline">
+                  Manage programs &rarr;
+                </a>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader class="pb-2">
+                <CardDescription>Active Seasons</CardDescription>
+                <CardTitle class="text-4xl">{stats.activeSeasons}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <a href="/admin/seasons" class="text-sm text-primary hover:underline">
+                  Manage seasons &rarr;
+                </a>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader class="pb-2">
+                <CardDescription>Registrations</CardDescription>
+                <CardTitle class="text-4xl">{stats.registrations}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <a href="/admin/registrations" class="text-sm text-primary hover:underline">
+                  View registrations &rarr;
+                </a>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader class="pb-2">
+                <CardDescription>Users</CardDescription>
+                <CardTitle class="text-4xl">{stats.users}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <a href="/admin/users" class="text-sm text-primary hover:underline">
+                  Manage users &rarr;
+                </a>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Pending Refunds Alert Card */}
+        {!statsError && stats.pendingRefunds > 0 && (
+          <Card class="border-yellow-300 bg-yellow-50">
+            <CardHeader class="pb-2">
+              <div class="flex items-center justify-between">
+                <div>
+                  <CardDescription class="text-yellow-700">Pending Refunds</CardDescription>
+                  <CardTitle class="text-4xl text-yellow-800">{stats.pendingRefunds}</CardTitle>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm text-yellow-600">Total Amount</p>
+                  <p class="text-2xl font-bold text-yellow-800">
+                    ${(stats.pendingRefundsAmountCents / 100).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p class="text-sm text-yellow-700 mb-2">
+                {stats.pendingRefunds === 1
+                  ? 'There is 1 refund request awaiting your approval.'
+                  : `There are ${stats.pendingRefunds} refund requests awaiting your approval.`}
+              </p>
+              <a href="/admin/refunds" class="inline-flex items-center gap-1 text-sm font-medium text-yellow-800 hover:underline">
+                Review refund requests &rarr;
+              </a>
+            </CardContent>
+          </Card>
+        )}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common administrative tasks</CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-2">
+              <a
+                href="/admin/sports/new"
+                class="block p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
+                <span class="font-medium">Add New Sport</span>
+                <p class="text-sm text-muted-foreground">Configure a new sport for your organization</p>
+              </a>
+              <a
+                href="/admin/programs/new"
+                class="block p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
+                <span class="font-medium">Create Program</span>
+                <p class="text-sm text-muted-foreground">Set up a new program for a location</p>
+              </a>
+              <a
+                href="/admin/seasons/new"
+                class="block p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
+                <span class="font-medium">Create Season</span>
+                <p class="text-sm text-muted-foreground">Open registration for a new season</p>
+              </a>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Getting Started</CardTitle>
+              <CardDescription>Set up your sports management platform</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ol class="space-y-3 text-sm">
+                <li class="flex items-start gap-3">
+                  <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">1</span>
+                  <div>
+                    <span class="font-medium">Configure Sports</span>
+                    <p class="text-muted-foreground">Add the sports your organization offers</p>
+                  </div>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">2</span>
+                  <div>
+                    <span class="font-medium">Set Up Locations</span>
+                    <p class="text-muted-foreground">Add your facilities and playing locations</p>
+                  </div>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">3</span>
+                  <div>
+                    <span class="font-medium">Create Programs</span>
+                    <p class="text-muted-foreground">Define your leagues, camps, and clinics</p>
+                  </div>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">4</span>
+                  <div>
+                    <span class="font-medium">Open Seasons</span>
+                    <p class="text-muted-foreground">Create seasons and open registration</p>
+                  </div>
+                </li>
+              </ol>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </AdminLayout>
+  </body>
+</html>

@@ -1,0 +1,171 @@
+---
+import '../../styles/globals.css';
+import Navigation from '../../components/navigation';
+import Footer from '../../components/footer';
+import UpcomingEvents from '../../components/dashboard/upcoming-events';
+import ChildrenOverview from '../../components/dashboard/children-overview';
+import CoachNotes from '../../components/dashboard/coach-notes';
+import PaymentsSummary from '../../components/dashboard/payments-summary';
+import { Button } from '../../components/ui/button';
+
+// Get user from middleware locals
+const user = Astro.locals.user;
+
+// Redirect if not logged in
+if (!user) {
+  return Astro.redirect('/signin?redirect=/dashboard');
+}
+
+// Get current hour for greeting
+const hour = new Date().getHours();
+let greeting = "Good morning";
+if (hour >= 12 && hour < 17) greeting = "Good afternoon";
+else if (hour >= 17) greeting = "Good evening";
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Dashboard - Aspire Sports</title>
+    <style>
+      /* Stagger animation for dashboard sections */
+      @keyframes fadeSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .dashboard-section {
+        animation: fadeSlideIn 0.5s ease-out forwards;
+        opacity: 0;
+      }
+
+      .dashboard-section:nth-child(1) { animation-delay: 0ms; }
+      .dashboard-section:nth-child(2) { animation-delay: 100ms; }
+      .dashboard-section:nth-child(3) { animation-delay: 200ms; }
+      .dashboard-section:nth-child(4) { animation-delay: 300ms; }
+
+      /* Subtle background pattern */
+      .dashboard-bg {
+        background-image:
+          radial-gradient(ellipse 80% 50% at 50% -20%, rgba(204, 68, 44, 0.08), transparent),
+          radial-gradient(circle at 80% 80%, rgba(204, 68, 44, 0.04), transparent);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-24 pb-16 px-4 dashboard-bg">
+      <div class="max-w-7xl mx-auto">
+        <!-- Header Section -->
+        <header class="mb-10 dashboard-section">
+          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <!-- Avatar with gradient ring -->
+              <div class="relative">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary via-primary to-orange-500 p-0.5">
+                  <div class="w-full h-full rounded-2xl bg-[#0a0a0f] flex items-center justify-center">
+                    <span class="text-xl font-bold text-white">
+                      {user?.firstName?.[0] || 'U'}{user?.lastName?.[0] || ''}
+                    </span>
+                  </div>
+                </div>
+                <!-- Online indicator -->
+                <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-[#0a0a0f]"></div>
+              </div>
+
+              <div>
+                <p class="text-sm text-gray-500 mb-0.5">{greeting}</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white">
+                  {user?.firstName || 'there'}!
+                </h1>
+              </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="flex gap-2">
+              <Button variant="outline" size="sm" className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5" asChild>
+                <a href="/dashboard/schedule">Full Schedule</a>
+              </Button>
+              <Button size="sm" asChild>
+                <a href="/#programs">Browse Programs</a>
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+          <!-- Left Column - Events & Children (Primary Focus) -->
+          <div class="lg:col-span-8 space-y-8">
+            <!-- Upcoming Events - Most Important -->
+            <section class="dashboard-section">
+              <UpcomingEvents client:load />
+            </section>
+
+            <!-- Children Overview -->
+            <section class="dashboard-section">
+              <ChildrenOverview client:load />
+            </section>
+          </div>
+
+          <!-- Right Column - Coach Notes & Payments -->
+          <div class="lg:col-span-4 space-y-8">
+            <!-- Coach Notes - Key Differentiator -->
+            <section class="dashboard-section">
+              <CoachNotes client:load />
+            </section>
+
+            <!-- Payments Summary -->
+            <section class="dashboard-section">
+              <PaymentsSummary client:load />
+            </section>
+
+            <!-- Help & Support Card -->
+            <section class="dashboard-section">
+              <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+                <h3 class="font-semibold text-white mb-2 flex items-center gap-2">
+                  <span class="text-lg">💬</span>
+                  Need Help?
+                </h3>
+                <p class="text-sm text-gray-500 mb-4">
+                  Questions about programs, schedules, or your account? We're here to help.
+                </p>
+                <div class="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1 border-white/10 text-gray-400 hover:text-white hover:bg-white/5">
+                    FAQ
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 border-white/10 text-gray-400 hover:text-white hover:bg-white/5">
+                    Contact
+                  </Button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Bottom Actions Bar (Mobile) -->
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent lg:hidden">
+          <div class="flex gap-3 max-w-lg mx-auto">
+            <Button className="flex-1" asChild>
+              <a href="/#programs">Register Now</a>
+            </Button>
+          </div>
+        </div>
+
+        <!-- Bottom Spacer for Mobile Fixed Bar -->
+        <div class="h-20 lg:hidden"></div>
+      </div>
+    </main>
+
+    <Footer client:load />
+  </body>
+</html>

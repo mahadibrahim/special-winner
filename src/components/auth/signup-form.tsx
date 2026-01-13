@@ -1,0 +1,219 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, AlertCircle } from "lucide-react";
+
+interface FieldErrors {
+  email?: string[];
+  password?: string[];
+  firstName?: string[];
+  lastName?: string[];
+}
+
+export function SignUpForm() {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (fieldErrors[name as keyof FieldErrors]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setFieldErrors({});
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setFieldErrors({ password: ["Password must be at least 8 characters"] });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.details) {
+          setFieldErrors(data.details);
+        } else {
+          setError(data.error || "Failed to create account");
+        }
+        return;
+      }
+
+      // Check for redirect URL in query params
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirect = urlParams.get("redirect") || "/dashboard";
+      window.location.href = redirect;
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const inputClassName = "bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50";
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="firstName" className="text-gray-300">First Name</Label>
+          <Input
+            id="firstName"
+            name="firstName"
+            type="text"
+            placeholder="John"
+            value={formData.firstName}
+            onChange={handleChange}
+            required
+            disabled={isLoading}
+            className={inputClassName}
+          />
+          {fieldErrors.firstName && (
+            <p className="text-sm text-destructive">{fieldErrors.firstName[0]}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="lastName" className="text-gray-300">Last Name</Label>
+          <Input
+            id="lastName"
+            name="lastName"
+            type="text"
+            placeholder="Doe"
+            value={formData.lastName}
+            onChange={handleChange}
+            required
+            disabled={isLoading}
+            className={inputClassName}
+          />
+          {fieldErrors.lastName && (
+            <p className="text-sm text-destructive">{fieldErrors.lastName[0]}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-gray-300">Email</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="you@example.com"
+          value={formData.email}
+          onChange={handleChange}
+          required
+          disabled={isLoading}
+          className={inputClassName}
+        />
+        {fieldErrors.email && (
+          <p className="text-sm text-destructive">{fieldErrors.email[0]}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="phone" className="text-gray-300">Phone (optional)</Label>
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          placeholder="(555) 123-4567"
+          value={formData.phone}
+          onChange={handleChange}
+          disabled={isLoading}
+          className={inputClassName}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-gray-300">Password</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="At least 8 characters"
+          value={formData.password}
+          onChange={handleChange}
+          required
+          disabled={isLoading}
+          className={inputClassName}
+        />
+        {fieldErrors.password && (
+          <p className="text-sm text-destructive">{fieldErrors.password[0]}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
+        <Input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          placeholder="Confirm your password"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          required
+          disabled={isLoading}
+          className={inputClassName}
+        />
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full bg-primary hover:bg-primary/90 py-6 text-base font-semibold"
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Creating account...
+          </>
+        ) : (
+          "Create Account"
+        )}
+      </Button>
+    </form>
+  );
+}

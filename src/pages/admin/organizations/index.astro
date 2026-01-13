@@ -1,0 +1,30 @@
+---
+import { AdminLayout } from "@/components/admin/admin-layout";
+import OrganizationsList from "@/components/admin/organizations-list";
+import "@/styles/globals.css";
+
+// Check authentication
+if (!Astro.locals.user) {
+  return Astro.redirect("/signin?returnUrl=/admin/organizations");
+}
+
+const user = Astro.locals.user ? {
+  firstName: Astro.locals.user.firstName,
+  lastName: Astro.locals.user.lastName,
+  email: Astro.locals.user.email,
+} : null;
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Organizations | Admin | Aspire Sports</title>
+  </head>
+  <body class="bg-[#0a0a0f] text-white antialiased">
+    <AdminLayout client:load currentPath="/admin/organizations" user={user}>
+      <OrganizationsList client:load />
+    </AdminLayout>
+  </body>
+</html>

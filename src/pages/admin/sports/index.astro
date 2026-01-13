@@ -1,0 +1,29 @@
+---
+import '../../../styles/globals.css';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { SportsList } from '../../../components/admin/sports-list';
+
+// Check if user is authenticated
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/sports');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Sports - Admin - Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/sports"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <SportsList client:load />
+    </AdminLayout>
+  </body>
+</html>

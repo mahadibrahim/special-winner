@@ -1,0 +1,39 @@
+---
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { RefundsManagement } from '../../components/admin/refunds-management';
+
+// Check if user is admin
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/refunds');
+}
+
+// TODO: Check admin role - for now allow any authenticated user
+// In production, verify user has admin role
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Refund Management - Aspire Sports Admin</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/refunds"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <div class="space-y-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Refund Management</h1>
+          <p class="text-gray-600 mt-1">Review and process refund requests from cancelled registrations</p>
+        </div>
+
+        <RefundsManagement client:load />
+      </div>
+    </AdminLayout>
+  </body>
+</html>

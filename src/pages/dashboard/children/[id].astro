@@ -1,0 +1,60 @@
+---
+import '../../../styles/globals.css';
+import Navigation from '../../../components/navigation';
+import Footer from '../../../components/footer';
+import ChildProfile from '../../../components/dashboard/child-profile';
+
+// Get user from middleware locals
+const user = Astro.locals.user;
+
+// Redirect if not logged in
+// TEMPORARILY DISABLED FOR TESTING
+// if (!user) {
+//   return Astro.redirect('/signin?redirect=/dashboard');
+// }
+
+// Get child ID from URL
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/dashboard');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Child Profile - Aspire Sports</title>
+    <style>
+      /* Page load animation */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .profile-content {
+        animation: fadeIn 0.4s ease-out forwards;
+      }
+
+      /* Background pattern */
+      .profile-bg {
+        background-image:
+          radial-gradient(ellipse 60% 40% at 50% 0%, rgba(204, 68, 44, 0.06), transparent),
+          radial-gradient(circle at 90% 90%, rgba(34, 197, 94, 0.04), transparent);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-24 pb-16 px-4 profile-bg">
+      <div class="max-w-7xl mx-auto profile-content">
+        <ChildProfile client:load childId={id} />
+      </div>
+    </main>
+
+    <Footer client:load />
+  </body>
+</html>

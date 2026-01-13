@@ -1,0 +1,15 @@
+export { lucia } from "./lucia";
+export { hashPassword, verifyPassword } from "./password";
+export { validateSession, createSession, invalidateSession } from "./session";
+export {
+  getUserRoles,
+  hasRole,
+  isCoachOfTeam,
+  getCoachTeamIds,
+  isCoach,
+  validateCoachAccess,
+  isAdmin,
+  type RoleName,
+  type ScopeType,
+  type UserRole,
+} from "./roles";

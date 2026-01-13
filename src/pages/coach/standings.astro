@@ -1,0 +1,59 @@
+---
+import '../../styles/globals.css';
+import Navigation from '../../components/navigation';
+import Footer from '../../components/footer';
+import StandingsTable from '../../components/coach/standings-table';
+
+// Get user from middleware locals
+const user = Astro.locals.user;
+
+// Redirect if not logged in
+if (!user) {
+  return Astro.redirect('/signin?redirect=/coach/standings');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Standings - Coach Dashboard - Aspire Sports</title>
+    <style>
+      /* Page load animation */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .standings-content {
+        animation: fadeIn 0.4s ease-out forwards;
+      }
+
+      /* Background pattern */
+      .standings-bg {
+        background-image:
+          radial-gradient(ellipse 60% 40% at 50% 0%, rgba(234, 179, 8, 0.06), transparent),
+          radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.04), transparent);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-24 pb-16 px-4 standings-bg">
+      <div class="max-w-5xl mx-auto standings-content">
+        <!-- Breadcrumb -->
+        <nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
+          <a href="/coach" class="hover:text-white transition-colors">Coach Dashboard</a>
+          <span>/</span>
+          <span class="text-white">Standings</span>
+        </nav>
+
+        <StandingsTable client:load />
+      </div>
+    </main>
+
+    <Footer client:load />
+  </body>
+</html>
