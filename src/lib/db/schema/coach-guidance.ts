@@ -42,7 +42,7 @@ export const promptFrequencyEnum = pgEnum("prompt_frequency", [
   "random", // Randomly show
 ]);
 
-export const resourceTypeEnum = pgEnum("resource_type", [
+export const coachResourceTypeEnum = pgEnum("coach_resource_type", [
   "video",
   "article",
   "diagram",
@@ -91,7 +91,7 @@ export const coachResources = pgTable("coach_resources", {
   sportId: uuid("sport_id").references(() => sports.id, { onDelete: "cascade" }),
   stageId: uuid("stage_id").references(() => developmentStages.id, { onDelete: "set null" }),
   skillId: uuid("skill_id").references(() => skills.id, { onDelete: "set null" }),
-  resourceType: resourceTypeEnum("resource_type").notNull(),
+  resourceType: coachResourceTypeEnum("resource_type").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   url: text("url"), // URL for external resources

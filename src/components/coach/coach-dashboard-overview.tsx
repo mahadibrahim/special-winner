@@ -15,10 +15,14 @@ import {
   MessageSquare,
   Plus,
   Target,
+  BookOpen,
+  Dumbbell,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { PrePracticeChecklist } from "./pre-practice-checklist"
+import { CoachingTipCard } from "./coaching-tip-card"
 
 interface Team {
   id: string
@@ -288,6 +292,22 @@ function QuickActions() {
           <span className="text-sm text-gray-300 group-hover:text-white transition-colors">View Standings</span>
           <ChevronRight className="w-4 h-4 text-gray-600 ml-auto group-hover:translate-x-1 transition-all" />
         </a>
+        <a
+          href="/coach/practices"
+          className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
+        >
+          <Dumbbell className="w-5 h-5 text-gray-500 group-hover:text-purple-400 transition-colors" />
+          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">Practice Planner</span>
+          <ChevronRight className="w-4 h-4 text-gray-600 ml-auto group-hover:translate-x-1 transition-all" />
+        </a>
+        <a
+          href="/coach/resources"
+          className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
+        >
+          <BookOpen className="w-5 h-5 text-gray-500 group-hover:text-cyan-400 transition-colors" />
+          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">Coach Resources</span>
+          <ChevronRight className="w-4 h-4 text-gray-600 ml-auto group-hover:translate-x-1 transition-all" />
+        </a>
         <button
           className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
         >
@@ -446,6 +466,11 @@ export default function CoachDashboardOverview() {
         <div className="lg:col-span-4 space-y-6">
           <section className="dashboard-section">
             <QuickActions />
+          </section>
+
+          {/* Pre-Practice Checklist */}
+          <section className="dashboard-section">
+            <PrePracticeChecklist />
           </section>
 
           {/* Recent Activity Placeholder */}

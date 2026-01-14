@@ -1,0 +1,10 @@
+---
+import CoachLayout from "@/components/coach/coach-layout.astro";
+import { ResourceLibrary } from "@/components/coach/resource-library";
+---
+
+<CoachLayout title="Coach Resources">
+  <div class="p-6">
+    <ResourceLibrary client:load />
+  </div>
+</CoachLayout>
