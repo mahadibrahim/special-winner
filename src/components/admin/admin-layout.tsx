@@ -16,6 +16,7 @@ import {
   Dumbbell,
   Building2,
   RefreshCcw,
+  BookOpen,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -37,6 +38,7 @@ const navigation = [
   { name: "Locations", href: "/admin/locations", icon: MapPin },
   { name: "Programs", href: "/admin/programs", icon: Dumbbell },
   { name: "Seasons", href: "/admin/seasons", icon: Calendar },
+  { name: "Curriculum", href: "/admin/curriculum", icon: BookOpen },
   { name: "Registrations", href: "/admin/registrations", icon: Users },
   { name: "Refunds", href: "/admin/refunds", icon: RefreshCcw },
   { name: "Payments", href: "/admin/payments", icon: CreditCard },

@@ -75,10 +75,16 @@ export function SignUpForm() {
         return;
       }
 
-      // Check for redirect URL in query params
+      // Check for explicit redirect URL in query params
       const urlParams = new URLSearchParams(window.location.search);
-      const redirect = urlParams.get("redirect") || "/dashboard";
-      window.location.href = redirect;
+      const explicitRedirect = urlParams.get("redirect") || urlParams.get("returnUrl");
+
+      if (explicitRedirect) {
+        window.location.href = explicitRedirect;
+      } else {
+        // New users are parents by default, redirect to dashboard
+        window.location.href = "/dashboard";
+      }
     } catch {
       setError("An unexpected error occurred");
     } finally {

@@ -83,6 +83,7 @@ export const POST: APIRoute = async (context) => {
           firstName: newUser.firstName,
           lastName: newUser.lastName,
         },
+        roles: parentRole ? ["parent"] : [],
       }),
       { status: 201 }
     );

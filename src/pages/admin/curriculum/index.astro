@@ -1,0 +1,29 @@
+---
+import '../../../styles/globals.css';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { CurriculumManager } from '../../../components/admin/curriculum-manager';
+
+// Check if user is admin
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/curriculum');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Curriculum Management - Aspire Sports Admin</title>
+  </head>
+  <body class="bg-[#0a0a0f]">
+    <AdminLayout
+      client:load
+      currentPath="/admin/curriculum"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <CurriculumManager client:load />
+    </AdminLayout>
+  </body>
+</html>

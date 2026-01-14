@@ -13,7 +13,8 @@ import {
   AlertCircle,
   TrendingUp,
   MessageSquare,
-  Plus
+  Plus,
+  Target,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -263,6 +264,14 @@ function QuickActions() {
         Quick Actions
       </h3>
       <div className="space-y-2">
+        <a
+          href="/coach/assessments"
+          className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/30 transition-colors group"
+        >
+          <Target className="w-5 h-5 text-primary" />
+          <span className="text-sm text-white">Player Assessments</span>
+          <ChevronRight className="w-4 h-4 text-primary/60 ml-auto group-hover:translate-x-1 transition-all" />
+        </a>
         <a
           href="/coach/schedule"
           className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"

@@ -92,10 +92,19 @@ else if (hour >= 17) greeting = "Good evening";
 
             <!-- Quick Actions -->
             <div class="flex gap-2">
-              <a href="/coach/schedule" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
-                Full Schedule
+              <a href="/coach/practices/new" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                New Practice
               </a>
-              <a href="/dashboard" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+              <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                Practices
+              </a>
+              <a href="/coach/assessments" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                Assessments
+              </a>
+              <a href="/dashboard" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 Parent View
               </a>
             </div>

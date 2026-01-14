@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, userRoles, roles } from "@/lib/db/schema";
 import { verifyPassword, createSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 
@@ -52,6 +52,18 @@ export const POST: APIRoute = async (context) => {
     // Create session
     await createSession(user.id, context);
 
+    // Fetch user roles
+    const userRolesList = await db
+      .select({
+        roleName: roles.name,
+        scopeType: userRoles.scopeType,
+      })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, user.id));
+
+    const roleNames = userRolesList.map((r) => r.roleName);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -62,6 +74,7 @@ export const POST: APIRoute = async (context) => {
           lastName: user.lastName,
           emailVerified: user.emailVerified,
         },
+        roles: roleNames,
       }),
       { status: 200 }
     );

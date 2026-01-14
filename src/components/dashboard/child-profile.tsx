@@ -25,6 +25,8 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import SkillProgressChart, { SkillRadarPlaceholder } from "./skill-progress-chart"
 import AchievementGallery from "./achievement-gallery"
+import DevelopmentReport from "./development-report"
+import AchievementsDisplay from "./achievements-display"
 
 interface Program {
   id: string
@@ -368,22 +370,19 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
 
           {activeTab === "progress" && (
             <section>
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary" />
-                Skill Development
-              </h2>
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-4">Skill Breakdown</h3>
-                  <SkillProgressChart skills={child.skills} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400 mb-4">Overall Profile</h3>
-                  <div className="p-6 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                    <SkillRadarPlaceholder skills={child.skills} />
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  Development Progress
+                </h2>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`/dashboard/children/${childId}/development`}>
+                    View Full Report
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </a>
+                </Button>
               </div>
+              <DevelopmentReport familyMemberId={childId} />
             </section>
           )}
 
@@ -476,7 +475,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                 <Award className="w-5 h-5 text-primary" />
                 Achievements
               </h2>
-              <AchievementGallery />
+              <AchievementsDisplay familyMemberId={childId} showLocked={true} />
             </section>
           )}
         </div>
@@ -513,7 +512,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
               <Award className="w-4 h-4 text-amber-400" />
               Recent Achievements
             </h3>
-            <AchievementGallery compact limit={3} showViewAll />
+            <AchievementsDisplay familyMemberId={childId} compact limit={3} showLocked={false} />
           </div>
 
           {/* Season History */}

@@ -31,10 +31,25 @@ export function SignInForm() {
         return;
       }
 
-      // Check for redirect URL in query params
+      // Check for explicit redirect URL in query params
       const urlParams = new URLSearchParams(window.location.search);
-      const redirect = urlParams.get("redirect") || "/dashboard";
-      window.location.href = redirect;
+      const explicitRedirect = urlParams.get("redirect") || urlParams.get("returnUrl");
+
+      if (explicitRedirect) {
+        // If there's an explicit redirect, use it
+        window.location.href = explicitRedirect;
+      } else {
+        // Otherwise, redirect based on user's primary role
+        const roles: string[] = data.roles || [];
+
+        if (roles.includes("super_admin") || roles.includes("location_admin")) {
+          window.location.href = "/admin";
+        } else if (roles.includes("coach")) {
+          window.location.href = "/coach";
+        } else {
+          window.location.href = "/dashboard";
+        }
+      }
     } catch {
       setError("An unexpected error occurred");
     } finally {
