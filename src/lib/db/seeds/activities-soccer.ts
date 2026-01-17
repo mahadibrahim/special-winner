@@ -666,6 +666,1411 @@ Spend 2 minutes at each station, then rotate.`,
       tags: ["fun", "shooting", "game", "competitive"],
       featured: true,
     },
+
+    // === ADDITIONAL WARMUP ACTIVITIES ===
+    {
+      sportId: soccer.id,
+      name: "Musical Balls",
+      slug: "musical-balls",
+      description: "Soccer version of musical chairs - when music stops, find a ball!",
+      activityType: "warmup" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 8,
+      maxPlayers: 24,
+      durationMinutes: 7,
+      setupInstructions: "Scatter balls in a 25x25 grid - one fewer ball than players.",
+      howToPlay: `1. Players jog/skip around the grid while music plays
+2. When music stops, find a ball and perform a move (toe taps)
+3. Player without a ball does 5 jumping jacks
+4. Remove one ball each round until final two players`,
+      coachingPoints: [
+        "Stay light on your feet",
+        "Be aware of space around you",
+        "React quickly to the music",
+      ],
+      questionsToAsk: [
+        "How do you position yourself near a ball?",
+        "What helps you react faster?",
+      ],
+      commonMistakes: ["Standing too far from balls", "Not paying attention"],
+      variations: [
+        { name: "Skills Challenge", description: "Must complete 10 toe taps to 'claim' the ball", difficulty: "intermediate" },
+      ],
+      makeEasier: "Fewer balls removed each round",
+      makeHarder: "More balls removed, smaller grid",
+      equipmentNeeded: ["Balls (one fewer than players)", "Music speaker"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId],
+      tags: ["warmup", "fun", "agility", "awareness"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Copy Cat Dribbling",
+      slug: "copy-cat-dribbling",
+      description: "Follow the leader dribbling game where players mirror the coach or leader",
+      activityType: "warmup" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 4,
+      maxPlayers: 20,
+      durationMinutes: 6,
+      setupInstructions: "Open space, each player has a ball. Coach leads from the front.",
+      howToPlay: `1. Players dribble following the leader
+2. Leader performs different moves - players copy
+3. Include: speed changes, direction changes, stops, turns
+4. Rotate leader every 60-90 seconds`,
+      coachingPoints: [
+        "Keep ball close while watching leader",
+        "Quick reactions",
+        "Use different parts of foot",
+      ],
+      questionsToAsk: [
+        "How do you watch and dribble at the same time?",
+        "Which moves were hardest to copy?",
+      ],
+      commonMistakes: ["Watching only the ball", "Getting too far behind"],
+      variations: [
+        { name: "Freeze Copy", description: "Must freeze in exact same position as leader", difficulty: "intermediate" },
+      ],
+      makeEasier: "Slower pace, simpler moves",
+      makeHarder: "Faster pace, complex combinations",
+      equipmentNeeded: ["1 ball per player"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["warmup", "dribbling", "following", "fun"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Volcano Dribble",
+      slug: "volcano-dribble",
+      description: "Dribble around 'volcanos' (cones) without touching them",
+      activityType: "warmup" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 6,
+      maxPlayers: 24,
+      durationMinutes: 6,
+      setupInstructions: "Set up 15-20 cones randomly in a 30x30 grid. Each player has a ball.",
+      howToPlay: `1. Players dribble freely avoiding the 'volcanos' (cones)
+2. If you touch a volcano, it 'erupts' - do 5 toe taps
+3. Coach can call 'Lava flow!' - everyone must freeze
+4. Keep count of how many times you touched a volcano`,
+      coachingPoints: [
+        "Head up to see the volcanos",
+        "Small touches to change direction",
+        "Use different surfaces of foot",
+      ],
+      questionsToAsk: [
+        "How do you avoid the volcanos?",
+        "What part of your foot helps you turn quickly?",
+      ],
+      commonMistakes: ["Looking down at ball", "Big touches that lose control"],
+      variations: [
+        { name: "Moving Volcanos", description: "Some players are 'volcanos' that slowly move", difficulty: "intermediate" },
+      ],
+      makeEasier: "Fewer volcanos, larger spaces",
+      makeHarder: "More volcanos, smaller spaces, faster pace",
+      equipmentNeeded: ["Cones (15-20)", "1 ball per player"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId],
+      tags: ["warmup", "dribbling", "awareness", "fun"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Numbers Game Warmup",
+      slug: "numbers-game-warmup",
+      description: "Coach calls numbers for different movements while dribbling",
+      activityType: "warmup" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 6,
+      maxPlayers: 24,
+      durationMinutes: 7,
+      setupInstructions: "30x30 grid, each player has a ball. Review number commands first.",
+      howToPlay: `Number commands:
+1 = Stop ball with sole
+2 = Speed dribble
+3 = Turn around (any turn)
+4 = Change direction (cut)
+5 = Do a skill move
+Players dribble freely, coach calls numbers.`,
+      coachingPoints: [
+        "React quickly to numbers",
+        "Keep ball under control",
+        "Practice different skills on command",
+      ],
+      questionsToAsk: [
+        "Which number is hardest for you?",
+        "What move do you do for number 5?",
+      ],
+      commonMistakes: ["Forgetting the numbers", "Slow reactions"],
+      variations: [
+        { name: "Player Caller", description: "A player becomes the number caller", difficulty: "beginner" },
+        { name: "Add Colors", description: "Use both numbers and colors for different actions", difficulty: "intermediate" },
+      ],
+      makeEasier: "Fewer numbers (1-3 only)",
+      makeHarder: "More numbers, faster calling, add combinations",
+      equipmentNeeded: ["1 ball per player", "Cones for grid"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["warmup", "dribbling", "listening", "reactions"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Partner Mirror Warmup",
+      slug: "partner-mirror-warmup",
+      description: "Partners face each other, one leads dribbling moves and other mirrors",
+      activityType: "warmup" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 4,
+      maxPlayers: 20,
+      durationMinutes: 8,
+      setupInstructions: "Partners 3-4 yards apart, each with a ball, facing each other.",
+      howToPlay: `1. One partner is the leader, performs moves
+2. Other partner mirrors (opposite direction)
+3. Include: side-to-side, forward-back, turns, skills
+4. Switch leader every 45 seconds`,
+      coachingPoints: [
+        "Watch partner's hips, not their ball",
+        "Stay balanced and ready to react",
+        "Smooth, controlled movements",
+      ],
+      questionsToAsk: [
+        "How do you anticipate what your partner will do?",
+        "Which movements are hardest to mirror?",
+      ],
+      commonMistakes: ["Watching the ball instead of partner", "Slow reactions"],
+      variations: [
+        { name: "No Ball Mirror", description: "Start without balls, just movement", difficulty: "beginner" },
+        { name: "Add Passes", description: "Include passing back and forth in the mirror", difficulty: "advanced" },
+      ],
+      makeEasier: "Slower movements, no ball first",
+      makeHarder: "Faster movements, add skills",
+      equipmentNeeded: ["1 ball per player"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["warmup", "coordination", "reactions", "partners"],
+      featured: false,
+    },
+
+    // === ADDITIONAL TECHNICAL ACTIVITIES ===
+    {
+      sportId: soccer.id,
+      name: "Passing Accuracy Challenge",
+      slug: "passing-accuracy-challenge",
+      description: "Hit targets with passes to score points",
+      activityType: "technical" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 4,
+      maxPlayers: 16,
+      durationMinutes: 10,
+      setupInstructions: "Set up 5-6 cone gates of varying widths at 10-20 yards distance.",
+      howToPlay: `1. Players line up with balls
+2. Pass through gates to score points
+3. Narrow gate = 3 points, medium = 2 points, wide = 1 point
+4. Each player gets 5 attempts, most points wins`,
+      coachingPoints: [
+        "Plant foot pointing at target",
+        "Lock ankle, strike through middle of ball",
+        "Follow through toward target",
+      ],
+      questionsToAsk: [
+        "Where do you look when passing?",
+        "How do you adjust for different distances?",
+      ],
+      commonMistakes: ["Toe poking", "Not following through", "Looking up too early"],
+      variations: [
+        { name: "Moving Target", description: "Partner moves side to side as target", difficulty: "intermediate" },
+        { name: "Weak Foot Only", description: "All passes with non-dominant foot", difficulty: "intermediate" },
+      ],
+      makeEasier: "Wider gates, closer distances",
+      makeHarder: "Narrower gates, further distances, add time limit",
+      equipmentNeeded: ["Cones", "Balls"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["passing", "accuracy", "technique", "competition"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "First Touch Box",
+      slug: "first-touch-box",
+      description: "Receive passes and control ball within a small box",
+      activityType: "technical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 6,
+      maxPlayers: 16,
+      durationMinutes: 10,
+      setupInstructions: "Create 3x3 yard boxes. One receiver in box, partners around perimeter.",
+      howToPlay: `1. Servers pass to receiver from different angles
+2. Receiver must control ball inside the box
+3. First touch must keep ball in the box
+4. If ball leaves box, that's a point against
+5. Rotate receiver every 8-10 passes`,
+      coachingPoints: [
+        "Get body behind the ball",
+        "Cushion the ball",
+        "First touch away from pressure",
+        "Stay on your toes, ready to adjust",
+      ],
+      questionsToAsk: [
+        "Where should your first touch go?",
+        "How do you prepare your body before the ball arrives?",
+      ],
+      commonMistakes: ["Stiff leg on reception", "Letting ball bounce too high"],
+      variations: [
+        { name: "Smaller Box", description: "2x2 yard box for more precision", difficulty: "advanced" },
+        { name: "Air Balls", description: "Servers throw/chip balls in the air", difficulty: "advanced" },
+      ],
+      makeEasier: "Larger box, softer passes",
+      makeHarder: "Smaller box, faster passes, add time pressure",
+      equipmentNeeded: ["Cones", "Balls"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["first touch", "receiving", "control", "technique"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Turn and Face",
+      slug: "turn-and-face",
+      description: "Receive ball with back to goal, turn and attack",
+      activityType: "technical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 6,
+      maxPlayers: 16,
+      durationMinutes: 12,
+      setupInstructions: "Line of servers with balls, receivers 15 yards away, goal behind receivers.",
+      howToPlay: `1. Receiver checks toward server, receives ball
+2. Turn using a skill move (Cruyff, drag back, spin)
+3. Attack the goal and finish
+4. Focus on different turn types each round`,
+      coachingPoints: [
+        "Check shoulder before receiving",
+        "Open body if possible",
+        "First touch to set up the turn",
+        "Accelerate after turning",
+      ],
+      questionsToAsk: [
+        "Which turn works best for you?",
+        "When would you use each turn in a game?",
+        "What do you check for before receiving?",
+      ],
+      commonMistakes: ["Not checking shoulder", "Slow turn execution", "Poor first touch"],
+      variations: [
+        { name: "Add Defender", description: "Passive defender on receiver's back", difficulty: "advanced" },
+        { name: "Specific Turns Only", description: "Coach calls which turn to use", difficulty: "intermediate" },
+      ],
+      makeEasier: "No pressure, choose any turn",
+      makeHarder: "Active defender, limited touch count",
+      equipmentNeeded: ["Cones", "Balls", "Goal"],
+      spaceRequired: "medium",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["turning", "receiving", "attacking", "technique"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Heading Progression",
+      slug: "heading-progression",
+      description: "Safe heading technique from basic to game-like situations",
+      activityType: "technical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 4,
+      maxPlayers: 16,
+      durationMinutes: 10,
+      setupInstructions: "Partners facing each other, 5 yards apart. Use appropriate size ball.",
+      howToPlay: `Progression:
+1. Sit and head (partner tosses gently)
+2. Kneel and head
+3. Stand and head
+4. Jump and head
+5. Running jump and head`,
+      coachingPoints: [
+        "Eyes open, watch the ball",
+        "Use forehead, not top of head",
+        "Neck muscles firm",
+        "Arms out for balance",
+      ],
+      questionsToAsk: [
+        "What part of your head contacts the ball?",
+        "How do you generate power?",
+      ],
+      commonMistakes: ["Closing eyes", "Using top of head", "Neck too loose"],
+      variations: [
+        { name: "Target Headers", description: "Head ball back through cone gate", difficulty: "advanced" },
+        { name: "Defensive Headers", description: "Head ball high and far", difficulty: "advanced" },
+      ],
+      makeEasier: "Start with lighter ball, seated position",
+      makeHarder: "Moving service, add competition",
+      equipmentNeeded: ["Balls"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["heading", "technique", "aerial"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Juggling Challenge",
+      slug: "juggling-challenge",
+      description: "Progressive juggling skills building ball control",
+      activityType: "technical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 4,
+      maxPlayers: 24,
+      durationMinutes: 10,
+      setupInstructions: "Each player with a ball, spread out in space.",
+      howToPlay: `Challenge progression:
+1. Drop and catch (one bounce between)
+2. Two touches then catch
+3. Thigh, foot, catch
+4. Non-stop foot juggles (count personal best)
+5. Alternating feet only`,
+      coachingPoints: [
+        "Soft touch - ball goes up, not away",
+        "Point toe slightly up",
+        "Small touches",
+        "Stay balanced on standing leg",
+      ],
+      questionsToAsk: [
+        "What makes the ball easier to control?",
+        "How do you recover a bad touch?",
+      ],
+      commonMistakes: ["Kicking too hard", "Toe pointed down", "Leaning back"],
+      variations: [
+        { name: "Partner Juggling", description: "Juggle back and forth with partner", difficulty: "advanced" },
+        { name: "Sit and Juggle", description: "Seated juggling with feet only", difficulty: "intermediate" },
+      ],
+      makeEasier: "Allow bounces between touches",
+      makeHarder: "No bounces, add thigh/head, movement while juggling",
+      equipmentNeeded: ["1 ball per player"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId, developmentId],
+      tags: ["juggling", "ball control", "individual", "technique"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Crossing and Finishing",
+      slug: "crossing-and-finishing",
+      description: "Practice delivering and scoring from crosses",
+      activityType: "technical" as const,
+      difficulty: "advanced" as const,
+      minPlayers: 6,
+      maxPlayers: 14,
+      durationMinutes: 15,
+      setupInstructions: "Wide players on each side, finishers in central areas, goalkeeper in goal.",
+      howToPlay: `1. Wide player receives, dribbles to crossing position
+2. Delivers cross to near post, far post, or penalty spot
+3. Finishers attack the cross
+4. Rotate positions after each attempt`,
+      coachingPoints: [
+        "Cross with pace and accuracy",
+        "Attack the ball - don't wait",
+        "Time your run to arrive with the ball",
+        "Finish with first touch when possible",
+      ],
+      questionsToAsk: [
+        "Where is the best area to cross from?",
+        "How do you lose your marker before the cross?",
+        "When do you run near post vs far post?",
+      ],
+      commonMistakes: ["Poor cross quality", "Static in the box", "Poor timing of runs"],
+      variations: [
+        { name: "Add Defender", description: "Defender in box challenging finishers", difficulty: "advanced" },
+        { name: "Low Cross Only", description: "All crosses must be driven low", difficulty: "intermediate" },
+      ],
+      makeEasier: "No defenders, static finishers",
+      makeHarder: "Active defenders, one-touch finish required",
+      equipmentNeeded: ["Goals", "Balls", "Cones"],
+      spaceRequired: "large",
+      indoorSuitable: false,
+      appropriateStageIds: [developmentId],
+      tags: ["crossing", "finishing", "attacking", "technique"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Long Passing Grid",
+      slug: "long-passing-grid",
+      description: "Develop long range passing accuracy and technique",
+      activityType: "technical" as const,
+      difficulty: "advanced" as const,
+      minPlayers: 8,
+      maxPlayers: 16,
+      durationMinutes: 12,
+      setupInstructions: "Create a 40x40 yard grid divided into four 20x20 sections. Groups in opposite corners.",
+      howToPlay: `1. Player drives long pass to partner in opposite corner
+2. Partner receives and plays back
+3. Alternate: driven pass, lofted pass, chipped pass
+4. Score points for first-touch control`,
+      coachingPoints: [
+        "Approach at angle",
+        "Plant foot beside ball",
+        "Strike through bottom half for loft",
+        "Follow through fully",
+      ],
+      questionsToAsk: [
+        "What's the difference between driven and lofted?",
+        "When would you use each pass type in a game?",
+      ],
+      commonMistakes: ["Leaning back too much", "Poor weight on pass", "Not following through"],
+      variations: [
+        { name: "Moving Targets", description: "Receiver makes run to receive", difficulty: "advanced" },
+        { name: "Switching Play", description: "Simulate switching the point of attack", difficulty: "advanced" },
+      ],
+      makeEasier: "Shorter distances, stationary targets",
+      makeHarder: "Longer distances, moving receivers, add pressure",
+      equipmentNeeded: ["Cones", "Balls"],
+      spaceRequired: "large",
+      indoorSuitable: false,
+      appropriateStageIds: [developmentId],
+      tags: ["passing", "long range", "technique", "switching play"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Shooting Technique Stations",
+      slug: "shooting-technique-stations",
+      description: "Practice different shooting techniques at multiple stations",
+      activityType: "technical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 8,
+      maxPlayers: 16,
+      durationMinutes: 15,
+      setupInstructions: "Set up 4 stations around a goal area. Groups rotate through stations.",
+      howToPlay: `Station 1: Power shots from 18 yards
+Station 2: Finesse shots (inside foot curl)
+Station 3: One-touch finishes (partner pass)
+Station 4: Volleys (self-toss or partner toss)
+2-3 minutes each station, then rotate.`,
+      coachingPoints: [
+        "Different technique for each shot type",
+        "Hit target areas of goal",
+        "Plant foot positioning",
+        "Stay over the ball for power shots",
+      ],
+      questionsToAsk: [
+        "When would you use power vs finesse?",
+        "Where should you aim?",
+        "How do you strike a volley?",
+      ],
+      commonMistakes: ["Leaning back on shots", "Poor plant foot position", "Looking at goalkeeper not goal"],
+      variations: [
+        { name: "Add Goalkeeper", description: "Full goalkeeper at each station", difficulty: "advanced" },
+        { name: "Weak Foot Stations", description: "Some stations require weak foot", difficulty: "intermediate" },
+      ],
+      makeEasier: "Closer to goal, no goalkeeper",
+      makeHarder: "Further from goal, active goalkeeper, add time pressure",
+      equipmentNeeded: ["Goals", "Balls", "Cones"],
+      spaceRequired: "medium",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["shooting", "finishing", "technique", "stations"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Speed Dribbling Relay",
+      slug: "speed-dribbling-relay",
+      description: "Dribbling at speed through cones in team relay format",
+      activityType: "technical" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 8,
+      maxPlayers: 24,
+      durationMinutes: 10,
+      setupInstructions: "Two or more teams. Set up cone course - zigzag, straight line, or combination.",
+      howToPlay: `1. First player dribbles through course and back
+2. Tags next player who goes
+3. First team to finish wins
+4. Vary the dribbling technique required`,
+      coachingPoints: [
+        "Close control around cones",
+        "Accelerate in open spaces",
+        "Use outside of foot for speed",
+        "Keep head up when possible",
+      ],
+      questionsToAsk: [
+        "How do you go faster without losing control?",
+        "What part of foot is best for speed?",
+      ],
+      commonMistakes: ["Ball too far ahead", "Slowing down too much at cones"],
+      variations: [
+        { name: "Weak Foot Only", description: "Must use non-dominant foot", difficulty: "intermediate" },
+        { name: "Skill Move Required", description: "Must do a move at each cone", difficulty: "intermediate" },
+      ],
+      makeEasier: "Wider cone spacing, shorter course",
+      makeHarder: "Tighter cones, longer course, add penalties for errors",
+      equipmentNeeded: ["Cones", "Balls"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["dribbling", "speed", "relay", "competition"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Combination Play Circuit",
+      slug: "combination-play-circuit",
+      description: "Practice give-and-go, overlap, and third man run patterns",
+      activityType: "technical" as const,
+      difficulty: "advanced" as const,
+      minPlayers: 9,
+      maxPlayers: 18,
+      durationMinutes: 15,
+      setupInstructions: "Set up three stations with cones showing passing patterns. Groups of 3-4 at each.",
+      howToPlay: `Station 1: Give-and-go (wall pass)
+Station 2: Overlap run and cross
+Station 3: Third man combination
+Players perform pattern and rotate positions.`,
+      coachingPoints: [
+        "Weight and timing of passes",
+        "Run immediately after passing",
+        "Communication between players",
+        "Quality of final action (cross, shot)",
+      ],
+      questionsToAsk: [
+        "When should you use each combination?",
+        "How do you create space for your teammate?",
+      ],
+      commonMistakes: ["Slow after passing", "Poor timing of runs", "Pass too hard or soft"],
+      variations: [
+        { name: "Add Defenders", description: "Passive defenders at each station", difficulty: "advanced" },
+        { name: "Finish Required", description: "Each pattern ends with a shot on goal", difficulty: "advanced" },
+      ],
+      makeEasier: "Walk through patterns first, no pressure",
+      makeHarder: "Add defenders, increase pace, add finishing",
+      equipmentNeeded: ["Cones", "Balls", "Goals optional"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [developmentId],
+      tags: ["combination play", "passing", "movement", "attacking"],
+      featured: true,
+    },
+
+    // === ADDITIONAL TACTICAL ACTIVITIES ===
+    {
+      sportId: soccer.id,
+      name: "5v2 Rondo",
+      slug: "5v2-rondo",
+      description: "Classic possession game with larger group and two defenders",
+      activityType: "tactical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 7,
+      maxPlayers: 14,
+      durationMinutes: 12,
+      setupInstructions: "Create 12x12 yard box. 5 players on outside/inside, 2 defenders in middle.",
+      howToPlay: `1. Five players try to keep possession
+2. Two defenders try to win ball
+3. If defenders win, they swap with last two passers
+4. Count consecutive passes - try to beat record
+5. Can play one or two-touch`,
+      coachingPoints: [
+        "Move after you pass",
+        "Create triangles for passing options",
+        "One-touch when pressured",
+        "Communication essential",
+      ],
+      questionsToAsk: [
+        "How do two defenders work together?",
+        "Where should you be after passing?",
+        "When do you play one-touch vs two-touch?",
+      ],
+      commonMistakes: ["Standing still after passing", "Hiding from ball", "Poor communication"],
+      variations: [
+        { name: "4v2", description: "Smaller group, more pressure", difficulty: "advanced" },
+        { name: "5v2 with Middle Player", description: "One player can move inside the box", difficulty: "advanced" },
+      ],
+      makeEasier: "Larger box, 6v2",
+      makeHarder: "Smaller box, one-touch only, 4v2",
+      equipmentNeeded: ["Cones", "Balls"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["possession", "rondo", "passing", "movement"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Positional Rondo",
+      slug: "positional-rondo",
+      description: "Rondo with position-specific setup simulating real game situations",
+      activityType: "tactical" as const,
+      difficulty: "advanced" as const,
+      minPlayers: 10,
+      maxPlayers: 14,
+      durationMinutes: 15,
+      setupInstructions: "Set up shape matching team formation (e.g., 4-3-3). Defenders in zones they would occupy.",
+      howToPlay: `1. Players maintain positions (CB, FB, CM, etc.)
+2. Build out from back vs 3-4 defenders
+3. Complete a set number of passes to 'score'
+4. Reset when ball is won or limit reached`,
+      coachingPoints: [
+        "Play like you play - position-specific",
+        "Create angles for passing",
+        "Recognize when to switch play",
+        "Patient build-up under pressure",
+      ],
+      questionsToAsk: [
+        "Where is the space?",
+        "When should we switch play?",
+        "How do you create a passing angle?",
+      ],
+      commonMistakes: ["Leaving position", "Rushed play under pressure", "Not switching play"],
+      variations: [
+        { name: "Target Player", description: "Must find striker to score", difficulty: "advanced" },
+        { name: "Transition", description: "Defenders can counter-attack if they win ball", difficulty: "advanced" },
+      ],
+      makeEasier: "Fewer defenders, more space",
+      makeHarder: "More defenders, must reach target in X passes",
+      equipmentNeeded: ["Cones", "Balls", "Pinnies"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [developmentId],
+      tags: ["possession", "positional", "build-up", "tactical"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Defending in Pairs",
+      slug: "defending-in-pairs",
+      description: "Learn to defend together with a partner",
+      activityType: "tactical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 8,
+      maxPlayers: 16,
+      durationMinutes: 12,
+      setupInstructions: "Create 20x15 yard box with goal at one end. 2 attackers vs 2 defenders.",
+      howToPlay: `1. Attackers start with ball at top of box
+2. Defenders work together to prevent goal
+3. First defender (pressure) closes down ball carrier
+4. Second defender (cover) provides backup
+5. Switch roles after each attack`,
+      coachingPoints: [
+        "Communication: who presses, who covers",
+        "Angle of approach - show attacker one way",
+        "Stay goal-side",
+        "Don't both commit to ball",
+      ],
+      questionsToAsk: [
+        "Who should press? Who should cover?",
+        "What angle should the first defender take?",
+        "When do you switch roles?",
+      ],
+      commonMistakes: ["Both going to ball", "Flat defensive line", "Ball watching"],
+      variations: [
+        { name: "3v2", description: "Add third attacker for overload", difficulty: "advanced" },
+        { name: "2v2+GK", description: "Add goalkeeper for realistic finishing", difficulty: "intermediate" },
+      ],
+      makeEasier: "Attackers limited to 2 touches",
+      makeHarder: "Add attackers, reduce defending space",
+      equipmentNeeded: ["Cones", "Goals", "Balls"],
+      spaceRequired: "small",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["defending", "pairs", "pressure", "cover"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Transition Game",
+      slug: "transition-game",
+      description: "Quick transition from attack to defense and vice versa",
+      activityType: "tactical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 12,
+      maxPlayers: 18,
+      durationMinutes: 15,
+      setupInstructions: "30x40 yard field with goals at each end. Two teams of 5-6.",
+      howToPlay: `1. Normal game, but when possession changes, teams have 6 seconds to score
+2. If no goal in 6 seconds, ball goes back to team that lost it
+3. Encourages quick counter-attacks
+4. Emphasizes immediate transition`,
+      coachingPoints: [
+        "Immediate reaction to turnover",
+        "Look forward first",
+        "Support the ball quickly",
+        "Sprint to get back when you lose it",
+      ],
+      questionsToAsk: [
+        "What do you do the moment you win the ball?",
+        "Where do you look first?",
+        "How fast do you need to react?",
+      ],
+      commonMistakes: ["Slow reaction to transition", "Not sprinting back on turnovers", "Too many touches"],
+      variations: [
+        { name: "3-Second Rule", description: "Only 3 seconds to score - even faster", difficulty: "advanced" },
+        { name: "Counter Points", description: "Goals within 6 seconds worth 2 points", difficulty: "intermediate" },
+      ],
+      makeEasier: "Longer time limit (8-10 seconds)",
+      makeHarder: "Shorter time limit (4-5 seconds)",
+      equipmentNeeded: ["Goals", "Balls", "Pinnies"],
+      spaceRequired: "medium",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["transition", "game", "attacking", "defending"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Overload Game",
+      slug: "overload-game",
+      description: "Small-sided game with numerical advantages in zones",
+      activityType: "tactical" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 12,
+      maxPlayers: 18,
+      durationMinutes: 15,
+      setupInstructions: "Divide field into thirds. Each team has players who must stay in their zone.",
+      howToPlay: `1. Team A has 2 players in zone 1, 3 in zone 2, 2 in zone 3
+2. Team B has 3 players in zone 1, 2 in zone 2, 3 in zone 3
+3. Creates overloads and underloads in different areas
+4. Must work ball through zones to score`,
+      coachingPoints: [
+        "Find the spare player",
+        "Quick ball movement through zones",
+        "Support from your zone",
+        "Recognize and exploit the overload",
+      ],
+      questionsToAsk: [
+        "Where is your team's advantage?",
+        "How do you beat the defenders in your zone?",
+        "When should you play quickly through a zone?",
+      ],
+      commonMistakes: ["Not recognizing overloads", "Slow play into crowded zones", "Poor positioning in zone"],
+      variations: [
+        { name: "Floater", description: "One player can move between all zones", difficulty: "advanced" },
+        { name: "Touch Limits", description: "Different touch limits per zone", difficulty: "intermediate" },
+      ],
+      makeEasier: "Clearer overloads (3v1 in zone)",
+      makeHarder: "Closer numbers, add touch restrictions",
+      equipmentNeeded: ["Cones", "Goals", "Pinnies", "Balls"],
+      spaceRequired: "medium",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["overloads", "zones", "tactical", "game"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Counter Attack Game",
+      slug: "counter-attack-game",
+      description: "Focus on quick transitions after winning ball",
+      activityType: "game" as const,
+      difficulty: "advanced" as const,
+      minPlayers: 12,
+      maxPlayers: 18,
+      durationMinutes: 15,
+      setupInstructions: "Large field (50x35 yards) with full goals. Two teams of 5-6 plus goalkeepers.",
+      howToPlay: `1. One team attacks with 5 players
+2. Other team defends with only 3 (2 waiting at halfway line)
+3. When defending team wins ball, 2 waiting players join in
+4. Now it's 5v3 counter-attack the other way
+5. Roles switch each possession`,
+      coachingPoints: [
+        "Quick forward passes when you win ball",
+        "Sprint to join counter",
+        "Spread out quickly on counter",
+        "Finish chances - limited time",
+      ],
+      questionsToAsk: [
+        "Where do you play the ball first?",
+        "How do you use the numerical advantage?",
+        "When do you slow down vs attack quickly?",
+      ],
+      commonMistakes: ["Too slow to transition", "Poor decision on counter", "Not spreading out"],
+      variations: [
+        { name: "3-Second Counter", description: "Must shoot within 3 seconds of winning ball", difficulty: "advanced" },
+        { name: "Through Ball Counter", description: "Counter must include a through ball", difficulty: "advanced" },
+      ],
+      makeEasier: "More counter-attackers (3 instead of 2)",
+      makeHarder: "Fewer counter-attackers, time limit",
+      equipmentNeeded: ["Goals", "Pinnies", "Balls"],
+      spaceRequired: "large",
+      indoorSuitable: false,
+      appropriateStageIds: [developmentId],
+      tags: ["counter attack", "transition", "finishing", "game"],
+      featured: true,
+    },
+
+    // === ADDITIONAL GAME ACTIVITIES ===
+    {
+      sportId: soccer.id,
+      name: "3v3 Line Soccer",
+      slug: "3v3-line-soccer",
+      description: "Score by dribbling over end line instead of into goal",
+      activityType: "game" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 6,
+      maxPlayers: 12,
+      durationMinutes: 12,
+      setupInstructions: "25x20 yard field. No goals - score by stopping ball on opponent's end line.",
+      howToPlay: `1. 3v3 teams try to dribble across opponent's end line
+2. Ball must be under control when crossing line
+3. After goal, other team starts with ball
+4. Encourages dribbling and width`,
+      coachingPoints: [
+        "Use the full width",
+        "Recognize when to dribble vs pass",
+        "Attack spaces, not defenders",
+        "Transition quickly",
+      ],
+      questionsToAsk: [
+        "Where is the open space?",
+        "When should you take on a defender?",
+        "How do you create space for teammates?",
+      ],
+      commonMistakes: ["Too narrow - everyone in middle", "Forcing through defenders", "Slow transition"],
+      variations: [
+        { name: "Wide Zones", description: "Create wide channels worth bonus points", difficulty: "intermediate" },
+        { name: "Must Receive", description: "Must receive pass over line (not dribble)", difficulty: "intermediate" },
+      ],
+      makeEasier: "Wider field, larger end zones",
+      makeHarder: "Narrower field, must receive in end zone",
+      equipmentNeeded: ["Cones", "Pinnies", "Balls"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["game", "dribbling", "small-sided", "width"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "2v2 with Mini Goals",
+      slug: "2v2-mini-goals",
+      description: "Intense 2v2 game with goals at each end",
+      activityType: "game" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 4,
+      maxPlayers: 12,
+      durationMinutes: 12,
+      setupInstructions: "20x15 yard field with mini goals (pugg or cones) at each end. Pairs compete.",
+      howToPlay: `1. 2v2 games to 3 goals
+2. Winners stay on, losers rotate
+3. Or play round robin tournament
+4. Focus on individual skills and basic combinations`,
+      coachingPoints: [
+        "Support your partner",
+        "Quick decisions",
+        "Take on 1v1 situations",
+        "Communicate",
+      ],
+      questionsToAsk: [
+        "When should you pass vs dribble?",
+        "How do you help your partner?",
+        "What do you do when you don't have the ball?",
+      ],
+      commonMistakes: ["Both going to ball", "Not supporting partner", "Forcing shots"],
+      variations: [
+        { name: "Four Goals", description: "Each team can score in two goals", difficulty: "intermediate" },
+        { name: "Touch Limit", description: "Maximum 3 touches per player", difficulty: "intermediate" },
+      ],
+      makeEasier: "Larger field, bigger goals",
+      makeHarder: "Smaller field, touch restrictions",
+      equipmentNeeded: ["Mini goals or cones", "Pinnies", "Balls"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId, developmentId],
+      tags: ["game", "2v2", "small-sided", "competition"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "6v6 Half Field Game",
+      slug: "6v6-half-field",
+      description: "Larger small-sided game with more positional structure",
+      activityType: "game" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 12,
+      maxPlayers: 14,
+      durationMinutes: 20,
+      setupInstructions: "Half of full field (55x40 yards). Full goal at one end, two mini goals at the other.",
+      howToPlay: `1. One team attacks the full goal
+2. Other team attacks the two mini goals (counter-attack)
+3. Encourages realistic attacking and defending patterns
+4. Switch roles every 5-7 minutes`,
+      coachingPoints: [
+        "Build up with purpose",
+        "Width and depth in attack",
+        "Quick transitions",
+        "Shape and organization",
+      ],
+      questionsToAsk: [
+        "How do you create chances against organized defense?",
+        "What's the best way to counter-attack?",
+        "How do you maintain shape?",
+      ],
+      commonMistakes: ["Rushing attacks", "Poor positioning", "Lack of communication"],
+      variations: [
+        { name: "Neutral Players", description: "Add 2 neutral players to support team in possession", difficulty: "intermediate" },
+        { name: "Zones", description: "Add zones with player requirements", difficulty: "advanced" },
+      ],
+      makeEasier: "Add neutral players",
+      makeHarder: "Add touch restrictions, specific pass requirements",
+      equipmentNeeded: ["Goals", "Mini goals", "Pinnies", "Balls"],
+      spaceRequired: "large",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["game", "6v6", "attacking", "defending"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "King of the Ring",
+      slug: "king-of-the-ring",
+      description: "1v1 competition to knock opponents' balls out of circle",
+      activityType: "game" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 6,
+      maxPlayers: 16,
+      durationMinutes: 10,
+      setupInstructions: "Create a circle (15-20 yards diameter). All players with a ball inside.",
+      howToPlay: `1. Everyone dribbles in the circle
+2. Try to kick others' balls out while protecting yours
+3. If your ball goes out, do 10 toe taps and return
+4. Last one with ball in circle is 'King'`,
+      coachingPoints: [
+        "Protect your ball with body",
+        "Head up to see opponents",
+        "Timing of challenges",
+        "Use your body to shield",
+      ],
+      questionsToAsk: [
+        "How do you protect your ball?",
+        "When should you attack vs defend?",
+        "What part of foot do you use to shield?",
+      ],
+      commonMistakes: ["Ball too far from body", "Only focused on attacking", "Not shielding"],
+      variations: [
+        { name: "No Re-entry", description: "If knocked out, you're out for round", difficulty: "intermediate" },
+        { name: "Partners", description: "Play as pairs - protect each other", difficulty: "intermediate" },
+      ],
+      makeEasier: "Larger circle, must stop ball before returning",
+      makeHarder: "Smaller circle, no re-entry",
+      equipmentNeeded: ["Cones", "1 ball per player"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["game", "1v1", "shielding", "fun", "competition"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Target Goals Game",
+      slug: "target-goals-game",
+      description: "Small-sided game with multiple goal options to encourage decision making",
+      activityType: "game" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 8,
+      maxPlayers: 14,
+      durationMinutes: 15,
+      setupInstructions: "35x25 yard field. Each team has 3 small goals to defend (spread across end line).",
+      howToPlay: `1. 4v4 or 5v5 game
+2. Can score in any of opponent's 3 goals
+3. Goals in corner goals worth 2 points
+4. Encourages width and switching play`,
+      coachingPoints: [
+        "Scan for open goal",
+        "Switch point of attack",
+        "Create overloads on weak side",
+        "Defend in numbers",
+      ],
+      questionsToAsk: [
+        "Which goal is easiest to score in?",
+        "How do you create a 2v1 on a goal?",
+        "How do you defend 3 goals?",
+      ],
+      commonMistakes: ["Only attacking central goal", "Not switching play", "Defenders bunched in middle"],
+      variations: [
+        { name: "Must Switch", description: "Must pass to other side of field before scoring", difficulty: "intermediate" },
+        { name: "Moving Goals", description: "Coach moves one goal during play", difficulty: "advanced" },
+      ],
+      makeEasier: "Fewer goals (2 per team)",
+      makeHarder: "Smaller goals, add touch restrictions",
+      equipmentNeeded: ["Mini goals or cones", "Pinnies", "Balls"],
+      spaceRequired: "medium",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["game", "decision-making", "width", "tactical"],
+      featured: false,
+    },
+
+    // === ADDITIONAL CONDITIONING ACTIVITIES ===
+    {
+      sportId: soccer.id,
+      name: "Dribble Sprints",
+      slug: "dribble-sprints",
+      description: "Sprint conditioning with the ball at feet",
+      activityType: "conditioning" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 6,
+      maxPlayers: 24,
+      durationMinutes: 10,
+      setupInstructions: "Set up start line and finish line 30-40 yards apart. Each player has a ball.",
+      howToPlay: `1. Sprint with ball from start to finish
+2. Walk back to start
+3. Rest time equals work time
+4. Repeat 6-8 times`,
+      coachingPoints: [
+        "Push ball ahead and chase",
+        "Longer touches at speed",
+        "Stay controlled when tired",
+        "Compete with yourself",
+      ],
+      questionsToAsk: [
+        "How far ahead should the ball be?",
+        "How do you stay fast when tired?",
+      ],
+      commonMistakes: ["Ball too close at speed", "Slowing down too much"],
+      variations: [
+        { name: "With Turn", description: "Sprint out, turn around cone, sprint back", difficulty: "intermediate" },
+        { name: "Relay Race", description: "Teams compete in dribble relay", difficulty: "beginner" },
+      ],
+      makeEasier: "Shorter distance, more rest",
+      makeHarder: "Longer distance, less rest, add finish at end",
+      equipmentNeeded: ["Cones", "1 ball per player"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["conditioning", "dribbling", "speed", "fitness"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Box to Box Runs",
+      slug: "box-to-box-runs",
+      description: "Shuttle runs simulating midfielder workload",
+      activityType: "conditioning" as const,
+      difficulty: "advanced" as const,
+      minPlayers: 6,
+      maxPlayers: 24,
+      durationMinutes: 12,
+      setupInstructions: "Full field available, or marked 60-yard course.",
+      howToPlay: `1. Start on penalty box line
+2. Sprint to opposite penalty box line
+3. Jog back
+4. Immediately sprint again
+5. Repeat 6-10 times with 60-second rest between sets`,
+      coachingPoints: [
+        "Pace yourself - it's multiple sprints",
+        "Drive with arms",
+        "Quick recovery jog back",
+        "Mental toughness when tired",
+      ],
+      questionsToAsk: [
+        "How do you recover during the jog?",
+        "What position runs the most in a game?",
+      ],
+      commonMistakes: ["Going too hard too early", "Walking instead of jogging back"],
+      variations: [
+        { name: "With Ball", description: "Dribble on the way back", difficulty: "advanced" },
+        { name: "Partner Work", description: "Partner passes to you at each end", difficulty: "advanced" },
+      ],
+      makeEasier: "Shorter distance, more rest between reps",
+      makeHarder: "Add ball work, less rest, more reps",
+      equipmentNeeded: ["Cones"],
+      spaceRequired: "large",
+      indoorSuitable: false,
+      appropriateStageIds: [developmentId],
+      tags: ["conditioning", "running", "endurance", "fitness"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Soccer Tennis Conditioning",
+      slug: "soccer-tennis-conditioning",
+      description: "Fun conditioning through soccer tennis rallies",
+      activityType: "conditioning" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 4,
+      maxPlayers: 12,
+      durationMinutes: 12,
+      setupInstructions: "Court area 15x30 feet, divided in half. Net (or cones/rope) at waist height.",
+      howToPlay: `1. Teams of 2-3 on each side
+2. Volleyball rules with feet (allow one bounce)
+3. Rally until ball bounces twice or goes out
+4. Continuous movement keeps heart rate up
+5. Losing team does 5 burpees before next point`,
+      coachingPoints: [
+        "First touch to set up volley",
+        "Communication with teammates",
+        "Athletic positioning",
+        "Stay on your toes",
+      ],
+      questionsToAsk: [
+        "How do you position for the ball?",
+        "How do you communicate with teammate?",
+      ],
+      commonMistakes: ["Flat-footed waiting", "No communication", "Poor first touch"],
+      variations: [
+        { name: "No Bounce", description: "Ball cannot bounce", difficulty: "advanced" },
+        { name: "Headers Only", description: "Can use head as well", difficulty: "intermediate" },
+      ],
+      makeEasier: "Two bounces allowed, larger court",
+      makeHarder: "No bounces, smaller court, singles",
+      equipmentNeeded: ["Cones", "Ball", "Net or rope"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["conditioning", "fun", "technique", "agility"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Pressing Game Fitness",
+      slug: "pressing-game-fitness",
+      description: "High-intensity pressing drill combining tactics and fitness",
+      activityType: "conditioning" as const,
+      difficulty: "advanced" as const,
+      minPlayers: 12,
+      maxPlayers: 18,
+      durationMinutes: 12,
+      setupInstructions: "30x25 yard grid. Two teams, one possessing, one pressing.",
+      howToPlay: `1. Team A keeps possession, team B presses for 60 seconds
+2. If Team B wins ball, they score a point and Team A gets it back
+3. After 60 seconds, switch roles
+4. Three rounds each team
+5. Most ball wins by pressing team wins`,
+      coachingPoints: [
+        "High intensity pressing",
+        "Work as a unit - not alone",
+        "Close down passing lanes",
+        "Quick transition when you win",
+      ],
+      questionsToAsk: [
+        "How do you press as a team?",
+        "When do you go and when do you wait?",
+        "How do you recover during possession?",
+      ],
+      commonMistakes: ["Pressing alone", "Not closing lanes", "Giving up"],
+      variations: [
+        { name: "Counter Goals", description: "Pressing team can score in mini goals when they win", difficulty: "advanced" },
+        { name: "Touch Limit", description: "Possession team limited to 2 touches", difficulty: "advanced" },
+      ],
+      makeEasier: "Larger grid, 45-second rounds",
+      makeHarder: "Smaller grid, 90-second rounds",
+      equipmentNeeded: ["Cones", "Pinnies", "Balls"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [developmentId],
+      tags: ["conditioning", "pressing", "tactical", "high-intensity"],
+      featured: false,
+    },
+
+    // === ADDITIONAL FUN ACTIVITIES ===
+    {
+      sportId: soccer.id,
+      name: "Soccer Bowling",
+      slug: "soccer-bowling",
+      description: "Knock down cones by passing/shooting - bowling with a soccer ball",
+      activityType: "fun" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 4,
+      maxPlayers: 16,
+      durationMinutes: 10,
+      setupInstructions: "Set up 10 cones in bowling pin formation. Teams line up 15 yards away.",
+      howToPlay: `1. Each player gets two 'rolls' (shots) to knock down cones
+2. One point per cone knocked down
+3. Spare (all cones in two shots) = 15 points
+4. Strike (all cones in one shot) = 20 points
+5. Teams take turns bowling`,
+      coachingPoints: [
+        "Aim for the lead cone",
+        "Strike through the ball",
+        "Follow through to target",
+      ],
+      questionsToAsk: [
+        "Where do you aim?",
+        "How do you get power and accuracy?",
+      ],
+      commonMistakes: ["Aiming too high", "Toe poking", "Not following through"],
+      variations: [
+        { name: "Long Distance Bowling", description: "Bowl from further away", difficulty: "intermediate" },
+        { name: "Weak Foot Bowling", description: "Must use non-dominant foot", difficulty: "intermediate" },
+      ],
+      makeEasier: "Closer to pins, fewer pins",
+      makeHarder: "Further from pins, weak foot only",
+      equipmentNeeded: ["Cones (10)", "Balls"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["fun", "shooting", "accuracy", "game"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Dribblers vs Defenders",
+      slug: "dribblers-vs-defenders",
+      description: "Mass 1v1 game where dribblers try to cross the field",
+      activityType: "fun" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 10,
+      maxPlayers: 24,
+      durationMinutes: 12,
+      setupInstructions: "30x40 yard field. Dribblers on one end line, 2-4 defenders in middle zone.",
+      howToPlay: `1. All dribblers try to reach the other end line
+2. Defenders try to kick balls out
+3. If your ball is kicked out, you join the defenders
+4. Last dribbler remaining is the winner
+5. Play multiple rounds`,
+      coachingPoints: [
+        "Use moves to beat defenders",
+        "Change speeds",
+        "Protect the ball with body",
+        "Find open lanes",
+      ],
+      questionsToAsk: [
+        "How do you beat the defenders?",
+        "When should you go fast vs slow?",
+      ],
+      commonMistakes: ["Running into defenders", "Not shielding", "Going too fast without control"],
+      variations: [
+        { name: "British Bulldog", description: "If tagged (not ball kicked), you become defender", difficulty: "beginner" },
+        { name: "Safe Zones", description: "Add 'safe zones' where defenders can't enter", difficulty: "beginner" },
+      ],
+      makeEasier: "Wider field, fewer defenders",
+      makeHarder: "Narrower field, more defenders",
+      equipmentNeeded: ["Cones", "1 ball per dribbler"],
+      spaceRequired: "medium",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId],
+      tags: ["fun", "dribbling", "1v1", "game"],
+      featured: true,
+    },
+    {
+      sportId: soccer.id,
+      name: "Four Goals Chaos",
+      slug: "four-goals-chaos",
+      description: "Scrimmage with four goals - anyone can score in any goal",
+      activityType: "fun" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 10,
+      maxPlayers: 16,
+      durationMinutes: 15,
+      setupInstructions: "40x40 yard square. Small goal at each side. Two teams.",
+      howToPlay: `1. Each team can score in any of the four goals
+2. After scoring, other team gets ball
+3. Emphasizes vision, switching play, and chaos
+4. Most goals in 10 minutes wins`,
+      coachingPoints: [
+        "Scan constantly - many options",
+        "Quick decision-making",
+        "Switch to open goal",
+        "Defend all four goals",
+      ],
+      questionsToAsk: [
+        "Which goal is most open?",
+        "How do you defend four goals?",
+        "What do you look for?",
+      ],
+      commonMistakes: ["Tunnel vision on one goal", "Poor defensive organization", "Not scanning"],
+      variations: [
+        { name: "Assigned Goals", description: "Each team has two goals to attack", difficulty: "intermediate" },
+        { name: "Moving Goals", description: "Players can pick up and move one goal each minute", difficulty: "advanced" },
+      ],
+      makeEasier: "Fewer goals, assigned attack goals",
+      makeHarder: "More chaos, no goalkeepers",
+      equipmentNeeded: ["4 small goals", "Pinnies", "Balls"],
+      spaceRequired: "medium",
+      indoorSuitable: false,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["fun", "game", "chaos", "decision-making"],
+      featured: true,
+    },
+
+    // === ADDITIONAL COOLDOWN ACTIVITIES ===
+    {
+      sportId: soccer.id,
+      name: "Partner Stretching",
+      slug: "partner-stretching",
+      description: "Cool down with partner-assisted stretching",
+      activityType: "cooldown" as const,
+      difficulty: "beginner" as const,
+      minPlayers: 4,
+      maxPlayers: 24,
+      durationMinutes: 8,
+      setupInstructions: "Partners find space. One ball per pair (optional for some stretches).",
+      howToPlay: `Stretch each 30 seconds:
+1. Seated hamstring (partner gently pushes back)
+2. Calf stretch against partner
+3. Quad stretch with partner balance
+4. Groin stretch (soles together, partner presses knees)
+5. Back twist with partner support
+6. Shoulder stretch with partner assist`,
+      coachingPoints: [
+        "Gentle pressure - no bouncing",
+        "Breathe deeply",
+        "Communicate with partner",
+        "Hold stretches, don't bounce",
+      ],
+      questionsToAsk: [
+        "Which muscles are tight?",
+        "How does stretching help recovery?",
+      ],
+      commonMistakes: ["Pushing too hard", "Bouncing stretches", "Holding breath"],
+      variations: [
+        { name: "Ball Stretches", description: "Use ball in some stretches", difficulty: "beginner" },
+      ],
+      makeEasier: "Less time per stretch",
+      makeHarder: "Longer holds, more stretches",
+      equipmentNeeded: ["None required"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [fundamentalsId, skillBuildingId, developmentId],
+      tags: ["cooldown", "stretching", "recovery", "partners"],
+      featured: false,
+    },
+    {
+      sportId: soccer.id,
+      name: "Keep It Up Circle",
+      slug: "keep-it-up-circle",
+      description: "Team juggling challenge to end practice",
+      activityType: "cooldown" as const,
+      difficulty: "intermediate" as const,
+      minPlayers: 6,
+      maxPlayers: 16,
+      durationMinutes: 6,
+      setupInstructions: "Team forms a circle, standing close together. One ball per group.",
+      howToPlay: `1. Keep the ball up using any body part except hands
+2. Each player can touch maximum twice
+3. Count consecutive touches as a team
+4. Try to beat your team record
+5. If ball drops, restart count`,
+      coachingPoints: [
+        "Soft touches to keep in circle",
+        "Call the ball",
+        "Be ready to help teammates",
+        "Positive encouragement",
+      ],
+      questionsToAsk: [
+        "How do you keep the ball in the middle?",
+        "How do you communicate?",
+      ],
+      commonMistakes: ["Kicking too hard", "Not communicating", "Same players doing all touches"],
+      variations: [
+        { name: "Feet Only", description: "Only feet allowed", difficulty: "advanced" },
+        { name: "Two Balls", description: "Keep two balls up at once", difficulty: "advanced" },
+      ],
+      makeEasier: "Allow unlimited touches per player",
+      makeHarder: "One touch per player, feet only",
+      equipmentNeeded: ["Ball"],
+      spaceRequired: "small",
+      indoorSuitable: true,
+      appropriateStageIds: [skillBuildingId, developmentId],
+      tags: ["cooldown", "juggling", "teamwork", "fun"],
+      featured: false,
+    },
   ];
 
   // Insert activities
