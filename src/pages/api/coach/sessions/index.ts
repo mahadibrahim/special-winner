@@ -8,7 +8,7 @@ import {
   programs,
 } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, gte, lte, desc } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const createSessionSchema = z.object({
@@ -256,7 +256,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       await db
         .update(practiceTemplates)
         .set({
-          usageCount: (practiceTemplates.usageCount || 0) + 1,
+          usageCount: sql`${practiceTemplates.usageCount} + 1`,
           updatedAt: new Date(),
         })
         .where(eq(practiceTemplates.id, data.templateId));

@@ -57,7 +57,7 @@ export const GET: APIRoute = async (context) => {
           id: familyMembers.id,
           firstName: familyMembers.firstName,
           lastName: familyMembers.lastName,
-          dateOfBirth: familyMembers.dateOfBirth,
+          birthDate: familyMembers.birthDate,
         },
       })
       .from(registrations)

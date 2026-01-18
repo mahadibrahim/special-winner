@@ -82,8 +82,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         usageCount: activities.usageCount,
         averageRating: activities.averageRating,
       })
-      .from(activities)
-      .where(eq(activities.active, true));
+      .from(activities);
 
     // Build conditions array
     const conditions = [eq(activities.active, true)];

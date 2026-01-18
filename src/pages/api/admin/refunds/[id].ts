@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, users, locations } from "@/lib/db/schema";
+import { registrations, familyMembers, seasons, programs, users, locations, payments } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -97,11 +97,19 @@ export const POST: APIRoute = async (context) => {
       .from(users)
       .where(eq(users.id, registration.registration.registeredByUserId));
 
+    // Get payment record to access Stripe payment intent ID
+    const [payment] = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.registrationId, id));
+
+    const stripePaymentIntentId = payment?.stripePaymentIntentId;
+
     if (action === "approve") {
       // Process Stripe refund if configured and there's an amount to refund
       let stripeRefundId: string | null = null;
 
-      if (refundAmountCents > 0 && registration.registration.stripePaymentIntentId) {
+      if (refundAmountCents > 0 && stripePaymentIntentId) {
         if (!isStripeConfigured() || !stripe) {
           return new Response(
             JSON.stringify({ error: "Stripe not configured for refunds" }),
@@ -114,7 +122,7 @@ export const POST: APIRoute = async (context) => {
 
         try {
           const refund = await stripe.refunds.create({
-            payment_intent: registration.registration.stripePaymentIntentId,
+            payment_intent: stripePaymentIntentId,
             amount: refundAmountCents,
             reason: "requested_by_customer",
             metadata: {

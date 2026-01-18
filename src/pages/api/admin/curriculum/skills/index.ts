@@ -152,7 +152,7 @@ export const POST: APIRoute = async (context) => {
 
     const [newSkill] = await db
       .insert(skills)
-      .values(result.data)
+      .values(result.data as any)
       .returning();
 
     return new Response(JSON.stringify({ skill: newSkill }), {

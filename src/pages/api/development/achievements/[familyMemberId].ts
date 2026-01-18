@@ -188,7 +188,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         skillId: playerAssessments.skillId,
         level: playerAssessments.level,
         assessedAt: playerAssessments.assessedAt,
-        domainSlug: skillDomains.slug,
+        domainName: skillDomains.name,
       })
       .from(playerAssessments)
       .innerJoin(skills, eq(playerAssessments.skillId, skills.id))
@@ -204,11 +204,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
     const domainSkills: Record<string, Set<string>> = {};
     const domainsAssessed = new Set<string>();
     assessments.forEach((a) => {
-      domainsAssessed.add(a.domainSlug);
-      if (!domainSkills[a.domainSlug]) {
-        domainSkills[a.domainSlug] = new Set();
+      domainsAssessed.add(a.domainName);
+      if (!domainSkills[a.domainName]) {
+        domainSkills[a.domainName] = new Set();
       }
-      domainSkills[a.domainSlug].add(a.skillId);
+      domainSkills[a.domainName].add(a.skillId);
     });
 
     // Count improvements (when a skill level increases)

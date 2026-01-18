@@ -76,7 +76,7 @@ export const GET: APIRoute = async (context) => {
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(and(eq(seasons.isActive, true), eq(locations.organizationId, orgContext.organizationId)));
+      .where(and(eq(seasons.status, "active"), eq(locations.organizationId, orgContext.organizationId)));
 
     return new Response(JSON.stringify({ waitlist: waitlistedRegs, seasons: seasonOptions }), {
       status: 200,

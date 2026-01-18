@@ -9,7 +9,7 @@ import {
   programs,
 } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const updateSessionSchema = z.object({
@@ -289,7 +289,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
           await db
             .update(activities)
             .set({
-              usageCount: (activities.usageCount || 0) + 1,
+              usageCount: sql`${activities.usageCount} + 1`,
               updatedAt: new Date(),
             })
             .where(eq(activities.id, segment.activityId));

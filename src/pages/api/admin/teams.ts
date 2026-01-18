@@ -106,11 +106,11 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(eq(locations.organizationId, orgContext.organizationId));
-
-    if (seasonId) {
-      query = query.where(eq(teams.seasonId, seasonId)) as any;
-    }
+      .where(
+        seasonId
+          ? and(eq(locations.organizationId, orgContext.organizationId), eq(teams.seasonId, seasonId))
+          : eq(locations.organizationId, orgContext.organizationId)
+      );
 
     const allTeams = await query.orderBy(asc(teams.name));
 

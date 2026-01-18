@@ -6,6 +6,7 @@ import {
   skillDomains,
   familyMembers,
   rosters,
+  registrations,
   teams,
   seasons,
   programs,
@@ -46,8 +47,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
         id: familyMembers.id,
         firstName: familyMembers.firstName,
         lastName: familyMembers.lastName,
-        dateOfBirth: familyMembers.dateOfBirth,
-        userId: familyMembers.userId,
+        birthDate: familyMembers.birthDate,
+        parentUserId: familyMembers.parentUserId,
       })
       .from(familyMembers)
       .where(eq(familyMembers.id, familyMemberId));
@@ -59,7 +60,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (familyMember.userId !== user.id) {
+    if (familyMember.parentUserId !== user.id) {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
@@ -71,7 +72,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .select({
         id: skillDomains.id,
         name: skillDomains.name,
-        slug: skillDomains.slug,
+        displayName: skillDomains.displayName,
         description: skillDomains.description,
         sortOrder: skillDomains.sortOrder,
       })
@@ -94,7 +95,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         domain: {
           id: skillDomains.id,
           name: skillDomains.name,
-          slug: skillDomains.slug,
+          displayName: skillDomains.displayName,
         },
         coach: {
           id: users.id,
@@ -121,13 +122,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
         programName: programs.name,
       })
       .from(rosters)
+      .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
       .innerJoin(teams, eq(rosters.teamId, teams.id))
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .where(
         and(
-          eq(rosters.familyMemberId, familyMemberId),
+          eq(registrations.familyMemberId, familyMemberId),
           eq(rosters.status, "active")
         )
       );
@@ -196,7 +198,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         domain: {
           id: domain.id,
           name: domain.name,
-          slug: domain.slug,
+          displayName: domain.displayName,
           description: domain.description,
         },
         averageLevel: Math.round(avgLevel * 10) / 10,
@@ -233,9 +235,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     // Calculate age
     const today = new Date();
-    const birthDate = new Date(familyMember.dateOfBirth);
+    const birthDateValue = new Date(familyMember.birthDate);
     const age = Math.floor(
-      (today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+      (today.getTime() - birthDateValue.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
     );
 
     return new Response(
@@ -245,7 +247,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
           firstName: familyMember.firstName,
           lastName: familyMember.lastName,
           age,
-          dateOfBirth: familyMember.dateOfBirth,
+          birthDate: familyMember.birthDate,
         },
         currentEnrollments: currentRosters,
         overallProgress: {

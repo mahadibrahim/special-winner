@@ -29,18 +29,16 @@ const updateSkillSchema = z.object({
 });
 
 // GET - Get single skill with full details
-export const GET: APIRoute = async ({ params, ...context }) => {
-  const { user } = await validateSession(context as any);
-  if (!auth.authorized) {
-    return auth.response;
-  }
+export const GET: APIRoute = async (context) => {
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
     }
 
-    const { id } = params;
+    const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Skill ID required" }), { status: 400 });
     }
@@ -102,23 +100,21 @@ export const GET: APIRoute = async ({ params, ...context }) => {
 };
 
 // PUT - Update skill
-export const PUT: APIRoute = async ({ params, request, ...context }) => {
-  const { user } = await validateSession(context as any);
-  if (!auth.authorized) {
-    return auth.response;
-  }
+export const PUT: APIRoute = async (context) => {
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
     }
 
-    const { id } = params;
+    const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Skill ID required" }), { status: 400 });
     }
 
-    const body = await request.json();
+    const body = await context.request.json();
     const result = updateSkillSchema.safeParse(body);
 
     if (!result.success) {
@@ -133,7 +129,7 @@ export const PUT: APIRoute = async ({ params, request, ...context }) => {
       .set({
         ...result.data,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(skills.id, id))
       .returning();
 
@@ -155,18 +151,16 @@ export const PUT: APIRoute = async ({ params, request, ...context }) => {
 };
 
 // DELETE - Delete skill
-export const DELETE: APIRoute = async ({ params, ...context }) => {
-  const { user } = await validateSession(context as any);
-  if (!auth.authorized) {
-    return auth.response;
-  }
+export const DELETE: APIRoute = async (context) => {
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
     }
 
-    const { id } = params;
+    const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Skill ID required" }), { status: 400 });
     }
