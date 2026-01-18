@@ -540,18 +540,13 @@ export default function CoachAssessmentsOverview() {
       {/* Assessment Modal */}
       {selectedPlayer && (
         <PlayerAssessmentForm
-          open={assessmentModalOpen}
-          onOpenChange={setAssessmentModalOpen}
-          player={{
-            id: selectedPlayer.id,
-            firstName: selectedPlayer.firstName,
-            lastName: selectedPlayer.lastName,
-            birthDate: selectedPlayer.birthDate,
-            photoUrl: selectedPlayer.photoUrl,
-          }}
-          teamId={selectedPlayer.team?.id}
-          sportId={selectedPlayer.team?.sport.id}
-          onSuccess={handleAssessmentSuccess}
+          playerId={selectedPlayer.id}
+          playerName={`${selectedPlayer.firstName} ${selectedPlayer.lastName}`}
+          playerAge={calculateAge(selectedPlayer.birthDate) ?? undefined}
+          teams={teams}
+          isOpen={assessmentModalOpen}
+          onClose={() => setAssessmentModalOpen(false)}
+          onAssessmentCreated={handleAssessmentSuccess}
         />
       )}
     </div>

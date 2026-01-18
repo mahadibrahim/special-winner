@@ -225,6 +225,13 @@ export default function PlayerAssessmentDetail({
   // Assessment modal
   const [assessmentModalOpen, setAssessmentModalOpen] = useState(false)
 
+  // Create a minimal team object for the assessment form
+  const teams = teamId && sportId ? [{
+    id: teamId,
+    name: "Current Team",
+    sport: { id: sportId, name: "Sport" }
+  }] : []
+
   // View mode
   const [viewMode, setViewMode] = useState<"overview" | "history">("overview")
   const [filterDomain, setFilterDomain] = useState<string>("all")
@@ -496,14 +503,17 @@ export default function PlayerAssessmentDetail({
       )}
 
       {/* Assessment Modal */}
-      <PlayerAssessmentForm
-        open={assessmentModalOpen}
-        onOpenChange={setAssessmentModalOpen}
-        player={player}
-        teamId={teamId}
-        sportId={sportId}
-        onSuccess={handleAssessmentSuccess}
-      />
+      {player && (
+        <PlayerAssessmentForm
+          playerId={player.id}
+          playerName={`${player.firstName} ${player.lastName}`}
+          playerAge={calculateAge(player.birthDate) ?? undefined}
+          teams={teams}
+          isOpen={assessmentModalOpen}
+          onClose={() => setAssessmentModalOpen(false)}
+          onAssessmentCreated={handleAssessmentSuccess}
+        />
+      )}
     </div>
   )
 }

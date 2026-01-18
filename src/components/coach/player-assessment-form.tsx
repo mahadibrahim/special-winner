@@ -71,7 +71,7 @@ interface Team {
   season?: {
     id: string;
     name: string;
-  };
+  } | null;
 }
 
 interface PlayerAssessmentFormProps {

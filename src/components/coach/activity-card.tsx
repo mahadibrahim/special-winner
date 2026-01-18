@@ -33,6 +33,7 @@ import {
 
 interface Activity {
   id: string
+  sportId: string
   name: string
   slug: string
   description: string | null
