@@ -98,6 +98,35 @@ export const skills = pgTable("skills", {
   coachingTips: jsonb("coaching_tips").$type<string[]>(),
   // Tags for filtering/searching
   tags: jsonb("tags").$type<string[]>(),
+  // Comprehensive assessment guide (detailed rubrics, parent communication, etc.)
+  comprehensiveGuide: jsonb("comprehensive_guide").$type<{
+    // Assessment guidance per level
+    levelDetails: {
+      [level: number]: {
+        name: string;
+        description: string;
+        observableBehaviors: string[];
+        commonMistakes: string[];
+        coachingTips: string[];
+        assessmentActivities: string[];
+      };
+    };
+    // Age-appropriate expectations
+    ageExpectations: {
+      ages6to8: { typicalLevel: string; notes: string };
+      ages9to11: { typicalLevel: string; notes: string };
+      ages12to14: { typicalLevel: string; notes: string };
+    };
+    // Red flags requiring additional support
+    redFlags: string[];
+    // Parent communication
+    parentExplanation: string;
+    homeActivities: string[];
+    // Assessment context
+    bestAssessedIn: string[];
+    assessmentFrequency: string;
+    assessmentDuration: string;
+  }>(),
   // Is this a core/required skill for the stage?
   isCore: boolean("is_core").default(false).notNull(),
   active: boolean("active").default(true).notNull(),

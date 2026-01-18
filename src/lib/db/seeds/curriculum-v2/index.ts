@@ -10,6 +10,7 @@
  * - Soccer Skill Building Activities (4 activities)
  * - Basketball Fundamentals Activities (5 activities)
  * - Soccer Session Plans (4 complete session plans)
+ * - Soccer Skills (13 skills with comprehensive assessment guides)
  *
  * Run with: npx tsx src/lib/db/seeds/curriculum-v2/index.ts
  */
@@ -19,6 +20,7 @@ import { seedSoccerFundamentalsActivities2 } from "./soccer-fundamentals-activit
 import { seedSoccerSkillBuildingActivities } from "./soccer-skill-building-activities";
 import { seedBasketballFundamentalsActivities } from "./basketball-fundamentals-activities";
 import { seedSoccerSessionPlans } from "./soccer-session-plans";
+import { seedSoccerSkills } from "./soccer-skills";
 
 async function seedAllCurriculumV2() {
   console.log("═══════════════════════════════════════════════════════════════");
@@ -48,6 +50,11 @@ async function seedAllCurriculumV2() {
     await seedSoccerSessionPlans();
     console.log("   ✓ Soccer Session Plans complete\n");
 
+    // Soccer Skills with Comprehensive Assessments
+    console.log("⚽ Seeding Soccer Skills with Assessment Guides...");
+    await seedSoccerSkills();
+    console.log("   ✓ Soccer Skills complete\n");
+
     console.log("═══════════════════════════════════════════════════════════════");
     console.log("  ✅ ALL CURRICULUM V2 CONTENT SEEDED SUCCESSFULLY");
     console.log("═══════════════════════════════════════════════════════════════");
@@ -57,6 +64,7 @@ async function seedAllCurriculumV2() {
     console.log("  • 4 Soccer Skill Building Activities (ages 9-11)");
     console.log("  • 5 Basketball Fundamentals Activities (ages 6-8)");
     console.log("  • 4 Soccer Session Plans (complete practice guides)");
+    console.log("  • 13 Soccer Skills with comprehensive assessment guides");
     console.log("");
     console.log("Each item includes:");
     console.log("  ✓ Quick reference for experienced coaches");
