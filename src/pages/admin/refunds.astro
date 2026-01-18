@@ -3,14 +3,11 @@ import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { RefundsManagement } from '../../components/admin/refunds-management';
 
-// Check if user is admin
+// Auth/role check is handled by middleware - /admin/* routes require admin role
 const user = Astro.locals.user;
 if (!user) {
   return Astro.redirect('/signin?returnUrl=/admin/refunds');
 }
-
-// TODO: Check admin role - for now allow any authenticated user
-// In production, verify user has admin role
 ---
 
 <!DOCTYPE html>

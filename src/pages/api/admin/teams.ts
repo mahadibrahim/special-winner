@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { teams, seasons, programs, users, rosters, registrations, familyMembers, locations } from "@/lib/db/schema";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, asc, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
@@ -144,6 +144,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = teamSchema.safeParse(body);
@@ -153,6 +156,21 @@ export const POST: APIRoute = async (context) => {
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // Verify season belongs to this organization
+    const [seasonCheck] = await db
+      .select({ id: seasons.id })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(seasons.id, result.data.seasonId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!seasonCheck) {
+      return new Response(JSON.stringify({ error: "Season not found in this organization" }), { status: 404 });
     }
 
     const [newTeam] = await db
@@ -180,6 +198,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -188,12 +209,43 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Team ID is required" }), { status: 400 });
     }
 
+    // Verify team belongs to this organization
+    const [teamCheck] = await db
+      .select({ id: teams.id })
+      .from(teams)
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(teams.id, id),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!teamCheck) {
+      return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
+    }
+
     const result = teamSchema.safeParse(data);
     if (!result.success) {
       return new Response(
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // Verify new season belongs to this organization
+    const [seasonCheck] = await db
+      .select({ id: seasons.id })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(seasons.id, result.data.seasonId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!seasonCheck) {
+      return new Response(JSON.stringify({ error: "Season not found in this organization" }), { status: 404 });
     }
 
     const [updatedTeam] = await db
@@ -227,12 +279,31 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
 
     if (!id) {
       return new Response(JSON.stringify({ error: "Team ID is required" }), { status: 400 });
+    }
+
+    // Verify team belongs to this organization
+    const [teamCheck] = await db
+      .select({ id: teams.id })
+      .from(teams)
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(teams.id, id),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!teamCheck) {
+      return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
     }
 
     const [deletedTeam] = await db.delete(teams).where(eq(teams.id, id)).returning();

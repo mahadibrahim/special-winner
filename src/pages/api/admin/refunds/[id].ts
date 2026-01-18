@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
+import { registrations, familyMembers, seasons, programs, users, locations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
 
@@ -17,6 +17,9 @@ export const POST: APIRoute = async (context) => {
   // Verify admin access
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const { id } = context.params;
@@ -53,7 +56,7 @@ export const POST: APIRoute = async (context) => {
 
     const { action, reason } = validation.data;
 
-    // Get registration with related data
+    // Get registration with related data - filter by organization
     const [registration] = await db
       .select({
         registration: registrations,
@@ -65,7 +68,9 @@ export const POST: APIRoute = async (context) => {
       .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
-      .where(eq(registrations.id, id));
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(registrations.id, id))
+      .where(eq(locations.organizationId, orgContext.organizationId));
 
     if (!registration) {
       return new Response(JSON.stringify({ error: "Registration not found" }), {
@@ -231,6 +236,9 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const { id } = context.params;
     if (!id) {
@@ -247,7 +255,7 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
-    // Get registration with related data
+    // Get registration with related data - filter by organization
     const [registration] = await db
       .select({
         registration: registrations,
@@ -259,7 +267,9 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
-      .where(eq(registrations.id, id));
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(registrations.id, id))
+      .where(eq(locations.organizationId, orgContext.organizationId));
 
     if (!registration) {
       return new Response(JSON.stringify({ error: "Registration not found" }), {

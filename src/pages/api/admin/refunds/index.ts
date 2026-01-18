@@ -1,14 +1,17 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
+import { registrations, familyMembers, seasons, programs, users, locations } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 // GET - List all refund requests (pending, processed, denied)
 export const GET: APIRoute = async (context) => {
   // Verify admin access
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     if (!db) {
@@ -21,7 +24,7 @@ export const GET: APIRoute = async (context) => {
     // Get filter from query params
     const status = context.url.searchParams.get("status"); // pending_approval, approved, denied, processed, all
 
-    // Build query
+    // Build query - filter by organization through programs -> locations
     let query = db
       .select({
         registration: registrations,
@@ -50,7 +53,9 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(users, eq(registrations.registeredByUserId, users.id))
+      .where(eq(locations.organizationId, orgContext.organizationId))
       .orderBy(desc(registrations.cancelledAt));
 
     // Filter by refund status

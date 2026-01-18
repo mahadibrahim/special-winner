@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { users, userRoles, roles } from "@/lib/db/schema";
-import { eq, asc, desc, ilike, or, sql } from "drizzle-orm";
+import { users, userRoles, roles, locations, programs, teams, seasons } from "@/lib/db/schema";
+import { eq, asc, desc, ilike, or, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
@@ -18,10 +18,13 @@ const assignRoleSchema = z.object({
   scopeId: z.string().uuid().optional().nullable(),
 });
 
-// GET - List all users with optional search
+// GET - List users with roles in this organization
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -30,8 +33,88 @@ export const GET: APIRoute = async (context) => {
     const limit = parseInt(url.searchParams.get("limit") || "20");
     const offset = (page - 1) * limit;
 
-    // Build query with optional search
-    let baseQuery = db
+    // Get locations, programs, and teams for this organization to determine valid scope IDs
+    const orgLocations = await db
+      .select({ id: locations.id })
+      .from(locations)
+      .where(eq(locations.organizationId, orgContext.organizationId));
+    const locationIds = orgLocations.map((l) => l.id);
+
+    const orgPrograms = locationIds.length > 0
+      ? await db
+          .select({ id: programs.id })
+          .from(programs)
+          .where(inArray(programs.locationId, locationIds))
+      : [];
+    const programIds = orgPrograms.map((p) => p.id);
+
+    const orgSeasons = programIds.length > 0
+      ? await db
+          .select({ id: seasons.id })
+          .from(seasons)
+          .where(inArray(seasons.programId, programIds))
+      : [];
+    const seasonIds = orgSeasons.map((s) => s.id);
+
+    const orgTeams = seasonIds.length > 0
+      ? await db
+          .select({ id: teams.id })
+          .from(teams)
+          .where(inArray(teams.seasonId, seasonIds))
+      : [];
+    const teamIds = orgTeams.map((t) => t.id);
+
+    // Get user IDs who have roles scoped to this organization or its entities
+    const orgUserRoles = await db
+      .select({ userId: userRoles.userId })
+      .from(userRoles)
+      .where(
+        or(
+          // Organization-scoped roles
+          and(
+            eq(userRoles.scopeType, "organization"),
+            eq(userRoles.scopeId, orgContext.organizationId)
+          ),
+          // Location-scoped roles
+          ...(locationIds.length > 0
+            ? [and(eq(userRoles.scopeType, "location"), inArray(userRoles.scopeId, locationIds))]
+            : []),
+          // Program-scoped roles
+          ...(programIds.length > 0
+            ? [and(eq(userRoles.scopeType, "program"), inArray(userRoles.scopeId, programIds))]
+            : []),
+          // Team-scoped roles
+          ...(teamIds.length > 0
+            ? [and(eq(userRoles.scopeType, "team"), inArray(userRoles.scopeId, teamIds))]
+            : [])
+        )
+      );
+
+    const userIdsInOrg = [...new Set(orgUserRoles.map((ur) => ur.userId))];
+
+    if (userIdsInOrg.length === 0) {
+      return new Response(
+        JSON.stringify({
+          users: [],
+          pagination: { page, limit, totalCount: 0, totalPages: 0 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Build query filtered to users in this organization
+    let conditions = [inArray(users.id, userIdsInOrg)];
+    if (search) {
+      conditions.push(
+        or(
+          ilike(users.email, `%${search}%`),
+          ilike(users.firstName, `%${search}%`),
+          ilike(users.lastName, `%${search}%`)
+        )!
+      );
+    }
+
+    const allUsers = await db
       .select({
         id: users.id,
         email: users.email,
@@ -41,30 +124,20 @@ export const GET: APIRoute = async (context) => {
         phone: users.phone,
         createdAt: users.createdAt,
       })
-      .from(users);
-
-    if (search) {
-      baseQuery = baseQuery.where(
-        or(
-          ilike(users.email, `%${search}%`),
-          ilike(users.firstName, `%${search}%`),
-          ilike(users.lastName, `%${search}%`)
-        )
-      ) as any;
-    }
-
-    const allUsers = await baseQuery
+      .from(users)
+      .where(and(...conditions))
       .orderBy(desc(users.createdAt))
       .limit(limit)
       .offset(offset);
 
-    // Get total count
+    // Get total count for pagination
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(users);
+      .from(users)
+      .where(and(...conditions));
     const totalCount = Number(countResult.count);
 
-    // Get roles for each user
+    // Get roles for each user (only roles visible to this org)
     const usersWithRoles = await Promise.all(
       allUsers.map(async (u) => {
         const userRolesData = await db
@@ -112,12 +185,53 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
 
     if (!id) {
       return new Response(JSON.stringify({ error: "User ID is required" }), { status: 400 });
+    }
+
+    // Verify user has a role in this organization
+    const userOrgRole = await db
+      .select({ id: userRoles.id })
+      .from(userRoles)
+      .where(and(
+        eq(userRoles.userId, id),
+        eq(userRoles.scopeType, "organization"),
+        eq(userRoles.scopeId, orgContext.organizationId)
+      ))
+      .limit(1);
+
+    if (userOrgRole.length === 0) {
+      // Also check for location/program/team scoped roles
+      const orgLocations = await db
+        .select({ id: locations.id })
+        .from(locations)
+        .where(eq(locations.organizationId, orgContext.organizationId));
+
+      if (orgLocations.length > 0) {
+        const locationIds = orgLocations.map((l) => l.id);
+        const locationRole = await db
+          .select({ id: userRoles.id })
+          .from(userRoles)
+          .where(and(
+            eq(userRoles.userId, id),
+            eq(userRoles.scopeType, "location"),
+            inArray(userRoles.scopeId, locationIds)
+          ))
+          .limit(1);
+
+        if (locationRole.length === 0) {
+          return new Response(JSON.stringify({ error: "User not found in this organization" }), { status: 404 });
+        }
+      } else {
+        return new Response(JSON.stringify({ error: "User not found in this organization" }), { status: 404 });
+      }
     }
 
     const result = updateUserSchema.safeParse(data);
@@ -156,6 +270,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = assignRoleSchema.safeParse(body);
@@ -165,6 +282,50 @@ export const POST: APIRoute = async (context) => {
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // Verify the scope is valid for this organization
+    const { scopeType, scopeId } = result.data;
+    if (scopeType === "organization" && scopeId !== orgContext.organizationId) {
+      return new Response(JSON.stringify({ error: "Cannot assign roles to other organizations" }), { status: 403 });
+    }
+
+    if (scopeType === "location" && scopeId) {
+      const location = await db.query.locations.findFirst({
+        where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
+      });
+      if (!location) {
+        return new Response(JSON.stringify({ error: "Location not found in this organization" }), { status: 404 });
+      }
+    }
+
+    if (scopeType === "program" && scopeId) {
+      const [program] = await db
+        .select({ id: programs.id })
+        .from(programs)
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(eq(programs.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+      if (!program) {
+        return new Response(JSON.stringify({ error: "Program not found in this organization" }), { status: 404 });
+      }
+    }
+
+    if (scopeType === "team" && scopeId) {
+      const [team] = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(eq(teams.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+      if (!team) {
+        return new Response(JSON.stringify({ error: "Team not found in this organization" }), { status: 404 });
+      }
+    }
+
+    // Prevent assigning global/super_admin roles (only super_admin can do that)
+    if (scopeType === "global") {
+      return new Response(JSON.stringify({ error: "Cannot assign global roles" }), { status: 403 });
     }
 
     // Find the role by name
@@ -217,6 +378,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const userRoleId = url.searchParams.get("userRoleId");
@@ -225,14 +389,60 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "User role ID is required" }), { status: 400 });
     }
 
-    const [deletedRole] = await db
-      .delete(userRoles)
-      .where(eq(userRoles.id, userRoleId))
-      .returning();
+    // Verify the role being deleted is scoped to this organization
+    const roleToDelete = await db.query.userRoles.findFirst({
+      where: eq(userRoles.id, userRoleId),
+    });
 
-    if (!deletedRole) {
+    if (!roleToDelete) {
       return new Response(JSON.stringify({ error: "User role not found" }), { status: 404 });
     }
+
+    // Check if the role's scope is within this organization
+    const { scopeType, scopeId } = roleToDelete;
+
+    if (scopeType === "global") {
+      return new Response(JSON.stringify({ error: "Cannot remove global roles" }), { status: 403 });
+    }
+
+    if (scopeType === "organization" && scopeId !== orgContext.organizationId) {
+      return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });
+    }
+
+    if (scopeType === "location" && scopeId) {
+      const location = await db.query.locations.findFirst({
+        where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
+      });
+      if (!location) {
+        return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });
+      }
+    }
+
+    if (scopeType === "program" && scopeId) {
+      const [program] = await db
+        .select({ id: programs.id })
+        .from(programs)
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(eq(programs.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+      if (!program) {
+        return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });
+      }
+    }
+
+    if (scopeType === "team" && scopeId) {
+      const [team] = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(eq(teams.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+      if (!team) {
+        return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });
+      }
+    }
+
+    await db.delete(userRoles).where(eq(userRoles.id, userRoleId));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

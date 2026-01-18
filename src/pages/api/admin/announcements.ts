@@ -66,7 +66,7 @@ export const GET: APIRoute = async (context) => {
         or(
           isNull(announcements.expiresAt),
           gte(announcements.expiresAt, new Date())
-        )
+        )!
       );
     }
 

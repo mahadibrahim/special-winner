@@ -156,6 +156,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = gameSchema.safeParse(body);
@@ -165,6 +168,69 @@ export const POST: APIRoute = async (context) => {
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // Verify season belongs to this organization
+    const [seasonCheck] = await db
+      .select({ id: seasons.id })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(seasons.id, result.data.seasonId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!seasonCheck) {
+      return new Response(JSON.stringify({ error: "Season not found in this organization" }), { status: 404 });
+    }
+
+    // Verify teams belong to this organization if provided
+    if (result.data.homeTeamId) {
+      const [teamCheck] = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(
+          eq(teams.id, result.data.homeTeamId),
+          eq(locations.organizationId, orgContext.organizationId)
+        ));
+      if (!teamCheck) {
+        return new Response(JSON.stringify({ error: "Home team not found in this organization" }), { status: 404 });
+      }
+    }
+
+    if (result.data.awayTeamId) {
+      const [teamCheck] = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(
+          eq(teams.id, result.data.awayTeamId),
+          eq(locations.organizationId, orgContext.organizationId)
+        ));
+      if (!teamCheck) {
+        return new Response(JSON.stringify({ error: "Away team not found in this organization" }), { status: 404 });
+      }
+    }
+
+    // Verify venue belongs to this organization if provided
+    if (result.data.venueId) {
+      const [venueCheck] = await db
+        .select({ id: venues.id })
+        .from(venues)
+        .innerJoin(locations, eq(venues.locationId, locations.id))
+        .where(and(
+          eq(venues.id, result.data.venueId),
+          eq(locations.organizationId, orgContext.organizationId)
+        ));
+      if (!venueCheck) {
+        return new Response(JSON.stringify({ error: "Venue not found in this organization" }), { status: 404 });
+      }
     }
 
     const [newGame] = await db
@@ -193,6 +259,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -201,12 +270,91 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Game ID is required" }), { status: 400 });
     }
 
+    // Verify game belongs to this organization
+    const [gameCheck] = await db
+      .select({ id: games.id })
+      .from(games)
+      .innerJoin(seasons, eq(games.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(games.id, id),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!gameCheck) {
+      return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
+    }
+
     const result = gameSchema.safeParse(data);
     if (!result.success) {
       return new Response(
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // Verify new season belongs to this organization
+    const [seasonCheck] = await db
+      .select({ id: seasons.id })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(seasons.id, result.data.seasonId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!seasonCheck) {
+      return new Response(JSON.stringify({ error: "Season not found in this organization" }), { status: 404 });
+    }
+
+    // Verify teams belong to this organization if provided
+    if (result.data.homeTeamId) {
+      const [teamCheck] = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(
+          eq(teams.id, result.data.homeTeamId),
+          eq(locations.organizationId, orgContext.organizationId)
+        ));
+      if (!teamCheck) {
+        return new Response(JSON.stringify({ error: "Home team not found in this organization" }), { status: 404 });
+      }
+    }
+
+    if (result.data.awayTeamId) {
+      const [teamCheck] = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(
+          eq(teams.id, result.data.awayTeamId),
+          eq(locations.organizationId, orgContext.organizationId)
+        ));
+      if (!teamCheck) {
+        return new Response(JSON.stringify({ error: "Away team not found in this organization" }), { status: 404 });
+      }
+    }
+
+    // Verify venue belongs to this organization if provided
+    if (result.data.venueId) {
+      const [venueCheck] = await db
+        .select({ id: venues.id })
+        .from(venues)
+        .innerJoin(locations, eq(venues.locationId, locations.id))
+        .where(and(
+          eq(venues.id, result.data.venueId),
+          eq(locations.organizationId, orgContext.organizationId)
+        ));
+      if (!venueCheck) {
+        return new Response(JSON.stringify({ error: "Venue not found in this organization" }), { status: 404 });
+      }
     }
 
     const [updatedGame] = await db
@@ -241,6 +389,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -249,11 +400,23 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Game ID is required" }), { status: 400 });
     }
 
-    const [deletedGame] = await db.delete(games).where(eq(games.id, id)).returning();
+    // Verify game belongs to this organization
+    const [gameCheck] = await db
+      .select({ id: games.id })
+      .from(games)
+      .innerJoin(seasons, eq(games.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(games.id, id),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
 
-    if (!deletedGame) {
+    if (!gameCheck) {
       return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
     }
+
+    await db.delete(games).where(eq(games.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

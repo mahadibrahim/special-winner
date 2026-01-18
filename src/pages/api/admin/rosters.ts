@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { rosters, teams, registrations, familyMembers, seasons } from "@/lib/db/schema";
+import { rosters, teams, registrations, familyMembers, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const rosterSchema = z.object({
   teamId: z.string().uuid("Valid team ID is required"),
@@ -19,6 +19,9 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const teamId = url.searchParams.get("teamId");
@@ -27,10 +30,19 @@ export const GET: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Team ID is required" }), { status: 400 });
     }
 
-    // Get the team's season
-    const team = await db.query.teams.findFirst({
-      where: eq(teams.id, teamId),
-    });
+    // Get the team's season - verify it belongs to this organization
+    const [teamResult] = await db
+      .select({ team: teams })
+      .from(teams)
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(teams.id, teamId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    const team = teamResult?.team;
 
     if (!team) {
       return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
@@ -86,6 +98,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = rosterSchema.safeParse(body);
@@ -95,6 +110,24 @@ export const POST: APIRoute = async (context) => {
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // Verify team belongs to this organization
+    const [teamResult] = await db
+      .select({ team: teams })
+      .from(teams)
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(teams.id, result.data.teamId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    const team = teamResult?.team;
+
+    if (!team) {
+      return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
     }
 
     // Check if player is already on this team
@@ -113,11 +146,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Check team roster size limit
-    const team = await db.query.teams.findFirst({
-      where: eq(teams.id, result.data.teamId),
-    });
-
-    if (team?.maxRosterSize) {
+    if (team.maxRosterSize) {
       const currentRosterCount = await db
         .select({ id: rosters.id })
         .from(rosters)
@@ -156,12 +185,32 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, jerseyNumber, position, status, notes } = body;
 
     if (!id) {
       return new Response(JSON.stringify({ error: "Roster entry ID is required" }), { status: 400 });
+    }
+
+    // Verify roster entry belongs to a team in this organization
+    const [rosterCheck] = await db
+      .select({ roster: rosters })
+      .from(rosters)
+      .innerJoin(teams, eq(rosters.teamId, teams.id))
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(rosters.id, id),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    if (!rosterCheck) {
+      return new Response(JSON.stringify({ error: "Roster entry not found" }), { status: 404 });
     }
 
     const [updatedRoster] = await db
@@ -175,10 +224,6 @@ export const PUT: APIRoute = async (context) => {
       })
       .where(eq(rosters.id, id))
       .returning();
-
-    if (!updatedRoster) {
-      return new Response(JSON.stringify({ error: "Roster entry not found" }), { status: 404 });
-    }
 
     return new Response(JSON.stringify({ roster: updatedRoster }), {
       status: 200,
@@ -195,6 +240,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -203,11 +251,24 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Roster entry ID is required" }), { status: 400 });
     }
 
-    const [deletedRoster] = await db.delete(rosters).where(eq(rosters.id, id)).returning();
+    // Verify roster entry belongs to a team in this organization
+    const [rosterCheck] = await db
+      .select({ roster: rosters })
+      .from(rosters)
+      .innerJoin(teams, eq(rosters.teamId, teams.id))
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(rosters.id, id),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
 
-    if (!deletedRoster) {
+    if (!rosterCheck) {
       return new Response(JSON.stringify({ error: "Roster entry not found" }), { status: 404 });
     }
+
+    await db.delete(rosters).where(eq(rosters.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

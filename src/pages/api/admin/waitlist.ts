@@ -1,19 +1,25 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
+import { registrations, familyMembers, seasons, programs, sports, users, locations } from "@/lib/db/schema";
 import { eq, asc, and, isNull, sql } from "drizzle-orm";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 // GET - List all waitlisted registrations
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const seasonId = url.searchParams.get("seasonId");
 
-    const conditions = [eq(registrations.status, "waitlisted")];
+    const conditions = [
+      eq(registrations.status, "waitlisted"),
+      eq(locations.organizationId, orgContext.organizationId),
+    ];
     if (seasonId) {
       conditions.push(eq(registrations.seasonId, seasonId));
     }
@@ -55,11 +61,12 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(users, eq(familyMembers.parentUserId, users.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .where(and(...conditions))
       .orderBy(asc(registrations.waitlistPosition), asc(registrations.createdAt));
 
-    // Get season options for filter
+    // Get season options for filter - only seasons for this organization
     const seasonOptions = await db
       .select({
         id: seasons.id,
@@ -68,7 +75,8 @@ export const GET: APIRoute = async (context) => {
       })
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
-      .where(eq(seasons.isActive, true));
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(eq(seasons.isActive, true), eq(locations.organizationId, orgContext.organizationId)));
 
     return new Response(JSON.stringify({ waitlist: waitlistedRegs, seasons: seasonOptions }), {
       status: 200,
@@ -85,6 +93,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { registrationId, action } = body;
@@ -93,9 +104,19 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Registration ID is required" }), { status: 400 });
     }
 
-    const reg = await db.query.registrations.findFirst({
-      where: eq(registrations.id, registrationId),
-    });
+    // Verify registration belongs to this organization
+    const [regResult] = await db
+      .select({ registration: registrations })
+      .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(registrations.id, registrationId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    const reg = regResult?.registration;
 
     if (!reg) {
       return new Response(JSON.stringify({ error: "Registration not found" }), { status: 404 });
@@ -181,6 +202,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { registrationId, newPosition } = body;
@@ -189,9 +213,19 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Registration ID and new position are required" }), { status: 400 });
     }
 
-    const reg = await db.query.registrations.findFirst({
-      where: eq(registrations.id, registrationId),
-    });
+    // Verify registration belongs to this organization
+    const [regResult] = await db
+      .select({ registration: registrations })
+      .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(and(
+        eq(registrations.id, registrationId),
+        eq(locations.organizationId, orgContext.organizationId)
+      ));
+
+    const reg = regResult?.registration;
 
     if (!reg || reg.status !== "waitlisted") {
       return new Response(JSON.stringify({ error: "Registration not found or not on waitlist" }), { status: 404 });
