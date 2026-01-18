@@ -12,6 +12,7 @@
  * - Soccer Session Plans (4 complete session plans)
  * - Soccer Skills (13 skills with comprehensive assessment guides)
  * - Basketball Skills (13 skills with comprehensive assessment guides)
+ * - Hockey Skills (13 skills with comprehensive assessment guides)
  *
  * Run with: npx tsx src/lib/db/seeds/curriculum-v2/index.ts
  */
@@ -23,6 +24,7 @@ import { seedBasketballFundamentalsActivities } from "./basketball-fundamentals-
 import { seedSoccerSessionPlans } from "./soccer-session-plans";
 import { seedSoccerSkills } from "./soccer-skills";
 import { seedBasketballSkills } from "./basketball-skills";
+import { seedHockeySkills } from "./hockey-skills";
 
 async function seedAllCurriculumV2() {
   console.log("═══════════════════════════════════════════════════════════════");
@@ -62,6 +64,11 @@ async function seedAllCurriculumV2() {
     await seedBasketballSkills();
     console.log("   ✓ Basketball Skills complete\n");
 
+    // Hockey Skills with Comprehensive Assessments
+    console.log("🏒 Seeding Hockey Skills with Assessment Guides...");
+    await seedHockeySkills();
+    console.log("   ✓ Hockey Skills complete\n");
+
     console.log("═══════════════════════════════════════════════════════════════");
     console.log("  ✅ ALL CURRICULUM V2 CONTENT SEEDED SUCCESSFULLY");
     console.log("═══════════════════════════════════════════════════════════════");
@@ -73,6 +80,7 @@ async function seedAllCurriculumV2() {
     console.log("  • 4 Soccer Session Plans (complete practice guides)");
     console.log("  • 13 Soccer Skills with comprehensive assessment guides");
     console.log("  • 13 Basketball Skills with comprehensive assessment guides");
+    console.log("  • 13 Hockey Skills with comprehensive assessment guides");
     console.log("");
     console.log("Each item includes:");
     console.log("  ✓ Quick reference for experienced coaches");
