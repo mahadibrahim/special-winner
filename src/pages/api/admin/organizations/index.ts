@@ -1,18 +1,17 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { organizations, locations, userOrganizationAccess } from "@/lib/db/schema/organizations";
-import { eq, sql, and, count } from "drizzle-orm";
+import { eq, sql, and, count, inArray } from "drizzle-orm";
+import { requireAdminAccess } from "@/lib/auth";
 
-export const GET: APIRoute = async ({ locals }) => {
+export const GET: APIRoute = async (context) => {
+  const { locals } = context;
+
+  // Require admin access
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+
   try {
-    // Check authentication
-    if (!locals.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
         status: 503,
@@ -76,16 +75,14 @@ export const GET: APIRoute = async ({ locals }) => {
   }
 };
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  try {
-    // Check authentication
-    if (!locals.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+export const POST: APIRoute = async (context) => {
+  const { request, locals } = context;
 
+  // Require admin access - only admins can create organizations
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+
+  try {
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
         status: 503,
@@ -192,7 +189,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Add the creating user as owner
     await db.insert(userOrganizationAccess).values({
-      userId: locals.user.id,
+      userId: auth.user.id,
       organizationId: newOrg.id,
       role: "owner",
       active: true,

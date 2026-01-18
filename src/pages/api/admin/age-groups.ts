@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { ageGroups } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
@@ -89,6 +89,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -113,6 +116,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
+    // Verify age group belongs to this organization
     const [updatedAgeGroup] = await db
       .update(ageGroups)
       .set({
@@ -120,7 +124,7 @@ export const PUT: APIRoute = async (context) => {
         birthDateCutoff: result.data.birthDateCutoff || null,
         updatedAt: new Date(),
       })
-      .where(eq(ageGroups.id, id))
+      .where(and(eq(ageGroups.id, id), eq(ageGroups.organizationId, orgContext.organizationId)))
       .returning();
 
     if (!updatedAgeGroup) {
@@ -142,6 +146,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -150,7 +157,11 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Age group ID is required" }), { status: 400 });
     }
 
-    const [deletedAgeGroup] = await db.delete(ageGroups).where(eq(ageGroups.id, id)).returning();
+    // Verify age group belongs to this organization before deleting
+    const [deletedAgeGroup] = await db
+      .delete(ageGroups)
+      .where(and(eq(ageGroups.id, id), eq(ageGroups.organizationId, orgContext.organizationId)))
+      .returning();
 
     if (!deletedAgeGroup) {
       return new Response(JSON.stringify({ error: "Age group not found" }), { status: 404 });

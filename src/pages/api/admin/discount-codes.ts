@@ -126,6 +126,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -142,6 +145,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
+    // Verify discount code belongs to this organization
     const [updatedCode] = await db
       .update(discountCodes)
       .set({
@@ -150,7 +154,7 @@ export const PUT: APIRoute = async (context) => {
         expiresAt: result.data.expiresAt ? new Date(result.data.expiresAt) : null,
         updatedAt: new Date(),
       })
-      .where(eq(discountCodes.id, id))
+      .where(and(eq(discountCodes.id, id), eq(discountCodes.organizationId, orgContext.organizationId)))
       .returning();
 
     if (!updatedCode) {
@@ -177,6 +181,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -185,9 +192,10 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Discount code ID is required" }), { status: 400 });
     }
 
+    // Verify discount code belongs to this organization before deleting
     const [deletedCode] = await db
       .delete(discountCodes)
-      .where(eq(discountCodes.id, id))
+      .where(and(eq(discountCodes.id, id), eq(discountCodes.organizationId, orgContext.organizationId)))
       .returning();
 
     if (!deletedCode) {

@@ -25,7 +25,7 @@ export const GET: APIRoute = async ({ params }) => {
     const userFamilyMembers = await db
       .select({ id: familyMembers.id })
       .from(familyMembers)
-      .where(eq(familyMembers.userId, userId));
+      .where(eq(familyMembers.parentUserId, userId));
 
     const familyMemberIds = userFamilyMembers.map((fm) => fm.id);
 

@@ -137,6 +137,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -153,13 +156,17 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    // Check if publishing for the first time
+    // Verify announcement belongs to this organization
     const existing = await db.query.announcements.findFirst({
-      where: eq(announcements.id, id),
+      where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
     });
 
-    let publishedAt = existing?.publishedAt;
-    if (result.data.status === "published" && !existing?.publishedAt) {
+    if (!existing) {
+      return new Response(JSON.stringify({ error: "Announcement not found" }), { status: 404 });
+    }
+
+    let publishedAt = existing.publishedAt;
+    if (result.data.status === "published" && !existing.publishedAt) {
       publishedAt = new Date();
     }
 
@@ -193,6 +200,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -201,14 +211,16 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Announcement ID is required" }), { status: 400 });
     }
 
-    const [deletedAnnouncement] = await db
-      .delete(announcements)
-      .where(eq(announcements.id, id))
-      .returning();
+    // Verify announcement belongs to this organization before deleting
+    const existing = await db.query.announcements.findFirst({
+      where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
+    });
 
-    if (!deletedAnnouncement) {
+    if (!existing) {
       return new Response(JSON.stringify({ error: "Announcement not found" }), { status: 404 });
     }
+
+    await db.delete(announcements).where(eq(announcements.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

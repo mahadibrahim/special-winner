@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, users, locations } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
@@ -69,8 +69,7 @@ export const POST: APIRoute = async (context) => {
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(eq(registrations.id, id))
-      .where(eq(locations.organizationId, orgContext.organizationId));
+      .where(and(eq(registrations.id, id), eq(locations.organizationId, orgContext.organizationId)));
 
     if (!registration) {
       return new Response(JSON.stringify({ error: "Registration not found" }), {
@@ -268,8 +267,7 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(eq(registrations.id, id))
-      .where(eq(locations.organizationId, orgContext.organizationId));
+      .where(and(eq(registrations.id, id), eq(locations.organizationId, orgContext.organizationId)));
 
     if (!registration) {
       return new Response(JSON.stringify({ error: "Registration not found" }), {

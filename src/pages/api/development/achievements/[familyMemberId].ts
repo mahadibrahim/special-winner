@@ -170,11 +170,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     // Verify access
     const [familyMember] = await db
-      .select({ id: familyMembers.id, userId: familyMembers.userId })
+      .select({ id: familyMembers.id, parentUserId: familyMembers.parentUserId })
       .from(familyMembers)
       .where(eq(familyMembers.id, familyMemberId));
 
-    if (!familyMember || familyMember.userId !== user.id) {
+    if (!familyMember || familyMember.parentUserId !== user.id) {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
