@@ -1,3 +1,18 @@
 [build]
   command = "npm run build"
   publish = "dist"
+
+# Stop automatic deploys - we deploy manually via CI on releases
+[build.processing]
+  skip_processing = false
+
+[context.production]
+  command = "npm run build"
+
+# Disable branch deploys to save credits
+[context.branch-deploy]
+  command = "echo 'Branch deploys disabled' && exit 1"
+
+# Disable deploy previews to save credits
+[context.deploy-preview]
+  command = "echo 'Deploy previews disabled' && exit 1"
