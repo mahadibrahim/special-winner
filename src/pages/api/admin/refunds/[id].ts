@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 import { isAdmin } from "@/lib/auth/roles";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
@@ -17,7 +17,7 @@ const refundActionSchema = z.object({
 export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     const user = locals.user;
-    if (!user) {
+    if (!auth.authorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
@@ -243,7 +243,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 export const GET: APIRoute = async ({ params, locals }) => {
   try {
     const user = locals.user;
-    if (!user) {
+    if (!auth.authorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },

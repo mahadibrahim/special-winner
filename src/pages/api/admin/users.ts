@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { eq, asc, desc, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
@@ -20,10 +20,8 @@ const assignRoleSchema = z.object({
 
 // GET - List all users with optional search
 export const GET: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const url = new URL(context.request.url);
@@ -111,10 +109,8 @@ export const GET: APIRoute = async (context) => {
 
 // PUT - Update user profile
 export const PUT: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const body = await context.request.json();
@@ -157,10 +153,8 @@ export const PUT: APIRoute = async (context) => {
 
 // POST - Assign role to user
 export const POST: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const body = await context.request.json();
@@ -220,10 +214,8 @@ export const POST: APIRoute = async (context) => {
 
 // DELETE - Remove role from user
 export const DELETE: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const url = new URL(context.request.url);

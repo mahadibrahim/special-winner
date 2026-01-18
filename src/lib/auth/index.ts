@@ -9,6 +9,8 @@ export {
   isCoach,
   validateCoachAccess,
   isAdmin,
+  validateAdminAccess,
+  requireAdminAccess,
   type RoleName,
   type ScopeType,
   type UserRole,

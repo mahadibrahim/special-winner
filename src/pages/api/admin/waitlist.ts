@@ -2,14 +2,12 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
 import { eq, asc, and, isNull, sql } from "drizzle-orm";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 
 // GET - List all waitlisted registrations
 export const GET: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const url = new URL(context.request.url);
@@ -84,10 +82,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Promote registration from waitlist
 export const POST: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const body = await context.request.json();
@@ -182,10 +178,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Reorder waitlist positions
 export const PUT: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const body = await context.request.json();

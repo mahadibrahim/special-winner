@@ -2,6 +2,7 @@
 /// <reference types="astro/client" />
 
 import type { Organization, Location, OrganizationSettings, OrganizationFeatures } from "./lib/db/schema/organizations";
+import type { UserRole } from "./lib/auth/roles";
 
 interface UserAttributes {
   id: string;
@@ -26,6 +27,9 @@ declare global {
       session: SessionAttributes | null;
       organization: Organization | null;
       currentLocation: Location | null;
+      userRoles: UserRole[];
+      isAdmin: boolean;
+      isCoach: boolean;
     }
   }
 }

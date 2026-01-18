@@ -4,7 +4,7 @@ import { activities } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 
 const updateActivitySchema = z.object({
   sportId: z.string().uuid().optional(),
@@ -41,8 +41,8 @@ const updateActivitySchema = z.object({
 // GET - Get single activity with full details
 export const GET: APIRoute = async ({ params, ...context }) => {
   const { user } = await validateSession(context as any);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {
@@ -113,8 +113,8 @@ export const GET: APIRoute = async ({ params, ...context }) => {
 // PUT - Update activity
 export const PUT: APIRoute = async ({ params, request, ...context }) => {
   const { user } = await validateSession(context as any);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {
@@ -166,8 +166,8 @@ export const PUT: APIRoute = async ({ params, request, ...context }) => {
 // DELETE - Delete activity
 export const DELETE: APIRoute = async ({ params, ...context }) => {
   const { user } = await validateSession(context as any);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {

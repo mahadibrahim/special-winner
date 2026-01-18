@@ -2,14 +2,14 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 import { isAdmin } from "@/lib/auth/roles";
 
 // GET - List all refund requests (pending, processed, denied)
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const user = locals.user;
-    if (!user) {
+    if (!auth.authorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },

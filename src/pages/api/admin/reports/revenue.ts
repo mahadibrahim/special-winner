@@ -2,13 +2,13 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { payments, registrations, seasons, programs, sports } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 
 // GET - Get revenue reports
 export const GET: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {

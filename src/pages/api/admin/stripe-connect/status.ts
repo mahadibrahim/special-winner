@@ -7,18 +7,15 @@ import {
   createAccountDashboardLink,
 } from "@/lib/stripe/connect";
 import { eq } from "drizzle-orm";
+import { requireAdminAccess } from "@/lib/auth";
 
-export const GET: APIRoute = async ({ request, locals }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    // Check authentication
-    if (!locals.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    // Check admin authentication
+    const auth = await requireAdminAccess(context);
+    if (!auth.authorized) return auth.response;
 
-    const url = new URL(request.url);
+    const url = new URL(context.request.url);
     const organizationId = url.searchParams.get("organizationId");
 
     if (!organizationId) {
@@ -74,7 +71,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     // Generate onboarding link if incomplete
     let onboardingUrl: string | null = null;
     if (!status?.detailsSubmitted || status?.requiresAction) {
-      const origin = new URL(request.url).origin;
+      const origin = new URL(context.request.url).origin;
       onboardingUrl = await createAccountOnboardingLink(
         org.stripeAccountId,
         `${origin}/admin/organizations/${organizationId}/stripe/complete`,

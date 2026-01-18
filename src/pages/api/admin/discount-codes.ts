@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { discountCodes, seasons, programs } from "@/lib/db/schema";
 import { eq, asc, desc, and, or, isNull, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 
 const discountCodeSchema = z.object({
   code: z.string().min(1, "Code is required").max(50).toUpperCase(),
@@ -22,10 +22,8 @@ const discountCodeSchema = z.object({
 
 // GET - List all discount codes
 export const GET: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const allCodes = await db
@@ -61,10 +59,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create discount code
 export const POST: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const body = await context.request.json();
@@ -121,10 +117,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update discount code
 export const PUT: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const body = await context.request.json();
@@ -174,10 +168,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete discount code
 export const DELETE: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const url = new URL(context.request.url);

@@ -3,20 +3,15 @@ import { db } from "@/lib/db";
 import { organizations } from "@/lib/db/schema/organizations";
 import { createConnectAccount, createAccountOnboardingLink } from "@/lib/stripe/connect";
 import { eq } from "drizzle-orm";
+import { requireAdminAccess } from "@/lib/auth";
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async (context) => {
   try {
-    // Check authentication
-    if (!locals.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    // Check admin authentication
+    const auth = await requireAdminAccess(context);
+    if (!auth.authorized) return auth.response;
 
-    // TODO: Check if user has admin permission for the organization
-
-    const body = await request.json();
+    const body = await context.request.json();
     const { organizationId } = body;
 
     if (!organizationId) {
@@ -60,7 +55,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Create Stripe Connect account
     const account = await createConnectAccount(organizationId, {
-      email: org.email || locals.user.email,
+      email: org.email || auth.user.email,
       businessName: org.legalName || org.name,
       country: org.country || "US",
     });
@@ -73,7 +68,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Generate onboarding link
-    const origin = new URL(request.url).origin;
+    const origin = new URL(context.request.url).origin;
     const onboardingUrl = await createAccountOnboardingLink(
       account.id,
       `${origin}/admin/organizations/${organizationId}/stripe/complete`,

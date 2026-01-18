@@ -4,7 +4,7 @@ import { activities, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, asc, desc, ilike, or } from "drizzle-orm";
 import { z } from "zod";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 
 const activitySchema = z.object({
   sportId: z.string().uuid(),
@@ -40,9 +40,9 @@ const activitySchema = z.object({
 
 // GET - List activities with filtering
 export const GET: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {
@@ -144,9 +144,9 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new activity
 export const POST: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {

@@ -4,7 +4,7 @@ import { skills, skillDomains, assessmentRubrics } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { validateSession } from "@/lib/auth";
+import { requireAdminAccess } from "@/lib/auth";
 
 const updateSkillSchema = z.object({
   sportId: z.string().uuid().optional(),
@@ -31,8 +31,8 @@ const updateSkillSchema = z.object({
 // GET - Get single skill with full details
 export const GET: APIRoute = async ({ params, ...context }) => {
   const { user } = await validateSession(context as any);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {
@@ -104,8 +104,8 @@ export const GET: APIRoute = async ({ params, ...context }) => {
 // PUT - Update skill
 export const PUT: APIRoute = async ({ params, request, ...context }) => {
   const { user } = await validateSession(context as any);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {
@@ -157,8 +157,8 @@ export const PUT: APIRoute = async ({ params, request, ...context }) => {
 // DELETE - Delete skill
 export const DELETE: APIRoute = async ({ params, ...context }) => {
   const { user } = await validateSession(context as any);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   try {

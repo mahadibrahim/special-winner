@@ -6,14 +6,13 @@ import { db } from '../../lib/db';
 import { sports, locations, programs, seasons, registrations, users } from '../../lib/db/schema';
 import { count, eq, and, isNotNull, sql } from 'drizzle-orm';
 
-// Check if user is admin
+// User is guaranteed to be an admin by middleware
 const user = Astro.locals.user;
 if (!user) {
   return Astro.redirect('/signin?returnUrl=/admin');
 }
 
-// TODO: Check admin role - for now allow any authenticated user
-// In production, verify user has admin role
+// Admin role is verified by middleware - non-admins are redirected to dashboard
 
 // Get counts for dashboard
 let statsError = null;

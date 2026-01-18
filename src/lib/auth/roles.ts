@@ -125,3 +125,53 @@ export async function isAdmin(userId: string): Promise<boolean> {
     (role) => role.name === "super_admin" || role.name === "location_admin"
   );
 }
+
+/**
+ * Middleware helper to validate admin access
+ * Returns user info and admin status
+ */
+export async function validateAdminAccess(context: APIContext): Promise<{
+  user: Awaited<ReturnType<typeof validateSession>>["user"];
+  isAdmin: boolean;
+  roles: UserRole[];
+}> {
+  const { user } = await validateSession(context);
+
+  if (!user) {
+    return { user: null, isAdmin: false, roles: [] };
+  }
+
+  const userRolesList = await getUserRoles(user.id);
+  const isAdminResult = userRolesList.some(
+    (role) => role.name === "super_admin" || role.name === "location_admin"
+  );
+
+  return { user, isAdmin: isAdminResult, roles: userRolesList };
+}
+
+/**
+ * Helper to require admin access for API routes
+ * Returns an error Response if not authorized, or the user/roles if authorized
+ */
+export async function requireAdminAccess(context: APIContext): Promise<
+  | { authorized: false; response: Response }
+  | { authorized: true; user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>; roles: UserRole[] }
+> {
+  const { user, isAdmin: hasAdminRole, roles } = await validateAdminAccess(context);
+
+  if (!user) {
+    return {
+      authorized: false,
+      response: new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
+    };
+  }
+
+  if (!hasAdminRole) {
+    return {
+      authorized: false,
+      response: new Response(JSON.stringify({ error: "Forbidden: Admin access required" }), { status: 403 }),
+    };
+  }
+
+  return { authorized: true, user, roles };
+}
