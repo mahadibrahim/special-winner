@@ -15,6 +15,8 @@ import {
   Loader2,
   AlertCircle,
   Shield,
+  Tag,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -103,6 +105,18 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
   const [waiverSignature, setWaiverSignature] = useState("")
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full")
 
+  // Discount code state
+  const [discountCode, setDiscountCode] = useState("")
+  const [discountCodeInput, setDiscountCodeInput] = useState("")
+  const [isValidatingDiscount, setIsValidatingDiscount] = useState(false)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string
+    discountType: "percentage" | "fixed_amount"
+    discountValue: number
+    discountAmountCents: number
+  } | null>(null)
+
   // New member form
   const [showAddMember, setShowAddMember] = useState(false)
   const [newMemberFirstName, setNewMemberFirstName] = useState("")
@@ -174,6 +188,55 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
     }
   }
 
+  const handleApplyDiscount = async () => {
+    if (!discountCodeInput.trim() || !season) return
+
+    setIsValidatingDiscount(true)
+    setDiscountError(null)
+
+    try {
+      const purchaseAmountCents = paymentOption === "deposit" && season.depositCents
+        ? season.depositCents
+        : season.priceCents
+
+      const response = await fetch("/api/public/validate-discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: discountCodeInput.trim().toUpperCase(),
+          seasonId: season.id,
+          purchaseAmountCents,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!data.valid) {
+        setDiscountError(data.error || "Invalid discount code")
+        return
+      }
+
+      setDiscountCode(discountCodeInput.trim().toUpperCase())
+      setAppliedDiscount({
+        code: data.discount.code,
+        discountType: data.discount.discountType,
+        discountValue: data.discount.discountValue,
+        discountAmountCents: data.calculatedDiscount?.discountAmountCents || 0,
+      })
+      setDiscountCodeInput("")
+    } catch (err) {
+      setDiscountError("Failed to validate discount code")
+    } finally {
+      setIsValidatingDiscount(false)
+    }
+  }
+
+  const handleRemoveDiscount = () => {
+    setDiscountCode("")
+    setAppliedDiscount(null)
+    setDiscountError(null)
+  }
+
   const handleSubmitRegistration = async () => {
     if (!selectedMemberId || !waiverAccepted || !waiverSignature) return
 
@@ -191,6 +254,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
           registrationType: paymentOption,
           waiverSigned: true,
           waiverSignedBy: waiverSignature,
+          discountCode: discountCode || undefined,
         }),
       })
 
@@ -208,6 +272,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             registrationId: regData.registration.id,
+            discountCode: discountCode || undefined,
           }),
         })
 
@@ -667,6 +732,64 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
               </div>
             </RadioGroup>
 
+            {/* Discount Code */}
+            <div className="space-y-3">
+              <Label className="text-gray-400 flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Discount Code
+              </Label>
+              {appliedDiscount ? (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span className="text-green-400 font-medium">{appliedDiscount.code}</span>
+                    <span className="text-green-400/70 text-sm">
+                      (-${(appliedDiscount.discountAmountCents / 100).toFixed(2)})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveDiscount}
+                    className="text-gray-400 hover:text-white p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={discountCodeInput}
+                    onChange={(e) => {
+                      setDiscountCodeInput(e.target.value.toUpperCase())
+                      setDiscountError(null)
+                    }}
+                    placeholder="Enter code"
+                    className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 uppercase"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleApplyDiscount}
+                    disabled={!discountCodeInput.trim() || isValidatingDiscount}
+                    className="border-white/10 text-gray-300 hover:text-white hover:bg-white/5 px-6"
+                  >
+                    {isValidatingDiscount ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Apply"
+                    )}
+                  </Button>
+                </div>
+              )}
+              {discountError && (
+                <p className="text-sm text-red-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {discountError}
+                </p>
+              )}
+            </div>
+
+            {/* Order Summary */}
             <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-gray-300">Registration for</span>
@@ -678,10 +801,27 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                 <span className="text-gray-300">Program</span>
                 <span className="text-white font-medium">{season.name}</span>
               </div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-300">
+                  {paymentOption === "deposit" ? "Deposit" : "Subtotal"}
+                </span>
+                <span className="text-white">
+                  ${paymentOption === "deposit" && season.deposit ? season.deposit : season.price}
+                </span>
+              </div>
+              {appliedDiscount && (
+                <div className="flex items-center justify-between mb-2 text-green-400">
+                  <span>Discount ({appliedDiscount.code})</span>
+                  <span>-${(appliedDiscount.discountAmountCents / 100).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between pt-2 border-t border-primary/20">
                 <span className="text-white font-semibold">Total Due Today</span>
                 <span className="text-white font-bold text-xl">
-                  ${paymentOption === "deposit" && season.deposit ? season.deposit : season.price}
+                  ${(
+                    (paymentOption === "deposit" && season.deposit ? season.deposit : season.price) -
+                    (appliedDiscount ? appliedDiscount.discountAmountCents / 100 : 0)
+                  ).toFixed(2)}
                 </span>
               </div>
             </div>

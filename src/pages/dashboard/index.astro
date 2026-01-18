@@ -6,6 +6,7 @@ import UpcomingEvents from '../../components/dashboard/upcoming-events';
 import ChildrenOverview from '../../components/dashboard/children-overview';
 import CoachNotes from '../../components/dashboard/coach-notes';
 import PaymentsSummary from '../../components/dashboard/payments-summary';
+import { Announcements } from '../../components/dashboard/announcements';
 import { Button } from '../../components/ui/button';
 
 // Get user from middleware locals
@@ -117,8 +118,13 @@ else if (hour >= 17) greeting = "Good evening";
             </section>
           </div>
 
-          <!-- Right Column - Coach Notes & Payments -->
+          <!-- Right Column - Announcements, Coach Notes & Payments -->
           <div class="lg:col-span-4 space-y-8">
+            <!-- Announcements -->
+            <section class="dashboard-section">
+              <Announcements client:load />
+            </section>
+
             <!-- Coach Notes - Key Differentiator -->
             <section class="dashboard-section">
               <CoachNotes client:load />

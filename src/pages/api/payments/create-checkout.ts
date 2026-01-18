@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { registrations, familyMembers, seasons, programs, discountCodes, discountUsages } from "@/lib/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { createCheckoutSession, isStripeConfigured } from "@/lib/stripe/client";
 import { z } from "zod";
 
 const checkoutSchema = z.object({
   registrationId: z.string().uuid("Invalid registration ID"),
+  discountCode: z.string().optional(),
 });
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
@@ -49,7 +50,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       );
     }
 
-    const { registrationId } = validation.data;
+    const { registrationId, discountCode } = validation.data;
 
     // Get registration with related data
     const [result] = await db
@@ -87,13 +88,138 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       });
     }
 
-    // Calculate amount due
-    const amountDue = registration.amountDueCents - registration.amountPaidCents;
+    // Calculate base amount due
+    let amountDue = registration.amountDueCents - registration.amountPaidCents;
     if (amountDue <= 0) {
       return new Response(JSON.stringify({ error: "No payment required" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Apply discount if provided
+    let discountAmountCents = 0;
+    let appliedDiscountCode: typeof discountCodes.$inferSelect | null = null;
+
+    if (discountCode) {
+      // Find and validate the discount code
+      const [foundDiscount] = await db
+        .select()
+        .from(discountCodes)
+        .where(eq(discountCodes.code, discountCode.toUpperCase()));
+
+      if (foundDiscount) {
+        const now = new Date();
+        const isValid =
+          foundDiscount.active &&
+          (!foundDiscount.startsAt || now >= foundDiscount.startsAt) &&
+          (!foundDiscount.expiresAt || now <= foundDiscount.expiresAt) &&
+          (!foundDiscount.maxUses || foundDiscount.usedCount < foundDiscount.maxUses) &&
+          (!foundDiscount.seasonId || foundDiscount.seasonId === season.id) &&
+          (!foundDiscount.minPurchaseCents || amountDue >= foundDiscount.minPurchaseCents);
+
+        if (isValid) {
+          // Check per-user limit
+          let userCanUse = true;
+          if (foundDiscount.maxUsesPerUser) {
+            const userUsageCount = await db
+              .select({ count: sql<number>`count(*)` })
+              .from(discountUsages)
+              .where(
+                and(
+                  eq(discountUsages.discountCodeId, foundDiscount.id),
+                  eq(discountUsages.userId, user.id)
+                )
+              );
+
+            if (userUsageCount[0].count >= foundDiscount.maxUsesPerUser) {
+              userCanUse = false;
+            }
+          }
+
+          if (userCanUse) {
+            // Calculate discount amount
+            if (foundDiscount.discountType === "percentage") {
+              discountAmountCents = Math.round((amountDue * foundDiscount.discountValue) / 10000);
+              if (foundDiscount.maxDiscountCents && discountAmountCents > foundDiscount.maxDiscountCents) {
+                discountAmountCents = foundDiscount.maxDiscountCents;
+              }
+            } else {
+              discountAmountCents = Math.min(foundDiscount.discountValue, amountDue);
+            }
+
+            appliedDiscountCode = foundDiscount;
+            amountDue = Math.max(0, amountDue - discountAmountCents);
+          }
+        }
+      }
+    }
+
+    // If amount is now 0 after discount, mark as paid and return
+    if (amountDue <= 0) {
+      // Record discount usage if applicable
+      if (appliedDiscountCode) {
+        await db.insert(discountUsages).values({
+          discountCodeId: appliedDiscountCode.id,
+          userId: user.id,
+          registrationId,
+          discountAmountCents: discountAmountCents,
+        });
+
+        // Increment usage count
+        await db
+          .update(discountCodes)
+          .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
+          .where(eq(discountCodes.id, appliedDiscountCode.id));
+      }
+
+      // Update registration as paid with reduced amount
+      await db
+        .update(registrations)
+        .set({
+          paymentStatus: "paid",
+          amountDueCents: registration.amountDueCents - discountAmountCents,
+          amountPaidCents: registration.amountDueCents - discountAmountCents,
+          updatedAt: new Date(),
+        })
+        .where(eq(registrations.id, registrationId));
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Registration complete - no payment required after discount",
+          discountApplied: discountAmountCents > 0,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // If a discount was applied, update the registration and record usage
+    if (appliedDiscountCode && discountAmountCents > 0) {
+      await db.insert(discountUsages).values({
+        discountCodeId: appliedDiscountCode.id,
+        userId: user.id,
+        registrationId,
+        discountAmountCents: discountAmountCents,
+      });
+
+      // Increment usage count
+      await db
+        .update(discountCodes)
+        .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
+        .where(eq(discountCodes.id, appliedDiscountCode.id));
+
+      // Update registration with reduced amount due
+      await db
+        .update(registrations)
+        .set({
+          amountDueCents: registration.amountDueCents - discountAmountCents,
+          updatedAt: new Date(),
+        })
+        .where(eq(registrations.id, registrationId));
     }
 
     // Build URLs
