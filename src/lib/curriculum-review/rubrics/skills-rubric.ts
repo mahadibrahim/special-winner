@@ -57,7 +57,7 @@ const levelDifferentiation: CriterionDefinition = {
 
     // Check for clear progression in descriptions
     const hasDescriptions = levels.every(
-      (l) => guide.levelDetails?.[Number(l)]?.description?.length > 50
+      (l) => (guide.levelDetails?.[Number(l)]?.description?.length ?? 0) > 50
     );
     const hasBehaviors = levels.every(
       (l) => (guide.levelDetails?.[Number(l)]?.observableBehaviors?.length ?? 0) >= 3

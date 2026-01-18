@@ -158,6 +158,9 @@ export const activities = pgTable("activities", {
       gameBalance?: Record<string, { symptoms: string[]; solutions: string[] }>;
       playerBehavior?: Record<string, { symptoms: string[]; approach: string }>;
       environmentalIssues?: Record<string, { symptom?: string; symptoms?: string[]; solution?: string; solutions?: string[] }>;
+      technicalIssues?: Record<string, { symptoms: string[]; solutions: string[] }>;
+      conditionIssues?: Record<string, { symptoms?: string[]; solutions?: string[]; solution?: string }>;
+      groupIssues?: Record<string, { symptoms: string[]; solutions: string[] }>;
     };
     // Connection to skill assessments
     skillConnections?: {

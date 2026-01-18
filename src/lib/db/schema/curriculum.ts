@@ -111,21 +111,21 @@ export const skills = pgTable("skills", {
         assessmentActivities: string[];
       };
     };
-    // Age-appropriate expectations
-    ageExpectations: {
+    // Age-appropriate expectations (optional - not all skills have age-specific guidance)
+    ageExpectations?: {
       ages6to8: { typicalLevel: string; notes: string };
       ages9to11: { typicalLevel: string; notes: string };
       ages12to14: { typicalLevel: string; notes: string };
     };
     // Red flags requiring additional support
-    redFlags: string[];
+    redFlags?: string[];
     // Parent communication
-    parentExplanation: string;
-    homeActivities: string[];
+    parentExplanation?: string;
+    homeActivities?: string[];
     // Assessment context
-    bestAssessedIn: string[];
-    assessmentFrequency: string;
-    assessmentDuration: string;
+    bestAssessedIn?: string[];
+    assessmentFrequency?: string;
+    assessmentDuration?: string;
   }>(),
   // Is this a core/required skill for the stage?
   isCore: boolean("is_core").default(false).notNull(),

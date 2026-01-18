@@ -12,7 +12,7 @@
  */
 
 import { db } from "../../index";
-import { activities } from "../../schema/practice-planning";
+import { activities, type NewActivity } from "../../schema/practice-planning";
 import { sports } from "../../schema/sports";
 import { developmentStages } from "../../schema/curriculum";
 import { eq } from "drizzle-orm";
@@ -29,7 +29,7 @@ export async function seedSoccerFundamentalsActivities() {
 
   if (!fundamentals) throw new Error("Development stages must be seeded first");
 
-  const comprehensiveActivities = [
+  const comprehensiveActivities: NewActivity[] = [
     // ═══════════════════════════════════════════════════════════════════════
     // ACTIVITY 1: SHARK ATTACK
     // ═══════════════════════════════════════════════════════════════════════
