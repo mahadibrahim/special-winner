@@ -7,6 +7,7 @@ import ChildrenOverview from '../../components/dashboard/children-overview';
 import CoachNotes from '../../components/dashboard/coach-notes';
 import PaymentsSummary from '../../components/dashboard/payments-summary';
 import { Announcements } from '../../components/dashboard/announcements';
+import { EmailVerificationBanner } from '../../components/dashboard/email-verification-banner';
 import { Button } from '../../components/ui/button';
 
 // Get user from middleware locals
@@ -102,6 +103,15 @@ else if (hour >= 17) greeting = "Good evening";
             </div>
           </div>
         </header>
+
+        <!-- Email Verification Banner -->
+        <div class="mb-6">
+          <EmailVerificationBanner
+            client:load
+            email={user.email}
+            emailVerified={user.emailVerified}
+          />
+        </div>
 
         <!-- Main Dashboard Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
