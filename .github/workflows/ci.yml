@@ -49,6 +49,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
