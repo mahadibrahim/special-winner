@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const seasonSchema = z.object({
   programId: z.string().uuid("Invalid program"),
@@ -25,6 +25,9 @@ const seasonSchema = z.object({
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allSeasons = await db
@@ -70,6 +73,7 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(eq(locations.organizationId, orgContext.organizationId))
       .orderBy(asc(seasons.startDate));
 
     return new Response(JSON.stringify({ seasons: allSeasons }), {

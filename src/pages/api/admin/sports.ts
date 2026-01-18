@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { sports, organizations } from "@/lib/db/schema";
+import { sports } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const sportSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -19,10 +19,14 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const allSports = await db
       .select()
       .from(sports)
+      .where(eq(sports.organizationId, orgContext.organizationId))
       .orderBy(asc(sports.sortOrder), asc(sports.name));
 
     return new Response(JSON.stringify({ sports: allSports }), {
@@ -40,6 +44,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = sportSchema.safeParse(body);
@@ -51,16 +58,10 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Get the default organization (first one)
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
-      return new Response(JSON.stringify({ error: "No organization found. Run db:seed first." }), { status: 400 });
-    }
-
     const [newSport] = await db
       .insert(sports)
       .values({
-        organizationId: org.id,
+        organizationId: orgContext.organizationId,
         ...result.data,
       })
       .returning();

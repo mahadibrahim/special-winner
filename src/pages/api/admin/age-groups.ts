@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { ageGroups } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const ageGroupSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -18,10 +18,14 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const allAgeGroups = await db
       .select()
       .from(ageGroups)
+      .where(eq(ageGroups.organizationId, orgContext.organizationId))
       .orderBy(asc(ageGroups.minAge), asc(ageGroups.name));
 
     return new Response(JSON.stringify({ ageGroups: allAgeGroups }), {
@@ -38,6 +42,9 @@ export const GET: APIRoute = async (context) => {
 export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -58,16 +65,10 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Get the default organization (first one)
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
-      return new Response(JSON.stringify({ error: "No organization found. Run db:seed first." }), { status: 400 });
-    }
-
     const [newAgeGroup] = await db
       .insert(ageGroups)
       .values({
-        organizationId: org.id,
+        organizationId: orgContext.organizationId,
         ...result.data,
         birthDateCutoff: result.data.birthDateCutoff || null,
       })

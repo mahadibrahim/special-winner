@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { teams, seasons, programs, users, rosters, registrations, familyMembers } from "@/lib/db/schema";
+import { teams, seasons, programs, users, rosters, registrations, familyMembers, locations } from "@/lib/db/schema";
 import { eq, asc, desc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const teamSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -20,6 +20,9 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const seasonId = url.searchParams.get("seasonId");
@@ -32,7 +35,11 @@ export const GET: APIRoute = async (context) => {
         with: {
           season: {
             with: {
-              program: true,
+              program: {
+                with: {
+                  location: true,
+                },
+              },
             },
           },
           coach: {
@@ -63,7 +70,8 @@ export const GET: APIRoute = async (context) => {
         },
       });
 
-      if (!team) {
+      // Verify team belongs to this organization
+      if (!team || team.season?.program?.location?.organizationId !== orgContext.organizationId) {
         return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
       }
 
@@ -73,7 +81,7 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
-    // List teams
+    // List teams - filter by organization through the chain
     let query = db
       .select({
         id: teams.id,
@@ -95,8 +103,10 @@ export const GET: APIRoute = async (context) => {
         },
       })
       .from(teams)
-      .leftJoin(seasons, eq(teams.seasonId, seasons.id))
-      .leftJoin(programs, eq(seasons.programId, programs.id));
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(locations.organizationId, orgContext.organizationId));
 
     if (seasonId) {
       query = query.where(eq(teams.seasonId, seasonId)) as any;

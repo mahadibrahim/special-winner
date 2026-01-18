@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { locations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const locationSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -22,8 +22,15 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
-    const allLocations = await db.select().from(locations).orderBy(asc(locations.name));
+    const allLocations = await db
+      .select()
+      .from(locations)
+      .where(eq(locations.organizationId, orgContext.organizationId))
+      .orderBy(asc(locations.name));
     return new Response(JSON.stringify({ locations: allLocations }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -38,6 +45,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = locationSchema.safeParse(body);
@@ -49,16 +59,11 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
-      return new Response(JSON.stringify({ error: "No organization found" }), { status: 400 });
-    }
-
     const data = result.data;
     const [newLocation] = await db
       .insert(locations)
       .values({
-        organizationId: org.id,
+        organizationId: orgContext.organizationId,
         name: data.name,
         slug: data.slug,
         addressLine1: data.addressLine1 || null,

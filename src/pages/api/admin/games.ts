@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { games, teams, venues, seasons, programs } from "@/lib/db/schema";
+import { games, teams, venues, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, asc, desc, and, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const gameSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -24,6 +24,9 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const seasonId = url.searchParams.get("seasonId");
@@ -31,6 +34,7 @@ export const GET: APIRoute = async (context) => {
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");
 
+    // Join through seasons -> programs -> locations to filter by organization
     let query = db
       .select({
         id: games.id,
@@ -47,9 +51,13 @@ export const GET: APIRoute = async (context) => {
         notes: games.notes,
         createdAt: games.createdAt,
       })
-      .from(games);
+      .from(games)
+      .innerJoin(seasons, eq(games.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id));
 
-    const conditions = [];
+    // Always filter by organization
+    const conditions = [eq(locations.organizationId, orgContext.organizationId)];
 
     if (seasonId) {
       conditions.push(eq(games.seasonId, seasonId));

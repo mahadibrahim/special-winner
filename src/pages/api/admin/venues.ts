@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { venues, locations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const venueSchema = z.object({
   locationId: z.string().uuid("Valid location ID is required"),
@@ -19,6 +19,9 @@ const venueSchema = z.object({
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allVenues = await db
@@ -38,7 +41,8 @@ export const GET: APIRoute = async (context) => {
         },
       })
       .from(venues)
-      .leftJoin(locations, eq(venues.locationId, locations.id))
+      .innerJoin(locations, eq(venues.locationId, locations.id))
+      .where(eq(locations.organizationId, orgContext.organizationId))
       .orderBy(asc(venues.name));
 
     return new Response(JSON.stringify({ venues: allVenues }), {
