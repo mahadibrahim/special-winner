@@ -143,7 +143,7 @@ export const POST: APIRoute = async (context) => {
           status: "cancelled",
           cancelledAt: new Date(),
           cancelledReason: "Removed from waitlist by admin",
-          cancelledBy: user.id,
+          cancelledBy: auth.user.id,
           waitlistPosition: null,
           updatedAt: new Date(),
         })

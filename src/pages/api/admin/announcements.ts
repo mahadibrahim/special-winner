@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { announcements, users, organizations } from "@/lib/db/schema";
-import { eq, desc, and, or, isNull, gte, lte } from "drizzle-orm";
+import { announcements, users } from "@/lib/db/schema";
+import { eq, desc, and, or, isNull, gte } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const announcementSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -20,6 +20,10 @@ const announcementSchema = z.object({
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  // Get organization context for multi-tenant filtering
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -50,7 +54,8 @@ export const GET: APIRoute = async (context) => {
       .from(announcements)
       .leftJoin(users, eq(announcements.authorId, users.id));
 
-    const conditions = [];
+    // Always filter by organization
+    const conditions = [eq(announcements.organizationId, orgContext.organizationId)];
 
     if (status) {
       conditions.push(eq(announcements.status, status as any));
@@ -89,6 +94,10 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  // Get organization context for multi-tenant filtering
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = announcementSchema.safeParse(body);
@@ -100,19 +109,13 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Get organization
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
-      return new Response(JSON.stringify({ error: "No organization found" }), { status: 400 });
-    }
-
     const publishedAt = result.data.status === "published" ? new Date() : null;
 
     const [newAnnouncement] = await db
       .insert(announcements)
       .values({
-        organizationId: org.id,
-        authorId: user.id,
+        organizationId: orgContext.organizationId,
+        authorId: auth.user.id,
         ...result.data,
         expiresAt: result.data.expiresAt ? new Date(result.data.expiresAt) : null,
         publishedAt,

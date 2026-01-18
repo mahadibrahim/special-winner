@@ -16,6 +16,8 @@ export {
   requireCoachAccess,
   requireCoachAccessToPlayer,
   requireCoachAccessToTeam,
+  getOrganizationId,
+  requireOrganizationContext,
   type RoleName,
   type ScopeType,
   type UserRole,

@@ -4,7 +4,6 @@ import { registrations, familyMembers, seasons, programs, users } from "@/lib/db
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess } from "@/lib/auth";
-import { isAdmin } from "@/lib/auth/roles";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
 
@@ -14,26 +13,13 @@ const refundActionSchema = z.object({
 });
 
 // POST - Approve or deny a refund request
-export const POST: APIRoute = async ({ params, request, locals }) => {
+export const POST: APIRoute = async (context) => {
+  // Verify admin access
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+
   try {
-    const user = locals.user;
-    if (!auth.authorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Check admin access
-    const adminAccess = await isAdmin(user.id);
-    if (!adminAccess) {
-      return new Response(JSON.stringify({ error: "Admin access required" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const { id } = params;
+    const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Registration ID required" }), {
         status: 400,
@@ -49,7 +35,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Parse request body
-    const body = await request.json();
+    const body = await context.request.json();
     const validation = refundActionSchema.safeParse(body);
 
     if (!validation.success) {
@@ -129,7 +115,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
             reason: "requested_by_customer",
             metadata: {
               registrationId: id,
-              approvedBy: user.id,
+              approvedBy: auth.user.id,
             },
           });
 
@@ -240,26 +226,13 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 };
 
 // GET - Get pending refund details
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async (context) => {
+  // Verify admin access
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+
   try {
-    const user = locals.user;
-    if (!auth.authorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Check admin access
-    const adminAccess = await isAdmin(user.id);
-    if (!adminAccess) {
-      return new Response(JSON.stringify({ error: "Admin access required" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const { id } = params;
+    const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Registration ID required" }), {
         status: 400,

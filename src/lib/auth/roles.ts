@@ -1,6 +1,6 @@
 import type { APIContext } from "astro";
 import { db } from "@/lib/db";
-import { userRoles, roles, teams, rosters, registrations } from "@/lib/db/schema";
+import { userRoles, roles, teams, rosters, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
 import { validateSession } from "./session";
 
@@ -294,4 +294,54 @@ export async function requireCoachAccessToTeam(
   }
 
   return coachResult;
+}
+
+/**
+ * Get the organization ID from context or fallback to first org for super_admins
+ * Returns the organization ID that should be used for filtering queries
+ */
+export async function getOrganizationId(context: APIContext): Promise<string | null> {
+  // First try to get from context (set by domain resolver in middleware)
+  const org = context.locals.organization;
+  if (org?.id) {
+    return org.id;
+  }
+
+  // Fallback: For super_admins in development/localhost, get first org
+  const { user } = await validateSession(context);
+  if (user) {
+    const userRolesList = await getUserRoles(user.id);
+    const isSuperAdmin = userRolesList.some((role) => role.name === "super_admin");
+
+    if (isSuperAdmin) {
+      // Super admin can access first org as fallback (for development)
+      const firstOrg = await db.query.organizations.findFirst();
+      return firstOrg?.id || null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Require organization context for admin APIs
+ * Returns the organization ID or an error response
+ */
+export async function requireOrganizationContext(context: APIContext): Promise<
+  | { hasOrganization: false; response: Response }
+  | { hasOrganization: true; organizationId: string }
+> {
+  const organizationId = await getOrganizationId(context);
+
+  if (!organizationId) {
+    return {
+      hasOrganization: false,
+      response: new Response(
+        JSON.stringify({ error: "Organization context required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      ),
+    };
+  }
+
+  return { hasOrganization: true, organizationId };
 }

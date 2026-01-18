@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { programs, sports, locations } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const programSchema = z.object({
   locationId: z.string().uuid("Invalid location"),
@@ -18,6 +18,10 @@ const programSchema = z.object({
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  // Get organization context for multi-tenant filtering
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allPrograms = await db
@@ -45,6 +49,7 @@ export const GET: APIRoute = async (context) => {
       .from(programs)
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
+      .where(eq(locations.organizationId, orgContext.organizationId))
       .orderBy(asc(programs.name));
 
     return new Response(JSON.stringify({ programs: allPrograms }), {

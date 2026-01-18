@@ -3,28 +3,14 @@ import { db } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { requireAdminAccess } from "@/lib/auth";
-import { isAdmin } from "@/lib/auth/roles";
 
 // GET - List all refund requests (pending, processed, denied)
-export const GET: APIRoute = async ({ url, locals }) => {
+export const GET: APIRoute = async (context) => {
+  // Verify admin access
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+
   try {
-    const user = locals.user;
-    if (!auth.authorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Check admin access
-    const adminAccess = await isAdmin(user.id);
-    if (!adminAccess) {
-      return new Response(JSON.stringify({ error: "Admin access required" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
         status: 503,
@@ -33,7 +19,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Get filter from query params
-    const status = url.searchParams.get("status"); // pending_approval, approved, denied, processed, all
+    const status = context.url.searchParams.get("status"); // pending_approval, approved, denied, processed, all
 
     // Build query
     let query = db

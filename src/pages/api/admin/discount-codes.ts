@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { discountCodes, seasons, programs } from "@/lib/db/schema";
 import { eq, asc, desc, and, or, isNull, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const discountCodeSchema = z.object({
   code: z.string().min(1, "Code is required").max(50).toUpperCase(),
@@ -25,6 +25,10 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  // Get organization context for multi-tenant filtering
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const allCodes = await db
       .select({
@@ -45,6 +49,7 @@ export const GET: APIRoute = async (context) => {
         createdAt: discountCodes.createdAt,
       })
       .from(discountCodes)
+      .where(eq(discountCodes.organizationId, orgContext.organizationId))
       .orderBy(desc(discountCodes.createdAt));
 
     return new Response(JSON.stringify({ discountCodes: allCodes }), {
@@ -62,6 +67,10 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  // Get organization context for multi-tenant filtering
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = discountCodeSchema.safeParse(body);
@@ -73,15 +82,12 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Get organization
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
-      return new Response(JSON.stringify({ error: "No organization found" }), { status: 400 });
-    }
-
-    // Check for duplicate code
+    // Check for duplicate code within this organization
     const existing = await db.query.discountCodes.findFirst({
-      where: eq(discountCodes.code, result.data.code),
+      where: and(
+        eq(discountCodes.code, result.data.code),
+        eq(discountCodes.organizationId, orgContext.organizationId)
+      ),
     });
 
     if (existing) {
@@ -93,7 +99,7 @@ export const POST: APIRoute = async (context) => {
     const [newCode] = await db
       .insert(discountCodes)
       .values({
-        organizationId: org.id,
+        organizationId: orgContext.organizationId,
         ...result.data,
         startsAt: result.data.startsAt ? new Date(result.data.startsAt) : null,
         expiresAt: result.data.expiresAt ? new Date(result.data.expiresAt) : null,
