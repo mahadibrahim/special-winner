@@ -1,0 +1,29 @@
+---
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { AgeGroupsList } from '../../components/admin/age-groups-list';
+
+// Check if user is admin
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/age-groups');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Age Groups - Admin - Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/age-groups"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <AgeGroupsList client:load />
+    </AdminLayout>
+  </body>
+</html>

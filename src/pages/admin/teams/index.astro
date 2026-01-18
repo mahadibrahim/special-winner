@@ -1,0 +1,107 @@
+---
+import '../../../styles/globals.css';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { TeamsList } from '../../../components/admin/teams-list';
+import { db } from '../../../lib/db';
+import { seasons, programs, users, userRoles, roles } from '../../../lib/db/schema';
+import { eq, asc, or } from 'drizzle-orm';
+
+// Check if user is admin
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/teams');
+}
+
+// Fetch seasons with programs
+let seasonsList: any[] = [];
+let coachesList: any[] = [];
+
+try {
+  const allSeasons = await db
+    .select({
+      id: seasons.id,
+      name: seasons.name,
+      program: {
+        id: programs.id,
+        name: programs.name,
+      },
+    })
+    .from(seasons)
+    .leftJoin(programs, eq(seasons.programId, programs.id))
+    .orderBy(asc(programs.name), asc(seasons.name));
+
+  seasonsList = allSeasons.map(s => ({
+    id: s.id,
+    name: s.name,
+    program: s.program,
+  }));
+
+  // Fetch users who are coaches
+  const coachRole = await db.query.roles.findFirst({
+    where: eq(roles.name, 'coach'),
+  });
+
+  if (coachRole) {
+    const coachUserIds = await db
+      .select({ userId: userRoles.userId })
+      .from(userRoles)
+      .where(eq(userRoles.roleId, coachRole.id));
+
+    const uniqueCoachIds = [...new Set(coachUserIds.map(c => c.userId))];
+
+    if (uniqueCoachIds.length > 0) {
+      const coaches = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        })
+        .from(users)
+        .where(or(...uniqueCoachIds.map(id => eq(users.id, id))));
+
+      coachesList = coaches;
+    }
+  }
+
+  // Also include admins as potential coaches
+  const allUsers = await db
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+    })
+    .from(users)
+    .orderBy(asc(users.lastName), asc(users.firstName))
+    .limit(100);
+
+  // Merge and dedupe
+  const seenIds = new Set(coachesList.map(c => c.id));
+  for (const u of allUsers) {
+    if (!seenIds.has(u.id)) {
+      coachesList.push(u);
+    }
+  }
+} catch (error) {
+  console.error('Error fetching data:', error);
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Teams - Admin - Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/teams"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <TeamsList client:load seasons={seasonsList} coaches={coachesList} />
+    </AdminLayout>
+  </body>
+</html>

@@ -1,0 +1,48 @@
+---
+import '../../styles/globals.css';
+import Navigation from '../../components/navigation';
+import Footer from '../../components/footer';
+import { ProfileSettings } from '../../components/dashboard/profile-settings';
+import { PasswordChange } from '../../components/dashboard/password-change';
+
+// Check if user is authenticated
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/dashboard/settings');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Settings - Dashboard - Aspire Sports</title>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-20 pb-12">
+      <div class="max-w-3xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-8">
+          <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+            <a href="/dashboard" class="hover:text-white">Dashboard</a>
+            <span>/</span>
+            <span>Settings</span>
+          </div>
+          <h1 class="text-3xl font-bold text-white">Account Settings</h1>
+          <p class="text-gray-400 mt-1">Manage your profile and security settings</p>
+        </div>
+
+        <!-- Settings Cards -->
+        <div class="space-y-6">
+          <ProfileSettings client:load />
+          <PasswordChange client:load />
+        </div>
+      </div>
+    </main>
+
+    <Footer client:load />
+  </body>
+</html>

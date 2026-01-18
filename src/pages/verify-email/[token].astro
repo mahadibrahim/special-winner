@@ -1,0 +1,110 @@
+---
+import '../../styles/globals.css';
+import Navigation from '../../components/navigation';
+import Footer from '../../components/footer';
+import { db } from '@/lib/db';
+import { users, emailVerificationTokens } from '@/lib/db/schema';
+import { eq, gt, and } from 'drizzle-orm';
+
+const { token } = Astro.params;
+
+let verified = false;
+let error: string | null = null;
+
+if (token && db) {
+  // Find valid token
+  const verificationToken = await db
+    .select()
+    .from(emailVerificationTokens)
+    .where(
+      and(
+        eq(emailVerificationTokens.id, token),
+        gt(emailVerificationTokens.expiresAt, new Date())
+      )
+    )
+    .limit(1);
+
+  if (verificationToken.length) {
+    // Update user email verified status
+    await db
+      .update(users)
+      .set({ emailVerified: true, updatedAt: new Date() })
+      .where(eq(users.id, verificationToken[0].userId));
+
+    // Delete used token and any other tokens for this user
+    await db
+      .delete(emailVerificationTokens)
+      .where(eq(emailVerificationTokens.userId, verificationToken[0].userId));
+
+    verified = true;
+  } else {
+    error = "This verification link is invalid or has expired.";
+  }
+} else {
+  error = "Invalid verification link.";
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{verified ? 'Email Verified' : 'Verification Failed'} - Aspire Sports</title>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 flex items-center justify-center py-12 px-4 pt-24">
+      <div class="w-full max-w-md">
+        <!-- Card -->
+        <div class="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-8">
+          {verified ? (
+            <div class="text-center">
+              <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h1 class="text-2xl font-bold text-white mb-2">Email Verified!</h1>
+              <p class="text-gray-400 mb-6">
+                Your email has been successfully verified. You can now access all features of your account.
+              </p>
+              <a
+                href="/dashboard"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8"
+              >
+                Go to Dashboard
+              </a>
+            </div>
+          ) : (
+            <div class="text-center">
+              <div class="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h1 class="text-2xl font-bold text-white mb-2">Verification Failed</h1>
+              <p class="text-gray-400 mb-6">
+                {error}
+              </p>
+              <div class="space-y-3">
+                <a
+                  href="/dashboard"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
+                >
+                  Go to Dashboard
+                </a>
+                <p class="text-gray-500 text-sm">
+                  You can request a new verification email from your dashboard settings.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+
+    <Footer client:load />
+  </body>
+</html>

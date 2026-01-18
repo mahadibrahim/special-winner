@@ -37,6 +37,19 @@ export const noteCategoryEnum = pgEnum("note_category", [
   "general",
 ]);
 
+export const attendanceStatusEnum = pgEnum("attendance_status", [
+  "present",
+  "absent",
+  "late",
+  "excused",
+]);
+
+export const eventTypeEnum = pgEnum("event_type", [
+  "practice",
+  "game",
+  "other",
+]);
+
 // Venues/Facilities
 export const venues = pgTable("venues", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -155,6 +168,27 @@ export const coachNotes = pgTable("coach_notes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Attendance tracking
+export const attendance = pgTable("attendance", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamId: uuid("team_id")
+    .notNull()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  rosterId: uuid("roster_id")
+    .notNull()
+    .references(() => rosters.id, { onDelete: "cascade" }),
+  gameId: uuid("game_id").references(() => games.id, { onDelete: "cascade" }),
+  eventDate: timestamp("event_date").notNull(),
+  eventType: eventTypeEnum("event_type").default("practice").notNull(),
+  status: attendanceStatusEnum("status").default("present").notNull(),
+  notes: text("notes"),
+  recordedByUserId: uuid("recorded_by_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const venuesRelations = relations(venues, ({ one, many }) => ({
   location: one(locations, {
@@ -241,6 +275,25 @@ export const coachNotesRelations = relations(coachNotes, ({ one }) => ({
   }),
 }));
 
+export const attendanceRelations = relations(attendance, ({ one }) => ({
+  team: one(teams, {
+    fields: [attendance.teamId],
+    references: [teams.id],
+  }),
+  roster: one(rosters, {
+    fields: [attendance.rosterId],
+    references: [rosters.id],
+  }),
+  game: one(games, {
+    fields: [attendance.gameId],
+    references: [games.id],
+  }),
+  recordedBy: one(users, {
+    fields: [attendance.recordedByUserId],
+    references: [users.id],
+  }),
+}));
+
 // Type exports
 export type Venue = typeof venues.$inferSelect;
 export type NewVenue = typeof venues.$inferInsert;
@@ -254,3 +307,5 @@ export type Standing = typeof standings.$inferSelect;
 export type NewStanding = typeof standings.$inferInsert;
 export type CoachNote = typeof coachNotes.$inferSelect;
 export type NewCoachNote = typeof coachNotes.$inferInsert;
+export type Attendance = typeof attendance.$inferSelect;
+export type NewAttendance = typeof attendance.$inferInsert;

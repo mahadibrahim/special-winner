@@ -1,0 +1,266 @@
+import type { APIRoute } from "astro";
+import { db } from "@/lib/db";
+import { games, teams, venues, seasons, programs } from "@/lib/db/schema";
+import { eq, asc, desc, and, gte, lte } from "drizzle-orm";
+import { z } from "zod";
+import { validateSession } from "@/lib/auth";
+
+const gameSchema = z.object({
+  seasonId: z.string().uuid("Valid season ID is required"),
+  homeTeamId: z.string().uuid().optional().nullable(),
+  awayTeamId: z.string().uuid().optional().nullable(),
+  venueId: z.string().uuid().optional().nullable(),
+  fieldNumber: z.string().optional().nullable(),
+  scheduledAt: z.string().datetime({ message: "Valid date/time is required" }),
+  durationMinutes: z.number().min(1).optional().nullable(),
+  status: z.enum(["scheduled", "in_progress", "completed", "postponed", "cancelled"]).default("scheduled"),
+  homeScore: z.number().min(0).optional().nullable(),
+  awayScore: z.number().min(0).optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+// GET - List all games (optionally filtered)
+export const GET: APIRoute = async (context) => {
+  const { user } = await validateSession(context);
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  try {
+    const url = new URL(context.request.url);
+    const seasonId = url.searchParams.get("seasonId");
+    const teamId = url.searchParams.get("teamId");
+    const startDate = url.searchParams.get("startDate");
+    const endDate = url.searchParams.get("endDate");
+
+    let query = db
+      .select({
+        id: games.id,
+        seasonId: games.seasonId,
+        homeTeamId: games.homeTeamId,
+        awayTeamId: games.awayTeamId,
+        venueId: games.venueId,
+        fieldNumber: games.fieldNumber,
+        scheduledAt: games.scheduledAt,
+        durationMinutes: games.durationMinutes,
+        status: games.status,
+        homeScore: games.homeScore,
+        awayScore: games.awayScore,
+        notes: games.notes,
+        createdAt: games.createdAt,
+      })
+      .from(games);
+
+    const conditions = [];
+
+    if (seasonId) {
+      conditions.push(eq(games.seasonId, seasonId));
+    }
+
+    if (teamId) {
+      // Games where the team is either home or away would need OR logic
+      // For now, filter in JS
+    }
+
+    if (startDate) {
+      conditions.push(gte(games.scheduledAt, new Date(startDate)));
+    }
+
+    if (endDate) {
+      conditions.push(lte(games.scheduledAt, new Date(endDate)));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const allGames = await query.orderBy(asc(games.scheduledAt));
+
+    // Fetch related data separately
+    const gameIds = allGames.map(g => g.id);
+
+    // Get teams and venues for all games
+    const teamsMap = new Map();
+    const venuesMap = new Map();
+    const seasonsMap = new Map();
+
+    const uniqueTeamIds = [...new Set([
+      ...allGames.map(g => g.homeTeamId).filter(Boolean),
+      ...allGames.map(g => g.awayTeamId).filter(Boolean),
+    ])];
+
+    const uniqueVenueIds = [...new Set(allGames.map(g => g.venueId).filter(Boolean))];
+    const uniqueSeasonIds = [...new Set(allGames.map(g => g.seasonId))];
+
+    if (uniqueTeamIds.length > 0) {
+      const teamsList = await db.select().from(teams);
+      teamsList.forEach(t => teamsMap.set(t.id, t));
+    }
+
+    if (uniqueVenueIds.length > 0) {
+      const venuesList = await db.select().from(venues);
+      venuesList.forEach(v => venuesMap.set(v.id, v));
+    }
+
+    if (uniqueSeasonIds.length > 0) {
+      const seasonsList = await db
+        .select({
+          id: seasons.id,
+          name: seasons.name,
+          programId: seasons.programId,
+          program: {
+            id: programs.id,
+            name: programs.name,
+          },
+        })
+        .from(seasons)
+        .leftJoin(programs, eq(seasons.programId, programs.id));
+      seasonsList.forEach(s => seasonsMap.set(s.id, s));
+    }
+
+    // Enrich games with related data
+    const enrichedGames = allGames.map(game => ({
+      ...game,
+      homeTeam: game.homeTeamId ? teamsMap.get(game.homeTeamId) : null,
+      awayTeam: game.awayTeamId ? teamsMap.get(game.awayTeamId) : null,
+      venue: game.venueId ? venuesMap.get(game.venueId) : null,
+      season: seasonsMap.get(game.seasonId),
+    }));
+
+    // Filter by teamId if needed
+    let filteredGames = enrichedGames;
+    if (teamId) {
+      filteredGames = enrichedGames.filter(
+        g => g.homeTeamId === teamId || g.awayTeamId === teamId
+      );
+    }
+
+    return new Response(JSON.stringify({ games: filteredGames }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error fetching games:", error);
+    return new Response(JSON.stringify({ error: "Failed to fetch games" }), { status: 500 });
+  }
+};
+
+// POST - Create new game
+export const POST: APIRoute = async (context) => {
+  const { user } = await validateSession(context);
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  try {
+    const body = await context.request.json();
+    const result = gameSchema.safeParse(body);
+
+    if (!result.success) {
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
+        { status: 400 }
+      );
+    }
+
+    const [newGame] = await db
+      .insert(games)
+      .values({
+        ...result.data,
+        scheduledAt: new Date(result.data.scheduledAt),
+      })
+      .returning();
+
+    return new Response(JSON.stringify({ game: newGame }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: any) {
+    console.error("Error creating game:", error);
+    if (error.code === "23503") {
+      return new Response(JSON.stringify({ error: "Invalid team, venue, or season selected" }), { status: 400 });
+    }
+    return new Response(JSON.stringify({ error: "Failed to create game" }), { status: 500 });
+  }
+};
+
+// PUT - Update game
+export const PUT: APIRoute = async (context) => {
+  const { user } = await validateSession(context);
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  try {
+    const body = await context.request.json();
+    const { id, ...data } = body;
+
+    if (!id) {
+      return new Response(JSON.stringify({ error: "Game ID is required" }), { status: 400 });
+    }
+
+    const result = gameSchema.safeParse(data);
+    if (!result.success) {
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
+        { status: 400 }
+      );
+    }
+
+    const [updatedGame] = await db
+      .update(games)
+      .set({
+        ...result.data,
+        scheduledAt: new Date(result.data.scheduledAt),
+        updatedAt: new Date(),
+      })
+      .where(eq(games.id, id))
+      .returning();
+
+    if (!updatedGame) {
+      return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
+    }
+
+    return new Response(JSON.stringify({ game: updatedGame }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: any) {
+    console.error("Error updating game:", error);
+    if (error.code === "23503") {
+      return new Response(JSON.stringify({ error: "Invalid team, venue, or season selected" }), { status: 400 });
+    }
+    return new Response(JSON.stringify({ error: "Failed to update game" }), { status: 500 });
+  }
+};
+
+// DELETE - Delete game
+export const DELETE: APIRoute = async (context) => {
+  const { user } = await validateSession(context);
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  try {
+    const url = new URL(context.request.url);
+    const id = url.searchParams.get("id");
+
+    if (!id) {
+      return new Response(JSON.stringify({ error: "Game ID is required" }), { status: 400 });
+    }
+
+    const [deletedGame] = await db.delete(games).where(eq(games.id, id)).returning();
+
+    if (!deletedGame) {
+      return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: any) {
+    console.error("Error deleting game:", error);
+    return new Response(JSON.stringify({ error: "Failed to delete game" }), { status: 500 });
+  }
+};

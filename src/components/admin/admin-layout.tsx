@@ -7,6 +7,7 @@ import {
   MapPin,
   Calendar,
   Users,
+  Users2,
   CreditCard,
   Settings,
   Menu,
@@ -17,6 +18,11 @@ import {
   Building2,
   RefreshCcw,
   BookOpen,
+  CalendarDays,
+  Megaphone,
+  Tag,
+  ListOrdered,
+  BarChart3,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -36,12 +42,21 @@ const navigation = [
   { name: "Organizations", href: "/admin/organizations", icon: Building2 },
   { name: "Sports", href: "/admin/sports", icon: Trophy },
   { name: "Locations", href: "/admin/locations", icon: MapPin },
+  { name: "Venues", href: "/admin/venues", icon: MapPin },
   { name: "Programs", href: "/admin/programs", icon: Dumbbell },
   { name: "Seasons", href: "/admin/seasons", icon: Calendar },
+  { name: "Age Groups", href: "/admin/age-groups", icon: Users },
+  { name: "Teams", href: "/admin/teams", icon: Users2 },
+  { name: "Games", href: "/admin/games", icon: CalendarDays },
   { name: "Curriculum", href: "/admin/curriculum", icon: BookOpen },
   { name: "Registrations", href: "/admin/registrations", icon: Users },
+  { name: "Waitlist", href: "/admin/waitlist", icon: ListOrdered },
   { name: "Refunds", href: "/admin/refunds", icon: RefreshCcw },
   { name: "Payments", href: "/admin/payments", icon: CreditCard },
+  { name: "Discount Codes", href: "/admin/discount-codes", icon: Tag },
+  { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Announcements", href: "/admin/announcements", icon: Megaphone },
+  { name: "Reports", href: "/admin/reports", icon: BarChart3 },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
 

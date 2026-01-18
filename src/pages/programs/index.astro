@@ -1,0 +1,87 @@
+---
+import '../../styles/globals.css';
+import Navigation from '../../components/navigation';
+import Footer from '../../components/footer';
+import ProgramsDirectory from '../../components/programs-directory';
+import { db } from '../../lib/db';
+import { sports, locations, seasons, programs, registrations } from '../../lib/db/schema';
+import { eq, and, asc, gte, sql } from 'drizzle-orm';
+
+// Get current organization
+const organization = Astro.locals.organization;
+
+// Fetch sports and locations
+let sportsList: any[] = [];
+let locationsList: any[] = [];
+
+try {
+  // Fetch sports
+  const allSports = await db
+    .select({
+      id: sports.id,
+      name: sports.name,
+      slug: sports.slug,
+      icon: sports.icon,
+      color: sports.color,
+    })
+    .from(sports)
+    .where(eq(sports.active, true))
+    .orderBy(asc(sports.sortOrder), asc(sports.name));
+
+  sportsList = allSports;
+
+  // Fetch locations
+  const allLocations = await db
+    .select({
+      id: locations.id,
+      name: locations.name,
+      slug: locations.slug,
+      city: locations.city,
+      state: locations.state,
+    })
+    .from(locations)
+    .orderBy(asc(locations.name));
+
+  locationsList = allLocations;
+} catch (error) {
+  console.error('Error fetching data:', error);
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Programs - Aspire Sports</title>
+    <meta name="description" content="Browse and register for sports programs including leagues, camps, clinics, and training." />
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-20">
+      <!-- Hero Section -->
+      <div class="bg-gradient-to-b from-primary/10 to-transparent py-16 px-4">
+        <div class="max-w-7xl mx-auto text-center">
+          <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+            Our Programs
+          </h1>
+          <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+            Find the perfect program for your athlete. From youth leagues to advanced training, we have something for everyone.
+          </p>
+        </div>
+      </div>
+
+      <!-- Programs Directory -->
+      <div class="max-w-7xl mx-auto px-4 pb-16">
+        <ProgramsDirectory
+          client:load
+          sports={sportsList}
+          locations={locationsList}
+        />
+      </div>
+    </main>
+
+    <Footer client:load />
+  </body>
+</html>

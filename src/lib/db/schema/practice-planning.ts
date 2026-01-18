@@ -129,6 +129,90 @@ export const activities = pgTable("activities", {
   active: boolean("active").default(true).notNull(),
   usageCount: integer("usage_count").default(0).notNull(),
   averageRating: integer("average_rating"), // 1-5 from coach feedback
+  // Enhanced comprehensive content for print-ready coaching guides
+  comprehensiveGuide: jsonb("comprehensive_guide").$type<{
+    // Quick reference for experienced coaches
+    quickReference?: {
+      oneSentence: string;
+      keyPhrases: string[];
+      setupDiagram: string;
+      quickProgression: { easier: string; harder: string };
+    };
+    // Minute-by-minute coaching script
+    completeScript?: {
+      beforeYouStart: {
+        preparation: string[];
+        mindset: string;
+      };
+      segments: Array<{
+        phase: string;
+        duration: string;
+        coachPosition: string;
+        script: string;
+        anticipatedResponses?: Record<string, string>;
+        troubleshooting?: Record<string, string[]>;
+      }>;
+    };
+    // If X happens, do Y
+    troubleshooting?: {
+      gameBalance?: Record<string, { symptoms: string[]; solutions: string[] }>;
+      playerBehavior?: Record<string, { symptoms: string[]; approach: string }>;
+      environmentalIssues?: Record<string, { symptom?: string; symptoms?: string[]; solution?: string; solutions?: string[] }>;
+    };
+    // Connection to skill assessments
+    skillConnections?: {
+      primarySkills: Array<{
+        skill: string;
+        domain: string;
+        howItDevelops: string;
+        levelIndicators: Record<number, string>;
+        assessmentNotes?: string;
+      }>;
+      secondarySkills?: Array<{
+        skill: string;
+        domain: string;
+        howItDevelops: string;
+        levelIndicators?: Record<number, string>;
+      }>;
+      physicalDevelopment?: Record<string, string>;
+      psychologicalDevelopment?: Record<string, string>;
+    };
+    // Where this fits in development
+    developmentalContext?: {
+      whyThisActivity: string;
+      whenToUseIt: { idealFor: string[]; avoidWhen: string[] };
+      progressionPath: {
+        before: Array<{ activity: string; reason: string }>;
+        after: Array<{ activity: string; reason: string }>;
+      };
+      ageAdaptations: Record<string, {
+        approach: string;
+        keyPhrases: string[];
+        avoidSaying?: string[];
+        duration?: string;
+        simplifications?: string[];
+        challenges?: string[];
+        coachRole?: string;
+      }>;
+      commonMisconceptions?: Record<string, string>;
+    };
+    // What to tell parents
+    parentCommunication?: {
+      ifAsked: string;
+      newsletter: string;
+      whatToWatchFor: string[];
+    };
+    // Safety and inclusion
+    safety?: {
+      commonRisks: Array<{ risk: string; prevention: string; response: string }>;
+      inclusionConsiderations: Record<string, string>;
+    };
+    // Coach self-reflection
+    coachReflection?: {
+      afterActivity: string[];
+      forImprovement: string[];
+    };
+  }>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

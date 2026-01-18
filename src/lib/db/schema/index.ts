@@ -12,3 +12,9 @@ export * from "./curriculum";
 export * from "./assessments";
 export * from "./practice-planning";
 export * from "./coach-guidance";
+
+// Communication schemas
+export * from "./messages";
+
+// Discount schemas
+export * from "./discounts";

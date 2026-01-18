@@ -1,0 +1,34 @@
+---
+import '../../../styles/globals.css';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { RosterManager } from '../../../components/admin/roster-manager';
+
+// Check if user is admin
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/teams');
+}
+
+const { id } = Astro.params;
+if (!id) {
+  return Astro.redirect('/admin/teams');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Team Roster - Admin - Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/teams"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <RosterManager client:load teamId={id} />
+    </AdminLayout>
+  </body>
+</html>
