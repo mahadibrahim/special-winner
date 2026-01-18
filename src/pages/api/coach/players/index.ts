@@ -1,18 +1,15 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { teams, rosters, registrations, familyMembers, seasons, programs, sports } from "@/lib/db/schema";
-import { eq, or, and, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
+import { requireCoachAccess } from "@/lib/auth";
 
 // GET - Get all players from coach's teams
-export const GET: APIRoute = async ({ url, locals }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    // Verify coach access
+    const auth = await requireCoachAccess(context);
+    if (!auth.authorized) return auth.response;
 
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
@@ -22,9 +19,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Optional team filter
-    const teamId = url.searchParams.get("teamId");
+    const teamId = context.url.searchParams.get("teamId");
 
-    // Get all teams where user is coach or assistant coach
+    // Filter to specific team if requested, validate it's the coach's team
+    let teamIds = auth.teamIds;
+    if (teamId) {
+      if (!auth.teamIds.includes(teamId)) {
+        return new Response(JSON.stringify({ error: "Access denied - not coach of this team" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      teamIds = [teamId];
+    }
+
+    // Get team details for the filtered teams
     const coachTeams = await db
       .select({
         id: teams.id,
@@ -42,31 +51,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
-      .where(
-        or(
-          eq(teams.coachUserId, user.id),
-          eq(teams.assistantCoachUserId, user.id)
-        )
-      );
-
-    if (coachTeams.length === 0) {
-      return new Response(JSON.stringify({ error: "Access denied - not a coach" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Filter to specific team if requested
-    let teamIds = coachTeams.map((t) => t.id);
-    if (teamId) {
-      if (!teamIds.includes(teamId)) {
-        return new Response(JSON.stringify({ error: "Access denied - not coach of this team" }), {
-          status: 403,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      teamIds = [teamId];
-    }
+      .where(inArray(teams.id, teamIds));
 
     // Create a map of team info for lookup
     const teamMap = new Map(coachTeams.map((t) => [t.id, t]));

@@ -7,11 +7,12 @@ import {
   skillDomains,
   developmentStages,
   familyMembers,
-  teams,
-  seasons,
+  rosters,
+  registrations,
 } from "@/lib/db/schema";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { requireCoachAccess, isPlayerOnCoachTeam, getCoachPlayerIds } from "@/lib/auth";
 
 const createAssessmentSchema = z.object({
   familyMemberId: z.string().uuid(),
@@ -25,16 +26,12 @@ const createAssessmentSchema = z.object({
   areasForImprovement: z.array(z.string()).optional(),
 });
 
-// GET - Get assessments (optionally filtered by player, skill, team, etc.)
-export const GET: APIRoute = async ({ url, locals }) => {
+// GET - Get assessments (filtered to coach's players only)
+export const GET: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    // Verify coach access
+    const auth = await requireCoachAccess(context);
+    if (!auth.authorized) return auth.response;
 
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
@@ -44,32 +41,43 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Query parameters
-    const familyMemberId = url.searchParams.get("familyMemberId");
-    const skillId = url.searchParams.get("skillId");
-    const teamId = url.searchParams.get("teamId");
-    const domainId = url.searchParams.get("domainId");
-    const limit = parseInt(url.searchParams.get("limit") || "50");
+    const familyMemberId = context.url.searchParams.get("familyMemberId");
+    const skillId = context.url.searchParams.get("skillId");
+    const teamId = context.url.searchParams.get("teamId");
+    const domainId = context.url.searchParams.get("domainId");
+    const limit = parseInt(context.url.searchParams.get("limit") || "50");
 
-    // Verify user is a coach
-    const coachTeams = await db
-      .select({ id: teams.id })
-      .from(teams)
-      .where(
-        or(
-          eq(teams.coachUserId, user.id),
-          eq(teams.assistantCoachUserId, user.id)
-        )
-      );
-
-    if (coachTeams.length === 0) {
-      return new Response(JSON.stringify({ error: "Access denied - not a coach" }), {
+    // If teamId is specified, verify coach owns that team
+    if (teamId && !auth.teamIds.includes(teamId)) {
+      return new Response(JSON.stringify({ error: "Access denied - not your team" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Build query conditions
-    const conditions = [];
+    // If familyMemberId is specified, verify player is on coach's team
+    if (familyMemberId) {
+      const hasAccess = await isPlayerOnCoachTeam(auth.teamIds, familyMemberId);
+      if (!hasAccess) {
+        return new Response(JSON.stringify({ error: "Access denied - player not on your team" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Get all player IDs the coach has access to
+    const coachPlayerIds = await getCoachPlayerIds(auth.teamIds);
+
+    if (coachPlayerIds.length === 0) {
+      return new Response(JSON.stringify({ assessments: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Build query conditions - always filter to coach's players
+    const conditions = [inArray(playerAssessments.familyMemberId, coachPlayerIds)];
 
     if (familyMemberId) {
       conditions.push(eq(playerAssessments.familyMemberId, familyMemberId));
@@ -88,7 +96,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Build query
-    let query = db
+    const assessments = await db
       .select({
         id: playerAssessments.id,
         familyMemberId: playerAssessments.familyMemberId,
@@ -130,14 +138,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .innerJoin(skillDomains, eq(skills.domainId, skillDomains.id))
       .innerJoin(developmentStages, eq(skills.stageId, developmentStages.id))
       .innerJoin(familyMembers, eq(playerAssessments.familyMemberId, familyMembers.id))
+      .where(and(...conditions))
       .orderBy(desc(playerAssessments.assessedAt))
       .limit(limit);
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as typeof query;
-    }
-
-    const assessments = await query;
 
     return new Response(JSON.stringify({ assessments }), {
       status: 200,
@@ -153,15 +156,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
 };
 
 // POST - Create a new assessment
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    // Verify coach access
+    const auth = await requireCoachAccess(context);
+    if (!auth.authorized) return auth.response;
 
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
@@ -171,7 +170,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Parse and validate request body
-    const body = await request.json();
+    const body = await context.request.json();
     const validation = createAssessmentSchema.safeParse(body);
 
     if (!validation.success) {
@@ -199,19 +198,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
       areasForImprovement,
     } = validation.data;
 
-    // Verify user is a coach
-    const coachTeams = await db
-      .select({ id: teams.id })
-      .from(teams)
-      .where(
-        or(
-          eq(teams.coachUserId, user.id),
-          eq(teams.assistantCoachUserId, user.id)
-        )
-      );
+    // If teamId is provided, verify coach owns that team
+    if (teamId && !auth.teamIds.includes(teamId)) {
+      return new Response(JSON.stringify({ error: "Access denied - not your team" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-    if (coachTeams.length === 0) {
-      return new Response(JSON.stringify({ error: "Access denied - not a coach" }), {
+    // Verify the player is on one of the coach's teams
+    const hasAccess = await isPlayerOnCoachTeam(auth.teamIds, familyMemberId);
+    if (!hasAccess) {
+      return new Response(JSON.stringify({ error: "Access denied - player not on your team" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });
@@ -266,7 +264,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         skillId,
         teamId: teamId || null,
         seasonId: seasonId || null,
-        coachUserId: user.id,
+        coachUserId: auth.user.id,
         level,
         previousLevel,
         observationContext,

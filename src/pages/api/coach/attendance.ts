@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { attendance, rosters, teams, familyMembers, registrations, games } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
-import { validateSession } from "@/lib/auth";
+import { requireCoachAccessToTeam } from "@/lib/auth";
 
 const attendanceSchema = z.object({
   teamId: z.string().uuid(),
@@ -29,11 +29,6 @@ const bulkAttendanceSchema = z.object({
 
 // GET - Get attendance records for a team
 export const GET: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
-
   try {
     const url = new URL(context.request.url);
     const teamId = url.searchParams.get("teamId");
@@ -43,7 +38,11 @@ export const GET: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Team ID is required" }), { status: 400 });
     }
 
-    // Verify user is coach of this team
+    // Verify coach has access to this team
+    const auth = await requireCoachAccessToTeam(context, teamId);
+    if (!auth.authorized) return auth.response;
+
+    // Get team details
     const team = await db.query.teams.findFirst({
       where: eq(teams.id, teamId),
     });
@@ -148,11 +147,6 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Record attendance (single or bulk)
 export const POST: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
-
   try {
     const body = await context.request.json();
 
@@ -167,6 +161,10 @@ export const POST: APIRoute = async (context) => {
       }
 
       const { teamId, eventDate, eventType, gameId, records } = result.data;
+
+      // Verify coach has access to this team
+      const auth = await requireCoachAccessToTeam(context, teamId);
+      if (!auth.authorized) return auth.response;
 
       // Delete existing attendance for this event
       const startOfDay = new Date(eventDate);
@@ -193,7 +191,7 @@ export const POST: APIRoute = async (context) => {
         eventType: eventType as "practice" | "game" | "other",
         status: record.status as "present" | "absent" | "late" | "excused",
         notes: record.notes || null,
-        recordedByUserId: user.id,
+        recordedByUserId: auth.user.id,
       }));
 
       await db.insert(attendance).values(newRecords);
@@ -215,6 +213,10 @@ export const POST: APIRoute = async (context) => {
         );
       }
 
+      // Verify coach has access to this team
+      const auth = await requireCoachAccessToTeam(context, result.data.teamId);
+      if (!auth.authorized) return auth.response;
+
       const [newAttendance] = await db
         .insert(attendance)
         .values({
@@ -222,7 +224,7 @@ export const POST: APIRoute = async (context) => {
           eventDate: new Date(result.data.eventDate),
           gameId: result.data.gameId || null,
           notes: result.data.notes || null,
-          recordedByUserId: user.id,
+          recordedByUserId: auth.user.id,
         })
         .returning();
 
@@ -239,11 +241,6 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update single attendance record
 export const PUT: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
-
   try {
     const body = await context.request.json();
     const { id, status, notes } = body;
@@ -251,6 +248,20 @@ export const PUT: APIRoute = async (context) => {
     if (!id) {
       return new Response(JSON.stringify({ error: "Attendance ID is required" }), { status: 400 });
     }
+
+    // First, get the attendance record to find its teamId
+    const [existingRecord] = await db
+      .select({ teamId: attendance.teamId })
+      .from(attendance)
+      .where(eq(attendance.id, id));
+
+    if (!existingRecord) {
+      return new Response(JSON.stringify({ error: "Attendance record not found" }), { status: 404 });
+    }
+
+    // Verify coach has access to this team
+    const auth = await requireCoachAccessToTeam(context, existingRecord.teamId);
+    if (!auth.authorized) return auth.response;
 
     const [updated] = await db
       .update(attendance)
@@ -261,10 +272,6 @@ export const PUT: APIRoute = async (context) => {
       })
       .where(eq(attendance.id, id))
       .returning();
-
-    if (!updated) {
-      return new Response(JSON.stringify({ error: "Attendance record not found" }), { status: 404 });
-    }
 
     return new Response(JSON.stringify({ attendance: updated }), {
       status: 200,

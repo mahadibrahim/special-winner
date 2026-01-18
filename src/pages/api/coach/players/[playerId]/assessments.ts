@@ -7,22 +7,14 @@ import {
   skillDomains,
   developmentStages,
   familyMembers,
-  teams,
 } from "@/lib/db/schema";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
+import { requireCoachAccessToPlayer } from "@/lib/auth";
 
 // GET - Get all assessments for a specific player
-export const GET: APIRoute = async ({ params, url, locals }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const { playerId } = params;
+    const { playerId } = context.params;
     if (!playerId) {
       return new Response(JSON.stringify({ error: "Player ID required" }), {
         status: 400,
@@ -30,27 +22,13 @@ export const GET: APIRoute = async ({ params, url, locals }) => {
       });
     }
 
+    // Verify coach has access to this player
+    const auth = await requireCoachAccessToPlayer(context, playerId);
+    if (!auth.authorized) return auth.response;
+
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
         status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Verify user is a coach
-    const coachTeams = await db
-      .select({ id: teams.id })
-      .from(teams)
-      .where(
-        or(
-          eq(teams.coachUserId, user.id),
-          eq(teams.assistantCoachUserId, user.id)
-        )
-      );
-
-    if (coachTeams.length === 0) {
-      return new Response(JSON.stringify({ error: "Access denied - not a coach" }), {
-        status: 403,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -75,8 +53,8 @@ export const GET: APIRoute = async ({ params, url, locals }) => {
     }
 
     // Query parameters for filtering
-    const domainId = url.searchParams.get("domainId");
-    const limit = parseInt(url.searchParams.get("limit") || "100");
+    const domainId = context.url.searchParams.get("domainId");
+    const limit = parseInt(context.url.searchParams.get("limit") || "100");
 
     // Build conditions
     const conditions = [eq(playerAssessments.familyMemberId, playerId)];

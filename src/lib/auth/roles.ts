@@ -1,7 +1,7 @@
 import type { APIContext } from "astro";
 import { db } from "@/lib/db";
-import { userRoles, roles, teams } from "@/lib/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { userRoles, roles, teams, rosters, registrations } from "@/lib/db/schema";
+import { eq, and, or, inArray } from "drizzle-orm";
 import { validateSession } from "./session";
 
 export type RoleName = "super_admin" | "location_admin" | "coach" | "parent" | "player";
@@ -174,4 +174,124 @@ export async function requireAdminAccess(context: APIContext): Promise<
   }
 
   return { authorized: true, user, roles };
+}
+
+/**
+ * Check if a player (familyMember) is on one of the coach's teams
+ * This checks via rosters -> registrations -> familyMembers
+ */
+export async function isPlayerOnCoachTeam(
+  coachTeamIds: string[],
+  familyMemberId: string
+): Promise<boolean> {
+  if (coachTeamIds.length === 0) return false;
+
+  const result = await db
+    .select({ id: rosters.id })
+    .from(rosters)
+    .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
+    .where(
+      and(
+        inArray(rosters.teamId, coachTeamIds),
+        eq(registrations.familyMemberId, familyMemberId)
+      )
+    )
+    .limit(1);
+
+  return result.length > 0;
+}
+
+/**
+ * Get all family member IDs that are on the coach's teams
+ */
+export async function getCoachPlayerIds(coachTeamIds: string[]): Promise<string[]> {
+  if (coachTeamIds.length === 0) return [];
+
+  const result = await db
+    .select({ familyMemberId: registrations.familyMemberId })
+    .from(rosters)
+    .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
+    .where(inArray(rosters.teamId, coachTeamIds));
+
+  return result.map((r) => r.familyMemberId);
+}
+
+/**
+ * Helper to require coach access for API routes
+ * Returns an error Response if not authorized, or the user/teamIds if authorized
+ */
+export async function requireCoachAccess(context: APIContext): Promise<
+  | { authorized: false; response: Response }
+  | { authorized: true; user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>; teamIds: string[] }
+> {
+  const { user, isCoach: hasCoachRole, teamIds } = await validateCoachAccess(context);
+
+  if (!user) {
+    return {
+      authorized: false,
+      response: new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
+    };
+  }
+
+  if (!hasCoachRole) {
+    return {
+      authorized: false,
+      response: new Response(JSON.stringify({ error: "Forbidden: Coach access required" }), { status: 403 }),
+    };
+  }
+
+  return { authorized: true, user, teamIds };
+}
+
+/**
+ * Helper to require coach access AND verify player belongs to coach's team
+ */
+export async function requireCoachAccessToPlayer(
+  context: APIContext,
+  familyMemberId: string
+): Promise<
+  | { authorized: false; response: Response }
+  | { authorized: true; user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>; teamIds: string[] }
+> {
+  const coachResult = await requireCoachAccess(context);
+  if (!coachResult.authorized) return coachResult;
+
+  const hasAccess = await isPlayerOnCoachTeam(coachResult.teamIds, familyMemberId);
+  if (!hasAccess) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: Player not on your team" }),
+        { status: 403 }
+      ),
+    };
+  }
+
+  return coachResult;
+}
+
+/**
+ * Helper to require coach access AND verify team belongs to coach
+ */
+export async function requireCoachAccessToTeam(
+  context: APIContext,
+  teamId: string
+): Promise<
+  | { authorized: false; response: Response }
+  | { authorized: true; user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>; teamIds: string[] }
+> {
+  const coachResult = await requireCoachAccess(context);
+  if (!coachResult.authorized) return coachResult;
+
+  if (!coachResult.teamIds.includes(teamId)) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: Not your team" }),
+        { status: 403 }
+      ),
+    };
+  }
+
+  return coachResult;
 }

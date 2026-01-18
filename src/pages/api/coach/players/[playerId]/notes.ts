@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { coachNotes, teams, rosters, familyMembers } from "@/lib/db/schema";
-import { eq, and, desc, or } from "drizzle-orm";
+import { coachNotes, teams, familyMembers, rosters, registrations } from "@/lib/db/schema";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { requireCoachAccessToPlayer, requireCoachAccess, isPlayerOnCoachTeam } from "@/lib/auth";
 
 const createNoteSchema = z.object({
   teamId: z.string().uuid(),
@@ -13,23 +14,19 @@ const createNoteSchema = z.object({
 });
 
 // GET - Get all notes for a player
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const { playerId } = params;
+    const { playerId } = context.params;
     if (!playerId) {
       return new Response(JSON.stringify({ error: "Player ID required" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // Verify coach has access to this player
+    const auth = await requireCoachAccessToPlayer(context, playerId);
+    if (!auth.authorized) return auth.response;
 
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
@@ -38,28 +35,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    // Verify user is coach of a team that has this player on roster
-    // First, get all teams where this user is coach
-    const coachTeams = await db
-      .select({ id: teams.id })
-      .from(teams)
-      .where(
-        or(
-          eq(teams.coachUserId, user.id),
-          eq(teams.assistantCoachUserId, user.id)
-        )
-      );
-
-    const coachTeamIds = coachTeams.map((t) => t.id);
-
-    if (coachTeamIds.length === 0) {
-      return new Response(JSON.stringify({ error: "Access denied" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Get notes for this player created by coaches of teams that have this player
+    // Get notes for this player (only from teams the coach has access to)
     const notes = await db
       .select({
         id: coachNotes.id,
@@ -77,7 +53,12 @@ export const GET: APIRoute = async ({ params, locals }) => {
       })
       .from(coachNotes)
       .leftJoin(teams, eq(coachNotes.teamId, teams.id))
-      .where(eq(coachNotes.familyMemberId, playerId))
+      .where(
+        and(
+          eq(coachNotes.familyMemberId, playerId),
+          inArray(coachNotes.teamId, auth.teamIds)
+        )
+      )
       .orderBy(desc(coachNotes.createdAt));
 
     return new Response(JSON.stringify({ notes }), {
@@ -94,23 +75,19 @@ export const GET: APIRoute = async ({ params, locals }) => {
 };
 
 // POST - Create a new note for a player
-export const POST: APIRoute = async ({ params, request, locals }) => {
+export const POST: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const { playerId } = params;
+    const { playerId } = context.params;
     if (!playerId) {
       return new Response(JSON.stringify({ error: "Player ID required" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // First verify user is a coach
+    const auth = await requireCoachAccess(context);
+    if (!auth.authorized) return auth.response;
 
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
@@ -120,7 +97,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Parse and validate request body
-    const body = await request.json();
+    const body = await context.request.json();
     const validation = createNoteSchema.safeParse(body);
 
     if (!validation.success) {
@@ -139,21 +116,28 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     const { teamId, category, title, content, visibleToParent } = validation.data;
 
     // Verify user is coach of the specified team
-    const [team] = await db
-      .select()
-      .from(teams)
+    if (!auth.teamIds.includes(teamId)) {
+      return new Response(JSON.stringify({ error: "Access denied - not coach of this team" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify the player is on this team's roster
+    const [rosterEntry] = await db
+      .select({ id: rosters.id })
+      .from(rosters)
+      .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
       .where(
         and(
-          eq(teams.id, teamId),
-          or(
-            eq(teams.coachUserId, user.id),
-            eq(teams.assistantCoachUserId, user.id)
-          )
+          eq(rosters.teamId, teamId),
+          eq(registrations.familyMemberId, playerId)
         )
-      );
+      )
+      .limit(1);
 
-    if (!team) {
-      return new Response(JSON.stringify({ error: "Access denied - not coach of this team" }), {
+    if (!rosterEntry) {
+      return new Response(JSON.stringify({ error: "Player is not on this team's roster" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });
@@ -178,7 +162,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       .values({
         familyMemberId: playerId,
         teamId,
-        coachUserId: user.id,
+        coachUserId: auth.user.id,
         category,
         title,
         content,
