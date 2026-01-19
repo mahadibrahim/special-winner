@@ -131,19 +131,19 @@ async function seedE2ETests() {
         emailVerified: true,
       })
       .returning();
-
-    // Assign super_admin role
-    await db.insert(userRoles).values({
-      userId: adminUser.id,
-      roleId: roleMap.super_admin.id,
-      scopeType: "global",
-    }).onConflictDoNothing();
   } else {
     // Update existing user's password and ensure email is verified
     await db.update(users)
       .set({ passwordHash: adminPasswordHash, emailVerified: true })
       .where(eq(users.id, adminUser.id));
   }
+  // Always ensure super_admin role is assigned (delete other roles first)
+  await db.delete(userRoles).where(eq(userRoles.userId, adminUser.id));
+  await db.insert(userRoles).values({
+    userId: adminUser.id,
+    roleId: roleMap.super_admin.id,
+    scopeType: "global",
+  });
   console.log(`   ✓ Admin: ${adminUser.email}`);
 
   // Coach user - always update password to ensure it's correct
@@ -165,20 +165,20 @@ async function seedE2ETests() {
         emailVerified: true,
       })
       .returning();
-
-    // Assign coach role
-    await db.insert(userRoles).values({
-      userId: coachUser.id,
-      roleId: roleMap.coach.id,
-      scopeType: "organization",
-      scopeId: org.id,
-    }).onConflictDoNothing();
   } else {
     // Update existing user's password and ensure email is verified
     await db.update(users)
       .set({ passwordHash: coachPasswordHash, emailVerified: true })
       .where(eq(users.id, coachUser.id));
   }
+  // Always ensure coach role is assigned (delete other roles first)
+  await db.delete(userRoles).where(eq(userRoles.userId, coachUser.id));
+  await db.insert(userRoles).values({
+    userId: coachUser.id,
+    roleId: roleMap.coach.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
   console.log(`   ✓ Coach: ${coachUser.email}`);
 
   // Parent user - always update password to ensure it's correct
@@ -200,20 +200,20 @@ async function seedE2ETests() {
         emailVerified: true,
       })
       .returning();
-
-    // Assign parent role
-    await db.insert(userRoles).values({
-      userId: parentUser.id,
-      roleId: roleMap.parent.id,
-      scopeType: "organization",
-      scopeId: org.id,
-    }).onConflictDoNothing();
   } else {
     // Update existing user's password and ensure email is verified
     await db.update(users)
       .set({ passwordHash: parentPasswordHash, emailVerified: true })
       .where(eq(users.id, parentUser.id));
   }
+  // Always ensure parent role is assigned (delete other roles first)
+  await db.delete(userRoles).where(eq(userRoles.userId, parentUser.id));
+  await db.insert(userRoles).values({
+    userId: parentUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
   console.log(`   ✓ Parent: ${parentUser.email}`);
 
   // Get or create sport
