@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { coachResources, coachResourceViews } from "@/lib/db/schema/coach-guidance";
 import { sports } from "@/lib/db/schema/sports";
 import { developmentStages, skills } from "@/lib/db/schema/curriculum";
@@ -14,9 +14,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const url = new URL(context.request.url);
     const sportId = url.searchParams.get("sportId");
@@ -67,7 +65,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get resources
-    const resources = await db
+    const resources = await getDb()
       .select({
         id: coachResources.id,
         resourceType: coachResources.resourceType,
@@ -94,7 +92,7 @@ export const GET: APIRoute = async (context) => {
       .offset(offset);
 
     // Get unique topics for filtering
-    const topicsResult = await db
+    const topicsResult = await getDb()
       .selectDistinct({ topic: coachResources.topic })
       .from(coachResources)
       .where(eq(coachResources.active, true));
@@ -129,9 +127,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const body = await context.request.json();
     const { resourceId, completed, rating, notes } = body;
@@ -141,7 +137,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Record the view
-    await db.insert(coachResourceViews).values({
+    await getDb().insert(coachResourceViews).values({
       coachUserId: user.id,
       resourceId,
       completedAt: completed ? new Date() : null,
@@ -150,7 +146,7 @@ export const POST: APIRoute = async (context) => {
     });
 
     // Increment view count
-    await db
+    await getDb()
       .update(coachResources)
       .set({
         viewCount: sql`${coachResources.viewCount} + 1`,

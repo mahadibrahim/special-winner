@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { attendance, rosters, teams, familyMembers, registrations, games } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -43,7 +43,7 @@ export const GET: APIRoute = async (context) => {
     if (!auth.authorized) return auth.response;
 
     // Get team details
-    const team = await db.query.teams.findFirst({
+    const team = await getDb().query.teams.findFirst({
       where: eq(teams.id, teamId),
     });
 
@@ -52,7 +52,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get team roster with family member info
-    const rosterList = await db
+    const rosterList = await getDb()
       .select({
         id: rosters.id,
         jerseyNumber: rosters.jerseyNumber,
@@ -81,7 +81,7 @@ export const GET: APIRoute = async (context) => {
       );
     }
 
-    const attendanceRecords = await db
+    const attendanceRecords = await getDb()
       .select({
         id: attendance.id,
         rosterId: attendance.rosterId,
@@ -96,7 +96,7 @@ export const GET: APIRoute = async (context) => {
       .orderBy(desc(attendance.eventDate));
 
     // Get upcoming games for this team
-    const upcomingGames = await db
+    const upcomingGames = await getDb()
       .select({
         id: games.id,
         scheduledAt: games.scheduledAt,
@@ -113,7 +113,7 @@ export const GET: APIRoute = async (context) => {
       .limit(10);
 
     // Calculate attendance stats
-    const stats = await db
+    const stats = await getDb()
       .select({
         rosterId: attendance.rosterId,
         totalPresent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
@@ -172,7 +172,7 @@ export const POST: APIRoute = async (context) => {
       const endOfDay = new Date(eventDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      await db
+      await getDb()
         .delete(attendance)
         .where(
           and(
@@ -194,7 +194,7 @@ export const POST: APIRoute = async (context) => {
         recordedByUserId: auth.user.id,
       }));
 
-      await db.insert(attendance).values(newRecords);
+      await getDb().insert(attendance).values(newRecords);
 
       return new Response(
         JSON.stringify({ success: true, count: records.length }),
@@ -217,7 +217,7 @@ export const POST: APIRoute = async (context) => {
       const auth = await requireCoachAccessToTeam(context, result.data.teamId);
       if (!auth.authorized) return auth.response;
 
-      const [newAttendance] = await db
+      const [newAttendance] = await getDb()
         .insert(attendance)
         .values({
           ...result.data,
@@ -250,7 +250,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // First, get the attendance record to find its teamId
-    const [existingRecord] = await db
+    const [existingRecord] = await getDb()
       .select({ teamId: attendance.teamId })
       .from(attendance)
       .where(eq(attendance.id, id));
@@ -263,7 +263,7 @@ export const PUT: APIRoute = async (context) => {
     const auth = await requireCoachAccessToTeam(context, existingRecord.teamId);
     if (!auth.authorized) return auth.response;
 
-    const [updated] = await db
+    const [updated] = await getDb()
       .update(attendance)
       .set({
         status,

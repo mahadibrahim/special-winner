@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
 import { eq, and, desc, or, ilike, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -10,15 +10,10 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.authorized) return orgContext.response;
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const url = new URL(context.request.url);
     const status = url.searchParams.get("status");
@@ -44,7 +39,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get registrations with related data
-    const registrationData = await db
+    const registrationData = await getDb()
       .select({
         id: registrations.id,
         status: registrations.status,
@@ -106,7 +101,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get summary counts
-    const summaryResult = await db
+    const summaryResult = await getDb()
       .select({
         total: sql<number>`COUNT(*)`,
         confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,

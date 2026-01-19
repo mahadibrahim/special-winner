@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { coachPrompts, coachPromptDismissals, coachingPrinciples } from "@/lib/db/schema/coach-guidance";
 import { sports } from "@/lib/db/schema/sports";
 import { developmentStages, skills } from "@/lib/db/schema/curriculum";
@@ -14,9 +14,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const url = new URL(context.request.url);
     const triggerContext = url.searchParams.get("context"); // pre_practice, during_practice, post_practice, etc.
@@ -50,7 +48,7 @@ export const GET: APIRoute = async (context) => {
     // Get dismissed prompt IDs for this coach (unless includeDismissed)
     let dismissedIds: string[] = [];
     if (!includeDismissed) {
-      const dismissed = await db
+      const dismissed = await getDb()
         .select({ promptId: coachPromptDismissals.promptId })
         .from(coachPromptDismissals)
         .where(eq(coachPromptDismissals.coachUserId, user.id));
@@ -58,7 +56,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get prompts
-    let query = db
+    let query = getDb()
       .select({
         id: coachPrompts.id,
         triggerContext: coachPrompts.triggerContext,
@@ -109,9 +107,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const body = await context.request.json();
     const { promptId, dismissType = "temporary" } = body;
@@ -121,7 +117,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Record the dismissal
-    await db.insert(coachPromptDismissals).values({
+    await getDb().insert(coachPromptDismissals).values({
       coachUserId: user.id,
       promptId,
       dismissType,

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { sports } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -23,7 +23,7 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    const allSports = await db
+    const allSports = await getDb()
       .select()
       .from(sports)
       .where(eq(sports.organizationId, orgContext.organizationId))
@@ -58,7 +58,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const [newSport] = await db
+    const [newSport] = await getDb()
       .insert(sports)
       .values({
         organizationId: orgContext.organizationId,
@@ -100,7 +100,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedSport] = await db
+    const [updatedSport] = await getDb()
       .update(sports)
       .set({
         ...result.data,
@@ -139,7 +139,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Sport ID is required" }), { status: 400 });
     }
 
-    const [deletedSport] = await db.delete(sports).where(eq(sports.id, id)).returning();
+    const [deletedSport] = await getDb().delete(sports).where(eq(sports.id, id)).returning();
 
     if (!deletedSport) {
       return new Response(JSON.stringify({ error: "Sport not found" }), { status: 404 });

@@ -1,4 +1,4 @@
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import {
   organizations,
   locations,
@@ -55,7 +55,7 @@ function setCache(key: string, data: ResolvedOrganization | null) {
 export async function resolveOrganizationFromHost(
   host: string
 ): Promise<ResolvedOrganization | null> {
-  if (!db) return null
+  if (false) return null
 
   // Normalize host (remove port)
   const hostname = host.split(":")[0].toLowerCase()
@@ -93,9 +93,9 @@ export async function resolveOrganizationFromHost(
  * Resolve by custom domain mapping
  */
 async function resolveByCustomDomain(hostname: string): Promise<ResolvedOrganization | null> {
-  if (!db) return null
+  if (false) return null
 
-  const [mapping] = await db
+  const [mapping] = await getDb()
     .select({
       domain: domainMappings,
       organization: organizations,
@@ -129,7 +129,7 @@ async function resolveByCustomDomain(hostname: string): Promise<ResolvedOrganiza
  * Resolve by subdomain pattern (e.g., powell.aspiresports.com)
  */
 async function resolveBySubdomain(hostname: string): Promise<ResolvedOrganization | null> {
-  if (!db) return null
+  if (false) return null
 
   // Extract subdomain from known base domains
   const baseDomains = [
@@ -150,7 +150,7 @@ async function resolveBySubdomain(hostname: string): Promise<ResolvedOrganizatio
   if (!subdomain || subdomain === "www") return null
 
   // Try to find organization by slug
-  const [orgResult] = await db
+  const [orgResult] = await getDb()
     .select()
     .from(organizations)
     .where(eq(organizations.slug, subdomain))
@@ -166,7 +166,7 @@ async function resolveBySubdomain(hostname: string): Promise<ResolvedOrganizatio
   }
 
   // Try to find location by slug (within default org)
-  const [locationResult] = await db
+  const [locationResult] = await getDb()
     .select({
       organization: organizations,
       location: locations,
@@ -192,10 +192,10 @@ async function resolveBySubdomain(hostname: string): Promise<ResolvedOrganizatio
  * Resolve default organization (usually HQ or first active org)
  */
 async function resolveDefaultOrganization(): Promise<ResolvedOrganization | null> {
-  if (!db) return null
+  if (false) return null
 
   // Look for headquarters first
-  const [hq] = await db
+  const [hq] = await getDb()
     .select()
     .from(organizations)
     .where(
@@ -216,7 +216,7 @@ async function resolveDefaultOrganization(): Promise<ResolvedOrganization | null
   }
 
   // Fall back to first active organization
-  const [firstOrg] = await db
+  const [firstOrg] = await getDb()
     .select()
     .from(organizations)
     .where(eq(organizations.status, "active"))
@@ -242,9 +242,9 @@ async function resolveDefaultOrganization(): Promise<ResolvedOrganization | null
  * Get organization by ID
  */
 export async function getOrganizationById(id: string): Promise<Organization | null> {
-  if (!db) return null
+  if (false) return null
 
-  const [org] = await db
+  const [org] = await getDb()
     .select()
     .from(organizations)
     .where(eq(organizations.id, id))
@@ -257,9 +257,9 @@ export async function getOrganizationById(id: string): Promise<Organization | nu
  * Get organization by slug
  */
 export async function getOrganizationBySlug(slug: string): Promise<Organization | null> {
-  if (!db) return null
+  if (false) return null
 
-  const [org] = await db
+  const [org] = await getDb()
     .select()
     .from(organizations)
     .where(eq(organizations.slug, slug))
@@ -272,9 +272,9 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
  * Get locations for an organization
  */
 export async function getOrganizationLocations(organizationId: string): Promise<Location[]> {
-  if (!db) return []
+  if (false) return []
 
-  return db
+  return getDb()
     .select()
     .from(locations)
     .where(

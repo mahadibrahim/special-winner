@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, users, locations } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -14,18 +14,13 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get filter from query params
     const status = context.url.searchParams.get("status"); // pending_approval, approved, denied, processed, all
 
     // Build query - filter by organization through programs -> locations
-    let query = db
+    let query = getDb()
       .select({
         registration: registrations,
         familyMember: {

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { activities } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq } from "drizzle-orm";
@@ -44,16 +44,14 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Activity ID required" }), { status: 400 });
     }
 
-    const [activity] = await db
+    const [activity] = await getDb()
       .select({
         id: activities.id,
         sportId: activities.sportId,
@@ -114,9 +112,7 @@ export const PUT: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
@@ -133,7 +129,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedActivity] = await db
+    const [updatedActivity] = await getDb()
       .update(activities)
       .set({
         ...result.data,
@@ -165,16 +161,14 @@ export const DELETE: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Activity ID required" }), { status: 400 });
     }
 
-    const [deletedActivity] = await db
+    const [deletedActivity] = await getDb()
       .delete(activities)
       .where(eq(activities.id, id))
       .returning();

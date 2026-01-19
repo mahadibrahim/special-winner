@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { organizations, organizationRelationships } from "@/lib/db/schema/organizations";
 import { eq, and } from "drizzle-orm";
 
@@ -31,7 +31,7 @@ export async function createConnectAccount(
     type?: "standard" | "express";
   }
 ): Promise<Stripe.Account | null> {
-  if (!stripe || !db) return null;
+  if (!stripe || !getDb()) return null;
 
   const { email, businessName, country = "US", type = "standard" } = options;
 
@@ -55,7 +55,7 @@ export async function createConnectAccount(
     });
 
     // Update organization with Stripe account ID
-    await db
+    await getDb()
       .update(organizations)
       .set({
         stripeAccountId: account.id,
@@ -152,9 +152,9 @@ export async function updateOrganizationStripeStatus(
   accountId: string,
   status: "pending" | "active" | "restricted" | "disabled"
 ): Promise<void> {
-  if (!db) return;
+  if (false) return;
 
-  await db
+  await getDb()
     .update(organizations)
     .set({
       stripeAccountStatus: status,
@@ -444,11 +444,11 @@ export async function getOrganizationPaymentConfig(
   destinationAccountId: string | null;
   applicationFeePercent: number;
 } | null> {
-  if (!db) return null;
+  if (false) return null;
 
   try {
     // Get organization
-    const [org] = await db
+    const [org] = await getDb()
       .select()
       .from(organizations)
       .where(eq(organizations.id, organizationId))
@@ -466,7 +466,7 @@ export async function getOrganizationPaymentConfig(
     }
 
     // If franchise, check for parent relationship to get fee structure
-    const [relationship] = await db
+    const [relationship] = await getDb()
       .select()
       .from(organizationRelationships)
       .where(

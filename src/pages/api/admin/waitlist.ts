@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users, locations } from "@/lib/db/schema";
 import { eq, asc, and, isNull, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -24,7 +24,7 @@ export const GET: APIRoute = async (context) => {
       conditions.push(eq(registrations.seasonId, seasonId));
     }
 
-    const waitlistedRegs = await db
+    const waitlistedRegs = await getDb()
       .select({
         id: registrations.id,
         status: registrations.status,
@@ -67,7 +67,7 @@ export const GET: APIRoute = async (context) => {
       .orderBy(asc(registrations.waitlistPosition), asc(registrations.createdAt));
 
     // Get season options for filter - only seasons for this organization
-    const seasonOptions = await db
+    const seasonOptions = await getDb()
       .select({
         id: seasons.id,
         name: seasons.name,
@@ -105,7 +105,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify registration belongs to this organization
-    const [regResult] = await db
+    const [regResult] = await getDb()
       .select({ registration: registrations })
       .from(registrations)
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
@@ -128,7 +128,7 @@ export const POST: APIRoute = async (context) => {
 
     if (action === "promote") {
       // Promote to confirmed status
-      const [updated] = await db
+      const [updated] = await getDb()
         .update(registrations)
         .set({
           status: "confirmed",
@@ -140,7 +140,7 @@ export const POST: APIRoute = async (context) => {
         .returning();
 
       // Reorder remaining waitlist positions for this season
-      await db.execute(sql`
+      await getDb().execute(sql`
         WITH ranked AS (
           SELECT id, ROW_NUMBER() OVER (ORDER BY waitlist_position, created_at) as new_position
           FROM registrations
@@ -158,7 +158,7 @@ export const POST: APIRoute = async (context) => {
       });
     } else if (action === "remove") {
       // Remove from waitlist (cancel)
-      const [updated] = await db
+      const [updated] = await getDb()
         .update(registrations)
         .set({
           status: "cancelled",
@@ -172,7 +172,7 @@ export const POST: APIRoute = async (context) => {
         .returning();
 
       // Reorder remaining waitlist positions
-      await db.execute(sql`
+      await getDb().execute(sql`
         WITH ranked AS (
           SELECT id, ROW_NUMBER() OVER (ORDER BY waitlist_position, created_at) as new_position
           FROM registrations
@@ -214,7 +214,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify registration belongs to this organization
-    const [regResult] = await db
+    const [regResult] = await getDb()
       .select({ registration: registrations })
       .from(registrations)
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
@@ -236,7 +236,7 @@ export const PUT: APIRoute = async (context) => {
     // Update positions for affected registrations
     if (newPosition > oldPosition) {
       // Moving down: decrement positions between old and new
-      await db.execute(sql`
+      await getDb().execute(sql`
         UPDATE registrations
         SET waitlist_position = waitlist_position - 1
         WHERE season_id = ${reg.seasonId}
@@ -246,7 +246,7 @@ export const PUT: APIRoute = async (context) => {
       `);
     } else if (newPosition < oldPosition) {
       // Moving up: increment positions between new and old
-      await db.execute(sql`
+      await getDb().execute(sql`
         UPDATE registrations
         SET waitlist_position = waitlist_position + 1
         WHERE season_id = ${reg.seasonId}
@@ -257,7 +257,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Set the new position
-    const [updated] = await db
+    const [updated] = await getDb()
       .update(registrations)
       .set({
         waitlistPosition: newPosition,

@@ -17,7 +17,7 @@
  * - Enhanced domain alignment
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { skills, type Skill } from "../../schema/curriculum";
 import { eq } from "drizzle-orm";
 
@@ -680,7 +680,7 @@ export async function upgradeSoccerSkillsFinal() {
 
   // SKILL 1: Dribbling
   console.log("\nUpgrading: Dribbling (2.52 → target 4.0+)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       // Update top-level fields with question-based coaching tips
@@ -713,7 +713,7 @@ export async function upgradeSoccerSkillsFinal() {
 
   // SKILL 2: Finding Space
   console.log("\nUpgrading: Finding Space (3.08 → target 4.0+)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       coachingTips: [
@@ -745,7 +745,7 @@ export async function upgradeSoccerSkillsFinal() {
 
   // SKILL 3: Ball Control
   console.log("\nUpgrading: Ball Control (3.40 → target 4.0+)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       coachingTips: [

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { discountCodes, seasons, programs } from "@/lib/db/schema";
 import { eq, asc, desc, and, or, isNull, gte, lte } from "drizzle-orm";
 import { z } from "zod";
@@ -30,7 +30,7 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    const allCodes = await db
+    const allCodes = await getDb()
       .select({
         id: discountCodes.id,
         code: discountCodes.code,
@@ -83,7 +83,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Check for duplicate code within this organization
-    const existing = await db.query.discountCodes.findFirst({
+    const existing = await getDb().query.discountCodes.findFirst({
       where: and(
         eq(discountCodes.code, result.data.code),
         eq(discountCodes.organizationId, orgContext.organizationId)
@@ -96,7 +96,7 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    const [newCode] = await db
+    const [newCode] = await getDb()
       .insert(discountCodes)
       .values({
         organizationId: orgContext.organizationId,
@@ -146,7 +146,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify discount code belongs to this organization
-    const [updatedCode] = await db
+    const [updatedCode] = await getDb()
       .update(discountCodes)
       .set({
         ...result.data,
@@ -193,7 +193,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Verify discount code belongs to this organization before deleting
-    const [deletedCode] = await db
+    const [deletedCode] = await getDb()
       .delete(discountCodes)
       .where(and(eq(discountCodes.id, id), eq(discountCodes.organizationId, orgContext.organizationId)))
       .returning();

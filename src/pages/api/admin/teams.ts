@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { teams, seasons, programs, users, rosters, registrations, familyMembers, locations } from "@/lib/db/schema";
 import { eq, asc, desc, and } from "drizzle-orm";
 import { z } from "zod";
@@ -30,7 +30,7 @@ export const GET: APIRoute = async (context) => {
 
     // If fetching a single team with roster
     if (teamId) {
-      const team = await db.query.teams.findFirst({
+      const team = await getDb().query.teams.findFirst({
         where: eq(teams.id, teamId),
         with: {
           season: {
@@ -82,7 +82,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // List teams - filter by organization through the chain
-    let query = db
+    let query = getDb()
       .select({
         id: teams.id,
         seasonId: teams.seasonId,
@@ -117,7 +117,7 @@ export const GET: APIRoute = async (context) => {
     // Get roster counts for each team
     const teamsWithCounts = await Promise.all(
       allTeams.map(async (team) => {
-        const rosterCount = await db
+        const rosterCount = await getDb()
           .select({ count: rosters.id })
           .from(rosters)
           .where(eq(rosters.teamId, team.id));
@@ -159,7 +159,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify season belongs to this organization
-    const [seasonCheck] = await db
+    const [seasonCheck] = await getDb()
       .select({ id: seasons.id })
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
@@ -173,7 +173,7 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Season not found in this organization" }), { status: 404 });
     }
 
-    const [newTeam] = await db
+    const [newTeam] = await getDb()
       .insert(teams)
       .values({
         ...result.data,
@@ -210,7 +210,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify team belongs to this organization
-    const [teamCheck] = await db
+    const [teamCheck] = await getDb()
       .select({ id: teams.id })
       .from(teams)
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -234,7 +234,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify new season belongs to this organization
-    const [seasonCheck] = await db
+    const [seasonCheck] = await getDb()
       .select({ id: seasons.id })
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
@@ -248,7 +248,7 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Season not found in this organization" }), { status: 404 });
     }
 
-    const [updatedTeam] = await db
+    const [updatedTeam] = await getDb()
       .update(teams)
       .set({
         ...result.data,
@@ -291,7 +291,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Verify team belongs to this organization
-    const [teamCheck] = await db
+    const [teamCheck] = await getDb()
       .select({ id: teams.id })
       .from(teams)
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -306,7 +306,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
     }
 
-    const [deletedTeam] = await db.delete(teams).where(eq(teams.id, id)).returning();
+    const [deletedTeam] = await getDb().delete(teams).where(eq(teams.id, id)).returning();
 
     if (!deletedTeam) {
       return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });

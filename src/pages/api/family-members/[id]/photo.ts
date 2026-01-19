@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { familyMembers } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -28,15 +28,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify ownership
-    const [member] = await db
+    const [member] = await getDb()
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.id, id), eq(familyMembers.parentUserId, user.id)));
@@ -78,7 +73,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Update family member with new photo URL
-    const [updated] = await db
+    const [updated] = await getDb()
       .update(familyMembers)
       .set({
         photoUrl,
@@ -119,15 +114,10 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify ownership
-    const [member] = await db
+    const [member] = await getDb()
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.id, id), eq(familyMembers.parentUserId, user.id)));
@@ -148,7 +138,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     }
 
     // Update family member to remove photo URL
-    const [updated] = await db
+    const [updated] = await getDb()
       .update(familyMembers)
       .set({
         photoUrl: null,

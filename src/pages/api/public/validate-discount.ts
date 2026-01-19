@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { discountCodes, discountUsages } from "@/lib/db/schema";
 import { eq, and, or, isNull, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -39,15 +39,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const { code, seasonId, purchaseAmountCents, userId } = validation.data;
 
-    if (!db) {
-      return new Response(
-        JSON.stringify({ valid: false, error: "Database not available" }),
-        { status: 503, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
     // Find the discount code - filter by organization to prevent cross-tenant access
-    const [discountCode] = await db
+    const [discountCode] = await getDb()
       .select()
       .from(discountCodes)
       .where(
@@ -122,7 +115,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Check per-user usage limit if userId provided
     if (userId && discountCode.maxUsesPerUser) {
-      const userUsageCount = await db
+      const userUsageCount = await getDb()
         .select({ count: sql<number>`count(*)` })
         .from(discountUsages)
         .where(

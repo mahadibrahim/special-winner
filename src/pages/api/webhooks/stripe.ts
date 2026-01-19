@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, payments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
@@ -7,12 +7,7 @@ import type Stripe from "stripe";
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
@@ -81,8 +76,6 @@ export const POST: APIRoute = async ({ request }) => {
 };
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
-  if (!db) return;
-
   const registrationId = session.metadata?.registrationId;
   const paymentType = session.metadata?.type;
 
@@ -92,7 +85,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   }
 
   // Get the registration
-  const [registration] = await db
+  const [registration] = await getDb()
     .select()
     .from(registrations)
     .where(eq(registrations.id, registrationId));
@@ -111,7 +104,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   const paymentTypeValue = registration.registrationType === "deposit" ? "deposit" : "full";
 
   // Update registration
-  await db
+  await getDb()
     .update(registrations)
     .set({
       status: "confirmed",
@@ -122,7 +115,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     .where(eq(registrations.id, registrationId));
 
   // Create payment record
-  await db.insert(payments).values({
+  await getDb().insert(payments).values({
     registrationId,
     userId: registration.registeredByUserId,
     amountCents: amountPaid,

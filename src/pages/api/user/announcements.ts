@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { announcements, users, userOrganizationAccess } from "@/lib/db/schema";
 import { eq, desc, and, or, isNull, gte, inArray } from "drizzle-orm";
 
@@ -14,15 +14,10 @@ export const GET: APIRoute = async ({ locals }) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get organizations the user belongs to
-    const userOrgs = await db
+    const userOrgs = await getDb()
       .select({ organizationId: userOrganizationAccess.organizationId })
       .from(userOrganizationAccess)
       .where(
@@ -44,7 +39,7 @@ export const GET: APIRoute = async ({ locals }) => {
     }
 
     // Fetch published, non-expired announcements targeting parents or all
-    const userAnnouncements = await db
+    const userAnnouncements = await getDb()
       .select({
         id: announcements.id,
         title: announcements.title,

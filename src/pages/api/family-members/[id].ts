@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { familyMembers } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -25,12 +25,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const { id } = params;
     if (!id) {
@@ -40,7 +35,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    const [member] = await db
+    const [member] = await getDb()
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.id, id), eq(familyMembers.parentUserId, user.id)));
@@ -76,12 +71,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const { id } = params;
     if (!id) {
@@ -92,7 +82,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Verify ownership
-    const [existing] = await db
+    const [existing] = await getDb()
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.id, id), eq(familyMembers.parentUserId, user.id)));
@@ -131,7 +121,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     if (data.emergencyContactName !== undefined) updateData.emergencyContactName = data.emergencyContactName;
     if (data.emergencyContactPhone !== undefined) updateData.emergencyContactPhone = data.emergencyContactPhone;
 
-    const [updated] = await db
+    const [updated] = await getDb()
       .update(familyMembers)
       .set(updateData)
       .where(eq(familyMembers.id, id))
@@ -161,12 +151,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const { id } = params;
     if (!id) {
@@ -177,7 +162,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     }
 
     // Verify ownership
-    const [existing] = await db
+    const [existing] = await getDb()
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.id, id), eq(familyMembers.parentUserId, user.id)));
@@ -189,7 +174,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    await db.delete(familyMembers).where(eq(familyMembers.id, id));
+    await getDb().delete(familyMembers).where(eq(familyMembers.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

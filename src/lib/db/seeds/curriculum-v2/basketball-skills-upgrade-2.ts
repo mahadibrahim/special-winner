@@ -28,7 +28,7 @@
  * - Aligned with European/American youth basketball best practices
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { skills } from "../../schema/curriculum";
 import { eq } from "drizzle-orm";
 
@@ -1959,7 +1959,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 1: Dribbling on the Move (technical, Skill Building)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Dribbling on the Move...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2007,7 +2007,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 2: Layups - Weak Hand (technical, Skill Building)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Layups - Weak Hand...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2055,7 +2055,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 3: Give and Go (tactical, Skill Building)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Give and Go...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2103,7 +2103,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 4: Pull-Up Jump Shot (technical, Development)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Pull-Up Jump Shot...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2151,7 +2151,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 5: Crossover Dribble (Development stage)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Crossover Dribble (Development)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2199,7 +2199,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 6: Help Defense (tactical, Development)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Help Defense...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2247,7 +2247,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 7: Shooting Form (Fundamentals - ID 1)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Shooting Form (Fundamentals 1)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2295,7 +2295,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 8: Shooting Form (Fundamentals - ID 2)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Shooting Form (Fundamentals 2)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2343,7 +2343,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 9: Ball Handling (Fundamentals - ID 1)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Ball Handling (Fundamentals 1)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2391,7 +2391,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 10: Ball Handling (Fundamentals - ID 2)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Ball Handling (Fundamentals 2)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2439,7 +2439,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 11: Chest Pass (technical, Fundamentals)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Chest Pass...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2487,7 +2487,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 12: Layup (technical, Fundamentals)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Layup...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2535,7 +2535,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 13: Crossover Dribble (Skill Building stage)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Crossover Dribble (Skill Building)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2583,7 +2583,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 14: Pull-Up Jumper (technical, Skill Building)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Pull-Up Jumper...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2631,7 +2631,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 15: Spacing (tactical, Fundamentals)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Spacing...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2679,7 +2679,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 16: Pick and Roll Ball Handler (tactical, Skill Building)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Pick and Roll (Ball Handler)...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2727,7 +2727,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 17: Coordination (physical, Fundamentals)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Coordination...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -2775,7 +2775,7 @@ export async function upgradeBasketballSkills2() {
   // SKILL 18: Confidence (psychological, Fundamentals)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Confidence...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {

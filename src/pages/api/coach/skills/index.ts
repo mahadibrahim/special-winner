@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { skills, skillDomains, developmentStages, sports } from "@/lib/db/schema";
 import { eq, and, or } from "drizzle-orm";
 
@@ -14,12 +14,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Query parameters
     const sportId = url.searchParams.get("sportId");
@@ -53,7 +48,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Fetch skills with domain and stage info
-    const skillsList = await db
+    const skillsList = await getDb()
       .select({
         id: skills.id,
         name: skills.name,
@@ -104,8 +99,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
 // GET all domains
 export const getDomains = async () => {
-  if (!db) return [];
-  return await db
+  return await getDb()
     .select()
     .from(skillDomains)
     .orderBy(skillDomains.sortOrder);
@@ -113,8 +107,7 @@ export const getDomains = async () => {
 
 // GET all stages
 export const getStages = async () => {
-  if (!db) return [];
-  return await db
+  return await getDb()
     .select()
     .from(developmentStages)
     .orderBy(developmentStages.sortOrder);

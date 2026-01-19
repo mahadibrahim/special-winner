@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, seasons } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -28,12 +28,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Parse request body
     const body = await request.json();
@@ -55,7 +50,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     const data = validation.data;
 
     // Get registration and verify ownership
-    const [registration] = await db
+    const [registration] = await getDb()
       .select()
       .from(registrations)
       .where(
@@ -99,7 +94,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       // Can only upgrade from deposit to full
       if (registration.registrationType === "deposit" && data.registrationType === "full") {
         // Get season pricing
-        const [season] = await db
+        const [season] = await getDb()
           .select()
           .from(seasons)
           .where(eq(seasons.id, registration.seasonId));
@@ -125,7 +120,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Update registration
-    const [updated] = await db
+    const [updated] = await getDb()
       .update(registrations)
       .set(updates)
       .where(eq(registrations.id, id))

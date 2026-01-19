@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { games, teams, standings } from "@/lib/db/schema";
 import { eq, or, and } from "drizzle-orm";
 import { z } from "zod";
@@ -30,15 +30,10 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get the game
-    const [game] = await db
+    const [game] = await getDb()
       .select()
       .from(games)
       .where(eq(games.id, gameId));
@@ -52,7 +47,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 
     // Verify user is coach of home or away team
     const isCoachOfHomeTeam = game.homeTeamId
-      ? await db
+      ? await getDb()
           .select({ id: teams.id })
           .from(teams)
           .where(
@@ -68,7 +63,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       : false;
 
     const isCoachOfAwayTeam = game.awayTeamId
-      ? await db
+      ? await getDb()
           .select({ id: teams.id })
           .from(teams)
           .where(
@@ -110,7 +105,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     const { homeScore, awayScore, status, notes } = validation.data;
 
     // Update the game
-    const [updatedGame] = await db
+    const [updatedGame] = await getDb()
       .update(games)
       .set({
         homeScore,
@@ -155,13 +150,13 @@ async function updateStandings(
   const tie = homeScore === awayScore;
 
   // Update home team standings
-  const [homeStanding] = await db
+  const [homeStanding] = await getDb()
     .select()
     .from(standings)
     .where(and(eq(standings.seasonId, seasonId), eq(standings.teamId, homeTeamId)));
 
   if (homeStanding) {
-    await db
+    await getDb()
       .update(standings)
       .set({
         wins: homeStanding.wins + (homeWon ? 1 : 0),
@@ -174,7 +169,7 @@ async function updateStandings(
       })
       .where(eq(standings.id, homeStanding.id));
   } else {
-    await db.insert(standings).values({
+    await getDb().insert(standings).values({
       seasonId,
       teamId: homeTeamId,
       wins: homeWon ? 1 : 0,
@@ -187,13 +182,13 @@ async function updateStandings(
   }
 
   // Update away team standings
-  const [awayStanding] = await db
+  const [awayStanding] = await getDb()
     .select()
     .from(standings)
     .where(and(eq(standings.seasonId, seasonId), eq(standings.teamId, awayTeamId)));
 
   if (awayStanding) {
-    await db
+    await getDb()
       .update(standings)
       .set({
         wins: awayStanding.wins + (awayWon ? 1 : 0),
@@ -206,7 +201,7 @@ async function updateStandings(
       })
       .where(eq(standings.id, awayStanding.id));
   } else {
-    await db.insert(standings).values({
+    await getDb().insert(standings).values({
       seasonId,
       teamId: awayTeamId,
       wins: awayWon ? 1 : 0,

@@ -1,5 +1,5 @@
 import type { APIContext } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { userRoles, roles, teams, rosters, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
 import { validateSession } from "./session";
@@ -17,7 +17,7 @@ export interface UserRole {
  * Get all roles assigned to a user
  */
 export async function getUserRoles(userId: string): Promise<UserRole[]> {
-  const result = await db
+  const result = await getDb()
     .select({
       name: roles.name,
       scopeType: userRoles.scopeType,
@@ -54,7 +54,7 @@ export async function hasRole(
  * This checks the teams table directly (denormalized coach assignment)
  */
 export async function isCoachOfTeam(userId: string, teamId: string): Promise<boolean> {
-  const [team] = await db
+  const [team] = await getDb()
     .select({ id: teams.id })
     .from(teams)
     .where(
@@ -74,7 +74,7 @@ export async function isCoachOfTeam(userId: string, teamId: string): Promise<boo
  * Get all team IDs where the user is coach or assistant coach
  */
 export async function getCoachTeamIds(userId: string): Promise<string[]> {
-  const coachTeams = await db
+  const coachTeams = await getDb()
     .select({ id: teams.id })
     .from(teams)
     .where(
@@ -186,7 +186,7 @@ export async function isPlayerOnCoachTeam(
 ): Promise<boolean> {
   if (coachTeamIds.length === 0) return false;
 
-  const result = await db
+  const result = await getDb()
     .select({ id: rosters.id })
     .from(rosters)
     .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
@@ -207,7 +207,7 @@ export async function isPlayerOnCoachTeam(
 export async function getCoachPlayerIds(coachTeamIds: string[]): Promise<string[]> {
   if (coachTeamIds.length === 0) return [];
 
-  const result = await db
+  const result = await getDb()
     .select({ familyMemberId: registrations.familyMemberId })
     .from(rosters)
     .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
@@ -315,7 +315,7 @@ export async function getOrganizationId(context: APIContext): Promise<string | n
 
     if (isSuperAdmin) {
       // Super admin can access first org as fallback (for development)
-      const firstOrg = await db.query.organizations.findFirst();
+      const firstOrg = await getDb().query.organizations.findFirst();
       return firstOrg?.id || null;
     }
   }

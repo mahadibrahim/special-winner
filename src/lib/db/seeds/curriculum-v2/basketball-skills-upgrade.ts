@@ -25,7 +25,7 @@
  * - Includes holistic development connections (psychological/social)
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { skills } from "../../schema/curriculum";
 import { eq } from "drizzle-orm";
 
@@ -48,7 +48,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 1: Stationary Ball Handling (technical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Stationary Ball Handling...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -284,7 +284,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 2: Two-Hand Chest Pass (technical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Two-Hand Chest Pass...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -521,7 +521,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 3: Two-Hand Bounce Pass (technical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Two-Hand Bounce Pass...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -758,7 +758,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 4: Form Shooting (technical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Form Shooting...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -996,7 +996,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 5: Layups - Dominant Hand (technical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Layups - Dominant Hand...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -1234,7 +1234,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 6: Athletic Stance (physical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Athletic Stance...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -1470,7 +1470,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 7: Spacing Awareness (tactical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Spacing Awareness...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
@@ -1706,7 +1706,7 @@ export async function upgradeBasketballSkills() {
   // SKILL 8: Effort & Hustle (psychological)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Effort & Hustle...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {

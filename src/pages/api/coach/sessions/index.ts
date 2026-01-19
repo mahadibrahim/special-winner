@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   sessionPlans,
   practiceTemplates,
@@ -47,12 +47,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Query parameters
     const teamId = url.searchParams.get("teamId");
@@ -62,7 +57,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const limit = parseInt(url.searchParams.get("limit") || "20");
 
     // Get coach's teams
-    const coachTeams = await db
+    const coachTeams = await getDb()
       .select({
         id: teams.id,
         name: teams.name,
@@ -133,7 +128,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Get sessions
-    const sessions = await db
+    const sessions = await getDb()
       .select({
         id: sessionPlans.id,
         teamId: sessionPlans.teamId,
@@ -201,12 +196,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Parse and validate request body
     const body = await request.json();
@@ -228,7 +218,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const data = validation.data;
 
     // Verify user is coach of this team
-    const [team] = await db
+    const [team] = await getDb()
       .select()
       .from(teams)
       .where(
@@ -253,7 +243,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // If using a template, increment its usage count
     if (data.templateId) {
-      await db
+      await getDb()
         .update(practiceTemplates)
         .set({
           usageCount: sql`${practiceTemplates.usageCount} + 1`,
@@ -263,7 +253,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Create the session plan
-    const [newSession] = await db
+    const [newSession] = await getDb()
       .insert(sessionPlans)
       .values({
         teamId: data.teamId,

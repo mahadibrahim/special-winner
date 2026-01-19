@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, emailVerificationTokens } from "@/lib/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 
@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
     const { token } = result.data;
 
     // Find valid token
-    const verificationToken = await db
+    const verificationToken = await getDb()
       .select()
       .from(emailVerificationTokens)
       .where(
@@ -42,13 +42,13 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Update user email verified status
-    await db
+    await getDb()
       .update(users)
       .set({ emailVerified: true, updatedAt: new Date() })
       .where(eq(users.id, verificationToken[0].userId));
 
     // Delete used token and any other tokens for this user
-    await db
+    await getDb()
       .delete(emailVerificationTokens)
       .where(eq(emailVerificationTokens.userId, verificationToken[0].userId));
 

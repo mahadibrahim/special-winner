@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   playerAssessments,
   skills,
@@ -161,15 +161,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify access
-    const [familyMember] = await db
+    const [familyMember] = await getDb()
       .select({ id: familyMembers.id, parentUserId: familyMembers.parentUserId })
       .from(familyMembers)
       .where(eq(familyMembers.id, familyMemberId));
@@ -182,7 +177,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get all assessments with domain info
-    const assessments = await db
+    const assessments = await getDb()
       .select({
         id: playerAssessments.id,
         skillId: playerAssessments.skillId,

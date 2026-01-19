@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -30,7 +30,7 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    const allSeasons = await db
+    const allSeasons = await getDb()
       .select({
         id: seasons.id,
         name: seasons.name,
@@ -102,7 +102,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     const data = result.data;
-    const [newSeason] = await db
+    const [newSeason] = await getDb()
       .insert(seasons)
       .values({
         programId: data.programId,
@@ -153,7 +153,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     const validData = result.data;
-    const [updatedSeason] = await db
+    const [updatedSeason] = await getDb()
       .update(seasons)
       .set({
         programId: validData.programId,
@@ -198,7 +198,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Season ID is required" }), { status: 400 });
     }
 
-    await db.delete(seasons).where(eq(seasons.id, id));
+    await getDb().delete(seasons).where(eq(seasons.id, id));
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     console.error("Error deleting season:", error);

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { attendance, teams, rosters, seasons, programs, sports, familyMembers, registrations } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireAdminAccess } from "@/lib/auth";
@@ -12,12 +12,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const url = new URL(context.request.url);
     const startDate = url.searchParams.get("startDate");
@@ -42,7 +37,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Overall attendance summary
-    const summaryResult = await db
+    const summaryResult = await getDb()
       .select({
         totalRecords: sql<number>`COUNT(*)`,
         present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
@@ -72,7 +67,7 @@ export const GET: APIRoute = async (context) => {
         dateFormat = "YYYY-MM";
     }
 
-    const attendanceByPeriod = await db
+    const attendanceByPeriod = await getDb()
       .select({
         period: sql<string>`TO_CHAR(${attendance.eventDate}, ${dateFormat})`,
         totalRecords: sql<number>`COUNT(*)`,
@@ -87,7 +82,7 @@ export const GET: APIRoute = async (context) => {
       .orderBy(sql`TO_CHAR(${attendance.eventDate}, ${dateFormat})`);
 
     // Attendance by event type
-    const attendanceByEventType = await db
+    const attendanceByEventType = await getDb()
       .select({
         eventType: attendance.eventType,
         totalRecords: sql<number>`COUNT(*)`,
@@ -101,7 +96,7 @@ export const GET: APIRoute = async (context) => {
       .groupBy(attendance.eventType);
 
     // Attendance by team
-    const attendanceByTeam = await db
+    const attendanceByTeam = await getDb()
       .select({
         teamId: teams.id,
         teamName: teams.name,
@@ -118,7 +113,7 @@ export const GET: APIRoute = async (context) => {
       .limit(20);
 
     // Players with low attendance (below 70%)
-    const lowAttendancePlayers = await db
+    const lowAttendancePlayers = await getDb()
       .select({
         rosterId: rosters.id,
         playerName: sql<string>`CONCAT(${familyMembers.firstName}, ' ', ${familyMembers.lastName})`,
@@ -140,7 +135,7 @@ export const GET: APIRoute = async (context) => {
       .limit(10);
 
     // Recent attendance events
-    const recentEvents = await db
+    const recentEvents = await getDb()
       .select({
         id: attendance.id,
         teamName: teams.name,
@@ -159,7 +154,7 @@ export const GET: APIRoute = async (context) => {
       .limit(20);
 
     // Get list of teams for filter dropdown
-    const teamsList = await db
+    const teamsList = await getDb()
       .select({
         id: teams.id,
         name: teams.name,

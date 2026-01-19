@@ -1,4 +1,4 @@
-import { db } from "./index";
+import { getDb } from "./index";
 import { programs, seasons } from "./schema/programs";
 import { sports, ageGroups } from "./schema/sports";
 import { locations } from "./schema/organizations";
@@ -8,9 +8,9 @@ async function seedPrograms() {
   console.log("🏆 Seeding programs and seasons...");
 
   // Get existing data
-  const [location] = await db.select().from(locations).limit(1);
-  const allSports = await db.select().from(sports);
-  const allAgeGroups = await db.select().from(ageGroups);
+  const [location] = await getDb().select().from(locations).limit(1);
+  const allSports = await getDb().select().from(sports);
+  const allAgeGroups = await getDb().select().from(ageGroups);
 
   if (!location) {
     console.error("❌ No location found. Run db:seed first.");
@@ -35,7 +35,7 @@ async function seedPrograms() {
   console.log("Creating programs...");
 
   // Soccer Programs
-  const [soccerLeague] = await db
+  const [soccerLeague] = await getDb()
     .insert(programs)
     .values({
       locationId: location.id,
@@ -50,7 +50,7 @@ async function seedPrograms() {
     .onConflictDoNothing()
     .returning();
 
-  const [soccerCamp] = await db
+  const [soccerCamp] = await getDb()
     .insert(programs)
     .values({
       locationId: location.id,
@@ -66,7 +66,7 @@ async function seedPrograms() {
     .returning();
 
   // Basketball Programs
-  const [basketballLeague] = await db
+  const [basketballLeague] = await getDb()
     .insert(programs)
     .values({
       locationId: location.id,
@@ -81,7 +81,7 @@ async function seedPrograms() {
     .onConflictDoNothing()
     .returning();
 
-  const [basketballClinic] = await db
+  const [basketballClinic] = await getDb()
     .insert(programs)
     .values({
       locationId: location.id,
@@ -97,7 +97,7 @@ async function seedPrograms() {
     .returning();
 
   // Baseball Program
-  const [baseballLeague] = await db
+  const [baseballLeague] = await getDb()
     .insert(programs)
     .values({
       locationId: location.id,
@@ -113,7 +113,7 @@ async function seedPrograms() {
     .returning();
 
   // Flag Football Program
-  const [flagFootball] = await db
+  const [flagFootball] = await getDb()
     .insert(programs)
     .values({
       locationId: location.id,
@@ -140,7 +140,7 @@ async function seedPrograms() {
 
   // Soccer League Seasons (Spring 2025)
   if (soccerLeague) {
-    await db
+    await getDb()
       .insert(seasons)
       .values([
         {
@@ -204,7 +204,7 @@ async function seedPrograms() {
 
   // Soccer Camp Seasons (Summer 2025)
   if (soccerCamp) {
-    await db
+    await getDb()
       .insert(seasons)
       .values([
         {
@@ -251,7 +251,7 @@ async function seedPrograms() {
 
   // Basketball League Seasons
   if (basketballLeague) {
-    await db
+    await getDb()
       .insert(seasons)
       .values([
         {
@@ -311,7 +311,7 @@ async function seedPrograms() {
 
   // Basketball Clinic
   if (basketballClinic) {
-    await db
+    await getDb()
       .insert(seasons)
       .values({
         programId: basketballClinic.id,
@@ -334,7 +334,7 @@ async function seedPrograms() {
 
   // Baseball League
   if (baseballLeague) {
-    await db
+    await getDb()
       .insert(seasons)
       .values([
         {
@@ -381,7 +381,7 @@ async function seedPrograms() {
 
   // Flag Football
   if (flagFootball) {
-    await db
+    await getDb()
       .insert(seasons)
       .values([
         {
@@ -427,8 +427,8 @@ async function seedPrograms() {
   }
 
   // Get counts for summary
-  const programCount = await db.select().from(programs);
-  const seasonCount = await db.select().from(seasons);
+  const programCount = await getDb().select().from(programs);
+  const seasonCount = await getDb().select().from(seasons);
 
   console.log("✅ Sample programs and seasons created!");
   console.log("");

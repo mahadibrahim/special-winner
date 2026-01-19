@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, users, locations, payments } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -30,12 +30,7 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Parse request body
     const body = await context.request.json();
@@ -57,7 +52,7 @@ export const POST: APIRoute = async (context) => {
     const { action, reason } = validation.data;
 
     // Get registration with related data - filter by organization
-    const [registration] = await db
+    const [registration] = await getDb()
       .select({
         registration: registrations,
         familyMember: familyMembers,
@@ -92,13 +87,13 @@ export const POST: APIRoute = async (context) => {
     const refundAmountCents = registration.registration.refundAmountCents || 0;
 
     // Get parent user info for email
-    const [parentUser] = await db
+    const [parentUser] = await getDb()
       .select()
       .from(users)
       .where(eq(users.id, registration.registration.registeredByUserId));
 
     // Get payment record to access Stripe payment intent ID
-    const [payment] = await db
+    const [payment] = await getDb()
       .select()
       .from(payments)
       .where(eq(payments.registrationId, id));
@@ -148,7 +143,7 @@ export const POST: APIRoute = async (context) => {
       }
 
       // Update registration status
-      const [updated] = await db
+      const [updated] = await getDb()
         .update(registrations)
         .set({
           refundStatus: "processed",
@@ -190,7 +185,7 @@ export const POST: APIRoute = async (context) => {
       );
     } else {
       // Deny refund
-      const [updated] = await db
+      const [updated] = await getDb()
         .update(registrations)
         .set({
           refundStatus: "denied",
@@ -255,15 +250,10 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get registration with related data - filter by organization
-    const [registration] = await db
+    const [registration] = await getDb()
       .select({
         registration: registrations,
         familyMember: familyMembers,
@@ -285,7 +275,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get parent user info
-    const [parentUser] = await db
+    const [parentUser] = await getDb()
       .select({
         id: users.id,
         email: users.email,

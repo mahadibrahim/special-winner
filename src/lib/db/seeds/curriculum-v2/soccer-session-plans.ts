@@ -10,7 +10,7 @@
  * - Parent communication templates
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { practiceTemplates } from "../../schema/practice-planning";
 import { sports } from "../../schema/sports";
 import { developmentStages } from "../../schema/curriculum";
@@ -29,10 +29,10 @@ interface SessionSegment {
 export async function seedSoccerSessionPlans() {
   console.log("Seeding Soccer Session Plans (Fundamentals - Ages 6-8)...");
 
-  const [soccer] = await db.select().from(sports).where(eq(sports.slug, "soccer"));
+  const [soccer] = await getDb().select().from(sports).where(eq(sports.slug, "soccer"));
   if (!soccer) throw new Error("Soccer sport must be seeded first");
 
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const fundamentals = stages.find((s) => s.slug === "fundamentals");
 
   if (!fundamentals) throw new Error("Development stages must be seeded first");
@@ -1912,7 +1912,7 @@ Message: "HAVE FUN!"
 
   // Insert session plans as practice templates
   for (const plan of sessionPlans) {
-    await db.insert(practiceTemplates).values(plan).onConflictDoNothing();
+    await getDb().insert(practiceTemplates).values(plan).onConflictDoNothing();
     console.log(`  Created: ${plan.name}`);
   }
 

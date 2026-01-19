@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { programs, sports, locations } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
@@ -24,7 +24,7 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    const allPrograms = await db
+    const allPrograms = await getDb()
       .select({
         id: programs.id,
         name: programs.name,
@@ -77,7 +77,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const [newProgram] = await db
+    const [newProgram] = await getDb()
       .insert(programs)
       .values({
         locationId: result.data.locationId,
@@ -120,7 +120,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedProgram] = await db
+    const [updatedProgram] = await getDb()
       .update(programs)
       .set({
         locationId: result.data.locationId,
@@ -158,7 +158,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Program ID is required" }), { status: 400 });
     }
 
-    await db.delete(programs).where(eq(programs.id, id));
+    await getDb().delete(programs).where(eq(programs.id, id));
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     console.error("Error deleting program:", error);

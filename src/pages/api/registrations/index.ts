@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, locations, ageGroups, users } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -25,14 +25,9 @@ export const GET: APIRoute = async ({ locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
-    const userRegistrations = await db
+    const userRegistrations = await getDb()
       .select({
         registration: registrations,
         familyMember: familyMembers,
@@ -124,12 +119,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const body = await request.json();
     const validation = createRegistrationSchema.safeParse(body);
@@ -150,7 +140,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const data = validation.data;
 
     // Verify family member belongs to user
-    const [familyMember] = await db
+    const [familyMember] = await getDb()
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.id, data.familyMemberId), eq(familyMembers.parentUserId, user.id)));
@@ -163,7 +153,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Get season details
-    const [season] = await db
+    const [season] = await getDb()
       .select()
       .from(seasons)
       .where(eq(seasons.id, data.seasonId));
@@ -183,7 +173,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Check for existing registration
-    const [existingReg] = await db
+    const [existingReg] = await getDb()
       .select()
       .from(registrations)
       .where(
@@ -205,7 +195,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Check capacity
     if (season.maxParticipants) {
-      const [{ count }] = await db
+      const [{ count }] = await getDb()
         .select({ count: registrations.id })
         .from(registrations)
         .where(
@@ -223,7 +213,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ? season.depositCents
           : season.priceCents;
 
-        const [newRegistration] = await db
+        const [newRegistration] = await getDb()
           .insert(registrations)
           .values({
             seasonId: data.seasonId,
@@ -243,7 +233,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
         // Send waitlist confirmation email
         try {
-          const [programData] = await db
+          const [programData] = await getDb()
             .select({
               program: programs,
               location: locations,
@@ -295,7 +285,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       : season.priceCents;
 
     // Create registration (pending payment)
-    const [newRegistration] = await db
+    const [newRegistration] = await getDb()
       .insert(registrations)
       .values({
         seasonId: data.seasonId,
@@ -316,7 +306,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Send confirmation email (don't block on failure)
     try {
       // Get program and location info for email
-      const [programData] = await db
+      const [programData] = await getDb()
         .select({
           program: programs,
           location: locations,

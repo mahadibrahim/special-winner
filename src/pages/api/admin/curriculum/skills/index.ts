@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { skills, skillDomains, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, asc, ilike, or } from "drizzle-orm";
@@ -36,9 +36,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const url = new URL(context.request.url);
     const sportId = url.searchParams.get("sportId");
@@ -70,7 +68,7 @@ export const GET: APIRoute = async (context) => {
       );
     }
 
-    const skillsRaw = await db
+    const skillsRaw = await getDb()
       .select({
         id: skills.id,
         sportId: skills.sportId,
@@ -105,9 +103,9 @@ export const GET: APIRoute = async (context) => {
 
     // Get reference data for filters
     const [sportsList, domainsList, stagesList] = await Promise.all([
-      db.select({ id: sports.id, name: sports.name }).from(sports).orderBy(asc(sports.name)),
-      db.select({ id: skillDomains.id, name: skillDomains.displayName }).from(skillDomains).orderBy(asc(skillDomains.sortOrder)),
-      db.select({ id: developmentStages.id, name: developmentStages.name, slug: developmentStages.slug }).from(developmentStages).orderBy(asc(developmentStages.sortOrder)),
+      getDb().select({ id: sports.id, name: sports.name }).from(sports).orderBy(asc(sports.name)),
+      getDb().select({ id: skillDomains.id, name: skillDomains.displayName }).from(skillDomains).orderBy(asc(skillDomains.sortOrder)),
+      getDb().select({ id: developmentStages.id, name: developmentStages.name, slug: developmentStages.slug }).from(developmentStages).orderBy(asc(developmentStages.sortOrder)),
     ]);
 
     return new Response(
@@ -136,9 +134,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const body = await context.request.json();
     const result = skillSchema.safeParse(body);
@@ -150,7 +146,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const [newSkill] = await db
+    const [newSkill] = await getDb()
       .insert(skills)
       .values(result.data as any)
       .returning();

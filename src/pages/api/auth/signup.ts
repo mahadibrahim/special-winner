@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { hashPassword, createSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
@@ -31,7 +31,7 @@ export const POST: APIRoute = async (context) => {
     const { email, password, firstName, lastName, phone } = result.data;
 
     // Check if user already exists
-    const existingUser = await db.query.users.findFirst({
+    const existingUser = await getDb().query.users.findFirst({
       where: eq(users.email, email.toLowerCase()),
     });
 
@@ -46,7 +46,7 @@ export const POST: APIRoute = async (context) => {
     const passwordHash = await hashPassword(password);
 
     // Create user
-    const [newUser] = await db
+    const [newUser] = await getDb()
       .insert(users)
       .values({
         email: email.toLowerCase(),
@@ -59,12 +59,12 @@ export const POST: APIRoute = async (context) => {
       .returning();
 
     // Assign default "parent" role
-    const parentRole = await db.query.roles.findFirst({
+    const parentRole = await getDb().query.roles.findFirst({
       where: eq(roles.name, "parent"),
     });
 
     if (parentRole) {
-      await db.insert(userRoles).values({
+      await getDb().insert(userRoles).values({
         userId: newUser.id,
         roleId: parentRole.id,
         scopeType: "global",

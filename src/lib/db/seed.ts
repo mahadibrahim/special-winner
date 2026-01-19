@@ -1,4 +1,4 @@
-import { db } from "./index";
+import { getDb } from "./index";
 import { roles, organizations, locations, sports, ageGroups } from "./schema";
 
 async function seed() {
@@ -6,7 +6,7 @@ async function seed() {
 
   // Seed roles
   console.log("Creating roles...");
-  await db
+  await getDb()
     .insert(roles)
     .values([
       {
@@ -62,7 +62,7 @@ async function seed() {
 
   // Seed default organization
   console.log("Creating default organization...");
-  const [org] = await db
+  const [org] = await getDb()
     .insert(organizations)
     .values({
       name: "Aspire Sports",
@@ -74,7 +74,7 @@ async function seed() {
   if (org) {
     // Seed default location
     console.log("Creating default location...");
-    const [location] = await db
+    const [location] = await getDb()
       .insert(locations)
       .values({
         organizationId: org.id,
@@ -90,7 +90,7 @@ async function seed() {
 
     // Seed default sports
     console.log("Creating default sports...");
-    await db
+    await getDb()
       .insert(sports)
       .values([
         {
@@ -130,7 +130,7 @@ async function seed() {
 
     // Seed default age groups
     console.log("Creating default age groups...");
-    await db
+    await getDb()
       .insert(ageGroups)
       .values([
         {

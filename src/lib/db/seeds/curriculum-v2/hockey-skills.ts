@@ -17,7 +17,7 @@
  * PSYCHOLOGICAL: Confidence, Hockey IQ, Competitiveness
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { skills, skillDomains, developmentStages } from "../../schema/curriculum";
 import { sports } from "../../schema/sports";
 import { eq } from "drizzle-orm";
@@ -26,11 +26,11 @@ export async function seedHockeySkills() {
   console.log("Seeding comprehensive hockey skills with assessment guides...");
 
   // Get required references
-  const [hockey] = await db.select().from(sports).where(eq(sports.slug, "hockey"));
+  const [hockey] = await getDb().select().from(sports).where(eq(sports.slug, "hockey"));
   if (!hockey) throw new Error("Hockey sport must be seeded first");
 
-  const domains = await db.select().from(skillDomains);
-  const stages = await db.select().from(developmentStages);
+  const domains = await getDb().select().from(skillDomains);
+  const stages = await getDb().select().from(developmentStages);
 
   const technical = domains.find((d) => d.name === "technical");
   const tactical = domains.find((d) => d.name === "tactical");
@@ -3204,7 +3204,7 @@ export async function seedHockeySkills() {
   // Insert skills
   for (const skill of comprehensiveSkills) {
     try {
-      await db
+      await getDb()
         .insert(skills)
         .values(skill)
         .onConflictDoNothing();

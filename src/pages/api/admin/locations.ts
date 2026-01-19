@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -26,7 +26,7 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    const allLocations = await db
+    const allLocations = await getDb()
       .select()
       .from(locations)
       .where(eq(locations.organizationId, orgContext.organizationId))
@@ -60,7 +60,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     const data = result.data;
-    const [newLocation] = await db
+    const [newLocation] = await getDb()
       .insert(locations)
       .values({
         organizationId: orgContext.organizationId,
@@ -108,7 +108,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     const validData = result.data;
-    const [updatedLocation] = await db
+    const [updatedLocation] = await getDb()
       .update(locations)
       .set({
         name: validData.name,
@@ -149,7 +149,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Location ID is required" }), { status: 400 });
     }
 
-    await db.delete(locations).where(eq(locations.id, id));
+    await getDb().delete(locations).where(eq(locations.id, id));
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     console.error("Error deleting location:", error);

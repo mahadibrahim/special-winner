@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { skillDomains } from "@/lib/db/schema";
 
 // GET - Get all skill domains
@@ -13,14 +13,9 @@ export const GET: APIRoute = async ({ locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
-    const domains = await db
+    const domains = await getDb()
       .select({
         id: skillDomains.id,
         name: skillDomains.name,

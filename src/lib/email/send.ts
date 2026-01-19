@@ -4,7 +4,7 @@ import { RegistrationConfirmationEmail } from "./templates/registration-confirma
 import { PaymentReceiptEmail } from "./templates/payment-receipt";
 import { WaitlistPromotionEmail } from "./templates/waitlist-promotion";
 import { RefundNotificationEmail } from "./templates/refund-notification";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
 
 // Helper to log emails
@@ -17,10 +17,10 @@ async function logEmail(data: {
   resendMessageId?: string;
   status: string;
 }) {
-  if (!db) return;
+  if (false) return;
 
   try {
-    await db.insert(emailLogs).values({
+    await getDb().insert(emailLogs).values({
       userId: data.userId,
       registrationId: data.registrationId,
       emailType: data.emailType,

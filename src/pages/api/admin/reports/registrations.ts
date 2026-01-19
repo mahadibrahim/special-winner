@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
 import { requireAdminAccess } from "@/lib/auth";
@@ -24,7 +24,7 @@ export const GET: APIRoute = async (context) => {
       : new Date(end.getFullYear(), end.getMonth() - 11, 1);
 
     // Total registrations by status
-    const registrationsByStatus = await db
+    const registrationsByStatus = await getDb()
       .select({
         status: registrations.status,
         count: sql<number>`COUNT(*)`,
@@ -59,7 +59,7 @@ export const GET: APIRoute = async (context) => {
         dateFormat = "YYYY-MM";
     }
 
-    const registrationsByPeriod = await db
+    const registrationsByPeriod = await getDb()
       .select({
         period: sql<string>`TO_CHAR(${registrations.createdAt}, ${dateFormat})`,
         total: sql<number>`COUNT(*)`,
@@ -79,7 +79,7 @@ export const GET: APIRoute = async (context) => {
       .orderBy(sql`TO_CHAR(${registrations.createdAt}, ${dateFormat})`);
 
     // Registrations by sport
-    const registrationsBySport = await db
+    const registrationsBySport = await getDb()
       .select({
         sportId: sports.id,
         sportName: sports.name,
@@ -100,7 +100,7 @@ export const GET: APIRoute = async (context) => {
       .orderBy(desc(sql`COUNT(*)`));
 
     // Registrations by program
-    const registrationsByProgram = await db
+    const registrationsByProgram = await getDb()
       .select({
         programId: programs.id,
         programName: programs.name,
@@ -123,7 +123,7 @@ export const GET: APIRoute = async (context) => {
       .limit(10);
 
     // Payment status breakdown
-    const paymentStatusBreakdown = await db
+    const paymentStatusBreakdown = await getDb()
       .select({
         paymentStatus: registrations.paymentStatus,
         count: sql<number>`COUNT(*)`,
@@ -140,7 +140,7 @@ export const GET: APIRoute = async (context) => {
       .groupBy(registrations.paymentStatus);
 
     // Recent registrations
-    const recentRegistrations = await db
+    const recentRegistrations = await getDb()
       .select({
         id: registrations.id,
         status: registrations.status,
@@ -171,7 +171,7 @@ export const GET: APIRoute = async (context) => {
       .limit(10);
 
     // Unique families/users who registered
-    const uniqueFamiliesResult = await db
+    const uniqueFamiliesResult = await getDb()
       .select({
         count: sql<number>`COUNT(DISTINCT ${registrations.registeredByUserId})`,
       })
@@ -188,7 +188,7 @@ export const GET: APIRoute = async (context) => {
     const prevEnd = new Date(start.getTime() - 1);
     const prevStart = new Date(prevEnd.getTime() - periodDuration);
 
-    const prevRegistrationsResult = await db
+    const prevRegistrationsResult = await getDb()
       .select({
         count: sql<number>`COUNT(*)`,
       })

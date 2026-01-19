@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { venues, locations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -24,7 +24,7 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    const allVenues = await db
+    const allVenues = await getDb()
       .select({
         id: venues.id,
         locationId: venues.locationId,
@@ -71,7 +71,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const [newVenue] = await db
+    const [newVenue] = await getDb()
       .insert(venues)
       .values({
         ...result.data,
@@ -112,7 +112,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedVenue] = await db
+    const [updatedVenue] = await getDb()
       .update(venues)
       .set({
         ...result.data,
@@ -151,7 +151,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Venue ID is required" }), { status: 400 });
     }
 
-    const [deletedVenue] = await db.delete(venues).where(eq(venues.id, id)).returning();
+    const [deletedVenue] = await getDb().delete(venues).where(eq(venues.id, id)).returning();
 
     if (!deletedVenue) {
       return new Response(JSON.stringify({ error: "Venue not found" }), { status: 404 });

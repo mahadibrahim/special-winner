@@ -3,7 +3,7 @@
  * Run with: npx tsx src/lib/db/scripts/assign-admin-role.ts <email>
  */
 
-import { db } from "../index";
+import { getDb } from "../index";
 import { users, userRoles, roles } from "../schema";
 import { eq } from "drizzle-orm";
 
@@ -11,7 +11,7 @@ async function assignAdminRole(email: string) {
   console.log(`Assigning super_admin role to: ${email}`);
 
   // Find user
-  const user = await db.query.users.findFirst({
+  const user = await getDb().query.users.findFirst({
     where: eq(users.email, email.toLowerCase()),
   });
 
@@ -23,7 +23,7 @@ async function assignAdminRole(email: string) {
   console.log(`Found user: ${user.firstName} ${user.lastName} (${user.id})`);
 
   // Find super_admin role
-  const adminRole = await db.query.roles.findFirst({
+  const adminRole = await getDb().query.roles.findFirst({
     where: eq(roles.name, "super_admin"),
   });
 
@@ -33,18 +33,18 @@ async function assignAdminRole(email: string) {
   }
 
   // Check if user already has this role
-  const existingRole = await db.query.userRoles.findFirst({
+  const existingRole = await getDb().query.userRoles.findFirst({
     where: eq(userRoles.userId, user.id),
   });
 
   if (existingRole) {
     console.log("User already has a role assigned. Updating to super_admin...");
-    await db
+    await getDb()
       .update(userRoles)
       .set({ roleId: adminRole.id })
       .where(eq(userRoles.userId, user.id));
   } else {
-    await db.insert(userRoles).values({
+    await getDb().insert(userRoles).values({
       userId: user.id,
       roleId: adminRole.id,
       scopeType: "global",

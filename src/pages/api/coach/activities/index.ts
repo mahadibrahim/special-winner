@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { activities, developmentStages, teams } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, or, arrayContains, ilike, desc, asc } from "drizzle-orm";
@@ -15,15 +15,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify user is a coach
-    const coachTeams = await db
+    const coachTeams = await getDb()
       .select({ id: teams.id })
       .from(teams)
       .where(
@@ -52,7 +47,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const sortBy = url.searchParams.get("sortBy") || "name"; // name, usageCount, averageRating
 
     // Build base query
-    let query = db
+    let query = getDb()
       .select({
         id: activities.id,
         sportId: activities.sportId,
@@ -138,7 +133,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Get sports for reference
-    const sportsList = await db
+    const sportsList = await getDb()
       .select({
         id: sports.id,
         name: sports.name,
@@ -146,7 +141,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .from(sports);
 
     // Get stages for reference
-    const stagesList = await db
+    const stagesList = await getDb()
       .select({
         id: developmentStages.id,
         name: developmentStages.name,

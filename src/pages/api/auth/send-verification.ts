@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, emailVerificationTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { render } from "@react-email/components";
@@ -20,7 +20,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Check if already verified
-    const userData = await db
+    const userData = await getDb()
       .select()
       .from(users)
       .where(eq(users.id, user.id))
@@ -41,7 +41,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Delete any existing verification tokens for this user
-    await db
+    await getDb()
       .delete(emailVerificationTokens)
       .where(eq(emailVerificationTokens.userId, user.id));
 
@@ -50,7 +50,7 @@ export const POST: APIRoute = async (context) => {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Store token
-    await db.insert(emailVerificationTokens).values({
+    await getDb().insert(emailVerificationTokens).values({
       id: token,
       userId: user.id,
       email: userData[0].email,

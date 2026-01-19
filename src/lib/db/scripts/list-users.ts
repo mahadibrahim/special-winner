@@ -1,8 +1,8 @@
-import { db } from "../index";
+import { getDb } from "../index";
 import { users } from "../schema";
 
 async function listUsers() {
-  const allUsers = await db.select({
+  const allUsers = await getDb().select({
     email: users.email,
     firstName: users.firstName,
     lastName: users.lastName

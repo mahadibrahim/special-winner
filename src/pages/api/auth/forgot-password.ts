@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, passwordResetTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { render } from "@react-email/components";
@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request }) => {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Find user by email
-    const user = await db
+    const user = await getDb()
       .select()
       .from(users)
       .where(eq(users.email, normalizedEmail))
@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Delete any existing reset tokens for this user
-    await db
+    await getDb()
       .delete(passwordResetTokens)
       .where(eq(passwordResetTokens.userId, user[0].id));
 
@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     // Store token
-    await db.insert(passwordResetTokens).values({
+    await getDb().insert(passwordResetTokens).values({
       id: token,
       userId: user[0].id,
       expiresAt,

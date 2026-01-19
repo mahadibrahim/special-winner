@@ -1,10 +1,10 @@
-import { db } from "../index";
+import { getDb } from "../index";
 import { practiceTemplates, developmentStages } from "../schema";
 import { sports } from "../schema/sports";
 import { eq } from "drizzle-orm";
 
 export async function seedPracticeTemplates() {
-  if (!db) {
+  if (false) {
     console.error("Database not available");
     return;
   }
@@ -12,11 +12,11 @@ export async function seedPracticeTemplates() {
   console.log("Seeding practice templates...");
 
   // Get sports
-  const [soccer] = await db
+  const [soccer] = await getDb()
     .select()
     .from(sports)
     .where(eq(sports.name, "Soccer"));
-  const [basketball] = await db
+  const [basketball] = await getDb()
     .select()
     .from(sports)
     .where(eq(sports.name, "Basketball"));
@@ -27,7 +27,7 @@ export async function seedPracticeTemplates() {
   }
 
   // Get development stages
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const stageMap = new Map(stages.map((s) => [s.slug, s.id]));
 
   const fundamentalsId = stageMap.get("fundamentals");
@@ -513,7 +513,7 @@ export async function seedPracticeTemplates() {
   // Insert templates
   for (const template of templates) {
     try {
-      await db.insert(practiceTemplates).values(template).onConflictDoNothing();
+      await getDb().insert(practiceTemplates).values(template).onConflictDoNothing();
       console.log(`  ✓ ${template.name}`);
     } catch (error) {
       console.error(`  ✗ Error inserting ${template.name}:`, error);

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { announcements, users } from "@/lib/db/schema";
 import { eq, desc, and, or, isNull, gte } from "drizzle-orm";
 import { z } from "zod";
@@ -30,7 +30,7 @@ export const GET: APIRoute = async (context) => {
     const status = url.searchParams.get("status");
     const includeExpired = url.searchParams.get("includeExpired") === "true";
 
-    let query = db
+    let query = getDb()
       .select({
         id: announcements.id,
         title: announcements.title,
@@ -111,7 +111,7 @@ export const POST: APIRoute = async (context) => {
 
     const publishedAt = result.data.status === "published" ? new Date() : null;
 
-    const [newAnnouncement] = await db
+    const [newAnnouncement] = await getDb()
       .insert(announcements)
       .values({
         organizationId: orgContext.organizationId,
@@ -157,7 +157,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify announcement belongs to this organization
-    const existing = await db.query.announcements.findFirst({
+    const existing = await getDb().query.announcements.findFirst({
       where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
     });
 
@@ -170,7 +170,7 @@ export const PUT: APIRoute = async (context) => {
       publishedAt = new Date();
     }
 
-    const [updatedAnnouncement] = await db
+    const [updatedAnnouncement] = await getDb()
       .update(announcements)
       .set({
         ...result.data,
@@ -212,7 +212,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Verify announcement belongs to this organization before deleting
-    const existing = await db.query.announcements.findFirst({
+    const existing = await getDb().query.announcements.findFirst({
       where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
     });
 
@@ -220,7 +220,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Announcement not found" }), { status: 404 });
     }
 
-    await db.delete(announcements).where(eq(announcements.id, id));
+    await getDb().delete(announcements).where(eq(announcements.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

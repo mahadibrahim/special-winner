@@ -9,7 +9,7 @@
  * - Coaching principles (core principles by stage)
  */
 
-import { db } from "../index";
+import { getDb } from "../index";
 import { sports } from "../schema/sports";
 import { developmentStages } from "../schema/curriculum";
 import { coachPrompts, coachResources, coachingPrinciples } from "../schema/coach-guidance";
@@ -19,15 +19,15 @@ export async function seedCoachTrainingModules() {
   console.log("Seeding coach training modules...");
 
   // Get sports
-  const [soccer] = await db.select().from(sports).where(eq(sports.slug, "soccer"));
-  const [basketball] = await db.select().from(sports).where(eq(sports.slug, "basketball"));
+  const [soccer] = await getDb().select().from(sports).where(eq(sports.slug, "soccer"));
+  const [basketball] = await getDb().select().from(sports).where(eq(sports.slug, "basketball"));
 
   if (!soccer || !basketball) {
     throw new Error("Sports must be seeded first");
   }
 
   // Get development stages
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const fundamentals = stages.find((s) => s.name === "Fundamentals");
   const skillBuilding = stages.find((s) => s.name === "Skill Building");
   const development = stages.find((s) => s.name === "Development");
@@ -500,7 +500,7 @@ export async function seedCoachTrainingModules() {
 
   // Insert prompts
   for (const prompt of promptsData) {
-    await db
+    await getDb()
       .insert(coachPrompts)
       .values(prompt)
       .onConflictDoNothing();
@@ -1509,7 +1509,7 @@ If you're unsure, ask: "Will this child still love this sport in 5 years?" If th
 
   // Insert resources
   for (const resource of resourcesData) {
-    await db
+    await getDb()
       .insert(coachResources)
       .values(resource)
       .onConflictDoNothing();
@@ -1909,7 +1909,7 @@ If you're unsure, ask: "Will this child still love this sport in 5 years?" If th
 
   // Insert principles
   for (const principle of principlesData) {
-    await db
+    await getDb()
       .insert(coachingPrinciples)
       .values(principle)
       .onConflictDoNothing();

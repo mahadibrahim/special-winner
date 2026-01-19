@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { organizations } from "@/lib/db/schema/organizations";
 import {
   getConnectAccountStatus,
@@ -25,15 +25,10 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get organization
-    const [org] = await db
+    const [org] = await getDb()
       .select()
       .from(organizations)
       .where(eq(organizations.id, organizationId))

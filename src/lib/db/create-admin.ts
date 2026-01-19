@@ -1,4 +1,4 @@
-import { db } from "./index";
+import { getDb } from "./index";
 import { users, roles, userRoles } from "./schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "../auth/password";
@@ -15,7 +15,7 @@ async function createAdmin() {
   const passwordHash = await hashPassword(password);
 
   // Check if user already exists
-  const existingUser = await db
+  const existingUser = await getDb()
     .select()
     .from(users)
     .where(eq(users.email, email))
@@ -26,13 +26,13 @@ async function createAdmin() {
   if (existingUser.length > 0) {
     console.log("User already exists, updating...");
     userId = existingUser[0].id;
-    await db
+    await getDb()
       .update(users)
       .set({ passwordHash, firstName, lastName, emailVerified: true })
       .where(eq(users.id, userId));
   } else {
     console.log("Creating new user...");
-    const [newUser] = await db
+    const [newUser] = await getDb()
       .insert(users)
       .values({
         email,
@@ -46,7 +46,7 @@ async function createAdmin() {
   }
 
   // Get the super_admin role
-  const [superAdminRole] = await db
+  const [superAdminRole] = await getDb()
     .select()
     .from(roles)
     .where(eq(roles.name, "super_admin"))
@@ -58,7 +58,7 @@ async function createAdmin() {
   }
 
   // Check if user already has the role
-  const existingRole = await db
+  const existingRole = await getDb()
     .select()
     .from(userRoles)
     .where(eq(userRoles.userId, userId))
@@ -66,7 +66,7 @@ async function createAdmin() {
 
   if (existingRole.length === 0) {
     console.log("Assigning super_admin role...");
-    await db.insert(userRoles).values({
+    await getDb().insert(userRoles).values({
       userId,
       roleId: superAdminRole.id,
       scopeType: "global",

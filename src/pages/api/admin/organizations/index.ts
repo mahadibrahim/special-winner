@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { organizations, locations, userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { eq, sql, and, count, inArray } from "drizzle-orm";
 import { requireAdminAccess } from "@/lib/auth";
@@ -12,15 +12,10 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get all organizations with counts
-    const orgsWithCounts = await db
+    const orgsWithCounts = await getDb()
       .select({
         id: organizations.id,
         name: organizations.name,
@@ -83,12 +78,7 @@ export const POST: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const body = await request.json();
 
@@ -122,7 +112,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Check if slug is unique
-    const [existing] = await db
+    const [existing] = await getDb()
       .select({ id: organizations.id })
       .from(organizations)
       .where(eq(organizations.slug, slug))
@@ -139,7 +129,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Create organization
-    const [newOrg] = await db
+    const [newOrg] = await getDb()
       .insert(organizations)
       .values({
         name,
@@ -188,7 +178,7 @@ export const POST: APIRoute = async (context) => {
       .returning();
 
     // Add the creating user as owner
-    await db.insert(userOrganizationAccess).values({
+    await getDb().insert(userOrganizationAccess).values({
       userId: auth.user.id,
       organizationId: newOrg.id,
       role: "owner",

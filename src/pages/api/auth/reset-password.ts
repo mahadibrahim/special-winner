@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, passwordResetTokens, sessions } from "@/lib/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth/password";
@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
     const { token, password } = result.data;
 
     // Find valid token
-    const resetToken = await db
+    const resetToken = await getDb()
       .select()
       .from(passwordResetTokens)
       .where(
@@ -47,18 +47,18 @@ export const POST: APIRoute = async ({ request }) => {
     const passwordHash = await hashPassword(password);
 
     // Update user password
-    await db
+    await getDb()
       .update(users)
       .set({ passwordHash, updatedAt: new Date() })
       .where(eq(users.id, resetToken[0].userId));
 
     // Delete used token
-    await db
+    await getDb()
       .delete(passwordResetTokens)
       .where(eq(passwordResetTokens.id, token));
 
     // Invalidate all existing sessions for this user (security measure)
-    await db
+    await getDb()
       .delete(sessions)
       .where(eq(sessions.userId, resetToken[0].userId));
 

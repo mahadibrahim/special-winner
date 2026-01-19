@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { teams, seasons, programs, sports, locations, rosters, games } from "@/lib/db/schema";
 import { eq, or, and, gte, count } from "drizzle-orm";
 
@@ -14,15 +14,10 @@ export const GET: APIRoute = async ({ locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get all teams where user is coach or assistant coach
-    const coachTeams = await db
+    const coachTeams = await getDb()
       .select({
         id: teams.id,
         name: teams.name,
@@ -73,7 +68,7 @@ export const GET: APIRoute = async ({ locals }) => {
 
     let rosterCounts: Record<string, number> = {};
     if (teamIds.length > 0) {
-      const rosterCountResults = await db
+      const rosterCountResults = await getDb()
         .select({
           teamId: rosters.teamId,
           count: count(),
@@ -97,7 +92,7 @@ export const GET: APIRoute = async ({ locals }) => {
 
     if (teamIds.length > 0) {
       for (const teamId of teamIds) {
-        const [nextGame] = await db
+        const [nextGame] = await getDb()
           .select({
             id: games.id,
             scheduledAt: games.scheduledAt,
@@ -125,7 +120,7 @@ export const GET: APIRoute = async ({ locals }) => {
 
           let opponentName: string | null = null;
           if (opponentId) {
-            const [opponent] = await db
+            const [opponent] = await getDb()
               .select({ name: teams.name })
               .from(teams)
               .where(eq(teams.id, opponentId));

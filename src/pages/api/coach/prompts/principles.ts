@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { coachingPrinciples } from "@/lib/db/schema/coach-guidance";
 import { eq, and, or, asc, isNull } from "drizzle-orm";
 import { validateSession } from "@/lib/auth";
@@ -12,9 +12,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const url = new URL(context.request.url);
     const sportId = url.searchParams.get("sportId");
@@ -35,7 +33,7 @@ export const GET: APIRoute = async (context) => {
       conditions.push(or(isNull(coachingPrinciples.stageId), eq(coachingPrinciples.stageId, stageId))!);
     }
 
-    const principles = await db
+    const principles = await getDb()
       .select({
         id: coachingPrinciples.id,
         title: coachingPrinciples.title,

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, registrations, rosters, teams, games, venues, seasons, programs, familyMembers } from "@/lib/db/schema";
 import { eq, and, or, gte } from "drizzle-orm";
 import { generateICalFeed } from "@/lib/calendar/ical";
@@ -31,18 +31,13 @@ export const GET: APIRoute = async ({ params, locals }) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // User is already verified via session
     const user = locals.user;
 
     // Get user's family members
-    const userFamilyMembers = await db
+    const userFamilyMembers = await getDb()
       .select({ id: familyMembers.id })
       .from(familyMembers)
       .where(eq(familyMembers.parentUserId, userId));
@@ -62,7 +57,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get registrations for user's family members
-    const userRegistrations = await db
+    const userRegistrations = await getDb()
       .select({
         id: registrations.id,
         familyMemberId: registrations.familyMemberId,
@@ -91,7 +86,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     const seasonIds = [...new Set(userRegistrations.map((r) => r.seasonId))];
 
     // Get teams for these registrations (via rosters)
-    const userRosters = await db
+    const userRosters = await getDb()
       .select({ teamId: rosters.teamId })
       .from(rosters)
       .where(or(...registrationIds.map((id) => eq(rosters.registrationId, id))));
@@ -100,7 +95,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     // Get upcoming games for these teams or seasons
     const now = new Date();
-    const gamesData = await db
+    const gamesData = await getDb()
       .select({
         id: games.id,
         seasonId: games.seasonId,
@@ -142,17 +137,17 @@ export const GET: APIRoute = async ({ params, locals }) => {
     const seasonsMap = new Map();
 
     if (allTeamIds.length > 0) {
-      const teamsList = await db.select().from(teams);
+      const teamsList = await getDb().select().from(teams);
       teamsList.forEach((t) => teamsMap.set(t.id, t));
     }
 
     if (venueIds.length > 0) {
-      const venuesList = await db.select().from(venues);
+      const venuesList = await getDb().select().from(venues);
       venuesList.forEach((v) => venuesMap.set(v.id, v));
     }
 
     if (seasonIds.length > 0) {
-      const seasonsList = await db
+      const seasonsList = await getDb()
         .select({
           id: seasons.id,
           name: seasons.name,
@@ -161,7 +156,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         .from(seasons);
 
       const programIds = [...new Set(seasonsList.map((s) => s.programId))];
-      const programsList = await db.select().from(programs);
+      const programsList = await getDb().select().from(programs);
       const programsMap = new Map();
       programsList.forEach((p) => programsMap.set(p.id, p));
 

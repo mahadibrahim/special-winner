@@ -10,7 +10,7 @@
  * Run with: npx tsx src/lib/db/seeds/curriculum-review/run-review.ts
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { skills, curriculumReviews } from "../../schema";
 import { eq } from "drizzle-orm";
 import { SkillsEvaluator } from "../../../curriculum-review/evaluators/skills-evaluator";
@@ -42,7 +42,7 @@ async function runCurriculumReview() {
 
     // Clear previous reviews
     console.log("Clearing previous reviews...");
-    await db.delete(curriculumReviews);
+    await getDb().delete(curriculumReviews);
     console.log("  ✓ Previous reviews cleared\n");
 
     // Review skills
@@ -92,7 +92,7 @@ async function runCurriculumReview() {
 
 async function ensureTableExists() {
   try {
-    await db.execute(sql`
+    await getDb().execute(sql`
       CREATE TABLE IF NOT EXISTS curriculum_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         content_type VARCHAR(50) NOT NULL,
@@ -116,17 +116,17 @@ async function ensureTableExists() {
       )
     `);
 
-    await db.execute(sql`
+    await getDb().execute(sql`
       CREATE INDEX IF NOT EXISTS idx_curriculum_reviews_content
       ON curriculum_reviews(content_type, content_id)
     `);
 
-    await db.execute(sql`
+    await getDb().execute(sql`
       CREATE INDEX IF NOT EXISTS idx_curriculum_reviews_score
       ON curriculum_reviews(overall_score)
     `);
 
-    await db.execute(sql`
+    await getDb().execute(sql`
       CREATE INDEX IF NOT EXISTS idx_curriculum_reviews_sport
       ON curriculum_reviews(sport_name)
     `);
@@ -146,7 +146,7 @@ async function reviewSkills(): Promise<ReviewResult[]> {
   const results: ReviewResult[] = [];
 
   // Fetch all active skills with relations
-  const allSkills = await db.query.skills.findMany({
+  const allSkills = await getDb().query.skills.findMany({
     where: eq(skills.active, true),
     with: {
       sport: true,
@@ -164,7 +164,7 @@ async function reviewSkills(): Promise<ReviewResult[]> {
       results.push(result);
 
       // Save to database
-      await db.insert(curriculumReviews).values({
+      await getDb().insert(curriculumReviews).values({
         contentType: result.contentType,
         contentId: result.contentId,
         contentName: result.contentName,
@@ -189,7 +189,7 @@ async function reviewSkills(): Promise<ReviewResult[]> {
       console.error(`    ✗ Error evaluating ${skill.name}:`, error);
 
       // Save error to database
-      await db.insert(curriculumReviews).values({
+      await getDb().insert(curriculumReviews).values({
         contentType: "skill",
         contentId: skill.id,
         contentName: skill.name,

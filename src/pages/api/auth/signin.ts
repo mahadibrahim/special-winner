@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { verifyPassword, createSession } from "@/lib/auth";
 import { eq } from "drizzle-orm";
@@ -28,7 +28,7 @@ export const POST: APIRoute = async (context) => {
     const { email, password } = result.data;
 
     // Find user
-    const user = await db.query.users.findFirst({
+    const user = await getDb().query.users.findFirst({
       where: eq(users.email, email.toLowerCase()),
     });
 
@@ -53,7 +53,7 @@ export const POST: APIRoute = async (context) => {
     await createSession(user.id, context);
 
     // Fetch user roles
-    const userRolesList = await db
+    const userRolesList = await getDb()
       .select({
         roleName: roles.name,
         scopeType: userRoles.scopeType,

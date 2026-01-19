@@ -21,3 +21,14 @@ if (connectionString) {
 export { db };
 
 export type Database = NonNullable<typeof db>;
+
+/**
+ * Get the database instance, throwing an error if not available.
+ * Use this in code that requires database access.
+ */
+export function getDb(): Database {
+  if (!db) {
+    throw new Error("Database not available. Ensure DATABASE_URL is set.");
+  }
+  return db;
+}

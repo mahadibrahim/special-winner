@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { payments, registrations, familyMembers, seasons, programs, sports } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -13,14 +13,9 @@ export const GET: APIRoute = async ({ locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
-    const userPayments = await db
+    const userPayments = await getDb()
       .select({
         payment: payments,
         registration: registrations,

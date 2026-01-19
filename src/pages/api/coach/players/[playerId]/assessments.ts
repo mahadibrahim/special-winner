@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   playerAssessments,
   playerSkillSummary,
@@ -26,15 +26,10 @@ export const GET: APIRoute = async (context) => {
     const auth = await requireCoachAccessToPlayer(context, playerId);
     if (!auth.authorized) return auth.response;
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get player info
-    const [player] = await db
+    const [player] = await getDb()
       .select({
         id: familyMembers.id,
         firstName: familyMembers.firstName,
@@ -64,7 +59,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get assessments with skill details
-    const assessments = await db
+    const assessments = await getDb()
       .select({
         id: playerAssessments.id,
         skillId: playerAssessments.skillId,
@@ -107,7 +102,7 @@ export const GET: APIRoute = async (context) => {
       .limit(limit);
 
     // Get skill summaries for the player (current state)
-    const summaries = await db
+    const summaries = await getDb()
       .select({
         id: playerSkillSummary.id,
         skillId: playerSkillSummary.skillId,

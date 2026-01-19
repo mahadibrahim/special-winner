@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { coachResources } from "@/lib/db/schema/coach-guidance";
 import { eq } from "drizzle-orm";
 import { validateSession } from "@/lib/auth";
@@ -12,16 +12,14 @@ export const GET: APIRoute = async ({ params, ...context }) => {
   }
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Resource ID required" }), { status: 400 });
     }
 
-    const [resource] = await db
+    const [resource] = await getDb()
       .select()
       .from(coachResources)
       .where(eq(coachResources.id, id));

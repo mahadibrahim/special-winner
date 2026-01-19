@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { teams, rosters, registrations, familyMembers, users } from "@/lib/db/schema";
 import { eq, or, and } from "drizzle-orm";
 import { isCoachOfTeam } from "@/lib/auth/roles";
@@ -23,12 +23,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify user is coach of this team
     const isCoach = await isCoachOfTeam(user.id, teamId);
@@ -40,7 +35,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get team info
-    const [team] = await db
+    const [team] = await getDb()
       .select({
         id: teams.id,
         name: teams.name,
@@ -57,7 +52,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get roster with player and parent info
-    const rosterData = await db
+    const rosterData = await getDb()
       .select({
         roster: {
           id: rosters.id,

@@ -1,9 +1,9 @@
-import { db } from "./index";
+import { getDb } from "./index";
 import { seasons } from "./schema/programs";
 import { eq } from "drizzle-orm";
 
 async function getSeasons() {
-  const openSeasons = await db
+  const openSeasons = await getDb()
     .select()
     .from(seasons)
     .where(eq(seasons.status, "open"))

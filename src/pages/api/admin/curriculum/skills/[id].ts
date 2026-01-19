@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { skills, skillDomains, assessmentRubrics } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq } from "drizzle-orm";
@@ -34,16 +34,14 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Skill ID required" }), { status: 400 });
     }
 
-    const [skill] = await db
+    const [skill] = await getDb()
       .select({
         id: skills.id,
         sportId: skills.sportId,
@@ -80,7 +78,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get assessment rubrics for this skill
-    const rubrics = await db
+    const rubrics = await getDb()
       .select()
       .from(assessmentRubrics)
       .where(eq(assessmentRubrics.skillId, id))
@@ -105,9 +103,7 @@ export const PUT: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
@@ -124,7 +120,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedSkill] = await db
+    const [updatedSkill] = await getDb()
       .update(skills)
       .set({
         ...result.data,
@@ -156,9 +152,7 @@ export const DELETE: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
@@ -166,10 +160,10 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Delete associated rubrics first
-    await db.delete(assessmentRubrics).where(eq(assessmentRubrics.skillId, id));
+    await getDb().delete(assessmentRubrics).where(eq(assessmentRubrics.skillId, id));
 
     // Delete the skill
-    const [deletedSkill] = await db
+    const [deletedSkill] = await getDb()
       .delete(skills)
       .where(eq(skills.id, id))
       .returning();

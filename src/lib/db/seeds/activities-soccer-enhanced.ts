@@ -9,7 +9,7 @@
  * - Success criteria
  */
 
-import { db } from "../index";
+import { getDb } from "../index";
 import { activities } from "../schema/practice-planning";
 import { sports } from "../schema/sports";
 import { developmentStages } from "../schema/curriculum";
@@ -19,13 +19,13 @@ export async function seedEnhancedSoccerActivities() {
   console.log("Seeding enhanced soccer activities...");
 
   // Get soccer sport
-  const [soccer] = await db.select().from(sports).where(eq(sports.slug, "soccer"));
+  const [soccer] = await getDb().select().from(sports).where(eq(sports.slug, "soccer"));
   if (!soccer) {
     throw new Error("Soccer sport must be seeded first");
   }
 
   // Get development stages
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const fundamentalsId = stages.find((s) => s.slug === "fundamentals")?.id;
   const skillBuildingId = stages.find((s) => s.slug === "skill-building")?.id;
   const developmentId = stages.find((s) => s.slug === "development")?.id;
@@ -1086,7 +1086,7 @@ Signs they're ready:
 
   // Insert activities
   for (const activity of enhancedActivities) {
-    await db
+    await getDb()
       .insert(activities)
       .values(activity)
       .onConflictDoNothing();

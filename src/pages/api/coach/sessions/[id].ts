@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   sessionPlans,
   sessionActivityUsage,
@@ -42,9 +42,7 @@ const updateSessionSchema = z.object({
 
 // Helper to verify coach access to session
 async function verifyCoachAccess(userId: string, sessionId: string) {
-  if (!db) return null;
-
-  const [session] = await db
+  const [session] = await getDb()
     .select({
       id: sessionPlans.id,
       teamId: sessionPlans.teamId,
@@ -83,12 +81,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify access
     const access = await verifyCoachAccess(user.id, id);
@@ -100,7 +93,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get full session details
-    const [session] = await db
+    const [session] = await getDb()
       .select({
         id: sessionPlans.id,
         teamId: sessionPlans.teamId,
@@ -146,7 +139,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get activity usage records if any
-    const activityUsages = await db
+    const activityUsages = await getDb()
       .select({
         id: sessionActivityUsage.id,
         activityId: sessionActivityUsage.activityId,
@@ -202,12 +195,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify access
     const access = await verifyCoachAccess(user.id, id);
@@ -262,7 +250,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     if (data.playerObservations !== undefined) updateData.playerObservations = data.playerObservations;
 
     // Update the session
-    const [updatedSession] = await db
+    const [updatedSession] = await getDb()
       .update(sessionPlans)
       .set(updateData)
       .where(eq(sessionPlans.id, id))
@@ -271,14 +259,14 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     // If activities changed, update activity usage counts
     if (data.segments) {
       // Clear old usage records
-      await db
+      await getDb()
         .delete(sessionActivityUsage)
         .where(eq(sessionActivityUsage.sessionPlanId, id));
 
       // Insert new usage records for activities
       for (const segment of data.segments) {
         if (segment.activityId) {
-          await db.insert(sessionActivityUsage).values({
+          await getDb().insert(sessionActivityUsage).values({
             sessionPlanId: id,
             activityId: segment.activityId,
             segmentOrder: segment.order,
@@ -286,7 +274,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
           });
 
           // Increment activity usage count
-          await db
+          await getDb()
             .update(activities)
             .set({
               usageCount: sql`${activities.usageCount} + 1`,
@@ -329,12 +317,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify access
     const access = await verifyCoachAccess(user.id, id);
@@ -346,12 +329,12 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     }
 
     // Delete activity usage records first (cascade should handle this but being explicit)
-    await db
+    await getDb()
       .delete(sessionActivityUsage)
       .where(eq(sessionActivityUsage.sessionPlanId, id));
 
     // Delete the session
-    await db.delete(sessionPlans).where(eq(sessionPlans.id, id));
+    await getDb().delete(sessionPlans).where(eq(sessionPlans.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

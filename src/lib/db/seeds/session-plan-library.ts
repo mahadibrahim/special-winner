@@ -1,4 +1,4 @@
-import { db } from "../index";
+import { getDb } from "../index";
 import { practiceTemplates } from "../schema/practice-planning";
 import { developmentStages } from "../schema/curriculum";
 import { sports } from "../schema/sports";
@@ -8,8 +8,8 @@ export async function seedSessionPlanLibrary() {
   console.log("Seeding session plan library...");
 
   // Get sports
-  const [soccer] = await db.select().from(sports).where(eq(sports.slug, "soccer"));
-  const [basketball] = await db.select().from(sports).where(eq(sports.slug, "basketball"));
+  const [soccer] = await getDb().select().from(sports).where(eq(sports.slug, "soccer"));
+  const [basketball] = await getDb().select().from(sports).where(eq(sports.slug, "basketball"));
 
   if (!soccer || !basketball) {
     console.log("  ⚠ Soccer or Basketball sport not found, skipping session plan library");
@@ -17,7 +17,7 @@ export async function seedSessionPlanLibrary() {
   }
 
   // Get development stages
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const fundamentalsStage = stages.find((s) => s.slug === "fundamentals");
   const skillBuildingStage = stages.find((s) => s.slug === "skill-building");
   const developmentStage = stages.find((s) => s.slug === "development");
@@ -1210,7 +1210,7 @@ Week 3: Add active defender
 
   for (const plan of allPlans) {
     try {
-      await db.insert(practiceTemplates).values(plan).onConflictDoNothing();
+      await getDb().insert(practiceTemplates).values(plan).onConflictDoNothing();
       console.log(`  ✓ ${plan.name}`);
     } catch (error) {
       console.error(`  ✗ Error inserting ${plan.name}:`, error);

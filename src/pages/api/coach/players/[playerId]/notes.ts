@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { coachNotes, teams, familyMembers, rosters, registrations } from "@/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -28,15 +28,10 @@ export const GET: APIRoute = async (context) => {
     const auth = await requireCoachAccessToPlayer(context, playerId);
     if (!auth.authorized) return auth.response;
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Get notes for this player (only from teams the coach has access to)
-    const notes = await db
+    const notes = await getDb()
       .select({
         id: coachNotes.id,
         familyMemberId: coachNotes.familyMemberId,
@@ -89,12 +84,7 @@ export const POST: APIRoute = async (context) => {
     const auth = await requireCoachAccess(context);
     if (!auth.authorized) return auth.response;
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Parse and validate request body
     const body = await context.request.json();
@@ -124,7 +114,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify the player is on this team's roster
-    const [rosterEntry] = await db
+    const [rosterEntry] = await getDb()
       .select({ id: rosters.id })
       .from(rosters)
       .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
@@ -144,7 +134,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify the player (family member) exists
-    const [player] = await db
+    const [player] = await getDb()
       .select()
       .from(familyMembers)
       .where(eq(familyMembers.id, playerId));
@@ -157,7 +147,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Create the note
-    const [newNote] = await db
+    const [newNote] = await getDb()
       .insert(coachNotes)
       .values({
         familyMemberId: playerId,

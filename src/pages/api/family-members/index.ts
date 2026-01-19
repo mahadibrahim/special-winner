@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { familyMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -25,14 +25,9 @@ export const GET: APIRoute = async ({ locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
-    const members = await db
+    const members = await getDb()
       .select()
       .from(familyMembers)
       .where(eq(familyMembers.parentUserId, user.id))
@@ -62,12 +57,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const body = await request.json();
     const validation = createFamilyMemberSchema.safeParse(body);
@@ -87,7 +77,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const data = validation.data;
 
-    const [newMember] = await db
+    const [newMember] = await getDb()
       .insert(familyMembers)
       .values({
         parentUserId: user.id,

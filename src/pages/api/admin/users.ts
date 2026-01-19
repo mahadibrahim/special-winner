@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, userRoles, roles, locations, programs, teams, seasons } from "@/lib/db/schema";
 import { eq, asc, desc, ilike, or, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -34,14 +34,14 @@ export const GET: APIRoute = async (context) => {
     const offset = (page - 1) * limit;
 
     // Get locations, programs, and teams for this organization to determine valid scope IDs
-    const orgLocations = await db
+    const orgLocations = await getDb()
       .select({ id: locations.id })
       .from(locations)
       .where(eq(locations.organizationId, orgContext.organizationId));
     const locationIds = orgLocations.map((l) => l.id);
 
     const orgPrograms = locationIds.length > 0
-      ? await db
+      ? await getDb()
           .select({ id: programs.id })
           .from(programs)
           .where(inArray(programs.locationId, locationIds))
@@ -49,7 +49,7 @@ export const GET: APIRoute = async (context) => {
     const programIds = orgPrograms.map((p) => p.id);
 
     const orgSeasons = programIds.length > 0
-      ? await db
+      ? await getDb()
           .select({ id: seasons.id })
           .from(seasons)
           .where(inArray(seasons.programId, programIds))
@@ -57,7 +57,7 @@ export const GET: APIRoute = async (context) => {
     const seasonIds = orgSeasons.map((s) => s.id);
 
     const orgTeams = seasonIds.length > 0
-      ? await db
+      ? await getDb()
           .select({ id: teams.id })
           .from(teams)
           .where(inArray(teams.seasonId, seasonIds))
@@ -65,7 +65,7 @@ export const GET: APIRoute = async (context) => {
     const teamIds = orgTeams.map((t) => t.id);
 
     // Get user IDs who have roles scoped to this organization or its entities
-    const orgUserRoles = await db
+    const orgUserRoles = await getDb()
       .select({ userId: userRoles.userId })
       .from(userRoles)
       .where(
@@ -114,7 +114,7 @@ export const GET: APIRoute = async (context) => {
       );
     }
 
-    const allUsers = await db
+    const allUsers = await getDb()
       .select({
         id: users.id,
         email: users.email,
@@ -131,7 +131,7 @@ export const GET: APIRoute = async (context) => {
       .offset(offset);
 
     // Get total count for pagination
-    const [countResult] = await db
+    const [countResult] = await getDb()
       .select({ count: sql<number>`count(*)` })
       .from(users)
       .where(and(...conditions));
@@ -140,7 +140,7 @@ export const GET: APIRoute = async (context) => {
     // Get roles for each user (only roles visible to this org)
     const usersWithRoles = await Promise.all(
       allUsers.map(async (u) => {
-        const userRolesData = await db
+        const userRolesData = await getDb()
           .select({
             id: userRoles.id,
             roleId: userRoles.roleId,
@@ -197,7 +197,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify user has a role in this organization
-    const userOrgRole = await db
+    const userOrgRole = await getDb()
       .select({ id: userRoles.id })
       .from(userRoles)
       .where(and(
@@ -209,14 +209,14 @@ export const PUT: APIRoute = async (context) => {
 
     if (userOrgRole.length === 0) {
       // Also check for location/program/team scoped roles
-      const orgLocations = await db
+      const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
         .where(eq(locations.organizationId, orgContext.organizationId));
 
       if (orgLocations.length > 0) {
         const locationIds = orgLocations.map((l) => l.id);
-        const locationRole = await db
+        const locationRole = await getDb()
           .select({ id: userRoles.id })
           .from(userRoles)
           .where(and(
@@ -242,7 +242,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedUser] = await db
+    const [updatedUser] = await getDb()
       .update(users)
       .set({
         ...result.data,
@@ -291,7 +291,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     if (scopeType === "location" && scopeId) {
-      const location = await db.query.locations.findFirst({
+      const location = await getDb().query.locations.findFirst({
         where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
       });
       if (!location) {
@@ -300,7 +300,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     if (scopeType === "program" && scopeId) {
-      const [program] = await db
+      const [program] = await getDb()
         .select({ id: programs.id })
         .from(programs)
         .innerJoin(locations, eq(programs.locationId, locations.id))
@@ -311,7 +311,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     if (scopeType === "team" && scopeId) {
-      const [team] = await db
+      const [team] = await getDb()
         .select({ id: teams.id })
         .from(teams)
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -329,7 +329,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Find the role by name
-    const role = await db.query.roles.findFirst({
+    const role = await getDb().query.roles.findFirst({
       where: eq(roles.name, result.data.roleName),
     });
 
@@ -338,7 +338,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Check if user already has this role with same scope
-    const existingRole = await db.query.userRoles.findFirst({
+    const existingRole = await getDb().query.userRoles.findFirst({
       where: (ur) =>
         eq(ur.userId, result.data.userId) &&
         eq(ur.roleId, role.id) &&
@@ -353,7 +353,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Assign the role
-    const [newUserRole] = await db
+    const [newUserRole] = await getDb()
       .insert(userRoles)
       .values({
         userId: result.data.userId,
@@ -390,7 +390,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Verify the role being deleted is scoped to this organization
-    const roleToDelete = await db.query.userRoles.findFirst({
+    const roleToDelete = await getDb().query.userRoles.findFirst({
       where: eq(userRoles.id, userRoleId),
     });
 
@@ -410,7 +410,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     if (scopeType === "location" && scopeId) {
-      const location = await db.query.locations.findFirst({
+      const location = await getDb().query.locations.findFirst({
         where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
       });
       if (!location) {
@@ -419,7 +419,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     if (scopeType === "program" && scopeId) {
-      const [program] = await db
+      const [program] = await getDb()
         .select({ id: programs.id })
         .from(programs)
         .innerJoin(locations, eq(programs.locationId, locations.id))
@@ -430,7 +430,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     if (scopeType === "team" && scopeId) {
-      const [team] = await db
+      const [team] = await getDb()
         .select({ id: teams.id })
         .from(teams)
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -442,7 +442,7 @@ export const DELETE: APIRoute = async (context) => {
       }
     }
 
-    await db.delete(userRoles).where(eq(userRoles.id, userRoleId));
+    await getDb().delete(userRoles).where(eq(userRoles.id, userRoleId));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

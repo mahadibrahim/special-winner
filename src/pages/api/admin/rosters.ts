@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { rosters, teams, registrations, familyMembers, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -31,7 +31,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get the team's season - verify it belongs to this organization
-    const [teamResult] = await db
+    const [teamResult] = await getDb()
       .select({ team: teams })
       .from(teams)
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -49,7 +49,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get all confirmed registrations for this season
-    const seasonRegistrations = await db
+    const seasonRegistrations = await getDb()
       .select({
         id: registrations.id,
         status: registrations.status,
@@ -70,7 +70,7 @@ export const GET: APIRoute = async (context) => {
       );
 
     // Get registrations already assigned to any team in this season
-    const assignedRegistrationIds = await db
+    const assignedRegistrationIds = await getDb()
       .select({ registrationId: rosters.registrationId })
       .from(rosters)
       .leftJoin(teams, eq(rosters.teamId, teams.id))
@@ -113,7 +113,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify team belongs to this organization
-    const [teamResult] = await db
+    const [teamResult] = await getDb()
       .select({ team: teams })
       .from(teams)
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -131,7 +131,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Check if player is already on this team
-    const existingRoster = await db.query.rosters.findFirst({
+    const existingRoster = await getDb().query.rosters.findFirst({
       where: and(
         eq(rosters.teamId, result.data.teamId),
         eq(rosters.registrationId, result.data.registrationId)
@@ -147,7 +147,7 @@ export const POST: APIRoute = async (context) => {
 
     // Check team roster size limit
     if (team.maxRosterSize) {
-      const currentRosterCount = await db
+      const currentRosterCount = await getDb()
         .select({ id: rosters.id })
         .from(rosters)
         .where(eq(rosters.teamId, result.data.teamId));
@@ -160,7 +160,7 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    const [newRoster] = await db
+    const [newRoster] = await getDb()
       .insert(rosters)
       .values({
         ...result.data,
@@ -197,7 +197,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify roster entry belongs to a team in this organization
-    const [rosterCheck] = await db
+    const [rosterCheck] = await getDb()
       .select({ roster: rosters })
       .from(rosters)
       .innerJoin(teams, eq(rosters.teamId, teams.id))
@@ -213,7 +213,7 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Roster entry not found" }), { status: 404 });
     }
 
-    const [updatedRoster] = await db
+    const [updatedRoster] = await getDb()
       .update(rosters)
       .set({
         jerseyNumber,
@@ -252,7 +252,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Verify roster entry belongs to a team in this organization
-    const [rosterCheck] = await db
+    const [rosterCheck] = await getDb()
       .select({ roster: rosters })
       .from(rosters)
       .innerJoin(teams, eq(rosters.teamId, teams.id))
@@ -268,7 +268,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Roster entry not found" }), { status: 404 });
     }
 
-    await db.delete(rosters).where(eq(rosters.id, id));
+    await getDb().delete(rosters).where(eq(rosters.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

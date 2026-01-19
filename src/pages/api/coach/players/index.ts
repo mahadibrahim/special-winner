@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { teams, rosters, registrations, familyMembers, seasons, programs, sports } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireCoachAccess } from "@/lib/auth";
@@ -11,12 +11,7 @@ export const GET: APIRoute = async (context) => {
     const auth = await requireCoachAccess(context);
     if (!auth.authorized) return auth.response;
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Optional team filter
     const teamId = context.url.searchParams.get("teamId");
@@ -34,7 +29,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get team details for the filtered teams
-    const coachTeams = await db
+    const coachTeams = await getDb()
       .select({
         id: teams.id,
         name: teams.name,
@@ -57,7 +52,7 @@ export const GET: APIRoute = async (context) => {
     const teamMap = new Map(coachTeams.map((t) => [t.id, t]));
 
     // Get all players from coach's teams
-    const playerData = await db
+    const playerData = await getDb()
       .select({
         player: {
           id: familyMembers.id,

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   playerAssessments,
   playerSkillSummary,
@@ -33,12 +33,7 @@ export const GET: APIRoute = async (context) => {
     const auth = await requireCoachAccess(context);
     if (!auth.authorized) return auth.response;
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Query parameters
     const familyMemberId = context.url.searchParams.get("familyMemberId");
@@ -96,7 +91,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Build query
-    const assessments = await db
+    const assessments = await getDb()
       .select({
         id: playerAssessments.id,
         familyMemberId: playerAssessments.familyMemberId,
@@ -162,12 +157,7 @@ export const POST: APIRoute = async (context) => {
     const auth = await requireCoachAccess(context);
     if (!auth.authorized) return auth.response;
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Parse and validate request body
     const body = await context.request.json();
@@ -216,7 +206,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify the player (family member) exists
-    const [player] = await db
+    const [player] = await getDb()
       .select()
       .from(familyMembers)
       .where(eq(familyMembers.id, familyMemberId));
@@ -229,7 +219,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify the skill exists
-    const [skill] = await db
+    const [skill] = await getDb()
       .select()
       .from(skills)
       .where(eq(skills.id, skillId));
@@ -242,7 +232,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Get previous assessment for this skill and player (if any)
-    const [previousAssessment] = await db
+    const [previousAssessment] = await getDb()
       .select({ level: playerAssessments.level })
       .from(playerAssessments)
       .where(
@@ -257,7 +247,7 @@ export const POST: APIRoute = async (context) => {
     const previousLevel = previousAssessment?.level || null;
 
     // Create the assessment
-    const [newAssessment] = await db
+    const [newAssessment] = await getDb()
       .insert(playerAssessments)
       .values({
         familyMemberId,
@@ -275,7 +265,7 @@ export const POST: APIRoute = async (context) => {
       .returning();
 
     // Update or create player skill summary
-    const [existingSummary] = await db
+    const [existingSummary] = await getDb()
       .select()
       .from(playerSkillSummary)
       .where(
@@ -294,7 +284,7 @@ export const POST: APIRoute = async (context) => {
           ? "declining"
           : "stable";
 
-      await db
+      await getDb()
         .update(playerSkillSummary)
         .set({
           currentLevel: level,
@@ -307,7 +297,7 @@ export const POST: APIRoute = async (context) => {
         .where(eq(playerSkillSummary.id, existingSummary.id));
     } else {
       // Create new summary
-      await db.insert(playerSkillSummary).values({
+      await getDb().insert(playerSkillSummary).values({
         familyMemberId,
         skillId,
         currentLevel: level,

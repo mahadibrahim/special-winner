@@ -1,4 +1,4 @@
-import { db } from "./index";
+import { getDb } from "./index";
 import {
   developmentStages,
   skillDomains,
@@ -151,14 +151,14 @@ async function seedCurriculum() {
     },
   ];
 
-  const insertedStages = await db
+  const insertedStages = await getDb()
     .insert(developmentStages)
     .values(stagesData)
     .onConflictDoNothing()
     .returning();
 
   // Create a map of stage slugs to IDs
-  const allStages = await db.select().from(developmentStages);
+  const allStages = await getDb().select().from(developmentStages);
   const stageMap = new Map(allStages.map((s) => [s.slug, s.id]));
 
   console.log(`✓ Created ${insertedStages.length} development stages`);
@@ -214,14 +214,14 @@ async function seedCurriculum() {
     },
   ];
 
-  const insertedDomains = await db
+  const insertedDomains = await getDb()
     .insert(skillDomains)
     .values(domainsData)
     .onConflictDoNothing()
     .returning();
 
   // Create a map of domain names to IDs
-  const allDomains = await db.select().from(skillDomains);
+  const allDomains = await getDb().select().from(skillDomains);
   const domainMap = new Map(allDomains.map((d) => [d.name, d.id]));
 
   console.log(`✓ Created ${insertedDomains.length} skill domains`);
@@ -229,7 +229,7 @@ async function seedCurriculum() {
   // ========================================
   // 3. GET SPORT IDs
   // ========================================
-  const allSports = await db.select().from(sports);
+  const allSports = await getDb().select().from(sports);
   const sportMap = new Map(allSports.map((s) => [s.slug, s.id]));
 
   const soccerId = sportMap.get("soccer");
@@ -688,7 +688,7 @@ async function seedCurriculum() {
     },
   ];
 
-  const insertedSoccerSkills = await db
+  const insertedSoccerSkills = await getDb()
     .insert(skills)
     .values(soccerSkills)
     .onConflictDoNothing()
@@ -1151,7 +1151,7 @@ async function seedCurriculum() {
     },
   ];
 
-  const insertedBasketballSkills = await db
+  const insertedBasketballSkills = await getDb()
     .insert(skills)
     .values(basketballSkills)
     .onConflictDoNothing()
@@ -1224,7 +1224,7 @@ async function seedCurriculum() {
     },
   ];
 
-  const insertedCategories = await db
+  const insertedCategories = await getDb()
     .insert(skillCategories)
     .values(categoriesData)
     .onConflictDoNothing()

@@ -1,4 +1,4 @@
-import { db } from "../index";
+import { getDb } from "../index";
 import { coachResources } from "../schema/coach-guidance";
 import { sports } from "../schema/sports";
 import { developmentStages } from "../schema/curriculum";
@@ -7,8 +7,8 @@ export async function seedCoachResources() {
   console.log("Seeding coach resources...");
 
   // Get reference data
-  const allSports = await db.select().from(sports);
-  const stages = await db.select().from(developmentStages);
+  const allSports = await getDb().select().from(sports);
+  const stages = await getDb().select().from(developmentStages);
 
   const soccerId = allSports.find((s) => s.name === "Soccer")?.id;
   const basketballId = allSports.find((s) => s.name === "Basketball")?.id;
@@ -627,7 +627,7 @@ They're still discovering if they LIKE this sport. Your job is to make sure they
   ];
 
   // Insert resources
-  await db.insert(coachResources).values(
+  await getDb().insert(coachResources).values(
     resources.map((r) => ({
       ...r,
       active: true,

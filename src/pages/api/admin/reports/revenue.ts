@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { payments, registrations, seasons, programs, sports } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireAdminAccess } from "@/lib/auth";
@@ -25,7 +25,7 @@ export const GET: APIRoute = async (context) => {
       : new Date(end.getFullYear(), end.getMonth() - 11, 1);
 
     // Total revenue
-    const totalRevenueResult = await db
+    const totalRevenueResult = await getDb()
       .select({
         total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
         count: sql<number>`COUNT(*)`,
@@ -55,7 +55,7 @@ export const GET: APIRoute = async (context) => {
         dateFormat = "YYYY-MM";
     }
 
-    const revenueByPeriod = await db
+    const revenueByPeriod = await getDb()
       .select({
         period: sql<string>`TO_CHAR(${payments.createdAt}, ${dateFormat})`,
         revenue: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
@@ -73,7 +73,7 @@ export const GET: APIRoute = async (context) => {
       .orderBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`);
 
     // Revenue by payment type
-    const revenueByType = await db
+    const revenueByType = await getDb()
       .select({
         paymentType: payments.paymentType,
         revenue: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
@@ -90,7 +90,7 @@ export const GET: APIRoute = async (context) => {
       .groupBy(payments.paymentType);
 
     // Revenue by sport/program
-    const revenueBySport = await db
+    const revenueBySport = await getDb()
       .select({
         sportId: sports.id,
         sportName: sports.name,
@@ -113,7 +113,7 @@ export const GET: APIRoute = async (context) => {
       .orderBy(desc(sql`SUM(${payments.amountCents})`));
 
     // Recent transactions
-    const recentTransactions = await db
+    const recentTransactions = await getDb()
       .select({
         id: payments.id,
         amountCents: payments.amountCents,
@@ -137,7 +137,7 @@ export const GET: APIRoute = async (context) => {
     const prevEnd = new Date(start.getTime() - 1);
     const prevStart = new Date(prevEnd.getTime() - periodDuration);
 
-    const prevRevenueResult = await db
+    const prevRevenueResult = await getDb()
       .select({
         total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
       })
@@ -156,7 +156,7 @@ export const GET: APIRoute = async (context) => {
       : 0;
 
     // Refunds summary
-    const refundsResult = await db
+    const refundsResult = await getDb()
       .select({
         total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
         count: sql<number>`COUNT(*)`,

@@ -24,7 +24,7 @@
  * - Holistic development connections (psychological/social)
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { skills } from "../../schema/curriculum";
 import { eq } from "drizzle-orm";
 
@@ -1902,7 +1902,7 @@ export async function upgradeSoccerSkillsBatch2() {
 
   for (const skillUpgrade of skillUpgrades) {
     try {
-      const result = await db
+      const result = await getDb()
         .update(skills)
         .set({
           comprehensiveGuide: skillUpgrade.comprehensiveGuide,

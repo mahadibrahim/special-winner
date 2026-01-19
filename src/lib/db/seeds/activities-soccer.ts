@@ -1,10 +1,10 @@
-import { db } from "../index";
+import { getDb } from "../index";
 import { activities, developmentStages } from "../schema";
 import { sports } from "../schema/sports";
 import { eq } from "drizzle-orm";
 
 export async function seedSoccerActivities() {
-  if (!db) {
+  if (false) {
     console.error("Database not available");
     return;
   }
@@ -12,7 +12,7 @@ export async function seedSoccerActivities() {
   console.log("Seeding soccer activities...");
 
   // Get soccer sport
-  const [soccer] = await db
+  const [soccer] = await getDb()
     .select()
     .from(sports)
     .where(eq(sports.name, "Soccer"));
@@ -23,7 +23,7 @@ export async function seedSoccerActivities() {
   }
 
   // Get development stages
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const stageMap = new Map(stages.map((s) => [s.slug, s.id]));
 
   const fundamentalsId = stageMap.get("fundamentals");
@@ -2076,7 +2076,7 @@ Players perform pattern and rotate positions.`,
   // Insert activities
   for (const activity of soccerActivities) {
     try {
-      await db.insert(activities).values(activity).onConflictDoNothing();
+      await getDb().insert(activities).values(activity).onConflictDoNothing();
       console.log(`  ✓ ${activity.name}`);
     } catch (error) {
       console.error(`  ✗ Error inserting ${activity.name}:`, error);

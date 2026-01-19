@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { games, teams, venues, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, asc, desc, and, gte, lte } from "drizzle-orm";
 import { z } from "zod";
@@ -35,7 +35,7 @@ export const GET: APIRoute = async (context) => {
     const endDate = url.searchParams.get("endDate");
 
     // Join through seasons -> programs -> locations to filter by organization
-    let query = db
+    let query = getDb()
       .select({
         id: games.id,
         seasonId: games.seasonId,
@@ -99,17 +99,17 @@ export const GET: APIRoute = async (context) => {
     const uniqueSeasonIds = [...new Set(allGames.map(g => g.seasonId))];
 
     if (uniqueTeamIds.length > 0) {
-      const teamsList = await db.select().from(teams);
+      const teamsList = await getDb().select().from(teams);
       teamsList.forEach(t => teamsMap.set(t.id, t));
     }
 
     if (uniqueVenueIds.length > 0) {
-      const venuesList = await db.select().from(venues);
+      const venuesList = await getDb().select().from(venues);
       venuesList.forEach(v => venuesMap.set(v.id, v));
     }
 
     if (uniqueSeasonIds.length > 0) {
-      const seasonsList = await db
+      const seasonsList = await getDb()
         .select({
           id: seasons.id,
           name: seasons.name,
@@ -171,7 +171,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify season belongs to this organization
-    const [seasonCheck] = await db
+    const [seasonCheck] = await getDb()
       .select({ id: seasons.id })
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
@@ -187,7 +187,7 @@ export const POST: APIRoute = async (context) => {
 
     // Verify teams belong to this organization if provided
     if (result.data.homeTeamId) {
-      const [teamCheck] = await db
+      const [teamCheck] = await getDb()
         .select({ id: teams.id })
         .from(teams)
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -203,7 +203,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     if (result.data.awayTeamId) {
-      const [teamCheck] = await db
+      const [teamCheck] = await getDb()
         .select({ id: teams.id })
         .from(teams)
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -220,7 +220,7 @@ export const POST: APIRoute = async (context) => {
 
     // Verify venue belongs to this organization if provided
     if (result.data.venueId) {
-      const [venueCheck] = await db
+      const [venueCheck] = await getDb()
         .select({ id: venues.id })
         .from(venues)
         .innerJoin(locations, eq(venues.locationId, locations.id))
@@ -233,7 +233,7 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    const [newGame] = await db
+    const [newGame] = await getDb()
       .insert(games)
       .values({
         ...result.data,
@@ -271,7 +271,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify game belongs to this organization
-    const [gameCheck] = await db
+    const [gameCheck] = await getDb()
       .select({ id: games.id })
       .from(games)
       .innerJoin(seasons, eq(games.seasonId, seasons.id))
@@ -295,7 +295,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify new season belongs to this organization
-    const [seasonCheck] = await db
+    const [seasonCheck] = await getDb()
       .select({ id: seasons.id })
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
@@ -311,7 +311,7 @@ export const PUT: APIRoute = async (context) => {
 
     // Verify teams belong to this organization if provided
     if (result.data.homeTeamId) {
-      const [teamCheck] = await db
+      const [teamCheck] = await getDb()
         .select({ id: teams.id })
         .from(teams)
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -327,7 +327,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     if (result.data.awayTeamId) {
-      const [teamCheck] = await db
+      const [teamCheck] = await getDb()
         .select({ id: teams.id })
         .from(teams)
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
@@ -344,7 +344,7 @@ export const PUT: APIRoute = async (context) => {
 
     // Verify venue belongs to this organization if provided
     if (result.data.venueId) {
-      const [venueCheck] = await db
+      const [venueCheck] = await getDb()
         .select({ id: venues.id })
         .from(venues)
         .innerJoin(locations, eq(venues.locationId, locations.id))
@@ -357,7 +357,7 @@ export const PUT: APIRoute = async (context) => {
       }
     }
 
-    const [updatedGame] = await db
+    const [updatedGame] = await getDb()
       .update(games)
       .set({
         ...result.data,
@@ -401,7 +401,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Verify game belongs to this organization
-    const [gameCheck] = await db
+    const [gameCheck] = await getDb()
       .select({ id: games.id })
       .from(games)
       .innerJoin(seasons, eq(games.seasonId, seasons.id))
@@ -416,7 +416,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
     }
 
-    await db.delete(games).where(eq(games.id, id));
+    await getDb().delete(games).where(eq(games.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -19,7 +19,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    const [profile] = await db
+    const [profile] = await getDb()
       .select({
         id: users.id,
         email: users.email,
@@ -66,7 +66,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedProfile] = await db
+    const [updatedProfile] = await getDb()
       .update(users)
       .set({
         firstName: result.data.firstName,

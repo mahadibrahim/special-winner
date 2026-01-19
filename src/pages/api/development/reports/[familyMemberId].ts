@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   playerAssessments,
   skills,
@@ -34,15 +34,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Verify the user has access to this family member
-    const [familyMember] = await db
+    const [familyMember] = await getDb()
       .select({
         id: familyMembers.id,
         firstName: familyMembers.firstName,
@@ -68,7 +63,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get all skill domains
-    const domains = await db
+    const domains = await getDb()
       .select({
         id: skillDomains.id,
         name: skillDomains.name,
@@ -80,7 +75,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .orderBy(skillDomains.sortOrder);
 
     // Get all assessments for this family member with skill and domain info
-    const assessments = await db
+    const assessments = await getDb()
       .select({
         id: playerAssessments.id,
         level: playerAssessments.level,
@@ -111,7 +106,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .orderBy(desc(playerAssessments.assessedAt));
 
     // Get current team enrollments
-    const currentRosters = await db
+    const currentRosters = await getDb()
       .select({
         teamId: rosters.teamId,
         teamName: teams.name,

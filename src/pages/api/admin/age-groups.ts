@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { ageGroups } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
@@ -22,7 +22,7 @@ export const GET: APIRoute = async (context) => {
   if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    const allAgeGroups = await db
+    const allAgeGroups = await getDb()
       .select()
       .from(ageGroups)
       .where(eq(ageGroups.organizationId, orgContext.organizationId))
@@ -65,7 +65,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const [newAgeGroup] = await db
+    const [newAgeGroup] = await getDb()
       .insert(ageGroups)
       .values({
         organizationId: orgContext.organizationId,
@@ -117,7 +117,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify age group belongs to this organization
-    const [updatedAgeGroup] = await db
+    const [updatedAgeGroup] = await getDb()
       .update(ageGroups)
       .set({
         ...result.data,
@@ -158,7 +158,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     // Verify age group belongs to this organization before deleting
-    const [deletedAgeGroup] = await db
+    const [deletedAgeGroup] = await getDb()
       .delete(ageGroups)
       .where(and(eq(ageGroups.id, id), eq(ageGroups.organizationId, orgContext.organizationId)))
       .returning();

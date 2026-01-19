@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users, sessions } from "@/lib/db/schema";
 import { eq, ne, and } from "drizzle-orm";
 import { z } from "zod";
@@ -34,7 +34,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Get current user's password hash
-    const [userData] = await db
+    const [userData] = await getDb()
       .select({ passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.id, user.id))
@@ -60,7 +60,7 @@ export const POST: APIRoute = async (context) => {
     const newPasswordHash = await hashPassword(result.data.newPassword);
 
     // Update password
-    await db
+    await getDb()
       .update(users)
       .set({
         passwordHash: newPasswordHash,
@@ -69,7 +69,7 @@ export const POST: APIRoute = async (context) => {
       .where(eq(users.id, user.id));
 
     // Invalidate all other sessions (security measure)
-    await db
+    await getDb()
       .delete(sessions)
       .where(
         and(

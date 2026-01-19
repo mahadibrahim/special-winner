@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { practiceTemplates, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq } from "drizzle-orm";
@@ -34,16 +34,14 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Template ID required" }), { status: 400 });
     }
 
-    const [template] = await db
+    const [template] = await getDb()
       .select({
         id: practiceTemplates.id,
         organizationId: practiceTemplates.organizationId,
@@ -96,9 +94,7 @@ export const PUT: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
@@ -115,7 +111,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const [updatedTemplate] = await db
+    const [updatedTemplate] = await getDb()
       .update(practiceTemplates)
       .set({
         ...result.data,
@@ -147,16 +143,14 @@ export const DELETE: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), { status: 503 });
-    }
+    const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Template ID required" }), { status: 400 });
     }
 
-    const [deletedTemplate] = await db
+    const [deletedTemplate] = await getDb()
       .delete(practiceTemplates)
       .where(eq(practiceTemplates.id, id))
       .returning();

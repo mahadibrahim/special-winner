@@ -11,7 +11,7 @@
  * - Safety considerations
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { activities, type NewActivity } from "../../schema/practice-planning";
 import { sports } from "../../schema/sports";
 import { developmentStages } from "../../schema/curriculum";
@@ -20,10 +20,10 @@ import { eq } from "drizzle-orm";
 export async function seedBasketballFundamentalsActivities() {
   console.log("Seeding comprehensive basketball activities (Fundamentals)...");
 
-  const [basketball] = await db.select().from(sports).where(eq(sports.slug, "basketball"));
+  const [basketball] = await getDb().select().from(sports).where(eq(sports.slug, "basketball"));
   if (!basketball) throw new Error("Basketball sport must be seeded first");
 
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const fundamentals = stages.find((s) => s.slug === "fundamentals");
   const skillBuilding = stages.find((s) => s.slug === "skill-building");
 
@@ -2133,7 +2133,7 @@ SOLUTIONS:
 
   // Insert activities
   for (const activity of comprehensiveActivities) {
-    await db.insert(activities).values(activity).onConflictDoNothing();
+    await getDb().insert(activities).values(activity).onConflictDoNothing();
     console.log(`  ✓ ${activity.name}`);
   }
 

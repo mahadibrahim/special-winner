@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -31,12 +31,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       });
     }
 
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     // Parse request body
     const body = await request.json().catch(() => ({}));
@@ -58,7 +53,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     const { reason } = validation.data;
 
     // Get registration and verify ownership
-    const [registration] = await db
+    const [registration] = await getDb()
       .select()
       .from(registrations)
       .where(
@@ -87,7 +82,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Get season info for refund calculation
-    const [season] = await db
+    const [season] = await getDb()
       .select()
       .from(seasons)
       .where(eq(seasons.id, registration.seasonId));
@@ -125,7 +120,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Update registration to cancelled
-    const [cancelled] = await db
+    const [cancelled] = await getDb()
       .update(registrations)
       .set({
         status: "cancelled",
@@ -172,11 +167,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
 // Helper function to promote next waitlisted registration
 async function promoteFromWaitlist(seasonId: string, season: any): Promise<boolean> {
-  if (!db) return false;
-
   try {
     // Get first waitlisted registration for this season
-    const [waitlisted] = await db
+    const [waitlisted] = await getDb()
       .select({
         registration: registrations,
         familyMember: familyMembers,
@@ -201,7 +194,7 @@ async function promoteFromWaitlist(seasonId: string, season: any): Promise<boole
     expiresAt.setHours(expiresAt.getHours() + WAITLIST_PROMOTION_HOURS);
 
     // Update to pending status
-    await db
+    await getDb()
       .update(registrations)
       .set({
         status: "pending",
@@ -212,7 +205,7 @@ async function promoteFromWaitlist(seasonId: string, season: any): Promise<boole
       .where(eq(registrations.id, waitlisted.registration.id));
 
     // Get program and location info for email
-    const [programData] = await db
+    const [programData] = await getDb()
       .select({
         program: programs,
         location: locations,
@@ -223,7 +216,7 @@ async function promoteFromWaitlist(seasonId: string, season: any): Promise<boole
 
     if (programData) {
       // Get parent user info
-      const [parent] = await db
+      const [parent] = await getDb()
         .select()
         .from(familyMembers)
         .where(eq(familyMembers.id, waitlisted.registration.familyMemberId));

@@ -1,4 +1,4 @@
-import { db } from "../index";
+import { getDb } from "../index";
 import { coachPrompts, coachingPrinciples } from "../schema/coach-guidance";
 import { sports } from "../schema/sports";
 import { developmentStages } from "../schema/curriculum";
@@ -8,8 +8,8 @@ export async function seedCoachPrompts() {
   console.log("Seeding coach prompts...");
 
   // Get reference data
-  const allSports = await db.select().from(sports);
-  const stages = await db.select().from(developmentStages);
+  const allSports = await getDb().select().from(sports);
+  const stages = await getDb().select().from(developmentStages);
 
   const soccerId = allSports.find((s) => s.name === "Soccer")?.id;
   const basketballId = allSports.find((s) => s.name === "Basketball")?.id;
@@ -382,7 +382,7 @@ export async function seedCoachPrompts() {
   }));
 
   // Insert prompts
-  await db.insert(coachPrompts).values(allPrompts);
+  await getDb().insert(coachPrompts).values(allPrompts);
   console.log(`Inserted ${allPrompts.length} coach prompts`);
 
   // Seed coaching principles
@@ -494,7 +494,7 @@ export async function seedCoachPrompts() {
     },
   ];
 
-  await db.insert(coachingPrinciples).values(principles);
+  await getDb().insert(coachingPrinciples).values(principles);
   console.log(`Inserted ${principles.length} coaching principles`);
 
   console.log("Coach prompts seeding complete!");

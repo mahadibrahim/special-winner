@@ -1,4 +1,4 @@
-import { db } from "../index";
+import { getDb } from "../index";
 import { skills } from "../schema/curriculum";
 import { assessmentRubrics } from "../schema/assessments";
 import { developmentStages, skillDomains } from "../schema/curriculum";
@@ -18,8 +18,8 @@ export async function seedSkillsAndRubrics() {
   console.log("Seeding skills and assessment rubrics...");
 
   // Get sports
-  const [soccer] = await db.select().from(sports).where(eq(sports.slug, "soccer"));
-  const [basketball] = await db.select().from(sports).where(eq(sports.slug, "basketball"));
+  const [soccer] = await getDb().select().from(sports).where(eq(sports.slug, "soccer"));
+  const [basketball] = await getDb().select().from(sports).where(eq(sports.slug, "basketball"));
 
   if (!soccer || !basketball) {
     console.log("  ⚠ Soccer or Basketball sport not found, skipping skills");
@@ -27,7 +27,7 @@ export async function seedSkillsAndRubrics() {
   }
 
   // Get development stages
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const fundamentals = stages.find((s) => s.slug === "fundamentals");
   const skillBuilding = stages.find((s) => s.slug === "skill-building");
   const development = stages.find((s) => s.slug === "development");
@@ -38,7 +38,7 @@ export async function seedSkillsAndRubrics() {
   }
 
   // Get skill domains
-  const domains = await db.select().from(skillDomains);
+  const domains = await getDb().select().from(skillDomains);
   const technical = domains.find((d) => d.name === "technical");
   const tactical = domains.find((d) => d.name === "tactical");
   const physical = domains.find((d) => d.name === "physical");
@@ -942,7 +942,7 @@ export async function seedSkillsAndRubrics() {
   for (const skill of allSkills) {
     try {
       // Insert skill
-      const [insertedSkill] = await db
+      const [insertedSkill] = await getDb()
         .insert(skills)
         .values(skill)
         .onConflictDoNothing()
@@ -965,7 +965,7 @@ export async function seedSkillsAndRubrics() {
             exampleActivities: [],
           };
 
-          await db.insert(assessmentRubrics).values(rubric).onConflictDoNothing();
+          await getDb().insert(assessmentRubrics).values(rubric).onConflictDoNothing();
         }
         console.log(`    → Created 5 rubric levels`);
       }

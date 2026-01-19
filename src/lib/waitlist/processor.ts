@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, locations, users } from "@/lib/db/schema";
 import { eq, and, asc, lt } from "drizzle-orm";
 import { sendWaitlistPromotionEmail } from "@/lib/email/send";
@@ -12,7 +12,7 @@ const WAITLIST_PROMOTION_HOURS = 48;
  * Returns the number of registrations that were expired and replaced
  */
 export async function processExpiredWaitlistPromotions(): Promise<number> {
-  if (!db) {
+  if (false) {
     console.warn("Database not available for waitlist processing");
     return 0;
   }
@@ -21,7 +21,7 @@ export async function processExpiredWaitlistPromotions(): Promise<number> {
     const now = new Date();
 
     // Find registrations that were promoted from waitlist but expired
-    const expiredPromotions = await db
+    const expiredPromotions = await getDb()
       .select()
       .from(registrations)
       .where(
@@ -35,7 +35,7 @@ export async function processExpiredWaitlistPromotions(): Promise<number> {
 
     for (const expired of expiredPromotions) {
       // Return to waitlist
-      await db
+      await getDb()
         .update(registrations)
         .set({
           status: "waitlisted",
@@ -63,14 +63,14 @@ export async function processExpiredWaitlistPromotions(): Promise<number> {
  * Promote the next registration from the waitlist for a given season
  */
 export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean> {
-  if (!db) {
+  if (false) {
     console.warn("Database not available for waitlist promotion");
     return false;
   }
 
   try {
     // Get season info
-    const [season] = await db
+    const [season] = await getDb()
       .select()
       .from(seasons)
       .where(eq(seasons.id, seasonId));
@@ -81,7 +81,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
     }
 
     // Get first waitlisted registration
-    const [waitlisted] = await db
+    const [waitlisted] = await getDb()
       .select({
         registration: registrations,
         familyMember: familyMembers,
@@ -107,7 +107,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
     expiresAt.setHours(expiresAt.getHours() + WAITLIST_PROMOTION_HOURS);
 
     // Update to pending status
-    await db
+    await getDb()
       .update(registrations)
       .set({
         status: "pending",
@@ -118,7 +118,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
       .where(eq(registrations.id, waitlisted.registration.id));
 
     // Get program and location info for email
-    const [programData] = await db
+    const [programData] = await getDb()
       .select({
         program: programs,
         location: locations,
@@ -128,7 +128,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
       .where(eq(programs.id, season.programId));
 
     // Get parent user info
-    const [parentUser] = await db
+    const [parentUser] = await getDb()
       .select()
       .from(users)
       .where(eq(users.id, waitlisted.registration.registeredByUserId));
@@ -161,10 +161,10 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
  * Get current waitlist position for a registration
  */
 export async function getWaitlistPosition(registrationId: string): Promise<number | null> {
-  if (!db) return null;
+  if (false) return null;
 
   try {
-    const [registration] = await db
+    const [registration] = await getDb()
       .select()
       .from(registrations)
       .where(eq(registrations.id, registrationId));
@@ -174,7 +174,7 @@ export async function getWaitlistPosition(registrationId: string): Promise<numbe
     }
 
     // Count how many waitlisted registrations are ahead
-    const waitlisted = await db
+    const waitlisted = await getDb()
       .select()
       .from(registrations)
       .where(
@@ -198,10 +198,10 @@ export async function getWaitlistPosition(registrationId: string): Promise<numbe
  * This reorders all waitlisted registrations for a season
  */
 export async function reorderWaitlist(seasonId: string): Promise<void> {
-  if (!db) return;
+  if (false) return;
 
   try {
-    const waitlisted = await db
+    const waitlisted = await getDb()
       .select()
       .from(registrations)
       .where(
@@ -214,7 +214,7 @@ export async function reorderWaitlist(seasonId: string): Promise<void> {
 
     // Update positions
     for (let i = 0; i < waitlisted.length; i++) {
-      await db
+      await getDb()
         .update(registrations)
         .set({ waitlistPosition: i + 1 })
         .where(eq(registrations.id, waitlisted[i].id));

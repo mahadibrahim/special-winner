@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { payments, registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -10,15 +10,10 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.authorized) return orgContext.response;
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not available" }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const db = getDb();
 
     const url = new URL(context.request.url);
     const status = url.searchParams.get("status");
@@ -48,7 +43,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     // Get payments with related data
-    const paymentData = await db
+    const paymentData = await getDb()
       .select({
         id: payments.id,
         amountCents: payments.amountCents,
@@ -92,7 +87,7 @@ export const GET: APIRoute = async (context) => {
       .offset(offset);
 
     // Get summary
-    const summaryResult = await db
+    const summaryResult = await getDb()
       .select({
         totalPayments: sql<number>`COUNT(*)`,
         totalRevenue: sql<number>`COALESCE(SUM(${payments.amountCents}) FILTER (WHERE ${payments.status} = 'succeeded' AND ${payments.paymentType} != 'refund'), 0)`,

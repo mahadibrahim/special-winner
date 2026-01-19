@@ -17,7 +17,7 @@
  * - Game-realistic scenarios
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { activities, type NewActivity } from "../../schema/practice-planning";
 import { sports } from "../../schema/sports";
 import { developmentStages } from "../../schema/curriculum";
@@ -26,10 +26,10 @@ import { eq } from "drizzle-orm";
 export async function seedSoccerSkillBuildingActivities() {
   console.log("Seeding comprehensive soccer activities (Skill Building)...");
 
-  const [soccer] = await db.select().from(sports).where(eq(sports.slug, "soccer"));
+  const [soccer] = await getDb().select().from(sports).where(eq(sports.slug, "soccer"));
   if (!soccer) throw new Error("Soccer sport must be seeded first");
 
-  const stages = await db.select().from(developmentStages);
+  const stages = await getDb().select().from(developmentStages);
   const skillBuilding = stages.find((s) => s.slug === "skill-building");
   const gameReadiness = stages.find((s) => s.slug === "game-readiness");
 
@@ -2061,7 +2061,7 @@ SOLUTIONS:
 
   // Insert activities
   for (const activity of comprehensiveActivities) {
-    await db.insert(activities).values(activity).onConflictDoNothing();
+    await getDb().insert(activities).values(activity).onConflictDoNothing();
     console.log(`  ✓ ${activity.name}`);
   }
 

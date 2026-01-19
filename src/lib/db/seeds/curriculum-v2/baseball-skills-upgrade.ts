@@ -23,7 +23,7 @@
  * - Emphasizes proper warm-up and recovery protocols
  */
 
-import { db } from "../../index";
+import { getDb } from "../../index";
 import { skills } from "../../schema/curriculum";
 import { eq } from "drizzle-orm";
 
@@ -39,7 +39,7 @@ export async function upgradeBaseballSkills() {
   // SKILL: Throwing Mechanics (technical)
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("Upgrading: Throwing Mechanics...");
-  await db
+  await getDb()
     .update(skills)
     .set({
       progressionLevels: {
