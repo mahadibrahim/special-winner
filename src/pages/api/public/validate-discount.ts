@@ -12,8 +12,17 @@ const validateDiscountSchema = z.object({
 });
 
 // POST - Validate a discount code
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
+    // Require organization context to prevent cross-tenant discount code leakage
+    const organization = locals.organization;
+    if (!organization) {
+      return new Response(
+        JSON.stringify({ valid: false, error: "Organization context required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const body = await request.json();
     const validation = validateDiscountSchema.safeParse(body);
 
@@ -37,11 +46,16 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // Find the discount code
+    // Find the discount code - filter by organization to prevent cross-tenant access
     const [discountCode] = await db
       .select()
       .from(discountCodes)
-      .where(eq(discountCodes.code, code));
+      .where(
+        and(
+          eq(discountCodes.code, code),
+          eq(discountCodes.organizationId, organization.id)
+        )
+      );
 
     if (!discountCode) {
       return new Response(

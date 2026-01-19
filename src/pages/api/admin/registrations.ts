@@ -1,0 +1,144 @@
+import type { APIRoute } from "astro";
+import { db } from "@/lib/db";
+import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
+import { eq, and, desc, or, ilike, sql } from "drizzle-orm";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+
+// GET - List all registrations with filters
+export const GET: APIRoute = async (context) => {
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.authorized) return orgContext.response;
+
+  try {
+    if (!db) {
+      return new Response(JSON.stringify({ error: "Database not available" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const url = new URL(context.request.url);
+    const status = url.searchParams.get("status");
+    const paymentStatus = url.searchParams.get("paymentStatus");
+    const seasonId = url.searchParams.get("seasonId");
+    const search = url.searchParams.get("search");
+    const limit = parseInt(url.searchParams.get("limit") || "50");
+    const offset = parseInt(url.searchParams.get("offset") || "0");
+
+    // Build conditions
+    const conditions = [];
+
+    if (status && status !== "all") {
+      conditions.push(eq(registrations.status, status as any));
+    }
+
+    if (paymentStatus && paymentStatus !== "all") {
+      conditions.push(eq(registrations.paymentStatus, paymentStatus as any));
+    }
+
+    if (seasonId) {
+      conditions.push(eq(registrations.seasonId, seasonId));
+    }
+
+    // Get registrations with related data
+    const registrationData = await db
+      .select({
+        id: registrations.id,
+        status: registrations.status,
+        paymentStatus: registrations.paymentStatus,
+        amountPaidCents: registrations.amountPaidCents,
+        amountDueCents: registrations.amountDueCents,
+        registrationType: registrations.registrationType,
+        waiverSigned: registrations.waiverSigned,
+        waitlistPosition: registrations.waitlistPosition,
+        createdAt: registrations.createdAt,
+        cancelledAt: registrations.cancelledAt,
+        familyMember: {
+          id: familyMembers.id,
+          firstName: familyMembers.firstName,
+          lastName: familyMembers.lastName,
+        },
+        season: {
+          id: seasons.id,
+          name: seasons.name,
+        },
+        program: {
+          id: programs.id,
+          name: programs.name,
+        },
+        sport: {
+          id: sports.id,
+          name: sports.name,
+        },
+        registeredBy: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        },
+      })
+      .from(registrations)
+      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(sports, eq(programs.sportId, sports.id))
+      .innerJoin(users, eq(registrations.registeredByUserId, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(registrations.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Filter by search if provided (on player name or parent email)
+    let filteredData = registrationData;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredData = registrationData.filter(
+        (r) =>
+          r.familyMember.firstName.toLowerCase().includes(searchLower) ||
+          r.familyMember.lastName.toLowerCase().includes(searchLower) ||
+          r.registeredBy.email.toLowerCase().includes(searchLower) ||
+          (r.registeredBy.firstName?.toLowerCase().includes(searchLower)) ||
+          (r.registeredBy.lastName?.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Get summary counts
+    const summaryResult = await db
+      .select({
+        total: sql<number>`COUNT(*)`,
+        confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
+        pending: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'pending')`,
+        waitlisted: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'waitlisted')`,
+        cancelled: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'cancelled')`,
+        paid: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'paid')`,
+        unpaid: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'unpaid')`,
+        partial: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'deposit_paid')`,
+      })
+      .from(registrations);
+
+    return new Response(
+      JSON.stringify({
+        registrations: filteredData,
+        summary: summaryResult[0],
+        pagination: {
+          limit,
+          offset,
+          hasMore: registrationData.length === limit,
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Error fetching registrations:", error);
+    return new Response(JSON.stringify({ error: "Failed to fetch registrations" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+};

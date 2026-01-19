@@ -1,0 +1,29 @@
+---
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { RegistrationsList } from '../../components/admin/registrations-list';
+
+// Auth check handled by middleware
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/registrations');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Registrations - Admin - Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/registrations"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <RegistrationsList client:load />
+    </AdminLayout>
+  </body>
+</html>

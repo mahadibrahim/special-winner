@@ -4,22 +4,42 @@ import { users, registrations, rosters, teams, games, venues, seasons, programs,
 import { eq, and, or, gte } from "drizzle-orm";
 import { generateICalFeed } from "@/lib/calendar/ical";
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, locals }) => {
   const { userId } = params;
 
   if (!userId) {
-    return new Response("User ID required", { status: 400 });
+    return new Response(JSON.stringify({ error: "User ID required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Security: Require authentication
+  if (!locals.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Security: Users can only access their own calendar
+  if (locals.user.id !== userId) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   try {
-    // Verify user exists
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-    });
-
-    if (!user) {
-      return new Response("User not found", { status: 404 });
+    if (!db) {
+      return new Response(JSON.stringify({ error: "Database not available" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+
+    // User is already verified via session
+    const user = locals.user;
 
     // Get user's family members
     const userFamilyMembers = await db

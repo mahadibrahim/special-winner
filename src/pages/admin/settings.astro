@@ -1,0 +1,29 @@
+---
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { AdminSettings } from '../../components/admin/admin-settings';
+
+// Auth check handled by middleware
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/settings');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Settings - Admin - Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/settings"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <AdminSettings client:load />
+    </AdminLayout>
+  </body>
+</html>
