@@ -7,6 +7,9 @@
  * Run with: npx tsx src/lib/db/seeds/seed-e2e-tests.ts
  */
 
+// Load environment variables from .env file if present
+import "dotenv/config";
+
 import { getDb } from "../index";
 import { hashPassword } from "../../auth/password";
 import {
