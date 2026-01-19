@@ -4,8 +4,8 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  retries: 0,  // Disable retries while debugging
+  workers: process.env.CI ? 2 : undefined,  // Allow parallelism in CI
   reporter: [
     ['html'],
     ['list'],
@@ -18,9 +18,9 @@ export default defineConfig({
   },
 
   // Test timeout
-  timeout: 30 * 1000,
+  timeout: 15 * 1000,  // Reduced from 30s for faster feedback
   expect: {
-    timeout: 10 * 1000,
+    timeout: 5 * 1000,  // Reduced from 10s
   },
 
   projects: [
