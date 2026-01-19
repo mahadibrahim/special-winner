@@ -52,6 +52,11 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Seed E2E Test Data
+        run: npm run db:seed:e2e
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Run Playwright tests
         run: npm test
         env:
