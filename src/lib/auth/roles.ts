@@ -17,17 +17,23 @@ export interface UserRole {
  * Get all roles assigned to a user
  */
 export async function getUserRoles(userId: string): Promise<UserRole[]> {
-  const result = await getDb()
-    .select({
-      name: roles.name,
-      scopeType: userRoles.scopeType,
-      scopeId: userRoles.scopeId,
-    })
-    .from(userRoles)
-    .innerJoin(roles, eq(userRoles.roleId, roles.id))
-    .where(eq(userRoles.userId, userId));
+  try {
+    const result = await getDb()
+      .select({
+        name: roles.name,
+        scopeType: userRoles.scopeType,
+        scopeId: userRoles.scopeId,
+      })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, userId));
 
-  return result as UserRole[];
+    return result as UserRole[];
+  } catch (error) {
+    // Database not available - return empty roles
+    console.error("Error fetching user roles (database may be unavailable):", error);
+    return [];
+  }
 }
 
 /**
@@ -74,17 +80,23 @@ export async function isCoachOfTeam(userId: string, teamId: string): Promise<boo
  * Get all team IDs where the user is coach or assistant coach
  */
 export async function getCoachTeamIds(userId: string): Promise<string[]> {
-  const coachTeams = await getDb()
-    .select({ id: teams.id })
-    .from(teams)
-    .where(
-      or(
-        eq(teams.coachUserId, userId),
-        eq(teams.assistantCoachUserId, userId)
-      )
-    );
+  try {
+    const coachTeams = await getDb()
+      .select({ id: teams.id })
+      .from(teams)
+      .where(
+        or(
+          eq(teams.coachUserId, userId),
+          eq(teams.assistantCoachUserId, userId)
+        )
+      );
 
-  return coachTeams.map((t) => t.id);
+    return coachTeams.map((t) => t.id);
+  } catch (error) {
+    // Database not available - return empty array
+    console.error("Error fetching coach team IDs (database may be unavailable):", error);
+    return [];
+  }
 }
 
 /**
@@ -308,16 +320,21 @@ export async function getOrganizationId(context: APIContext): Promise<string | n
   }
 
   // Fallback: For super_admins in development/localhost, get first org
-  const { user } = await validateSession(context);
-  if (user) {
-    const userRolesList = await getUserRoles(user.id);
-    const isSuperAdmin = userRolesList.some((role) => role.name === "super_admin");
+  try {
+    const { user } = await validateSession(context);
+    if (user) {
+      const userRolesList = await getUserRoles(user.id);
+      const isSuperAdmin = userRolesList.some((role) => role.name === "super_admin");
 
-    if (isSuperAdmin) {
-      // Super admin can access first org as fallback (for development)
-      const firstOrg = await getDb().query.organizations.findFirst();
-      return firstOrg?.id || null;
+      if (isSuperAdmin) {
+        // Super admin can access first org as fallback (for development)
+        const firstOrg = await getDb().query.organizations.findFirst();
+        return firstOrg?.id || null;
+      }
     }
+  } catch (error) {
+    // Database not available
+    console.error("Error getting organization ID (database may be unavailable):", error);
   }
 
   return null;

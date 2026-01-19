@@ -5,25 +5,32 @@ import type { Session, User } from "lucia";
 export async function validateSession(
   context: APIContext
 ): Promise<{ user: User; session: Session } | { user: null; session: null }> {
-  const sessionId = context.cookies.get(lucia.sessionCookieName)?.value ?? null;
+  try {
+    const sessionId = context.cookies.get(lucia.sessionCookieName)?.value ?? null;
 
-  if (!sessionId) {
+    if (!sessionId) {
+      return { user: null, session: null };
+    }
+
+    const result = await lucia.validateSession(sessionId);
+
+    if (result.session && result.session.fresh) {
+      const sessionCookie = lucia.createSessionCookie(result.session.id);
+      context.cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+    }
+
+    if (!result.session) {
+      const sessionCookie = lucia.createBlankSessionCookie();
+      context.cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+    }
+
+    return result;
+  } catch (error) {
+    // Database not available - return no session
+    // This allows routes to return appropriate auth errors (401)
+    console.error("Session validation error (database may be unavailable):", error);
     return { user: null, session: null };
   }
-
-  const result = await lucia.validateSession(sessionId);
-
-  if (result.session && result.session.fresh) {
-    const sessionCookie = lucia.createSessionCookie(result.session.id);
-    context.cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-  }
-
-  if (!result.session) {
-    const sessionCookie = lucia.createBlankSessionCookie();
-    context.cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-  }
-
-  return result;
 }
 
 export async function createSession(userId: string, context: APIContext): Promise<Session> {
