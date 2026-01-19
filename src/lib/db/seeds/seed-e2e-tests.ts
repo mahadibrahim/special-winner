@@ -252,11 +252,9 @@ async function seedE2ETests() {
       .values({
         locationId: location.id,
         name: "Test Soccer Field",
-        address: "123 Test St",
-        city: "Powell",
-        state: "OH",
-        zipCode: "43065",
-        fieldType: "outdoor_grass",
+        address: "123 Test St, Powell, OH 43065",
+        fieldCount: 2,
+        indoor: false,
       })
       .returning();
   }
@@ -277,10 +275,8 @@ async function seedE2ETests() {
         name: "E2E Test Soccer Program",
         slug: "e2e-test-soccer",
         description: "Soccer program for E2E testing",
-        programType: "recreational",
-        skillLevel: "beginner",
-        ageGroupId: u8AgeGroup.id,
-        status: "active",
+        programType: "league",
+        active: true,
       })
       .returning();
   }
@@ -294,6 +290,9 @@ async function seedE2ETests() {
   const registrationEnd = new Date(seasonStartDate);
   registrationEnd.setDate(registrationEnd.getDate() - 7);
 
+  // Format dates as strings for the date columns
+  const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
   let [season] = await db
     .select()
     .from(seasons)
@@ -305,19 +304,18 @@ async function seedE2ETests() {
       .insert(seasons)
       .values({
         programId: program.id,
+        ageGroupId: u8AgeGroup.id,
         name: "E2E Test Spring 2026",
         slug: "e2e-test-spring-2026",
-        startDate: seasonStartDate,
-        endDate: seasonEndDate,
-        registrationStartDate: new Date(), // Open now
-        registrationEndDate: registrationEnd,
-        status: "registration_open",
+        startDate: formatDate(seasonStartDate),
+        endDate: formatDate(seasonEndDate),
+        registrationOpens: new Date(), // Open now
+        registrationCloses: registrationEnd,
+        status: "open",
         priceCents: 15000, // $150
-        depositAmountCents: 5000, // $50 deposit
-        depositEnabled: true,
-        maxCapacity: 20,
-        currentEnrollment: 0,
-        allowWaitlist: true,
+        depositCents: 5000, // $50 deposit
+        allowDeposit: true,
+        maxParticipants: 20,
       })
       .returning();
   }
@@ -339,10 +337,8 @@ async function seedE2ETests() {
         name: "E2E Test Team",
         coachUserId: coachUser.id,
         color: "#22c55e",
-        maxPlayers: 12,
-        practiceVenueId: venue.id,
-        practiceDay: "saturday",
-        practiceTime: "09:00",
+        maxRosterSize: 12,
+        division: "U8",
       })
       .returning();
   }
@@ -355,7 +351,7 @@ async function seedE2ETests() {
     .from(familyMembers)
     .where(
       and(
-        eq(familyMembers.userId, parentUser.id),
+        eq(familyMembers.parentUserId, parentUser.id),
         eq(familyMembers.firstName, "Tommy")
       )
     )
@@ -365,11 +361,10 @@ async function seedE2ETests() {
     [child1] = await db
       .insert(familyMembers)
       .values({
-        userId: parentUser.id,
+        parentUserId: parentUser.id,
         firstName: "Tommy",
         lastName: "Test",
-        dateOfBirth: new Date("2018-05-15"),
-        relationship: "child",
+        birthDate: "2018-05-15",
         gender: "male",
       })
       .returning();
@@ -381,7 +376,7 @@ async function seedE2ETests() {
     .from(familyMembers)
     .where(
       and(
-        eq(familyMembers.userId, parentUser.id),
+        eq(familyMembers.parentUserId, parentUser.id),
         eq(familyMembers.firstName, "Sarah")
       )
     )
@@ -391,11 +386,10 @@ async function seedE2ETests() {
     [child2] = await db
       .insert(familyMembers)
       .values({
-        userId: parentUser.id,
+        parentUserId: parentUser.id,
         firstName: "Sarah",
         lastName: "Test",
-        dateOfBirth: new Date("2019-08-22"),
-        relationship: "child",
+        birthDate: "2019-08-22",
         gender: "female",
       })
       .returning();
@@ -430,11 +424,6 @@ async function seedE2ETests() {
       })
       .returning();
 
-    // Update season enrollment
-    await db
-      .update(seasons)
-      .set({ currentEnrollment: 1 })
-      .where(eq(seasons.id, season.id));
   }
   console.log(`   ✓ Registration: ${child1.firstName} - ${season.name} (confirmed)`);
 
