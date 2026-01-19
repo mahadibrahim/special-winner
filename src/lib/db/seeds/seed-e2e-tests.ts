@@ -112,7 +112,8 @@ async function seedE2ETests() {
   // Create test users
   console.log("\n2. Creating test users...");
 
-  // Admin user
+  // Admin user - always update password to ensure it's correct
+  const adminPasswordHash = await hashPassword(TEST_USERS.admin.password);
   let [adminUser] = await db
     .select()
     .from(users)
@@ -124,7 +125,7 @@ async function seedE2ETests() {
       .insert(users)
       .values({
         email: TEST_USERS.admin.email,
-        passwordHash: await hashPassword(TEST_USERS.admin.password),
+        passwordHash: adminPasswordHash,
         firstName: TEST_USERS.admin.firstName,
         lastName: TEST_USERS.admin.lastName,
         emailVerified: true,
@@ -137,10 +138,16 @@ async function seedE2ETests() {
       roleId: roleMap.super_admin.id,
       scopeType: "global",
     }).onConflictDoNothing();
+  } else {
+    // Update existing user's password and ensure email is verified
+    await db.update(users)
+      .set({ passwordHash: adminPasswordHash, emailVerified: true })
+      .where(eq(users.id, adminUser.id));
   }
   console.log(`   ✓ Admin: ${adminUser.email}`);
 
-  // Coach user
+  // Coach user - always update password to ensure it's correct
+  const coachPasswordHash = await hashPassword(TEST_USERS.coach.password);
   let [coachUser] = await db
     .select()
     .from(users)
@@ -152,7 +159,7 @@ async function seedE2ETests() {
       .insert(users)
       .values({
         email: TEST_USERS.coach.email,
-        passwordHash: await hashPassword(TEST_USERS.coach.password),
+        passwordHash: coachPasswordHash,
         firstName: TEST_USERS.coach.firstName,
         lastName: TEST_USERS.coach.lastName,
         emailVerified: true,
@@ -166,10 +173,16 @@ async function seedE2ETests() {
       scopeType: "organization",
       scopeId: org.id,
     }).onConflictDoNothing();
+  } else {
+    // Update existing user's password and ensure email is verified
+    await db.update(users)
+      .set({ passwordHash: coachPasswordHash, emailVerified: true })
+      .where(eq(users.id, coachUser.id));
   }
   console.log(`   ✓ Coach: ${coachUser.email}`);
 
-  // Parent user
+  // Parent user - always update password to ensure it's correct
+  const parentPasswordHash = await hashPassword(TEST_USERS.parent.password);
   let [parentUser] = await db
     .select()
     .from(users)
@@ -181,7 +194,7 @@ async function seedE2ETests() {
       .insert(users)
       .values({
         email: TEST_USERS.parent.email,
-        passwordHash: await hashPassword(TEST_USERS.parent.password),
+        passwordHash: parentPasswordHash,
         firstName: TEST_USERS.parent.firstName,
         lastName: TEST_USERS.parent.lastName,
         emailVerified: true,
@@ -195,6 +208,11 @@ async function seedE2ETests() {
       scopeType: "organization",
       scopeId: org.id,
     }).onConflictDoNothing();
+  } else {
+    // Update existing user's password and ensure email is verified
+    await db.update(users)
+      .set({ passwordHash: parentPasswordHash, emailVerified: true })
+      .where(eq(users.id, parentUser.id));
   }
   console.log(`   ✓ Parent: ${parentUser.email}`);
 
