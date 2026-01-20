@@ -104,6 +104,62 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Location: ${location.name} (${location.id})`);
 
+  // Create roles if they don't exist (needed for fresh CI databases)
+  console.log("\n   Creating roles if needed...");
+  await db
+    .insert(roles)
+    .values([
+      {
+        name: "super_admin",
+        description: "Full system access, manage all organizations",
+        permissions: ["*"],
+      },
+      {
+        name: "location_admin",
+        description: "Manage specific location(s), programs, and registrations",
+        permissions: [
+          "programs:read",
+          "programs:write",
+          "seasons:read",
+          "seasons:write",
+          "registrations:read",
+          "registrations:write",
+          "teams:read",
+          "teams:write",
+          "users:read",
+        ],
+      },
+      {
+        name: "coach",
+        description: "View assigned teams, rosters, enter scores",
+        permissions: [
+          "teams:read",
+          "rosters:read",
+          "games:read",
+          "games:write_score",
+        ],
+      },
+      {
+        name: "parent",
+        description: "Register children, view schedules, make payments",
+        permissions: [
+          "programs:read",
+          "seasons:read",
+          "registrations:read",
+          "registrations:write_own",
+          "family:read",
+          "family:write",
+          "payments:read_own",
+        ],
+      },
+      {
+        name: "player",
+        description: "View own schedule and team information",
+        permissions: ["schedules:read_own", "teams:read_own"],
+      },
+    ])
+    .onConflictDoNothing();
+
   // Get roles
   const allRoles = await db.select().from(roles);
   const roleMap = Object.fromEntries(allRoles.map((r) => [r.name, r]));

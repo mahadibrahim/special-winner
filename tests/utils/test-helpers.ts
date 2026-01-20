@@ -38,7 +38,7 @@ export async function signIn(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto("/signin");
+  await page.goto("/signin", { waitUntil: "networkidle" });
 
   // Wait for React hydration - ensure form is interactive
   const emailInput = page.locator('input[type="email"]').first();
@@ -46,12 +46,12 @@ export async function signIn(
   const submitBtn = page.getByRole("button", { name: /sign in/i });
 
   // Wait for inputs to be editable (hydration complete)
-  await emailInput.waitFor({ state: "visible" });
-  await passwordInput.waitFor({ state: "visible" });
-  await submitBtn.waitFor({ state: "visible" });
+  await emailInput.waitFor({ state: "visible", timeout: 15000 });
+  await passwordInput.waitFor({ state: "visible", timeout: 15000 });
+  await submitBtn.waitFor({ state: "visible", timeout: 15000 });
 
-  // Small delay to ensure React state is ready
-  await page.waitForTimeout(500);
+  // Wait for hydration - ensure the form is interactive
+  await page.waitForTimeout(1000);
 
   // Fill in credentials
   await emailInput.fill(email);
@@ -59,14 +59,17 @@ export async function signIn(
 
   // Wait for the API response after clicking
   const [response] = await Promise.all([
-    page.waitForResponse((resp) => resp.url().includes("/api/auth/signin")),
+    page.waitForResponse(
+      (resp) => resp.url().includes("/api/auth/signin"),
+      { timeout: 20000 }
+    ),
     submitBtn.click(),
   ]);
 
   // If login succeeded (2xx), wait for navigation
   if (response.ok()) {
     await page.waitForURL((url) => !url.pathname.includes("/signin"), {
-      timeout: 10000,
+      timeout: 15000,
     });
   }
 }

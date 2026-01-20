@@ -18,9 +18,9 @@ export default defineConfig({
   },
 
   // Test timeout
-  timeout: 15 * 1000,  // Reduced from 30s for faster feedback
+  timeout: 30 * 1000,  // 30s for CI stability
   expect: {
-    timeout: 5 * 1000,  // Reduced from 10s
+    timeout: 10 * 1000,  // 10s for assertions
   },
 
   projects: [
