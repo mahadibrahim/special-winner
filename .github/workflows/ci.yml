@@ -52,6 +52,11 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Push Database Schema
+        run: npm run db:push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Seed E2E Test Data
         run: npm run db:seed:e2e || echo "Seeding skipped or failed - continuing with existing data"
         env:

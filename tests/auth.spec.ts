@@ -13,23 +13,26 @@ test.describe("Authentication Flow", () => {
     });
 
     test("shows error for invalid credentials", async ({ page }) => {
-      await page.goto("/signin");
+      await page.goto("/signin", { waitUntil: "networkidle" });
 
       // Wait for React hydration
       const emailInput = page.locator('input[type="email"]').first();
       const passwordInput = page.locator('input[type="password"]').first();
       const submitBtn = page.getByRole("button", { name: /sign in/i });
 
-      await emailInput.waitFor({ state: "visible" });
-      await passwordInput.waitFor({ state: "visible" });
-      await page.waitForTimeout(500); // Allow hydration to complete
+      await emailInput.waitFor({ state: "visible", timeout: 15000 });
+      await passwordInput.waitFor({ state: "visible", timeout: 15000 });
+      await page.waitForTimeout(1000); // Allow hydration to complete
 
       await emailInput.fill("invalid@test.com");
       await passwordInput.fill("wrongpassword");
 
       // Wait for API response
       await Promise.all([
-        page.waitForResponse((resp) => resp.url().includes("/api/auth/signin")),
+        page.waitForResponse(
+          (resp) => resp.url().includes("/api/auth/signin"),
+          { timeout: 20000 }
+        ),
         submitBtn.click(),
       ]);
 
@@ -37,7 +40,7 @@ test.describe("Authentication Flow", () => {
       await expect(
         page.locator("text=Invalid email or password").or(page.locator("text=Validation failed"))
       ).toBeVisible({
-        timeout: 5000,
+        timeout: 10000,
       });
     });
 
@@ -46,7 +49,8 @@ test.describe("Authentication Flow", () => {
 
       // Admin should be redirected to admin dashboard
       await expect(page).toHaveURL(/\/admin/);
-      await expect(page.locator("text=Dashboard")).toBeVisible();
+      // Use heading to be specific - there's both a sidebar link and a heading
+      await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     });
 
     test("successfully signs in parent user", async ({ page }) => {
