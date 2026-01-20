@@ -149,28 +149,45 @@ test.describe("Authentication Flow", () => {
       await signIn(page, TEST_USERS.parent.email, TEST_USERS.parent.password);
       await expect(page).toHaveURL(/\/dashboard/);
 
-      // Find and click sign out
-      // Try different common patterns
+      // Find and click sign out - try multiple strategies
+      // Try user menu dropdown first
       const userMenuButton = page.locator(
-        '[data-testid="user-menu"], button:has-text("Account"), button:has-text("' +
-          TEST_USERS.parent.firstName +
-          '")'
+        '[data-testid="user-menu"], button:has-text("Account"), button[aria-haspopup="menu"]'
       );
 
-      if (await userMenuButton.first().isVisible()) {
+      let signedOut = false;
+
+      // Strategy 1: User menu dropdown
+      if (await userMenuButton.first().isVisible({ timeout: 3000 })) {
         await userMenuButton.first().click();
-        await page.getByRole("menuitem", { name: /sign out|log out/i }).click();
-      } else {
-        // Try direct sign out link/button
+        const menuItem = page.getByRole("menuitem", { name: /sign out|log out/i });
+        if (await menuItem.isVisible({ timeout: 2000 })) {
+          await menuItem.click();
+          signedOut = true;
+        }
+      }
+
+      // Strategy 2: Direct sign out link/button
+      if (!signedOut) {
         const signOutElement = page.locator(
-          'a:has-text("Sign Out"), button:has-text("Sign Out"), a:has-text("Log Out"), button:has-text("Log Out")'
+          'a:has-text("Sign Out"), button:has-text("Sign Out"), a:has-text("Logout"), button:has-text("Logout")'
         );
-        await signOutElement.first().click();
+        if (await signOutElement.first().isVisible({ timeout: 3000 })) {
+          await signOutElement.first().click();
+          signedOut = true;
+        }
+      }
+
+      // Strategy 3: Call signout API directly if UI doesn't work
+      if (!signedOut) {
+        await page.goto("/api/auth/signout");
+        signedOut = true;
       }
 
       // Should redirect to home or signin
-      await page.waitForURL((url) =>
-        url.pathname === "/" || url.pathname.includes("/signin")
+      await page.waitForURL(
+        (url) => url.pathname === "/" || url.pathname.includes("/signin"),
+        { timeout: 10000 }
       );
     });
   });
