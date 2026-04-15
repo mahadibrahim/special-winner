@@ -2,8 +2,8 @@
 import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { db } from '../../lib/db';
-import { sports, locations, programs, seasons, registrations, users } from '../../lib/db/schema';
+import { getDb } from '../../lib/db';
+import { sports, locations, programs, seasons, registrations, users, conversations } from '../../lib/db/schema';
 import { count, eq, and, isNotNull, sql } from 'drizzle-orm';
 
 // User is guaranteed to be an admin by middleware
@@ -25,9 +25,12 @@ let stats = {
   users: 0,
   pendingRefunds: 0,
   pendingRefundsAmountCents: 0,
+  activeConversations: 0,
+  needsReply: 0,
 };
 
 try {
+  const db = getDb();
   const [
     [sportsCount],
     [locationsCount],
@@ -36,6 +39,8 @@ try {
     [registrationsCount],
     [usersCount],
     [pendingRefundsData],
+    [activeConversationsCount],
+    [needsReplyCount],
   ] = await Promise.all([
     db.select({ count: count() }).from(sports),
     db.select({ count: count() }).from(locations),
@@ -50,6 +55,25 @@ try {
       })
       .from(registrations)
       .where(eq(registrations.refundStatus, 'pending_approval')),
+    db
+      .select({ count: count() })
+      .from(conversations)
+      .where(eq(conversations.status, 'active')),
+    // Conversations routed to a human (coach or admin) where the last
+    // inbound message is newer than the last outbound message — i.e. the
+    // parent is waiting on a reply.
+    db
+      .select({ count: count() })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.status, 'active'),
+          isNotNull(conversations.assignmentRole),
+          sql`${conversations.assignmentRole} <> 'bot'`,
+          isNotNull(conversations.lastInboundAt),
+          sql`(${conversations.lastOutboundAt} IS NULL OR ${conversations.lastInboundAt} > ${conversations.lastOutboundAt})`,
+        ),
+      ),
   ]);
 
   stats = {
@@ -61,6 +85,8 @@ try {
     users: usersCount.count,
     pendingRefunds: pendingRefundsData.count,
     pendingRefundsAmountCents: Number(pendingRefundsData.totalAmount) || 0,
+    activeConversations: activeConversationsCount.count,
+    needsReply: needsReplyCount.count,
   };
 } catch (error) {
   console.error('Error fetching stats:', error);
@@ -169,6 +195,31 @@ try {
                 </a>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Messages needing reply alert — plain HTML to sidestep the
+            pre-existing Card type errors in this file. */}
+        {!statsError && stats.needsReply > 0 && (
+          <div class="rounded-lg border border-blue-300 bg-blue-50 p-6 shadow-sm">
+            <div class="flex items-center justify-between pb-2">
+              <div>
+                <p class="text-sm text-blue-700">Messages needing reply</p>
+                <p class="text-4xl font-semibold text-blue-800">{stats.needsReply}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm text-blue-600">Active conversations</p>
+                <p class="text-2xl font-bold text-blue-800">{stats.activeConversations}</p>
+              </div>
+            </div>
+            <p class="text-sm text-blue-700 mb-2">
+              {stats.needsReply === 1
+                ? 'There is 1 parent conversation waiting on a staff reply.'
+                : `There are ${stats.needsReply} parent conversations waiting on a staff reply.`}
+            </p>
+            <a href="/messages" class="inline-flex items-center gap-1 text-sm font-medium text-blue-800 hover:underline">
+              Open the staff inbox &rarr;
+            </a>
           </div>
         )}
 
