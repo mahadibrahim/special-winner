@@ -1,9 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from typing import Dict, List
 from engine.schema import Assumptions
-from engine.calendar import parse_year_month, month_sequence, registration_month_for_season
+from engine.calendar import parse_year_month, month_sequence
 from engine.revenue_year1 import Year1RevenueLine
+from engine.revenue_cohort import CohortRevenueLine
 
 
 @dataclass
@@ -67,6 +68,40 @@ def compute_variable_costs_for_line(a: Assumptions, line: Year1RevenueLine) -> D
         sessions_total = a.pricing.winter_skills_sessions_per_week * 12
         coach_cost = sessions_total * a.costs.head_coach_hourly.base
         # Venue: indoor turf half-field for each session
+        venue_cost = sessions_total * a.costs.indoor_turf_half_hourly.base
+    else:
+        coach_cost = venue_cost = 0
+
+    uniform_cost = a.pricing.uniform_fee * line.kids_registered
+    total = coach_cost + venue_cost + uniform_cost
+    return {
+        "coach_cost": coach_cost,
+        "venue_cost": venue_cost,
+        "uniform_cost": uniform_cost,
+        "total": total,
+    }
+
+
+def compute_variable_costs_for_cohort_line(
+    a: Assumptions, line: CohortRevenueLine
+) -> Dict[str, float]:
+    """Variable cost for a cohort (Y2-5) revenue line. CohortRevenueLine doesn't
+    carry a team count, so we derive one from kids_registered / roster_size."""
+    if line.sport == "soccer":
+        teams = max(1, round(line.kids_registered / a.pricing.soccer_roster_size))
+        weeks = a.pricing.soccer_weeks_per_season
+        coach_hours = teams * 1 * 2 * weeks
+        coach_cost = coach_hours * a.costs.head_coach_hourly.base
+        venue_cost = coach_hours * a.costs.outdoor_field_hourly.base
+    elif line.sport == "flag":
+        teams = max(1, round(line.kids_registered / a.pricing.flag_roster_size))
+        weeks = a.pricing.flag_weeks_per_season
+        coach_hours = teams * 1 * 1.5 * weeks
+        coach_cost = coach_hours * a.costs.head_coach_hourly.base
+        venue_cost = coach_hours * a.costs.outdoor_field_hourly.base
+    elif line.sport == "winter_skills":
+        sessions_total = a.pricing.winter_skills_sessions_per_week * 12
+        coach_cost = sessions_total * a.costs.head_coach_hourly.base
         venue_cost = sessions_total * a.costs.indoor_turf_half_hourly.base
     else:
         coach_cost = venue_cost = 0

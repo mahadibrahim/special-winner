@@ -95,7 +95,7 @@ costs:
   software_monthly: 350
   insurance_monthly: 400
   bookkeeping_monthly: 250
-  founder_time_annual_per_founder: 80000
+  founder_time_annual_per_founder: 0
   num_founders: 2
   curriculum_dev_one_time: 30000
   curriculum_amortization_months: 36

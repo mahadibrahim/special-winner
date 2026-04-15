@@ -5,7 +5,7 @@ from engine.schema import Assumptions
 from engine.calendar import parse_year_month, month_sequence
 from engine.revenue_year1 import Year1RevenueLine
 from engine.revenue_cohort import CohortRevenueLine
-from engine.costs import CostScheduleRow
+from engine.costs import CostScheduleRow, compute_variable_costs_for_line, compute_variable_costs_for_cohort_line
 
 
 @dataclass
@@ -39,16 +39,18 @@ def build_monthly_pnl(
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].revenue += line.net_revenue
 
-    # Variable costs: allocate evenly across the months the program runs.
-    # For v1 simplicity, allocate Year 1 variable costs uniformly across months 2-12.
-    y1_var_total = 0.0
-    for line in y1_lines:
-        from engine.costs import compute_variable_costs_for_line
-        vc = compute_variable_costs_for_line(a, line)
-        y1_var_total += vc["total"]
+    # Variable costs: Year 1 lines spread uniformly across months 1-12 (v1
+    # simplification preserved). Cohort lines (Y2-5) land in each line's
+    # cash_month, matching the P&L's revenue recognition timing.
+    y1_var_total = sum(compute_variable_costs_for_line(a, l)["total"] for l in y1_lines)
     monthly_var = y1_var_total / 12
     for i in range(min(12, len(rows))):
         rows[i].variable_cost += monthly_var
+
+    for line in cohort_lines:
+        if line.cash_month in month_index:
+            vc = compute_variable_costs_for_cohort_line(a, line)
+            rows[month_index[line.cash_month]].variable_cost += vc["total"]
 
     # Fixed expense from cost schedule
     for i, cs in enumerate(cost_schedule):

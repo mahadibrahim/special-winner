@@ -52,13 +52,16 @@ def build_partner_returns(a: Assumptions, cashflow: List[CashflowRow]) -> Partne
                 row.contribution += per_partner_contrib
                 cumulative_contrib[p] += per_partner_contrib
 
-        # Distribution rule: only distribute if ending balance exceeds reserve_floor.
-        # Split distribution 50/50 (per equity_split).
-        excess = cf_row.ending_balance - reserve_floor
+        # Distribution rule: only distribute cash ABOVE the reserve floor that
+        # hasn't already been distributed. The raw cashflow ending_balance is
+        # cumulative and doesn't know about prior distributions, so we subtract
+        # them out to get the true "cash available for distribution" figure.
+        cumulative_dist_total = sum(cumulative_dist.values())
+        effective_balance = cf_row.ending_balance - cumulative_dist_total
+        excess = effective_balance - reserve_floor
         if excess > 0:
             # First pay back any unreturned contributions 50/50 up to excess
-            total_returned_so_far = sum(cumulative_dist.values())
-            still_owed = max(0.0, total_contribution - total_returned_so_far)
+            still_owed = max(0.0, total_contribution - cumulative_dist_total)
             if still_owed > 0:
                 payback_amount = min(excess, still_owed)
                 for p in partners:

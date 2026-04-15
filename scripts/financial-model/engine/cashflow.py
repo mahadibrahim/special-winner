@@ -5,7 +5,7 @@ from engine.schema import Assumptions
 from engine.calendar import parse_year_month, month_sequence
 from engine.revenue_year1 import Year1RevenueLine
 from engine.revenue_cohort import CohortRevenueLine
-from engine.costs import CostScheduleRow
+from engine.costs import CostScheduleRow, compute_variable_costs_for_line, compute_variable_costs_for_cohort_line
 
 
 @dataclass
@@ -44,12 +44,17 @@ def build_monthly_cashflow(
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].receipts += line.net_revenue
 
-    # Disbursements: variable costs (allocated uniformly Y1) + cost schedule cash
-    from engine.costs import compute_variable_costs_for_line
+    # Disbursements: Y1 variable costs spread uniformly over months 1-12 (v1
+    # simplification), cohort variable costs land in each line's cash_month.
     y1_var_total = sum(compute_variable_costs_for_line(a, l)["total"] for l in y1_lines)
     monthly_var = y1_var_total / 12
     for i in range(min(12, len(rows))):
         rows[i].disbursements += monthly_var
+
+    for line in cohort_lines:
+        if line.cash_month in month_index:
+            vc = compute_variable_costs_for_cohort_line(a, line)
+            rows[month_index[line.cash_month]].disbursements += vc["total"]
 
     for i, cs in enumerate(cost_schedule):
         rows[i].disbursements += (
