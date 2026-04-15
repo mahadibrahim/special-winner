@@ -3,8 +3,8 @@ import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { getDb } from '../../lib/db';
-import { sports, locations, programs, seasons, registrations, users, conversations } from '../../lib/db/schema';
-import { count, eq, and, isNotNull, sql } from 'drizzle-orm';
+import { sports, locations, programs, seasons, registrations, users, conversations, conversationMessages } from '../../lib/db/schema';
+import { count, eq, and, isNotNull, sql, desc } from 'drizzle-orm';
 
 // User is guaranteed to be an admin by middleware
 const user = Astro.locals.user;
@@ -28,6 +28,30 @@ let stats = {
   activeConversations: 0,
   needsReply: 0,
 };
+
+interface RecentConversation {
+  id: string;
+  parentName: string;
+  assignmentRole: string | null;
+  lastChannel: string | null;
+  lastDirection: string | null;
+  snippet: string;
+  lastMessageAt: Date;
+}
+
+let recentConversations: RecentConversation[] = [];
+
+function formatRelative(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return 'now';
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 try {
   const db = getDb();
@@ -88,6 +112,65 @@ try {
     activeConversations: activeConversationsCount.count,
     needsReply: needsReplyCount.count,
   };
+
+  // Fetch the 5 most recent active conversations for the widget below the
+  // stat grid. Each conversation includes parent name and the most recent
+  // message snippet.
+  const recentRows = await db
+    .select({
+      id: conversations.id,
+      parentFirstName: users.firstName,
+      parentLastName: users.lastName,
+      parentEmail: users.email,
+      assignmentRole: conversations.assignmentRole,
+      lastMessageAt: conversations.lastMessageAt,
+    })
+    .from(conversations)
+    .innerJoin(users, eq(users.id, conversations.parentUserId))
+    .where(eq(conversations.status, 'active'))
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(5);
+
+  // For each recent conversation, fetch the most recent message snippet
+  if (recentRows.length > 0) {
+    const conversationIds = recentRows.map(r => r.id);
+    const latestMessages = await db
+      .select({
+        conversationId: conversationMessages.conversationId,
+        body: conversationMessages.body,
+        direction: conversationMessages.direction,
+        channel: conversationMessages.channel,
+        createdAt: conversationMessages.createdAt,
+      })
+      .from(conversationMessages)
+      .where(sql`${conversationMessages.conversationId} = ANY(${conversationIds})`)
+      .orderBy(desc(conversationMessages.createdAt));
+
+    const snippetMap = new Map<string, { body: string; direction: string; channel: string }>();
+    for (const m of latestMessages) {
+      if (!snippetMap.has(m.conversationId)) {
+        snippetMap.set(m.conversationId, {
+          body: m.body.length > 110 ? m.body.slice(0, 107) + '…' : m.body,
+          direction: m.direction,
+          channel: m.channel,
+        });
+      }
+    }
+
+    recentConversations = recentRows.map(r => {
+      const snippet = snippetMap.get(r.id);
+      const name = `${r.parentFirstName ?? ''} ${r.parentLastName ?? ''}`.trim() || r.parentEmail;
+      return {
+        id: r.id,
+        parentName: name,
+        assignmentRole: r.assignmentRole,
+        lastChannel: snippet?.channel ?? null,
+        lastDirection: snippet?.direction ?? null,
+        snippet: snippet?.body ?? '',
+        lastMessageAt: r.lastMessageAt,
+      };
+    });
+  }
 } catch (error) {
   console.error('Error fetching stats:', error);
   statsError = 'Failed to load dashboard statistics. Please check your database connection.';
@@ -220,6 +303,63 @@ try {
             <a href="/messages" class="inline-flex items-center gap-1 text-sm font-medium text-blue-800 hover:underline">
               Open the staff inbox &rarr;
             </a>
+          </div>
+        )}
+
+        {/* Recent conversations widget */}
+        {!statsError && recentConversations.length > 0 && (
+          <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900">Recent conversations</h2>
+                <p class="text-sm text-gray-500 mt-0.5">Newest parent threads across every channel</p>
+              </div>
+              <a href="/messages" class="text-sm font-medium text-primary hover:underline">
+                Open inbox &rarr;
+              </a>
+            </div>
+            <ul class="divide-y divide-gray-200">
+              {recentConversations.map((conv) => {
+                const assignmentStyles: Record<string, string> = {
+                  bot: 'bg-blue-100 text-blue-700',
+                  coach: 'bg-emerald-100 text-emerald-700',
+                  admin: 'bg-amber-100 text-amber-700',
+                };
+                const roleKey = conv.assignmentRole ?? 'bot';
+                const roleStyle = assignmentStyles[roleKey] ?? assignmentStyles.bot;
+                const channelIcon =
+                  conv.lastChannel === 'sms' ? '💬' :
+                  conv.lastChannel === 'email' ? '✉️' :
+                  conv.lastChannel === 'telegram' ? '✈️' : '💭';
+                const sentMarker = conv.lastDirection === 'outbound' ? 'You: ' : '';
+                const ts = new Date(conv.lastMessageAt);
+                const relative = formatRelative(ts);
+                return (
+                  <li>
+                    <a
+                      href={`/messages?conversation=${conv.id}`}
+                      class="flex items-start gap-3 px-6 py-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 text-sm">
+                        {channelIcon}
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                          <p class="text-sm font-medium text-gray-900 truncate">{conv.parentName}</p>
+                          <span class={`text-[10px] px-2 py-0.5 rounded ${roleStyle} uppercase font-semibold`}>
+                            {roleKey}
+                          </span>
+                          <span class="text-xs text-gray-400 ml-auto flex-shrink-0">{relative}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 truncate">
+                          {sentMarker}{conv.snippet || <em>No messages yet</em>}
+                        </p>
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
 
