@@ -23,6 +23,7 @@ from writers.revenue_year1_tab import write_revenue_year1_tab
 from writers.revenue_cohort_tab import write_revenue_cohort_tab
 from writers.costs_tab import write_costs_tab
 from writers.pnl_tab import write_pnl_tab
+from writers.pnl_annual_tab import write_pnl_annual_tab
 from writers.cashflow_tab import write_cashflow_tab
 from writers.partner_returns_tab import write_partner_returns_tab
 from writers.sensitivity_tab import write_sensitivity_tab
@@ -88,6 +89,7 @@ def main() -> None:
     write_revenue_year1_tab(wb, all_y1_lines)
     write_revenue_cohort_tab(wb, all_cohort_lines)
     write_costs_tab(wb, cost_schedule)
+    write_pnl_annual_tab(wb, pnl_rows)
     write_pnl_tab(wb, pnl_rows)
     write_cashflow_tab(wb, cashflow_rows)
     write_partner_returns_tab(wb, partner_report)

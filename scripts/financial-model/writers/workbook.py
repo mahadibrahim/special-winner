@@ -18,6 +18,7 @@ def build_empty_workbook(a: Assumptions) -> Workbook:
         "Revenue Y1",
         "Revenue Cohort",
         "Costs",
+        "P&L Annual",
         "P&L",
         "Cash Flow",
         "Partner Returns",
