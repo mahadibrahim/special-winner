@@ -18,6 +18,11 @@ import {
 } from "@/lib/llm/classifier";
 import { getAction } from "@/lib/bot/actions/registry";
 import { sendToParent } from "./gateway";
+import {
+  shouldNotifyStaff,
+  recordStaffNotification,
+  type StaffNotificationType,
+} from "./staff-notifications";
 
 /**
  * Inbound pipeline — the glue between webhooks and bot/routing logic.
@@ -590,9 +595,68 @@ async function handleRouteToHuman(
     senderType: "bot",
   });
 
-  // TODO: staff notification (dashboard badge + out-of-band alert) lands with
-  // the staff inbox UI task. For now the routing is visible in the admin
-  // messages list the moment staff loads it.
+  // Staff notification dispatch — throttled per-staff-member to avoid
+  // flooding a coach with 20 alerts during a burst of parent messages.
+  if (assignedStaffId) {
+    await maybeNotifyStaff(
+      assignedStaffId,
+      input.conversationId,
+      classifyNotificationType(result),
+    );
+  }
+}
+
+async function maybeNotifyStaff(
+  staffUserId: string,
+  conversationId: string,
+  notificationType: StaffNotificationType,
+): Promise<void> {
+  try {
+    const decision = await shouldNotifyStaff(staffUserId, notificationType);
+
+    if (!decision.shouldNotify) {
+      console.info(
+        `Staff notification throttled for user ${staffUserId} ` +
+          `(last sent ${decision.lastNotifiedAt?.toISOString() ?? "?"})`,
+      );
+      return;
+    }
+
+    // Out-of-band send (SMS/email to the staff member) is not yet wired up —
+    // staff don't have messaging channel preferences set up the same way
+    // parents do. For now, record the notification intent so the in-app
+    // badge shows unread state and the throttle window is tracked.
+    //
+    // When the staff-channel-preferences follow-up lands, this is the
+    // place to call sendToParent-style helpers for the staff user's
+    // preferred out-of-band channel.
+    console.info(
+      `Staff notification fired: user ${staffUserId}, ` +
+        `conversation ${conversationId}, type ${notificationType}`,
+    );
+
+    await recordStaffNotification({
+      staffUserId,
+      conversationId,
+      notificationType,
+      deliveredChannel: "in_app",
+    });
+  } catch (err) {
+    console.error("Staff notification error:", err);
+  }
+}
+
+function classifyNotificationType(
+  result: ClassifiedIntent,
+): StaffNotificationType {
+  // Medical / urgent intents bypass throttling
+  if (result.intent === "coach_question" && result.routingReason?.includes("URGENT")) {
+    return "urgent_escalation";
+  }
+  if (result.intent === "payment_question") {
+    return "payment_question";
+  }
+  return "new_inbound_message";
 }
 
 async function findCoachForParent(

@@ -22,6 +22,7 @@ export * from "./conversations";
 export * from "./magic-links";
 export * from "./phone-verifications";
 export * from "./family-member-parents";
+export * from "./staff-notifications";
 
 // Discount schemas
 export * from "./discounts";
