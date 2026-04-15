@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+aspire_financial_model.egg-info/PKG-INFO
+aspire_financial_model.egg-info/SOURCES.txt
+aspire_financial_model.egg-info/dependency_links.txt
+aspire_financial_model.egg-info/requires.txt
+aspire_financial_model.egg-info/top_level.txt
+engine/__init__.py
+tests/__init__.py
+tests/conftest.py
+writers/__init__.py
