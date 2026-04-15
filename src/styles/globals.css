@@ -1,86 +1,139 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* ============================================================
+   Aspire Sports — Editorial Design System (2026-04-15)
+   ============================================================
+   A warm off-white foundation with confident editorial
+   typography and a single hot-spot accent. The feel is
+   *The Athletic* meets *Tracksmith*, not a SaaS dashboard.
+
+   Fonts (loaded via <link> tags in page heads):
+   - Newsreader     → display / headlines (especially italic)
+   - IBM Plex Sans  → body + UI
+
+   Do not use: Inter, Roboto, Arial, system fonts.
+============================================================ */
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.2 0.02 240);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 240);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 240);
-  --primary: oklch(0.58 0.18 35);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.55 0.15 240);
-  --secondary-foreground: oklch(0.99 0 0);
-  --muted: oklch(0.96 0.01 240);
-  --muted-foreground: oklch(0.5 0.02 240);
-  --accent: oklch(0.95 0.02 35);
-  --accent-foreground: oklch(0.2 0.02 240);
+  /* ——————————— Core palette ——————————— */
+  /* Cream — warm off-white, the foundation */
+  --cream: oklch(0.972 0.008 80);
+  --cream-2: oklch(0.955 0.012 78);
+  --cream-3: oklch(0.935 0.018 76);
+
+  /* Charcoal — primary text ink, never pure black */
+  --ink: oklch(0.18 0.008 260);
+  --ink-2: oklch(0.26 0.012 260);
+  --ink-muted: oklch(0.42 0.01 260);
+  --ink-faint: oklch(0.58 0.008 260);
+
+  /* Heritage navy — gravitas, depth, quote marks, dividers */
+  --navy: oklch(0.24 0.06 260);
+  --navy-deep: oklch(0.18 0.07 262);
+
+  /* Primary — the Aspire red-orange, hot spot accent */
+  --primary-orange: oklch(0.58 0.19 35);
+  --primary-orange-bright: oklch(0.66 0.21 35);
+  --primary-orange-soft: oklch(0.92 0.035 50);
+
+  /* Ochre — warm secondary accent for subtle highlights */
+  --ochre: oklch(0.75 0.12 75);
+
+  /* Sage — success, subtle positive states */
+  --sage: oklch(0.52 0.08 155);
+
+  /* Paper — card surfaces that lift off the cream background */
+  --paper: oklch(0.99 0.003 80);
+  --paper-shadow: oklch(0.82 0.015 78 / 0.45);
+
+  /* ——————————— Semantic tokens (Tailwind shadcn bridge) ——————————— */
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--primary-orange);
+  --primary-foreground: var(--cream);
+  --secondary: var(--navy);
+  --secondary-foreground: var(--cream);
+  --muted: var(--cream-2);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--primary-orange-soft);
+  --accent-foreground: var(--ink);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.92 0.01 240);
-  --input: oklch(0.92 0.01 240);
-  --ring: oklch(0.58 0.18 35);
-  --chart-1: oklch(0.58 0.18 35);
-  --chart-2: oklch(0.55 0.15 240);
-  --chart-3: oklch(0.65 0.2 140);
-  --chart-4: oklch(0.7 0.15 300);
-  --chart-5: oklch(0.75 0.1 80);
-  --radius: 0.75rem;
-  --sidebar: oklch(0.99 0 0);
-  --sidebar-foreground: oklch(0.2 0.02 240);
-  --sidebar-primary: oklch(0.58 0.18 35);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.01 240);
-  --sidebar-accent-foreground: oklch(0.2 0.02 240);
-  --sidebar-border: oklch(0.92 0.01 240);
-  --sidebar-ring: oklch(0.58 0.18 35);
-  --success: oklch(0.65 0.2 140);
-  --warning: oklch(0.75 0.15 80);
+  --destructive-foreground: var(--cream);
+  --border: oklch(0.88 0.015 75);
+  --input: oklch(0.88 0.015 75);
+  --ring: var(--primary-orange);
+  --chart-1: var(--primary-orange);
+  --chart-2: var(--navy);
+  --chart-3: var(--sage);
+  --chart-4: var(--ochre);
+  --chart-5: oklch(0.55 0.05 260);
+  --radius: 0.5rem; /* tighter, more editorial */
+  --sidebar: var(--cream-2);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--primary-orange);
+  --sidebar-primary-foreground: var(--cream);
+  --sidebar-accent: var(--cream-3);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: oklch(0.88 0.015 75);
+  --sidebar-ring: var(--primary-orange);
+  --success: var(--sage);
+  --warning: var(--ochre);
 }
 
+/* ——————————— Dark mode (minibooks, coach resources,
+   anywhere we want "serious study mode") ——————————— */
 .dark {
-  --background: oklch(0.15 0.02 240);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.18 0.02 240);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.18 0.02 240);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.65 0.2 35);
-  --primary-foreground: oklch(0.15 0.02 240);
-  --secondary: oklch(0.6 0.18 240);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.25 0.02 240);
-  --muted-foreground: oklch(0.7 0.02 240);
-  --accent: oklch(0.25 0.02 240);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.5 0.2 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.02 240);
-  --input: oklch(0.25 0.02 240);
-  --ring: oklch(0.65 0.2 35);
-  --chart-1: oklch(0.65 0.2 35);
-  --chart-2: oklch(0.6 0.18 240);
+  --background: oklch(0.15 0.01 260);
+  --foreground: oklch(0.97 0.005 80);
+  --card: oklch(0.18 0.012 260);
+  --card-foreground: oklch(0.97 0.005 80);
+  --popover: oklch(0.18 0.012 260);
+  --popover-foreground: oklch(0.97 0.005 80);
+  --primary: oklch(0.66 0.21 35);
+  --primary-foreground: oklch(0.15 0.01 260);
+  --secondary: oklch(0.35 0.07 260);
+  --secondary-foreground: oklch(0.97 0.005 80);
+  --muted: oklch(0.22 0.012 260);
+  --muted-foreground: oklch(0.72 0.015 80);
+  --accent: oklch(0.25 0.04 30);
+  --accent-foreground: oklch(0.97 0.005 80);
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(0.97 0.005 80);
+  --border: oklch(0.25 0.015 260);
+  --input: oklch(0.25 0.015 260);
+  --ring: oklch(0.66 0.21 35);
+  --chart-1: oklch(0.66 0.21 35);
+  --chart-2: oklch(0.65 0.15 240);
   --chart-3: oklch(0.65 0.2 140);
   --chart-4: oklch(0.7 0.15 300);
   --chart-5: oklch(0.75 0.1 80);
-  --sidebar: oklch(0.18 0.02 240);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.65 0.2 35);
-  --sidebar-primary-foreground: oklch(0.15 0.02 240);
-  --sidebar-accent: oklch(0.25 0.02 240);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0.02 240);
-  --sidebar-ring: oklch(0.65 0.2 35);
+  --sidebar: oklch(0.18 0.012 260);
+  --sidebar-foreground: oklch(0.97 0.005 80);
+  --sidebar-primary: oklch(0.66 0.21 35);
+  --sidebar-primary-foreground: oklch(0.15 0.01 260);
+  --sidebar-accent: oklch(0.22 0.012 260);
+  --sidebar-accent-foreground: oklch(0.97 0.005 80);
+  --sidebar-border: oklch(0.25 0.015 260);
+  --sidebar-ring: oklch(0.66 0.21 35);
   --success: oklch(0.65 0.2 140);
   --warning: oklch(0.8 0.18 80);
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  /* Typography — editorial pairing */
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Newsreader", "Source Serif 4", Georgia, serif;
+  --font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -105,10 +158,28 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Named semantic colors — shortcuts for the editorial palette */
+  --color-cream: var(--cream);
+  --color-cream-2: var(--cream-2);
+  --color-cream-3: var(--cream-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-primary-orange: var(--primary-orange);
+  --color-primary-orange-bright: var(--primary-orange-bright);
+  --color-primary-orange-soft: var(--primary-orange-soft);
+  --color-ochre: var(--ochre);
+  --color-sage: var(--sage);
+  --color-paper: var(--paper);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -125,7 +196,124 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    font-family: var(--font-sans);
+    font-feature-settings: "kern", "liga", "clig", "calt", "ss01", "ss02";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    letter-spacing: -0.005em;
+  }
+
+  /* ——————————— Editorial display typography ——————————— */
+  /* Apply these classes to opt into the display family */
+  .font-display,
+  .display {
+    font-family: var(--font-display);
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+    letter-spacing: -0.02em;
+  }
+
+  .font-serif,
+  .serif {
+    font-family: var(--font-serif);
+  }
+
+  /* ——————————— Small caps label ——————————— */
+  .label-sm {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ——————————— Rule lines for editorial section breaks ——————————— */
+  .rule {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
+  }
+
+  .rule-heavy {
+    border: none;
+    border-top: 2px solid var(--ink);
+    margin: 0;
+  }
+
+  /* ——————————— Drop cap for editorial content ——————————— */
+  .drop-cap::first-letter {
+    font-family: var(--font-display);
+    font-size: 5.5rem;
+    font-weight: 500;
+    line-height: 0.85;
+    float: left;
+    margin-right: 0.5rem;
+    margin-top: 0.25rem;
+    color: var(--primary-orange);
+  }
+
+  /* ——————————— Cream paper texture (very subtle) ——————————— */
+  .paper-grain {
+    background-image:
+      radial-gradient(at 40% 20%, oklch(0.98 0.01 75 / 0.4) 0, transparent 50%),
+      radial-gradient(at 80% 0%, oklch(0.96 0.015 35 / 0.25) 0, transparent 40%),
+      radial-gradient(at 0% 100%, oklch(0.94 0.025 50 / 0.3) 0, transparent 45%);
+  }
+
+  /* ——————————— Focus ring — crisp, editorial ——————————— */
+  :focus-visible {
+    outline: 2px solid var(--primary-orange);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* ——————————— Selection ——————————— */
+  ::selection {
+    background: var(--primary-orange);
+    color: var(--cream);
+  }
+
+  /* ——————————— Headings — editorial cadence ——————————— */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  h1 {
+    font-weight: 500;
+  }
+
+  h2 {
+    font-weight: 500;
+  }
+
+  h3 {
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+  }
+}
+
+/* ============================================================
+   Reduced motion — respect the setting
+============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
