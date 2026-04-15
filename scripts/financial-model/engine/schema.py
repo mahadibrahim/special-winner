@@ -39,6 +39,10 @@ class SportConfig(BaseModel):
     s1_to_s2: LowBaseHigh
     s2_to_s3: LowBaseHigh
     s3_plus: LowBaseHigh
+    # Optional season_growth_rate: applied to spring team counts as
+    # round(fall_teams × (1 + rate)). None disables the effect (spring = fall).
+    # Base value of 0.25 matches Plan 1 behavior.
+    season_growth_rate: Optional[LowBaseHigh] = None
 
 
 class TravelConfig(BaseModel):

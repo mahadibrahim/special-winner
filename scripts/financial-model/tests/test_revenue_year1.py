@@ -67,15 +67,17 @@ def test_cash_month_per_season():
     assert all(l.cash_month == date(2026, 7, 1) for l in fall_soccer_lines)
 
 
-def test_spring_growth_rate_removed_from_schema_still_works_via_fill_rate():
-    """Plan 1's season_growth_rate is gone; spring seasons now just reuse the
-    same target_teams_y1. Growth comes from fill_rate improvements and the
-    cohort engine (Y2+)."""
+def test_spring_season_applies_growth_rate():
+    """When sport.season_growth_rate is set (base 0.25 for soccer/flag), spring
+    target_teams grow by that factor: round(9 × 1.25) = 11 teams for soccer."""
     a = load_assumptions(Path("assumptions.yaml"))
     lines = build_year1_revenue(a, location_id=0, location_launch_year=2026)
     fall_soccer = sum(l.kids_registered for l in lines if l.sport == "soccer" and l.season == "fall")
     spring_soccer = sum(l.kids_registered for l in lines if l.sport == "soccer" and l.season == "spring")
-    assert spring_soccer == fall_soccer
+    # Fall: per-age-band int() truncation produces U8:31 + U10:23 + U12:15 = 69 kids.
+    # Spring: round(9 × 1.25) = 11 teams → per-band int() truncation produces 85 kids.
+    assert fall_soccer == 69
+    assert spring_soccer == 85
 
 
 def test_location_id_propagates_to_lines():

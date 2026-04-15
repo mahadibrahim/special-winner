@@ -24,6 +24,8 @@ sports:
     s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
     s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
     s3_plus:  { low: 0.88, base: 0.94, high: 0.97 }
+    # Spring grows 25% over fall target_teams — Plan 1 assumption preserved.
+    season_growth_rate: { low: 0.10, base: 0.25, high: 0.50 }
 
   - name: flag
     launch_year: 2026
@@ -42,6 +44,7 @@ sports:
     s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
     s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
     s3_plus:  { low: 0.88, base: 0.94, high: 0.97 }
+    season_growth_rate: { low: 0.10, base: 0.25, high: 0.50 }
 
   - name: winter_skills
     launch_year: 2026

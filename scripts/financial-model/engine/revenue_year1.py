@@ -49,6 +49,10 @@ def compute_season_revenue_for_sport(
     cash_month = registration_month_for_season(season, season_year)
 
     for age_band, team_count in sport.target_teams_y1.items():
+        # Spring seasons grow target_teams per sport.season_growth_rate if set.
+        # Fall (and winter) seasons use target_teams_y1 directly.
+        if season == "spring" and sport.season_growth_rate is not None:
+            team_count = round(team_count * (1 + sport.season_growth_rate.base))
         kids = int(team_count * sport.roster_size * fill)
         gross = kids * price
         discounts, processing, net = _apply_discounts_and_fees(gross, a, kids)
