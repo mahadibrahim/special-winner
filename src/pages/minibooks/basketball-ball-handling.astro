@@ -1,0 +1,949 @@
+---
+/**
+ * Mini-Book: The Path to Better Ball Handling (Basketball)
+ * Evidence-Based Youth Development Guide
+ */
+import { ballHandlingMiniBook } from '../../data/minibooks/basketball-ball-handling';
+import '../../styles/print-guide.css';
+import '../../styles/minibook.css';
+
+const book = ballHandlingMiniBook;
+
+// Helper to get player story by placement
+const getPlayerStory = (placement: string) =>
+  book.playerStories?.find((s) => s.placement === placement);
+
+// Helper to get coach wisdom by placement
+const getCoachWisdom = (placement: string) =>
+  book.coachWisdom?.find((w) => w.placement === placement);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{book.meta.title} | Aspire Sports</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+
+  <body>
+    <div class="minibook guide-basketball">
+      <!-- Cover Page -->
+      <section class="minibook-cover">
+        <div class="minibook-cover-top">
+          <img src="/images/logo-black.png" alt="Aspire Sports" class="minibook-logo" />
+          <span class="minibook-series">Evidence-Based Youth Development</span>
+        </div>
+
+        <div class="minibook-cover-main">
+          <div class="minibook-sport-icon">Basketball</div>
+          <h1 class="minibook-title">{book.meta.title}</h1>
+          <p class="minibook-subtitle">{book.meta.subtitle}</p>
+        </div>
+
+        <div class="minibook-cover-bottom">
+          <div class="minibook-tagline">{book.introduction.hook}</div>
+        </div>
+      </section>
+
+      <!-- Half-Title Page -->
+      <section class="minibook-half-title">
+        <div class="half-title-content">
+          <h1 class="half-title-text">{book.meta.title}</h1>
+        </div>
+      </section>
+
+      <!-- Title Page -->
+      <section class="minibook-title-page">
+        <div class="title-page-header">
+          <img src="/images/logo-black.png" alt="Aspire Sports" class="title-page-logo" />
+          <span class="title-page-series">Evidence-Based Youth Development Series</span>
+        </div>
+
+        <div class="title-page-main">
+          <div class="title-page-sport">Basketball</div>
+          <h1 class="title-page-title">{book.meta.title}</h1>
+          <p class="title-page-subtitle">{book.meta.subtitle}</p>
+        </div>
+
+        <div class="title-page-credits">
+          <div class="title-page-author">
+            <span class="credit-label">Written by</span>
+            <span class="credit-name">Mahad Ibrahim</span>
+          </div>
+          <div class="title-page-publisher">
+            <img src="/images/logo-black.png" alt="Aspire Sports" class="publisher-logo" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Copyright Page -->
+      <section class="minibook-copyright">
+        <div class="copyright-content">
+          <p class="copyright-title">{book.meta.title}</p>
+          <p class="copyright-subtitle">{book.meta.subtitle}</p>
+
+          <div class="copyright-legal">
+            <p>Copyright © 2026 Mahad Ibrahim. All rights reserved.</p>
+            <p>No part of this publication may be reproduced, distributed, or transmitted in any form or by any means, including photocopying, recording, or other electronic or mechanical methods, without the prior written permission of the publisher, except in the case of brief quotations embodied in critical reviews and certain other noncommercial uses permitted by copyright law.</p>
+          </div>
+
+          <div class="copyright-details">
+            <p><strong>Published by</strong> Aspire Sports</p>
+            <p><strong>Website</strong> aspiresports.com</p>
+          </div>
+
+          <div class="copyright-edition">
+            <p>First Edition: January 2026</p>
+          </div>
+
+          <div class="copyright-disclaimer">
+            <p><strong>Disclaimer:</strong> The information in this book is intended for educational purposes only. While based on scientific research, individual results may vary. Always consult with qualified coaches and medical professionals regarding your child's specific needs and abilities.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Table of Contents -->
+      <section class="minibook-toc-page">
+        <h2 class="toc-page-title">Contents</h2>
+
+        <div class="toc-entries">
+          <div class="toc-entry">
+            <span class="toc-entry-title">Part One: The Science of Ball Handling</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">7</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">The Biomechanics of Dribbling</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">9</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Motor Learning and Ball Handling</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">13</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Visual Skills and Ball Handling</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">17</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Physical Development and Ball Handling</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">21</span>
+          </div>
+
+          <div class="toc-entry">
+            <span class="toc-entry-title">Part Two: The Mental Game</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">27</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Building Confidence with the Ball</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">29</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Creativity and Problem-Solving</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">33</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Handling Pressure</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">37</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Decision-Making: When to Dribble</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">41</span>
+          </div>
+
+          <div class="toc-entry">
+            <span class="toc-entry-title">Part Three: Reading the Game</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">47</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Reading Defenders</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">49</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Creating Advantages</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">53</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Ball Handling in Team Offense</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">57</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Protecting the Ball</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">61</span>
+          </div>
+
+          <div class="toc-entry">
+            <span class="toc-entry-title">Part Four: The Practice</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">67</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Foundation Stage (Ages 4–6)</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">69</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Development Stage (Ages 7–9)</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">75</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Skill Stage (Ages 10–12)</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">81</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">Refinement Stage (Ages 13+)</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">87</span>
+          </div>
+
+          <div class="toc-entry">
+            <span class="toc-entry-title">Part Five: The Parent's Role</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">93</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">What to Do</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">95</span>
+          </div>
+          <div class="toc-entry toc-entry-sub">
+            <span class="toc-entry-title">What to Avoid</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">99</span>
+          </div>
+
+          <div class="toc-entry">
+            <span class="toc-entry-title">Resources & References</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">105</span>
+          </div>
+
+          <div class="toc-entry">
+            <span class="toc-entry-title">About Aspire Sports</span>
+            <span class="toc-entry-dots"></span>
+            <span class="toc-entry-page">111</span>
+          </div>
+        </div>
+
+        <div class="toc-promise">
+          <p>{book.introduction.promise}</p>
+        </div>
+
+        <div class="different-box">
+          <h4>What Makes This Different</h4>
+          <ul>
+            {book.introduction.whatMakesThisDifferent.map(item => (
+              <li>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <!-- Part One: Science Foundation -->
+      <section class="section-divider">
+        <span class="section-divider-number">Part One</span>
+        <h2 class="section-divider-title">{book.scienceFoundation.title.replace('Part One: ', '')}</h2>
+        <p class="section-divider-subtitle">{book.scienceFoundation.subtitle}</p>
+        <div class="section-divider-icon">✦</div>
+      </section>
+
+      {book.scienceFoundation.sections.map((section, index) => (
+        <section class="minibook-section">
+          <h2 class="minibook-section-title">{section.title}</h2>
+
+          <div class="section-content" set:html={section.content.split('\n\n').map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`).join('')} />
+
+          {section.keyResearch && (
+            <div class="research-box">
+              <div class="research-header">
+                <span class="research-icon">✦</span>
+                <span class="research-label">Research Finding</span>
+              </div>
+              <blockquote class="research-finding">"{section.keyResearch.finding}"</blockquote>
+              <cite class="research-citation">{section.keyResearch.citation}</cite>
+            </div>
+          )}
+
+          {section.parentTakeaway && (
+            <div class="parent-takeaway">
+              <span class="takeaway-label">Parent Takeaway</span>
+              <p>{section.parentTakeaway}</p>
+            </div>
+          )}
+
+          {section.implications && (
+            <div class="implications-list">
+              <h4>Implications</h4>
+              <ul>
+                {section.implications.map(imp => <li>{imp}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {section.practicalExample && (
+            <div class="comparison-box">
+              <div class="comparison-item comparison-traditional">
+                <span class="comparison-label">Traditional Approach</span>
+                <p>{section.practicalExample.traditional}</p>
+              </div>
+              <div class="comparison-item comparison-modern">
+                <span class="comparison-label">Evidence-Based Approach</span>
+                <p>{section.practicalExample.constraintsLed}</p>
+              </div>
+              <div class="comparison-why">
+                <strong>Why it works:</strong> {section.practicalExample.why}
+              </div>
+            </div>
+          )}
+
+          {section.ballSizeGuide && (
+            <div class="ball-size-guide">
+              <h4>Ball Size Guide by Age</h4>
+              <table class="guide-table">
+                <thead>
+                  <tr>
+                    <th>Age Group</th>
+                    <th>Ball Size</th>
+                    <th>Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.ballSizeGuide.map(item => (
+                    <tr>
+                      <td>{item.age}</td>
+                      <td><strong>{item.size}</strong></td>
+                      <td>{item.weight}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ))}
+
+      <!-- Interlude after Science: Player Story -->
+      {getPlayerStory('after-science') && (
+        <section class="minibook-section interlude interlude-player">
+          <div class="interlude-header">
+            <span class="interlude-icon">✦</span>
+            <span class="interlude-label">Player Story</span>
+          </div>
+          <h2 class="interlude-title">{getPlayerStory('after-science')!.title}</h2>
+          {getPlayerStory('after-science')!.subtitle && (
+            <p class="interlude-subtitle">{getPlayerStory('after-science')!.subtitle}</p>
+          )}
+          <div class="interlude-content">
+            {getPlayerStory('after-science')!.content.split('\n\n').map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
+          {getPlayerStory('after-science')!.quote && (
+            <div class="interlude-quote">
+              <p class="interlude-quote-text">{getPlayerStory('after-science')!.quote.text}</p>
+              <p class="interlude-attribution">— {getPlayerStory('after-science')!.quote.attribution}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      <!-- Interlude after Science: Coach Wisdom -->
+      {getCoachWisdom('after-science') && (
+        <section class="minibook-section interlude interlude-coach">
+          <div class="interlude-header">
+            <span class="interlude-icon">✦</span>
+            <span class="interlude-label">Coach's Wisdom</span>
+          </div>
+          <h2 class="interlude-title">{getCoachWisdom('after-science')!.title}</h2>
+          <p class="interlude-role">{getCoachWisdom('after-science')!.coach} — {getCoachWisdom('after-science')!.role}</p>
+          <div class="interlude-content">
+            {getCoachWisdom('after-science')!.content.split('\n\n').map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
+          {getCoachWisdom('after-science')!.quote && (
+            <div class="interlude-quote">
+              <p class="interlude-quote-text">{getCoachWisdom('after-science')!.quote.text}</p>
+              <p class="interlude-attribution">— {getCoachWisdom('after-science')!.quote.attribution}</p>
+            </div>
+          )}
+          {getCoachWisdom('after-science')!.keyPrinciple && (
+            <div class="interlude-principle">
+              <span class="interlude-principle-label">Key Principle</span>
+              <p class="interlude-principle-text">{getCoachWisdom('after-science')!.keyPrinciple}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      <!-- Part Two: Mental Game -->
+      <section class="section-divider">
+        <span class="section-divider-number">Part Two</span>
+        <h2 class="section-divider-title">{book.mentalGame.title.replace('Part Two: ', '')}</h2>
+        <p class="section-divider-subtitle">{book.mentalGame.subtitle}</p>
+        <div class="section-divider-icon">✦</div>
+      </section>
+
+      <section class="minibook-section">
+        <p class="section-intro">{book.mentalGame.introduction}</p>
+      </section>
+
+      {book.mentalGame.sections.map(section => (
+        <section class="minibook-section">
+          <h2 class="minibook-section-title">{section.title}</h2>
+
+          <div class="section-content" set:html={section.content.split('\n\n').map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`).join('')} />
+
+          {section.keyResearch && (
+            <div class="research-box">
+              <div class="research-header">
+                <span class="research-icon">✦</span>
+                <span class="research-label">Research Finding</span>
+              </div>
+              <blockquote class="research-finding">"{section.keyResearch.finding}"</blockquote>
+              <cite class="research-citation">{section.keyResearch.citation}</cite>
+            </div>
+          )}
+
+          {section.confidenceBuilders && (
+            <div class="strategies-list">
+              <h4>Confidence Building Methods</h4>
+              {section.confidenceBuilders.map(builder => (
+                <div class="strategy-item">
+                  <h5>{builder.method}</h5>
+                  <p>{builder.application}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {section.fosteringCreativity && (
+            <div class="creativity-tips">
+              <h4>Fostering Creativity</h4>
+              <ul>
+                {section.fosteringCreativity.map(tip => <li>{tip}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {section.pressureCopingStrategies && (
+            <div class="strategies-list">
+              <h4>Pressure-Coping Strategies</h4>
+              {section.pressureCopingStrategies.map(strategy => (
+                <div class="strategy-item">
+                  <h5>{strategy.technique}</h5>
+                  <p>{strategy.description}</p>
+                  <span class="strategy-research">Research: {strategy.research}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {section.decisionTree && (
+            <div class="decision-tree">
+              <h4>The Ball Handling Decision Tree</h4>
+              <div class="decision-flow">
+                {Object.values(section.decisionTree).map((node, i) => (
+                  <div class="decision-node">
+                    <div class="decision-question">{node.question}</div>
+                    <div class="decision-answers">
+                      <span class="decision-yes">Yes → {node.yes}</span>
+                      <span class="decision-no">No → {node.no}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      ))}
+
+      <!-- Interlude after Mental: Player Story -->
+      {getPlayerStory('after-mental') && (
+        <section class="minibook-section interlude interlude-player">
+          <div class="interlude-header">
+            <span class="interlude-icon">✦</span>
+            <span class="interlude-label">Player Story</span>
+          </div>
+          <h2 class="interlude-title">{getPlayerStory('after-mental')!.title}</h2>
+          {getPlayerStory('after-mental')!.subtitle && (
+            <p class="interlude-subtitle">{getPlayerStory('after-mental')!.subtitle}</p>
+          )}
+          <div class="interlude-content">
+            {getPlayerStory('after-mental')!.content.split('\n\n').map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
+          {getPlayerStory('after-mental')!.quote && (
+            <div class="interlude-quote">
+              <p class="interlude-quote-text">{getPlayerStory('after-mental')!.quote.text}</p>
+              <p class="interlude-attribution">— {getPlayerStory('after-mental')!.quote.attribution}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      <!-- Interlude after Mental: Coach Wisdom -->
+      {getCoachWisdom('after-mental') && (
+        <section class="minibook-section interlude interlude-coach">
+          <div class="interlude-header">
+            <span class="interlude-icon">✦</span>
+            <span class="interlude-label">Coach's Wisdom</span>
+          </div>
+          <h2 class="interlude-title">{getCoachWisdom('after-mental')!.title}</h2>
+          <p class="interlude-role">{getCoachWisdom('after-mental')!.coach} — {getCoachWisdom('after-mental')!.role}</p>
+          <div class="interlude-content">
+            {getCoachWisdom('after-mental')!.content.split('\n\n').map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
+          {getCoachWisdom('after-mental')!.quote && (
+            <div class="interlude-quote">
+              <p class="interlude-quote-text">{getCoachWisdom('after-mental')!.quote.text}</p>
+              <p class="interlude-attribution">— {getCoachWisdom('after-mental')!.quote.attribution}</p>
+            </div>
+          )}
+          {getCoachWisdom('after-mental')!.keyPrinciple && (
+            <div class="interlude-principle">
+              <span class="interlude-principle-label">Key Principle</span>
+              <p class="interlude-principle-text">{getCoachWisdom('after-mental')!.keyPrinciple}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      <!-- Part Three: Tactical Awareness -->
+      <section class="section-divider">
+        <span class="section-divider-number">Part Three</span>
+        <h2 class="section-divider-title">{book.tacticalAwareness.title.replace('Part Three: ', '')}</h2>
+        <p class="section-divider-subtitle">{book.tacticalAwareness.subtitle}</p>
+        <div class="section-divider-icon">✦</div>
+      </section>
+
+      <section class="minibook-section">
+        <p class="section-intro">{book.tacticalAwareness.introduction}</p>
+      </section>
+
+      {book.tacticalAwareness.sections.map(section => (
+        <section class="minibook-section">
+          <h2 class="minibook-section-title">{section.title}</h2>
+
+          <div class="section-content" set:html={section.content.split('\n\n').map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`).join('')} />
+
+          {section.keyResearch && (
+            <div class="research-box">
+              <div class="research-header">
+                <span class="research-icon">✦</span>
+                <span class="research-label">Research Finding</span>
+              </div>
+              <blockquote class="research-finding">"{section.keyResearch.finding}"</blockquote>
+              <cite class="research-citation">{section.keyResearch.citation}</cite>
+            </div>
+          )}
+
+          {section.defenderReads && (
+            <div class="defender-reads">
+              <h4>Reading Defender Cues</h4>
+              <table class="guide-table">
+                <thead>
+                  <tr>
+                    <th>What You See</th>
+                    <th>What It Means</th>
+                    <th>Your Attack</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.defenderReads.map(read => (
+                    <tr>
+                      <td>{read.cue}</td>
+                      <td>{read.meaning}</td>
+                      <td class="opportunity-cell">{read.attack}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {section.attackPrinciples && (
+            <div class="principles-list">
+              <h4>Attack Principles</h4>
+              {section.attackPrinciples.map(item => (
+                <div class="principle-item">
+                  <h5>{item.principle}</h5>
+                  <p>{item.explanation}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {section.teamContexts && (
+            <div class="team-contexts">
+              <h4>Ball Handling in Team Contexts</h4>
+              <table class="guide-table">
+                <thead>
+                  <tr>
+                    <th>Context</th>
+                    <th>Ball Handling Focus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.teamContexts.map(ctx => (
+                    <tr>
+                      <td><strong>{ctx.context}</strong></td>
+                      <td>{ctx.handling}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {section.protectionTechniques && (
+            <div class="protection-techniques">
+              <h4>Ball Protection Techniques</h4>
+              <table class="guide-table">
+                <thead>
+                  <tr>
+                    <th>Technique</th>
+                    <th>When to Use</th>
+                    <th>How</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.protectionTechniques.map(tech => (
+                    <tr>
+                      <td><strong>{tech.technique}</strong></td>
+                      <td>{tech.when}</td>
+                      <td>{tech.how}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ))}
+
+      <!-- Part Four: Technical Progression -->
+      <section class="section-divider">
+        <span class="section-divider-number">Part Four</span>
+        <h2 class="section-divider-title">{book.technicalProgression.title.replace('Part Four: ', '')}</h2>
+        <p class="section-divider-subtitle">{book.technicalProgression.subtitle}</p>
+        <div class="section-divider-icon">✦</div>
+      </section>
+
+      <section class="minibook-section">
+        <p class="section-intro">{book.technicalProgression.introduction}</p>
+      </section>
+
+      {book.technicalProgression.stages.map(stage => (
+        <section class="minibook-section stage-section">
+          <div class="stage-header">
+            <h2 class="stage-name">{stage.name}</h2>
+            <span class="stage-ages">{stage.ages}</span>
+          </div>
+          <p class="stage-focus"><strong>Focus:</strong> {stage.focus}</p>
+          <p class="stage-research"><strong>Research Basis:</strong> {stage.researchBasis}</p>
+
+          <div class="stage-principles">
+            <h4>Guiding Principles</h4>
+            <ul>
+              {stage.principles.map(p => <li>{p}</li>)}
+            </ul>
+          </div>
+
+          <div class="stage-activities">
+            <h4>Activities</h4>
+            {stage.activities.map(activity => (
+              <div class="activity-card">
+                <div class="activity-header">
+                  <h5>{activity.name}</h5>
+                  {activity.time && <span class="activity-time">{activity.time}</span>}
+                </div>
+                <p class="activity-description">{activity.description}</p>
+                <div class="activity-details">
+                  <div class="activity-focus"><strong>Focus:</strong> {activity.focus}</div>
+                  <div class="activity-cue"><strong>External Cue:</strong> "{activity.externalCue}"</div>
+                  {activity.variation && <div class="activity-variation"><strong>Variation:</strong> {activity.variation}</div>}
+                  {activity.coachingNote && <div class="activity-note"><strong>Note:</strong> {activity.coachingNote}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {stage.parentHomeActivities && (
+            <div class="home-activities">
+              <h4>At-Home Activities for Parents</h4>
+              <ul>
+                {stage.parentHomeActivities.map(a => <li>{a}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {stage.signsOfProgress && (
+            <div class="progress-signs">
+              <h4>Signs of Progress</h4>
+              <ul class="checklist">
+                {stage.signsOfProgress.map(sign => <li>{sign}</li>)}
+              </ul>
+            </div>
+          )}
+        </section>
+      ))}
+
+      <!-- Interlude in Progression: Player Story -->
+      {getPlayerStory('in-progression') && (
+        <section class="minibook-section interlude interlude-player">
+          <div class="interlude-header">
+            <span class="interlude-icon">✦</span>
+            <span class="interlude-label">Player Story</span>
+          </div>
+          <h2 class="interlude-title">{getPlayerStory('in-progression')!.title}</h2>
+          {getPlayerStory('in-progression')!.subtitle && (
+            <p class="interlude-subtitle">{getPlayerStory('in-progression')!.subtitle}</p>
+          )}
+          <div class="interlude-content">
+            {getPlayerStory('in-progression')!.content.split('\n\n').map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
+          {getPlayerStory('in-progression')!.quote && (
+            <div class="interlude-quote">
+              <p class="interlude-quote-text">{getPlayerStory('in-progression')!.quote.text}</p>
+              <p class="interlude-attribution">— {getPlayerStory('in-progression')!.quote.attribution}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      <!-- Interlude in Progression: Coach Wisdom -->
+      {getCoachWisdom('in-progression') && (
+        <section class="minibook-section interlude interlude-coach">
+          <div class="interlude-header">
+            <span class="interlude-icon">✦</span>
+            <span class="interlude-label">Coach's Wisdom</span>
+          </div>
+          <h2 class="interlude-title">{getCoachWisdom('in-progression')!.title}</h2>
+          <p class="interlude-role">{getCoachWisdom('in-progression')!.coach} — {getCoachWisdom('in-progression')!.role}</p>
+          <div class="interlude-content">
+            {getCoachWisdom('in-progression')!.content.split('\n\n').map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
+          {getCoachWisdom('in-progression')!.quote && (
+            <div class="interlude-quote">
+              <p class="interlude-quote-text">{getCoachWisdom('in-progression')!.quote.text}</p>
+              <p class="interlude-attribution">— {getCoachWisdom('in-progression')!.quote.attribution}</p>
+            </div>
+          )}
+          {getCoachWisdom('in-progression')!.keyPrinciple && (
+            <div class="interlude-principle">
+              <span class="interlude-principle-label">Key Principle</span>
+              <p class="interlude-principle-text">{getCoachWisdom('in-progression')!.keyPrinciple}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      <!-- Part Five: Parent Guide -->
+      <section class="section-divider">
+        <span class="section-divider-number">Part Five</span>
+        <h2 class="section-divider-title">{book.parentGuide.title.replace("Part Five: ", '')}</h2>
+        <p class="section-divider-subtitle">{book.parentGuide.subtitle}</p>
+        <div class="section-divider-icon">✦</div>
+      </section>
+
+      <section class="minibook-section">
+        <p class="section-intro">{book.parentGuide.introduction}</p>
+      </section>
+
+      {book.parentGuide.sections.map(section => (
+        <section class="minibook-section">
+          <h2 class="minibook-section-title">{section.title}</h2>
+
+          {section.content && (
+            <div class="section-content" set:html={section.content.split('\n\n').map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`).join('')} />
+          )}
+
+          {section.keyResearch && (
+            <div class="research-box">
+              <div class="research-header">
+                <span class="research-icon">✦</span>
+                <span class="research-label">Research Finding</span>
+              </div>
+              <blockquote class="research-finding">"{section.keyResearch.finding}"</blockquote>
+              <cite class="research-citation">{section.keyResearch.citation}</cite>
+            </div>
+          )}
+
+          {section.items && section.title.includes("What to Do") && (
+            <div class="do-list">
+              {section.items.map(item => (
+                <div class="do-item">
+                  <h4>✓ {item.action}</h4>
+                  <p><strong>Why:</strong> {item.why}</p>
+                  <p><strong>How:</strong> {item.how}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {section.items && section.title.includes("Avoid") && (
+            <div class="avoid-list">
+              {section.items.map(item => (
+                <div class="avoid-item">
+                  <h4>✗ {item.behavior}</h4>
+                  <p><strong>Why it hurts:</strong> {item.why}</p>
+                  <p><strong>Instead:</strong> {item.alternative}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ))}
+
+      <!-- Resources -->
+      <section class="section-divider">
+        <span class="section-divider-number">Resources</span>
+        <h2 class="section-divider-title">Further Reading</h2>
+        <p class="section-divider-subtitle">Books, videos, and research references</p>
+        <div class="section-divider-icon">✦</div>
+      </section>
+
+      <section class="minibook-section">
+        <h2 class="minibook-section-title">Recommended Books for Parents</h2>
+        <div class="book-list">
+          {book.resources.booksForParents.map(b => (
+            <div class="book-item">
+              <strong>{b.title}</strong> by {b.author}
+              <span class="book-relevance">{b.relevance}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="minibook-section">
+        <h2 class="minibook-section-title">Recommended Books for Coaches</h2>
+        <div class="book-list">
+          {book.resources.booksForCoaches.map(b => (
+            <div class="book-item">
+              <strong>{b.title}</strong> by {b.author}
+              <span class="book-relevance">{b.relevance}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="minibook-section">
+        <h2 class="minibook-section-title">Academic References</h2>
+        <ol class="reference-list">
+          {book.resources.academicReferences.map(ref => (
+            <li>{ref}</li>
+          ))}
+        </ol>
+      </section>
+
+      <!-- About Aspire Sports -->
+      <section class="minibook-about">
+        <h2 class="about-title">About Aspire Sports</h2>
+
+        <div class="about-content">
+          <p>Aspire Sports is dedicated to transforming youth sports through evidence-based coaching and development practices. We believe every child deserves access to quality sports education that builds skills, confidence, and a lifelong love of movement.</p>
+
+          <p>Our programs are built on the latest research in motor learning, sports psychology, and child development. We train coaches to create environments where young athletes can thrive—developing not just as players, but as people.</p>
+        </div>
+
+        <div class="about-mission">
+          <h3>Our Mission</h3>
+          <p>To provide every young athlete with the opportunity to develop their full potential through research-based coaching, age-appropriate training, and a positive, supportive environment.</p>
+        </div>
+
+        <div class="about-values">
+          <h3>Our Values</h3>
+          <ul>
+            <li><strong>Long-Term Development</strong> — Building skills over years, not rushing results</li>
+            <li><strong>Evidence-Based</strong> — Grounded in research, not tradition</li>
+            <li><strong>Child-Centered</strong> — Meeting kids where they are</li>
+            <li><strong>Joy First</strong> — Making sports fun keeps kids playing</li>
+          </ul>
+        </div>
+
+        <div class="about-contact">
+          <p><strong>Learn more at</strong> aspiresports.com</p>
+        </div>
+      </section>
+
+      <!-- Other Titles in This Series -->
+      <section class="minibook-series-page">
+        <h2 class="series-page-title">Other Titles in This Series</h2>
+        <p class="series-page-subtitle">Evidence-Based Youth Development Guides</p>
+
+        <div class="series-books">
+          <div class="series-book-group">
+            <h3 class="series-sport">Soccer</h3>
+            <ul class="series-book-list">
+              <li class="series-book">The Path to Better Dribbling</li>
+              <li class="series-book">The Path to Better Passing</li>
+              <li class="series-book">The Path to Better Game Intelligence</li>
+              <li class="series-book">The Path to Better Shooting</li>
+              <li class="series-book">The Path to Better Defending</li>
+            </ul>
+          </div>
+
+          <div class="series-book-group">
+            <h3 class="series-sport">Basketball</h3>
+            <ul class="series-book-list">
+              <li class="series-book current">The Path to Better Ball Handling</li>
+              <li class="series-book">The Path to Better Passing</li>
+              <li class="series-book">The Path to Better Shooting</li>
+              <li class="series-book">The Path to Better Defending</li>
+              <li class="series-book">The Path to Better Game Intelligence</li>
+            </ul>
+          </div>
+
+          <div class="series-book-group">
+            <h3 class="series-sport">Hockey</h3>
+            <ul class="series-book-list">
+              <li class="series-book">The Path to Better Skating</li>
+              <li class="series-book">The Path to Better Stickhandling</li>
+              <li class="series-book">The Path to Better Passing</li>
+              <li class="series-book">The Path to Better Shooting</li>
+              <li class="series-book">The Path to Better Defending</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="series-cta">
+          <p>Find all titles at <strong>aspiresports.com/guides</strong></p>
+        </div>
+      </section>
+
+      <!-- Back Cover -->
+      <section class="minibook-back-cover">
+        <img src="/images/logo-black.png" alt="Aspire Sports" class="minibook-back-logo" />
+        <p class="minibook-back-tagline">"The ball is an extension of your hand—but only if you've earned that relationship."</p>
+        <div class="minibook-back-info">
+          <p>Part of the <strong>Aspire Sports Evidence-Based Development Series</strong></p>
+          <p class="minibook-back-url">aspiresports.com</p>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

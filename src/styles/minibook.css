@@ -1,0 +1,2333 @@
+/**
+ * Mini-Book Styles — Print-First Edition
+ * Evidence-Based Youth Development Series
+ * Optimized for Amazon KDP, Lulu Direct, and Gumroad PDF
+ *
+ * Trim Size: 6" × 9" (standard trade paperback)
+ * Interior: Cream/white paper, designed for both color and B&W printing
+ */
+
+/* ============================================
+   TYPOGRAPHY — Premium Book Fonts
+   ============================================ */
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Typography Scale */
+  --font-display: 'Crimson Pro', Georgia, 'Times New Roman', serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+
+  /* Print-Safe Colors — High Contrast */
+  --ink-black: #1a1a1a;
+  --ink-dark: #2d2d2d;
+  --ink-medium: #4a4a4a;
+  --ink-light: #6b6b6b;
+  --ink-muted: #8a8a8a;
+
+  --paper-white: #ffffff;
+  --paper-cream: #faf8f5;
+  --paper-warm: #f5f3f0;
+
+  --rule-dark: #2d2d2d;
+  --rule-medium: #c4c4c4;
+  --rule-light: #e5e5e5;
+
+  /* Sport Accent — Soccer Green (prints well in B&W as dark gray) */
+  --accent-primary: #1a5f2a;
+  --accent-light: #e8f2ea;
+  --accent-medium: #3d8b4f;
+
+  /* Semantic Colors */
+  --color-positive: #1a5f2a;
+  --color-positive-bg: #e8f2ea;
+  --color-negative: #8b1a1a;
+  --color-negative-bg: #f8e8e8;
+  --color-highlight: #f5e6c8;
+  --color-highlight-border: #d4a853;
+
+  /* Page Dimensions (6" × 9" trade paperback) */
+  --page-width: 6in;
+  --page-height: 9in;
+  --margin-top: 0.75in;
+  --margin-bottom: 0.875in;
+  --margin-outside: 0.625in;
+  --margin-inside: 0.875in; /* Larger for binding gutter */
+
+  /* Content Area */
+  --content-width: calc(var(--page-width) - var(--margin-outside) - var(--margin-inside));
+  --line-height-body: 1.58;
+  --line-height-tight: 1.25;
+}
+
+/* ============================================
+   SPORT-SPECIFIC COLORS
+   Each sport gets its own accent color palette
+   ============================================ */
+.guide-soccer {
+  --accent-primary: #1a5f2a;
+  --accent-light: #e8f2ea;
+  --accent-medium: #3d8b4f;
+  --color-positive: #1a5f2a;
+  --color-positive-bg: #e8f2ea;
+}
+
+.guide-basketball {
+  --accent-primary: #c2410c;
+  --accent-light: #ffedd5;
+  --accent-medium: #ea580c;
+  --color-positive: #c2410c;
+  --color-positive-bg: #ffedd5;
+}
+
+.guide-hockey {
+  --accent-primary: #1e3a8a;
+  --accent-light: #dbeafe;
+  --accent-medium: #3b82f6;
+  --color-positive: #1e3a8a;
+  --color-positive-bg: #dbeafe;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+.minibook {
+  font-family: var(--font-body);
+  font-size: 10.5pt;
+  line-height: var(--line-height-body);
+  color: var(--ink-black);
+  background: var(--paper-white);
+  max-width: var(--page-width);
+  margin: 0 auto;
+
+  /* OpenType features for professional typography */
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'onum' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================
+   PAGE SETUP — Print Media
+   ============================================ */
+@page {
+  size: 6in 9in;
+  margin: var(--margin-top) var(--margin-outside) var(--margin-bottom) var(--margin-inside);
+
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--font-mono);
+    font-size: 8pt;
+    color: var(--ink-muted);
+  }
+}
+
+@page :left {
+  margin-left: var(--margin-outside);
+  margin-right: var(--margin-inside);
+}
+
+@page :right {
+  margin-left: var(--margin-inside);
+  margin-right: var(--margin-outside);
+}
+
+@page :first {
+  @bottom-center { content: none; }
+}
+
+/* ============================================
+   COVER PAGE
+   ============================================ */
+.minibook-cover {
+  min-height: var(--page-height);
+  display: flex;
+  flex-direction: column;
+  padding: 0.75in 0.625in;
+  page-break-after: always;
+  background: var(--paper-white);
+  position: relative;
+}
+
+/* Top accent bar */
+.minibook-cover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4pt;
+  background: var(--accent-primary);
+}
+
+.minibook-cover-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.5in;
+  border-bottom: 0.5pt solid var(--rule-medium);
+}
+
+.minibook-logo {
+  height: 28pt;
+  width: auto;
+}
+
+.minibook-series {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-medium);
+}
+
+.minibook-cover-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5in 0;
+}
+
+/* Sport indicator - elegant typographic treatment */
+.minibook-sport-icon {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--accent-primary);
+  margin-bottom: 0.35in;
+  position: relative;
+}
+
+.minibook-sport-icon::before,
+.minibook-sport-icon::after {
+  content: '—';
+  margin: 0 0.5em;
+  color: var(--rule-medium);
+}
+
+.minibook-title {
+  font-family: var(--font-display);
+  font-size: 36pt;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.15in 0;
+  color: var(--ink-black);
+}
+
+.minibook-subtitle {
+  font-family: var(--font-display);
+  font-size: 13pt;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-medium);
+  margin: 0;
+}
+
+.minibook-cover-bottom {
+  margin-top: auto;
+}
+
+.minibook-tagline {
+  font-family: var(--font-body);
+  font-size: 10.5pt;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--ink-dark);
+  text-align: center;
+  max-width: 4in;
+  margin: 0 auto;
+  padding: 0.3in 0.4in;
+  border-top: 0.5pt solid var(--rule-medium);
+  border-bottom: 0.5pt solid var(--rule-medium);
+}
+
+/* ============================================
+   TABLE OF CONTENTS
+   ============================================ */
+.minibook-toc {
+  padding: 0.5in 0;
+  page-break-after: always;
+}
+
+.minibook-toc .minibook-section-title {
+  text-align: center;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0.35in;
+}
+
+.minibook-toc .minibook-section-title::after {
+  content: '';
+  display: block;
+  width: 2in;
+  height: 1.5pt;
+  background: var(--accent-primary);
+  margin: 0.2in auto 0;
+}
+
+.toc-promise {
+  font-size: 11pt;
+  line-height: 1.65;
+  color: var(--ink-dark);
+  text-align: center;
+  max-width: 4.25in;
+  margin: 0 auto 0.5in;
+  padding-bottom: 0.35in;
+  border-bottom: 0.5pt solid var(--rule-light);
+}
+
+.toc-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2in;
+  margin-bottom: 0.4in;
+}
+
+.toc-item {
+  display: grid;
+  grid-template-columns: 0.8in 1fr;
+  gap: 0.2in;
+  padding: 0.15in 0;
+  border-bottom: 0.5pt dotted var(--rule-light);
+}
+
+.toc-item:last-child {
+  border-bottom: none;
+}
+
+.toc-part {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent-primary);
+}
+
+.toc-item h3 {
+  font-family: var(--font-display);
+  font-size: 13pt;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ink-black);
+}
+
+.toc-item p {
+  font-size: 9pt;
+  color: var(--ink-medium);
+  margin: 0.05in 0 0 0;
+  line-height: 1.45;
+  grid-column: 2;
+}
+
+.different-box {
+  background: var(--accent-light);
+  padding: 0.25in 0.3in;
+  margin-top: 0.3in;
+  position: relative;
+}
+
+.different-box::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3pt;
+  background: var(--accent-primary);
+}
+
+.different-box h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin: 0 0 0.15in 0;
+  color: var(--ink-black);
+}
+
+.different-box ul {
+  margin: 0;
+  padding-left: 0.2in;
+  list-style-type: none;
+}
+
+.different-box li {
+  margin-bottom: 0.08in;
+  font-size: 9.5pt;
+  line-height: 1.5;
+  position: relative;
+  padding-left: 0.15in;
+}
+
+.different-box li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent-primary);
+  font-weight: bold;
+}
+
+/* ============================================
+   CHAPTER DIVIDERS — Dramatic Part Openers
+   ============================================ */
+.section-divider {
+  min-height: 4in;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 1.5in 0.5in;
+  page-break-before: always;
+  page-break-after: always;
+  background: var(--paper-white);
+  position: relative;
+}
+
+.section-divider::before {
+  content: '';
+  position: absolute;
+  top: 0.75in;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0.5pt;
+  height: 0.75in;
+  background: var(--rule-medium);
+}
+
+.section-divider-number {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: var(--accent-primary);
+  margin-bottom: 0.25in;
+}
+
+.section-divider-title {
+  font-family: var(--font-display);
+  font-size: 28pt;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.2in 0;
+  color: var(--ink-black);
+  max-width: 4in;
+}
+
+.section-divider-subtitle {
+  font-family: var(--font-body);
+  font-size: 11pt;
+  font-style: italic;
+  color: var(--ink-medium);
+  margin: 0;
+  max-width: 3.5in;
+}
+
+/* Section icon - text-based elegant treatment */
+.section-divider-icon {
+  font-family: var(--font-display);
+  font-size: 10pt;
+  color: var(--ink-muted);
+  margin-top: 0.5in;
+  position: relative;
+}
+
+.section-divider-icon::before,
+.section-divider-icon::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 0.5in;
+  height: 0.5pt;
+  background: var(--rule-medium);
+}
+
+.section-divider-icon::before {
+  right: calc(100% + 0.15in);
+}
+
+.section-divider-icon::after {
+  left: calc(100% + 0.15in);
+}
+
+/* ============================================
+   CONTENT SECTIONS
+   ============================================ */
+.minibook-section {
+  padding: 0.25in 0 0.4in;
+  page-break-before: auto;
+  page-break-inside: auto;
+}
+
+.minibook-section-title {
+  font-family: var(--font-display);
+  font-size: 16pt;
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+  margin: 0 0 0.25in 0;
+  padding-bottom: 0.12in;
+  border-bottom: 1.5pt solid var(--ink-black);
+  color: var(--ink-black);
+}
+
+.section-intro {
+  font-size: 11pt;
+  font-style: italic;
+  color: var(--ink-dark);
+  line-height: 1.6;
+  margin-bottom: 0.3in;
+  padding-left: 0.2in;
+  border-left: 2pt solid var(--accent-primary);
+}
+
+.section-content p {
+  margin-bottom: 0.15in;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  hyphenate-limit-chars: 6 3 2;
+}
+
+.section-content p:first-of-type::first-letter {
+  font-family: var(--font-display);
+  font-size: 42pt;
+  font-weight: 700;
+  float: left;
+  line-height: 0.8;
+  padding-right: 0.08in;
+  padding-top: 0.05in;
+  color: var(--accent-primary);
+}
+
+/* ============================================
+   RESEARCH BOXES — Academic Citations
+   ============================================ */
+.research-box {
+  background: var(--paper-cream);
+  padding: 0.2in 0.25in;
+  margin: 0.25in 0;
+  page-break-inside: avoid;
+  position: relative;
+}
+
+.research-box::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2pt;
+  background: var(--ink-medium);
+}
+
+.research-header {
+  display: flex;
+  align-items: center;
+  gap: 0.1in;
+  margin-bottom: 0.1in;
+}
+
+.research-icon {
+  display: none; /* Hide emoji, use text label instead */
+}
+
+.research-label {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-medium);
+}
+
+.research-finding {
+  font-family: var(--font-body);
+  font-size: 10pt;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--ink-dark);
+  margin: 0 0 0.1in 0;
+  padding: 0;
+  border: none;
+  quotes: '"' '"';
+}
+
+.research-finding::before {
+  content: open-quote;
+}
+
+.research-finding::after {
+  content: close-quote;
+}
+
+.research-citation {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  color: var(--ink-light);
+  display: block;
+  line-height: 1.4;
+}
+
+/* ============================================
+   CALLOUT BOXES
+   ============================================ */
+.parent-takeaway {
+  background: var(--accent-light);
+  padding: 0.18in 0.22in;
+  margin: 0.2in 0;
+  page-break-inside: avoid;
+}
+
+.takeaway-label {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent-primary);
+  display: block;
+  margin-bottom: 0.08in;
+}
+
+.parent-takeaway p {
+  margin: 0;
+  font-size: 9.5pt;
+  line-height: 1.55;
+}
+
+/* ============================================
+   COMPARISON BOXES
+   ============================================ */
+.comparison-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15in;
+  margin: 0.25in 0;
+  page-break-inside: avoid;
+}
+
+.comparison-item {
+  padding: 0.15in 0.18in;
+}
+
+.comparison-traditional {
+  background: var(--color-negative-bg);
+}
+
+.comparison-modern {
+  background: var(--color-positive-bg);
+}
+
+.comparison-label {
+  font-family: var(--font-mono);
+  font-size: 6.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: block;
+  margin-bottom: 0.08in;
+}
+
+.comparison-traditional .comparison-label {
+  color: var(--color-negative);
+}
+
+.comparison-modern .comparison-label {
+  color: var(--color-positive);
+}
+
+.comparison-item p {
+  margin: 0;
+  font-size: 9pt;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.comparison-why {
+  grid-column: 1 / -1;
+  background: var(--paper-cream);
+  padding: 0.12in 0.15in;
+  font-size: 9pt;
+  line-height: 1.5;
+}
+
+/* ============================================
+   TABLES — Print Optimized
+   ============================================ */
+.guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.2in 0;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+
+.guide-table th {
+  font-family: var(--font-display);
+  font-size: 8.5pt;
+  font-weight: 700;
+  text-align: left;
+  padding: 0.1in 0.12in;
+  background: var(--paper-cream);
+  border-bottom: 1pt solid var(--ink-black);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.guide-table td {
+  padding: 0.1in 0.12in;
+  border-bottom: 0.5pt solid var(--rule-light);
+  vertical-align: top;
+  line-height: 1.45;
+}
+
+.guide-table tr:last-child td {
+  border-bottom: 1pt solid var(--rule-medium);
+}
+
+.internal-cue {
+  color: var(--color-negative);
+  text-decoration: line-through;
+  text-decoration-thickness: 1pt;
+}
+
+.external-cue {
+  color: var(--color-positive);
+  font-weight: 600;
+}
+
+.opportunity-cell {
+  background: var(--accent-light);
+  font-weight: 500;
+}
+
+/* ============================================
+   LISTS & IMPLICATIONS
+   ============================================ */
+.implications-list h4,
+.cue-comparison-table h4,
+.balance-chart h4,
+.behaviors-grid h4,
+.progression-ladder h4,
+.strategies-list h4,
+.creativity-tips h4,
+.decision-tree h4,
+.field-zones h4,
+.scanning-levels h4,
+.defender-cues h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin: 0.2in 0 0.12in 0;
+  color: var(--ink-black);
+}
+
+.implications-list ul {
+  margin: 0;
+  padding-left: 0.25in;
+  list-style-type: disc;
+}
+
+.implications-list li {
+  margin-bottom: 0.06in;
+  font-size: 9.5pt;
+  line-height: 1.5;
+}
+
+/* ============================================
+   BEHAVIORS GRID — Do/Don't
+   ============================================ */
+.behaviors-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15in;
+  margin: 0.2in 0;
+  page-break-inside: avoid;
+}
+
+.behaviors-do,
+.behaviors-avoid {
+  padding: 0.18in;
+}
+
+.behaviors-do {
+  background: var(--color-positive-bg);
+}
+
+.behaviors-avoid {
+  background: var(--color-negative-bg);
+}
+
+.behaviors-do h4 {
+  color: var(--color-positive);
+  font-size: 10pt;
+  margin-top: 0;
+}
+
+.behaviors-avoid h4 {
+  color: var(--color-negative);
+  font-size: 10pt;
+  margin-top: 0;
+}
+
+.behaviors-grid ul {
+  margin: 0;
+  padding-left: 0.2in;
+  font-size: 9pt;
+}
+
+.behaviors-grid li {
+  margin-bottom: 0.05in;
+  line-height: 1.45;
+}
+
+/* ============================================
+   PROGRESSION LADDER
+   ============================================ */
+.progression-ladder {
+  margin: 0.25in 0;
+}
+
+.ladder-rung {
+  display: flex;
+  gap: 0.15in;
+  padding: 0.12in 0.15in;
+  margin-bottom: 0.08in;
+  background: var(--paper-cream);
+  border-left: 2pt solid var(--accent-primary);
+  page-break-inside: avoid;
+}
+
+.rung-number {
+  font-family: var(--font-display);
+  font-size: 16pt;
+  font-weight: 700;
+  color: var(--accent-primary);
+  width: 0.35in;
+  text-align: center;
+  line-height: 1;
+}
+
+.rung-content {
+  flex: 1;
+}
+
+.rung-content strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10pt;
+  margin-bottom: 0.03in;
+}
+
+.rung-activities {
+  font-size: 8.5pt;
+  color: var(--ink-medium);
+  line-height: 1.4;
+}
+
+/* ============================================
+   BALANCE CHART
+   ============================================ */
+.balance-chart {
+  margin: 0.25in 0;
+}
+
+.balance-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12in;
+}
+
+.balance-item {
+  display: grid;
+  grid-template-columns: 0.85in 1fr;
+  gap: 0.12in;
+  align-items: center;
+}
+
+.balance-age {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+}
+
+.balance-bar {
+  display: flex;
+  height: 0.28in;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+}
+
+.balance-play {
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.balance-practice {
+  background: var(--ink-medium);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.balance-note {
+  grid-column: 2;
+  font-size: 8pt;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* ============================================
+   STRATEGIES LIST
+   ============================================ */
+.strategies-list {
+  margin: 0.25in 0;
+}
+
+.strategy-item {
+  background: var(--paper-cream);
+  padding: 0.15in 0.18in;
+  margin-bottom: 0.12in;
+  page-break-inside: avoid;
+}
+
+.strategy-item h5 {
+  font-family: var(--font-display);
+  font-size: 10.5pt;
+  font-weight: 700;
+  margin: 0 0 0.06in 0;
+  color: var(--ink-black);
+}
+
+.strategy-item p {
+  margin: 0 0 0.06in 0;
+  font-size: 9pt;
+  line-height: 1.5;
+}
+
+.strategy-research {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  color: var(--ink-light);
+  font-style: italic;
+}
+
+/* ============================================
+   CREATIVITY TIPS
+   ============================================ */
+.creativity-tips {
+  background: var(--color-highlight);
+  padding: 0.18in 0.22in;
+  margin: 0.2in 0;
+  border-left: 3pt solid var(--color-highlight-border);
+}
+
+.creativity-tips ul {
+  margin: 0;
+  padding-left: 0.2in;
+}
+
+.creativity-tips li {
+  margin-bottom: 0.06in;
+  font-size: 9.5pt;
+  line-height: 1.5;
+}
+
+/* ============================================
+   DECISION TREE
+   ============================================ */
+.decision-tree {
+  margin: 0.25in 0;
+}
+
+.decision-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12in;
+}
+
+.decision-node {
+  background: var(--paper-cream);
+  border: 1pt solid var(--rule-medium);
+  padding: 0.15in 0.18in;
+  page-break-inside: avoid;
+}
+
+.decision-question {
+  font-family: var(--font-display);
+  font-size: 10.5pt;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 0.1in;
+}
+
+.decision-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.12in;
+}
+
+.decision-yes,
+.decision-no {
+  padding: 0.1in;
+  font-size: 8.5pt;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.decision-yes {
+  background: var(--color-positive-bg);
+  color: var(--color-positive);
+}
+
+.decision-no {
+  background: var(--color-negative-bg);
+  color: var(--color-negative);
+}
+
+/* ============================================
+   FIELD ZONES
+   ============================================ */
+.field-zones {
+  margin: 0.25in 0;
+}
+
+.zones-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.12in;
+}
+
+.zone-card {
+  padding: 0.15in;
+  page-break-inside: avoid;
+}
+
+.zone-high {
+  background: var(--color-negative-bg);
+}
+
+.zone-medium {
+  background: var(--color-highlight);
+}
+
+.zone-low {
+  background: var(--color-positive-bg);
+}
+
+.zone-low-medium {
+  background: #e8f5e8;
+}
+
+.zone-card h5 {
+  font-family: var(--font-display);
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0 0 0.06in 0;
+}
+
+.zone-metrics {
+  display: flex;
+  gap: 0.15in;
+  margin-bottom: 0.06in;
+}
+
+.zone-risk,
+.zone-reward {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+}
+
+.zone-card p {
+  margin: 0;
+  font-size: 8.5pt;
+  line-height: 1.45;
+}
+
+/* ============================================
+   STAGE SECTIONS — Age Group Activities
+   ============================================ */
+.stage-section {
+  border: 1.5pt solid var(--ink-black);
+  margin: 0.25in 0;
+  padding: 0.25in !important;
+  page-break-inside: avoid;
+}
+
+.stage-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.15in;
+  padding-bottom: 0.1in;
+  border-bottom: 1pt solid var(--ink-black);
+}
+
+.stage-name {
+  font-family: var(--font-display);
+  font-size: 14pt;
+  font-weight: 700;
+  margin: 0;
+}
+
+.stage-ages {
+  font-family: var(--font-mono);
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--paper-white);
+  background: var(--accent-primary);
+  padding: 0.04in 0.12in;
+}
+
+.stage-focus,
+.stage-research {
+  font-size: 9pt;
+  margin: 0.06in 0;
+  line-height: 1.5;
+}
+
+.stage-principles {
+  background: var(--paper-cream);
+  padding: 0.15in 0.18in;
+  margin: 0.15in 0;
+}
+
+.stage-principles h4 {
+  font-family: var(--font-display);
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0 0 0.08in 0;
+}
+
+.stage-principles ul {
+  margin: 0;
+  padding-left: 0.2in;
+  font-size: 9pt;
+}
+
+.stage-principles li {
+  margin-bottom: 0.04in;
+  line-height: 1.45;
+}
+
+/* ============================================
+   ACTIVITY CARDS
+   ============================================ */
+.stage-activities h4 {
+  margin: 0.2in 0 0.12in 0;
+}
+
+.activity-card {
+  background: var(--paper-white);
+  border: 0.5pt solid var(--rule-medium);
+  padding: 0.18in;
+  margin-bottom: 0.15in;
+  page-break-inside: avoid;
+}
+
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.1in;
+}
+
+.activity-header h5 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink-black);
+}
+
+.activity-time {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  color: var(--ink-medium);
+}
+
+.activity-description {
+  font-size: 9.5pt;
+  line-height: 1.55;
+  margin: 0 0 0.12in 0;
+}
+
+.activity-details {
+  display: grid;
+  gap: 0.06in;
+  font-size: 8.5pt;
+  padding-top: 0.1in;
+  border-top: 0.5pt solid var(--rule-light);
+}
+
+.activity-focus,
+.activity-cue,
+.activity-variation,
+.activity-note {
+  line-height: 1.45;
+}
+
+.activity-cue {
+  color: var(--accent-primary);
+  font-style: italic;
+}
+
+/* ============================================
+   HOME ACTIVITIES
+   ============================================ */
+.home-activities {
+  background: var(--accent-light);
+  padding: 0.15in 0.18in;
+  margin: 0.15in 0;
+}
+
+.home-activities h4 {
+  font-size: 10pt;
+  margin: 0 0 0.08in 0;
+}
+
+.home-activities ul {
+  margin: 0;
+  padding-left: 0.2in;
+  font-size: 9pt;
+}
+
+.home-activities li {
+  margin-bottom: 0.04in;
+  line-height: 1.45;
+}
+
+/* ============================================
+   PROGRESS SIGNS — Checklist
+   ============================================ */
+.progress-signs {
+  margin: 0.15in 0;
+}
+
+.progress-signs h4 {
+  font-size: 10pt;
+  margin: 0 0 0.1in 0;
+}
+
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.checklist li {
+  padding: 0.08in 0 0.08in 0.28in;
+  position: relative;
+  font-size: 9pt;
+  border-bottom: 0.5pt dotted var(--rule-light);
+  line-height: 1.45;
+}
+
+.checklist li:last-child {
+  border-bottom: none;
+}
+
+.checklist li::before {
+  content: '☐';
+  position: absolute;
+  left: 0;
+  font-size: 11pt;
+  color: var(--ink-medium);
+}
+
+/* ============================================
+   VIDEO ANALYSIS
+   ============================================ */
+.video-analysis {
+  background: var(--paper-cream);
+  padding: 0.15in 0.18in;
+  margin: 0.15in 0;
+}
+
+.video-analysis h4 {
+  font-size: 10pt;
+  margin: 0 0 0.08in 0;
+}
+
+.video-analysis p {
+  font-size: 9pt;
+  margin: 0.05in 0;
+  line-height: 1.45;
+}
+
+/* ============================================
+   MENTAL SKILLS
+   ============================================ */
+.mental-skills {
+  margin: 0.15in 0;
+}
+
+.mental-skills h4 {
+  font-size: 10pt;
+  margin: 0 0 0.1in 0;
+}
+
+.mental-skill-item {
+  font-size: 9pt;
+  padding: 0.08in 0;
+  border-bottom: 0.5pt solid var(--rule-light);
+  line-height: 1.45;
+}
+
+.mental-skill-item:last-child {
+  border-bottom: none;
+}
+
+/* ============================================
+   DO/AVOID LISTS
+   ============================================ */
+.do-list,
+.avoid-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15in;
+  margin: 0.2in 0;
+}
+
+.do-item,
+.avoid-item {
+  padding: 0.15in 0.18in;
+  page-break-inside: avoid;
+}
+
+.do-item {
+  background: var(--color-positive-bg);
+  border-left: 3pt solid var(--color-positive);
+}
+
+.avoid-item {
+  background: var(--color-negative-bg);
+  border-left: 3pt solid var(--color-negative);
+}
+
+.do-item h4 {
+  color: var(--color-positive);
+  font-family: var(--font-display);
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0 0 0.08in 0;
+}
+
+.avoid-item h4 {
+  color: var(--color-negative);
+  font-family: var(--font-display);
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0 0 0.08in 0;
+}
+
+.do-item p,
+.avoid-item p {
+  font-size: 9pt;
+  margin: 0.04in 0;
+  line-height: 1.5;
+}
+
+/* ============================================
+   AGE ACTIVITIES GRID
+   ============================================ */
+.age-activities {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.12in;
+  margin: 0.15in 0;
+}
+
+.age-activity-group {
+  background: var(--paper-cream);
+  padding: 0.12in;
+}
+
+.age-activity-group h4 {
+  font-family: var(--font-display);
+  font-size: 9pt;
+  font-weight: 700;
+  margin: 0 0 0.08in 0;
+  color: var(--accent-primary);
+}
+
+.age-activity-group ul {
+  margin: 0;
+  padding-left: 0.15in;
+  font-size: 8pt;
+}
+
+.age-activity-group li {
+  margin-bottom: 0.03in;
+  line-height: 1.4;
+}
+
+/* ============================================
+   CONVERSATION ALTERNATIVES
+   ============================================ */
+.conversation-alternatives {
+  margin: 0.15in 0;
+}
+
+.old-way {
+  color: var(--color-negative);
+  text-decoration: line-through;
+}
+
+.new-way {
+  color: var(--color-positive);
+  font-weight: 600;
+}
+
+/* ============================================
+   BOOK LIST — Resources
+   ============================================ */
+.book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15in;
+  margin: 0.15in 0;
+}
+
+.book-item {
+  padding: 0.12in 0.15in;
+  background: var(--paper-cream);
+  page-break-inside: avoid;
+}
+
+.book-item strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10pt;
+  margin-bottom: 0.03in;
+}
+
+.book-relevance {
+  display: block;
+  font-size: 8.5pt;
+  color: var(--ink-medium);
+  margin-top: 0.04in;
+  line-height: 1.4;
+}
+
+/* ============================================
+   REFERENCE LIST — Academic
+   ============================================ */
+.reference-list {
+  font-size: 8pt;
+  line-height: 1.55;
+  padding-left: 0.3in;
+  margin: 0.15in 0;
+}
+
+.reference-list li {
+  margin-bottom: 0.1in;
+  color: var(--ink-medium);
+  text-indent: -0.15in;
+}
+
+/* ============================================
+   BACK COVER
+   ============================================ */
+.minibook-back-cover {
+  min-height: var(--page-height);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 1.5in 0.75in;
+  page-break-before: always;
+  position: relative;
+}
+
+.minibook-back-cover::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4pt;
+  background: var(--accent-primary);
+}
+
+.minibook-back-logo {
+  height: 36pt;
+  width: auto;
+  margin-bottom: 0.5in;
+}
+
+.minibook-back-tagline {
+  font-family: var(--font-display);
+  font-size: 16pt;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--ink-dark);
+  margin: 0 0 0.75in 0;
+  max-width: 3.5in;
+  line-height: 1.4;
+}
+
+.minibook-back-info {
+  margin-top: auto;
+}
+
+.minibook-back-info p {
+  font-size: 9pt;
+  color: var(--ink-medium);
+  margin: 0.08in 0;
+}
+
+.minibook-back-url {
+  font-family: var(--font-mono);
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+/* ============================================
+   INTERLUDES — Player Stories & Coach Wisdom
+   ============================================ */
+.interlude {
+  margin: 0.35in 0;
+  padding: 0.25in 0.3in;
+  page-break-inside: avoid;
+  position: relative;
+}
+
+/* Player Story — Warm, Inspirational */
+.interlude-player {
+  background: var(--color-highlight);
+  border-top: 2pt solid var(--color-highlight-border);
+  border-bottom: 2pt solid var(--color-highlight-border);
+}
+
+/* Coach Wisdom — Professional, Authoritative */
+.interlude-coach {
+  background: var(--paper-cream);
+  border-left: 4pt solid var(--accent-primary);
+}
+
+.interlude-header {
+  display: flex;
+  align-items: center;
+  gap: 0.12in;
+  margin-bottom: 0.12in;
+}
+
+.interlude-icon {
+  display: none; /* Hide emoji */
+}
+
+.interlude-label {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.interlude-player .interlude-label {
+  color: var(--color-highlight-border);
+}
+
+.interlude-coach .interlude-label {
+  color: var(--accent-primary);
+}
+
+.interlude-title {
+  font-family: var(--font-display);
+  font-size: 15pt;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 0.06in 0;
+  color: var(--ink-black);
+}
+
+.interlude-subtitle {
+  font-family: var(--font-body);
+  font-size: 10pt;
+  font-style: italic;
+  margin: 0 0 0.18in 0;
+  color: var(--ink-medium);
+}
+
+.interlude-role {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  margin: 0 0 0.15in 0;
+  color: var(--ink-medium);
+}
+
+.interlude-content {
+  font-size: 10pt;
+  line-height: 1.6;
+}
+
+.interlude-content p {
+  margin: 0 0 0.12in 0;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.interlude-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Interlude Quote */
+.interlude-quote {
+  margin: 0.2in 0;
+  padding: 0.18in 0.22in;
+  background: var(--paper-white);
+  position: relative;
+}
+
+.interlude-player .interlude-quote {
+  border-left: 3pt solid var(--color-highlight-border);
+}
+
+.interlude-coach .interlude-quote {
+  border-left: 3pt solid var(--accent-primary);
+}
+
+.interlude-quote::before {
+  content: '"';
+  font-family: var(--font-display);
+  font-size: 36pt;
+  font-weight: 700;
+  line-height: 1;
+  position: absolute;
+  top: 0;
+  left: 0.08in;
+  color: var(--rule-light);
+}
+
+.interlude-quote-text {
+  font-family: var(--font-body);
+  font-size: 11pt;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0 0 0.1in 0;
+  padding-left: 0.15in;
+}
+
+.interlude-attribution {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  margin: 0;
+  padding-left: 0.15in;
+  color: var(--ink-medium);
+}
+
+/* Key Principle Callout */
+.interlude-principle {
+  margin-top: 0.2in;
+  padding: 0.15in 0.18in;
+  background: var(--paper-white);
+  border: 1pt dashed var(--accent-primary);
+}
+
+.interlude-principle-label {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent-primary);
+  display: block;
+  margin-bottom: 0.06in;
+}
+
+.interlude-principle-text {
+  font-family: var(--font-display);
+  font-size: 10.5pt;
+  font-weight: 600;
+  color: var(--ink-black);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ============================================
+   PRINT MEDIA QUERIES
+   ============================================ */
+@media print {
+  .minibook {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .minibook-cover,
+  .minibook-back-cover {
+    min-height: 100vh;
+  }
+
+  /* Ensure page breaks */
+  .section-divider {
+    break-before: page;
+    break-after: page;
+  }
+
+  .stage-section,
+  .activity-card,
+  .research-box,
+  .strategy-item,
+  .interlude,
+  .do-item,
+  .avoid-item {
+    break-inside: avoid;
+  }
+
+  /* Force background colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reduce margins slightly for print */
+  .minibook-section {
+    padding: 0.2in 0 0.35in;
+  }
+}
+
+/* ============================================
+   FRONT MATTER — Half-Title, Title, Copyright
+   ============================================ */
+
+/* Half-Title Page — Simple, elegant */
+.minibook-half-title {
+  min-height: var(--page-height);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2in 0.75in;
+  page-break-after: always;
+}
+
+.minibook-half-title h1 {
+  font-family: var(--font-display);
+  font-size: 24pt;
+  font-weight: 600;
+  color: var(--ink-black);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Title Page — Full credits */
+.minibook-title-page {
+  min-height: var(--page-height);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 1in 0.75in;
+  page-break-after: always;
+}
+
+.title-page-sport {
+  font-family: var(--font-mono);
+  font-size: 9pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: var(--accent-primary);
+  margin-bottom: 0.3in;
+}
+
+.title-page-main {
+  font-family: var(--font-display);
+  font-size: 32pt;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink-black);
+  margin: 0 0 0.15in 0;
+  letter-spacing: -0.02em;
+}
+
+.title-page-subtitle {
+  font-family: var(--font-display);
+  font-size: 14pt;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-medium);
+  margin: 0 0 0.75in 0;
+}
+
+.title-page-series {
+  font-family: var(--font-body);
+  font-size: 10pt;
+  color: var(--ink-medium);
+  margin-bottom: 0.5in;
+  padding: 0.15in 0.3in;
+  border-top: 0.5pt solid var(--rule-medium);
+  border-bottom: 0.5pt solid var(--rule-medium);
+}
+
+.title-page-publisher {
+  margin-top: auto;
+}
+
+.title-page-publisher img {
+  height: 32pt;
+  width: auto;
+  margin-bottom: 0.15in;
+}
+
+.title-page-publisher p {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  color: var(--ink-muted);
+  margin: 0;
+  letter-spacing: 0.1em;
+}
+
+/* Copyright Page */
+.minibook-copyright {
+  min-height: var(--page-height);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1in 0.75in;
+  page-break-after: always;
+}
+
+.copyright-content {
+  font-family: var(--font-body);
+  font-size: 8pt;
+  line-height: 1.7;
+  color: var(--ink-medium);
+}
+
+.copyright-content p {
+  margin: 0 0 0.15in 0;
+}
+
+.copyright-content .copyright-notice {
+  font-weight: 500;
+  color: var(--ink-dark);
+  margin-bottom: 0.25in;
+}
+
+.copyright-content .isbn {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  margin: 0.25in 0;
+}
+
+.copyright-content .disclaimer {
+  font-style: italic;
+  margin-top: 0.3in;
+  padding-top: 0.2in;
+  border-top: 0.5pt solid var(--rule-light);
+}
+
+.copyright-content .edition {
+  margin-top: 0.3in;
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  color: var(--ink-muted);
+}
+
+/* ============================================
+   IMPROVED TABLE OF CONTENTS
+   ============================================ */
+.minibook-toc-page {
+  padding: 0.5in 0;
+  page-break-before: always;
+  page-break-after: always;
+}
+
+.toc-page-title {
+  font-family: var(--font-display);
+  font-size: 20pt;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.4in;
+  color: var(--ink-black);
+  letter-spacing: 0.03em;
+}
+
+.toc-entries {
+  margin: 0.35in 0;
+}
+
+.toc-entry {
+  display: flex;
+  align-items: baseline;
+  padding: 0.1in 0;
+  border-bottom: 0.5pt dotted var(--rule-light);
+}
+
+.toc-entry:last-child {
+  border-bottom: none;
+}
+
+.toc-entry-part {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-primary);
+  width: 0.7in;
+  flex-shrink: 0;
+}
+
+.toc-entry-title {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 600;
+  color: var(--ink-black);
+}
+
+.toc-entry-dots {
+  flex: 1;
+  border-bottom: 1pt dotted var(--ink-muted);
+  margin: 0 0.15in;
+  height: 0.5em;
+}
+
+.toc-entry-page {
+  font-family: var(--font-mono);
+  font-size: 9pt;
+  color: var(--ink-medium);
+  margin-left: 0.2in;
+}
+
+.toc-entry-sub {
+  padding-left: 0.7in;
+}
+
+.toc-entry-sub .toc-entry-title {
+  font-size: 9.5pt;
+  font-weight: 400;
+  color: var(--ink-dark);
+}
+
+/* ============================================
+   BACK MATTER — About, Series, etc.
+   ============================================ */
+
+/* About Page */
+.minibook-about {
+  padding: 0.5in 0;
+  page-break-before: always;
+}
+
+.about-header {
+  text-align: center;
+  margin-bottom: 0.4in;
+}
+
+.about-header h2 {
+  font-family: var(--font-display);
+  font-size: 16pt;
+  font-weight: 700;
+  margin: 0 0 0.1in 0;
+}
+
+.about-header img {
+  height: 40pt;
+  width: auto;
+  margin-bottom: 0.2in;
+}
+
+.about-content {
+  font-size: 10pt;
+  line-height: 1.65;
+}
+
+.about-content p {
+  margin-bottom: 0.18in;
+  text-align: justify;
+}
+
+.about-mission {
+  background: var(--accent-light);
+  padding: 0.2in 0.25in;
+  margin: 0.3in 0;
+  border-left: 3pt solid var(--accent-primary);
+}
+
+.about-mission p {
+  margin: 0;
+  font-style: italic;
+}
+
+.about-contact {
+  margin-top: 0.4in;
+  padding-top: 0.25in;
+  border-top: 0.5pt solid var(--rule-light);
+  font-size: 9pt;
+}
+
+.about-contact p {
+  margin: 0.06in 0;
+  text-align: left;
+}
+
+.about-contact a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+/* Series Page */
+.minibook-series-page {
+  padding: 0.5in 0;
+  page-break-before: always;
+}
+
+.series-header {
+  text-align: center;
+  margin-bottom: 0.4in;
+}
+
+.series-header h2 {
+  font-family: var(--font-display);
+  font-size: 14pt;
+  font-weight: 700;
+  margin: 0 0 0.08in 0;
+}
+
+.series-header p {
+  font-size: 10pt;
+  color: var(--ink-medium);
+  font-style: italic;
+  margin: 0;
+}
+
+.series-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2in;
+}
+
+.series-item {
+  padding: 0.18in;
+  background: var(--paper-cream);
+  page-break-inside: avoid;
+}
+
+.series-item.current {
+  background: var(--accent-light);
+  border-left: 3pt solid var(--accent-primary);
+}
+
+.series-item-sport {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  margin-bottom: 0.05in;
+}
+
+.series-item h3 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 600;
+  margin: 0 0 0.05in 0;
+  color: var(--ink-black);
+}
+
+.series-item p {
+  font-size: 8pt;
+  color: var(--ink-medium);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.series-item.current::after {
+  content: 'You are here';
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+  color: var(--accent-primary);
+  margin-top: 0.1in;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.series-coming-soon {
+  margin-top: 0.35in;
+  text-align: center;
+  font-size: 9pt;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* ============================================
+   GAME INTELLIGENCE SPECIFIC COMPONENTS
+   ============================================ */
+
+/* Developmental Timeline Table */
+.developmental-timeline {
+  margin: 0.3in 0;
+}
+
+.developmental-timeline h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 0.15in;
+  color: var(--ink-black);
+}
+
+.appropriate-cell {
+  color: var(--color-positive);
+}
+
+.inappropriate-cell {
+  color: var(--color-negative);
+  font-style: italic;
+}
+
+/* Vision Development Table */
+.vision-development {
+  margin: 0.3in 0;
+}
+
+.vision-development h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 0.15in;
+  color: var(--ink-black);
+}
+
+/* Anticipation Questions */
+.anticipation-questions {
+  margin: 0.3in 0;
+}
+
+.anticipation-questions h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 0.15in;
+  color: var(--ink-black);
+}
+
+/* Behavior Lists (Helpful/Harmful) */
+.behavior-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25in;
+  margin: 0.3in 0;
+}
+
+.behavior-helpful,
+.behavior-harmful {
+  padding: 0.2in;
+  border-radius: 4pt;
+}
+
+.behavior-helpful {
+  background: var(--accent-light);
+  border-left: 3pt solid var(--color-positive);
+}
+
+.behavior-harmful {
+  background: #f8e8e8;
+  border-left: 3pt solid var(--color-negative);
+}
+
+.behavior-helpful h4,
+.behavior-harmful h4 {
+  font-family: var(--font-display);
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0 0 0.1in 0;
+}
+
+.behavior-helpful h4 {
+  color: var(--color-positive);
+}
+
+.behavior-harmful h4 {
+  color: var(--color-negative);
+}
+
+.behavior-helpful ul,
+.behavior-harmful ul {
+  font-size: 9pt;
+  margin: 0;
+  padding-left: 0.2in;
+}
+
+.behavior-helpful li,
+.behavior-harmful li {
+  margin-bottom: 0.05in;
+  line-height: 1.4;
+}
+
+/* Confidence Progression */
+.confidence-progression {
+  margin: 0.3in 0;
+}
+
+.confidence-progression h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 0.15in;
+  color: var(--ink-black);
+}
+
+/* Spatial Concepts */
+.spatial-concepts {
+  margin: 0.3in 0;
+}
+
+.spatial-concepts h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 0.15in;
+  color: var(--ink-black);
+}
+
+/* Timing Progression */
+.timing-progression {
+  margin: 0.3in 0;
+}
+
+.timing-progression h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 0.15in;
+  color: var(--ink-black);
+}
+
+/* Principle Questions (Attack/Defense columns) */
+.principle-questions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25in;
+  margin: 0.3in 0;
+}
+
+.principle-column {
+  padding: 0.2in;
+  background: var(--paper-cream);
+  border-radius: 4pt;
+}
+
+.principle-column h4 {
+  font-family: var(--font-display);
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0 0 0.1in 0;
+  color: var(--accent-primary);
+}
+
+.principle-column ul {
+  font-size: 9pt;
+  margin: 0;
+  padding-left: 0.2in;
+}
+
+.principle-column li {
+  margin-bottom: 0.05in;
+  line-height: 1.4;
+}
+
+/* Situation Recognition */
+.situation-recognition {
+  margin: 0.3in 0;
+}
+
+.situation-recognition h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 0.15in;
+  color: var(--ink-black);
+}
+
+/* Video Game Section */
+.video-game-section {
+  margin: 0.3in 0;
+  padding: 0.25in;
+  background: var(--paper-cream);
+  border-radius: 4pt;
+  border-left: 3pt solid var(--accent-primary);
+}
+
+.video-game-section h4 {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  margin: 0 0 0.15in 0;
+  color: var(--accent-primary);
+}
+
+.video-game-section h5 {
+  font-family: var(--font-display);
+  font-size: 9pt;
+  font-weight: 700;
+  margin: 0.15in 0 0.08in 0;
+  color: var(--ink-dark);
+}
+
+.video-game-section p {
+  font-size: 9pt;
+  margin: 0 0 0.1in 0;
+  line-height: 1.5;
+}
+
+.video-game-section ul {
+  font-size: 9pt;
+  margin: 0;
+  padding-left: 0.2in;
+}
+
+.video-game-section li {
+  margin-bottom: 0.05in;
+  line-height: 1.4;
+}
+
+.video-game-note {
+  margin-top: 0.15in;
+  padding-top: 0.1in;
+  border-top: 0.5pt solid var(--rule-light);
+  font-style: italic;
+  color: var(--ink-medium);
+}
+
+/* ============================================
+   SCREEN PREVIEW ADJUSTMENTS
+   ============================================ */
+@media screen {
+  .minibook {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    margin: 1in auto;
+    padding: 0.5in;
+  }
+
+  .section-divider {
+    border-top: 1px solid var(--rule-light);
+    border-bottom: 1px solid var(--rule-light);
+  }
+}
