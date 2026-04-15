@@ -40,15 +40,24 @@ def build_monthly_cashflow(
     total_contribution = a.capital.contribution_per_founder * a.costs.num_founders
     rows[contrib_idx].contributions = total_contribution
 
+    merch_per_kid = (
+        a.merchandise.net_contribution_per_kid_per_season.base
+        if a.merchandise is not None
+        else 0.0
+    )
+
     for line in y1_lines:
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].receipts += line.net_revenue
+            rows[month_index[line.cash_month]].receipts += line.kids_registered * merch_per_kid
     for line in cohort_lines:
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].receipts += line.net_revenue
+            rows[month_index[line.cash_month]].receipts += line.kids_registered * merch_per_kid
     for line in travel_lines:
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].receipts += line.net_revenue
+            rows[month_index[line.cash_month]].receipts += line.kids_registered * merch_per_kid
 
     for line in y1_lines:
         if line.cash_month in month_index:

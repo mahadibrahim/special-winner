@@ -81,6 +81,13 @@ class ExpansionConfig(BaseModel):
     travel: Optional[TravelConfig] = None
 
 
+class MerchandiseConfig(BaseModel):
+    """Merchandise revenue: uniforms, spirit wear, equipment resale, photo packages.
+    Net contribution per kid per season the kid plays (so a kid in fall + spring
+    rec counts twice)."""
+    net_contribution_per_kid_per_season: LowBaseHigh
+
+
 class Pricing(BaseModel):
     """Cross-cutting pricing concerns that are not per-sport."""
     family_discount_rate: float = Field(ge=0, le=1)
@@ -153,6 +160,7 @@ class Assumptions(BaseModel):
     capital: Capital
     sports: List[SportConfig]
     expansion: ExpansionConfig
+    merchandise: Optional[MerchandiseConfig] = None
     start_month: str
     horizon_months: int = Field(ge=12, le=120)
 

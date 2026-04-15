@@ -106,10 +106,15 @@ def test_load_assumptions_from_base_case_yaml():
     assert winter.roster_size == 8
     assert winter.price.base == 300
 
-    assert a.expansion.locations.by_year == {2026: 1, 2027: 1, 2028: 1, 2029: 1, 2030: 1}
+    # Aggressive expansion config for pitch (not single-location anymore)
+    assert a.expansion.locations.by_year[2026] == 1
+    assert a.expansion.locations.by_year[2030] >= 5
 
     assert a.expansion.travel is not None
-    assert a.expansion.travel.launch_year >= 2099
+    assert a.expansion.travel.launch_year == 2027
+
+    assert a.merchandise is not None
+    assert a.merchandise.net_contribution_per_kid_per_season.base == 40
 
     assert a.costs.head_coach_hourly.base == 32
     assert a.costs.insurance_monthly == 100

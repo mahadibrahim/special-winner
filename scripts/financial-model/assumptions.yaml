@@ -64,24 +64,33 @@ sports:
 
 expansion:
   locations:
-    by_year: {2026: 1, 2027: 1, 2028: 1, 2029: 1, 2030: 1}
+    # Aggressive independent-operator ramp. No franchise territory constraints.
+    by_year: {2026: 1, 2027: 2, 2028: 3, 2029: 5, 2030: 7}
     new_location_fill_rate_boost: { low: 0.0, base: 0.05, high: 0.12 }
     tam_per_location: 10500
   travel:
-    launch_year: 2099
+    # Enabled Y2 — rec-to-travel upgrade funnel active from 2027 onward.
+    launch_year: 2027
     target_teams_direct_y1:
       U9: 1
       U11: 1
       U13: 1
     travel_roster_size: 11
     direct_fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
-    rec_to_travel_upgrade_rate: { low: 0.03, base: 0.06, high: 0.12 }
+    # Bumped upgrade rate — 10% base reflects premium brand with committed families
+    rec_to_travel_upgrade_rate: { low: 0.05, base: 0.10, high: 0.18 }
     travel_price: { low: 850, base: 1100, high: 1400 }
     travel_weeks_per_season: 12
     travel_coach_hourly_premium: 1.4
     travel_s1_to_s2: { low: 0.75, base: 0.88, high: 0.94 }
     travel_s2_to_s3: { low: 0.85, base: 0.93, high: 0.97 }
     travel_s3_plus:  { low: 0.90, base: 0.95, high: 0.98 }
+
+# Merchandise revenue: uniforms, spirit wear, equipment resale, photo packages.
+# Net contribution per kid per season the kid plays — so a kid in fall + spring
+# rec counts twice. Rates based on typical youth sports operator margins.
+merchandise:
+  net_contribution_per_kid_per_season: { low: 25, base: 40, high: 65 }
 
 pricing:
   family_discount_rate: 0.0

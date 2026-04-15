@@ -36,15 +36,24 @@ def build_monthly_pnl(
     rows = [PnLRow(month=m) for m in months]
     sports_by_name: Dict[str, SportConfig] = {s.name: s for s in a.sports}
 
+    merch_per_kid = (
+        a.merchandise.net_contribution_per_kid_per_season.base
+        if a.merchandise is not None
+        else 0.0
+    )
+
     for line in y1_lines:
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].revenue += line.net_revenue
+            rows[month_index[line.cash_month]].revenue += line.kids_registered * merch_per_kid
     for line in cohort_lines:
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].revenue += line.net_revenue
+            rows[month_index[line.cash_month]].revenue += line.kids_registered * merch_per_kid
     for line in travel_lines:
         if line.cash_month in month_index:
             rows[month_index[line.cash_month]].revenue += line.net_revenue
+            rows[month_index[line.cash_month]].revenue += line.kids_registered * merch_per_kid
 
     for line in y1_lines:
         if line.cash_month in month_index:

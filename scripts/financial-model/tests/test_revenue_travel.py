@@ -14,8 +14,10 @@ def _tweak_travel_launch(a, year: int):
     return a
 
 
-def test_travel_disabled_by_default_returns_empty():
+def test_travel_disabled_returns_empty():
+    """When travel.launch_year is pushed beyond horizon, engine returns no lines."""
     a = load_assumptions(Path("assumptions.yaml"))
+    a = _tweak_travel_launch(a, 2099)  # Force disable
     y1 = build_year1_revenue(a, location_id=0, location_launch_year=2026)
     cohort = build_cohort_revenue_for_location(
         a, y1, location_id=0, location_launch_year=2026, is_new_location=False,
