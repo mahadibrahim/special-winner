@@ -1065,3 +1065,40 @@
   color: var(--sport-primary, var(--ink-medium));
   flex-shrink: 0;
 }
+
+/* ============================================================
+   Print Button (floating, hidden in print output)
+   ============================================================ */
+.guide-print-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--aspire-primary, #cc442c);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.guide-print-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.guide-print-button:active {
+  transform: translateY(0);
+}
+
+@media print {
+  .guide-print-button,
+  .guide-baseball-banner {
+    display: none !important;
+  }
+}

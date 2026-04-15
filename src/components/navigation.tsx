@@ -23,6 +23,7 @@ export default function Navigation() {
 
   const navLinks = [
     { href: "#programs", label: "Programs" },
+    { href: "/guides", label: "Guides" },
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },
   ]
