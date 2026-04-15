@@ -52,6 +52,7 @@ def write_assumptions_tab(wb: Workbook, a: Assumptions) -> None:
     _write_scalar_row(ws, row, "Soccer roster size", a.pricing.soccer_roster_size, "kids"); row += 1
     _write_lbh_row(ws, row, "Flag price", a.pricing.flag_price, "$/season", "MEDIUM"); row += 1
     _write_scalar_row(ws, row, "Flag weeks/season", a.pricing.flag_weeks_per_season, "weeks"); row += 1
+    _write_scalar_row(ws, row, "Flag seasons/year", a.pricing.flag_seasons_per_year, "seasons"); row += 1
     _write_scalar_row(ws, row, "Flag roster size", a.pricing.flag_roster_size, "kids"); row += 1
     _write_lbh_row(ws, row, "Winter skills $/session", a.pricing.winter_skills_price_per_session, "$/session", "MEDIUM"); row += 1
     _write_scalar_row(ws, row, "Winter skills group size", a.pricing.winter_skills_group_size, "kids"); row += 1
