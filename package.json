@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/lib/db/seed.ts",
     "db:seed:e2e": "tsx src/lib/db/seeds/seed-e2e-tests.ts",
+    "db:seed:phase1-demo": "tsx src/lib/db/seeds/seed-phase1-demo.ts",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"
