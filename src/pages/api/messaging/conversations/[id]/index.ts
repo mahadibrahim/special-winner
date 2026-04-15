@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   conversations,
@@ -8,6 +8,8 @@ import {
 } from "@/lib/db/schema/conversations";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers, registrations } from "@/lib/db/schema/registrations";
+import { rosters } from "@/lib/db/schema/teams";
+import { getCoachTeamIds } from "@/lib/auth/roles";
 
 /**
  * GET /api/messaging/conversations/:id
@@ -23,6 +25,13 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const user = locals.user;
   if (!user) {
     return json({ error: "Unauthorized" }, 401);
+  }
+
+  const isAdmin = (locals as unknown as { isAdmin?: boolean }).isAdmin ?? false;
+  const isCoach = (locals as unknown as { isCoach?: boolean }).isCoach ?? false;
+
+  if (!isAdmin && !isCoach) {
+    return json({ error: "Forbidden" }, 403);
   }
 
   const conversationId = params.id;
@@ -41,6 +50,36 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   if (!conversation) {
     return json({ error: "Conversation not found" }, 404);
+  }
+
+  // Coach scope check: coaches can only load conversations about parents
+  // whose kids are on one of their teams.
+  if (isCoach && !isAdmin) {
+    const coachTeamIds = await getCoachTeamIds(user.id);
+
+    if (coachTeamIds.length === 0) {
+      return json({ error: "Forbidden" }, 403);
+    }
+
+    const parentScope = await db
+      .select({ parentUserId: familyMembers.parentUserId })
+      .from(rosters)
+      .innerJoin(registrations, eq(registrations.id, rosters.registrationId))
+      .innerJoin(
+        familyMembers,
+        eq(familyMembers.id, registrations.familyMemberId),
+      )
+      .where(
+        and(
+          inArray(rosters.teamId, coachTeamIds),
+          eq(familyMembers.parentUserId, conversation.parentUserId),
+        ),
+      )
+      .limit(1);
+
+    if (parentScope.length === 0) {
+      return json({ error: "Forbidden" }, 403);
+    }
   }
 
   // Load parent profile

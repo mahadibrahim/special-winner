@@ -11,9 +11,8 @@ if (!user) {
 
 // Admin / coach gate — the staff inbox is only for staff. Parents don't have
 // their own inbox view in Phase 1; they interact via SMS and email.
-const roles = (Astro.locals as unknown as { roles?: string[] }).roles ?? [];
-const isAdmin = roles.some((r) => r === 'super_admin' || r === 'location_admin');
-const isCoach = roles.includes('coach');
+const isAdmin = Astro.locals.isAdmin ?? false;
+const isCoach = Astro.locals.isCoach ?? false;
 
 if (!isAdmin && !isCoach) {
   return Astro.redirect('/dashboard');

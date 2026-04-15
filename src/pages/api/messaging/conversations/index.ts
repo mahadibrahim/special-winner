@@ -1,11 +1,14 @@
 import type { APIRoute } from "astro";
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   conversations,
   conversationMessages,
 } from "@/lib/db/schema/conversations";
 import { users } from "@/lib/db/schema/users";
+import { rosters } from "@/lib/db/schema/teams";
+import { registrations, familyMembers } from "@/lib/db/schema/registrations";
+import { getCoachTeamIds } from "@/lib/auth/roles";
 
 /**
  * GET /api/messaging/conversations
@@ -29,6 +32,15 @@ export const GET: APIRoute = async ({ locals, url }) => {
     return json({ error: "Unauthorized" }, 401);
   }
 
+  // Role context — admins see every conversation, coaches are scoped to
+  // conversations about kids on their teams.
+  const isAdmin = (locals as unknown as { isAdmin?: boolean }).isAdmin ?? false;
+  const isCoach = (locals as unknown as { isCoach?: boolean }).isCoach ?? false;
+
+  if (!isAdmin && !isCoach) {
+    return json({ error: "Forbidden" }, 403);
+  }
+
   const params = url.searchParams;
   const filter = params.get("filter") || "all";
   const assignment = params.get("assignment");
@@ -48,6 +60,41 @@ export const GET: APIRoute = async ({ locals, url }) => {
     conditions.push(eq(conversations.assignedStaffId, user.id));
   } else if (filter === "unassigned") {
     conditions.push(isNull(conversations.assignedStaffId));
+  }
+
+  // Coach scoping: restrict to parents whose kids are on this coach's teams.
+  // Admins are not restricted. If a user is both admin and coach, admin
+  // privileges win and they see everything.
+  if (isCoach && !isAdmin) {
+    const coachTeamIds = await getCoachTeamIds(user.id);
+
+    if (coachTeamIds.length === 0) {
+      // Coach is not assigned to any team — show no conversations to avoid
+      // accidentally surfacing other coaches' threads.
+      return json({ conversations: [], total: 0 });
+    }
+
+    // Find parents of every kid on any of the coach's teams
+    const parentRows = await db
+      .selectDistinct({ parentUserId: familyMembers.parentUserId })
+      .from(rosters)
+      .innerJoin(
+        registrations,
+        eq(registrations.id, rosters.registrationId),
+      )
+      .innerJoin(
+        familyMembers,
+        eq(familyMembers.id, registrations.familyMemberId),
+      )
+      .where(inArray(rosters.teamId, coachTeamIds));
+
+    const allowedParentIds = parentRows.map((r) => r.parentUserId);
+
+    if (allowedParentIds.length === 0) {
+      return json({ conversations: [], total: 0 });
+    }
+
+    conditions.push(inArray(conversations.parentUserId, allowedParentIds));
   }
 
   const rows = await db
