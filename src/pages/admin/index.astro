@@ -37,6 +37,14 @@ interface RecentConversation {
   lastDirection: string | null;
   snippet: string;
   lastMessageAt: Date;
+  // Pre-computed display values so the template doesn't need variable
+  // declarations inside expression blocks (Astro parses arrow function
+  // bodies differently than React JSX — statements aren't allowed).
+  roleBadge: string;
+  roleBadgeClass: string;
+  channelIcon: string;
+  sentMarker: string;
+  relativeTime: string;
 }
 
 let recentConversations: RecentConversation[] = [];
@@ -51,6 +59,19 @@ function formatRelative(date: Date): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+const ROLE_BADGE_STYLES = {
+  bot: 'bg-blue-100 text-blue-700',
+  coach: 'bg-emerald-100 text-emerald-700',
+  admin: 'bg-amber-100 text-amber-700',
+};
+
+function channelIconFor(channel: string | null): string {
+  if (channel === 'sms') return '💬';
+  if (channel === 'email') return '✉️';
+  if (channel === 'telegram') return '✈️';
+  return '💭';
 }
 
 try {
@@ -160,14 +181,21 @@ try {
     recentConversations = recentRows.map(r => {
       const snippet = snippetMap.get(r.id);
       const name = `${r.parentFirstName ?? ''} ${r.parentLastName ?? ''}`.trim() || r.parentEmail;
+      const roleKey = (r.assignmentRole ?? 'bot') as 'bot' | 'coach' | 'admin';
+      const direction = snippet?.direction ?? null;
       return {
         id: r.id,
         parentName: name,
         assignmentRole: r.assignmentRole,
         lastChannel: snippet?.channel ?? null,
-        lastDirection: snippet?.direction ?? null,
+        lastDirection: direction,
         snippet: snippet?.body ?? '',
         lastMessageAt: r.lastMessageAt,
+        roleBadge: roleKey,
+        roleBadgeClass: ROLE_BADGE_STYLES[roleKey] ?? ROLE_BADGE_STYLES.bot,
+        channelIcon: channelIconFor(snippet?.channel ?? null),
+        sentMarker: direction === 'outbound' ? 'You: ' : '',
+        relativeTime: formatRelative(r.lastMessageAt),
       };
     });
   }
@@ -319,46 +347,30 @@ try {
               </a>
             </div>
             <ul class="divide-y divide-gray-200">
-              {recentConversations.map((conv) => {
-                const assignmentStyles: Record<string, string> = {
-                  bot: 'bg-blue-100 text-blue-700',
-                  coach: 'bg-emerald-100 text-emerald-700',
-                  admin: 'bg-amber-100 text-amber-700',
-                };
-                const roleKey = conv.assignmentRole ?? 'bot';
-                const roleStyle = assignmentStyles[roleKey] ?? assignmentStyles.bot;
-                const channelIcon =
-                  conv.lastChannel === 'sms' ? '💬' :
-                  conv.lastChannel === 'email' ? '✉️' :
-                  conv.lastChannel === 'telegram' ? '✈️' : '💭';
-                const sentMarker = conv.lastDirection === 'outbound' ? 'You: ' : '';
-                const ts = new Date(conv.lastMessageAt);
-                const relative = formatRelative(ts);
-                return (
-                  <li>
-                    <a
-                      href={`/messages?conversation=${conv.id}`}
-                      class="flex items-start gap-3 px-6 py-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 text-sm">
-                        {channelIcon}
+              {recentConversations.map((conv) => (
+                <li>
+                  <a
+                    href={`/messages?conversation=${conv.id}`}
+                    class="flex items-start gap-3 px-6 py-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 text-sm">
+                      {conv.channelIcon}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <p class="text-sm font-medium text-gray-900 truncate">{conv.parentName}</p>
+                        <span class={`text-[10px] px-2 py-0.5 rounded ${conv.roleBadgeClass} uppercase font-semibold`}>
+                          {conv.roleBadge}
+                        </span>
+                        <span class="text-xs text-gray-400 ml-auto flex-shrink-0">{conv.relativeTime}</span>
                       </div>
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                          <p class="text-sm font-medium text-gray-900 truncate">{conv.parentName}</p>
-                          <span class={`text-[10px] px-2 py-0.5 rounded ${roleStyle} uppercase font-semibold`}>
-                            {roleKey}
-                          </span>
-                          <span class="text-xs text-gray-400 ml-auto flex-shrink-0">{relative}</span>
-                        </div>
-                        <p class="text-sm text-gray-600 truncate">
-                          {sentMarker}{conv.snippet || <em>No messages yet</em>}
-                        </p>
-                      </div>
-                    </a>
-                  </li>
-                );
-              })}
+                      <p class="text-sm text-gray-600 truncate">
+                        {conv.sentMarker}{conv.snippet || 'No messages yet'}
+                      </p>
+                    </div>
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         )}

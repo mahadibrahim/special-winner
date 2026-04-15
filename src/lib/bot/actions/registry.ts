@@ -1,5 +1,7 @@
 import type { BotActionDefinition } from "./types";
 import { lookupSchedule } from "./lookup-schedule";
+import { lookupNextPractice } from "./lookup-next-practice";
+import { lookupTeamInfo } from "./lookup-team-info";
 import { switchPrimaryChannel } from "./switch-primary-channel";
 import { rsvpAbsent, rsvpPresent } from "./rsvp";
 import { faqResponse } from "./faq-response";
@@ -20,6 +22,8 @@ import { faqResponse } from "./faq-response";
 
 export const ACTIONS: Record<string, BotActionDefinition> = {
   [lookupSchedule.name]: lookupSchedule,
+  [lookupNextPractice.name]: lookupNextPractice,
+  [lookupTeamInfo.name]: lookupTeamInfo,
   [switchPrimaryChannel.name]: switchPrimaryChannel,
   [rsvpAbsent.name]: rsvpAbsent,
   [rsvpPresent.name]: rsvpPresent,
