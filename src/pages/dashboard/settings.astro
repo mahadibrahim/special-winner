@@ -5,6 +5,7 @@ import Footer from '../../components/footer';
 import { ProfileSettings } from '../../components/dashboard/profile-settings';
 import { PasswordChange } from '../../components/dashboard/password-change';
 import { NotificationSettings } from '../../components/dashboard/notification-settings';
+import { MessagingSettings } from '../../components/dashboard/messaging-settings';
 
 // Check if user is authenticated
 const user = Astro.locals.user;
@@ -39,6 +40,7 @@ if (!user) {
         <!-- Settings Cards -->
         <div class="space-y-6">
           <ProfileSettings client:load />
+          <MessagingSettings client:load />
           <PasswordChange client:load />
           <NotificationSettings client:load />
         </div>
