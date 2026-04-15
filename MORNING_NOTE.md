@@ -2,7 +2,32 @@
 
 Hey. Here's where things stand.
 
-## Update: Phase 1 core is now also code-complete
+## Update 3 — schedule notifications, admin UIs, coach scoping, Telegram
+
+You said "move forward," so I kept building. On top of the earlier Phase 1 core, main now has:
+
+**Schedule change notifications.** When an admin edits a game (via PUT `/api/admin/games`), the endpoint loads the previous `scheduledAt` and `status`, runs the update, then detects what changed — a schedule move fires `notifyScheduleChange`, a transition to `cancelled`/`postponed` fires `notifyEventCancellation`. Both walk through affected rosters to find every parent on the home and away teams, compose an SMS-friendly body per parent (e.g. "Heads up: Maya's Thunder game has been moved from Sat 3:00 PM to Sun 10:00 AM. Location: Powell Main."), and dispatch via the outbound messaging gateway. Deleting a game also fires a cancellation notification before the row is removed. All delivery is fire-and-forget from the admin's perspective — the admin response isn't blocked on SMS delivery. Error isolation per-send so one bad number doesn't cascade.
+
+**Day-before reminder cron.** New endpoint at `POST /api/cron/day-before-reminders`, authenticated via `x-cron-secret` header. Finds every scheduled game in the next 16-36 hours and texts parents of affected kids a reminder. Intended to be called daily by Netlify scheduled functions or any external cron service. Telemetry logged at info level on completion.
+
+**Admin UI — walk-up registration.** New page at `/admin/walk-up-registration` with a full form: parent info, kid info with medical notes, season picker from open seasons, payment status (paid/unpaid/comped), waiver checkbox, admin notes. Submits to the existing `/api/admin/walk-up-registration` endpoint. Success state shows the registration id and SMS delivery status. Added to the admin sidebar nav.
+
+**Admin UI — re-registration campaign.** New page at `/admin/re-registration-campaign` with dry-run and send buttons. Dry-run shows the list of families that would be contacted without actually sending anything. Real send shows contacted/skipped/total stats on completion. Added to the admin sidebar nav next to walk-up.
+
+**Coach inbox scoping.** The staff messaging inbox now properly filters for coaches. Admins still see every conversation; coaches only see conversations where the parent has a kid on one of their teams (via `teams.coach_user_id` or `teams.assistant_coach_user_id`). Enforced at both the list endpoint and the detail endpoint, so a coach can't force-load a conversation by guessing the id. Coaches with no team assignment see an empty inbox.
+
+**Telegram channel.** Phase 1 fast follow, now in place. Three pieces:
+- `src/lib/telegram/` — fetch-based Bot API client with `sendMessage`, `answerCallbackQuery`, `setWebhook`. No external dependency (no telegraf, no grammy) — the Bot API is simple enough that fetch is cleaner.
+- `src/pages/api/messaging/inbound/telegram.ts` — webhook handler with signature verification, `/start <token>` account binding via magic link (new purpose `telegram_bind`, 1-hour expiry), `/stop` to unbind, `/help` intro, and normal text messages routed through the same inbound pipeline as SMS and email.
+- `src/pages/api/dashboard/settings/telegram/link.ts` — returns a `t.me/<bot>?start=<token>` URL for the parent to tap from the dashboard to bind their account.
+
+Once Telegram is configured (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`), parents with Telegram as their primary channel automatically receive outbound messages via Telegram through the existing gateway — the `telegram_not_implemented` stub in `src/lib/messaging/gateway.ts` is gone.
+
+**Deployment checklist.** New `docs/PHASE1_DEPLOYMENT.md` walks through every external-service setup step in the order you need to do them, with a dry-run checklist you can run end-to-end before letting real parents in. Read this first when you're ready to ship.
+
+---
+
+## Update 2 — Phase 1 core is code-complete
 
 You came back mid-session and asked me to keep going, so I did. **Phase 1 is now code-complete end-to-end** for everything that doesn't require external service credentials.
 
