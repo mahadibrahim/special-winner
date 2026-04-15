@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field, model_validator
 from typing import Dict, Literal
+import yaml
+from pathlib import Path
 
 
 class LowBaseHigh(BaseModel):
@@ -119,3 +121,10 @@ class Assumptions(BaseModel):
     capital: Capital
     start_month: str              # ISO YYYY-MM, e.g., "2026-07"
     horizon_months: int = Field(ge=12, le=120)
+
+
+def load_assumptions(path: Path) -> Assumptions:
+    """Load and validate assumptions from a YAML file."""
+    with open(path, "r") as f:
+        raw = yaml.safe_load(f)
+    return Assumptions.model_validate(raw)

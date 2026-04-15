@@ -1,0 +1,110 @@
+# Aspire Sports base case assumptions — April 2026
+# Values traced to docs/superpowers/specs/2026-04-15-aspire-sports-financial-model-design.md §8
+# Confidence levels: HIGH / MEDIUM / LOW-MEDIUM / LOW — see README for meaning.
+
+start_month: "2026-07"       # Fall 2026 registration opens
+horizon_months: 60            # 5 years monthly
+
+pricing:
+  # Soccer rec league — anchored to i9 Columbus $169 floor, outdoor discount
+  soccer_price: { low: 150, base: 175, high: 200 }
+  soccer_weeks_per_season: 8
+  soccer_seasons_per_year: 2
+  soccer_roster_size: 12
+  # Flag football rec league — matches NFL Flag Columbus $175 late fee
+  flag_price: { low: 150, base: 175, high: 200 }
+  flag_weeks_per_season: 7
+  flag_seasons_per_year: 2
+  flag_roster_size: 10
+  # Winter indoor skills clinic — anchored to Resolute $20, Soccer Field Academy $40
+  winter_skills_price_per_session: { low: 20, base: 25, high: 35 }
+  winter_skills_group_size: 8
+  winter_skills_sessions_per_week: 12
+  family_discount_rate: 0.0
+  sibling_discount_rate: 0.10
+  uniform_fee: 0
+  payment_processing_rate: 0.029
+  payment_processing_flat: 0.30
+
+demand:
+  soccer_fill_rate: { low: 0.60, base: 0.75, high: 0.90 }
+  flag_fill_rate: { low: 0.60, base: 0.75, high: 0.90 }
+  winter_skills_fill_rate: { low: 0.60, base: 0.80, high: 0.95 }
+  # Year 1 Fall 2026 target teams — conservative ramp
+  target_teams_soccer_y1_fall:
+    U8: 4
+    U10: 3
+    U12: 2
+  target_teams_flag_y1_fall:
+    K-2: 3
+    3-4: 3
+    5-6: 2
+  season_growth_rate: { low: 0.10, base: 0.25, high: 0.50 }
+
+retention:
+  # Rising curve: first renewal is the hardest; returning families are stickier
+  soccer_s1_to_s2: { low: 0.55, base: 0.70, high: 0.82 }
+  soccer_s2_to_s3: { low: 0.75, base: 0.85, high: 0.92 }
+  soccer_s3_plus: { low: 0.82, base: 0.90, high: 0.95 }
+  flag_s1_to_s2: { low: 0.55, base: 0.70, high: 0.82 }
+  flag_s2_to_s3: { low: 0.75, base: 0.85, high: 0.92 }
+  flag_s3_plus: { low: 0.82, base: 0.90, high: 0.95 }
+  winter_skills_retention: { low: 0.50, base: 0.65, high: 0.80 }
+  cross_sell_rate: { low: 0.15, base: 0.25, high: 0.40 }
+  referral_multiplier: { low: 1.05, base: 1.20, high: 1.40 }
+
+acquisition:
+  channels_y1:
+    partner_network: 0.35
+    schools: 0.30
+    micro_influencer: 0.15
+    community_event: 0.10
+    paid_digital: 0.10
+  channels_y2:
+    partner_network: 0.20
+    schools: 0.25
+    micro_influencer: 0.10
+    community_event: 0.10
+    paid_digital: 0.10
+    referrals: 0.25
+  channels_y3_plus:
+    partner_network: 0.10
+    schools: 0.20
+    micro_influencer: 0.10
+    community_event: 0.10
+    paid_digital: 0.10
+    referrals: 0.40
+  cac_by_channel:
+    partner_network: 5
+    schools: 12
+    micro_influencer: 5
+    community_event: 20
+    paid_digital: 50
+    referrals: 5
+  blended_cac_y1: { low: 12, base: 18, high: 30 }
+  blended_cac_y2: { low: 8, base: 12, high: 20 }
+  blended_cac_y3_plus: { low: 5, base: 8, high: 14 }
+
+costs:
+  head_coach_hourly: { low: 18, base: 22, high: 28 }
+  assistant_coach_hourly: { low: 13, base: 16, high: 20 }
+  outdoor_field_hourly: { low: 25, base: 35, high: 60 }   # LOW CONFIDENCE — needs outreach
+  indoor_turf_full_hourly: { low: 135, base: 175, high: 220 }
+  indoor_turf_half_hourly: { low: 75, base: 95, high: 125 }
+  gym_hourly: { low: 60, base: 70, high: 95 }
+  software_monthly: 350
+  insurance_monthly: 400
+  bookkeeping_monthly: 250
+  founder_time_annual_per_founder: 80000
+  num_founders: 2
+  curriculum_dev_one_time: 30000
+  curriculum_amortization_months: 36
+
+capital:
+  contribution_per_founder: 50000
+  contribution_month: 1
+  working_capital_reserve_floor: 15000
+  distribution_policy: return_capital_then_split
+  equity_split:
+    founder_a: 0.50
+    founder_b: 0.50
