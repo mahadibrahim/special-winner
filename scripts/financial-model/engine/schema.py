@@ -1,12 +1,11 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Dict, Literal
+from typing import Dict, List, Literal, Optional
 import yaml
 from pathlib import Path
 
 
 class LowBaseHigh(BaseModel):
-    """A three-column assumption: low / base / high.
-    base drives the main model; low/high feed sensitivity analysis."""
+    """A three-column assumption: low / base / high."""
     low: float
     base: float
     high: float
@@ -20,21 +19,66 @@ class LowBaseHigh(BaseModel):
         return self
 
 
+Season = Literal["fall", "winter", "spring"]
+VenueType = Literal["outdoor_field", "indoor_turf_half", "indoor_turf_full", "gym"]
+
+
+class SportConfig(BaseModel):
+    """A single sport offering. Soccer, flag, basketball, winter_skills all use this shape."""
+    name: str
+    launch_year: int
+    price: LowBaseHigh
+    weeks_per_season: int
+    hours_per_unit: float
+    units_per_week: float
+    roster_size: int
+    venue_type: VenueType
+    seasons: List[Season]
+    target_teams_y1: Dict[str, int]
+    fill_rate: LowBaseHigh
+    s1_to_s2: LowBaseHigh
+    s2_to_s3: LowBaseHigh
+    s3_plus: LowBaseHigh
+
+
+class TravelConfig(BaseModel):
+    launch_year: int
+    target_teams_direct_y1: Dict[str, int]
+    travel_roster_size: int
+    direct_fill_rate: LowBaseHigh
+    rec_to_travel_upgrade_rate: LowBaseHigh
+    travel_price: LowBaseHigh
+    travel_weeks_per_season: int
+    travel_coach_hourly_premium: float
+    travel_s1_to_s2: LowBaseHigh
+    travel_s2_to_s3: LowBaseHigh
+    travel_s3_plus: LowBaseHigh
+
+
+class LocationConfig(BaseModel):
+    by_year: Dict[int, int]
+    new_location_fill_rate_boost: LowBaseHigh
+    tam_per_location: int = 10500
+
+    @model_validator(mode="after")
+    def check_monotonic(self) -> "LocationConfig":
+        years = sorted(self.by_year.keys())
+        for prev, curr in zip(years, years[1:]):
+            if self.by_year[curr] < self.by_year[prev]:
+                raise ValueError(
+                    f"locations.by_year must be monotonic non-decreasing; "
+                    f"year {curr} has {self.by_year[curr]} < year {prev} ({self.by_year[prev]})"
+                )
+        return self
+
+
+class ExpansionConfig(BaseModel):
+    locations: LocationConfig
+    travel: Optional[TravelConfig] = None
+
+
 class Pricing(BaseModel):
-    soccer_price: LowBaseHigh
-    soccer_weeks_per_season: int
-    soccer_seasons_per_year: int
-    soccer_roster_size: int
-
-    flag_price: LowBaseHigh
-    flag_weeks_per_season: int
-    flag_seasons_per_year: int
-    flag_roster_size: int
-
-    winter_skills_price_per_session: LowBaseHigh
-    winter_skills_group_size: int
-    winter_skills_sessions_per_week: int
-
+    """Cross-cutting pricing concerns that are not per-sport."""
     family_discount_rate: float = Field(ge=0, le=1)
     sibling_discount_rate: float = Field(ge=0, le=1)
     uniform_fee: float = Field(ge=0)
@@ -42,25 +86,10 @@ class Pricing(BaseModel):
     payment_processing_flat: float = Field(ge=0)
 
 
-class Demand(BaseModel):
-    soccer_fill_rate: LowBaseHigh
-    flag_fill_rate: LowBaseHigh
-    winter_skills_fill_rate: LowBaseHigh
-    target_teams_soccer_y1_fall: Dict[str, int]
-    target_teams_flag_y1_fall: Dict[str, int]
-    season_growth_rate: LowBaseHigh
-
-
 class Retention(BaseModel):
-    soccer_s1_to_s2: LowBaseHigh
-    soccer_s2_to_s3: LowBaseHigh
-    soccer_s3_plus: LowBaseHigh
-    flag_s1_to_s2: LowBaseHigh
-    flag_s2_to_s3: LowBaseHigh
-    flag_s3_plus: LowBaseHigh
-    winter_skills_retention: LowBaseHigh
-    cross_sell_rate: LowBaseHigh
+    """Cross-cutting retention concerns not per-sport."""
     referral_multiplier: LowBaseHigh
+    cross_sell_rate: LowBaseHigh
 
 
 class Acquisition(BaseModel):
@@ -114,17 +143,17 @@ class Capital(BaseModel):
 
 class Assumptions(BaseModel):
     pricing: Pricing
-    demand: Demand
     retention: Retention
     acquisition: Acquisition
     costs: Costs
     capital: Capital
-    start_month: str              # ISO YYYY-MM, e.g., "2026-07"
+    sports: List[SportConfig]
+    expansion: ExpansionConfig
+    start_month: str
     horizon_months: int = Field(ge=12, le=120)
 
 
 def load_assumptions(path: Path) -> Assumptions:
-    """Load and validate assumptions from a YAML file."""
     with open(path, "r") as f:
         raw = yaml.safe_load(f)
     return Assumptions.model_validate(raw)
