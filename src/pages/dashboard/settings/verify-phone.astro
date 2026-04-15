@@ -1,0 +1,61 @@
+---
+import '../../../styles/globals.css';
+import Navigation from '../../../components/navigation';
+import Footer from '../../../components/footer';
+import { PhoneVerificationClient } from '../../../components/dashboard/phone-verification-client';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?redirect=/dashboard/settings/verify-phone');
+}
+
+const organization = (Astro.locals as unknown as { organization?: { id: string } | null }).organization;
+const organizationId = organization?.id ?? '';
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Verify your phone — Aspire Sports</title>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-24 pb-16 px-4">
+      <div class="max-w-md mx-auto">
+        <nav class="text-sm text-gray-500 mb-6">
+          <a href="/dashboard" class="hover:text-white transition-colors">Dashboard</a>
+          <span class="mx-2">/</span>
+          <a href="/dashboard/settings" class="hover:text-white transition-colors">Settings</a>
+          <span class="mx-2">/</span>
+          <span class="text-white">Verify phone</span>
+        </nav>
+
+        <header class="mb-8">
+          <h1 class="text-2xl font-bold text-white mb-2">Verify your phone</h1>
+          <p class="text-sm text-gray-500 leading-relaxed">
+            Once your phone is verified, we can send you schedule updates, cancellations,
+            and reminders via SMS — and you can reply to us just by texting back.
+            You'll also be able to log in without a password via magic links.
+          </p>
+        </header>
+
+        <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+          <PhoneVerificationClient
+            client:load
+            organizationId={organizationId}
+            initialPhone={user.phone || ''}
+          />
+        </div>
+
+        <p class="mt-6 text-xs text-gray-600 text-center">
+          Your phone number is never shared. Reply STOP anytime to opt out.
+        </p>
+      </div>
+    </main>
+
+    <Footer client:idle />
+  </body>
+</html>
