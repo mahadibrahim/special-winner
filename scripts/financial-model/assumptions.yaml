@@ -145,6 +145,10 @@ costs:
   software_monthly: 350
   insurance_monthly: 100
   bookkeeping_monthly: 250
+  # Hyperlocal marketing per active location — scales with locations.by_year
+  marketing_monthly_per_location: 1500
+  # Remote-first business, storage unit for equipment (no office)
+  storage_monthly: 250
   founder_time_annual_per_founder: 0
   num_founders: 2
   curriculum_dev_one_time: 30000

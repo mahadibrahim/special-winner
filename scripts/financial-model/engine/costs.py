@@ -21,6 +21,7 @@ class CostScheduleRow:
     bookkeeping: float = 0.0
     founder_time: float = 0.0
     marketing: float = 0.0
+    storage: float = 0.0
     # curriculum is split: cash hits month 1, expense amortized
     cash_curriculum: float = 0.0
     expense_curriculum: float = 0.0
@@ -32,7 +33,8 @@ class CostScheduleRow:
     @property
     def total_fixed_expense(self) -> float:
         return (self.software + self.insurance + self.bookkeeping
-                + self.founder_time + self.marketing + self.expense_curriculum)
+                + self.founder_time + self.marketing + self.storage
+                + self.expense_curriculum)
 
     @property
     def total_expense(self) -> float:
@@ -42,7 +44,7 @@ class CostScheduleRow:
     def total_cash_out(self) -> float:
         return (self.total_variable + self.software + self.insurance
                 + self.bookkeeping + self.founder_time + self.marketing
-                + self.cash_curriculum)
+                + self.storage + self.cash_curriculum)
 
 
 def _venue_hourly(a: Assumptions, venue_type: str) -> float:
@@ -124,11 +126,19 @@ def build_cost_schedule(a: Assumptions) -> List[CostScheduleRow]:
     rows = [CostScheduleRow(month=m) for m in months]
     fc = compute_monthly_fixed_costs(a)
 
+    by_year = a.expansion.locations.by_year
+    marketing_per_loc = a.costs.marketing_monthly_per_location
+    storage = a.costs.storage_monthly
+
     for row in rows:
         row.software = fc["software"]
         row.insurance = fc["insurance"]
         row.bookkeeping = fc["bookkeeping"]
         row.founder_time = fc["founder_time"]
+        # Marketing scales with active locations in that calendar year
+        active_locs = by_year.get(row.month.year, max(by_year.values()) if by_year else 1)
+        row.marketing = marketing_per_loc * active_locs
+        row.storage = storage
 
     # Curriculum: cash out in month 1 (index 0), expense amortized over N months
     rows[0].cash_curriculum = a.costs.curriculum_dev_one_time

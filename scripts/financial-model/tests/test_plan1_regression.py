@@ -36,12 +36,15 @@ TOLERANCE = 0.02  # 2%
 
 
 def _force_plan1_equivalent(a):
-    """Deepcopy + force expansion to Plan-1-equivalent (single loc, no travel, no merch)."""
+    """Deepcopy + force to Plan-1-equivalent: single loc, no travel, no merch,
+    no marketing, no storage (Plan 1 didn't model any of these)."""
     a2 = deepcopy(a)
     a2.expansion.locations.by_year = {2026: 1, 2027: 1, 2028: 1, 2029: 1, 2030: 1}
     if a2.expansion.travel is not None:
         a2.expansion.travel.launch_year = 2099
     a2.merchandise = None
+    a2.costs.marketing_monthly_per_location = 0
+    a2.costs.storage_monthly = 0
     return a2
 
 

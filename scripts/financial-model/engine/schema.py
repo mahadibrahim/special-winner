@@ -131,6 +131,10 @@ class Costs(BaseModel):
     software_monthly: float = Field(ge=0)
     insurance_monthly: float = Field(ge=0)
     bookkeeping_monthly: float = Field(ge=0)
+    # Hyperlocal marketing — scales per active location
+    marketing_monthly_per_location: float = Field(default=0, ge=0)
+    # HQ overhead: storage unit + any central costs. Remote-first, no office.
+    storage_monthly: float = Field(default=0, ge=0)
     founder_time_annual_per_founder: float = Field(ge=0)
     num_founders: int = Field(ge=1)
     curriculum_dev_one_time: float = Field(ge=0)

@@ -83,7 +83,7 @@ def build_monthly_cashflow(
     for i, cs in enumerate(cost_schedule):
         rows[i].disbursements += (
             cs.software + cs.insurance + cs.bookkeeping + cs.founder_time
-            + cs.marketing + cs.cash_curriculum
+            + cs.marketing + cs.storage + cs.cash_curriculum
         )
 
     running = 0.0
