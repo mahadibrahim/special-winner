@@ -1,12 +1,26 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { getDb } from "@/lib/db";
-import { users, passwordResetTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { render } from "@react-email/components";
+import { getDb } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
-import crypto from "crypto";
+
+/**
+ * Forgot-password / magic-link login handler.
+ *
+ * This endpoint used to create bespoke password-reset tokens. Phase 1
+ * generalizes all out-of-band auth into the magic-link module, so this
+ * route now creates a magic link with purpose `password_reset_login`
+ * and emails the redemption URL.
+ *
+ * When the parent taps the link, they land directly in an authenticated
+ * session — they don't have to enter a new password unless they want to.
+ * Staff users (admins, coaches) still have password auth as a primary
+ * method; the magic link is an alternative path for them too.
+ */
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -20,7 +34,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!result.success) {
       return new Response(
         JSON.stringify({ error: result.error.issues[0].message }),
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -39,62 +53,56 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: "If an account exists with this email, you will receive a password reset link.",
+          message:
+            "If an account exists with this email, you will receive a sign-in link.",
         }),
-        { status: 200 }
+        { status: 200 },
       );
     }
 
-    // Delete any existing reset tokens for this user
-    await getDb()
-      .delete(passwordResetTokens)
-      .where(eq(passwordResetTokens.userId, user[0].id));
+    const targetUser = user[0];
 
-    // Generate secure token
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    // Store token
-    await getDb().insert(passwordResetTokens).values({
-      id: token,
-      userId: user[0].id,
-      expiresAt,
+    // Create a magic-link-based login token
+    const { token } = await createMagicLink({
+      userId: targetUser.id,
+      purpose: "password_reset_login",
+      deliveredChannel: "email",
+      deliveredTo: normalizedEmail,
     });
 
-    // Send email
+    // Send email with the redemption URL
     if (isEmailConfigured()) {
-      const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:4321";
-      const resetUrl = `${appUrl}/reset-password/${token}`;
-
+      const resetUrl = buildMagicLinkUrl(token);
       const html = await render(
         PasswordResetEmail({
-          name: user[0].firstName || "",
+          name: targetUser.firstName || "",
           resetUrl,
-          expiresIn: "1 hour",
-        })
+          expiresIn: "15 minutes",
+        }),
       );
 
       await sendEmail({
         to: normalizedEmail,
-        subject: "Reset Your Password - Aspire Sports",
+        subject: "Sign in to Aspire Sports",
         html,
       });
     } else {
-      console.warn("Email not configured, password reset email not sent");
+      console.warn("Email not configured, sign-in link not sent");
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "If an account exists with this email, you will receive a password reset link.",
+        message:
+          "If an account exists with this email, you will receive a sign-in link.",
       }),
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Forgot password error:", error);
     return new Response(
       JSON.stringify({ error: "An unexpected error occurred" }),
-      { status: 500 }
+      { status: 500 },
     );
   }
 };

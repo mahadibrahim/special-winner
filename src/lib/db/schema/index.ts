@@ -15,7 +15,13 @@ export * from "./coach-guidance";
 export * from "./curriculum-reviews";
 
 // Communication schemas
-export * from "./messages";
+export * from "./announcements";
+export * from "./conversations";
+
+// Auth + messaging infrastructure (Phase 1)
+export * from "./magic-links";
+export * from "./phone-verifications";
+export * from "./family-member-parents";
 
 // Discount schemas
 export * from "./discounts";

@@ -35,8 +35,13 @@ export const users = pgTable("users", {
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),
   phone: varchar("phone", { length: 20 }),
+  phoneVerified: boolean("phone_verified").default(false).notNull(),
   avatarUrl: text("avatar_url"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  messagingPrimaryChannel: varchar("messaging_primary_channel", { length: 20 }),
+  messagingFallbackChannel: varchar("messaging_fallback_channel", { length: 20 }),
+  telegramChatId: varchar("telegram_chat_id", { length: 100 }),
+  telegramUsername: varchar("telegram_username", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

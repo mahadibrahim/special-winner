@@ -1,0 +1,68 @@
+---
+import '../../styles/globals.css';
+import Navigation from '../../components/navigation';
+import Footer from '../../components/footer';
+
+const reason = Astro.url.searchParams.get('reason') || 'expired';
+
+const messages: Record<string, { title: string; body: string }> = {
+  expired: {
+    title: 'This link has expired',
+    body: 'Magic links are short-lived for security. Request a new one and we\'ll send it right away.',
+  },
+  already_consumed: {
+    title: 'This link has already been used',
+    body: 'Each magic link works exactly once. If you need to access that same page again, request a fresh link.',
+  },
+  not_found: {
+    title: "We couldn't find that link",
+    body: 'The link may have been mistyped or removed. Request a fresh one and try again.',
+  },
+  malformed: {
+    title: 'Something was off about that link',
+    body: 'The link we received didn\'t look right. Request a fresh one and we\'ll send a clean copy.',
+  },
+};
+
+const message = messages[reason] || messages.expired;
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Link Expired — Aspire Sports</title>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-24 pb-16 px-4 flex items-center justify-center">
+      <div class="max-w-md w-full text-center p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+        <div class="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
+          <svg class="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold mb-3">{message.title}</h1>
+        <p class="text-gray-400 leading-relaxed mb-6">{message.body}</p>
+        <div class="flex flex-col gap-3">
+          <a
+            href="/signin"
+            class="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium transition-colors"
+          >
+            Sign in to request a new link
+          </a>
+          <a
+            href="/"
+            class="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            Back to home
+          </a>
+        </div>
+      </div>
+    </main>
+
+    <Footer client:idle />
+  </body>
+</html>
