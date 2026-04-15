@@ -1,5 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 import { resolveOrganizationFromHost } from "./lib/organization/domain-resolver";
+import { lucia } from "./lib/auth/lucia";
+import { getUserRoles, getCoachTeamIds } from "./lib/auth/roles";
 
 // Routes that require authentication
 const protectedRoutes = ["/dashboard", "/coach", "/admin"];
@@ -23,7 +25,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.isAdmin = false;
   context.locals.isCoach = false;
 
-  // Resolve organization from domain
+  // Resolve organization from domain (non-blocking — if it fails, we just
+  // proceed without organization context and the page handles it).
   try {
     const host = context.request.headers.get("host") || "localhost";
     const resolved = await resolveOrganizationFromHost(host);
@@ -37,8 +40,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   try {
-    // Try to import and use lucia - will fail if no database
-    const { lucia } = await import("./lib/auth/lucia");
     const sessionId = context.cookies.get(lucia.sessionCookieName)?.value ?? null;
 
     if (sessionId) {
@@ -65,18 +66,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
       context.locals.user = user;
       context.locals.session = session;
 
-      // Fetch user roles if authenticated
+      // Fetch user roles + coach teams in parallel if authenticated.
+      // These are independent queries — serializing them wasted a
+      // round-trip of latency on every authenticated page view.
       if (user) {
         try {
-          const { getUserRoles, getCoachTeamIds } = await import("./lib/auth/roles");
-          const roles = await getUserRoles(user.id);
+          const [roles, coachTeamIds] = await Promise.all([
+            getUserRoles(user.id),
+            getCoachTeamIds(user.id),
+          ]);
           context.locals.userRoles = roles;
           context.locals.isAdmin = roles.some(
             (role) => role.name === "super_admin" || role.name === "location_admin"
           );
-
-          // Check if user is a coach
-          const coachTeamIds = await getCoachTeamIds(user.id);
           context.locals.isCoach = coachTeamIds.length > 0;
         } catch (error) {
           console.log("Middleware: Error fetching user roles");
