@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface RosterPlayer {
   id: string
@@ -384,14 +385,75 @@ export default function RosterTable({ teamId }: RosterTableProps) {
     return true
   })
 
-  const handleAddNote = (playerId: string) => {
-    // TODO: Open note editor modal
-    console.log("Add note for player:", playerId)
+  const handleAddNote = (_playerId: string) => {
+    toast.info("Player notes editor coming soon", {
+      description: "For now, use the parent dashboard's coach notes feature.",
+    })
   }
 
   const handleExportRoster = () => {
-    // TODO: Export roster to CSV/PDF
-    console.log("Export roster")
+    if (filteredRoster.length === 0) {
+      toast.error("No players to export")
+      return
+    }
+
+    const headers = [
+      "Jersey",
+      "Last Name",
+      "First Name",
+      "Position",
+      "Status",
+      "Age",
+      "Gender",
+      "Parent Name",
+      "Parent Email",
+      "Parent Phone",
+      "Emergency Contact",
+      "Emergency Phone",
+      "Medical Notes",
+      "Roster Notes",
+    ]
+
+    const escape = (value: string | null | undefined): string => {
+      if (value == null) return ""
+      const str = String(value)
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
+
+    const rows = filteredRoster.map((p) => [
+      escape(p.jerseyNumber),
+      escape(p.player.lastName),
+      escape(p.player.firstName),
+      escape(p.position),
+      escape(p.status),
+      escape(String(p.player.age)),
+      escape(p.player.gender),
+      escape(`${p.parent.firstName ?? ""} ${p.parent.lastName ?? ""}`.trim()),
+      escape(p.parent.email),
+      escape(p.parent.phone),
+      escape(p.emergencyContact.name),
+      escape(p.emergencyContact.phone),
+      escape(p.player.medicalNotes),
+      escape(p.notes),
+    ])
+
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const filename = `roster-${team?.name?.replace(/\s+/g, "-").toLowerCase() ?? "team"}-${new Date().toISOString().slice(0, 10)}.csv`
+
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    toast.success(`Exported ${filteredRoster.length} players to ${filename}`)
   }
 
   if (isLoading) {
