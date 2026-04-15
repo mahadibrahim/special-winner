@@ -1,0 +1,92 @@
+---
+import '../../../styles/globals.css';
+import Navigation from '../../../components/navigation';
+import Footer from '../../../components/footer';
+import PracticesOverview from '../../../components/coach/practices-overview';
+
+// Get user from middleware locals
+const user = Astro.locals.user;
+
+// Redirect if not logged in
+if (!user) {
+  return Astro.redirect('/signin?redirect=/coach/practices');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Practice Sessions - Coach Dashboard - Aspire Sports</title>
+    <style>
+      /* Page load animation */
+      @keyframes fadeSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .page-content {
+        animation: fadeSlideIn 0.5s ease-out forwards;
+      }
+
+      /* Background pattern */
+      .practices-bg {
+        background-image:
+          radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.08), transparent),
+          radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.04), transparent);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+    <Navigation client:load />
+
+    <main class="flex-1 pt-24 pb-16 px-4 practices-bg">
+      <div class="max-w-7xl mx-auto page-content">
+        <!-- Breadcrumb -->
+        <nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
+          <a href="/coach" class="hover:text-white transition-colors">Coach Dashboard</a>
+          <span>/</span>
+          <span class="text-white">Practice Sessions</span>
+        </nav>
+
+        <!-- Header -->
+        <header class="mb-8">
+          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+              <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
+                Practice Sessions
+              </h1>
+              <p class="text-gray-500">
+                Plan, manage, and reflect on your team practice sessions.
+              </p>
+            </div>
+
+            <div class="flex gap-2">
+              <a href="/coach/practices/new" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                New Session
+              </a>
+              <a href="/coach" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                Back to Dashboard
+              </a>
+            </div>
+          </div>
+        </header>
+
+        <!-- Main Content -->
+        <PracticesOverview client:load />
+      </div>
+    </main>
+
+    <Footer client:load />
+  </body>
+</html>
