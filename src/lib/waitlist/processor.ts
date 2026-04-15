@@ -137,6 +137,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
       // Send waitlist promotion email
       sendWaitlistPromotionEmail({
         userId: parentUser.id,
+        organizationId: programData.location.organizationId,
         registrationId: waitlisted.registration.id,
         parentEmail: parentUser.email,
         parentName: parentUser.firstName || parentUser.email.split("@")[0],

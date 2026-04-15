@@ -157,6 +157,7 @@ export const POST: APIRoute = async (context) => {
       if (parentUser) {
         sendRefundNotificationEmail({
           userId: parentUser.id,
+          organizationId: orgContext.organizationId,
           registrationId: id,
           parentEmail: parentUser.email,
           parentName: parentUser.firstName || parentUser.email.split("@")[0],
@@ -198,6 +199,7 @@ export const POST: APIRoute = async (context) => {
       if (parentUser) {
         sendRefundNotificationEmail({
           userId: parentUser.id,
+          organizationId: orgContext.organizationId,
           registrationId: id,
           parentEmail: parentUser.email,
           parentName: parentUser.firstName || parentUser.email.split("@")[0],

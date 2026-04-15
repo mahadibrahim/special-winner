@@ -6,6 +6,65 @@ import { WaitlistPromotionEmail } from "./templates/waitlist-promotion";
 import { RefundNotificationEmail } from "./templates/refund-notification";
 import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
+import { sendToParent } from "@/lib/messaging/gateway";
+
+/**
+ * Helper: if organizationId is provided and we can route through the
+ * messaging gateway (multi-channel SMS/email/telegram with opt-in enforcement),
+ * use that. Otherwise fall back to direct email send. This lets legacy
+ * callers keep working while new callers automatically get the Phase 1
+ * multi-channel behavior by passing organizationId.
+ */
+async function sendViaGatewayOrDirect(opts: {
+  userId?: string;
+  organizationId?: string;
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  smsBody?: string;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (opts.userId && opts.organizationId) {
+    const result = await sendToParent({
+      parentUserId: opts.userId,
+      organizationId: opts.organizationId,
+      body: opts.smsBody || opts.text || stripHtmlTags(opts.html),
+      bodyHtml: opts.html,
+      subject: opts.subject,
+      senderType: "system",
+    });
+
+    if (result.ok) {
+      return {
+        success: true,
+        messageId: result.externalMessageId ?? undefined,
+      };
+    }
+
+    // Gateway failed to send via all channels — fall back to direct email
+    // so the parent still gets the transactional notification.
+    console.warn(
+      `Gateway send failed (${result.reason}), falling back to direct email`,
+    );
+  }
+
+  return await sendEmail({
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    text: opts.text,
+  });
+}
+
+function stripHtmlTags(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 // Helper to log emails
 async function logEmail(data: {
@@ -64,6 +123,7 @@ function formatDateTime(date: Date | string): string {
 // Registration confirmation email
 export interface SendRegistrationConfirmationParams {
   userId: string;
+  organizationId?: string;
   registrationId: string;
   parentEmail: string;
   parentName: string;
@@ -110,10 +170,19 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
     ? `Waitlist Confirmation - ${params.childName} for ${params.programName}`
     : `Registration Confirmed - ${params.childName} for ${params.programName}`;
 
-  const result = await sendEmail({
+  // SMS-friendly version for multi-channel delivery
+  const smsBody =
+    params.registrationStatus === "waitlisted"
+      ? `${params.childName} is on the waitlist for ${params.programName}. We'll notify you if a spot opens up.`
+      : `${params.childName}'s registration for ${params.programName} is confirmed. First session: ${formatDate(params.startDate)}. Details: ${appUrl}/dashboard`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
     to: params.parentEmail,
     subject,
     html,
+    smsBody,
   });
 
   await logEmail({
@@ -132,6 +201,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
 // Payment receipt email
 export interface SendPaymentReceiptParams {
   userId: string;
+  organizationId?: string;
   registrationId: string;
   parentEmail: string;
   parentName: string;
@@ -171,10 +241,15 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
 
   const subject = `Payment Receipt - ${params.childName} - ${params.programName}`;
 
-  const result = await sendEmail({
+  const smsBody = `Payment received: ${formatCurrency(params.amountPaidCents)} for ${params.childName}'s ${params.programName}. Receipt #${params.receiptNumber}.`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
     to: params.parentEmail,
     subject,
     html,
+    smsBody,
   });
 
   await logEmail({
@@ -193,6 +268,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
 // Waitlist promotion email
 export interface SendWaitlistPromotionParams {
   userId: string;
+  organizationId?: string;
   registrationId: string;
   parentEmail: string;
   parentName: string;
@@ -228,10 +304,15 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
 
   const subject = `ACTION REQUIRED: Spot Available for ${params.childName} - ${params.programName}`;
 
-  const result = await sendEmail({
+  const smsBody = `A spot just opened for ${params.childName} in ${params.programName}! Confirm within ${params.hoursToComplete}h: ${appUrl}/dashboard`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
     to: params.parentEmail,
     subject,
     html,
+    smsBody,
   });
 
   await logEmail({
@@ -250,6 +331,7 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
 // Refund notification email
 export interface SendRefundNotificationParams {
   userId: string;
+  organizationId?: string;
   registrationId: string;
   parentEmail: string;
   parentName: string;
@@ -286,10 +368,18 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
     ? `Refund Approved - ${formatCurrency(params.refundAmountCents)} for ${params.childName}`
     : `Refund Request Update - ${params.childName}`;
 
-  const result = await sendEmail({
+  const smsBody =
+    params.refundStatus === "approved"
+      ? `Refund of ${formatCurrency(params.refundAmountCents)} for ${params.childName}'s ${params.programName} has been approved. Expect 5-10 business days.`
+      : `Refund request for ${params.childName}'s ${params.programName} was not approved. ${params.denialReason ?? "Check your dashboard for details."}`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
     to: params.parentEmail,
     subject,
     html,
+    smsBody,
   });
 
   await logEmail({

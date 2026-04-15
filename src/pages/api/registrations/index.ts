@@ -245,6 +245,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           if (programData) {
             sendRegistrationConfirmationEmail({
               userId: user.id,
+              organizationId: programData.location.organizationId,
               registrationId: newRegistration.id,
               parentEmail: user.email,
               parentName: user.firstName || user.email.split("@")[0],
@@ -318,6 +319,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       if (programData) {
         sendRegistrationConfirmationEmail({
           userId: user.id,
+          organizationId: programData.location.organizationId,
           registrationId: newRegistration.id,
           parentEmail: user.email,
           parentName: user.firstName || user.email.split("@")[0],

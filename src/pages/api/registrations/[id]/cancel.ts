@@ -228,6 +228,7 @@ async function promoteFromWaitlist(seasonId: string, season: any): Promise<boole
         // Send waitlist promotion email
         sendWaitlistPromotionEmail({
           userId: registeredByUserId,
+          organizationId: programData.location.organizationId,
           registrationId: waitlisted.registration.id,
           parentEmail: "", // We'd need to join with users table to get this
           parentName: "",
