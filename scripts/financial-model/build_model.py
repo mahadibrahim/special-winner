@@ -89,7 +89,7 @@ def main() -> None:
     write_revenue_year1_tab(wb, all_y1_lines)
     write_revenue_cohort_tab(wb, all_cohort_lines)
     write_costs_tab(wb, cost_schedule)
-    write_pnl_annual_tab(wb, pnl_rows)
+    write_pnl_annual_tab(wb, a, pnl_rows, cost_schedule, all_y1_lines, all_cohort_lines, all_travel_lines)
     write_pnl_tab(wb, pnl_rows)
     write_cashflow_tab(wb, cashflow_rows)
     write_partner_returns_tab(wb, partner_report)
