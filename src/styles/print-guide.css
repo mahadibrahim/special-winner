@@ -1,0 +1,1067 @@
+/*
+ * Print-Ready Coaching Guide Styles
+ * Aspire Sports Brand - Editorial aesthetic optimized for PDF generation
+ */
+
+/* Typography imports - Geist for brand consistency, plus print-friendly serifs */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400&display=swap');
+
+/* CSS Variables for print guides */
+:root {
+  /* Typography - Inter matches Geist aesthetic, Source Serif for body readability */
+  --guide-font-display: 'Inter', system-ui, sans-serif;
+  --guide-font-body: 'Source Serif 4', Georgia, serif;
+  --guide-font-mono: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+
+  /* Aspire Sports Brand Colors */
+  --aspire-primary: #cc442c;      /* Primary brand red-orange */
+  --aspire-blue: #2015B4;         /* Logo blue */
+  --aspire-red: #F12524;          /* Logo red / SPORTS text */
+  --aspire-dark: #0a0a0f;         /* Brand dark background */
+
+  /* Sport colors - derived from brand */
+  --soccer-primary: #16a34a;
+  --soccer-light: #dcfce7;
+  --soccer-dark: #14532d;
+
+  --basketball-primary: #ea580c;
+  --basketball-light: #ffedd5;
+  --basketball-dark: #7c2d12;
+
+  --hockey-primary: #2015B4;      /* Using Aspire blue for hockey */
+  --hockey-light: #e0e7ff;
+  --hockey-dark: #1e1b4b;
+
+  --baseball-primary: #F12524;    /* Using Aspire red for baseball */
+  --baseball-light: #fee2e2;
+  --baseball-dark: #7f1d1d;
+
+  /* Neutral tones for print */
+  --ink-black: #1a1a1a;
+  --ink-dark: #2d2d2d;
+  --ink-medium: #525252;
+  --ink-light: #737373;
+  --paper-white: #ffffff;
+  --paper-cream: #fafaf9;
+  --paper-warm: #f5f5f4;
+  --rule-color: #e5e5e5;
+}
+
+/* Base print guide styles */
+.coaching-guide {
+  font-family: var(--guide-font-body);
+  font-size: 11pt;
+  line-height: 1.6;
+  color: var(--ink-black);
+  background: var(--paper-white);
+  max-width: 8.5in;
+  margin: 0 auto;
+  padding: 0.5in;
+}
+
+/* Page sizing for print */
+@page {
+  size: letter;
+  margin: 0.75in 0.75in 1in 0.75in;
+
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--guide-font-mono);
+    font-size: 9pt;
+    color: var(--ink-light);
+  }
+}
+
+@page :first {
+  margin-top: 0;
+  @bottom-center {
+    content: none;
+  }
+}
+
+/* Typography hierarchy - Clean, modern, professional */
+.guide-h1 {
+  font-family: var(--guide-font-display);
+  font-size: 42pt;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.25em 0;
+}
+
+.guide-h2 {
+  font-family: var(--guide-font-display);
+  font-size: 22pt;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5em 0;
+  padding-top: 0.5em;
+  border-top: 3px solid currentColor;
+}
+
+.guide-h3 {
+  font-family: var(--guide-font-display);
+  font-size: 14pt;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 0.4em 0;
+}
+
+.guide-h4 {
+  font-family: var(--guide-font-display);
+  font-size: 10pt;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 0.3em 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.guide-body {
+  font-size: 11pt;
+  line-height: 1.65;
+  margin-bottom: 1em;
+}
+
+.guide-lead {
+  font-size: 14pt;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ink-dark);
+}
+
+.guide-small {
+  font-size: 9pt;
+  line-height: 1.5;
+  color: var(--ink-medium);
+}
+
+.guide-mono {
+  font-family: var(--guide-font-mono);
+  font-size: 10pt;
+}
+
+/* Cover page - Aspire Sports branded */
+.guide-cover {
+  min-height: 9.5in;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+  page-break-after: always;
+  position: relative;
+  padding: 1in 1in 2in 1in;
+}
+
+.guide-cover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: linear-gradient(90deg, var(--aspire-blue) 0%, var(--aspire-primary) 50%, var(--aspire-red) 100%);
+}
+
+.guide-cover-logo {
+  height: 50px;
+  width: auto;
+  padding: 0.75em 1.5em;
+  background: var(--aspire-dark);
+  border-radius: 8px;
+  margin-bottom: 0.6in;
+  margin-top: 0.5in;
+}
+
+.guide-cover-sport-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.5em 1.5em;
+  background: var(--sport-primary, var(--aspire-primary));
+  color: white;
+  font-family: var(--guide-font-display);
+  font-size: 11pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  margin-bottom: 0.5in;
+}
+
+.guide-cover-title {
+  font-family: var(--guide-font-display);
+  font-size: 52pt;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  margin: 0 0 0.15em 0;
+  color: var(--ink-black);
+}
+
+.guide-cover-subtitle {
+  font-family: var(--guide-font-display);
+  font-size: 16pt;
+  font-weight: 500;
+  color: var(--ink-medium);
+  margin: 0 0 1.5em 0;
+  letter-spacing: 0.02em;
+}
+
+.guide-cover-description {
+  max-width: 4.5in;
+  padding: 1.25em 1.5em;
+  border: 2px solid var(--rule-color);
+  border-radius: 6px;
+  background: var(--paper-cream);
+}
+
+.guide-cover-tagline {
+  font-family: var(--guide-font-body);
+  font-size: 12pt;
+  line-height: 1.5;
+  color: var(--ink-dark);
+  margin: 0;
+}
+
+.guide-cover-footer {
+  margin-top: auto;
+  text-align: center;
+}
+
+.guide-cover-brand {
+  font-family: var(--guide-font-display);
+  font-size: 10pt;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-medium);
+}
+
+.guide-cover-edition {
+  font-family: var(--guide-font-display);
+  font-size: 9pt;
+  font-weight: 500;
+  color: var(--ink-light);
+  margin-top: 0.35em;
+}
+
+/* Back cover - Aspire Sports branded */
+.guide-back-cover {
+  min-height: 9.5in;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  page-break-before: always;
+  position: relative;
+  padding: 2in 1.5in;
+}
+
+.guide-back-cover::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: linear-gradient(90deg, var(--aspire-blue) 0%, var(--aspire-primary) 50%, var(--aspire-red) 100%);
+}
+
+.guide-back-cover-logo {
+  height: 60px;
+  width: auto;
+  padding: 1em 2em;
+  background: var(--aspire-dark);
+  border-radius: 8px;
+  margin-bottom: 2em;
+}
+
+.guide-back-cover-tagline {
+  font-family: var(--guide-font-display);
+  font-size: 18pt;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--ink-dark);
+  margin: 0 0 3em 0;
+}
+
+.guide-back-cover-footer {
+  margin-top: auto;
+}
+
+.guide-back-cover-footer p {
+  font-family: var(--guide-font-mono);
+  font-size: 9pt;
+  color: var(--ink-light);
+  margin: 0.25em 0;
+}
+
+/* Section pages - more breathing room */
+.guide-section {
+  page-break-before: always;
+  padding-top: 0.75in;
+  padding-bottom: 0.5in;
+}
+
+.guide-section:first-of-type {
+  page-break-before: auto;
+}
+
+/* Section divider pages - full page title cards */
+.section-divider {
+  min-height: 9in;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  page-break-before: always;
+  page-break-after: always;
+  padding: 2in 1in;
+  position: relative;
+}
+
+.section-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: var(--sport-primary, var(--aspire-primary));
+}
+
+.section-divider-number {
+  font-family: var(--guide-font-mono);
+  font-size: 14pt;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sport-primary, var(--ink-medium));
+  margin-bottom: 1em;
+}
+
+.section-divider-title {
+  font-family: var(--guide-font-display);
+  font-size: 48pt;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--ink-black);
+  margin: 0 0 0.5em 0;
+  max-width: 8in;
+}
+
+.section-divider-subtitle {
+  font-family: var(--guide-font-body);
+  font-size: 14pt;
+  line-height: 1.6;
+  color: var(--ink-medium);
+  max-width: 5in;
+  margin: 0;
+}
+
+.section-divider-icon {
+  font-size: 72pt;
+  opacity: 0.1;
+  position: absolute;
+  right: 1in;
+  bottom: 1.5in;
+}
+
+/* Pull quotes */
+.guide-pullquote {
+  font-family: var(--guide-font-display);
+  font-size: 18pt;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--sport-primary, var(--ink-dark));
+  border-left: 4px solid var(--sport-primary, var(--ink-light));
+  padding: 0.5em 0 0.5em 1em;
+  margin: 1.5em 0;
+}
+
+.guide-pullquote cite {
+  display: block;
+  font-family: var(--guide-font-mono);
+  font-size: 9pt;
+  font-style: normal;
+  color: var(--ink-light);
+  margin-top: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Info boxes */
+.guide-box {
+  background: var(--paper-warm);
+  border: 1px solid var(--rule-color);
+  border-radius: 4px;
+  padding: 1em 1.25em;
+  margin: 1.5em 0;
+}
+
+.guide-box-title {
+  font-family: var(--guide-font-mono);
+  font-size: 9pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sport-primary, var(--ink-dark));
+  margin: 0 0 0.75em 0;
+}
+
+.guide-box-accent {
+  border-left: 4px solid var(--sport-primary, var(--ink-dark));
+  background: var(--sport-light, var(--paper-warm));
+}
+
+/* Tables - generous spacing */
+.guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2em 0;
+  font-size: 10pt;
+  line-height: 1.5;
+}
+
+.guide-table th {
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: left;
+  padding: 1em 0.75em;
+  border-bottom: 2px solid var(--ink-black);
+  color: var(--ink-dark);
+}
+
+.guide-table td {
+  padding: 1em 0.75em;
+  border-bottom: 1px solid var(--rule-color);
+  vertical-align: top;
+  line-height: 1.6;
+}
+
+.guide-table tr:last-child td {
+  border-bottom: none;
+}
+
+.guide-table-striped tbody tr:nth-child(odd) {
+  background: var(--paper-cream);
+}
+
+/* Compact table variant for dense data */
+.guide-table-compact th {
+  padding: 0.6em 0.5em;
+  font-size: 7pt;
+}
+
+.guide-table-compact td {
+  padding: 0.6em 0.5em;
+  font-size: 9pt;
+  line-height: 1.4;
+}
+
+/* Skill progression chart */
+.skill-progression {
+  margin: 1.5em 0;
+  page-break-inside: avoid;
+}
+
+.skill-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75em;
+  margin-bottom: 0.75em;
+  padding-bottom: 0.5em;
+  border-bottom: 2px solid var(--sport-primary, var(--ink-dark));
+}
+
+.skill-name {
+  font-family: var(--guide-font-display);
+  font-size: 16pt;
+  font-weight: 600;
+  margin: 0;
+}
+
+.skill-domain-badge {
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.25em 0.6em;
+  border-radius: 2px;
+  background: var(--sport-light, var(--paper-warm));
+  color: var(--sport-dark, var(--ink-dark));
+}
+
+.skill-description {
+  font-style: italic;
+  color: var(--ink-medium);
+  margin-bottom: 1em;
+}
+
+/* Level progression boxes */
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5em;
+  margin: 1em 0;
+}
+
+.level-box {
+  border: 1px solid var(--rule-color);
+  border-radius: 4px;
+  padding: 0.75em;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+
+.level-box-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-bottom: 0.5em;
+}
+
+.level-number {
+  font-family: var(--guide-font-mono);
+  font-size: 11pt;
+  font-weight: 600;
+  width: 1.5em;
+  height: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--sport-primary, var(--ink-dark));
+  color: white;
+}
+
+.level-name {
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-medium);
+}
+
+.level-description {
+  font-size: 9pt;
+  line-height: 1.45;
+  color: var(--ink-dark);
+}
+
+/* Compact level table for print */
+.level-table {
+  width: 100%;
+  margin: 1em 0;
+  border: 1px solid var(--rule-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.level-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  border-bottom: 1px solid var(--rule-color);
+}
+
+.level-row:last-child {
+  border-bottom: none;
+}
+
+.level-indicator {
+  background: var(--paper-warm);
+  padding: 1em 0.75em;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  border-right: 1px solid var(--rule-color);
+}
+
+.level-content {
+  padding: 1em 1.25em;
+  font-size: 10pt;
+  line-height: 1.6;
+}
+
+/* Lists */
+.guide-list {
+  margin: 0.75em 0;
+  padding-left: 1.25em;
+}
+
+.guide-list li {
+  margin-bottom: 0.3em;
+  line-height: 1.5;
+}
+
+.guide-list-icon {
+  list-style: none;
+  padding-left: 0;
+}
+
+.guide-list-icon li {
+  position: relative;
+  padding-left: 1.5em;
+}
+
+.guide-list-icon li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--sport-primary, var(--ink-light));
+  font-weight: 600;
+}
+
+/* Coaching tips */
+.coaching-tips {
+  background: var(--sport-light, var(--paper-warm));
+  border-radius: 4px;
+  padding: 1em;
+  margin: 1em 0;
+}
+
+.coaching-tip {
+  display: flex;
+  gap: 0.5em;
+  margin-bottom: 0.6em;
+  font-size: 10pt;
+  line-height: 1.5;
+}
+
+.coaching-tip:last-child {
+  margin-bottom: 0;
+}
+
+.coaching-tip-icon {
+  flex-shrink: 0;
+  color: var(--sport-primary, var(--ink-medium));
+}
+
+/* Quick reference cards */
+.quick-ref-card {
+  border: 2px solid var(--sport-primary, var(--ink-dark));
+  border-radius: 6px;
+  padding: 1em;
+  margin: 1em 0;
+  page-break-inside: avoid;
+}
+
+.quick-ref-title {
+  font-family: var(--guide-font-display);
+  font-size: 14pt;
+  font-weight: 600;
+  margin: 0 0 0.5em 0;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--rule-color);
+}
+
+.quick-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1em;
+}
+
+/* Session planning */
+.session-timeline {
+  position: relative;
+  padding-left: 2em;
+  margin: 1.5em 0;
+}
+
+.session-timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.5em;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--rule-color);
+}
+
+.session-segment {
+  position: relative;
+  margin-bottom: 1.25em;
+  padding-bottom: 1em;
+  border-bottom: 1px dashed var(--rule-color);
+}
+
+.session-segment:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.session-segment::before {
+  content: '';
+  position: absolute;
+  left: -1.65em;
+  top: 0.25em;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sport-primary, var(--ink-dark));
+}
+
+.session-time {
+  font-family: var(--guide-font-mono);
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--sport-primary, var(--ink-dark));
+}
+
+.session-title {
+  font-weight: 600;
+  margin: 0.2em 0;
+}
+
+/* Parent communication templates */
+.message-template {
+  background: var(--paper-cream);
+  border: 1px solid var(--rule-color);
+  border-radius: 4px;
+  padding: 1em;
+  margin: 1em 0;
+  font-size: 10pt;
+  page-break-inside: avoid;
+}
+
+.message-template-label {
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-light);
+  margin-bottom: 0.5em;
+}
+
+/* Two column layout */
+.guide-columns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5em;
+}
+
+.guide-columns-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Page breaks */
+.page-break-before {
+  page-break-before: always;
+}
+
+.page-break-after {
+  page-break-after: always;
+}
+
+.avoid-break {
+  page-break-inside: avoid;
+}
+
+/* Print-specific overrides */
+@media print {
+  .coaching-guide {
+    padding: 0;
+    max-width: none;
+  }
+
+  .guide-cover {
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .guide-box,
+  .coaching-tips,
+  .quick-ref-card,
+  .skill-progression,
+  .message-template {
+    break-inside: avoid;
+  }
+
+  .guide-section {
+    break-before: page;
+  }
+}
+
+/* Screen preview styles */
+@media screen {
+  .coaching-guide {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    margin: 2rem auto;
+    border-radius: 4px;
+  }
+
+  body.preview-mode {
+    background: #e5e5e5;
+    padding: 2rem;
+  }
+}
+
+/* Sport-specific color schemes */
+.guide-soccer {
+  --sport-primary: var(--soccer-primary);
+  --sport-light: var(--soccer-light);
+  --sport-dark: var(--soccer-dark);
+}
+
+.guide-basketball {
+  --sport-primary: var(--basketball-primary);
+  --sport-light: var(--basketball-light);
+  --sport-dark: var(--basketball-dark);
+}
+
+.guide-hockey {
+  --sport-primary: var(--hockey-primary);
+  --sport-light: var(--hockey-light);
+  --sport-dark: var(--hockey-dark);
+}
+
+.guide-baseball {
+  --sport-primary: var(--baseball-primary);
+  --sport-light: var(--baseball-light);
+  --sport-dark: var(--baseball-dark);
+}
+
+/* Program structure cards */
+.program-card {
+  border: 2px solid var(--rule-color);
+  border-radius: 8px;
+  padding: 1.5em;
+  margin: 1.5em 0;
+  page-break-inside: avoid;
+}
+
+.program-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-bottom: 1em;
+  padding-bottom: 1em;
+  border-bottom: 1px solid var(--rule-color);
+}
+
+.program-card-icon {
+  font-size: 32pt;
+  line-height: 1;
+}
+
+.program-card-title {
+  font-family: var(--guide-font-display);
+  font-size: 18pt;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink-black);
+}
+
+.program-card-subtitle {
+  font-family: var(--guide-font-mono);
+  font-size: 9pt;
+  color: var(--ink-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 0.25em;
+}
+
+.program-card-body {
+  font-size: 11pt;
+  line-height: 1.7;
+}
+
+/* Week/session timeline */
+.program-timeline {
+  margin: 1.5em 0;
+}
+
+.program-week {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 1em;
+  padding: 1em 0;
+  border-bottom: 1px solid var(--rule-color);
+}
+
+.program-week:last-child {
+  border-bottom: none;
+}
+
+.program-week-number {
+  font-family: var(--guide-font-mono);
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--sport-primary, var(--ink-medium));
+  padding-top: 0.25em;
+}
+
+.program-week-content {
+  font-size: 10pt;
+  line-height: 1.6;
+}
+
+.program-week-title {
+  font-family: var(--guide-font-display);
+  font-weight: 600;
+  font-size: 11pt;
+  margin-bottom: 0.5em;
+}
+
+/* Age group badges */
+.age-badge {
+  display: inline-block;
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.35em 0.75em;
+  border-radius: 4px;
+  margin-right: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.age-badge-discovery {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.age-badge-development {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.age-badge-refinement {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Sample schedule grid */
+.schedule-grid {
+  display: grid;
+  grid-template-columns: 100px repeat(5, 1fr);
+  gap: 1px;
+  background: var(--rule-color);
+  border: 1px solid var(--rule-color);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 1.5em 0;
+  font-size: 9pt;
+}
+
+.schedule-header {
+  background: var(--ink-black);
+  color: white;
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75em 0.5em;
+  text-align: center;
+}
+
+.schedule-time {
+  background: var(--paper-warm);
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  padding: 0.75em 0.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.schedule-cell {
+  background: white;
+  padding: 0.6em 0.5em;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.schedule-cell-highlight {
+  background: var(--sport-light, var(--paper-cream));
+  font-weight: 500;
+}
+
+/* Key metrics boxes */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1em;
+  margin: 1.5em 0;
+}
+
+.metric-box {
+  text-align: center;
+  padding: 1.25em 1em;
+  border: 1px solid var(--rule-color);
+  border-radius: 6px;
+  background: var(--paper-cream);
+}
+
+.metric-value {
+  font-family: var(--guide-font-display);
+  font-size: 28pt;
+  font-weight: 700;
+  color: var(--sport-primary, var(--ink-dark));
+  line-height: 1;
+  margin-bottom: 0.25em;
+}
+
+.metric-label {
+  font-family: var(--guide-font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-medium);
+}
+
+/* Checklist style */
+.program-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 1em 0;
+}
+
+.program-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75em;
+  padding: 0.75em 0;
+  border-bottom: 1px solid var(--rule-color);
+  font-size: 10pt;
+  line-height: 1.5;
+}
+
+.program-checklist li:last-child {
+  border-bottom: none;
+}
+
+.program-checklist li::before {
+  content: '☐';
+  font-size: 14pt;
+  line-height: 1;
+  color: var(--sport-primary, var(--ink-medium));
+  flex-shrink: 0;
+}

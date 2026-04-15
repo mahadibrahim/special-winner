@@ -1,0 +1,1221 @@
+---
+/**
+ * Soccer Coaching Guide
+ * Print-ready comprehensive coaching reference
+ */
+import '../../styles/print-guide.css';
+import { db } from '../../lib/db';
+import { skills, skillDomains, developmentStages } from '../../lib/db/schema/curriculum';
+import { sports } from '../../lib/db/schema/sports';
+import { eq, and } from 'drizzle-orm';
+import { coachingPhilosophy, sportSpecificNotes, programStructures } from '../../data/coaching-philosophy';
+
+// Fetch soccer skills from database
+const [soccer] = await db.select().from(sports).where(eq(sports.slug, 'soccer'));
+
+const soccerSkills = soccer ? await db.query.skills.findMany({
+  where: and(
+    eq(skills.sportId, soccer.id),
+    eq(skills.active, true)
+  ),
+  with: {
+    domain: true,
+    stage: true,
+  },
+  orderBy: (skills, { asc }) => [asc(skills.sortOrder)],
+}) : [];
+
+// Group skills by domain
+const skillsByDomain = soccerSkills.reduce((acc, skill) => {
+  const domain = skill.domain?.name || 'other';
+  if (!acc[domain]) acc[domain] = [];
+  acc[domain].push(skill);
+  return acc;
+}, {} as Record<string, typeof soccerSkills>);
+
+const domainOrder = ['technical', 'tactical', 'physical', 'psychological'];
+const domainDisplayNames: Record<string, string> = {
+  technical: 'Technical Skills',
+  tactical: 'Tactical Understanding',
+  physical: 'Physical Development',
+  psychological: 'Psychological Growth',
+};
+
+const sport = sportSpecificNotes.soccer;
+const philosophy = coachingPhilosophy;
+const currentYear = new Date().getFullYear();
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Soccer Coaching Guide | Aspire Sports</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body class="preview-mode">
+    <article class="coaching-guide guide-soccer">
+
+      <!-- COVER PAGE -->
+      <section class="guide-cover">
+        <!-- Aspire Sports Logo -->
+        <img
+          src="/images/logo.svg"
+          alt="Aspire Sports"
+          class="guide-cover-logo"
+        />
+
+        <!-- Sport Badge -->
+        <div class="guide-cover-sport-badge">
+          {sport.icon} Soccer
+        </div>
+
+        <!-- Title -->
+        <h1 class="guide-cover-title">
+          Coaching<br />Guide
+        </h1>
+        <p class="guide-cover-subtitle">
+          Complete Development Reference
+        </p>
+
+        <!-- Tagline Box -->
+        <div class="guide-cover-description">
+          <p class="guide-cover-tagline">
+            A research-based approach to youth soccer development
+            emphasizing skill, character, and love of the game.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="guide-cover-footer">
+          <p class="guide-cover-brand">
+            Development-Focused Youth Athletics
+          </p>
+          <p class="guide-cover-edition">
+            {currentYear} Edition
+          </p>
+        </div>
+      </section>
+
+      <!-- TABLE OF CONTENTS -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          Contents
+        </h2>
+        <nav style="font-size: 11pt; line-height: 2.4;">
+          <ol style="list-style: none; padding: 0; margin: 0;">
+            <!-- Part 1: Philosophy -->
+            <li style="margin-top: 1em;">
+              <span class="guide-mono" style="font-size: 9pt; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.1em;">Part One: Coaching Philosophy</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>1. Core Beliefs</span>
+              <span class="guide-mono" style="color: var(--ink-light);">4</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>2. The Double-Goal Coach</span>
+              <span class="guide-mono" style="color: var(--ink-light);">6</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>3. The ELM Framework</span>
+              <span class="guide-mono" style="color: var(--ink-light);">8</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>4. Age-Appropriate Development</span>
+              <span class="guide-mono" style="color: var(--ink-light);">10</span>
+            </li>
+
+            <!-- Part 2: Skills -->
+            <li style="margin-top: 1.5em;">
+              <span class="guide-mono" style="font-size: 9pt; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.1em;">Part Two: Skills Reference</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>5. Technical Skills</span>
+              <span class="guide-mono" style="color: var(--ink-light);">14</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>6. Tactical Skills</span>
+              <span class="guide-mono" style="color: var(--ink-light);">20</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>7. Physical Development</span>
+              <span class="guide-mono" style="color: var(--ink-light);">26</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>8. Psychological Growth</span>
+              <span class="guide-mono" style="color: var(--ink-light);">32</span>
+            </li>
+
+            <!-- Part 3: Programs -->
+            <li style="margin-top: 1.5em;">
+              <span class="guide-mono" style="font-size: 9pt; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.1em;">Part Three: Program Structures</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>9. Recreational League Season</span>
+              <span class="guide-mono" style="color: var(--ink-light);">38</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>10. Skills Development Classes</span>
+              <span class="guide-mono" style="color: var(--ink-light);">44</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>11. Childcare Programs</span>
+              <span class="guide-mono" style="color: var(--ink-light);">50</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>12. Summer Camps</span>
+              <span class="guide-mono" style="color: var(--ink-light);">56</span>
+            </li>
+
+            <!-- Part 4: Resources -->
+            <li style="margin-top: 1.5em;">
+              <span class="guide-mono" style="font-size: 9pt; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.1em;">Part Four: Resources</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>13. Session Planning</span>
+              <span class="guide-mono" style="color: var(--ink-light);">62</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>14. Parent Communication</span>
+              <span class="guide-mono" style="color: var(--ink-light);">66</span>
+            </li>
+            <li style="display: flex; justify-content: space-between; border-bottom: 1px dotted #e5e5e5; padding: 0.35em 0; padding-left: 1em;">
+              <span>15. Quick Reference Cards</span>
+              <span class="guide-mono" style="color: var(--ink-light);">70</span>
+            </li>
+          </ol>
+        </nav>
+
+        <div class="guide-box guide-box-accent" style="margin-top: 2em;">
+          <p class="guide-box-title">Soccer-Specific Philosophy</p>
+          <p class="guide-body" style="margin: 0; font-style: italic;">
+            "{sport.keyPhilosophy}"
+          </p>
+          <ul class="guide-list" style="margin-top: 1em;">
+            {sport.uniqueConsiderations.map(consideration => (
+              <li>{consideration}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <!-- PART ONE: COACHING PHILOSOPHY - SECTION DIVIDER -->
+      <section class="section-divider">
+        <p class="section-divider-number">Part One</p>
+        <h1 class="section-divider-title">Coaching<br/>Philosophy</h1>
+        <p class="section-divider-subtitle">
+          The principles, frameworks, and age-appropriate strategies that guide
+          development-focused youth coaching.
+        </p>
+        <div class="section-divider-icon">{sport.icon}</div>
+      </section>
+
+      <!-- SECTION 1: CORE BELIEFS -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          1. Core Beliefs
+        </h2>
+
+        <p class="guide-lead">
+          Great youth coaches understand that their role extends far beyond teaching
+          skills. They shape young athletes' relationship with sport—and often with
+          challenge, effort, and perseverance itself.
+        </p>
+
+        {philosophy.coreBeliefs.map(belief => (
+          <div class="avoid-break" style="margin-bottom: 1.5em;">
+            <h3 class="guide-h3">{belief.title}</h3>
+            <p class="guide-body">{belief.description}</p>
+            <div class="guide-pullquote" style={`border-color: ${sport.primaryColor}; color: ${sport.primaryColor}`}>
+              {belief.quote}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <!-- SECTION 2: DOUBLE-GOAL COACH -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          2. {philosophy.doubleGoalCoach.title}
+        </h2>
+        <p class="guide-h4" style="color: var(--ink-medium); margin-bottom: 1em;">
+          {philosophy.doubleGoalCoach.subtitle}
+        </p>
+
+        <p class="guide-body" style="white-space: pre-line;">
+          {philosophy.doubleGoalCoach.description}
+        </p>
+
+        <div class="guide-columns" style="margin-top: 1.5em;">
+          {philosophy.doubleGoalCoach.principles.map(principle => (
+            <div class="guide-box avoid-break">
+              <h4 class="guide-h4" style={`color: ${sport.primaryColor}`}>{principle.name}</h4>
+              <p class="guide-body" style="margin: 0;">{principle.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- SECTION 3: ELM FRAMEWORK -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          3. {philosophy.elmFramework.title}
+        </h2>
+        <p class="guide-h4" style="color: var(--ink-medium); margin-bottom: 1em;">
+          {philosophy.elmFramework.subtitle}
+        </p>
+
+        <p class="guide-body">{philosophy.elmFramework.description}</p>
+
+        {philosophy.elmFramework.components.map(component => (
+          <div class="guide-box guide-box-accent avoid-break" style="margin-bottom: 1em;">
+            <div style="display: flex; align-items: flex-start; gap: 1em;">
+              <div style={`
+                font-family: var(--guide-font-display);
+                font-size: 32pt;
+                font-weight: 700;
+                line-height: 1;
+                color: ${sport.primaryColor};
+              `}>
+                {component.letter}
+              </div>
+              <div style="flex: 1;">
+                <h4 class="guide-h4" style="margin-top: 0.25em;">{component.name}</h4>
+                <p class="guide-body">{component.description}</p>
+                <p class="guide-small" style="font-weight: 600; margin-bottom: 0.25em;">Example phrases:</p>
+                <ul class="guide-list" style="margin: 0;">
+                  {component.examples.map(example => (
+                    <li style="font-style: italic; font-size: 10pt;">{example}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <div class="guide-box" style="text-align: center; margin-top: 1.5em;">
+          <p class="guide-h3" style={`color: ${sport.primaryColor}; margin-bottom: 0.25em;`}>
+            The Magic Ratio: {philosophy.elmFramework.magicRatio.ratio}
+          </p>
+          <p class="guide-body" style="margin: 0;">
+            {philosophy.elmFramework.magicRatio.description}
+          </p>
+        </div>
+      </section>
+
+      <!-- SECTION 4: AGE-APPROPRIATE DEVELOPMENT -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          4. {philosophy.ageGuidelines.title}
+        </h2>
+
+        {philosophy.ageGuidelines.stages.map(stage => (
+          <div class="avoid-break" style="margin-bottom: 2em;">
+            <div style="display: flex; align-items: baseline; gap: 0.75em; margin-bottom: 0.5em;">
+              <h3 class="guide-h3" style="margin: 0;">{stage.name}</h3>
+              <span class="skill-domain-badge" style={`background: ${sport.primaryColor}20; color: ${sport.primaryColor};`}>
+                {stage.ages}
+              </span>
+            </div>
+            <p class="guide-body" style="font-style: italic; color: var(--ink-medium);">
+              Focus: {stage.focus}
+            </p>
+
+            <div class="guide-columns">
+              <div>
+                <p class="guide-h4" style="color: var(--soccer-primary);">Do This</p>
+                <ul class="guide-list">
+                  {stage.principles.map(p => <li>{p}</li>)}
+                </ul>
+              </div>
+              <div>
+                <p class="guide-h4" style="color: var(--ink-light);">Avoid This</p>
+                <ul class="guide-list">
+                  {stage.avoid.map(a => <li>{a}</li>)}
+                </ul>
+              </div>
+            </div>
+
+            <p class="guide-small" style="margin-top: 0.75em;">
+              <strong>Coach's Role:</strong> {stage.coachRole}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      <!-- PART TWO: SKILLS REFERENCE - SECTION DIVIDER -->
+      <section class="section-divider">
+        <p class="section-divider-number">Part Two</p>
+        <h1 class="section-divider-title">Skills<br/>Reference</h1>
+        <p class="section-divider-subtitle">
+          Detailed progression charts for each soccer skill, organized by domain.
+          Use these to assess players, track development, and plan targeted coaching.
+        </p>
+        <div class="section-divider-icon">{sport.icon}</div>
+      </section>
+
+      <!-- SECTION 5: SKILLS REFERENCE -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          5. Skills Overview
+        </h2>
+
+        <p class="guide-lead" style="margin-bottom: 1.5em;">
+          Soccer development spans four interconnected domains. Each skill in this guide
+          includes a 5-level progression from Emerging to Advanced.
+        </p>
+
+        <!-- Skills Overview Table -->
+        <h3 class="guide-h3">Skills Overview by Domain</h3>
+        <table class="guide-table guide-table-striped" style="margin-bottom: 2em;">
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Skills</th>
+              <th>Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {domainOrder.map(domain => (
+              skillsByDomain[domain] && (
+                <tr>
+                  <td style="font-weight: 600;">{domainDisplayNames[domain]}</td>
+                  <td>{skillsByDomain[domain].map(s => s.name).join(', ')}</td>
+                  <td class="guide-mono">{skillsByDomain[domain].length}</td>
+                </tr>
+              )
+            ))}
+          </tbody>
+        </table>
+
+        <!-- Individual Skill Cards -->
+        {domainOrder.map(domain => (
+          skillsByDomain[domain] && (
+            <div class="page-break-before">
+              <h3 class="guide-h3" style={`
+                color: ${sport.primaryColor};
+                padding-bottom: 0.5em;
+                border-bottom: 2px solid ${sport.primaryColor};
+                margin-bottom: 1.5em;
+              `}>
+                {domainDisplayNames[domain]}
+              </h3>
+
+              {skillsByDomain[domain].map(skill => (
+                <div class="skill-progression avoid-break" style="margin-bottom: 2em;">
+                  <div class="skill-header">
+                    <h4 class="skill-name">{skill.name}</h4>
+                    <span class="skill-domain-badge">{skill.stage?.name || 'Fundamentals'}</span>
+                  </div>
+
+                  {skill.description && (
+                    <p class="skill-description">{skill.description}</p>
+                  )}
+
+                  <!-- Level Progression Table -->
+                  {skill.comprehensiveGuide?.levelDetails && (
+                    <div class="level-table">
+                      {[1, 2, 3, 4, 5].map(level => {
+                        const levelData = skill.comprehensiveGuide?.levelDetails?.[level];
+                        const levelName = levelData?.name ||
+                          ['', 'Emerging', 'Developing', 'Competent', 'Proficient', 'Advanced'][level];
+                        const description = levelData?.description ||
+                          skill.progressionLevels?.[level as 1|2|3|4|5] || '';
+
+                        return (
+                          <div class="level-row">
+                            <div class="level-indicator">
+                              <span class="level-number" style={`background: ${sport.primaryColor}`}>{level}</span>
+                              <span class="level-name">{levelName}</span>
+                            </div>
+                            <div class="level-content">
+                              {description}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <!-- Coaching Tips -->
+                  {skill.coachingTips && skill.coachingTips.length > 0 && (
+                    <div class="coaching-tips" style={`background: ${sport.primaryColor}10;`}>
+                      <p class="guide-h4" style="margin-bottom: 0.5em;">Coaching Cues</p>
+                      {skill.coachingTips.slice(0, 4).map(tip => (
+                        <div class="coaching-tip">
+                          <span class="coaching-tip-icon" style={`color: ${sport.primaryColor};`}>→</span>
+                          <span>{tip}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <!-- Common Mistakes -->
+                  {skill.commonMistakes && skill.commonMistakes.length > 0 && (
+                    <div style="margin-top: 0.75em;">
+                      <p class="guide-h4" style="margin-bottom: 0.25em; color: var(--ink-medium);">
+                        Common Learning Moments
+                      </p>
+                      <ul class="guide-list" style="margin: 0; font-size: 10pt;">
+                        {skill.commonMistakes.slice(0, 3).map(mistake => (
+                          <li>{mistake}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        ))}
+      </section>
+
+      <!-- PART THREE: PROGRAM STRUCTURES - SECTION DIVIDER -->
+      <section class="section-divider">
+        <p class="section-divider-number">Part Three</p>
+        <h1 class="section-divider-title">Program<br/>Structures</h1>
+        <p class="section-divider-subtitle">
+          Templates and schedules for leagues, development classes, childcare programs,
+          and summer camps—organized by age group.
+        </p>
+        <div class="section-divider-icon">{sport.icon}</div>
+      </section>
+
+      <!-- SECTION 9: RECREATIONAL LEAGUE -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          9. {programStructures.league.title}
+        </h2>
+        <p class="guide-h4" style="color: var(--ink-medium); margin-bottom: 1.5em;">
+          {programStructures.league.subtitle}
+        </p>
+
+        <p class="guide-body" style="margin-bottom: 2em;">
+          {programStructures.league.description}
+        </p>
+
+        <!-- Discovery Age Group -->
+        <div class="program-card">
+          <div class="program-card-header">
+            <span class="age-badge age-badge-discovery">Ages 4-6</span>
+            <div>
+              <h3 class="program-card-title">{programStructures.league.byAge.discovery.name}</h3>
+            </div>
+          </div>
+          <div class="program-card-body">
+            <div class="metrics-grid" style="margin-bottom: 1.5em;">
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.discovery.format.duration.split('-')[0]}</div>
+                <div class="metric-label">Weeks</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.discovery.format.practiceDuration}</div>
+                <div class="metric-label">Practice</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.discovery.format.playersOnField.split(' ')[0]}</div>
+                <div class="metric-label">Format</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.discovery.format.fieldSize.split(' ')[0]}</div>
+                <div class="metric-label">Field</div>
+              </div>
+            </div>
+
+            <h4 class="guide-h4" style="margin-top: 1.5em;">Key Principles</h4>
+            <ul class="guide-list">
+              {programStructures.league.byAge.discovery.keyPrinciples.map(p => <li>{p}</li>)}
+            </ul>
+
+            <h4 class="guide-h4" style="margin-top: 1.5em;">Season Flow</h4>
+            <div class="program-timeline">
+              {programStructures.league.byAge.discovery.seasonFlow.map(item => (
+                <div class="program-week">
+                  <div class="program-week-number">Weeks {item.week}</div>
+                  <div class="program-week-content">{item.focus}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <!-- Fundamentals Age Group -->
+        <div class="program-card" style="margin-top: 2em;">
+          <div class="program-card-header">
+            <span class="age-badge age-badge-development">Ages 7-9</span>
+            <div>
+              <h3 class="program-card-title">{programStructures.league.byAge.fundamentals.name}</h3>
+            </div>
+          </div>
+          <div class="program-card-body">
+            <div class="metrics-grid" style="margin-bottom: 1.5em;">
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.fundamentals.format.duration.split('-')[0]}</div>
+                <div class="metric-label">Weeks</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.fundamentals.format.practiceDuration}</div>
+                <div class="metric-label">Practice</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.fundamentals.format.playersOnField.split(' ')[0]}</div>
+                <div class="metric-label">Format</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.fundamentals.format.fieldSize.split(' ')[0]}</div>
+                <div class="metric-label">Field</div>
+              </div>
+            </div>
+
+            <h4 class="guide-h4" style="margin-top: 1.5em;">Key Principles</h4>
+            <ul class="guide-list">
+              {programStructures.league.byAge.fundamentals.keyPrinciples.map(p => <li>{p}</li>)}
+            </ul>
+
+            <h4 class="guide-h4" style="margin-top: 1.5em;">Season Flow</h4>
+            <div class="program-timeline">
+              {programStructures.league.byAge.fundamentals.seasonFlow.map(item => (
+                <div class="program-week">
+                  <div class="program-week-number">Weeks {item.week}</div>
+                  <div class="program-week-content">{item.focus}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <!-- Development Age Group -->
+        <div class="program-card" style="margin-top: 2em;">
+          <div class="program-card-header">
+            <span class="age-badge age-badge-refinement">Ages 10-12</span>
+            <div>
+              <h3 class="program-card-title">{programStructures.league.byAge.development.name}</h3>
+            </div>
+          </div>
+          <div class="program-card-body">
+            <div class="metrics-grid" style="margin-bottom: 1.5em;">
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.development.format.duration.split('-')[0]}</div>
+                <div class="metric-label">Weeks</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.development.format.practiceDuration}</div>
+                <div class="metric-label">Practice</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.development.format.playersOnField.split(' ')[0]}</div>
+                <div class="metric-label">Format</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-value">{programStructures.league.byAge.development.format.fieldSize.split(' ')[0]}</div>
+                <div class="metric-label">Field</div>
+              </div>
+            </div>
+
+            <h4 class="guide-h4" style="margin-top: 1.5em;">Key Principles</h4>
+            <ul class="guide-list">
+              {programStructures.league.byAge.development.keyPrinciples.map(p => <li>{p}</li>)}
+            </ul>
+
+            <h4 class="guide-h4" style="margin-top: 1.5em;">Season Flow</h4>
+            <div class="program-timeline">
+              {programStructures.league.byAge.development.seasonFlow.map(item => (
+                <div class="program-week">
+                  <div class="program-week-number">Weeks {item.week}</div>
+                  <div class="program-week-content">{item.focus}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <!-- Coach Checklist -->
+        <div class="guide-box" style="margin-top: 2em;">
+          <h4 class="guide-h4" style={`color: ${sport.primaryColor}`}>Season Preparation Checklist</h4>
+          <ul class="program-checklist">
+            {programStructures.league.coachChecklist.map(item => <li>{item}</li>)}
+          </ul>
+        </div>
+      </section>
+
+      <!-- SECTION 10: SKILLS DEVELOPMENT CLASSES -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          10. {programStructures.developmentClass.title}
+        </h2>
+        <p class="guide-h4" style="color: var(--ink-medium); margin-bottom: 1.5em;">
+          {programStructures.developmentClass.subtitle}
+        </p>
+
+        <p class="guide-body" style="margin-bottom: 2em;">
+          {programStructures.developmentClass.description}
+        </p>
+
+        <!-- Sample Session by Age -->
+        {Object.entries(programStructures.developmentClass.byAge).map(([key, group]) => (
+          <div class="program-card" style="margin-bottom: 2em;">
+            <div class="program-card-header">
+              <span class={`age-badge ${key === 'discovery' ? 'age-badge-discovery' : key === 'fundamentals' ? 'age-badge-development' : 'age-badge-refinement'}`}>
+                {group.ages}
+              </span>
+              <div>
+                <h3 class="program-card-title">{group.name}</h3>
+              </div>
+            </div>
+            <div class="program-card-body">
+              <div class="guide-columns" style="margin-bottom: 1.5em;">
+                <div>
+                  <h4 class="guide-h4">Format</h4>
+                  <ul class="guide-list" style="font-size: 10pt;">
+                    <li><strong>Duration:</strong> {group.format.duration}</li>
+                    <li><strong>Sessions:</strong> {group.format.sessionsPerWeek}/week</li>
+                    <li><strong>Length:</strong> {group.format.sessionDuration}</li>
+                    <li><strong>Class Size:</strong> {group.format.classSize}</li>
+                    <li><strong>Coach Ratio:</strong> {group.format.coachRatio}</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 class="guide-h4">Skill Focus</h4>
+                  <ul class="guide-list" style="font-size: 10pt;">
+                    {group.skillFocus.map(skill => <li>{skill}</li>)}
+                  </ul>
+                </div>
+              </div>
+
+              <h4 class="guide-h4">Sample Session Structure</h4>
+              <table class="guide-table guide-table-compact">
+                <thead>
+                  <tr>
+                    <th style="width: 25%;">Segment</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td><strong>Warmup</strong></td><td>{group.sampleSession.warmup}</td></tr>
+                  <tr><td><strong>Activity 1</strong></td><td>{group.sampleSession.activity1}</td></tr>
+                  <tr><td><strong>Activity 2</strong></td><td>{group.sampleSession.activity2}</td></tr>
+                  <tr><td><strong>Game Play</strong></td><td>{group.sampleSession.gamePlay}</td></tr>
+                  <tr><td><strong>Cooldown</strong></td><td>{group.sampleSession.cooldown}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+
+        <!-- Curriculum Themes -->
+        <h3 class="guide-h3" style="margin-top: 2em;">Suggested Curriculum Themes</h3>
+        <table class="guide-table">
+          <thead>
+            <tr>
+              <th>Theme</th>
+              <th>Duration</th>
+              <th>Focus</th>
+            </tr>
+          </thead>
+          <tbody>
+            {programStructures.developmentClass.curriculumThemes.map(theme => (
+              <tr>
+                <td><strong>{theme.name}</strong></td>
+                <td>{theme.weeks} weeks</td>
+                <td>{theme.focus}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <!-- SECTION 11: CHILDCARE PROGRAMS -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          11. {programStructures.childcareProgram.title}
+        </h2>
+        <p class="guide-h4" style="color: var(--ink-medium); margin-bottom: 1.5em;">
+          {programStructures.childcareProgram.subtitle}
+        </p>
+
+        <p class="guide-body" style="margin-bottom: 1.5em;">
+          {programStructures.childcareProgram.description}
+        </p>
+
+        <div class="guide-columns" style="margin-bottom: 2em;">
+          <div class="guide-box">
+            <h4 class="guide-h4" style={`color: ${sport.primaryColor}`}>Program Format</h4>
+            <ul class="guide-list" style="font-size: 10pt;">
+              <li><strong>Duration:</strong> {programStructures.childcareProgram.format.duration}</li>
+              <li><strong>Sessions:</strong> {programStructures.childcareProgram.format.sessionsPerWeek}/week</li>
+              <li><strong>Session Length:</strong> {programStructures.childcareProgram.format.sessionDuration}</li>
+              <li><strong>Group Size:</strong> {programStructures.childcareProgram.format.groupSize}</li>
+              <li><strong>Space Needed:</strong> {programStructures.childcareProgram.format.spaceNeeded}</li>
+            </ul>
+          </div>
+          <div class="guide-box">
+            <h4 class="guide-h4" style={`color: ${sport.primaryColor}`}>Key Adaptations</h4>
+            <ul class="guide-list" style="font-size: 10pt;">
+              {programStructures.childcareProgram.adaptations.map(a => <li>{a}</li>)}
+            </ul>
+          </div>
+        </div>
+
+        <h3 class="guide-h3">8-Week Curriculum Plan</h3>
+        <div class="program-timeline" style="margin-bottom: 2em;">
+          {programStructures.childcareProgram.eightWeekPlan.map(week => (
+            <div class="program-week">
+              <div class="program-week-number">Week {week.week}</div>
+              <div class="program-week-content">
+                <div class="program-week-title">{week.theme}</div>
+                <p style="margin: 0.25em 0; font-size: 9pt; color: var(--ink-medium);">{week.focus}</p>
+                <p style="margin: 0; font-size: 9pt;"><strong>Activities:</strong> {week.activities.join(', ')}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div class="guide-box guide-box-accent">
+          <h4 class="guide-h4">Mixed-Age Group Strategies</h4>
+          <ul class="guide-list">
+            {programStructures.childcareProgram.mixedAgeStrategies.map(s => <li>{s}</li>)}
+          </ul>
+        </div>
+      </section>
+
+      <!-- SECTION 12: SUMMER CAMPS -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          12. {programStructures.summerCamp.title}
+        </h2>
+        <p class="guide-h4" style="color: var(--ink-medium); margin-bottom: 1.5em;">
+          {programStructures.summerCamp.subtitle}
+        </p>
+
+        <p class="guide-body" style="margin-bottom: 2em;">
+          {programStructures.summerCamp.description}
+        </p>
+
+        <!-- Half-Day Schedule -->
+        <div class="program-card" style="margin-bottom: 2em;">
+          <div class="program-card-header">
+            <span class="program-card-icon">🌅</span>
+            <div>
+              <h3 class="program-card-title">{programStructures.summerCamp.formats.halfDay.name}</h3>
+              <p class="program-card-subtitle">{programStructures.summerCamp.formats.halfDay.duration}</p>
+            </div>
+          </div>
+          <div class="program-card-body">
+            <table class="guide-table guide-table-compact">
+              <thead>
+                <tr>
+                  <th style="width: 25%;">Time</th>
+                  <th>Activity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {programStructures.summerCamp.formats.halfDay.schedule.map(item => (
+                  <tr>
+                    <td><strong>{item.time}</strong></td>
+                    <td>{item.activity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Full-Day Schedule -->
+        <div class="program-card" style="margin-bottom: 2em;">
+          <div class="program-card-header">
+            <span class="program-card-icon">☀️</span>
+            <div>
+              <h3 class="program-card-title">{programStructures.summerCamp.formats.fullDay.name}</h3>
+              <p class="program-card-subtitle">{programStructures.summerCamp.formats.fullDay.duration}</p>
+            </div>
+          </div>
+          <div class="program-card-body">
+            <table class="guide-table guide-table-compact">
+              <thead>
+                <tr>
+                  <th style="width: 25%;">Time</th>
+                  <th>Activity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {programStructures.summerCamp.formats.fullDay.schedule.map(item => (
+                  <tr>
+                    <td><strong>{item.time}</strong></td>
+                    <td>{item.activity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Weekly Themes -->
+        <h3 class="guide-h3">Weekly Themes & Character Focus</h3>
+        <table class="guide-table" style="margin-bottom: 2em;">
+          <thead>
+            <tr>
+              <th>Week</th>
+              <th>Theme</th>
+              <th>Technical Focus</th>
+              <th>Character Trait</th>
+              <th>Friday Event</th>
+            </tr>
+          </thead>
+          <tbody>
+            {programStructures.summerCamp.weeklyThemes.map(week => (
+              <tr>
+                <td><strong>{week.week}</strong></td>
+                <td>{week.theme}</td>
+                <td>{week.technical}</td>
+                <td>{week.characterTrait}</td>
+                <td>{week.fridayEvent}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <!-- Age Group Recommendations -->
+        <h3 class="guide-h3">Age Group Recommendations</h3>
+        <div class="guide-columns" style="margin-bottom: 2em;">
+          {Object.entries(programStructures.summerCamp.ageGroupScheduling).map(([key, group]) => (
+            <div class="guide-box">
+              <span class={`age-badge ${key === 'littleKickers' ? 'age-badge-discovery' : key === 'juniors' ? 'age-badge-development' : 'age-badge-refinement'}`}>
+                Ages {group.ages}
+              </span>
+              <ul class="guide-list" style="font-size: 10pt; margin-top: 0.75em;">
+                <li><strong>Format:</strong> {group.recommendedFormat}</li>
+                <li><strong>Group Size:</strong> {group.groupSize}</li>
+                <li><em>{group.notes}</em></li>
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <!-- Essential Equipment -->
+        <h3 class="guide-h3">Essential Equipment Checklist</h3>
+        <table class="guide-table guide-table-compact">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Quantity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {programStructures.summerCamp.essentialEquipment.map(item => (
+              <tr>
+                <td>{item.item}</td>
+                <td>{item.quantity}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <!-- Camp Culture -->
+        <div class="guide-box guide-box-accent" style="margin-top: 2em;">
+          <h4 class="guide-h4">Building Camp Culture</h4>
+          <ul class="guide-list">
+            {programStructures.summerCamp.campCulture.map(c => <li>{c}</li>)}
+          </ul>
+        </div>
+      </section>
+
+      <!-- PART FOUR: RESOURCES - SECTION DIVIDER -->
+      <section class="section-divider">
+        <p class="section-divider-number">Part Four</p>
+        <h1 class="section-divider-title">Coach<br/>Resources</h1>
+        <p class="section-divider-subtitle">
+          Practical tools for session planning, parent communication,
+          and quick reference during practices and games.
+        </p>
+        <div class="section-divider-icon">{sport.icon}</div>
+      </section>
+
+      <!-- SECTION 13: SESSION PLANNING -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          13. Session Planning
+        </h2>
+
+        <p class="guide-lead">{philosophy.sessionStructure.title}</p>
+
+        <div class="guide-box guide-box-accent" style="margin: 1.5em 0;">
+          <p class="guide-box-title">Key Principles</p>
+          <ul class="guide-list" style="margin: 0;">
+            {philosophy.sessionStructure.principles.map(p => <li>{p}</li>)}
+          </ul>
+        </div>
+
+        <h3 class="guide-h3">Recommended Session Structure</h3>
+
+        <div class="session-timeline">
+          <div class="session-segment">
+            <span class="session-time">{philosophy.sessionStructure.template.warmup.duration}</span>
+            <h4 class="session-title">Warm-Up</h4>
+            <p class="guide-small">{philosophy.sessionStructure.template.warmup.purpose}</p>
+            <ul class="guide-list" style="font-size: 10pt;">
+              {philosophy.sessionStructure.template.warmup.tips.map(tip => <li>{tip}</li>)}
+            </ul>
+          </div>
+
+          <div class="session-segment">
+            <span class="session-time">{philosophy.sessionStructure.template.technical.duration}</span>
+            <h4 class="session-title">Technical Development</h4>
+            <p class="guide-small">{philosophy.sessionStructure.template.technical.purpose}</p>
+            <ul class="guide-list" style="font-size: 10pt;">
+              {philosophy.sessionStructure.template.technical.tips.map(tip => <li>{tip}</li>)}
+            </ul>
+          </div>
+
+          <div class="session-segment">
+            <span class="session-time">{philosophy.sessionStructure.template.gamePlay.duration}</span>
+            <h4 class="session-title">Game Play</h4>
+            <p class="guide-small">{philosophy.sessionStructure.template.gamePlay.purpose}</p>
+            <ul class="guide-list" style="font-size: 10pt;">
+              {philosophy.sessionStructure.template.gamePlay.tips.map(tip => <li>{tip}</li>)}
+            </ul>
+          </div>
+
+          <div class="session-segment">
+            <span class="session-time">{philosophy.sessionStructure.template.cooldown.duration}</span>
+            <h4 class="session-title">Cool-Down</h4>
+            <p class="guide-small">{philosophy.sessionStructure.template.cooldown.purpose}</p>
+            <ul class="guide-list" style="font-size: 10pt;">
+              {philosophy.sessionStructure.template.cooldown.tips.map(tip => <li>{tip}</li>)}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 7: PARENT COMMUNICATION -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          7. Parent Communication
+        </h2>
+
+        <p class="guide-lead">{philosophy.parentCommunication.title}</p>
+
+        <div class="guide-box" style="margin: 1.5em 0;">
+          <p class="guide-box-title">Communication Principles</p>
+          <ul class="guide-list" style="margin: 0;">
+            {philosophy.parentCommunication.principles.map(p => <li>{p}</li>)}
+          </ul>
+        </div>
+
+        <h3 class="guide-h3">Ready-to-Use Templates</h3>
+
+        <div class="message-template">
+          <p class="message-template-label">Season Welcome Message</p>
+          <p style="white-space: pre-line; margin: 0; font-size: 10pt;">
+            {philosophy.parentCommunication.templates.seasonStart.replace('[SPORT]', 'soccer')}
+          </p>
+        </div>
+
+        <div class="message-template">
+          <p class="message-template-label">Weekly Update Template</p>
+          <p style="white-space: pre-line; margin: 0; font-size: 10pt;">
+            {philosophy.parentCommunication.templates.weeklyUpdate}
+          </p>
+        </div>
+
+        <div class="message-template">
+          <p class="message-template-label">Positive Progress Note</p>
+          <p style="white-space: pre-line; margin: 0; font-size: 10pt;">
+            {philosophy.parentCommunication.templates.positiveProgress}
+          </p>
+        </div>
+      </section>
+
+      <!-- SECTION 8: QUICK REFERENCE CARDS -->
+      <section class="guide-section">
+        <h2 class="guide-h2" style={`color: ${sport.primaryColor}; border-color: ${sport.primaryColor}`}>
+          8. Quick Reference Cards
+        </h2>
+
+        <p class="guide-lead" style="margin-bottom: 1.5em;">
+          Cut out these cards and keep them in your coaching bag for quick reference during practices and games.
+        </p>
+
+        <!-- ELM Quick Card -->
+        <div class="quick-ref-card">
+          <h4 class="quick-ref-title">ELM Feedback Phrases</h4>
+          <div class="quick-ref-grid">
+            <div>
+              <p class="guide-h4" style={`color: ${sport.primaryColor};`}>Effort</p>
+              <ul class="guide-list" style="font-size: 9pt; margin: 0;">
+                <li>"I love that hustle!"</li>
+                <li>"You're working so hard out there."</li>
+                <li>"That effort is exactly what we need."</li>
+              </ul>
+            </div>
+            <div>
+              <p class="guide-h4" style={`color: ${sport.primaryColor};`}>Learning</p>
+              <ul class="guide-list" style="font-size: 9pt; margin: 0;">
+                <li>"What did you notice there?"</li>
+                <li>"Now you know! What's next?"</li>
+                <li>"Every touch is practice."</li>
+              </ul>
+            </div>
+            <div>
+              <p class="guide-h4" style={`color: ${sport.primaryColor};`}>Mistakes</p>
+              <ul class="guide-list" style="font-size: 9pt; margin: 0;">
+                <li>"Mistakes mean you're trying."</li>
+                <li>"That's how everyone learns!"</li>
+                <li>"Shake it off, next play!"</li>
+              </ul>
+            </div>
+            <div>
+              <p class="guide-h4" style={`color: ${sport.primaryColor};`}>5:1 Ratio Reminder</p>
+              <p style="font-size: 9pt; margin: 0;">
+                For every correction, give 5 pieces of encouragement. Fill the tank before you coach!
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Age Guidelines Quick Card -->
+        <div class="quick-ref-card">
+          <h4 class="quick-ref-title">Age-Appropriate Quick Guide</h4>
+          <table class="guide-table" style="font-size: 9pt; margin: 0;">
+            <thead>
+              <tr>
+                <th>Age</th>
+                <th>Focus</th>
+                <th>Session Length</th>
+                <th>Key Principle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>4-6</td>
+                <td>Fun & Movement</td>
+                <td>30-45 min</td>
+                <td>Play is learning</td>
+              </tr>
+              <tr>
+                <td>7-9</td>
+                <td>Basic Skills</td>
+                <td>45-60 min</td>
+                <td>Praise effort</td>
+              </tr>
+              <tr>
+                <td>10-12</td>
+                <td>Skill Refinement</td>
+                <td>60-75 min</td>
+                <td>Questions over commands</td>
+              </tr>
+              <tr>
+                <td>13+</td>
+                <td>Advanced Development</td>
+                <td>75-90 min</td>
+                <td>Self-assessment</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Skills Checklist Quick Card -->
+        <div class="quick-ref-card">
+          <h4 class="quick-ref-title">Soccer Skills Checklist</h4>
+          <div class="quick-ref-grid">
+            {domainOrder.map(domain => (
+              skillsByDomain[domain] && (
+                <div>
+                  <p class="guide-h4" style={`color: ${sport.primaryColor};`}>
+                    {domainDisplayNames[domain].replace(' Skills', '').replace(' Understanding', '').replace(' Development', '').replace(' Growth', '')}
+                  </p>
+                  <ul style="list-style: none; padding: 0; margin: 0; font-size: 8pt;">
+                    {skillsByDomain[domain].slice(0, 6).map(skill => (
+                      <li style="display: flex; align-items: center; gap: 0.4em; margin-bottom: 0.2em;">
+                        <span style="display: inline-block; width: 10px; height: 10px; border: 1px solid #999; border-radius: 2px;"></span>
+                        {skill.name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+
+        <!-- Support Red Flags Quick Card -->
+        <div class="quick-ref-card">
+          <h4 class="quick-ref-title">When to Seek Support</h4>
+          <div class="quick-ref-grid">
+            {philosophy.redFlagsAndSupport.signs.map(sign => (
+              <div>
+                <p class="guide-h4" style="color: var(--ink-medium);">{sign.category}</p>
+                <ul class="guide-list" style="font-size: 8pt; margin: 0;">
+                  {sign.indicators.map(i => <li>{i}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p class="guide-small" style="margin-top: 1em; font-style: italic;">
+            {philosophy.redFlagsAndSupport.generalPrinciple}
+          </p>
+        </div>
+      </section>
+
+      <!-- BACK COVER -->
+      <section class="guide-back-cover">
+        <img
+          src="/images/logo.svg"
+          alt="Aspire Sports"
+          class="guide-back-cover-logo"
+        />
+        <p class="guide-back-cover-tagline">
+          Building character, confidence, and community<br />through youth athletics.
+        </p>
+        <div class="guide-back-cover-footer">
+          <p>&copy; {currentYear} Aspire Sports. All rights reserved.</p>
+          <p>For coach training and support: coach@aspiresports.org</p>
+        </div>
+      </section>
+
+    </article>
+
+    <!-- Print button for screen view -->
+    <div class="no-print" style="
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      display: flex;
+      gap: 0.5rem;
+    ">
+      <button
+        onclick="window.print()"
+        style={`
+          background: ${sport.primaryColor};
+          color: white;
+          border: none;
+          padding: 1rem 2rem;
+          font-size: 14px;
+          font-weight: 600;
+          border-radius: 8px;
+          cursor: pointer;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        `}
+      >
+        Print / Save as PDF
+      </button>
+      <a
+        href="/coach"
+        style={`
+          background: white;
+          color: ${sport.primaryColor};
+          border: 2px solid ${sport.primaryColor};
+          padding: 1rem 1.5rem;
+          font-size: 14px;
+          font-weight: 600;
+          border-radius: 8px;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+        `}
+      >
+        Back to Coach Portal
+      </a>
+    </div>
+  </body>
+</html>
