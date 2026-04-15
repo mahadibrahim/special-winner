@@ -28,7 +28,7 @@ from writers.partner_returns_tab import write_partner_returns_tab
 from writers.sensitivity_tab import write_sensitivity_tab
 from writers.scenarios_tab import write_scenarios_tab
 from writers.tam_tab import write_tam_tab
-# from writers.expansion_summary_tab import write_expansion_summary_tab  # Added in T10
+from writers.expansion_summary_tab import write_expansion_summary_tab
 
 
 def _location_launch_years(a: Assumptions) -> List[Tuple[int, int]]:
@@ -94,7 +94,7 @@ def main() -> None:
     write_sensitivity_tab(wb, tornado)
     write_scenarios_tab(wb, scenarios)
     write_tam_tab(wb, tam)
-    # write_expansion_summary_tab(wb, a, all_y1_lines, all_cohort_lines, all_travel_lines, pnl_rows)  # Added in T10
+    write_expansion_summary_tab(wb, a, all_y1_lines, all_cohort_lines, all_travel_lines, pnl_rows)
 
     out_path = here / "output" / "aspire-financial-model.xlsx"
     save_workbook(wb, out_path)
