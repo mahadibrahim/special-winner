@@ -37,6 +37,10 @@ const DEFAULT_EXPIRATIONS: Record<MagicLinkPurpose, number> = {
   // Low-sensitivity read-only
   view_development_report: 24 * 60 * 60, // 24 hours
   view_season_summary: 72 * 60 * 60, // 72 hours
+
+  // Telegram binding — 1 hour is plenty of time to tap the link and
+  // start the bot, but short enough that stale links don't linger.
+  telegram_bind: 60 * 60,
 };
 
 export interface CreateMagicLinkInput {

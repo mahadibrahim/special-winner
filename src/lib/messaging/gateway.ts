@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/schema/conversations";
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendTelegramToParent } from "@/lib/telegram/send";
 
 /**
  * Outbound messaging gateway.
@@ -294,11 +295,24 @@ async function attemptSend(
   }
 
   if (channel === "telegram") {
-    // Telegram is a Phase 1 fast-follow — not implemented in the initial ship.
+    // We already verified the parent has a telegramChatId via canSend(),
+    // so this call can proceed. The parentUserId lookup inside sendTelegramToParent
+    // re-validates and returns a structured outcome.
+    const result = await sendTelegramToParent(
+      input.parentUserId,
+      input.body,
+    );
+    if (!result.ok) {
+      return {
+        ok: false,
+        externalMessageId: null,
+        reason: result.reason,
+        error: result.error,
+      };
+    }
     return {
-      ok: false,
-      externalMessageId: null,
-      reason: "telegram_not_implemented",
+      ok: true,
+      externalMessageId: result.messageId ?? null,
     };
   }
 
