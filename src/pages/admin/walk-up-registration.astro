@@ -1,0 +1,38 @@
+---
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { WalkUpRegistrationForm } from '../../components/admin/walk-up-registration-form';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/walk-up-registration');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Walk-Up Registration — Admin — Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/walk-up-registration"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <div class="space-y-6 max-w-3xl">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Walk-Up Registration</h1>
+          <p class="text-gray-600 mt-1">
+            Create a registration for a parent who came in to sign up in person. Sends an
+            opt-in welcome text after saving — the parent replies YES to activate messaging.
+          </p>
+        </div>
+
+        <WalkUpRegistrationForm client:load />
+      </div>
+    </AdminLayout>
+  </body>
+</html>

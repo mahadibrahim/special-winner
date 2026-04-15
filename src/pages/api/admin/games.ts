@@ -4,6 +4,10 @@ import { games, teams, venues, seasons, programs, locations } from "@/lib/db/sch
 import { eq, asc, desc, and, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  notifyScheduleChange,
+  notifyEventCancellation,
+} from "@/lib/messaging/notifications";
 
 const gameSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -270,9 +274,14 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Game ID is required" }), { status: 400 });
     }
 
-    // Verify game belongs to this organization
+    // Verify game belongs to this organization AND load the previous state
+    // so we can detect schedule / status changes for notifications.
     const [gameCheck] = await getDb()
-      .select({ id: games.id })
+      .select({
+        id: games.id,
+        previousScheduledAt: games.scheduledAt,
+        previousStatus: games.status,
+      })
       .from(games)
       .innerJoin(seasons, eq(games.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
@@ -357,11 +366,12 @@ export const PUT: APIRoute = async (context) => {
       }
     }
 
+    const newScheduledAt = new Date(result.data.scheduledAt);
     const [updatedGame] = await getDb()
       .update(games)
       .set({
         ...result.data,
-        scheduledAt: new Date(result.data.scheduledAt),
+        scheduledAt: newScheduledAt,
         updatedAt: new Date(),
       })
       .where(eq(games.id, id))
@@ -369,6 +379,30 @@ export const PUT: APIRoute = async (context) => {
 
     if (!updatedGame) {
       return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
+    }
+
+    // Fire notifications if the schedule moved or the game was cancelled /
+    // postponed. These run async — admin response is not blocked on delivery.
+    const scheduleChanged =
+      gameCheck.previousScheduledAt.getTime() !== newScheduledAt.getTime();
+    const becameCancelled =
+      gameCheck.previousStatus !== "cancelled" &&
+      result.data.status === "cancelled";
+    const becamePostponed =
+      gameCheck.previousStatus !== "postponed" &&
+      result.data.status === "postponed";
+
+    if (becameCancelled || becamePostponed) {
+      notifyEventCancellation(
+        id,
+        becamePostponed ? "postponed" : "cancelled",
+      ).catch((err) => {
+        console.error("Game cancellation notification error:", err);
+      });
+    } else if (scheduleChanged) {
+      notifyScheduleChange(id, gameCheck.previousScheduledAt).catch((err) => {
+        console.error("Schedule change notification error:", err);
+      });
     }
 
     return new Response(JSON.stringify({ game: updatedGame }), {
@@ -415,6 +449,12 @@ export const DELETE: APIRoute = async (context) => {
     if (!gameCheck) {
       return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
     }
+
+    // Fire the cancellation notification BEFORE the delete so the
+    // notification module can still load the game context.
+    notifyEventCancellation(id, "deleted").catch((err) => {
+      console.error("Delete notification error:", err);
+    });
 
     await getDb().delete(games).where(eq(games.id, id));
 

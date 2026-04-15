@@ -1,0 +1,38 @@
+---
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { ReRegistrationCampaign as CampaignForm } from '../../components/admin/re-registration-campaign';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/re-registration-campaign');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Re-Registration Campaign — Admin — Aspire Sports</title>
+  </head>
+  <body>
+    <AdminLayout
+      client:load
+      currentPath="/admin/re-registration-campaign"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <div class="space-y-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Re-Registration Campaign</h1>
+          <p class="text-gray-600 mt-1">
+            Invite returning families back for a new season. One magic link per family,
+            pre-fills their registration form, 30-second flow on the parent's side.
+          </p>
+        </div>
+
+        <CampaignForm client:load />
+      </div>
+    </AdminLayout>
+  </body>
+</html>
