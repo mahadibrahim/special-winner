@@ -187,17 +187,17 @@ def test_load_assumptions_from_base_case_yaml():
     """The committed base-case YAML must load and match values from the spec."""
     yaml_path = Path(__file__).parent.parent / "assumptions.yaml"
     a = load_assumptions(yaml_path)
-    assert a.pricing.soccer_price.base == 175
-    assert a.pricing.flag_price.base == 175
+    assert a.pricing.soccer_price.base == 215
+    assert a.pricing.flag_price.base == 215
     assert a.pricing.soccer_weeks_per_season == 8
     assert a.pricing.flag_weeks_per_season == 7
     assert a.pricing.winter_skills_price_per_session.base == 25
-    assert a.costs.head_coach_hourly.base == 22
+    assert a.costs.head_coach_hourly.base == 32
     assert a.costs.indoor_turf_full_hourly.base == 175
     assert a.costs.gym_hourly.base == 70
-    assert a.retention.soccer_s1_to_s2.base == 0.70
-    assert a.retention.soccer_s2_to_s3.base == 0.85
-    assert a.retention.soccer_s3_plus.base == 0.90
-    assert a.acquisition.blended_cac_y1.base == 18
+    assert a.retention.soccer_s1_to_s2.base == 0.80
+    assert a.retention.soccer_s2_to_s3.base == 0.92
+    assert a.retention.soccer_s3_plus.base == 0.94
+    assert a.acquisition.blended_cac_y1.base == 40
     assert a.capital.equity_split == {"founder_a": 0.50, "founder_b": 0.50}
     assert a.horizon_months == 60

@@ -9,9 +9,9 @@ from engine.revenue_year1 import (
 
 
 def test_compute_season_revenue_soccer_fall_2026():
-    """Base case: 9 soccer teams (4 U8 + 3 U10 + 2 U12), 12 kids/team, 75% fill.
-    kids = 9 * 12 * 0.75 = 81. Gross = 81 * $175 = $14,175.
-    After 10% sibling discount on 20% of kids (heuristic test), net < gross.
+    """Base case: 9 soccer teams (4 U8 + 3 U10 + 2 U12), 12 kids/team, 65% fill (premium).
+    kids = int(9 * 12 * 0.65) = 70. Gross = 70 * $215 = $15,050.
+    After sibling discount + processing, net < gross but > 92% of gross.
     """
     a = load_assumptions(Path("assumptions.yaml"))
     line = compute_season_revenue(
@@ -21,8 +21,8 @@ def test_compute_season_revenue_soccer_fall_2026():
         season_year=2026,
     )
     assert isinstance(line, Year1RevenueLine)
-    assert line.kids_registered == 81      # 9 teams × 12 × 0.75
-    assert line.gross_revenue == 81 * 175
+    assert line.kids_registered == 70      # int(9 × 12 × 0.65)
+    assert line.gross_revenue == 70 * 215
     # Net revenue = gross - sibling discount (5% blended assumed = 2.5%) - processing (2.9% + flat×tx)
     # We assert the direction and bounds, not an exact float.
     assert line.net_revenue < line.gross_revenue
@@ -38,9 +38,9 @@ def test_compute_season_revenue_cash_lands_in_registration_month():
 def test_compute_season_revenue_flag_fall_2026():
     a = load_assumptions(Path("assumptions.yaml"))
     line = compute_season_revenue(a, sport="flag", season="fall", season_year=2026)
-    # 8 flag teams (3+3+2) × 10 kids × 0.75 = 60
-    assert line.kids_registered == 60
-    assert line.gross_revenue == 60 * 175
+    # 8 flag teams (3+3+2) × 10 kids × 0.65 = 52
+    assert line.kids_registered == 52
+    assert line.gross_revenue == 52 * 215
 
 
 def test_build_year1_revenue_has_all_three_seasons():

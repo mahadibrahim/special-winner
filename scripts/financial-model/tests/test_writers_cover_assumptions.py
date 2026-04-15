@@ -25,6 +25,6 @@ def test_assumptions_tab_writes_pricing_values(tmp_path):
         for v in row:
             if isinstance(v, (int, float)):
                 values.append(v)
-    assert 175 in values       # soccer_price.base
+    assert 215 in values       # soccer_price.base (premium positioning)
     assert 25 in values        # winter skills price
-    assert 22 in values        # head coach hourly
+    assert 32 in values        # head coach hourly (premium)

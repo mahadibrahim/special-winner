@@ -6,13 +6,13 @@ start_month: "2026-07"       # Fall 2026 registration opens
 horizon_months: 60            # 5 years monthly
 
 pricing:
-  # Soccer rec league — anchored to i9 Columbus $169 floor, outdoor discount
-  soccer_price: { low: 150, base: 175, high: 200 }
+  # Soccer — premium/developmental positioning, ~20-25% above i9 rec baseline
+  soccer_price: { low: 195, base: 215, high: 240 }
   soccer_weeks_per_season: 8
   soccer_seasons_per_year: 2
   soccer_roster_size: 12
-  # Flag football rec league — matches NFL Flag Columbus $175 late fee
-  flag_price: { low: 150, base: 175, high: 200 }
+  # Flag football — same premium positioning vs. NFL Flag rec
+  flag_price: { low: 195, base: 215, high: 240 }
   flag_weeks_per_season: 7
   flag_seasons_per_year: 2
   flag_roster_size: 10
@@ -27,8 +27,9 @@ pricing:
   payment_processing_flat: 0.30
 
 demand:
-  soccer_fill_rate: { low: 0.60, base: 0.75, high: 0.90 }
-  flag_fill_rate: { low: 0.60, base: 0.75, high: 0.90 }
+  # Premium brand fills slower in Y1 — trust takes time. Compensated by higher retention/referral downstream.
+  soccer_fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
+  flag_fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
   winter_skills_fill_rate: { low: 0.60, base: 0.80, high: 0.95 }
   # Year 1 Fall 2026 target teams — conservative ramp
   target_teams_soccer_y1_fall:
@@ -42,16 +43,20 @@ demand:
   season_growth_rate: { low: 0.10, base: 0.25, high: 0.50 }
 
 retention:
-  # Rising curve: first renewal is the hardest; returning families are stickier
-  soccer_s1_to_s2: { low: 0.55, base: 0.70, high: 0.82 }
-  soccer_s2_to_s3: { low: 0.75, base: 0.85, high: 0.92 }
-  soccer_s3_plus: { low: 0.82, base: 0.90, high: 0.95 }
-  flag_s1_to_s2: { low: 0.55, base: 0.70, high: 0.82 }
-  flag_s2_to_s3: { low: 0.75, base: 0.85, high: 0.92 }
-  flag_s3_plus: { low: 0.82, base: 0.90, high: 0.95 }
+  # Premium/developmental positioning: families self-select for commitment, kids progress,
+  # retention materially higher than rec league comps. This is the model's core leverage.
+  soccer_s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
+  soccer_s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
+  soccer_s3_plus: { low: 0.88, base: 0.94, high: 0.97 }
+  flag_s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
+  flag_s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
+  flag_s3_plus: { low: 0.88, base: 0.94, high: 0.97 }
   winter_skills_retention: { low: 0.50, base: 0.65, high: 0.80 }
   cross_sell_rate: { low: 0.15, base: 0.25, high: 0.40 }
-  referral_multiplier: { low: 1.05, base: 1.20, high: 1.40 }
+  # Word-of-mouth is the acquisition engine for premium programs. Moderated to
+  # reflect realistic per-season compounding within a single territory; expansion
+  # into new locations/sports/tiers is modeled separately (see Plan 2 roadmap).
+  referral_multiplier: { low: 1.10, base: 1.20, high: 1.35 }
 
 acquisition:
   channels_y1:
@@ -81,19 +86,22 @@ acquisition:
     community_event: 20
     paid_digital: 50
     referrals: 5
-  blended_cac_y1: { low: 12, base: 18, high: 30 }
-  blended_cac_y2: { low: 8, base: 12, high: 20 }
-  blended_cac_y3_plus: { low: 5, base: 8, high: 14 }
+  # Premium Y1 CAC is higher — evangelizing a new brand, not volume-buying. Drops hard as referrals kick in.
+  blended_cac_y1: { low: 30, base: 40, high: 55 }
+  blended_cac_y2: { low: 12, base: 18, high: 28 }
+  blended_cac_y3_plus: { low: 6, base: 10, high: 16 }
 
 costs:
-  head_coach_hourly: { low: 18, base: 22, high: 28 }
-  assistant_coach_hourly: { low: 13, base: 16, high: 20 }
+  # Premium coaching rates — experienced club coaches, not entry-level rec refs.
+  head_coach_hourly: { low: 28, base: 32, high: 40 }
+  assistant_coach_hourly: { low: 18, base: 22, high: 28 }
   outdoor_field_hourly: { low: 25, base: 35, high: 60 }   # LOW CONFIDENCE — needs outreach
   indoor_turf_full_hourly: { low: 135, base: 175, high: 220 }
   indoor_turf_half_hourly: { low: 75, base: 95, high: 125 }
   gym_hourly: { low: 60, base: 70, high: 95 }
   software_monthly: 350
-  insurance_monthly: 400
+  # Corrected per i9 FDD: $3.11/player/yr participant + ~$600/yr general liability for small op
+  insurance_monthly: 100
   bookkeeping_monthly: 250
   founder_time_annual_per_founder: 0
   num_founders: 2

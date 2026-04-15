@@ -27,8 +27,8 @@ def test_variable_coach_cost_uses_head_coach_hourly():
     lines = build_year1_revenue(a)
     soccer_fall = next(l for l in lines if l.sport == "soccer" and l.season == "fall")
     vc = compute_variable_costs_for_line(a, soccer_fall)
-    # teams = 9, 1 game/wk × 2 hrs × 8 weeks = 144 coach hours × $22 = $3,168
-    assert vc["coach_cost"] == 9 * 1 * 2 * 8 * 22
+    # teams = 9, 1 game/wk × 2 hrs × 8 weeks = 144 coach hours × $32 (premium) = $4,608
+    assert vc["coach_cost"] == 9 * 1 * 2 * 8 * 32
 
 
 def test_monthly_fixed_costs_include_all_line_items():
