@@ -2,6 +2,62 @@
 
 Hey. Here's where things stand.
 
+## Update: Phase 1 core is now also code-complete
+
+You came back mid-session and asked me to keep going, so I did. **Phase 1 is now code-complete end-to-end** for everything that doesn't require external service credentials.
+
+### What Phase 1 shipped
+
+**Week 1-2 Foundations** — schema migration (7 new tables + `users` column additions + `messages.ts` → `announcements.ts` rename), Twilio and Anthropic SDK dependencies installed, magic-link module, phone OTP module, SMS client, env var templates, forgot-password migrated to magic-link under the hood.
+
+**Week 3-4 Inbound + bot** — Anthropic-backed LLM classifier (with prompt caching + rule-based fallback), bot action registry with 5 actions (lookup_schedule, switch_primary_channel, rsvp_absent, rsvp_present, faq_response), Twilio inbound webhook with signature verification and STOP/HELP/START keyword compliance, Resend inbound webhook with In-Reply-To threading, outbound messaging gateway with channel resolution + opt-in enforcement, full inbound pipeline (classifier → action dispatch → outbound response) with pending confirmation flow.
+
+**Week 3-4 Staff inbox** — six new API endpoints (list conversations, load thread, reply, assign, archive, reverse bot action), the three-pane `StaffInbox` React component (filterable list, threaded messages with bot attribution, parent context panel, reply composer with ⌘↵), `/messages` page gated by admin/coach roles, and a "Messages" link added to the admin sidebar nav.
+
+**Week 7-8 Outbound migration** — the four existing transactional email helpers (registration confirmation, payment receipt, refund notification, waitlist promotion) now accept an optional `organizationId` parameter and internally delegate to the outbound messaging gateway when provided, with a graceful fallback to direct email if all channels fail. Every existing call site (`api/registrations/index.ts`, `api/admin/refunds/[id].ts`, `api/registrations/[id]/cancel.ts`, `lib/waitlist/processor.ts`) now passes organizationId, so transactional emails are automatically multi-channel for parents who prefer SMS.
+
+**Week 7-8 Registration paths** — all three paths have working code:
+- **Path 1 (self-service)** — reusable `PhoneVerificationForm` component, settings page at `/dashboard/settings/verify-phone`, banner on parent dashboard that prompts for phone verification when `phoneVerified === false`, API endpoint that persists the verified phone and upserts `phone_opt_ins`
+- **Path 2 (returning family magic-link)** — `POST /api/admin/re-registration-campaign` finds every parent with a past registration in the same program, creates scoped magic links (72h expiry), and sends via the gateway. Supports `dryRun` flag for safe previews.
+- **Path 3 (admin walk-up)** — `POST /api/admin/walk-up-registration` creates or finds the parent, creates the kid and registration, inserts a pending `phone_opt_ins`, and sends the opt-in welcome SMS. The existing SMS webhook already handles the YES reply to flip the opt-in to active.
+
+### Auth reservation defaults
+
+Since you went to bed and I couldn't wait on the four open reservations, I documented defaults in `docs/superpowers/decisions/2026-04-15-phase-1-auth-reservations.md`. Override any of them by editing that file before implementation of dependent pieces:
+- **Spouse / shared devices:** each parent is an independent `users` record linked via the new `family_member_parents` join table. Phase 1 code actually uses the existing `family_members.parent_user_id` direct FK (no migration needed to ship), with the join table schema-ready when you want to backfill spouses.
+- **Lost phone recovery:** email recovery first, admin-mediated second. Third factor deferred.
+- **Legal framing:** assumed defensible (same pattern as Stripe/Slack/Notion). Flagged for your pre-pilot legal check.
+- **No-smartphone edge:** email-only onboarding explicitly supported; the outbound gateway handles it naturally.
+
+### What's blocked on you
+
+Phase 1 cannot actually *run* without three things only you can do:
+
+1. **Resolve the four reservations above** (or confirm the defaults). Read `docs/superpowers/decisions/2026-04-15-phase-1-auth-reservations.md`.
+2. **Apply the schema migration.** `src/lib/db/migrations/0001_loose_korvac.sql` is generated and committed. Run `npm run db:push` (or apply the migration manually) to land all 7 new tables and the users column additions against your Railway DB.
+3. **Populate environment variables.** The updated `.env.example` lists every new var Phase 1 uses: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (or `TWILIO_MESSAGING_SERVICE_SID`), `ANTHROPIC_API_KEY`, optionally `RESEND_INBOUND_WEBHOOK_SECRET` and `MAGIC_LINK_BASE_URL`. Without Anthropic the classifier falls back to rule-based (works but dumb). Without Twilio SMS sending fails and the gateway falls back to email. Without the 10DLC registration, you can still test locally with a trial Twilio number before pilot launch.
+4. **Initiate 10DLC brand registration** at https://console.twilio.com/us1/develop/sms/regulatory-compliance — this is a 1-3 week process and must start before any real SMS campaign.
+
+### Phase 1 total code stats
+
+- 40+ new files created
+- 0 new TypeScript errors introduced (total `astro check` count stays at 133 pre-existing)
+- 15+ logical commits on top of the Phase 0 baseline
+- Every piece is type-clean against the Drizzle schema and the existing auth/db/email infrastructure
+
+### What's genuinely still NOT done
+
+- **Smoke test of Phase 0** (A4) — still blocks Phase 1 go-live but doesn't block code review
+- **Phase 1 UI for Path 2 and Path 3 triggers** — the API endpoints are functional but the admin UI to call them is just a button away (or a curl call). Add to the admin registrations or admin announcements page when you're ready.
+- **Registration wizard inline phone OTP step** — I surfaced phone verification via the settings page + dashboard banner instead of modifying the 900-line registration wizard. The reusable `PhoneVerificationForm` component is ready to drop into the wizard as a new step in a 1-hour follow-up.
+- **Telegram channel** — design-ready in the schema and gateway but not implemented. Fast-follow task.
+- **Coach inbox filtering** — the staff inbox shows all conversations to anyone with admin or coach role. A proper coach-only view (only conversations about their teams' kids) needs the `findCoachForParent` helper in `inbound-pipeline.ts` to do a real user-to-team lookup. Stubbed for now.
+- **Phase 2 and Phase 3** — still un-brainstormed. Need you in the room.
+
+---
+
+## Original morning note below (Phase 0 work from overnight)
+
 ## TL;DR
 
 **Phase 0 is code-complete** except the smoke test, which needs real credentials I don't have. **Phase 1 has a full design spec and a detailed implementation plan** ready for your review. Phase 2 and Phase 3 remain un-brainstormed because they need your input. Nothing is deployed; everything is on `main`.
