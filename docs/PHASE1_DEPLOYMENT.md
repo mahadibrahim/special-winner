@@ -5,6 +5,18 @@
 
 This checklist exists because Phase 1 involves a handful of external services that must be set up in a specific order. If you follow it top to bottom, nothing should block on anything above it.
 
+## Existing devops you already have
+
+- **`.github/workflows/ci.yml`** — runs on every push to `main` and every PR. Builds the project, applies the Drizzle schema migration (`npm run db:push`) against the CI test database, seeds E2E test data, and runs the Playwright suite. Uploads the Playwright report as an artifact. **Phase 1 env vars are now wired into CI — they're optional and lazy-guarded, so you don't need to populate them until you're ready.**
+- **`.github/workflows/deploy.yml`** — triggered manually from the Actions tab OR automatically on any tag matching `v*`. Builds and deploys to Netlify. Tagging a release (e.g. `git tag v1.0.0 && git push origin v1.0.0`) is the production deploy path.
+- **`netlify.toml`** — branch deploys and deploy previews are explicitly disabled to save credits. Only the production build runs.
+- **Playwright E2E tests in `tests/`** — run in CI against a real DB. They validate the end-to-end parent/admin/coach flows from the pre-Phase-0 baseline. Adding Phase 1 tests (bot classification, inbound webhooks, gateway dispatch) is a useful follow-up but not a blocker.
+
+**To add Phase 1 secrets to the deploy environment:**
+1. Go to `github.com/mahadibrahim/special-winner/settings/secrets/actions`
+2. Add: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (or `TWILIO_MESSAGING_SERVICE_SID`), `ANTHROPIC_API_KEY`, `CRON_SECRET`, and optionally `RESEND_INBOUND_WEBHOOK_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`, `MAGIC_LINK_BASE_URL`
+3. The next push to main will see them; the next `v*` tag will deploy them to production
+
 ---
 
 ## 0. Pre-flight
