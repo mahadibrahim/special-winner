@@ -119,12 +119,12 @@ else if (hour >= 17) greeting = "Good evening";
           <div class="lg:col-span-8 space-y-8">
             <!-- Upcoming Events - Most Important -->
             <section class="dashboard-section">
-              <UpcomingEvents client:load />
+              <UpcomingEvents client:visible />
             </section>
 
             <!-- Children Overview -->
             <section class="dashboard-section">
-              <ChildrenOverview client:load />
+              <ChildrenOverview client:visible />
             </section>
           </div>
 
@@ -132,17 +132,17 @@ else if (hour >= 17) greeting = "Good evening";
           <div class="lg:col-span-4 space-y-8">
             <!-- Announcements -->
             <section class="dashboard-section">
-              <Announcements client:load />
+              <Announcements client:visible />
             </section>
 
             <!-- Coach Notes - Key Differentiator -->
             <section class="dashboard-section">
-              <CoachNotes client:load />
+              <CoachNotes client:visible />
             </section>
 
             <!-- Payments Summary -->
             <section class="dashboard-section">
-              <PaymentsSummary client:load />
+              <PaymentsSummary client:visible />
             </section>
 
             <!-- Help & Support Card -->
@@ -182,6 +182,6 @@ else if (hour >= 17) greeting = "Good evening";
       </div>
     </main>
 
-    <Footer client:load />
+    <Footer client:idle />
   </body>
 </html>
