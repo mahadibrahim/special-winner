@@ -11,6 +11,44 @@ const user = Astro.locals.user;
 if (!user) {
   return Astro.redirect('/signin?redirect=/coach/resources');
 }
+
+// Static curriculum content — the 4 sport guides and 15 skill minibooks
+// This lives in the page rather than in a DB because it IS the organization's
+// uniform coaching curriculum, not user-generated content.
+const sportGuides = [
+  { sport: 'Soccer', slug: 'soccer', color: 'from-emerald-500 to-green-600', description: 'Complete soccer development framework across technical, tactical, physical, and psychological domains.' },
+  { sport: 'Basketball', slug: 'basketball', color: 'from-orange-500 to-red-600', description: 'Shooting, ball handling, defense, and game intelligence progressions for youth players.' },
+  { sport: 'Hockey', slug: 'hockey', color: 'from-blue-500 to-cyan-600', description: 'Skating, stickhandling, shooting, passing, and defensive positioning for young players.' },
+  { sport: 'Baseball', slug: 'baseball', color: 'from-amber-500 to-yellow-600', description: 'Age-appropriate progressions for hitting, fielding, pitching, and baserunning.' },
+];
+
+const minibooks = [
+  // Soccer
+  { sport: 'Soccer', slug: 'soccer-shooting', title: 'The Path to Better Shooting', domain: 'Technical', skill: 'Shooting' },
+  { sport: 'Soccer', slug: 'soccer-passing', title: 'The Art of the Pass', domain: 'Technical', skill: 'Passing' },
+  { sport: 'Soccer', slug: 'soccer-dribbling', title: 'Dribbling with Confidence', domain: 'Technical', skill: 'Dribbling' },
+  { sport: 'Soccer', slug: 'soccer-defending', title: 'Defending with Purpose', domain: 'Tactical', skill: 'Defending' },
+  { sport: 'Soccer', slug: 'soccer-game-intelligence', title: 'Reading the Game', domain: 'Tactical', skill: 'Game Intelligence' },
+  // Basketball
+  { sport: 'Basketball', slug: 'basketball-shooting', title: 'The Path to Better Shooting', domain: 'Technical', skill: 'Shooting' },
+  { sport: 'Basketball', slug: 'basketball-ball-handling', title: 'Mastering Ball Handling', domain: 'Technical', skill: 'Ball Handling' },
+  { sport: 'Basketball', slug: 'basketball-passing', title: 'The Art of the Pass', domain: 'Technical', skill: 'Passing' },
+  { sport: 'Basketball', slug: 'basketball-defending', title: 'Defense First', domain: 'Tactical', skill: 'Defending' },
+  { sport: 'Basketball', slug: 'basketball-game-intelligence', title: 'Reading the Game', domain: 'Tactical', skill: 'Game Intelligence' },
+  // Hockey
+  { sport: 'Hockey', slug: 'hockey-skating', title: 'The Foundation: Skating', domain: 'Technical', skill: 'Skating' },
+  { sport: 'Hockey', slug: 'hockey-stickhandling', title: 'Stickhandling Fundamentals', domain: 'Technical', skill: 'Stickhandling' },
+  { sport: 'Hockey', slug: 'hockey-shooting', title: 'Shooting with Power and Precision', domain: 'Technical', skill: 'Shooting' },
+  { sport: 'Hockey', slug: 'hockey-passing', title: 'The Art of the Pass', domain: 'Technical', skill: 'Passing' },
+  { sport: 'Hockey', slug: 'hockey-defending', title: 'Defensive Positioning', domain: 'Tactical', skill: 'Defending' },
+];
+
+const domainColors: Record<string, string> = {
+  'Technical': 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+  'Tactical': 'bg-purple-500/10 text-purple-300 border-purple-500/20',
+  'Physical': 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+  'Psychological': 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+};
 ---
 
 <!DOCTYPE html>
@@ -34,6 +72,11 @@ if (!user) {
           radial-gradient(ellipse 60% 40% at 50% 0%, rgba(59, 130, 246, 0.06), transparent),
           radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.04), transparent);
       }
+
+      /* Sport filter pills */
+      .sport-filter {
+        transition: all 0.15s ease;
+      }
     </style>
   </head>
   <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
@@ -47,7 +90,104 @@ if (!user) {
           <span class="text-white">Resources</span>
         </nav>
 
-        <ResourceLibrary client:load />
+        <!-- Page Header -->
+        <header class="mb-10">
+          <h1 class="text-3xl font-bold text-white mb-2">Coach Resources</h1>
+          <p class="text-gray-400 max-w-2xl leading-relaxed">
+            The Aspire curriculum library — sport guides, skill-level minibooks, and the full resource library.
+            Use these as your shared reference across every practice, every player, every season.
+          </p>
+        </header>
+
+        <!-- Coaching Philosophy Card -->
+        <section class="mb-10 p-6 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.08]">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary via-primary to-orange-500 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h2 class="text-xl font-bold text-white mb-2">The Aspire Coaching Philosophy</h2>
+              <p class="text-gray-400 text-sm leading-relaxed mb-3">
+                Every Aspire coach shares a common philosophy grounded in research: the <strong class="text-white">Double-Goal Coach</strong>,
+                <strong class="text-white">ELM framework</strong> (Effort, Learning, Mistakes), and <strong class="text-white">TDEQ-5</strong> youth
+                development model. Four core beliefs guide us: development over winning, every child can improve, long-term athlete development,
+                and holistic growth across technical, tactical, physical, and psychological domains.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sport Guides Section -->
+        <section class="mb-12">
+          <div class="flex items-baseline justify-between mb-5">
+            <h2 class="text-2xl font-bold text-white">Sport Guides</h2>
+            <span class="text-sm text-gray-500">Complete development frameworks</span>
+          </div>
+          <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {sportGuides.map((guide) => (
+              <a
+                href={`/guides/${guide.slug}`}
+                class="group block p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.04] transition-all"
+              >
+                <div class={`w-10 h-10 rounded-lg bg-gradient-to-br ${guide.color} flex items-center justify-center mb-3 shadow-md`}>
+                  <span class="text-lg font-bold text-white">{guide.sport[0]}</span>
+                </div>
+                <h3 class="font-semibold text-white mb-1 group-hover:text-primary transition-colors">{guide.sport}</h3>
+                <p class="text-xs text-gray-500 leading-relaxed line-clamp-3">{guide.description}</p>
+                <div class="mt-3 text-xs text-primary font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Open guide →
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <!-- Skill Minibooks Section -->
+        <section class="mb-12">
+          <div class="flex items-baseline justify-between mb-5">
+            <h2 class="text-2xl font-bold text-white">Skill Minibooks</h2>
+            <span class="text-sm text-gray-500">{minibooks.length} print-ready development guides</span>
+          </div>
+
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {minibooks.map((book) => (
+              <a
+                href={`/minibooks/${book.slug}`}
+                data-sport={book.sport}
+                class="minibook-card group block p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.04] transition-all"
+              >
+                <div class="flex items-start justify-between gap-3 mb-2">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs text-gray-500 mb-1">{book.sport} · {book.skill}</p>
+                    <h3 class="font-semibold text-white group-hover:text-primary transition-colors line-clamp-2">
+                      {book.title}
+                    </h3>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 mt-3">
+                  <span class={`text-xs px-2 py-0.5 rounded border ${domainColors[book.domain]}`}>
+                    {book.domain}
+                  </span>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <p class="text-xs text-gray-600 mt-5 italic">
+            Baseball skill minibooks are in production and will be added in an upcoming quarterly release.
+          </p>
+        </section>
+
+        <!-- Dynamic Resource Library (DB-backed) -->
+        <section>
+          <div class="flex items-baseline justify-between mb-5">
+            <h2 class="text-2xl font-bold text-white">Resource Library</h2>
+            <span class="text-sm text-gray-500">Articles, videos, and references</span>
+          </div>
+          <ResourceLibrary client:visible />
+        </section>
       </div>
     </main>
 
