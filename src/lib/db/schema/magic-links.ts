@@ -65,6 +65,7 @@ export const MAGIC_LINK_PURPOSE = [
   "update_phone",
   "view_season_summary",
   "password_reset_login",
+  "telegram_bind",
 ] as const;
 
 export type MagicLinkPurpose = (typeof MAGIC_LINK_PURPOSE)[number];
