@@ -3,7 +3,8 @@ from typing import List, Callable
 from copy import deepcopy
 from engine.schema import Assumptions, LowBaseHigh
 from engine.revenue_year1 import build_year1_revenue
-from engine.revenue_cohort import build_cohort_revenue
+from engine.revenue_cohort import build_cohort_revenue_for_location
+from engine.revenue_travel import build_travel_revenue_for_location
 from engine.costs import build_cost_schedule
 from engine.pnl import build_monthly_pnl
 
@@ -18,15 +19,34 @@ class TornadoBar:
 
 
 def _year3_net_income(a: Assumptions) -> float:
-    y1 = build_year1_revenue(a)
-    cohort = build_cohort_revenue(a, y1)
+    y1 = build_year1_revenue(a, location_id=0, location_launch_year=2026)
+    cohort = build_cohort_revenue_for_location(
+        a, y1, location_id=0, location_launch_year=2026, is_new_location=False,
+    )
+    travel = build_travel_revenue_for_location(
+        a, cohort, location_id=0, location_launch_year=2026,
+    )
     costs = build_cost_schedule(a)
-    pnl = build_monthly_pnl(a, y1, cohort, costs)
+    pnl = build_monthly_pnl(a, y1, cohort, travel, costs)
     return sum(r.net_income for r in pnl[24:36])
 
 
-def _flex(a: Assumptions, path: str, which: str) -> Assumptions:
-    """Set the specified LowBaseHigh path's base value to its .low, .base, or .high."""
+def _flex_sport_field(
+    a: Assumptions, sport_name: str, field: str, which: str
+) -> Assumptions:
+    a2 = deepcopy(a)
+    for sport in a2.sports:
+        if sport.name == sport_name:
+            lbh: LowBaseHigh = getattr(sport, field)
+            new_base = getattr(lbh, which)
+            setattr(sport, field, LowBaseHigh(low=lbh.low, base=new_base, high=lbh.high))
+            return a2
+    return a2
+
+
+def _flex_cross_cutting(
+    a: Assumptions, path: str, which: str
+) -> Assumptions:
     a2 = deepcopy(a)
     obj = a2
     parts = path.split(".")
@@ -39,37 +59,51 @@ def _flex(a: Assumptions, path: str, which: str) -> Assumptions:
     return a2
 
 
-_SENSITIVITY_VARIABLES = [
-    ("soccer_fill_rate", "demand.soccer_fill_rate"),
-    ("flag_fill_rate", "demand.flag_fill_rate"),
-    ("soccer_s1_to_s2_retention", "retention.soccer_s1_to_s2"),
-    ("soccer_s2_to_s3_retention", "retention.soccer_s2_to_s3"),
-    ("cross_sell_rate", "retention.cross_sell_rate"),
+_SPORT_VARIABLES = [
+    ("soccer", "fill_rate", "soccer_fill_rate"),
+    ("flag", "fill_rate", "flag_fill_rate"),
+    ("soccer", "s1_to_s2", "soccer_s1_to_s2_retention"),
+    ("soccer", "s2_to_s3", "soccer_s2_to_s3_retention"),
+]
+
+_CROSS_VARIABLES = [
     ("referral_multiplier", "retention.referral_multiplier"),
     ("blended_cac_y1", "acquisition.blended_cac_y1"),
-    ("soccer_price", "pricing.soccer_price"),
-    ("flag_price", "pricing.flag_price"),
     ("head_coach_hourly", "costs.head_coach_hourly"),
-    ("indoor_turf_full_hourly", "costs.indoor_turf_full_hourly"),
 ]
 
 
 def build_tornado(a: Assumptions) -> List[TornadoBar]:
     base_output = _year3_net_income(a)
     bars: List[TornadoBar] = []
-    for name, path in _SENSITIVITY_VARIABLES:
+
+    for sport_name, field, label in _SPORT_VARIABLES:
         try:
-            a_low = _flex(a, path, "low")
-            a_high = _flex(a, path, "high")
+            a_low = _flex_sport_field(a, sport_name, field, "low")
+            a_high = _flex_sport_field(a, sport_name, field, "high")
             out_low = _year3_net_income(a_low)
             out_high = _year3_net_income(a_high)
             bars.append(TornadoBar(
-                variable=name, output_low=min(out_low, out_high),
+                variable=label, output_low=min(out_low, out_high),
                 output_base=base_output, output_high=max(out_low, out_high),
                 impact=abs(out_high - out_low),
             ))
         except AttributeError:
-            # variable path not found — skip
             continue
+
+    for label, path in _CROSS_VARIABLES:
+        try:
+            a_low = _flex_cross_cutting(a, path, "low")
+            a_high = _flex_cross_cutting(a, path, "high")
+            out_low = _year3_net_income(a_low)
+            out_high = _year3_net_income(a_high)
+            bars.append(TornadoBar(
+                variable=label, output_low=min(out_low, out_high),
+                output_base=base_output, output_high=max(out_low, out_high),
+                impact=abs(out_high - out_low),
+            ))
+        except AttributeError:
+            continue
+
     bars.sort(key=lambda b: b.impact, reverse=True)
     return bars
