@@ -473,6 +473,32 @@ export default function CoachDashboardOverview() {
             <PrePracticeChecklist />
           </section>
 
+          {/* Curriculum Quick Access */}
+          <section className="dashboard-section">
+            <a
+              href="/coach/resources"
+              className="block p-5 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 hover:border-primary/40 transition-all group"
+            >
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-white group-hover:text-primary transition-colors">
+                    Aspire Curriculum
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Sport guides, skill minibooks, and the Aspire coaching philosophy
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-primary font-medium group-hover:gap-3 transition-all">
+                Open resources
+                <ChevronRight className="w-3 h-3" />
+              </div>
+            </a>
+          </section>
+
           {/* Recent Activity Placeholder */}
           <section className="dashboard-section">
             <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
