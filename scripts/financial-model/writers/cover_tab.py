@@ -23,8 +23,9 @@ def write_cover_tab(wb: Workbook, a: Assumptions) -> None:
     ws["A12"] = "How to use:"
     ws["A12"].font = SECTION_FONT
     ws["A13"] = "  1. Edit values in the Assumptions tab only."
-    ws["A14"] = "  2. All downstream tabs reference Assumptions — changes propagate."
-    ws["A15"] = "  3. The Scenarios tab shows side-by-side base/downside/upside."
-    ws["A16"] = "  4. The Partner Returns tab shows IRR, MOIC, and payback month."
+    ws["A14"] = "  2. Start with the Expansion Summary tab — it shows floor vs expansion story."
+    ws["A15"] = "  3. All downstream tabs reference Assumptions — changes propagate."
+    ws["A16"] = "  4. The Scenarios tab shows side-by-side base/downside/upside."
+    ws["A17"] = "  5. The Partner Returns tab shows IRR, MOIC, and payback month."
 
     ws.column_dimensions["A"].width = 80

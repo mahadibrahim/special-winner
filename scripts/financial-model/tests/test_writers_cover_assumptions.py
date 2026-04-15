@@ -14,17 +14,16 @@ def test_cover_tab_has_title_and_date(tmp_path):
     assert "Aspire" in ws["A1"].value
 
 
-def test_assumptions_tab_writes_pricing_values(tmp_path):
+def test_assumptions_tab_writes_sport_base_values(tmp_path):
     a = load_assumptions(Path("assumptions.yaml"))
     wb = build_empty_workbook(a)
     write_assumptions_tab(wb, a)
     ws = wb["Assumptions"]
-    # Collect all numeric values in the sheet
     values = []
     for row in ws.iter_rows(values_only=True):
         for v in row:
             if isinstance(v, (int, float)):
                 values.append(v)
-    assert 215 in values       # soccer_price.base (premium positioning)
-    assert 25 in values        # winter skills price
-    assert 32 in values        # head coach hourly (premium)
+    assert 215 in values
+    assert 32 in values
+    assert 100 in values

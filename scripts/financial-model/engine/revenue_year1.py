@@ -1,19 +1,18 @@
 from dataclasses import dataclass
 from datetime import date
-from typing import List, Literal
-from engine.schema import Assumptions
-from engine.calendar import registration_month_for_season, Season
-
-
-Sport = Literal["soccer", "flag", "winter_skills"]
+from typing import List
+from engine.schema import Assumptions, SportConfig, Season
+from engine.calendar import registration_month_for_season
 
 
 @dataclass
 class Year1RevenueLine:
-    sport: Sport
+    sport: str
     season: Season
     season_year: int
-    teams_or_groups: int
+    location_id: int
+    age_band: str
+    teams: int
     kids_registered: int
     gross_revenue: float
     discounts: float
@@ -22,85 +21,78 @@ class Year1RevenueLine:
     cash_month: date
 
 
-def _league_kids(assumptions: Assumptions, sport: Sport, season: Season) -> tuple[int, int]:
-    """Return (teams, kids) for a league sport/season, applying fill rate and growth."""
-    if sport == "soccer":
-        target_teams = sum(assumptions.demand.target_teams_soccer_y1_fall.values())
-        roster = assumptions.pricing.soccer_roster_size
-        fill = assumptions.demand.soccer_fill_rate.base
-    elif sport == "flag":
-        target_teams = sum(assumptions.demand.target_teams_flag_y1_fall.values())
-        roster = assumptions.pricing.flag_roster_size
-        fill = assumptions.demand.flag_fill_rate.base
-    else:
-        raise ValueError(f"Not a league sport: {sport}")
-
-    if season == "spring":
-        target_teams = round(target_teams * (1 + assumptions.demand.season_growth_rate.base))
-
-    kids = int(target_teams * roster * fill)
-    return target_teams, kids
-
-
 def _apply_discounts_and_fees(
-    gross: float, assumptions: Assumptions, kids: int
+    gross: float, a: Assumptions, kids: int
 ) -> tuple[float, float, float]:
-    """Return (discounts, processing_fees, net_revenue)."""
-    # Sibling discount heuristic: assume ~25% of kids are siblings getting the sibling rate
-    sibling_rate = assumptions.pricing.sibling_discount_rate
+    sibling_rate = a.pricing.sibling_discount_rate
     discounts = gross * 0.25 * sibling_rate
-    processing = (gross - discounts) * assumptions.pricing.payment_processing_rate + \
-                 assumptions.pricing.payment_processing_flat * kids
+    processing = (gross - discounts) * a.pricing.payment_processing_rate \
+                 + a.pricing.payment_processing_flat * kids
     net = gross - discounts - processing
     return discounts, processing, net
 
 
-def compute_season_revenue(
-    assumptions: Assumptions,
-    sport: Sport,
+def compute_season_revenue_for_sport(
+    a: Assumptions,
+    sport: SportConfig,
     season: Season,
     season_year: int,
-) -> Year1RevenueLine:
-    """Compute a single season×sport revenue line."""
-    if sport == "winter_skills":
-        groups = assumptions.pricing.winter_skills_sessions_per_week
-        kids = int(groups * assumptions.pricing.winter_skills_group_size *
-                   assumptions.demand.winter_skills_fill_rate.base)
-        # Winter runs 12 weeks × sessions_per_week × group_size × price_per_session
-        sessions_in_season = 12 * groups
-        price_per_seat = assumptions.pricing.winter_skills_price_per_session.base
-        # Gross = kid-sessions × price; but we express as kids × (sessions_in_season/groups) × price for clarity
-        gross = kids * 12 * price_per_seat
-        teams = groups
-    else:
-        teams, kids = _league_kids(assumptions, sport, season)
-        price = (assumptions.pricing.soccer_price.base if sport == "soccer"
-                 else assumptions.pricing.flag_price.base)
-        gross = kids * price
+    location_id: int,
+) -> List[Year1RevenueLine]:
+    """One line per age band in the sport's target_teams_y1 mapping."""
+    if season not in sport.seasons:
+        return []
 
-    discounts, processing, net = _apply_discounts_and_fees(gross, assumptions, kids)
+    lines: List[Year1RevenueLine] = []
+    fill = sport.fill_rate.base
+    price = sport.price.base
     cash_month = registration_month_for_season(season, season_year)
 
-    return Year1RevenueLine(
-        sport=sport,
-        season=season,
-        season_year=season_year,
-        teams_or_groups=teams,
-        kids_registered=kids,
-        gross_revenue=gross,
-        discounts=discounts,
-        processing_fees=processing,
-        net_revenue=net,
-        cash_month=cash_month,
-    )
+    for age_band, team_count in sport.target_teams_y1.items():
+        # Spring seasons grow target_teams per sport.season_growth_rate if set.
+        # Fall (and winter) seasons use target_teams_y1 directly.
+        if season == "spring" and sport.season_growth_rate is not None:
+            team_count = round(team_count * (1 + sport.season_growth_rate.base))
+        kids = int(team_count * sport.roster_size * fill)
+        gross = kids * price
+        discounts, processing, net = _apply_discounts_and_fees(gross, a, kids)
+        lines.append(Year1RevenueLine(
+            sport=sport.name,
+            season=season,
+            season_year=season_year,
+            location_id=location_id,
+            age_band=age_band,
+            teams=team_count,
+            kids_registered=kids,
+            gross_revenue=gross,
+            discounts=discounts,
+            processing_fees=processing,
+            net_revenue=net,
+            cash_month=cash_month,
+        ))
+    return lines
 
 
-def build_year1_revenue(assumptions: Assumptions) -> List[Year1RevenueLine]:
-    """Build all Year 1 revenue lines: Fall 2026, Winter 2026, Spring 2027."""
-    return [
-        compute_season_revenue(assumptions, "soccer", "fall", 2026),
-        compute_season_revenue(assumptions, "flag", "fall", 2026),
-        compute_season_revenue(assumptions, "winter_skills", "winter", 2026),
-        compute_season_revenue(assumptions, "soccer", "spring", 2027),
-        compute_season_revenue(assumptions, "flag", "spring", 2027),
-    ]
+def build_year1_revenue(
+    a: Assumptions,
+    location_id: int = 0,
+    location_launch_year: int = 2026,
+) -> List[Year1RevenueLine]:
+    """Build all Year 1 revenue lines for one location. Y1 for a location means
+    the first operating year of that location — soccer/flag/winter_skills each
+    running their first season under the location's launch year."""
+    lines: List[Year1RevenueLine] = []
+    active_sports = [s for s in a.sports if s.launch_year <= location_launch_year]
+
+    for sport in active_sports:
+        for season in sport.seasons:
+            # Year offset: spring seasons of a "Y1" calendar push into the next year
+            if season == "spring":
+                sy = location_launch_year + 1
+            elif season == "winter":
+                sy = location_launch_year
+            else:
+                sy = location_launch_year
+            lines.extend(compute_season_revenue_for_sport(a, sport, season, sy, location_id))
+
+    return lines

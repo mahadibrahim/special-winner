@@ -1,61 +1,97 @@
-# Aspire Sports base case assumptions — April 2026
-# Values traced to docs/superpowers/specs/2026-04-15-aspire-sports-financial-model-design.md §8
-# Confidence levels: HIGH / MEDIUM / LOW-MEDIUM / LOW — see README for meaning.
+# Aspire Sports base case assumptions — Plan 2 schema
+# Default configuration: single territory, rec-only (soccer + flag + winter_skills),
+# travel tier disabled (launch_year set beyond horizon). This matches the Plan 1
+# baseline output within 2% when build_model.py is run.
 
-start_month: "2026-07"       # Fall 2026 registration opens
-horizon_months: 60            # 5 years monthly
+start_month: "2026-07"
+horizon_months: 60
+
+sports:
+  - name: soccer
+    launch_year: 2026
+    price: { low: 195, base: 215, high: 240 }
+    weeks_per_season: 8
+    hours_per_unit: 2
+    units_per_week: 1
+    roster_size: 12
+    venue_type: outdoor_field
+    seasons: [fall, spring]
+    target_teams_y1:
+      U8: 4
+      U10: 3
+      U12: 2
+    fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
+    s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
+    s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
+    s3_plus:  { low: 0.88, base: 0.94, high: 0.97 }
+    # Spring grows 25% over fall target_teams — Plan 1 assumption preserved.
+    season_growth_rate: { low: 0.10, base: 0.25, high: 0.50 }
+
+  - name: flag
+    launch_year: 2026
+    price: { low: 195, base: 215, high: 240 }
+    weeks_per_season: 7
+    hours_per_unit: 1.5
+    units_per_week: 1
+    roster_size: 10
+    venue_type: outdoor_field
+    seasons: [fall, spring]
+    target_teams_y1:
+      K-2: 3
+      3-4: 3
+      5-6: 2
+    fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
+    s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
+    s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
+    s3_plus:  { low: 0.88, base: 0.94, high: 0.97 }
+    season_growth_rate: { low: 0.10, base: 0.25, high: 0.50 }
+
+  - name: winter_skills
+    launch_year: 2026
+    price: { low: 240, base: 300, high: 420 }
+    weeks_per_season: 12
+    hours_per_unit: 1
+    units_per_week: 1
+    roster_size: 8
+    venue_type: indoor_turf_half
+    seasons: [winter]
+    target_teams_y1:
+      mixed: 12
+    fill_rate: { low: 0.60, base: 0.80, high: 0.95 }
+    s1_to_s2: { low: 0.40, base: 0.55, high: 0.70 }
+    s2_to_s3: { low: 0.60, base: 0.75, high: 0.85 }
+    s3_plus:  { low: 0.70, base: 0.82, high: 0.90 }
+
+expansion:
+  locations:
+    by_year: {2026: 1, 2027: 1, 2028: 1, 2029: 1, 2030: 1}
+    new_location_fill_rate_boost: { low: 0.0, base: 0.05, high: 0.12 }
+    tam_per_location: 10500
+  travel:
+    launch_year: 2099
+    target_teams_direct_y1:
+      U9: 1
+      U11: 1
+      U13: 1
+    travel_roster_size: 11
+    direct_fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
+    rec_to_travel_upgrade_rate: { low: 0.03, base: 0.06, high: 0.12 }
+    travel_price: { low: 850, base: 1100, high: 1400 }
+    travel_weeks_per_season: 12
+    travel_coach_hourly_premium: 1.4
+    travel_s1_to_s2: { low: 0.75, base: 0.88, high: 0.94 }
+    travel_s2_to_s3: { low: 0.85, base: 0.93, high: 0.97 }
+    travel_s3_plus:  { low: 0.90, base: 0.95, high: 0.98 }
 
 pricing:
-  # Soccer — premium/developmental positioning, ~20-25% above i9 rec baseline
-  soccer_price: { low: 195, base: 215, high: 240 }
-  soccer_weeks_per_season: 8
-  soccer_seasons_per_year: 2
-  soccer_roster_size: 12
-  # Flag football — same premium positioning vs. NFL Flag rec
-  flag_price: { low: 195, base: 215, high: 240 }
-  flag_weeks_per_season: 7
-  flag_seasons_per_year: 2
-  flag_roster_size: 10
-  # Winter indoor skills clinic — anchored to Resolute $20, Soccer Field Academy $40
-  winter_skills_price_per_session: { low: 20, base: 25, high: 35 }
-  winter_skills_group_size: 8
-  winter_skills_sessions_per_week: 12
   family_discount_rate: 0.0
   sibling_discount_rate: 0.10
   uniform_fee: 0
   payment_processing_rate: 0.029
   payment_processing_flat: 0.30
 
-demand:
-  # Premium brand fills slower in Y1 — trust takes time. Compensated by higher retention/referral downstream.
-  soccer_fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
-  flag_fill_rate: { low: 0.50, base: 0.65, high: 0.80 }
-  winter_skills_fill_rate: { low: 0.60, base: 0.80, high: 0.95 }
-  # Year 1 Fall 2026 target teams — conservative ramp
-  target_teams_soccer_y1_fall:
-    U8: 4
-    U10: 3
-    U12: 2
-  target_teams_flag_y1_fall:
-    K-2: 3
-    3-4: 3
-    5-6: 2
-  season_growth_rate: { low: 0.10, base: 0.25, high: 0.50 }
-
 retention:
-  # Premium/developmental positioning: families self-select for commitment, kids progress,
-  # retention materially higher than rec league comps. This is the model's core leverage.
-  soccer_s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
-  soccer_s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
-  soccer_s3_plus: { low: 0.88, base: 0.94, high: 0.97 }
-  flag_s1_to_s2: { low: 0.65, base: 0.80, high: 0.90 }
-  flag_s2_to_s3: { low: 0.82, base: 0.92, high: 0.96 }
-  flag_s3_plus: { low: 0.88, base: 0.94, high: 0.97 }
-  winter_skills_retention: { low: 0.50, base: 0.65, high: 0.80 }
   cross_sell_rate: { low: 0.15, base: 0.25, high: 0.40 }
-  # Word-of-mouth is the acquisition engine for premium programs. Moderated to
-  # reflect realistic per-season compounding within a single territory; expansion
-  # into new locations/sports/tiers is modeled separately (see Plan 2 roadmap).
   referral_multiplier: { low: 1.10, base: 1.20, high: 1.35 }
 
 acquisition:
@@ -86,21 +122,18 @@ acquisition:
     community_event: 20
     paid_digital: 50
     referrals: 5
-  # Premium Y1 CAC is higher — evangelizing a new brand, not volume-buying. Drops hard as referrals kick in.
   blended_cac_y1: { low: 30, base: 40, high: 55 }
   blended_cac_y2: { low: 12, base: 18, high: 28 }
   blended_cac_y3_plus: { low: 6, base: 10, high: 16 }
 
 costs:
-  # Premium coaching rates — experienced club coaches, not entry-level rec refs.
   head_coach_hourly: { low: 28, base: 32, high: 40 }
   assistant_coach_hourly: { low: 18, base: 22, high: 28 }
-  outdoor_field_hourly: { low: 25, base: 35, high: 60 }   # LOW CONFIDENCE — needs outreach
+  outdoor_field_hourly: { low: 25, base: 35, high: 60 }
   indoor_turf_full_hourly: { low: 135, base: 175, high: 220 }
   indoor_turf_half_hourly: { low: 75, base: 95, high: 125 }
   gym_hourly: { low: 60, base: 70, high: 95 }
   software_monthly: 350
-  # Corrected per i9 FDD: $3.11/player/yr participant + ~$600/yr general liability for small op
   insurance_monthly: 100
   bookkeeping_monthly: 250
   founder_time_annual_per_founder: 0

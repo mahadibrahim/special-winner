@@ -1,15 +1,18 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
-from typing import List
-from engine.schema import Assumptions
-from engine.calendar import registration_month_for_season, Season
+from typing import List, Dict, Tuple
+from engine.schema import Assumptions, SportConfig, Season
+from engine.calendar import registration_month_for_season
 from engine.revenue_year1 import Year1RevenueLine
 
 
 @dataclass
 class Cohort:
-    origin_season_index: int
+    location_id: int
+    sport: str
+    age_band: str
     size: int
+    origin_year: int
 
 
 @dataclass
@@ -17,6 +20,8 @@ class CohortRevenueLine:
     sport: str
     season: Season
     season_year: int
+    location_id: int
+    age_band: str
     kids_registered: int
     gross_revenue: float
     net_revenue: float
@@ -24,114 +29,106 @@ class CohortRevenueLine:
 
 
 def apply_retention(cohort: Cohort, rate: float) -> Cohort:
-    """Return a new cohort with size = int(size × rate). Origin index preserved."""
     return Cohort(
-        origin_season_index=cohort.origin_season_index,
+        location_id=cohort.location_id,
+        sport=cohort.sport,
+        age_band=cohort.age_band,
         size=int(cohort.size * rate),
+        origin_year=cohort.origin_year,
     )
 
 
-def _retention_for_season_age(a: Assumptions, sport: str, seasons_since_origin: int) -> float:
-    """Return the retention rate to apply for moving a cohort from season N to N+1."""
-    if sport == "soccer":
-        if seasons_since_origin == 1:
-            return a.retention.soccer_s1_to_s2.base
-        if seasons_since_origin == 2:
-            return a.retention.soccer_s2_to_s3.base
-        return a.retention.soccer_s3_plus.base
-    if sport == "flag":
-        if seasons_since_origin == 1:
-            return a.retention.flag_s1_to_s2.base
-        if seasons_since_origin == 2:
-            return a.retention.flag_s2_to_s3.base
-        return a.retention.flag_s3_plus.base
-    return a.retention.winter_skills_retention.base
+def _retention_rate(sport: SportConfig, seasons_since_origin: int) -> float:
+    if seasons_since_origin <= 1:
+        return sport.s1_to_s2.base
+    if seasons_since_origin == 2:
+        return sport.s2_to_s3.base
+    return sport.s3_plus.base
 
 
-def _season_sequence_after_year1() -> List[tuple[Season, int]]:
-    """Return the (season, year) tuples for Years 2-5 (Fall 2027 → Spring 2031)."""
-    result = []
-    for year in range(2027, 2031):  # 2027..2030
-        result.append(("fall", year))
-        result.append(("winter", year))
-        result.append(("spring", year + 1))
+def _season_sequence_after_launch(launch_year: int, horizon_years: int = 4) -> List[Tuple[Season, int]]:
+    """Return (season, calendar_year) pairs covering the years AFTER the launch year,
+    out to launch_year + horizon_years. For each year we emit fall, winter (with year+1
+    for Jan-Mar of the following calendar year), spring."""
+    result: List[Tuple[Season, int]] = []
+    for offset in range(1, horizon_years + 1):
+        y = launch_year + offset
+        result.append(("fall", y))
+        result.append(("winter", y))
+        result.append(("spring", y + 1))
     return result
 
 
-def build_cohort_revenue(
+def build_cohort_revenue_for_location(
     a: Assumptions,
-    year1_lines: List[Year1RevenueLine],
+    y1_lines: List[Year1RevenueLine],
+    location_id: int,
+    location_launch_year: int,
+    is_new_location: bool,
 ) -> List[CohortRevenueLine]:
-    """Build Years 2-5 revenue lines using cohort retention.
+    """Build Years 2-5 revenue lines for a single location's cohort universe.
 
-    Simplified model: each sport has a single pooled cohort starting from Year 1 sizes.
-    Each season the cohort shrinks by the appropriate retention factor, then a new
-    acquisition cohort is added sized as (prior_year_same_season × referral_multiplier
-    + fresh_acquisition_growth). For v1 we combine retention and referral into a single
-    net rate: effective_rate = retention × referral_multiplier.
+    Each (sport, age_band) starts as a cohort sized from the y1 lines' kids_registered.
+    Retention × referral multiplier compounds each season the sport runs.
     """
     lines: List[CohortRevenueLine] = []
-
-    # Starting cohort sizes by sport from Year 1 combined totals
-    y1_soccer = sum(l.kids_registered for l in year1_lines if l.sport == "soccer")
-    y1_flag = sum(l.kids_registered for l in year1_lines if l.sport == "flag")
-
-    soccer_size = y1_soccer
-    flag_size = y1_flag
     ref_mult = a.retention.referral_multiplier.base
 
-    season_sequence = _season_sequence_after_year1()
+    # Initialize cohorts from Y1 totals per (sport, age_band)
+    cohorts: Dict[Tuple[str, str], int] = {}
+    for y1 in y1_lines:
+        key = (y1.sport, y1.age_band)
+        cohorts[key] = cohorts.get(key, 0) + y1.kids_registered
+
+    active_sports = {s.name: s for s in a.sports if s.launch_year <= location_launch_year}
+    season_sequence = _season_sequence_after_launch(location_launch_year, horizon_years=4)
+
+    # Track seasons-since-origin per (sport, age_band) for retention curve lookup
+    seasons_elapsed: Dict[Tuple[str, str], int] = {k: 1 for k in cohorts.keys()}
+
     for idx, (season, season_year) in enumerate(season_sequence):
-        # Skip winter for league lines (soccer/flag) — they only run fall+spring
-        if season == "winter":
-            # Build a single winter_skills line sized off current soccer+flag pool × cross_sell
-            winter_kids = int((soccer_size + flag_size) * a.retention.cross_sell_rate.base)
-            winter_price = a.pricing.winter_skills_price_per_session.base * 12  # 12 sessions
-            winter_gross = winter_kids * winter_price
-            winter_net = winter_gross * 0.94  # rough discount + processing
-            lines.append(CohortRevenueLine(
-                sport="winter_skills",
-                season=season,
-                season_year=season_year,
-                kids_registered=winter_kids,
-                gross_revenue=winter_gross,
-                net_revenue=winter_net,
-                cash_month=registration_month_for_season(season, season_year),
-            ))
-            continue
+        for sport_name, sport in active_sports.items():
+            if season not in sport.seasons:
+                continue
+            for age_band in list(cohorts.keys()):
+                if age_band[0] != sport_name:
+                    continue
+                current = cohorts[age_band]
+                if current == 0:
+                    continue
+                seasons_elapsed[age_band] = seasons_elapsed.get(age_band, 1) + 1
+                rate = _retention_rate(sport, seasons_elapsed[age_band])
+                new_size = int(current * rate * ref_mult)
+                cohorts[age_band] = new_size
 
-        # Apply retention to both sports
-        seasons_since_origin = (idx // 3) + 2  # rough mapping
-        soccer_rate = _retention_for_season_age(a, "soccer", seasons_since_origin)
-        flag_rate = _retention_for_season_age(a, "flag", seasons_since_origin)
-
-        soccer_size = int(soccer_size * soccer_rate * ref_mult)
-        flag_size = int(flag_size * flag_rate * ref_mult)
-
-        # Soccer line
-        soccer_gross = soccer_size * a.pricing.soccer_price.base
-        soccer_net = soccer_gross * 0.94
-        lines.append(CohortRevenueLine(
-            sport="soccer",
-            season=season,
-            season_year=season_year,
-            kids_registered=soccer_size,
-            gross_revenue=soccer_gross,
-            net_revenue=soccer_net,
-            cash_month=registration_month_for_season(season, season_year),
-        ))
-
-        # Flag line
-        flag_gross = flag_size * a.pricing.flag_price.base
-        flag_net = flag_gross * 0.94
-        lines.append(CohortRevenueLine(
-            sport="flag",
-            season=season,
-            season_year=season_year,
-            kids_registered=flag_size,
-            gross_revenue=flag_gross,
-            net_revenue=flag_net,
-            cash_month=registration_month_for_season(season, season_year),
-        ))
+                gross = new_size * sport.price.base
+                net = gross * 0.94  # rough discount + processing — same heuristic as Plan 1
+                lines.append(CohortRevenueLine(
+                    sport=sport_name,
+                    season=season,
+                    season_year=season_year,
+                    location_id=location_id,
+                    age_band=age_band[1],
+                    kids_registered=new_size,
+                    gross_revenue=gross,
+                    net_revenue=net,
+                    cash_month=registration_month_for_season(season, season_year),
+                ))
 
     return lines
+
+
+def get_eligible_rec_kids_for_travel_upgrade(
+    cohort_lines: List[CohortRevenueLine],
+    season_year: int,
+    eligible_bands_by_sport: Dict[str, List[str]],
+) -> int:
+    """Sum of kids_registered across cohort lines matching the eligibility filter for a given year."""
+    total = 0
+    for line in cohort_lines:
+        if line.season_year != season_year:
+            continue
+        eligible = eligible_bands_by_sport.get(line.sport, [])
+        if line.age_band in eligible:
+            total += line.kids_registered
+    return total

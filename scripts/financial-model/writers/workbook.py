@@ -13,6 +13,7 @@ def build_empty_workbook(a: Assumptions) -> Workbook:
 
     tab_names = [
         "Cover",
+        "Expansion Summary",
         "Assumptions",
         "Revenue Y1",
         "Revenue Cohort",

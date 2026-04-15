@@ -1,7 +1,8 @@
 from pathlib import Path
 from engine.schema import load_assumptions
 from engine.revenue_year1 import build_year1_revenue
-from engine.revenue_cohort import build_cohort_revenue
+from engine.revenue_cohort import build_cohort_revenue_for_location
+from engine.revenue_travel import build_travel_revenue_for_location
 from engine.costs import build_cost_schedule
 from engine.cashflow import build_monthly_cashflow
 from engine.partner_returns import build_partner_returns
@@ -17,10 +18,15 @@ from writers.tam_tab import write_tam_tab
 
 def test_analysis_tabs_populate():
     a = load_assumptions(Path("assumptions.yaml"))
-    y1 = build_year1_revenue(a)
-    cohort = build_cohort_revenue(a, y1)
+    y1 = build_year1_revenue(a, location_id=0, location_launch_year=2026)
+    cohort = build_cohort_revenue_for_location(
+        a, y1, location_id=0, location_launch_year=2026, is_new_location=False,
+    )
+    travel = build_travel_revenue_for_location(
+        a, cohort, location_id=0, location_launch_year=2026,
+    )
     costs = build_cost_schedule(a)
-    cf = build_monthly_cashflow(a, y1, cohort, costs)
+    cf = build_monthly_cashflow(a, y1, cohort, travel, costs)
     pr = build_partner_returns(a, cf)
     tornado = build_tornado(a)
     scenarios = run_scenarios(a)

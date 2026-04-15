@@ -41,40 +41,47 @@ def _write_scalar_row(ws, row: int, label: str, value, unit: str):
 def write_assumptions_tab(wb: Workbook, a: Assumptions) -> None:
     ws = wb["Assumptions"]
     row = 1
-    ws.cell(row=row, column=1, value="PRICING").font = SECTION_FONT
+
+    for sport in a.sports:
+        ws.cell(row=row, column=1, value=f"SPORT: {sport.name.upper()} (launch {sport.launch_year})").font = SECTION_FONT
+        ws.cell(row=row, column=1).fill = SECTION_FILL
+        row += 1
+        _write_header(ws, row); row += 1
+        _write_lbh_row(ws, row, f"{sport.name} price", sport.price, "$/season", "MEDIUM"); row += 1
+        _write_scalar_row(ws, row, f"{sport.name} weeks/season", sport.weeks_per_season, "weeks"); row += 1
+        _write_scalar_row(ws, row, f"{sport.name} roster size", sport.roster_size, "kids"); row += 1
+        _write_scalar_row(ws, row, f"{sport.name} venue", sport.venue_type, ""); row += 1
+        _write_lbh_row(ws, row, f"{sport.name} fill rate", sport.fill_rate, "%", "MEDIUM"); row += 1
+        _write_lbh_row(ws, row, f"{sport.name} S1→S2 retention", sport.s1_to_s2, "%", "MEDIUM"); row += 1
+        _write_lbh_row(ws, row, f"{sport.name} S2→S3 retention", sport.s2_to_s3, "%", "MEDIUM"); row += 1
+        _write_lbh_row(ws, row, f"{sport.name} S3+ retention", sport.s3_plus, "%", "MEDIUM"); row += 1
+        row += 1
+
+    ws.cell(row=row, column=1, value="EXPANSION").font = SECTION_FONT
     ws.cell(row=row, column=1).fill = SECTION_FILL
     row += 1
-    _write_header(ws, row)
-    row += 1
-    _write_lbh_row(ws, row, "Soccer rec price", a.pricing.soccer_price, "$/season", "MEDIUM"); row += 1
-    _write_scalar_row(ws, row, "Soccer weeks/season", a.pricing.soccer_weeks_per_season, "weeks"); row += 1
-    _write_scalar_row(ws, row, "Soccer seasons/year", a.pricing.soccer_seasons_per_year, "seasons"); row += 1
-    _write_scalar_row(ws, row, "Soccer roster size", a.pricing.soccer_roster_size, "kids"); row += 1
-    _write_lbh_row(ws, row, "Flag price", a.pricing.flag_price, "$/season", "MEDIUM"); row += 1
-    _write_scalar_row(ws, row, "Flag weeks/season", a.pricing.flag_weeks_per_season, "weeks"); row += 1
-    _write_scalar_row(ws, row, "Flag seasons/year", a.pricing.flag_seasons_per_year, "seasons"); row += 1
-    _write_scalar_row(ws, row, "Flag roster size", a.pricing.flag_roster_size, "kids"); row += 1
-    _write_lbh_row(ws, row, "Winter skills $/session", a.pricing.winter_skills_price_per_session, "$/session", "MEDIUM"); row += 1
-    _write_scalar_row(ws, row, "Winter skills group size", a.pricing.winter_skills_group_size, "kids"); row += 1
+    _write_scalar_row(ws, row, "Locations by year (2026→2030)",
+                     str(list(a.expansion.locations.by_year.values())), "count"); row += 1
+    _write_lbh_row(ws, row, "New location fill boost",
+                   a.expansion.locations.new_location_fill_rate_boost, "pts", "MEDIUM"); row += 1
+    _write_scalar_row(ws, row, "TAM per location", a.expansion.locations.tam_per_location, "kids"); row += 1
+    if a.expansion.travel is not None:
+        _write_scalar_row(ws, row, "Travel launch year", a.expansion.travel.launch_year, "year"); row += 1
+        _write_lbh_row(ws, row, "Travel price", a.expansion.travel.travel_price, "$/season", "LOW"); row += 1
+        _write_lbh_row(ws, row, "Rec-to-travel upgrade rate",
+                       a.expansion.travel.rec_to_travel_upgrade_rate, "%", "LOW"); row += 1
     row += 1
 
-    ws.cell(row=row, column=1, value="DEMAND").font = SECTION_FONT; row += 1
-    _write_header(ws, row); row += 1
-    _write_lbh_row(ws, row, "Soccer fill rate", a.demand.soccer_fill_rate, "%", "MEDIUM"); row += 1
-    _write_lbh_row(ws, row, "Flag fill rate", a.demand.flag_fill_rate, "%", "MEDIUM"); row += 1
-    _write_lbh_row(ws, row, "Winter skills fill rate", a.demand.winter_skills_fill_rate, "%", "MEDIUM"); row += 1
+    ws.cell(row=row, column=1, value="RETENTION (cross-cutting)").font = SECTION_FONT
+    ws.cell(row=row, column=1).fill = SECTION_FILL
     row += 1
-
-    ws.cell(row=row, column=1, value="RETENTION").font = SECTION_FONT; row += 1
-    _write_header(ws, row); row += 1
-    _write_lbh_row(ws, row, "Soccer S1→S2", a.retention.soccer_s1_to_s2, "%", "MEDIUM"); row += 1
-    _write_lbh_row(ws, row, "Soccer S2→S3", a.retention.soccer_s2_to_s3, "%", "MEDIUM"); row += 1
-    _write_lbh_row(ws, row, "Soccer S3+", a.retention.soccer_s3_plus, "%", "MEDIUM"); row += 1
-    _write_lbh_row(ws, row, "Cross-sell rate", a.retention.cross_sell_rate, "%", "MEDIUM"); row += 1
     _write_lbh_row(ws, row, "Referral multiplier", a.retention.referral_multiplier, "x", "LOW"); row += 1
+    _write_lbh_row(ws, row, "Cross-sell rate (deprecated)", a.retention.cross_sell_rate, "%", "LOW"); row += 1
     row += 1
 
-    ws.cell(row=row, column=1, value="COSTS").font = SECTION_FONT; row += 1
+    ws.cell(row=row, column=1, value="COSTS").font = SECTION_FONT
+    ws.cell(row=row, column=1).fill = SECTION_FILL
+    row += 1
     _write_header(ws, row); row += 1
     _write_lbh_row(ws, row, "Head coach hourly", a.costs.head_coach_hourly, "$/hr", "HIGH"); row += 1
     _write_lbh_row(ws, row, "Assistant coach hourly", a.costs.assistant_coach_hourly, "$/hr", "MEDIUM"); row += 1
@@ -84,11 +91,7 @@ def write_assumptions_tab(wb: Workbook, a: Assumptions) -> None:
     _write_lbh_row(ws, row, "Gym hourly", a.costs.gym_hourly, "$/hr", "HIGH"); row += 1
     _write_scalar_row(ws, row, "Software monthly", a.costs.software_monthly, "$/mo"); row += 1
     _write_scalar_row(ws, row, "Insurance monthly", a.costs.insurance_monthly, "$/mo"); row += 1
-    _write_scalar_row(ws, row, "Founder time annual (per founder)", a.costs.founder_time_annual_per_founder, "$/yr"); row += 1
 
-    ws.column_dimensions["A"].width = 40
-    ws.column_dimensions["B"].width = 12
-    ws.column_dimensions["C"].width = 12
-    ws.column_dimensions["D"].width = 12
-    ws.column_dimensions["E"].width = 14
-    ws.column_dimensions["F"].width = 14
+    ws.column_dimensions["A"].width = 44
+    for col in "BCDEF":
+        ws.column_dimensions[col].width = 14

@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from datetime import date
 from typing import Dict, List
-from engine.schema import Assumptions
+from engine.schema import Assumptions, SportConfig
 from engine.calendar import parse_year_month, month_sequence
 from engine.revenue_year1 import Year1RevenueLine
 from engine.revenue_cohort import CohortRevenueLine
+from engine.revenue_travel import TravelRevenueLine
 
 
 @dataclass
@@ -44,75 +45,55 @@ class CostScheduleRow:
                 + self.cash_curriculum)
 
 
-def compute_variable_costs_for_line(a: Assumptions, line: Year1RevenueLine) -> Dict[str, float]:
-    """Coach + venue + uniform cost for a single revenue line."""
-    if line.sport == "soccer":
-        weeks = a.pricing.soccer_weeks_per_season
-        hours_per_game = 2
-        games_per_week = 1
-        coach_hours = line.teams_or_groups * games_per_week * hours_per_game * weeks
-        coach_cost = coach_hours * a.costs.head_coach_hourly.base
-        # Venue: outdoor in fall/spring; indoor turf in winter (N/A for soccer here)
-        venue_hours = coach_hours  # same grid hours as coaching
-        venue_cost = venue_hours * a.costs.outdoor_field_hourly.base
-    elif line.sport == "flag":
-        weeks = a.pricing.flag_weeks_per_season
-        hours_per_game = 1.5
-        games_per_week = 1
-        coach_hours = line.teams_or_groups * games_per_week * hours_per_game * weeks
-        coach_cost = coach_hours * a.costs.head_coach_hourly.base
-        venue_hours = coach_hours
-        venue_cost = venue_hours * a.costs.outdoor_field_hourly.base
-    elif line.sport == "winter_skills":
-        # Sessions_per_week × 12 weeks × 1 hour × head coach rate
-        sessions_total = a.pricing.winter_skills_sessions_per_week * 12
-        coach_cost = sessions_total * a.costs.head_coach_hourly.base
-        # Venue: indoor turf half-field for each session
-        venue_cost = sessions_total * a.costs.indoor_turf_half_hourly.base
-    else:
-        coach_cost = venue_cost = 0
+def _venue_hourly(a: Assumptions, venue_type: str) -> float:
+    """Map a venue_type string to the corresponding hourly rate on Costs."""
+    field_name = f"{venue_type}_hourly"
+    return getattr(a.costs, field_name).base
 
+
+def compute_variable_costs_for_line(
+    a: Assumptions,
+    line,
+    sport: SportConfig,
+) -> Dict[str, float]:
+    """Generic variable cost: coach + venue + uniform for one revenue line."""
+    if hasattr(line, "teams") and line.teams:
+        teams = line.teams
+    else:
+        teams = max(1, round(line.kids_registered / sport.roster_size))
+
+    coach_hours = teams * sport.units_per_week * sport.hours_per_unit * sport.weeks_per_season
+    coach_cost = coach_hours * a.costs.head_coach_hourly.base
+    venue_cost = coach_hours * _venue_hourly(a, sport.venue_type)
     uniform_cost = a.pricing.uniform_fee * line.kids_registered
-    total = coach_cost + venue_cost + uniform_cost
     return {
         "coach_cost": coach_cost,
         "venue_cost": venue_cost,
         "uniform_cost": uniform_cost,
-        "total": total,
+        "total": coach_cost + venue_cost + uniform_cost,
     }
 
 
-def compute_variable_costs_for_cohort_line(
-    a: Assumptions, line: CohortRevenueLine
+def compute_variable_costs_for_travel_line(
+    a: Assumptions,
+    line: TravelRevenueLine,
 ) -> Dict[str, float]:
-    """Variable cost for a cohort (Y2-5) revenue line. CohortRevenueLine doesn't
-    carry a team count, so we derive one from kids_registered / roster_size."""
-    if line.sport == "soccer":
-        teams = max(1, round(line.kids_registered / a.pricing.soccer_roster_size))
-        weeks = a.pricing.soccer_weeks_per_season
-        coach_hours = teams * 1 * 2 * weeks
-        coach_cost = coach_hours * a.costs.head_coach_hourly.base
-        venue_cost = coach_hours * a.costs.outdoor_field_hourly.base
-    elif line.sport == "flag":
-        teams = max(1, round(line.kids_registered / a.pricing.flag_roster_size))
-        weeks = a.pricing.flag_weeks_per_season
-        coach_hours = teams * 1 * 1.5 * weeks
-        coach_cost = coach_hours * a.costs.head_coach_hourly.base
-        venue_cost = coach_hours * a.costs.outdoor_field_hourly.base
-    elif line.sport == "winter_skills":
-        sessions_total = a.pricing.winter_skills_sessions_per_week * 12
-        coach_cost = sessions_total * a.costs.head_coach_hourly.base
-        venue_cost = sessions_total * a.costs.indoor_turf_half_hourly.base
-    else:
-        coach_cost = venue_cost = 0
+    """Travel variable cost with premium coach rate multiplier."""
+    travel = a.expansion.travel
+    if travel is None:
+        return {"coach_cost": 0, "venue_cost": 0, "uniform_cost": 0, "total": 0}
 
-    uniform_cost = a.pricing.uniform_fee * line.kids_registered
-    total = coach_cost + venue_cost + uniform_cost
+    teams = max(1, round(line.kids_registered / travel.travel_roster_size))
+    coach_hours = teams * 1 * 2 * travel.travel_weeks_per_season
+    premium_rate = a.costs.head_coach_hourly.base * travel.travel_coach_hourly_premium
+    coach_cost = coach_hours * premium_rate
+    venue_cost = coach_hours * a.costs.outdoor_field_hourly.base
+    uniform_cost = 0.0
     return {
         "coach_cost": coach_cost,
         "venue_cost": venue_cost,
         "uniform_cost": uniform_cost,
-        "total": total,
+        "total": coach_cost + venue_cost + uniform_cost,
     }
 
 
