@@ -28,21 +28,29 @@ let stats = {
 };
 
 try {
-  const [sportsCount] = await db.select({ count: count() }).from(sports);
-  const [locationsCount] = await db.select({ count: count() }).from(locations);
-  const [programsCount] = await db.select({ count: count() }).from(programs);
-  const [seasonsCount] = await db.select({ count: count() }).from(seasons).where(eq(seasons.status, 'open'));
-  const [registrationsCount] = await db.select({ count: count() }).from(registrations);
-  const [usersCount] = await db.select({ count: count() }).from(users);
-
-  // Get pending refunds count and total amount
-  const [pendingRefundsData] = await db
-    .select({
-      count: count(),
-      totalAmount: sql<number>`COALESCE(SUM(${registrations.refundAmountCents}), 0)`,
-    })
-    .from(registrations)
-    .where(eq(registrations.refundStatus, 'pending_approval'));
+  const [
+    [sportsCount],
+    [locationsCount],
+    [programsCount],
+    [seasonsCount],
+    [registrationsCount],
+    [usersCount],
+    [pendingRefundsData],
+  ] = await Promise.all([
+    db.select({ count: count() }).from(sports),
+    db.select({ count: count() }).from(locations),
+    db.select({ count: count() }).from(programs),
+    db.select({ count: count() }).from(seasons).where(eq(seasons.status, 'open')),
+    db.select({ count: count() }).from(registrations),
+    db.select({ count: count() }).from(users),
+    db
+      .select({
+        count: count(),
+        totalAmount: sql<number>`COALESCE(SUM(${registrations.refundAmountCents}), 0)`,
+      })
+      .from(registrations)
+      .where(eq(registrations.refundStatus, 'pending_approval')),
+  ]);
 
   stats = {
     sports: sportsCount.count,
