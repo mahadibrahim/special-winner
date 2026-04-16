@@ -12,7 +12,16 @@ if (connectionString) {
   const client = postgres(connectionString, {
     max: 1, // Serverless: limit connections
     idle_timeout: 20,
-    connect_timeout: 10,
+    // Fail fast on initial connection. The previous 10-second timeout
+    // meant a flaky DB stalled the whole request for 10 seconds before
+    // erroring. 3 seconds is still long enough to tolerate a slow cold
+    // start from Railway but short enough that users see the failure
+    // quickly instead of spinning.
+    connect_timeout: 3,
+    // Keep prepared statements off for serverless — each invocation is a
+    // fresh connection pool, so prepared-statement caching has no benefit
+    // and just adds a round trip for deallocate.
+    prepare: false,
   });
 
   db = drizzle(client, { schema });

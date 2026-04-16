@@ -1,4 +1,5 @@
 ---
+export const prerender = true;
 import '../../styles/globals.css';
 import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
@@ -7,149 +8,298 @@ const guides = [
   {
     sport: 'Soccer',
     slug: 'soccer',
-    color: 'from-emerald-500 to-green-600',
-    accent: 'emerald',
-    tagline: 'Technical, tactical, physical, and psychological development for young players',
-    description: 'Our complete soccer development framework — skill progressions, age-appropriate tactics, and the coaching philosophy that guides every practice and game.',
+    number: '01',
+    tagline: 'Technical, tactical, physical, psychological — all four domains of long-term development.',
+    excerpt:
+      "Our complete framework for soccer development, from foundational ball mastery at age four through the tactical understanding that separates good club players from great ones.",
+    coachQuote: "We're building athletes for age 25, not just age 8.",
   },
   {
     sport: 'Basketball',
     slug: 'basketball',
-    color: 'from-orange-500 to-red-600',
-    accent: 'orange',
-    tagline: 'Shooting, ball handling, defense, and game intelligence for youth players',
-    description: 'Evidence-based basketball skill development from fundamentals through advanced game awareness. Built for coaches who want to develop players, not just win games.',
+    number: '02',
+    tagline: 'Shooting form, ball handling, defense, and the game intelligence that wins fourth quarters.',
+    excerpt:
+      "Research-grounded basketball development built on motor learning science. We teach skills in the order the body can actually absorb them — not in the order a drill sheet prescribes.",
+    coachQuote: "Talent is developed, not discovered.",
   },
   {
     sport: 'Hockey',
     slug: 'hockey',
-    color: 'from-blue-500 to-cyan-600',
-    accent: 'blue',
-    tagline: 'Skating, stickhandling, shooting, passing, and defensive positioning',
-    description: 'A complete youth hockey development curriculum covering the technical foundations and tactical understanding every young player needs to grow.',
+    number: '03',
+    tagline: 'Skating, stickhandling, shooting, passing — and the defensive positioning that keeps you on the ice.',
+    excerpt:
+      "A progression that treats skating as the foundation it actually is. The kid who can skate confidently backward at age nine is the kid still playing at seventeen. We start there.",
+    coachQuote: "Winning takes care of itself when athletes develop properly.",
   },
   {
     sport: 'Baseball',
     slug: 'baseball',
-    color: 'from-amber-500 to-yellow-600',
-    accent: 'amber',
-    tagline: 'Age-appropriate progressions for hitting, fielding, pitching, and baserunning',
-    description: 'Our baseball development framework focused on long-term player growth over short-term results — the Double-Goal Coach philosophy applied to America\'s pastime.',
+    number: '04',
+    tagline: 'Hitting, fielding, pitching, baserunning — age-appropriate progressions, honest about what kids can absorb.',
+    excerpt:
+      "Baseball development that respects how kids learn. Long-term athlete development applied to a sport that too often sacrifices long-term player health for short-term travel-ball glory.",
+    coachQuote: "We never sacrifice long-term development for short-term results.",
   },
 ];
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Coaching Guides — Aspire Sports</title>
-    <meta name="description" content="Free, evidence-based coaching guides for soccer, basketball, hockey, and baseball. Grounded in research on youth athlete development. Read online or print as PDFs." />
+    <title>The Coaching Guides — Aspire Sports</title>
+    <meta name="description" content="Free, research-grounded coaching guides for soccer, basketball, hockey, and baseball. Built on the Double-Goal Coach, ELM, and TDEQ-5 frameworks." />
     <meta property="og:title" content="Evidence-Based Coaching Guides — Aspire Sports" />
-    <meta property="og:description" content="Free coaching guides for soccer, basketball, hockey, and baseball, grounded in research on youth athlete development." />
+    <meta property="og:description" content="Free coaching frameworks for soccer, basketball, hockey, and baseball. Read online or print as PDFs." />
     <meta property="og:type" content="website" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
     <style>
-      @keyframes fadeSlideIn {
-        from { opacity: 0; transform: translateY(20px); }
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(14px); }
         to { opacity: 1; transform: translateY(0); }
       }
-
-      .fade-in {
-        animation: fadeSlideIn 0.6s ease-out forwards;
+      .fade-up {
+        animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         opacity: 0;
       }
+      .fade-up:nth-child(1) { animation-delay: 0ms; }
+      .fade-up:nth-child(2) { animation-delay: 80ms; }
+      .fade-up:nth-child(3) { animation-delay: 160ms; }
+      .fade-up:nth-child(4) { animation-delay: 240ms; }
+      .fade-up:nth-child(5) { animation-delay: 320ms; }
 
-      .fade-in:nth-child(1) { animation-delay: 0ms; }
-      .fade-in:nth-child(2) { animation-delay: 100ms; }
-      .fade-in:nth-child(3) { animation-delay: 200ms; }
-      .fade-in:nth-child(4) { animation-delay: 300ms; }
-
-      .guide-bg {
-        background-image:
-          radial-gradient(ellipse 80% 50% at 50% -20%, rgba(204, 68, 44, 0.06), transparent),
-          radial-gradient(circle at 80% 80%, rgba(204, 68, 44, 0.04), transparent);
+      .guide-card {
+        transition: border-color 400ms ease, background-color 400ms ease;
+      }
+      .guide-card:hover {
+        background-color: var(--paper);
+      }
+      .guide-card:hover .guide-arrow {
+        transform: translateX(6px);
+      }
+      .guide-card:hover .guide-number {
+        color: var(--primary-orange);
+      }
+      .guide-arrow {
+        transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .guide-number {
+        transition: color 400ms ease;
       }
     </style>
   </head>
-  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+  <body class="bg-cream text-ink antialiased">
     <Navigation client:load />
 
-    <main class="flex-1 pt-24 pb-16 px-4 guide-bg">
-      <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <header class="mb-14 text-center fade-in">
-          <p class="text-sm font-medium text-primary mb-3 uppercase tracking-wider">Evidence-Based Youth Development</p>
-          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-            Our Coaching Guides
-          </h1>
-          <p class="text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed">
-            Free, research-grounded development frameworks for youth sports. Built on the
-            <span class="text-white font-medium">Double-Goal Coach</span>,
-            <span class="text-white font-medium">ELM</span>, and
-            <span class="text-white font-medium">TDEQ-5</span> models. Read online or print as PDFs.
-          </p>
-        </header>
+    <main class="relative">
+      <!-- Subtle paper grain for warmth -->
+      <div class="pointer-events-none absolute inset-0 opacity-[0.25] paper-grain"></div>
 
-        <!-- Guides Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-16">
-          {guides.map((guide) => (
-            <a
-              href={`/guides/${guide.slug}`}
-              class="fade-in group block p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.04] transition-all"
-            >
-              <div class="flex items-start gap-4 mb-4">
-                <div class={`w-14 h-14 rounded-xl bg-gradient-to-br ${guide.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
-                  <span class="text-2xl font-bold text-white">{guide.sport[0]}</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h2 class="text-2xl font-bold text-white group-hover:text-primary transition-colors">
-                    {guide.sport} Development Guide
-                  </h2>
-                  <p class="text-sm text-gray-500 mt-1">{guide.tagline}</p>
-                </div>
-              </div>
-              <p class="text-gray-400 leading-relaxed mb-5">{guide.description}</p>
-              <div class="inline-flex items-center gap-2 text-sm font-medium text-primary group-hover:gap-3 transition-all">
-                Read the guide
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </div>
-            </a>
-          ))}
+      <!-- ——— Masthead ——— -->
+      <header class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pt-28 lg:pt-36 pb-16 lg:pb-24">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-6 fade-up">
+          <span class="label-sm text-ink-muted">Volume 01 · 2026</span>
+          <span class="label-sm text-primary-orange hidden sm:inline">The Coaching Guides</span>
+          <span class="label-sm text-ink-muted">Free to read</span>
         </div>
 
-        <!-- Philosophy Section -->
-        <section class="rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.08] p-8 lg:p-12 mb-10 fade-in">
-          <h2 class="text-2xl font-bold text-white mb-4">Why we publish these</h2>
-          <div class="grid md:grid-cols-3 gap-6 text-gray-400 leading-relaxed">
-            <div>
-              <h3 class="text-white font-semibold mb-2">For coaches</h3>
-              <p class="text-sm">A shared language across every coach in the organization. Same philosophy, same progressions, same expectations — so every athlete gets the same quality of development regardless of which coach they draw.</p>
+        <div class="grid grid-cols-12 gap-6 lg:gap-12 mt-16 lg:mt-24">
+          <div class="col-span-12 lg:col-span-9 fade-up">
+            <p class="label-sm text-primary-orange mb-6 flex items-center gap-3">
+              <span class="inline-block w-8 h-px bg-primary-orange"></span>
+              Evidence-Based Youth Development
+            </p>
+
+            <h1
+              class="display text-ink"
+              style="font-size: clamp(3.5rem, 10vw, 10rem); line-height: 0.92; letter-spacing: -0.04em; font-weight: 500;"
+            >
+              How we
+              <br />
+              actually
+              <br />
+              <span class="italic text-primary-orange" style="font-weight: 400;">teach</span>.
+            </h1>
+          </div>
+
+          <div class="col-span-12 lg:col-span-3 lg:pl-8 lg:border-l lg:border-ink/15 fade-up">
+            <p class="label-sm text-ink-muted mb-4">The publication</p>
+            <p class="text-ink-2 text-base leading-relaxed serif italic">
+              Four sport-specific coaching frameworks,
+              grounded in the
+              <strong class="not-italic font-medium">PCA Double-Goal Coach</strong>,
+              <strong class="not-italic font-medium">ELM</strong>, and
+              <strong class="not-italic font-medium">TDEQ-5</strong>
+              youth development models.
+              Free to read, free to print, free to share.
+            </p>
+            <p class="mt-6 label-sm text-ink-muted">
+              By Aspire Sports · Powell, Ohio
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <!-- ——— Table of contents / guide index ——— -->
+      <section class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pb-24 lg:pb-32">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mb-8">
+          <h2 class="label-sm text-ink-muted">Contents</h2>
+          <span class="label-sm text-ink-muted">Four guides · All sports</span>
+        </div>
+
+        <ol class="list-none p-0 m-0">
+          {guides.map((guide) => (
+            <li class="fade-up">
+              <a
+                href={`/guides/${guide.slug}`}
+                class="guide-card block border-b border-ink/15 py-12 lg:py-16 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pl-4 sm:pr-4"
+              >
+                <div class="grid grid-cols-12 gap-4 lg:gap-8 items-start">
+                  <div class="col-span-2 lg:col-span-1 pt-2">
+                    <span
+                      class="guide-number display text-ink-faint italic"
+                      style="font-size: 2.25rem; font-weight: 500;"
+                    >
+                      {guide.number}
+                    </span>
+                  </div>
+
+                  <div class="col-span-10 lg:col-span-7">
+                    <h3
+                      class="display text-ink"
+                      style="font-size: clamp(2rem, 5vw, 3.75rem); line-height: 1; letter-spacing: -0.025em; font-weight: 500;"
+                    >
+                      {guide.sport}
+                    </h3>
+                    <p class="mt-4 text-base lg:text-lg text-ink-2 leading-relaxed max-w-xl">
+                      {guide.tagline}
+                    </p>
+                    <p class="mt-5 text-sm text-ink-muted serif italic leading-relaxed max-w-xl">
+                      {guide.excerpt}
+                    </p>
+                  </div>
+
+                  <div class="col-span-12 lg:col-span-4 lg:pl-8 lg:border-l lg:border-ink/10 lg:pt-2">
+                    <blockquote class="serif italic text-ink text-base lg:text-lg leading-snug">
+                      "{guide.coachQuote}"
+                    </blockquote>
+                    <div class="mt-8 flex items-center justify-between">
+                      <span class="label-sm text-ink-muted">
+                        Read guide
+                      </span>
+                      <svg
+                        class="guide-arrow w-8 h-[1px] text-ink"
+                        viewBox="0 0 40 2"
+                        fill="currentColor"
+                        preserveAspectRatio="none"
+                      >
+                        <rect x="0" y="0" width="32" height="1" />
+                        <polygon points="32,0 40,1 32,2" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <!-- ——— Editorial statement ——— -->
+      <section class="relative border-t border-ink/15 bg-cream-2">
+        <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-24 lg:py-32">
+          <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mb-12">
+            <h2 class="label-sm text-ink-muted">Editorial Statement</h2>
+            <span class="label-sm text-ink-muted">Why we publish</span>
+          </div>
+
+          <div class="grid grid-cols-12 gap-8 lg:gap-16">
+            <div class="col-span-12 lg:col-span-7">
+              <p class="display text-ink text-3xl lg:text-5xl leading-[1.1]" style="font-weight: 500; letter-spacing: -0.02em;">
+                Youth sports development research
+                <span class="italic text-primary-orange"> shouldn't sit behind a paywall</span>,
+                or a coach's certification class,
+                or inside a travel-team newsletter.
+              </p>
+              <p class="mt-10 text-lg text-ink-2 leading-relaxed max-w-2xl">
+                These guides document exactly how we teach the four sports we run.
+                Every progression, every drill, every principle is grounded in published
+                motor learning research and real-world coaching experience. We publish them
+                because parents deserve to see what their kids are actually being taught —
+                and because other coaches who want to do the work should have a starting point
+                that doesn't cost anything.
+              </p>
+              <p class="mt-8 text-base text-ink-muted serif italic">
+                You are welcome to read, print, share, and adapt these guides
+                for your own organization. Attribution appreciated, not required.
+              </p>
             </div>
-            <div>
-              <h3 class="text-white font-semibold mb-2">For parents</h3>
-              <p class="text-sm">See exactly how we approach your child's sport. No mystery about what they're learning or why. When a parent asks "how do you teach shooting?", the answer is a page in the guide.</p>
+
+            <aside class="col-span-12 lg:col-span-5 lg:pl-12 lg:border-l lg:border-ink/15 space-y-8">
+              <div>
+                <p class="label-sm text-primary-orange mb-2">For coaches</p>
+                <p class="text-ink-2 text-base leading-relaxed">
+                  A shared language across every coach in the organization.
+                  Same philosophy, same progressions, same expectations.
+                </p>
+              </div>
+              <div>
+                <p class="label-sm text-primary-orange mb-2">For parents</p>
+                <p class="text-ink-2 text-base leading-relaxed">
+                  See exactly how we approach your child's sport.
+                  When you ask "how do you teach shooting?" the answer is a page in the guide.
+                </p>
+              </div>
+              <div>
+                <p class="label-sm text-primary-orange mb-2">For the community</p>
+                <p class="text-ink-2 text-base leading-relaxed">
+                  A body of free, credible, evidence-based material
+                  any coach or organization can apply.
+                </p>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ——— Footer CTA ——— -->
+      <section class="relative">
+        <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-20 lg:py-28 border-t border-ink/15">
+          <div class="grid grid-cols-12 gap-8 items-baseline">
+            <div class="col-span-12 lg:col-span-8">
+              <h2
+                class="display text-ink"
+                style="font-size: clamp(2rem, 5vw, 4rem); line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
+              >
+                Want to see this philosophy
+                <span class="italic text-primary-orange"> in practice</span>?
+              </h2>
             </div>
-            <div>
-              <h3 class="text-white font-semibold mb-2">For the community</h3>
-              <p class="text-sm">Youth sports development research shouldn't sit behind a paywall. Our guides are free for any coach, parent, or organization to read, print, and apply.</p>
+            <div class="col-span-12 lg:col-span-4 lg:text-right">
+              <a
+                href="/#programs"
+                class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium uppercase hover:bg-primary-orange transition-colors duration-300"
+                style="letter-spacing: 0.08em;"
+              >
+                Browse Aspire programs
+                <svg class="w-5 h-[1px]" viewBox="0 0 24 2" fill="currentColor">
+                  <rect x="0" y="0" width="18" height="1" />
+                  <polygon points="18,0 24,1 18,2" />
+                </svg>
+              </a>
             </div>
           </div>
-        </section>
-
-        <!-- CTA -->
-        <div class="text-center fade-in">
-          <p class="text-gray-500 mb-4">Want to see these principles in action with real coaches and real progress tracking?</p>
-          <a href="/#programs" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-medium transition-colors">
-            Browse Aspire Programs
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-          </a>
         </div>
-      </div>
+      </section>
     </main>
 
     <Footer client:idle />

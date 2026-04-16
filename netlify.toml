@@ -2,6 +2,28 @@
   command = "npm run build"
   publish = "dist"
 
+  # ============================================================
+  # AUTO-DEPLOY DISABLED FOR COST CONTROL
+  # ============================================================
+  # Netlify's native Git integration triggers a production build
+  # on every push to main. For this project we want deploys only
+  # on explicit v* tags via .github/workflows/deploy.yml, not on
+  # every commit.
+  #
+  # The `ignore` directive runs before the build. If it exits 0,
+  # Netlify skips the build entirely — saving build minutes and
+  # function-invocation budget. Exit 1 (or any non-zero) would
+  # proceed with the build as normal.
+  #
+  # This does NOT affect the GitHub Actions deploy workflow,
+  # which uses the Netlify API directly via nwtgck/actions-netlify
+  # and bypasses this ignore check. Tag-based deploys still work.
+  #
+  # To re-enable auto-deploy: remove the ignore line and either
+  # `exit 1` here, or delete the line entirely.
+  # ============================================================
+  ignore = "exit 0"
+
 # Stop automatic deploys - we deploy manually via CI on releases
 [build.processing]
   skip_processing = false
