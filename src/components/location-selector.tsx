@@ -113,18 +113,18 @@ export default function LocationSelector({
         onClick={() => setIsOpen(!isOpen)}
         className={`
           group flex items-center gap-2 px-3 py-2 rounded-lg
-          bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#cc442c]/30
+          bg-cream-2 hover:bg-cream-3 border border-border hover:border-primary/30
           transition-all duration-300
-          ${isOpen ? "border-[#cc442c]/50 bg-white/10" : ""}
+          ${isOpen ? "border-primary/50 bg-cream-3" : ""}
         `}
       >
         <div className="relative">
-          <MapPin className="w-4 h-4 text-[#cc442c]" />
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#cc442c] rounded-full animate-pulse" />
+          <MapPin className="w-4 h-4 text-primary" />
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full animate-pulse" />
         </div>
-        <span className="text-sm font-medium text-white">{selectedLocation.name}</span>
+        <span className="text-sm font-medium text-ink">{selectedLocation.name}</span>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${
+          className={`w-4 h-4 text-ink-muted transition-transform duration-300 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -141,10 +141,10 @@ export default function LocationSelector({
           }
         `}
       >
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0f]/95 backdrop-blur-xl shadow-2xl shadow-black/50">
+        <div className="relative overflow-hidden rounded-xl border border-border bg-paper/98 backdrop-blur-xl shadow-2xl shadow-ink/10">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-white/5 bg-gradient-to-r from-[#cc442c]/10 to-transparent">
-            <div className="flex items-center gap-2 text-xs text-gray-400 uppercase tracking-wider">
+          <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 text-xs text-ink-muted uppercase tracking-wider">
               <Compass className="w-3 h-3" />
               Select Your Region
             </div>
@@ -160,8 +160,8 @@ export default function LocationSelector({
                   group w-full flex items-center gap-3 px-3 py-3 rounded-lg
                   transition-all duration-300
                   ${location.id === selectedId
-                    ? "bg-[#cc442c]/15 border border-[#cc442c]/30"
-                    : "hover:bg-white/5 border border-transparent"
+                    ? "bg-primary/10 border border-primary/20"
+                    : "hover:bg-cream-2 border border-transparent"
                   }
                 `}
                 style={{ animationDelay: `${index * 50}ms` }}
@@ -170,14 +170,14 @@ export default function LocationSelector({
                 <div
                   className={`
                     relative w-10 h-10 rounded-lg overflow-hidden
-                    ${location.id === selectedId ? "ring-2 ring-[#cc442c]/50" : ""}
+                    ${location.id === selectedId ? "ring-2 ring-primary/50" : ""}
                   `}
                 >
                   <TopoPattern pattern={location.pattern} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <MapPin
                       className={`w-4 h-4 transition-colors ${
-                        location.id === selectedId ? "text-[#cc442c]" : "text-white/60"
+                        location.id === selectedId ? "text-primary" : "text-ink-faint"
                       }`}
                     />
                   </div>
@@ -188,22 +188,22 @@ export default function LocationSelector({
                   <div className="flex items-center gap-2">
                     <span
                       className={`font-semibold transition-colors ${
-                        location.id === selectedId ? "text-white" : "text-gray-300"
+                        location.id === selectedId ? "text-ink" : "text-ink-2"
                       }`}
                     >
                       {location.name}
                     </span>
-                    <span className="text-[10px] text-gray-500 font-mono">
+                    <span className="text-[10px] text-ink-faint font-mono">
                       {location.coordinates}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500">{location.area}</div>
+                  <div className="text-xs text-ink-muted">{location.area}</div>
                 </div>
 
                 {/* Check indicator */}
                 {location.id === selectedId && (
-                  <div className="w-5 h-5 rounded-full bg-[#cc442c] flex items-center justify-center">
-                    <Check className="w-3 h-3 text-white" />
+                  <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="w-3 h-3 text-cream" />
                   </div>
                 )}
               </button>
@@ -211,8 +211,8 @@ export default function LocationSelector({
           </div>
 
           {/* Footer hint */}
-          <div className="px-4 py-2 border-t border-white/5 bg-white/[0.02]">
-            <p className="text-[10px] text-gray-500 text-center">
+          <div className="px-4 py-2 border-t border-border bg-cream-2">
+            <p className="text-[10px] text-ink-muted text-center">
               Programs and schedules vary by location
             </p>
           </div>
@@ -239,8 +239,8 @@ function LocationCard({ location, isSelected, onSelect, delay, isLoaded }: Locat
         transition-all duration-500 ease-out
         ${isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}
         ${isSelected
-          ? "bg-gradient-to-br from-[#cc442c]/20 to-[#cc442c]/5 border-2 border-[#cc442c]/50 scale-[1.02]"
-          : "bg-white/[0.03] border border-white/10 hover:border-[#cc442c]/30 hover:bg-white/[0.05] hover:scale-[1.01]"
+          ? "bg-gradient-to-br from-primary/15 to-primary/5 border-2 border-primary/40 scale-[1.02]"
+          : "bg-paper border border-border hover:border-primary/30 hover:bg-cream-2 hover:scale-[1.01]"
         }
       `}
       style={{ transitionDelay: `${delay}ms` }}
@@ -252,7 +252,7 @@ function LocationCard({ location, isSelected, onSelect, delay, isLoaded }: Locat
 
       {/* Glow effect on selected */}
       {isSelected && (
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-[#cc442c]/30 rounded-full blur-3xl" />
+        <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
       )}
 
       {/* Content */}
@@ -264,14 +264,14 @@ function LocationCard({ location, isSelected, onSelect, delay, isLoaded }: Locat
               w-12 h-12 rounded-xl flex items-center justify-center
               transition-all duration-300
               ${isSelected
-                ? "bg-[#cc442c] shadow-lg shadow-[#cc442c]/30"
-                : "bg-white/10 group-hover:bg-white/15"
+                ? "bg-primary shadow-lg shadow-primary/20"
+                : "bg-cream-3 group-hover:bg-cream-3"
               }
             `}
           >
             <MapPin
               className={`w-6 h-6 transition-colors ${
-                isSelected ? "text-white" : "text-gray-400 group-hover:text-white"
+                isSelected ? "text-cream" : "text-ink-muted group-hover:text-ink"
               }`}
             />
           </div>
@@ -282,8 +282,8 @@ function LocationCard({ location, isSelected, onSelect, delay, isLoaded }: Locat
               w-6 h-6 rounded-full border-2 flex items-center justify-center
               transition-all duration-300
               ${isSelected
-                ? "border-[#cc442c] bg-[#cc442c]"
-                : "border-gray-600 group-hover:border-gray-400"
+                ? "border-primary bg-primary"
+                : "border-ink-faint group-hover:border-ink-muted"
               }
             `}
           >
@@ -294,28 +294,28 @@ function LocationCard({ location, isSelected, onSelect, delay, isLoaded }: Locat
         {/* Location name */}
         <h3
           className={`text-2xl font-bold mb-1 transition-colors ${
-            isSelected ? "text-white" : "text-gray-200 group-hover:text-white"
+            isSelected ? "text-ink" : "text-ink-2 group-hover:text-ink"
           }`}
         >
           {location.name}
         </h3>
 
         {/* Area */}
-        <p className="text-sm text-gray-400 mb-3">{location.area}</p>
+        <p className="text-sm text-ink-muted mb-3">{location.area}</p>
 
         {/* Tagline */}
         <p
           className={`text-sm font-medium transition-colors ${
-            isSelected ? "text-[#cc442c]" : "text-gray-500 group-hover:text-gray-400"
+            isSelected ? "text-primary" : "text-ink-muted group-hover:text-ink-2"
           }`}
         >
           "{location.tagline}"
         </p>
 
         {/* Coordinates badge */}
-        <div className="mt-4 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/30 border border-white/5">
-          <Compass className="w-3 h-3 text-gray-500" />
-          <span className="text-[10px] font-mono text-gray-500">{location.coordinates}</span>
+        <div className="mt-4 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-cream-3 border border-border">
+          <Compass className="w-3 h-3 text-ink-faint" />
+          <span className="text-[10px] font-mono text-ink-faint">{location.coordinates}</span>
         </div>
       </div>
 
@@ -372,7 +372,7 @@ function TopoPattern({ pattern, fullSize = false }: TopoPatternProps) {
 
   return (
     <svg
-      className={`${fullSize ? "w-full h-full" : "w-full h-full"} text-[#cc442c]`}
+      className={`${fullSize ? "w-full h-full" : "w-full h-full"} text-primary`}
       viewBox="0 0 40 40"
       preserveAspectRatio={fullSize ? "xMidYMid slice" : "xMidYMid meet"}
     >

@@ -84,12 +84,9 @@ export default function PartnersSection({ mode = "compact", className = "" }: Pa
   }
 
   return (
-    <section className={`relative py-16 overflow-hidden ${className}`}>
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0f] via-[#0d0d12] to-[#0a0a0f]" />
-
+    <section className={`relative py-16 overflow-hidden bg-cream ${className}`}>
       {/* Subtle top border */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       <div className="relative">
         {/* Header */}
@@ -97,21 +94,19 @@ export default function PartnersSection({ mode = "compact", className = "" }: Pa
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/20 flex items-center justify-center">
-                  <Handshake className="w-4 h-4 text-amber-500" />
-                </div>
-                <span className="text-xs font-semibold text-amber-500/80 uppercase tracking-widest">
+                <Handshake className="w-4 h-4 text-primary" />
+                <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
                   Our Partners
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">
+              <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink">
                 Trusted by the Community
               </h2>
             </div>
 
             <a
               href="/partners"
-              className="group inline-flex items-center gap-2 text-sm text-gray-400 hover:text-amber-500 transition-colors"
+              className="group inline-flex items-center gap-2 text-sm text-ink-muted hover:text-primary transition-colors"
             >
               Become a Partner
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -126,8 +121,8 @@ export default function PartnersSection({ mode = "compact", className = "" }: Pa
           onMouseLeave={() => setIsPaused(false)}
         >
           {/* Gradient masks */}
-          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0a0a0f] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0a0a0f] to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-cream to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-cream to-transparent z-10 pointer-events-none" />
 
           {/* Scrolling track */}
           <div className="flex overflow-hidden">
@@ -147,19 +142,19 @@ export default function PartnersSection({ mode = "compact", className = "" }: Pa
 
         {/* Trust indicators */}
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-10">
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-500">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-ink-muted">
             <div className="flex items-center gap-2">
-              <Star className="w-3.5 h-3.5 text-amber-500/60" />
+              <Star className="w-3.5 h-3.5 text-primary/60" />
               <span>10+ Years of Partnerships</span>
             </div>
-            <div className="w-px h-4 bg-white/10 hidden sm:block" />
+            <div className="w-px h-4 bg-border hidden sm:block" />
             <div className="flex items-center gap-2">
-              <Star className="w-3.5 h-3.5 text-amber-500/60" />
+              <Star className="w-3.5 h-3.5 text-primary/60" />
               <span>Local & National Brands</span>
             </div>
-            <div className="w-px h-4 bg-white/10 hidden sm:block" />
+            <div className="w-px h-4 bg-border hidden sm:block" />
             <div className="flex items-center gap-2">
-              <Star className="w-3.5 h-3.5 text-amber-500/60" />
+              <Star className="w-3.5 h-3.5 text-primary/60" />
               <span>Community Focused</span>
             </div>
           </div>
@@ -182,26 +177,26 @@ function PartnerBadge({ partner }: { partner: Partner }) {
     <div
       className={`
         group relative flex-shrink-0 px-8 py-5 rounded-xl
-        bg-gradient-to-b from-white/[0.04] to-transparent
-        border border-white/[0.06] hover:border-amber-500/30
+        bg-paper
+        border border-border hover:border-primary/30
         transition-all duration-500 cursor-pointer
-        hover:bg-white/[0.06]
+        hover:bg-cream-2
       `}
     >
-      {/* Glow effect on hover */}
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-amber-500/0 to-amber-500/0 group-hover:from-amber-500/5 group-hover:to-transparent transition-all duration-500" />
+      {/* Subtle highlight on hover */}
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-transparent transition-all duration-500" />
 
       {/* Tier indicator */}
       {partner.tier === "sponsor" && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-          <Star className="w-2.5 h-2.5 text-white fill-white" />
+        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30">
+          <Star className="w-2.5 h-2.5 text-cream fill-cream" />
         </div>
       )}
 
       {/* Logo container */}
       <div
         className={`
-          relative text-gray-500 group-hover:text-white
+          relative text-ink-muted group-hover:text-ink
           transition-all duration-500
           grayscale group-hover:grayscale-0
           opacity-60 group-hover:opacity-100
@@ -214,8 +209,8 @@ function PartnerBadge({ partner }: { partner: Partner }) {
       <div
         className={`
           absolute -bottom-8 left-1/2 -translate-x-1/2
-          px-2 py-1 rounded bg-white/10 backdrop-blur-sm
-          text-[10px] text-gray-400 whitespace-nowrap
+          px-2 py-1 rounded bg-cream-3 border border-border
+          text-[10px] text-ink-muted whitespace-nowrap
           opacity-0 group-hover:opacity-100 transition-opacity duration-300
           pointer-events-none
         `}
@@ -251,28 +246,25 @@ function ExpandedPartners({ className = "" }: { className?: string }) {
   const community = partners.filter((p) => p.tier === "community")
 
   return (
-    <section ref={sectionRef} className={`relative py-20 ${className}`}>
-      {/* Background */}
-      <div className="absolute inset-0 bg-[#0a0a0f]" />
-
+    <section ref={sectionRef} className={`relative py-20 bg-cream-2 ${className}`}>
       {/* Decorative elements */}
-      <div className="absolute top-20 left-10 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-48 h-48 bg-orange-500/5 rounded-full blur-3xl" />
+      <div className="absolute top-20 left-10 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary/3 rounded-full blur-3xl" />
 
       <div className="relative container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="h-px w-8 bg-gradient-to-r from-transparent to-amber-500/50" />
-            <span className="text-xs font-semibold text-amber-500 uppercase tracking-widest">
+            <div className="h-px w-8 bg-gradient-to-r from-transparent to-primary/50" />
+            <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
               Our Partners
             </span>
-            <div className="h-px w-8 bg-gradient-to-l from-transparent to-amber-500/50" />
+            <div className="h-px w-8 bg-gradient-to-l from-transparent to-primary/50" />
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-ink mb-4">
             Powered by Community
           </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+          <p className="text-ink-muted max-w-2xl mx-auto">
             We're proud to partner with local businesses and national brands who share our
             commitment to youth development through sports.
           </p>
@@ -281,11 +273,11 @@ function ExpandedPartners({ className = "" }: { className?: string }) {
         {/* Sponsors Section */}
         <div className="mb-16">
           <div className="flex items-center gap-4 mb-8">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+            <h3 className="text-lg font-display font-semibold text-ink flex items-center gap-2">
+              <Star className="w-5 h-5 text-primary fill-primary" />
               Proud Sponsors
             </h3>
-            <div className="flex-1 h-px bg-gradient-to-r from-amber-500/30 to-transparent" />
+            <div className="flex-1 h-px bg-gradient-to-r from-primary/30 to-transparent" />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -303,11 +295,11 @@ function ExpandedPartners({ className = "" }: { className?: string }) {
         {/* Community Partners Section */}
         <div className="mb-16">
           <div className="flex items-center gap-4 mb-8">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Handshake className="w-5 h-5 text-amber-500" />
+            <h3 className="text-lg font-display font-semibold text-ink flex items-center gap-2">
+              <Handshake className="w-5 h-5 text-primary" />
               Community Partners
             </h3>
-            <div className="flex-1 h-px bg-gradient-to-r from-amber-500/30 to-transparent" />
+            <div className="flex-1 h-px bg-gradient-to-r from-primary/30 to-transparent" />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -326,21 +318,21 @@ function ExpandedPartners({ className = "" }: { className?: string }) {
         <div
           className={`
             text-center p-8 rounded-2xl
-            bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent
-            border border-amber-500/20
+            bg-gradient-to-br from-primary/10 via-primary/5 to-transparent
+            border border-primary/20
             transition-all duration-700 delay-700
             ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}
           `}
         >
-          <h3 className="text-xl font-bold text-white mb-2">
+          <h3 className="text-xl font-display font-bold text-ink mb-2">
             Interested in Partnering?
           </h3>
-          <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
+          <p className="text-ink-muted text-sm mb-6 max-w-md mx-auto">
             Join our community of partners and help shape the future of youth sports in Central Ohio.
           </p>
           <a
             href="/contact?subject=partnership"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-cream font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"
           >
             Become a Partner
             <ArrowRight className="w-4 h-4" />
@@ -364,10 +356,10 @@ function ExpandedPartnerCard({
     <div
       className={`
         group relative p-6 rounded-xl
-        bg-gradient-to-b from-white/[0.04] to-transparent
-        border border-white/[0.08] hover:border-amber-500/40
+        bg-paper
+        border border-border hover:border-primary/40
         transition-all duration-500 cursor-pointer
-        hover:bg-white/[0.06] hover:scale-[1.02]
+        hover:bg-cream-2 hover:scale-[1.02]
         ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}
       `}
       style={{ transitionDelay: `${delay}ms` }}
@@ -375,8 +367,8 @@ function ExpandedPartnerCard({
       {/* Sponsor badge */}
       {partner.tier === "sponsor" && (
         <div className="absolute top-3 right-3">
-          <div className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30">
-            <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-wider">
+          <div className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30">
+            <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
               Sponsor
             </span>
           </div>
@@ -386,7 +378,7 @@ function ExpandedPartnerCard({
       {/* Logo */}
       <div
         className={`
-          mb-4 text-gray-400 group-hover:text-white
+          mb-4 text-ink-muted group-hover:text-ink
           transition-all duration-500
           grayscale group-hover:grayscale-0
           opacity-70 group-hover:opacity-100
@@ -397,11 +389,11 @@ function ExpandedPartnerCard({
       </div>
 
       {/* Name */}
-      <h4 className="font-semibold text-white text-sm">{partner.name}</h4>
-      <p className="text-xs text-gray-500 capitalize">{partner.tier} Partner</p>
+      <h4 className="font-semibold text-ink text-sm">{partner.name}</h4>
+      <p className="text-xs text-ink-muted capitalize">{partner.tier} Partner</p>
 
       {/* Hover glow */}
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-amber-500/0 to-amber-500/0 group-hover:from-amber-500/5 group-hover:to-transparent transition-all duration-500 pointer-events-none" />
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-transparent transition-all duration-500 pointer-events-none" />
     </div>
   )
 }

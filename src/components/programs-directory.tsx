@@ -219,7 +219,7 @@ export default function ProgramsDirectory() {
     <div className="space-y-8">
       {/* Sport Filter */}
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider text-white">Sport</h3>
+        <h3 className="font-semibold text-sm uppercase tracking-wider text-ink">Sport</h3>
         <div className="space-y-3">
           {sports.map((sport) => (
             <div key={sport.id} className="flex items-center space-x-3 group">
@@ -227,11 +227,11 @@ export default function ProgramsDirectory() {
                 id={`sport-${sport.slug}`}
                 checked={selectedSports.includes(sport.slug)}
                 onCheckedChange={() => toggleSport(sport.slug)}
-                className="border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
               />
               <Label
                 htmlFor={`sport-${sport.slug}`}
-                className="text-sm font-normal cursor-pointer flex items-center gap-2 text-gray-400 group-hover:text-white transition-colors"
+                className="text-sm font-normal cursor-pointer flex items-center gap-2 text-ink-muted group-hover:text-ink transition-colors"
               >
                 {sport.icon && <span className="text-base">{sport.icon}</span>}
                 {sport.name}
@@ -239,7 +239,7 @@ export default function ProgramsDirectory() {
             </div>
           ))}
           {sports.length === 0 && (
-            <p className="text-sm text-gray-500">No sports available</p>
+            <p className="text-sm text-ink-muted">No sports available</p>
           )}
         </div>
       </div>
@@ -247,7 +247,7 @@ export default function ProgramsDirectory() {
       {/* Age Range Filter */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm uppercase tracking-wider text-white">Age Range</h3>
+          <h3 className="font-semibold text-sm uppercase tracking-wider text-ink">Age Range</h3>
           <span className="text-sm text-primary font-medium">
             {ageRange[0]}-{ageRange[1]} years
           </span>
@@ -264,18 +264,18 @@ export default function ProgramsDirectory() {
 
       {/* Season Filter */}
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider text-white">Season</h3>
+        <h3 className="font-semibold text-sm uppercase tracking-wider text-ink">Season</h3>
         <RadioGroup value={selectedSeason} onValueChange={setSelectedSeason}>
           {seasonOptions.map((season) => (
             <div key={season.value} className="flex items-center space-x-3 group">
               <RadioGroupItem
                 value={season.value}
                 id={`season-${season.value}`}
-                className="border-white/20 text-primary"
+                className="border-border text-primary"
               />
               <Label
                 htmlFor={`season-${season.value}`}
-                className="text-sm font-normal cursor-pointer text-gray-400 group-hover:text-white transition-colors"
+                className="text-sm font-normal cursor-pointer text-ink-muted group-hover:text-ink transition-colors"
               >
                 {season.label}
               </Label>
@@ -286,17 +286,17 @@ export default function ProgramsDirectory() {
 
       {/* Availability Filter */}
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider text-white">Availability</h3>
+        <h3 className="font-semibold text-sm uppercase tracking-wider text-ink">Availability</h3>
         <div className="flex items-center space-x-3 group">
           <Checkbox
             id="only-available"
             checked={onlyAvailable}
             onCheckedChange={(checked) => setOnlyAvailable(checked === true)}
-            className="border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
           />
           <Label
             htmlFor="only-available"
-            className="text-sm font-normal cursor-pointer text-gray-400 group-hover:text-white transition-colors"
+            className="text-sm font-normal cursor-pointer text-ink-muted group-hover:text-ink transition-colors"
           >
             Only show programs with spots
           </Label>
@@ -308,7 +308,7 @@ export default function ProgramsDirectory() {
         <Button
           variant="outline"
           onClick={clearAllFilters}
-          className="w-full border-white/10 text-gray-400 hover:text-white hover:bg-white/5"
+          className="w-full border-border text-ink-muted hover:text-ink hover:bg-cream-3"
         >
           <X className="w-4 h-4 mr-2" />
           Clear All Filters
@@ -318,7 +318,7 @@ export default function ProgramsDirectory() {
   )
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f]">
+    <div className="min-h-screen bg-cream-2">
       {/* Section Header */}
       <div className="py-16 lg:py-20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -331,10 +331,10 @@ export default function ProgramsDirectory() {
           </div>
 
           {/* Title */}
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center text-white mb-4">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center text-ink font-display mb-4">
             Find Your Program
           </h2>
-          <p className="text-center text-gray-400 max-w-2xl mx-auto mb-10">
+          <p className="text-center text-ink-muted max-w-2xl mx-auto mb-10">
             Browse our upcoming seasons and find the perfect program for your child.
             Filter by sport, age, and location to find what fits best.
           </p>
@@ -344,21 +344,21 @@ export default function ProgramsDirectory() {
             <div className="flex flex-col sm:flex-row gap-3">
               {/* Location Selector */}
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                <SelectTrigger className="w-full sm:w-[200px] bg-white/5 border-white/10 text-white hover:bg-white/[0.07] focus:ring-primary/50">
+                <SelectTrigger className="w-full sm:w-[200px] bg-paper border-border text-ink hover:bg-cream-3 focus:ring-primary/50">
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <MapPin className="h-4 w-4 text-ink-muted" />
                     <SelectValue placeholder="Select location" />
                   </div>
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1a24] border-white/10">
-                  <SelectItem value="all" className="text-gray-300 focus:bg-white/10 focus:text-white">
+                <SelectContent className="bg-paper border-border">
+                  <SelectItem value="all" className="text-ink-2 focus:bg-cream-3 focus:text-ink">
                     All Locations
                   </SelectItem>
                   {locations.map((loc) => (
                     <SelectItem
                       key={loc.id}
                       value={loc.slug}
-                      className="text-gray-300 focus:bg-white/10 focus:text-white"
+                      className="text-ink-2 focus:bg-cream-3 focus:text-ink"
                     >
                       {loc.name}{loc.city ? `, ${loc.city}` : ""}
                     </SelectItem>
@@ -368,13 +368,13 @@ export default function ProgramsDirectory() {
 
               {/* Search Bar */}
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
                 <Input
                   type="text"
                   placeholder="Search by sport, program, or age group..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-11 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50 hover:bg-white/[0.07] transition-colors"
+                  className="pl-11 bg-paper border-border text-ink placeholder:text-ink-faint focus:border-primary/50 focus:ring-primary/50 hover:bg-cream-3 transition-colors"
                 />
               </div>
 
@@ -383,12 +383,12 @@ export default function ProgramsDirectory() {
                 <SheetTrigger asChild>
                   <Button
                     variant="outline"
-                    className="lg:hidden bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white"
+                    className="lg:hidden bg-paper border-border text-ink hover:bg-cream-3 hover:text-ink"
                   >
                     <SlidersHorizontal className="h-4 w-4 mr-2" />
                     Filters
                     {activeFilterCount > 0 && (
-                      <span className="ml-2 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                      <span className="ml-2 w-5 h-5 rounded-full bg-primary text-cream text-xs flex items-center justify-center">
                         {activeFilterCount}
                       </span>
                     )}
@@ -396,10 +396,10 @@ export default function ProgramsDirectory() {
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="w-[300px] bg-[#0a0a0f] border-r border-white/10 overflow-y-auto"
+                  className="w-[300px] bg-cream border-r border-border overflow-y-auto"
                 >
                   <SheetHeader>
-                    <SheetTitle className="text-white">Filters</SheetTitle>
+                    <SheetTitle className="text-ink">Filters</SheetTitle>
                   </SheetHeader>
                   <div className="mt-6">
                     <FiltersContent />
@@ -417,9 +417,9 @@ export default function ProgramsDirectory() {
           {/* Desktop Sidebar Filters */}
           <aside className="hidden lg:block w-[280px] shrink-0">
             <div className="sticky top-24">
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+              <div className="bg-paper border border-border rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-semibold text-white flex items-center gap-2">
+                  <h3 className="font-semibold text-ink flex items-center gap-2">
                     <SlidersHorizontal className="w-4 h-4 text-primary" />
                     Filters
                   </h3>
@@ -438,7 +438,7 @@ export default function ProgramsDirectory() {
           <main className="flex-1 min-w-0">
             {/* Results count */}
             <div className="mb-6 flex items-center justify-between">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-ink-muted">
                 {isLoading
                   ? "Loading programs..."
                   : `${filteredSeasons.length} ${filteredSeasons.length === 1 ? "program" : "programs"} found`}
@@ -456,19 +456,19 @@ export default function ProgramsDirectory() {
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-                <p className="text-gray-500">Loading programs...</p>
+                <p className="text-ink-muted">Loading programs...</p>
               </div>
             ) : error ? (
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-12">
+              <div className="bg-paper border border-border rounded-2xl p-12">
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
                     <X className="w-8 h-8 text-destructive" />
                   </div>
-                  <p className="text-lg font-medium text-white">{error}</p>
+                  <p className="text-lg font-medium text-ink">{error}</p>
                   <Button
                     variant="outline"
                     onClick={() => window.location.reload()}
-                    className="border-white/10 text-white hover:bg-white/5"
+                    className="border-border text-ink hover:bg-cream-3"
                   >
                     Try Again
                   </Button>
@@ -481,17 +481,17 @@ export default function ProgramsDirectory() {
                 ))}
               </div>
             ) : (
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-12">
+              <div className="bg-paper border border-border rounded-2xl p-12">
                 <div className="text-center space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                    <Search className="w-8 h-8 text-gray-500" />
+                  <div className="w-16 h-16 rounded-full bg-cream-3 flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-8 h-8 text-ink-muted" />
                   </div>
-                  <p className="text-lg font-medium text-white">No programs match your filters</p>
-                  <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                  <p className="text-lg font-medium text-ink">No programs match your filters</p>
+                  <p className="text-ink-muted">Try adjusting your search or filter criteria</p>
                   <Button
                     variant="outline"
                     onClick={clearAllFilters}
-                    className="mt-4 border-white/10 text-white hover:bg-white/5"
+                    className="mt-4 border-border text-ink hover:bg-cream-3"
                   >
                     <X className="w-4 h-4 mr-2" />
                     Clear All Filters

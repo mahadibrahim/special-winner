@@ -8,28 +8,28 @@ const benefits = [
     icon: Heart,
     title: "Character Building",
     description: "Sports teach discipline, teamwork, and resilience. We develop leaders on and off the field.",
-    accent: "from-rose-500/20 to-orange-500/20",
+    accent: "from-rose-500/10 to-orange-500/10",
     iconBg: "from-rose-500 to-orange-500",
   },
   {
     icon: Award,
     title: "Expert Coaching",
     description: "Certified coaches focused on development, not just winning. Every child gets the attention they deserve.",
-    accent: "from-amber-500/20 to-yellow-500/20",
+    accent: "from-amber-500/10 to-yellow-500/10",
     iconBg: "from-amber-500 to-yellow-500",
   },
   {
     icon: Users,
     title: "Inclusive Community",
     description: "Programs for all skill levels. Here, everyone belongs and every player matters.",
-    accent: "from-emerald-500/20 to-teal-500/20",
+    accent: "from-emerald-500/10 to-teal-500/10",
     iconBg: "from-emerald-500 to-teal-500",
   },
   {
     icon: Sparkles,
     title: "Fun First",
     description: "We make sports enjoyable so kids want to come back. Happy athletes become lifelong athletes.",
-    accent: "from-violet-500/20 to-purple-500/20",
+    accent: "from-violet-500/10 to-purple-500/10",
     iconBg: "from-violet-500 to-purple-500",
   },
 ]
@@ -59,16 +59,16 @@ export default function WhyAspire() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 lg:py-32 bg-[#0a0a0f] overflow-hidden"
+      className="relative py-24 lg:py-32 bg-cream overflow-hidden"
     >
       {/* Background elements */}
       <div className="absolute inset-0">
         {/* Subtle grid pattern */}
-        <div className="absolute inset-0 opacity-[0.02]">
+        <div className="absolute inset-0 opacity-[0.04]">
           <svg className="w-full h-full">
             <defs>
               <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-                <path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" strokeWidth="1" />
+                <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="1" className="text-ink-faint" />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
@@ -77,7 +77,7 @@ export default function WhyAspire() {
 
         {/* Accent glow */}
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[50vh] rounded-full opacity-10 blur-[150px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[50vh] rounded-full opacity-[0.06] blur-[150px]"
           style={{ background: 'oklch(0.58 0.18 35)' }}
         />
       </div>
@@ -91,14 +91,14 @@ export default function WhyAspire() {
             }`}
           >
             <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-primary" />
-            <span className="text-primary font-medium tracking-widest text-sm uppercase">
+            <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
               Why Choose Us
             </span>
             <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-primary" />
           </div>
 
           <h2
-            className={`text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 transition-all duration-700 delay-100 ${
+            className={`font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-ink mb-6 transition-all duration-700 delay-100 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
@@ -139,7 +139,7 @@ export default function WhyAspire() {
           </h2>
 
           <p
-            className={`text-lg text-gray-400 max-w-2xl mx-auto transition-all duration-700 delay-200 ${
+            className={`text-lg text-ink-muted max-w-2xl mx-auto transition-all duration-700 delay-200 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
@@ -182,7 +182,7 @@ function BenefitCard({ benefit, index, isVisible }: BenefitCardProps) {
       style={{ transitionDelay: `${delay}ms` }}
     >
       {/* Card */}
-      <div className="relative h-full bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] hover:border-white/[0.1] rounded-2xl p-8 transition-all duration-500 overflow-hidden">
+      <div className="relative h-full bg-paper hover:bg-cream-2 border border-border hover:border-primary/20 rounded-2xl p-8 transition-all duration-500 overflow-hidden shadow-sm hover:shadow-md">
         {/* Diagonal accent corner */}
         <div
           className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${benefit.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-16 -translate-y-16 rotate-45`}
@@ -199,25 +199,25 @@ function BenefitCard({ benefit, index, isVisible }: BenefitCardProps) {
             <div className="relative inline-flex">
               {/* Glow effect */}
               <div
-                className={`absolute inset-0 bg-gradient-to-br ${benefit.iconBg} rounded-xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-500 scale-150`}
+                className={`absolute inset-0 bg-gradient-to-br ${benefit.iconBg} rounded-xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500 scale-150`}
               />
 
               {/* Icon container */}
               <div
                 className={`relative w-14 h-14 rounded-xl bg-gradient-to-br ${benefit.iconBg} p-[1px] transform group-hover:scale-110 transition-transform duration-500`}
               >
-                <div className="w-full h-full rounded-xl bg-[#0a0a0f] flex items-center justify-center">
-                  <Icon className="w-6 h-6 text-white" />
+                <div className="w-full h-full rounded-xl bg-paper flex items-center justify-center">
+                  <Icon className="w-6 h-6 text-ink" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Text */}
-          <h3 className="text-xl font-bold text-white mb-3 group-hover:text-primary transition-colors duration-300">
+          <h3 className="font-display text-xl font-bold text-ink mb-3 group-hover:text-primary transition-colors duration-300">
             {benefit.title}
           </h3>
-          <p className="text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors duration-300">
+          <p className="text-ink-muted leading-relaxed group-hover:text-ink-2 transition-colors duration-300">
             {benefit.description}
           </p>
         </div>

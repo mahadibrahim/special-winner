@@ -52,19 +52,19 @@ export default function Testimonials() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 lg:py-32 bg-gradient-to-b from-[#0a0a0f] via-[#0d0d14] to-[#0a0a0f] overflow-hidden"
+      className="relative py-24 lg:py-32 bg-cream overflow-hidden"
     >
       {/* Background decorative elements */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Large decorative quote marks */}
         <Quote
-          className={`absolute top-12 left-[5%] w-32 h-32 lg:w-48 lg:h-48 text-primary/[0.03] transition-all duration-1000 ${
+          className={`absolute top-12 left-[5%] w-32 h-32 lg:w-48 lg:h-48 text-primary/[0.06] transition-all duration-1000 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10'
           }`}
           strokeWidth={1}
         />
         <Quote
-          className={`absolute bottom-12 right-[5%] w-24 h-24 lg:w-36 lg:h-36 text-primary/[0.03] rotate-180 transition-all duration-1000 delay-300 ${
+          className={`absolute bottom-12 right-[5%] w-24 h-24 lg:w-36 lg:h-36 text-primary/[0.06] rotate-180 transition-all duration-1000 delay-300 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
           strokeWidth={1}
@@ -72,7 +72,7 @@ export default function Testimonials() {
 
         {/* Ambient glow */}
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[40vh] rounded-full opacity-[0.07] blur-[120px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[40vh] rounded-full opacity-[0.04] blur-[120px]"
           style={{ background: 'oklch(0.58 0.18 35)' }}
         />
       </div>
@@ -97,13 +97,13 @@ export default function Testimonials() {
                 />
               ))}
             </div>
-            <span className="text-primary font-medium tracking-widest text-sm uppercase">
+            <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
               4.9 Average Rating
             </span>
           </div>
 
           <h2
-            className={`text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 transition-all duration-700 delay-100 ${
+            className={`text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-ink mb-6 transition-all duration-700 delay-100 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
@@ -121,7 +121,7 @@ export default function Testimonials() {
           </h2>
 
           <p
-            className={`text-lg text-gray-400 max-w-2xl mx-auto transition-all duration-700 delay-200 ${
+            className={`text-lg text-ink-muted max-w-2xl mx-auto transition-all duration-700 delay-200 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
@@ -148,8 +148,8 @@ export default function Testimonials() {
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
           }`}
         >
-          <p className="text-gray-500 text-sm">
-            Join <span className="text-white font-semibold">1,000+</span> happy families in Central Ohio
+          <p className="text-ink-muted text-sm">
+            Join <span className="text-ink font-semibold">1,000+</span> happy families in Central Ohio
           </p>
         </div>
       </div>
@@ -185,10 +185,10 @@ function TestimonialCard({ testimonial, index, isVisible }: TestimonialCardProps
       {/* Card */}
       <div className="relative h-full">
         {/* Glass card */}
-        <div className="relative h-full bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-2xl p-8 transition-all duration-500 hover:bg-white/[0.05] hover:border-white/[0.1] hover:shadow-2xl hover:shadow-primary/5">
+        <div className="relative h-full bg-paper border border-border rounded-2xl p-8 transition-all duration-500 hover:bg-cream-2 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5">
           {/* Quote icon */}
           <div className="absolute -top-3 -left-1 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30">
-            <Quote className="w-4 h-4 text-white" strokeWidth={2.5} />
+            <Quote className="w-4 h-4 text-cream" strokeWidth={2.5} />
           </div>
 
           {/* Stars */}
@@ -202,7 +202,7 @@ function TestimonialCard({ testimonial, index, isVisible }: TestimonialCardProps
           </div>
 
           {/* Quote text */}
-          <blockquote className="text-gray-300 leading-relaxed mb-8 text-[15px] group-hover:text-gray-200 transition-colors">
+          <blockquote className="text-ink-2 leading-relaxed mb-8 text-[15px] group-hover:text-ink transition-colors">
             "{testimonial.quote}"
           </blockquote>
 
@@ -212,8 +212,8 @@ function TestimonialCard({ testimonial, index, isVisible }: TestimonialCardProps
             <div
               className={`relative w-12 h-12 rounded-full bg-gradient-to-br ${testimonial.gradient} p-[2px] group-hover:scale-110 transition-transform duration-300`}
             >
-              <div className="w-full h-full rounded-full bg-[#0a0a0f] flex items-center justify-center">
-                <span className="text-sm font-bold text-white">{testimonial.initials}</span>
+              <div className="w-full h-full rounded-full bg-cream flex items-center justify-center">
+                <span className="text-sm font-bold text-ink">{testimonial.initials}</span>
               </div>
               {/* Subtle glow on hover */}
               <div
@@ -223,10 +223,10 @@ function TestimonialCard({ testimonial, index, isVisible }: TestimonialCardProps
 
             {/* Name and role */}
             <div>
-              <div className="font-semibold text-white group-hover:text-primary transition-colors">
+              <div className="font-semibold text-ink group-hover:text-primary transition-colors">
                 {testimonial.name}
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-ink-muted">
                 {testimonial.role}
               </div>
             </div>

@@ -60,16 +60,16 @@ export default function FAQSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative py-24 lg:py-32 bg-[#0a0a0f] overflow-hidden"
+      className="relative py-24 lg:py-32 bg-cream-2 overflow-hidden"
     >
       {/* Background elements */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Subtle dot pattern */}
-        <div className="absolute inset-0 opacity-[0.02]">
+        <div className="absolute inset-0 opacity-[0.06]">
           <svg className="w-full h-full">
             <defs>
               <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-                <circle cx="2" cy="2" r="1" fill="white" />
+                <circle cx="2" cy="2" r="1" fill="currentColor" className="text-ink-faint" />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#dotPattern)" />
@@ -92,13 +92,13 @@ export default function FAQSection() {
                 isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
               }`}
             >
-              <span className="text-primary font-medium tracking-widest text-sm uppercase">
+              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
                 Got Questions?
               </span>
             </div>
 
             <h2
-              className={`text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 transition-all duration-700 delay-100 ${
+              className={`text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-ink mb-6 transition-all duration-700 delay-100 ${
                 isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
               }`}
             >
@@ -116,7 +116,7 @@ export default function FAQSection() {
             </h2>
 
             <p
-              className={`text-lg text-gray-400 transition-all duration-700 delay-200 ${
+              className={`text-lg text-ink-muted transition-all duration-700 delay-200 ${
                 isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
               }`}
             >
@@ -144,7 +144,7 @@ export default function FAQSection() {
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
-            <p className="text-gray-500">
+            <p className="text-ink-muted">
               Still have questions?{" "}
               <a
                 href="/contact"
@@ -189,8 +189,8 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
       <div
         className={`relative rounded-xl border transition-all duration-300 ${
           isOpen
-            ? 'bg-white/[0.03] border-primary/20'
-            : 'bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.02] hover:border-white/[0.08]'
+            ? 'bg-paper border-primary/20'
+            : 'bg-paper/50 border-border hover:bg-paper hover:border-primary/10'
         }`}
       >
         {/* Question button */}
@@ -202,8 +202,8 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
           <span
             className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-300 ${
               isOpen
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-white/[0.05] text-gray-500 group-hover:text-gray-400'
+                ? 'bg-primary text-cream'
+                : 'bg-cream-3 text-ink-muted group-hover:text-ink-2'
             }`}
           >
             {String(index + 1).padStart(2, '0')}
@@ -212,7 +212,7 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
           {/* Question text */}
           <span
             className={`flex-1 font-medium text-base sm:text-lg transition-colors duration-300 ${
-              isOpen ? 'text-white' : 'text-gray-300 group-hover:text-white'
+              isOpen ? 'text-ink' : 'text-ink-2 group-hover:text-ink'
             }`}
           >
             {faq.question}
@@ -223,7 +223,7 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
             className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
               isOpen
                 ? 'bg-primary/20 text-primary rotate-0'
-                : 'bg-white/[0.05] text-gray-500 group-hover:bg-white/[0.08]'
+                : 'bg-cream-3 text-ink-muted group-hover:bg-cream-3'
             }`}
           >
             {isOpen ? (
@@ -240,7 +240,7 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
           style={{ height }}
         >
           <div ref={contentRef} className="px-5 sm:px-6 pb-5 sm:pb-6 pl-[4.25rem] sm:pl-[4.75rem]">
-            <p className="text-gray-400 leading-relaxed">
+            <p className="text-ink-muted leading-relaxed">
               {faq.answer}
             </p>
           </div>

@@ -93,7 +93,7 @@ export default function ProgramCard({ season }: { season: Season }) {
     <div className="group relative">
       {/* Card */}
       <div
-        className="relative h-full bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl overflow-hidden transition-all duration-500 flex flex-col"
+        className="relative h-full bg-paper hover:bg-cream-2 border border-border hover:border-primary/20 rounded-2xl overflow-hidden transition-all duration-500 flex flex-col shadow-sm hover:shadow-md"
         style={{
           boxShadow: `0 0 0 1px transparent`,
         }}
@@ -138,11 +138,11 @@ export default function ProgramCard({ season }: { season: Season }) {
             <div className="flex-1 min-w-0">
               <Badge
                 variant="outline"
-                className="mb-2 border-white/10 text-gray-400 bg-white/5"
+                className="mb-2 border-border text-ink-muted bg-cream-2"
               >
                 {season.sport.name}
               </Badge>
-              <h3 className="text-lg font-bold text-white leading-tight group-hover:text-primary transition-colors line-clamp-2">
+              <h3 className="text-lg font-bold font-display text-ink leading-tight group-hover:text-primary transition-colors line-clamp-2">
                 {season.name}
               </h3>
             </div>
@@ -152,28 +152,28 @@ export default function ProgramCard({ season }: { season: Season }) {
           <div className="space-y-3 mb-6 flex-1">
             {season.ageGroup && (
               <div className="flex items-center gap-3 text-sm">
-                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                  <Users className="w-4 h-4 text-gray-500" />
+                <div className="w-8 h-8 rounded-lg bg-cream-2 flex items-center justify-center flex-shrink-0">
+                  <Users className="w-4 h-4 text-ink-muted" />
                 </div>
-                <span className="text-gray-400">
+                <span className="text-ink-muted">
                   Ages {season.ageGroup.minAge}-{season.ageGroup.maxAge}
-                  <span className="text-gray-600 ml-1">({season.ageGroup.name})</span>
+                  <span className="text-ink-faint ml-1">({season.ageGroup.name})</span>
                 </span>
               </div>
             )}
 
             <div className="flex items-center gap-3 text-sm">
-              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                <MapPin className="w-4 h-4 text-gray-500" />
+              <div className="w-8 h-8 rounded-lg bg-cream-2 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-4 h-4 text-ink-muted" />
               </div>
-              <span className="text-gray-400 truncate">{locationDisplay}</span>
+              <span className="text-ink-muted truncate">{locationDisplay}</span>
             </div>
 
             <div className="flex items-center gap-3 text-sm">
-              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                <Calendar className="w-4 h-4 text-gray-500" />
+              <div className="w-8 h-8 rounded-lg bg-cream-2 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-4 h-4 text-ink-muted" />
               </div>
-              <span className="text-gray-400">{scheduleDisplay}</span>
+              <span className="text-ink-muted">{scheduleDisplay}</span>
             </div>
           </div>
 
@@ -182,9 +182,9 @@ export default function ProgramCard({ season }: { season: Season }) {
             {/* Price */}
             <div className="flex items-end justify-between">
               <div>
-                <span className="text-3xl font-bold text-white">${season.price}</span>
+                <span className="text-3xl font-bold text-ink">${season.price}</span>
                 {season.allowDeposit && season.deposit && (
-                  <div className="text-sm text-gray-500 mt-1">
+                  <div className="text-sm text-ink-muted mt-1">
                     or <span className="text-primary font-medium">${season.deposit}</span> deposit
                   </div>
                 )}
@@ -207,7 +207,7 @@ export default function ProgramCard({ season }: { season: Season }) {
                       <span className="text-sm font-medium">{spotsLeft} spots left!</span>
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-ink-muted">
                       {spotsLeft} of {totalSpots} spots
                     </div>
                   )}
@@ -217,7 +217,7 @@ export default function ProgramCard({ season }: { season: Season }) {
 
             {/* Progress bar for availability */}
             {hasCapacity && !isFull && (
-              <div className="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div className="relative h-1.5 bg-cream-3 rounded-full overflow-hidden">
                 <div
                   className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
                   style={{
@@ -233,7 +233,7 @@ export default function ProgramCard({ season }: { season: Season }) {
         {/* CTA Button */}
         <div className="p-6 pt-0">
           <Button
-            className="w-full group/btn bg-white/5 hover:bg-primary text-white hover:text-primary-foreground border border-white/10 hover:border-primary rounded-xl py-6 transition-all duration-300"
+            className="w-full group/btn bg-cream-2 hover:bg-primary text-ink hover:text-cream border border-border hover:border-primary rounded-xl py-6 transition-all duration-300"
             asChild
           >
             <a
