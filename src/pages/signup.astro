@@ -12,23 +12,29 @@ if (user) {
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Create Account - Aspire Sports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Create Account — Aspire Sports</title>
   </head>
-  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
     <main class="flex-1 flex items-center justify-center py-12 px-4 pt-24">
       <div class="w-full max-w-md">
         <!-- Card -->
-        <div class="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-8">
+        <div class="bg-cream-2 border border-border rounded-2xl p-8">
           <!-- Header -->
           <div class="text-center mb-8">
-            <h1 class="text-2xl font-bold text-white mb-2">Create Your Account</h1>
-            <p class="text-gray-400">
+            <h1 class="text-2xl font-bold text-ink mb-2">Create Your Account</h1>
+            <p class="text-ink-muted">
               Join Aspire Sports to register for programs and manage your family's activities
             </p>
           </div>
@@ -38,7 +44,7 @@ if (user) {
 
           <!-- Sign in link -->
           <div class="mt-6 text-center">
-            <p class="text-gray-500 text-sm">
+            <p class="text-ink-faint text-sm">
               Already have an account?{' '}
               <a href="/signin" class="text-primary hover:text-primary/80 font-medium">
                 Sign in

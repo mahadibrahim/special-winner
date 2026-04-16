@@ -15,11 +15,17 @@ const user = Astro.locals.user;
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Coach Notes - Aspire Sports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Coach Notes — Aspire Sports</title>
     <style>
       /* Page load animation */
       @keyframes fadeIn {
@@ -39,16 +45,16 @@ const user = Astro.locals.user;
       }
     </style>
   </head>
-  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
     <main class="flex-1 pt-24 pb-16 px-4 notes-bg">
       <div class="max-w-5xl mx-auto notes-content">
         <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <a href="/dashboard" class="hover:text-white transition-colors">Dashboard</a>
+        <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
+          <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
           <span>/</span>
-          <span class="text-white">Coach Notes</span>
+          <span class="text-ink">Coach Notes</span>
         </nav>
 
         <CoachNotesFull client:load />

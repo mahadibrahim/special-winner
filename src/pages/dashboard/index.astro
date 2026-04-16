@@ -26,11 +26,17 @@ else if (hour >= 17) greeting = "Good evening";
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Dashboard - Aspire Sports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Dashboard — Aspire Sports</title>
     <style>
       /* Stagger animation for dashboard sections */
       @keyframes fadeSlideIn {
@@ -62,7 +68,7 @@ else if (hour >= 17) greeting = "Good evening";
       }
     </style>
   </head>
-  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
     <main class="flex-1 pt-24 pb-16 px-4 dashboard-bg">
@@ -74,19 +80,19 @@ else if (hour >= 17) greeting = "Good evening";
               <!-- Avatar with gradient ring -->
               <div class="relative">
                 <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary via-primary to-orange-500 p-0.5">
-                  <div class="w-full h-full rounded-2xl bg-[#0a0a0f] flex items-center justify-center">
-                    <span class="text-xl font-bold text-white">
+                  <div class="w-full h-full rounded-2xl bg-cream flex items-center justify-center">
+                    <span class="text-xl font-bold text-ink">
                       {user?.firstName?.[0] || 'U'}{user?.lastName?.[0] || ''}
                     </span>
                   </div>
                 </div>
                 <!-- Online indicator -->
-                <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-[#0a0a0f]"></div>
+                <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-cream"></div>
               </div>
 
               <div>
-                <p class="text-sm text-gray-500 mb-0.5">{greeting}</p>
-                <h1 class="text-2xl sm:text-3xl font-bold text-white">
+                <p class="text-sm text-ink-faint mb-0.5">{greeting}</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-ink">
                   {user?.firstName || 'there'}!
                 </h1>
               </div>
@@ -94,7 +100,7 @@ else if (hour >= 17) greeting = "Good evening";
 
             <!-- Quick Actions -->
             <div class="flex gap-2">
-              <Button variant="outline" size="sm" className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5" asChild>
+              <Button variant="outline" size="sm" className="border-border text-ink-muted hover:text-ink hover:bg-cream-2" asChild>
                 <a href="/dashboard/schedule">Full Schedule</a>
               </Button>
               <Button size="sm" asChild>
@@ -127,8 +133,8 @@ else if (hour >= 17) greeting = "Good evening";
                   </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-semibold text-white text-sm">Verify your phone for text updates</h3>
-                  <p class="text-xs text-gray-500 mt-0.5">
+                  <h3 class="font-semibold text-ink text-sm">Verify your phone for text updates</h3>
+                  <p class="text-xs text-ink-faint mt-0.5">
                     Get schedule changes, reminders, and coach messages by text. Reply to us anytime — no app install needed.
                   </p>
                 </div>
@@ -175,11 +181,11 @@ else if (hour >= 17) greeting = "Good evening";
             <!-- How we teach card -->
             <section class="dashboard-section">
               <a href="/guides" class="block p-5 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 hover:border-primary/40 transition-all group">
-                <h3 class="font-semibold text-white mb-2 flex items-center gap-2">
+                <h3 class="font-semibold text-ink mb-2 flex items-center gap-2">
                   <span class="text-lg">📘</span>
                   How we coach
                 </h3>
-                <p class="text-sm text-gray-500 mb-3">
+                <p class="text-sm text-ink-faint mb-3">
                   See our complete development framework for every sport we offer — the philosophy, skill progressions, and standards every Aspire coach shares.
                 </p>
                 <span class="text-xs font-medium text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
@@ -190,19 +196,19 @@ else if (hour >= 17) greeting = "Good evening";
 
             <!-- Help & Support Card -->
             <section class="dashboard-section">
-              <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                <h3 class="font-semibold text-white mb-2 flex items-center gap-2">
+              <div class="p-5 rounded-2xl bg-cream-2 border border-border">
+                <h3 class="font-semibold text-ink mb-2 flex items-center gap-2">
                   <span class="text-lg">💬</span>
                   Need Help?
                 </h3>
-                <p class="text-sm text-gray-500 mb-4">
+                <p class="text-sm text-ink-faint mb-4">
                   Questions about programs, schedules, or your account? We're here to help.
                 </p>
                 <div class="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 border-white/10 text-gray-400 hover:text-white hover:bg-white/5" asChild>
+                  <Button variant="outline" size="sm" className="flex-1 border-border text-ink-muted hover:text-ink hover:bg-cream-2" asChild>
                     <a href="/#faq">FAQ</a>
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1 border-white/10 text-gray-400 hover:text-white hover:bg-white/5" asChild>
+                  <Button variant="outline" size="sm" className="flex-1 border-border text-ink-muted hover:text-ink hover:bg-cream-2" asChild>
                     <a href="mailto:hello@aspiresports.com?subject=Parent%20Dashboard%20Support">Contact</a>
                   </Button>
                 </div>
@@ -212,7 +218,7 @@ else if (hour >= 17) greeting = "Good evening";
         </div>
 
         <!-- Bottom Actions Bar (Mobile) -->
-        <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent lg:hidden">
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-cream via-cream/95 to-transparent lg:hidden">
           <div class="flex gap-3 max-w-lg mx-auto">
             <Button className="flex-1" asChild>
               <a href="/#programs">Register Now</a>

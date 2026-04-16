@@ -1,6 +1,9 @@
 import type { APIRoute } from "astro";
+import { db } from "@/lib/db";
+import { seasons, programs, sports, locations, ageGroups, registrations } from "@/lib/db/schema";
+import { eq, and, sql, asc } from "drizzle-orm";
 
-// Mock data for preview
+// Mock data for preview when DB has no seasons
 const mockSeasons = [
   {
     id: "1",
@@ -21,157 +24,138 @@ const mockSeasons = [
     location: { id: "1", name: "Powell", slug: "powell", city: "Powell", state: "OH" },
     ageGroup: { id: "1", name: "U8", minAge: 6, maxAge: 8 },
   },
-  {
-    id: "2",
-    name: "U10 Basketball - Fall 2024",
-    slug: "u10-basketball-fall-2024",
-    startDate: "2024-10-10",
-    endDate: "2024-12-20",
-    price: 175,
-    deposit: 30,
-    allowDeposit: true,
-    maxParticipants: 40,
-    registeredCount: 32,
-    spotsLeft: 8,
-    scheduleNotes: "Wednesdays 5-6pm",
-    status: "open",
-    program: { id: "2", name: "Youth Basketball League", slug: "youth-basketball-league", programType: "league" },
-    sport: { id: "2", name: "Basketball", slug: "basketball", icon: "🏀", color: "#f97316" },
-    location: { id: "1", name: "Powell", slug: "powell", city: "Powell", state: "OH" },
-    ageGroup: { id: "2", name: "U10", minAge: 8, maxAge: 10 },
-  },
-  {
-    id: "3",
-    name: "Flag Football - Fall 2024",
-    slug: "flag-football-fall-2024",
-    startDate: "2024-09-15",
-    endDate: "2024-11-30",
-    price: 165,
-    deposit: 30,
-    allowDeposit: true,
-    maxParticipants: 60,
-    registeredCount: 45,
-    spotsLeft: 15,
-    scheduleNotes: "Sundays 1-2:30pm",
-    status: "open",
-    program: { id: "3", name: "Flag Football League", slug: "flag-football-league", programType: "league" },
-    sport: { id: "3", name: "Football", slug: "football", icon: "🏈", color: "#8b4513" },
-    location: { id: "2", name: "Dublin", slug: "dublin", city: "Dublin", state: "OH" },
-    ageGroup: { id: "3", name: "U12", minAge: 10, maxAge: 12 },
-  },
-  {
-    id: "4",
-    name: "T-Ball Spring League 2025",
-    slug: "t-ball-spring-2025",
-    startDate: "2025-04-12",
-    endDate: "2025-06-14",
-    price: 125,
-    deposit: 20,
-    allowDeposit: true,
-    maxParticipants: 60,
-    registeredCount: 25,
-    spotsLeft: 35,
-    scheduleNotes: "Saturdays 10-11am",
-    status: "open",
-    program: { id: "4", name: "T-Ball League", slug: "t-ball-league", programType: "league" },
-    sport: { id: "4", name: "Baseball", slug: "baseball", icon: "⚾", color: "#dc2626" },
-    location: { id: "1", name: "Powell", slug: "powell", city: "Powell", state: "OH" },
-    ageGroup: { id: "4", name: "U6", minAge: 4, maxAge: 6 },
-  },
-  {
-    id: "5",
-    name: "U6 Soccer - Spring 2025",
-    slug: "u6-soccer-spring-2025",
-    startDate: "2025-04-05",
-    endDate: "2025-06-21",
-    price: 140,
-    deposit: 25,
-    allowDeposit: true,
-    maxParticipants: 45,
-    registeredCount: 12,
-    spotsLeft: 33,
-    scheduleNotes: "Saturdays 9-10am",
-    status: "open",
-    program: { id: "1", name: "Youth Soccer League", slug: "youth-soccer-league", programType: "league" },
-    sport: { id: "1", name: "Soccer", slug: "soccer", icon: "⚽", color: "#22c55e" },
-    location: { id: "3", name: "Delaware", slug: "delaware", city: "Delaware", state: "OH" },
-    ageGroup: { id: "4", name: "U6", minAge: 4, maxAge: 6 },
-  },
-  {
-    id: "6",
-    name: "Summer Basketball Camp",
-    slug: "summer-basketball-camp",
-    startDate: "2025-06-15",
-    endDate: "2025-06-20",
-    price: 225,
-    deposit: 50,
-    allowDeposit: true,
-    maxParticipants: 30,
-    registeredCount: 28,
-    spotsLeft: 2,
-    scheduleNotes: "Mon-Fri 9am-12pm",
-    status: "open",
-    program: { id: "5", name: "Basketball Camp", slug: "basketball-camp", programType: "camp" },
-    sport: { id: "2", name: "Basketball", slug: "basketball", icon: "🏀", color: "#f97316" },
-    location: { id: "1", name: "Powell", slug: "powell", city: "Powell", state: "OH" },
-    ageGroup: { id: "5", name: "U14", minAge: 12, maxAge: 14 },
-  },
-  {
-    id: "7",
-    name: "Adult Soccer League - Spring 2025",
-    slug: "adult-soccer-spring-2025",
-    startDate: "2025-03-15",
-    endDate: "2025-05-30",
-    price: 95,
-    deposit: null,
-    allowDeposit: false,
-    maxParticipants: 80,
-    registeredCount: 64,
-    spotsLeft: 16,
-    scheduleNotes: "Thursday evenings 7-9pm",
-    status: "open",
-    program: { id: "6", name: "Adult Soccer League", slug: "adult-soccer-league", programType: "league" },
-    sport: { id: "1", name: "Soccer", slug: "soccer", icon: "⚽", color: "#22c55e" },
-    location: { id: "2", name: "Dublin", slug: "dublin", city: "Dublin", state: "OH" },
-    ageGroup: { id: "6", name: "Adult", minAge: 18, maxAge: 99 },
-  },
-  {
-    id: "8",
-    name: "U12 Baseball - Spring 2025",
-    slug: "u12-baseball-spring-2025",
-    startDate: "2025-04-05",
-    endDate: "2025-06-21",
-    price: 200,
-    deposit: 35,
-    allowDeposit: true,
-    maxParticipants: 30,
-    registeredCount: 27,
-    spotsLeft: 3,
-    scheduleNotes: "Tue & Thu 6-7:30pm",
-    status: "open",
-    program: { id: "7", name: "Youth Baseball League", slug: "youth-baseball-league", programType: "league" },
-    sport: { id: "4", name: "Baseball", slug: "baseball", icon: "⚾", color: "#dc2626" },
-    location: { id: "1", name: "Powell", slug: "powell", city: "Powell", state: "OH" },
-    ageGroup: { id: "3", name: "U12", minAge: 10, maxAge: 12 },
-  },
 ];
 
 export const GET: APIRoute = async ({ url }) => {
   const locationSlug = url.searchParams.get("location");
   const sportSlug = url.searchParams.get("sport");
+  const status = url.searchParams.get("status");
 
-  let filteredSeasons = mockSeasons;
+  try {
+    if (!db) throw new Error("No DB");
 
-  if (locationSlug && locationSlug !== "all") {
-    filteredSeasons = filteredSeasons.filter((s) => s.location.slug === locationSlug);
+    // Build query conditions
+    const conditions = [];
+    if (status) {
+      conditions.push(eq(seasons.status, status));
+    }
+    if (locationSlug && locationSlug !== "all") {
+      conditions.push(eq(locations.slug, locationSlug));
+    }
+    if (sportSlug) {
+      conditions.push(eq(sports.slug, sportSlug));
+    }
+
+    const rows = await db
+      .select({
+        season: seasons,
+        program: programs,
+        sport: sports,
+        location: locations,
+        ageGroup: ageGroups,
+      })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(sports, eq(programs.sportId, sports.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(seasons.startDate));
+
+    if (rows.length === 0) {
+      // Fall back to mock data if DB has no seasons
+      return new Response(JSON.stringify({ seasons: mockSeasons }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Get registration counts for all seasons
+    const seasonIds = rows.map((r) => r.season.id);
+    const regCounts = await db
+      .select({
+        seasonId: registrations.seasonId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(registrations)
+      .where(
+        and(
+          sql`${registrations.seasonId} IN (${sql.join(seasonIds.map(id => sql`${id}`), sql`, `)})`,
+          sql`${registrations.status} IN ('pending', 'confirmed')`
+        )
+      )
+      .groupBy(registrations.seasonId);
+
+    const countMap = new Map(regCounts.map((r) => [r.seasonId, r.count]));
+
+    const formatted = rows.map((r) => {
+      const registeredCount = countMap.get(r.season.id) || 0;
+      const spotsLeft = r.season.maxParticipants
+        ? Math.max(0, r.season.maxParticipants - registeredCount)
+        : null;
+
+      return {
+        id: r.season.id,
+        name: r.season.name,
+        slug: r.season.slug,
+        startDate: r.season.startDate,
+        endDate: r.season.endDate,
+        price: r.season.priceCents / 100,
+        deposit: r.season.depositCents ? r.season.depositCents / 100 : null,
+        allowDeposit: r.season.allowDeposit,
+        maxParticipants: r.season.maxParticipants,
+        registeredCount,
+        spotsLeft,
+        scheduleNotes: r.season.scheduleNotes,
+        status: r.season.status,
+        program: {
+          id: r.program.id,
+          name: r.program.name,
+          slug: r.program.slug,
+          programType: r.program.programType,
+        },
+        sport: {
+          id: r.sport.id,
+          name: r.sport.name,
+          slug: r.sport.slug,
+          icon: r.sport.icon,
+          color: r.sport.color,
+        },
+        location: {
+          id: r.location.id,
+          name: r.location.name,
+          slug: r.location.slug,
+          city: r.location.city,
+          state: r.location.state,
+        },
+        ageGroup: r.ageGroup
+          ? {
+              id: r.ageGroup.id,
+              name: r.ageGroup.name,
+              minAge: r.ageGroup.minAge,
+              maxAge: r.ageGroup.maxAge,
+            }
+          : null,
+      };
+    });
+
+    return new Response(JSON.stringify({ seasons: formatted }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Error fetching seasons:", err);
+    // Fall back to mock data on any error
+    let filteredSeasons = mockSeasons;
+    if (locationSlug && locationSlug !== "all") {
+      filteredSeasons = filteredSeasons.filter((s) => s.location.slug === locationSlug);
+    }
+    if (sportSlug) {
+      filteredSeasons = filteredSeasons.filter((s) => s.sport.slug === sportSlug);
+    }
+    return new Response(JSON.stringify({ seasons: filteredSeasons }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
-
-  if (sportSlug) {
-    filteredSeasons = filteredSeasons.filter((s) => s.sport.slug === sportSlug);
-  }
-
-  return new Response(JSON.stringify({ seasons: filteredSeasons }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
 };
