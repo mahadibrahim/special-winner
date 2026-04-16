@@ -98,17 +98,17 @@ function SkillCard({
       onClick={onClick}
       className={cn(
         "w-full p-3 rounded-lg border text-left transition-all",
-        "hover:border-white/20 hover:bg-white/[0.04]",
+        "hover:border-ink-faint/20 hover:bg-cream-2",
         isSelected
           ? "border-primary/50 bg-primary/10"
-          : "border-white/[0.06] bg-white/[0.02]"
+          : "border-border bg-paper"
       )}
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
             "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-            isSelected ? "bg-primary/20" : "bg-white/[0.05]"
+            isSelected ? "bg-primary/20" : "bg-cream-3"
           )}
           style={{ backgroundColor: isSelected ? undefined : `${skill.domain.color}20` }}
         >
@@ -123,7 +123,7 @@ function SkillCard({
           <div className="flex items-center gap-2">
             <h4 className={cn(
               "font-medium text-sm truncate",
-              isSelected ? "text-primary" : "text-white"
+              isSelected ? "text-primary" : "text-ink"
             )}>
               {skill.name}
             </h4>
@@ -133,7 +133,7 @@ function SkillCard({
           </div>
 
           {skill.description && (
-            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+            <p className="text-xs text-ink-muted line-clamp-2 mt-0.5">
               {skill.description}
             </p>
           )}
@@ -141,7 +141,7 @@ function SkillCard({
           <div className="flex items-center gap-2 mt-2">
             <Badge
               variant="outline"
-              className="text-[10px] px-1.5 py-0 border-white/10"
+              className="text-[10px] px-1.5 py-0 border-border"
               style={{
                 backgroundColor: `${skill.domain.color}15`,
                 color: skill.domain.color,
@@ -152,7 +152,7 @@ function SkillCard({
             </Badge>
             <Badge
               variant="outline"
-              className="text-[10px] px-1.5 py-0 bg-white/[0.02] border-white/10 text-gray-400"
+              className="text-[10px] px-1.5 py-0 bg-paper border-border text-ink-muted"
             >
               {skill.stage.name}
             </Badge>
@@ -263,19 +263,19 @@ export default function SkillSelector({
       <div className="space-y-3">
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
           <Input
             placeholder="Search skills..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-white/[0.02] border-white/[0.06]"
+            className="pl-9 bg-paper border-border"
           />
         </div>
 
         {/* Filter row */}
         <div className="flex flex-wrap gap-2">
           <Select value={filterStage} onValueChange={setFilterStage}>
-            <SelectTrigger className="w-40 h-8 text-xs bg-white/[0.02] border-white/[0.06]">
+            <SelectTrigger className="w-40 h-8 text-xs bg-paper border-border">
               <SelectValue placeholder="All Stages" />
             </SelectTrigger>
             <SelectContent>
@@ -284,7 +284,7 @@ export default function SkillSelector({
                 <SelectItem key={stage.id} value={stage.id}>
                   {stage.name}
                   {stage.ageMin && stage.ageMax && (
-                    <span className="text-gray-500 ml-1">
+                    <span className="text-ink-muted ml-1">
                       ({stage.ageMin}-{stage.ageMax})
                     </span>
                   )}
@@ -294,7 +294,7 @@ export default function SkillSelector({
           </Select>
 
           <Select value={filterDomain} onValueChange={setFilterDomain}>
-            <SelectTrigger className="w-36 h-8 text-xs bg-white/[0.02] border-white/[0.06]">
+            <SelectTrigger className="w-36 h-8 text-xs bg-paper border-border">
               <SelectValue placeholder="All Domains" />
             </SelectTrigger>
             <SelectContent>
@@ -320,7 +320,7 @@ export default function SkillSelector({
             onClick={() => setShowCoreOnly(!showCoreOnly)}
             className={cn(
               "h-8 text-xs gap-1",
-              !showCoreOnly && "bg-white/[0.02] border-white/[0.06]"
+              !showCoreOnly && "bg-paper border-border"
             )}
           >
             <Star className={cn("w-3 h-3", showCoreOnly && "fill-current")} />
@@ -339,7 +339,7 @@ export default function SkillSelector({
               variant="ghost"
               size="sm"
               onClick={() => onMultiSelect?.([])}
-              className="h-6 text-xs text-gray-500 hover:text-white gap-1"
+              className="h-6 text-xs text-ink-muted hover:text-ink gap-1"
             >
               <X className="w-3 h-3" />
               Clear
@@ -352,24 +352,24 @@ export default function SkillSelector({
       <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
         {groupedSkills.length === 0 ? (
           <div className="text-center py-8">
-            <Target className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">No skills found</p>
-            <p className="text-xs text-gray-600 mt-1">
+            <Target className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+            <p className="text-sm text-ink-muted">No skills found</p>
+            <p className="text-xs text-ink-faint mt-1">
               Try adjusting your filters
             </p>
           </div>
         ) : (
           groupedSkills.map(({ domain, skills: domainSkills }) => (
             <div key={domain.id}>
-              <div className="flex items-center gap-2 mb-2 sticky top-0 bg-[#0a0a0f] py-1 z-10">
+              <div className="flex items-center gap-2 mb-2 sticky top-0 bg-cream py-1 z-10">
                 <div
                   className="w-1.5 h-1.5 rounded-full"
                   style={{ backgroundColor: domain.color }}
                 />
-                <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   {domain.displayName}
                 </h3>
-                <span className="text-xs text-gray-600">({domainSkills.length})</span>
+                <span className="text-xs text-ink-faint">({domainSkills.length})</span>
               </div>
 
               <div className="grid gap-2">
@@ -388,7 +388,7 @@ export default function SkillSelector({
       </div>
 
       {/* Footer stats */}
-      <div className="text-xs text-gray-600 pt-2 border-t border-white/[0.06]">
+      <div className="text-xs text-ink-faint pt-2 border-t border-border">
         Showing {filteredSkills.length} of {skills.length} skills
       </div>
     </div>

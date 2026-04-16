@@ -44,63 +44,48 @@ const minibooks = [
 ];
 
 const domainColors: Record<string, string> = {
-  'Technical': 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-  'Tactical': 'bg-purple-500/10 text-purple-300 border-purple-500/20',
-  'Physical': 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-  'Psychological': 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+  'Technical': 'bg-blue-500/10 text-blue-700 border-blue-500/20',
+  'Tactical': 'bg-purple-500/10 text-purple-700 border-purple-500/20',
+  'Physical': 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
+  'Psychological': 'bg-amber-500/10 text-amber-700 border-amber-500/20',
 };
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Coach Resources - Aspire Sports</title>
-    <style>
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      .resources-content {
-        animation: fadeIn 0.4s ease-out forwards;
-      }
-
-      .resources-bg {
-        background-image:
-          radial-gradient(ellipse 60% 40% at 50% 0%, rgba(59, 130, 246, 0.06), transparent),
-          radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.04), transparent);
-      }
-
-      /* Sport filter pills */
-      .sport-filter {
-        transition: all 0.15s ease;
-      }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Coach Resources — Aspire Sports</title>
   </head>
-  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
-    <main class="flex-1 pt-24 pb-16 px-4 resources-bg">
-      <div class="max-w-7xl mx-auto resources-content">
-        <nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <a href="/coach" class="hover:text-white transition-colors">Coach Dashboard</a>
+    <main class="flex-1 pt-24 pb-16 px-4">
+      <div class="max-w-7xl mx-auto">
+        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
+          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
           <span>/</span>
-          <span class="text-white">Resources</span>
+          <span class="text-ink">Resources</span>
         </nav>
 
         <!-- Page Header -->
         <header class="mb-10">
-          <h1 class="text-3xl font-bold text-white mb-2">Coach Resources</h1>
-          <p class="text-gray-400 max-w-2xl leading-relaxed">
+          <h1 class="text-3xl font-bold text-ink mb-2">Coach Resources</h1>
+          <p class="text-ink-muted max-w-2xl leading-relaxed">
             The Aspire curriculum library — sport guides, skill-level minibooks, and the full resource library.
             Use these as your shared reference across every practice, every player, every season.
           </p>
         </header>
 
         <!-- Coaching Philosophy Card -->
-        <section class="mb-10 p-6 rounded-2xl bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.08]">
+        <section class="mb-10 p-6 rounded-2xl bg-gradient-to-br from-paper to-cream-2 border border-border">
           <div class="flex items-start gap-4">
             <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary via-primary to-orange-500 flex items-center justify-center flex-shrink-0">
               <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,10 +93,10 @@ const domainColors: Record<string, string> = {
               </svg>
             </div>
             <div class="flex-1">
-              <h2 class="text-xl font-bold text-white mb-2">The Aspire Coaching Philosophy</h2>
-              <p class="text-gray-400 text-sm leading-relaxed mb-3">
-                Every Aspire coach shares a common philosophy grounded in research: the <strong class="text-white">Double-Goal Coach</strong>,
-                <strong class="text-white">ELM framework</strong> (Effort, Learning, Mistakes), and <strong class="text-white">TDEQ-5</strong> youth
+              <h2 class="text-xl font-bold text-ink mb-2">The Aspire Coaching Philosophy</h2>
+              <p class="text-ink-muted text-sm leading-relaxed mb-3">
+                Every Aspire coach shares a common philosophy grounded in research: the <strong class="text-ink">Double-Goal Coach</strong>,
+                <strong class="text-ink">ELM framework</strong> (Effort, Learning, Mistakes), and <strong class="text-ink">TDEQ-5</strong> youth
                 development model. Four core beliefs guide us: development over winning, every child can improve, long-term athlete development,
                 and holistic growth across technical, tactical, physical, and psychological domains.
               </p>
@@ -122,20 +107,20 @@ const domainColors: Record<string, string> = {
         <!-- Sport Guides Section -->
         <section class="mb-12">
           <div class="flex items-baseline justify-between mb-5">
-            <h2 class="text-2xl font-bold text-white">Sport Guides</h2>
-            <span class="text-sm text-gray-500">Complete development frameworks</span>
+            <h2 class="text-2xl font-bold text-ink">Sport Guides</h2>
+            <span class="text-sm text-ink-muted">Complete development frameworks</span>
           </div>
           <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             {sportGuides.map((guide) => (
               <a
                 href={`/guides/${guide.slug}`}
-                class="group block p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.04] transition-all"
+                class="group block p-5 rounded-xl bg-paper border border-border hover:border-primary/30 hover:bg-cream-2 transition-all"
               >
                 <div class={`w-10 h-10 rounded-lg bg-gradient-to-br ${guide.color} flex items-center justify-center mb-3 shadow-md`}>
                   <span class="text-lg font-bold text-white">{guide.sport[0]}</span>
                 </div>
-                <h3 class="font-semibold text-white mb-1 group-hover:text-primary transition-colors">{guide.sport}</h3>
-                <p class="text-xs text-gray-500 leading-relaxed line-clamp-3">{guide.description}</p>
+                <h3 class="font-semibold text-ink mb-1 group-hover:text-primary transition-colors">{guide.sport}</h3>
+                <p class="text-xs text-ink-muted leading-relaxed line-clamp-3">{guide.description}</p>
                 <div class="mt-3 text-xs text-primary font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
                   Open guide →
                 </div>
@@ -147,8 +132,8 @@ const domainColors: Record<string, string> = {
         <!-- Skill Minibooks Section -->
         <section class="mb-12">
           <div class="flex items-baseline justify-between mb-5">
-            <h2 class="text-2xl font-bold text-white">Skill Minibooks</h2>
-            <span class="text-sm text-gray-500">{minibooks.length} print-ready development guides</span>
+            <h2 class="text-2xl font-bold text-ink">Skill Minibooks</h2>
+            <span class="text-sm text-ink-muted">{minibooks.length} print-ready development guides</span>
           </div>
 
           <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -156,12 +141,12 @@ const domainColors: Record<string, string> = {
               <a
                 href={`/minibooks/${book.slug}`}
                 data-sport={book.sport}
-                class="minibook-card group block p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.04] transition-all"
+                class="minibook-card group block p-4 rounded-xl bg-paper border border-border hover:border-primary/30 hover:bg-cream-2 transition-all"
               >
                 <div class="flex items-start justify-between gap-3 mb-2">
                   <div class="min-w-0 flex-1">
-                    <p class="text-xs text-gray-500 mb-1">{book.sport} · {book.skill}</p>
-                    <h3 class="font-semibold text-white group-hover:text-primary transition-colors line-clamp-2">
+                    <p class="text-xs text-ink-muted mb-1">{book.sport} · {book.skill}</p>
+                    <h3 class="font-semibold text-ink group-hover:text-primary transition-colors line-clamp-2">
                       {book.title}
                     </h3>
                   </div>
@@ -175,7 +160,7 @@ const domainColors: Record<string, string> = {
             ))}
           </div>
 
-          <p class="text-xs text-gray-600 mt-5 italic">
+          <p class="text-xs text-ink-faint mt-5 italic">
             Baseball skill minibooks are in production and will be added in an upcoming quarterly release.
           </p>
         </section>
@@ -183,8 +168,8 @@ const domainColors: Record<string, string> = {
         <!-- Dynamic Resource Library (DB-backed) -->
         <section>
           <div class="flex items-baseline justify-between mb-5">
-            <h2 class="text-2xl font-bold text-white">Resource Library</h2>
-            <span class="text-sm text-gray-500">Articles, videos, and references</span>
+            <h2 class="text-2xl font-bold text-ink">Resource Library</h2>
+            <span class="text-sm text-ink-muted">Articles, videos, and references</span>
           </div>
           <ResourceLibrary client:visible />
         </section>

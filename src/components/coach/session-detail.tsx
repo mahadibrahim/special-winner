@@ -70,8 +70,8 @@ interface SessionDetailProps {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: typeof Play }> = {
-  draft: { label: "Draft", color: "text-gray-400", bg: "bg-gray-500/20", icon: FileText },
-  planned: { label: "Planned", color: "text-blue-400", bg: "bg-blue-500/20", icon: Calendar },
+  draft: { label: "Draft", color: "text-ink-muted", bg: "bg-gray-500/20", icon: FileText },
+  planned: { label: "Planned", color: "text-primary", bg: "bg-primary/10", icon: Calendar },
   in_progress: { label: "In Progress", color: "text-amber-400", bg: "bg-amber-500/20", icon: Play },
   completed: { label: "Completed", color: "text-green-400", bg: "bg-green-500/20", icon: CheckCircle },
   cancelled: { label: "Cancelled", color: "text-red-400", bg: "bg-red-500/20", icon: AlertCircle },
@@ -248,7 +248,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">
+        <h3 className="text-lg font-medium text-ink mb-2">
           {error || "Session not found"}
         </h3>
         <Button asChild variant="outline" className="mt-4">
@@ -270,7 +270,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="p-6 rounded-2xl bg-paper border border-border">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
           <div>
             <div className="flex items-center gap-3 mb-3">
@@ -278,14 +278,14 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                 <StatusIcon className="w-3 h-3" />
                 {statusConfig.label}
               </Badge>
-              <Badge variant="outline" className="bg-white/[0.02] border-white/[0.06]">
+              <Badge variant="outline" className="bg-paper border-border">
                 {session.sport.name}
               </Badge>
             </div>
 
-            <h1 className="text-2xl font-bold text-white mb-2">{session.title}</h1>
+            <h1 className="text-2xl font-bold text-ink mb-2">{session.title}</h1>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-ink-muted">
               <span className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
                 {session.team.name}
@@ -353,9 +353,9 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
         {/* Left Column - Timeline */}
         <div className="lg:col-span-2 space-y-6">
           {/* Session Timeline */}
-          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+          <div className="p-6 rounded-2xl bg-paper border border-border">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Session Plan</h2>
+              <h2 className="text-lg font-semibold text-ink">Session Plan</h2>
               {!isEditing && session.status !== "completed" && (
                 <Button
                   variant="ghost"
@@ -377,7 +377,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
             />
 
             {isEditing && (
-              <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-white/[0.06]">
+              <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-border">
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -397,8 +397,8 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
 
           {/* Post-Session Reflection */}
           {session.status === "completed" && (reflection.postSessionReflection || reflection.whatWorkedWell || reflection.whatToImprove) && (
-            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <div className="p-6 rounded-2xl bg-paper border border-border">
+              <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-primary" />
                 Session Reflection
               </h2>
@@ -406,8 +406,8 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
               <div className="space-y-4">
                 {reflection.postSessionReflection && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2">Overall Reflection</h3>
-                    <p className="text-gray-300">{reflection.postSessionReflection}</p>
+                    <h3 className="text-sm font-medium text-ink-muted mb-2">Overall Reflection</h3>
+                    <p className="text-ink-2">{reflection.postSessionReflection}</p>
                   </div>
                 )}
 
@@ -418,7 +418,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                         <Star className="w-4 h-4" />
                         What Worked Well
                       </h3>
-                      <p className="text-sm text-gray-300">{reflection.whatWorkedWell}</p>
+                      <p className="text-sm text-ink-2">{reflection.whatWorkedWell}</p>
                     </div>
                   )}
 
@@ -428,18 +428,18 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                         <TrendingUp className="w-4 h-4" />
                         What to Improve
                       </h3>
-                      <p className="text-sm text-gray-300">{reflection.whatToImprove}</p>
+                      <p className="text-sm text-ink-2">{reflection.whatToImprove}</p>
                     </div>
                   )}
                 </div>
 
                 {reflection.playerObservations && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-ink-muted mb-2 flex items-center gap-2">
                       <Lightbulb className="w-4 h-4" />
                       Player Observations
                     </h3>
-                    <p className="text-gray-300">{reflection.playerObservations}</p>
+                    <p className="text-ink-2">{reflection.playerObservations}</p>
                   </div>
                 )}
               </div>
@@ -451,22 +451,22 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
         <div className="space-y-4">
           {/* Pre-Session Notes */}
           {session.preSessionNotes && (
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Pre-Session Notes</h3>
-              <p className="text-sm text-gray-300">{session.preSessionNotes}</p>
+            <div className="p-4 rounded-xl bg-paper border border-border">
+              <h3 className="text-sm font-medium text-ink-muted mb-2">Pre-Session Notes</h3>
+              <p className="text-sm text-ink-2">{session.preSessionNotes}</p>
             </div>
           )}
 
           {/* Objectives */}
           {session.objectives && session.objectives.length > 0 && (
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-paper border border-border">
+              <h3 className="text-sm font-medium text-ink-muted mb-2 flex items-center gap-2">
                 <Target className="w-4 h-4" />
                 Objectives
               </h3>
               <ul className="space-y-1.5">
                 {session.objectives.map((obj, i) => (
-                  <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+                  <li key={i} className="text-sm text-ink-2 flex items-start gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
                     {obj}
                   </li>
@@ -477,14 +477,14 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
 
           {/* Equipment */}
           {session.equipmentNeeded && session.equipmentNeeded.length > 0 && (
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-paper border border-border">
+              <h3 className="text-sm font-medium text-ink-muted mb-2 flex items-center gap-2">
                 <Package className="w-4 h-4" />
                 Equipment Needed
               </h3>
               <div className="flex flex-wrap gap-2">
                 {session.equipmentNeeded.map((item, i) => (
-                  <Badge key={i} variant="outline" className="bg-white/[0.02] border-white/[0.06]">
+                  <Badge key={i} variant="outline" className="bg-paper border-border">
                     {item}
                   </Badge>
                 ))}
@@ -493,27 +493,27 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
           )}
 
           {/* Quick Stats */}
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Session Info</h3>
+          <div className="p-4 rounded-xl bg-paper border border-border">
+            <h3 className="text-sm font-medium text-ink-muted mb-3">Session Info</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Segments</span>
-                <span className="text-white">{session.segments?.length || 0}</span>
+                <span className="text-ink-muted">Segments</span>
+                <span className="text-ink">{session.segments?.length || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Total Duration</span>
-                <span className="text-white">{session.durationMinutes} min</span>
+                <span className="text-ink-muted">Total Duration</span>
+                <span className="text-ink">{session.durationMinutes} min</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Created</span>
-                <span className="text-white">
+                <span className="text-ink-muted">Created</span>
+                <span className="text-ink">
                   {new Date(session.createdAt).toLocaleDateString()}
                 </span>
               </div>
               {session.completedAt && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Completed</span>
-                  <span className="text-white">
+                  <span className="text-ink-muted">Completed</span>
+                  <span className="text-ink">
                     {new Date(session.completedAt).toLocaleDateString()}
                   </span>
                 </div>
@@ -525,7 +525,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
 
       {/* Reflection Modal */}
       <Dialog open={showReflectionModal} onOpenChange={setShowReflectionModal}>
-        <DialogContent className="max-w-2xl bg-[#0a0a0f] border-white/10">
+        <DialogContent className="max-w-2xl bg-cream border-border">
           <DialogHeader>
             <DialogTitle>Session Reflection</DialogTitle>
             <DialogDescription>
@@ -535,43 +535,43 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
 
           <div className="space-y-4 mt-4">
             <div>
-              <label className="text-sm text-gray-400 mb-1.5 block">Overall Reflection</label>
+              <label className="text-sm text-ink-muted mb-1.5 block">Overall Reflection</label>
               <Textarea
                 value={reflection.postSessionReflection}
                 onChange={(e) => setReflection({ ...reflection, postSessionReflection: e.target.value })}
                 placeholder="How did the session go overall?"
-                className="min-h-[80px] bg-white/[0.02] border-white/[0.06]"
+                className="min-h-[80px] bg-paper border-border"
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-sm text-gray-400 mb-1.5 block">What Worked Well</label>
+                <label className="text-sm text-ink-muted mb-1.5 block">What Worked Well</label>
                 <Textarea
                   value={reflection.whatWorkedWell}
                   onChange={(e) => setReflection({ ...reflection, whatWorkedWell: e.target.value })}
                   placeholder="Activities, approaches that were effective..."
-                  className="min-h-[100px] bg-white/[0.02] border-white/[0.06]"
+                  className="min-h-[100px] bg-paper border-border"
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-400 mb-1.5 block">What to Improve</label>
+                <label className="text-sm text-ink-muted mb-1.5 block">What to Improve</label>
                 <Textarea
                   value={reflection.whatToImprove}
                   onChange={(e) => setReflection({ ...reflection, whatToImprove: e.target.value })}
                   placeholder="Areas to focus on next time..."
-                  className="min-h-[100px] bg-white/[0.02] border-white/[0.06]"
+                  className="min-h-[100px] bg-paper border-border"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm text-gray-400 mb-1.5 block">Player Observations</label>
+              <label className="text-sm text-ink-muted mb-1.5 block">Player Observations</label>
               <Textarea
                 value={reflection.playerObservations}
                 onChange={(e) => setReflection({ ...reflection, playerObservations: e.target.value })}
                 placeholder="Notable player progress, challenges, or observations..."
-                className="min-h-[80px] bg-white/[0.02] border-white/[0.06]"
+                className="min-h-[80px] bg-paper border-border"
               />
             </div>
 
@@ -590,7 +590,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
 
       {/* Delete Confirmation Modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="bg-[#0a0a0f] border-white/10">
+        <DialogContent className="bg-cream border-border">
           <DialogHeader>
             <DialogTitle>Delete Session</DialogTitle>
             <DialogDescription>

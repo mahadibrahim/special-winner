@@ -171,7 +171,7 @@ function TeamCard({ team }: { team: Team }) {
   return (
     <a
       href={`/coach/teams/${team.id}`}
-      className="group relative overflow-hidden rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all hover:shadow-lg hover:shadow-blue-500/5"
+      className="group relative overflow-hidden rounded-2xl bg-paper border border-border hover:border-border transition-all hover:shadow-lg hover:shadow-ink/5"
     >
       {/* Gradient accent bar */}
       <div className={cn("absolute top-0 left-0 right-0 h-1 bg-gradient-to-r", gradient)} />
@@ -189,18 +189,18 @@ function TeamCard({ team }: { team: Team }) {
               </span>
             </div>
             <div>
-              <h3 className="font-semibold text-white group-hover:text-blue-400 transition-colors">
+              <h3 className="font-semibold text-ink group-hover:text-primary transition-colors">
                 {team.name}
               </h3>
-              <p className="text-sm text-gray-500">{team.sport.name} • {team.division}</p>
+              <p className="text-sm text-ink-muted">{team.sport.name} • {team.division}</p>
             </div>
           </div>
           {team.isHeadCoach ? (
-            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px]">
+            <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">
               Head Coach
             </Badge>
           ) : (
-            <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-[10px]">
+            <Badge className="bg-gray-500/20 text-ink-muted border-gray-500/30 text-[10px]">
               Assistant
             </Badge>
           )}
@@ -208,50 +208,50 @@ function TeamCard({ team }: { team: Team }) {
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="p-3 rounded-xl bg-white/[0.03]">
-            <div className="flex items-center gap-2 text-gray-500 mb-1">
+          <div className="p-3 rounded-xl bg-cream-2">
+            <div className="flex items-center gap-2 text-ink-muted mb-1">
               <Users className="w-3.5 h-3.5" />
               <span className="text-xs">Roster</span>
             </div>
-            <p className="text-lg font-semibold text-white">
+            <p className="text-lg font-semibold text-ink">
               {team.rosterCount}
               {team.maxRosterSize && (
-                <span className="text-sm text-gray-500">/{team.maxRosterSize}</span>
+                <span className="text-sm text-ink-muted">/{team.maxRosterSize}</span>
               )}
             </p>
           </div>
-          <div className="p-3 rounded-xl bg-white/[0.03]">
-            <div className="flex items-center gap-2 text-gray-500 mb-1">
+          <div className="p-3 rounded-xl bg-cream-2">
+            <div className="flex items-center gap-2 text-ink-muted mb-1">
               <Calendar className="w-3.5 h-3.5" />
               <span className="text-xs">Season</span>
             </div>
-            <p className="text-sm font-medium text-white">{team.season.name}</p>
+            <p className="text-sm font-medium text-ink">{team.season.name}</p>
           </div>
         </div>
 
         {/* Next Game */}
         {team.nextGame && (
-          <div className="p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20">
+          <div className="p-3 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-medium text-blue-400 uppercase tracking-wider mb-0.5">
+                <p className="text-[10px] font-medium text-primary uppercase tracking-wider mb-0.5">
                   Next Game
                 </p>
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-ink">
                   vs {team.nextGame.opponent || "TBD"}
                 </p>
-                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                <div className="flex items-center gap-2 text-xs text-ink-muted mt-1">
                   <Clock className="w-3 h-3" />
                   {formatNextGame(team.nextGame.scheduledAt)}
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" />
+              <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
         )}
 
         {/* Location */}
-        <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+        <div className="flex items-center gap-2 mt-3 text-xs text-ink-muted">
           <MapPin className="w-3 h-3" />
           {team.location.name}
         </div>
@@ -262,9 +262,9 @@ function TeamCard({ team }: { team: Team }) {
 
 function QuickActions() {
   return (
-    <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-      <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-        <ClipboardList className="w-4 h-4 text-blue-400" />
+    <div className="p-5 rounded-2xl bg-paper border border-border">
+      <h3 className="font-semibold text-ink mb-4 flex items-center gap-2">
+        <ClipboardList className="w-4 h-4 text-primary" />
         Quick Actions
       </h3>
       <div className="space-y-2">
@@ -273,47 +273,47 @@ function QuickActions() {
           className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/30 transition-colors group"
         >
           <Target className="w-5 h-5 text-primary" />
-          <span className="text-sm text-white">Player Assessments</span>
+          <span className="text-sm text-ink">Player Assessments</span>
           <ChevronRight className="w-4 h-4 text-primary/60 ml-auto group-hover:translate-x-1 transition-all" />
         </a>
         <a
           href="/coach/schedule"
-          className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
+          className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
         >
-          <Calendar className="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition-colors" />
-          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">View Full Schedule</span>
-          <ChevronRight className="w-4 h-4 text-gray-600 ml-auto group-hover:translate-x-1 transition-all" />
+          <Calendar className="w-5 h-5 text-ink-muted group-hover:text-primary transition-colors" />
+          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">View Full Schedule</span>
+          <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
         </a>
         <a
           href="/coach/standings"
-          className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
+          className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
         >
-          <Trophy className="w-5 h-5 text-gray-500 group-hover:text-amber-400 transition-colors" />
-          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">View Standings</span>
-          <ChevronRight className="w-4 h-4 text-gray-600 ml-auto group-hover:translate-x-1 transition-all" />
+          <Trophy className="w-5 h-5 text-ink-muted group-hover:text-amber-400 transition-colors" />
+          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">View Standings</span>
+          <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
         </a>
         <a
           href="/coach/practices"
-          className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
+          className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
         >
-          <Dumbbell className="w-5 h-5 text-gray-500 group-hover:text-purple-400 transition-colors" />
-          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">Practice Planner</span>
-          <ChevronRight className="w-4 h-4 text-gray-600 ml-auto group-hover:translate-x-1 transition-all" />
+          <Dumbbell className="w-5 h-5 text-ink-muted group-hover:text-purple-400 transition-colors" />
+          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">Practice Planner</span>
+          <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
         </a>
         <a
           href="/coach/resources"
-          className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
+          className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
         >
-          <BookOpen className="w-5 h-5 text-gray-500 group-hover:text-cyan-400 transition-colors" />
-          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">Coach Resources</span>
-          <ChevronRight className="w-4 h-4 text-gray-600 ml-auto group-hover:translate-x-1 transition-all" />
+          <BookOpen className="w-5 h-5 text-ink-muted group-hover:text-cyan-400 transition-colors" />
+          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">Coach Resources</span>
+          <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
         </a>
         <button
-          className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors group"
+          className="w-full flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
         >
-          <MessageSquare className="w-5 h-5 text-gray-500 group-hover:text-emerald-400 transition-colors" />
-          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">Add Player Note</span>
-          <Plus className="w-4 h-4 text-gray-600 ml-auto" />
+          <MessageSquare className="w-5 h-5 text-ink-muted group-hover:text-emerald-400 transition-colors" />
+          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">Add Player Note</span>
+          <Plus className="w-4 h-4 text-ink-faint ml-auto" />
         </button>
       </div>
     </div>
@@ -328,15 +328,15 @@ function StatCard({ icon: Icon, label, value, subtext, color }: {
   color: string
 }) {
   return (
-    <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+    <div className="p-5 rounded-2xl bg-paper border border-border">
       <div className="flex items-center gap-3 mb-3">
         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", color)}>
           <Icon className="w-5 h-5 text-white" />
         </div>
-        <span className="text-sm text-gray-500">{label}</span>
+        <span className="text-sm text-ink-muted">{label}</span>
       </div>
-      <p className="text-3xl font-bold text-white">{value}</p>
-      {subtext && <p className="text-sm text-gray-500 mt-1">{subtext}</p>}
+      <p className="text-3xl font-bold text-ink">{value}</p>
+      {subtext && <p className="text-sm text-ink-muted mt-1">{subtext}</p>}
     </div>
   )
 }
@@ -386,11 +386,11 @@ export default function CoachDashboardOverview() {
 
   if (error) {
     return (
-      <div className="text-center py-16 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border">
         <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-        <h3 className="text-white font-medium mb-1">Unable to load teams</h3>
-        <p className="text-sm text-gray-500 mb-4">{error}</p>
-        <Button onClick={fetchTeams} variant="outline" className="border-white/10">
+        <h3 className="text-ink font-medium mb-1">Unable to load teams</h3>
+        <p className="text-sm text-ink-muted mb-4">{error}</p>
+        <Button onClick={fetchTeams} variant="outline" className="border-border">
           Try Again
         </Button>
       </div>
@@ -399,10 +399,10 @@ export default function CoachDashboardOverview() {
 
   if (teams.length === 0) {
     return (
-      <div className="text-center py-16 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] border-dashed">
-        <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-        <h3 className="text-white font-medium mb-2">No Teams Assigned</h3>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border border-dashed">
+        <Users className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+        <h3 className="text-ink font-medium mb-2">No Teams Assigned</h3>
+        <p className="text-sm text-ink-muted mb-4">
           You haven't been assigned to any teams yet. Contact your administrator to get started.
         </p>
         <Button asChild>
@@ -448,11 +448,11 @@ export default function CoachDashboardOverview() {
         <div className="lg:col-span-8 space-y-6">
           <section className="dashboard-section">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-400" />
+              <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
                 My Teams
               </h2>
-              <span className="text-sm text-gray-500">{teams.length} teams</span>
+              <span className="text-sm text-ink-muted">{teams.length} teams</span>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {teams.map((team) => (
@@ -484,10 +484,10 @@ export default function CoachDashboardOverview() {
                   <BookOpen className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-white group-hover:text-primary transition-colors">
+                  <h3 className="font-semibold text-ink group-hover:text-primary transition-colors">
                     Aspire Curriculum
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-ink-muted mt-0.5">
                     Sport guides, skill minibooks, and the Aspire coaching philosophy
                   </p>
                 </div>
@@ -501,37 +501,37 @@ export default function CoachDashboardOverview() {
 
           {/* Recent Activity Placeholder */}
           <section className="dashboard-section">
-            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-              <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <div className="p-5 rounded-2xl bg-paper border border-border">
+              <h3 className="font-semibold text-ink mb-4 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-400" />
                 Recent Activity
               </h3>
               <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03]">
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-cream-2">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
                     <Trophy className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-white">Game completed</p>
-                    <p className="text-xs text-gray-500">U10 Lightning won 3-1</p>
+                    <p className="text-sm text-ink">Game completed</p>
+                    <p className="text-xs text-ink-muted">U10 Lightning won 3-1</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03]">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-4 h-4 text-blue-400" />
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-cream-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <MessageSquare className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-white">Note added</p>
-                    <p className="text-xs text-gray-500">Progress note for Emma J.</p>
+                    <p className="text-sm text-ink">Note added</p>
+                    <p className="text-xs text-ink-muted">Progress note for Emma J.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03]">
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-cream-2">
                   <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                     <Users className="w-4 h-4 text-amber-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-white">New player</p>
-                    <p className="text-xs text-gray-500">Liam M. joined U8 Thunder</p>
+                    <p className="text-sm text-ink">New player</p>
+                    <p className="text-xs text-ink-muted">Liam M. joined U8 Thunder</p>
                   </div>
                 </div>
               </div>

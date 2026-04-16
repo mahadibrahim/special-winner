@@ -20,91 +20,74 @@ else if (hour >= 17) greeting = "Good evening";
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Coach Dashboard - Aspire Sports</title>
-    <style>
-      /* Stagger animation for dashboard sections */
-      @keyframes fadeSlideIn {
-        from {
-          opacity: 0;
-          transform: translateY(12px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .dashboard-section {
-        animation: fadeSlideIn 0.5s ease-out forwards;
-        opacity: 0;
-      }
-
-      .dashboard-section:nth-child(1) { animation-delay: 0ms; }
-      .dashboard-section:nth-child(2) { animation-delay: 100ms; }
-      .dashboard-section:nth-child(3) { animation-delay: 200ms; }
-      .dashboard-section:nth-child(4) { animation-delay: 300ms; }
-
-      /* Subtle background pattern */
-      .coach-bg {
-        background-image:
-          radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.08), transparent),
-          radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.04), transparent);
-      }
-    </style>
+    <title>Coach Dashboard — Aspire Sports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body class="min-h-screen flex flex-col bg-[#0a0a0f] text-white">
+  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
-    <main class="flex-1 pt-24 pb-16 px-4 coach-bg">
+    <main class="flex-1 pt-28 pb-16 px-4">
       <div class="max-w-7xl mx-auto">
+        <!-- Section label -->
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">§ Coach Dashboard</p>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <div class="h-px bg-border mb-10"></div>
+
         <!-- Header Section -->
-        <header class="mb-10 dashboard-section">
+        <header class="mb-10">
           <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div class="flex items-center gap-4">
-              <!-- Avatar with gradient ring -->
+              <!-- Avatar -->
               <div class="relative">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 p-0.5">
-                  <div class="w-full h-full rounded-2xl bg-[#0a0a0f] flex items-center justify-center">
-                    <span class="text-xl font-bold text-white">
-                      {user?.firstName?.[0] || 'C'}{user?.lastName?.[0] || ''}
-                    </span>
-                  </div>
+                <div class="w-14 h-14 rounded-full bg-navy flex items-center justify-center">
+                  <span class="text-lg font-semibold text-cream font-display">
+                    {user?.firstName?.[0] || 'C'}{user?.lastName?.[0] || ''}
+                  </span>
                 </div>
                 <!-- Coach badge -->
-                <div class="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 rounded-full border-4 border-[#0a0a0f] flex items-center justify-center">
-                  <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <div class="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-primary rounded-full border-2 border-cream flex items-center justify-center">
+                  <svg class="w-2.5 h-2.5 text-cream" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4" />
                   </svg>
                 </div>
               </div>
 
               <div>
-                <p class="text-sm text-gray-500 mb-0.5">{greeting}, Coach</p>
-                <h1 class="text-2xl sm:text-3xl font-bold text-white">
-                  {user?.firstName || 'there'}!
+                <p class="text-xs text-ink-muted mb-0.5">{greeting}, Coach</p>
+                <h1 class="text-2xl sm:text-3xl font-display font-semibold text-ink">
+                  {user?.firstName || 'there'}.
                 </h1>
               </div>
             </div>
 
             <!-- Quick Actions -->
             <div class="flex gap-2">
-              <a href="/coach/practices/new" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors">
+              <a href="/coach/practices/new" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded bg-primary text-cream hover:bg-primary/90 transition-colors">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
                 New Practice
               </a>
-              <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+              <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
                 Practices
               </a>
-              <a href="/coach/assessments" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+              <a href="/coach/assessments" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
                 Assessments
               </a>
-              <a href="/dashboard" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+              <a href="/dashboard" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
                 Parent View
               </a>
             </div>

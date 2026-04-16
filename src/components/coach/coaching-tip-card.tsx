@@ -33,9 +33,9 @@ interface CoachingTipCardProps {
 const typeConfig = {
   question: {
     icon: MessageCircleQuestion,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    color: "text-primary",
+    bg: "bg-primary/5",
+    border: "border-primary/20",
     label: "Question",
   },
   reminder: {
@@ -91,12 +91,12 @@ export function CoachingTipCard({
         className={`flex items-start gap-3 p-3 rounded-lg ${config.bg} ${config.border} border`}
       >
         <Icon className={`w-4 h-4 ${config.color} mt-0.5 flex-shrink-0`} />
-        <p className="text-sm text-white/90 flex-1">{tip.content}</p>
+        <p className="text-sm text-ink/90 flex-1">{tip.content}</p>
         {showActions && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0 text-white/40 hover:text-white"
+            className="h-6 w-6 p-0 text-ink/40 hover:text-ink"
             onClick={() => handleDismiss("temporary")}
           >
             <X className="w-3 h-3" />
@@ -125,20 +125,20 @@ export function CoachingTipCard({
                 {tip.isQuestionBased && (
                   <Badge
                     variant="secondary"
-                    className="bg-white/5 text-white/60 border-0 text-xs"
+                    className="bg-cream-2 text-ink/60 border-0 text-xs"
                   >
                     Guided Discovery
                   </Badge>
                 )}
               </div>
               {tip.title && (
-                <h3 className="font-semibold text-white text-lg mb-2">
+                <h3 className="font-semibold text-ink text-lg mb-2">
                   {tip.title}
                 </h3>
               )}
-              <p className="text-white/80 leading-relaxed">{tip.content}</p>
+              <p className="text-ink/80 leading-relaxed">{tip.content}</p>
               {tip.targetedBehavior && (
-                <p className="text-xs text-white/40 mt-3">
+                <p className="text-xs text-ink/40 mt-3">
                   Focus: {tip.targetedBehavior}
                 </p>
               )}
@@ -148,7 +148,7 @@ export function CoachingTipCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-white/40 hover:text-emerald-400"
+                  className="h-8 w-8 p-0 text-ink/40 hover:text-emerald-400"
                   onClick={() => handleDismiss("helpful")}
                   title="Mark as helpful"
                 >
@@ -157,7 +157,7 @@ export function CoachingTipCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-white/40 hover:text-white"
+                  className="h-8 w-8 p-0 text-ink/40 hover:text-ink"
                   onClick={() => handleDismiss("temporary")}
                   title="Dismiss"
                 >
@@ -173,7 +173,7 @@ export function CoachingTipCard({
 
   // Default variant
   return (
-    <Card className={`bg-[#12121a] ${config.border} border hover:border-white/10 transition-colors`}>
+    <Card className={`bg-cream ${config.border} border hover:border-border transition-colors`}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className={`p-2 rounded-lg ${config.bg}`}>
@@ -186,21 +186,21 @@ export function CoachingTipCard({
               </span>
               {tip.title && (
                 <>
-                  <span className="text-white/20">•</span>
-                  <span className="text-sm font-medium text-white truncate">
+                  <span className="text-ink/20">•</span>
+                  <span className="text-sm font-medium text-ink truncate">
                     {tip.title}
                   </span>
                 </>
               )}
             </div>
-            <p className="text-sm text-white/70 leading-relaxed">{tip.content}</p>
+            <p className="text-sm text-ink/70 leading-relaxed">{tip.content}</p>
             {tip.tags && tip.tags.length > 0 && (
               <div className="flex gap-1 mt-2 flex-wrap">
                 {tip.tags.slice(0, 3).map((tag) => (
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="bg-white/5 text-white/40 border-0 text-xs"
+                    className="bg-cream-2 text-ink/40 border-0 text-xs"
                   >
                     {tag}
                   </Badge>
@@ -212,7 +212,7 @@ export function CoachingTipCard({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 text-white/40 hover:text-white flex-shrink-0"
+              className="h-8 w-8 p-0 text-ink/40 hover:text-ink flex-shrink-0"
               onClick={() => handleDismiss("temporary")}
             >
               <X className="w-4 h-4" />
@@ -242,7 +242,7 @@ export function CoachingTipsList({
 }: CoachingTipsListProps) {
   if (tips.length === 0) {
     return (
-      <div className="text-center py-8 text-white/40">
+      <div className="text-center py-8 text-ink/40">
         <Lightbulb className="w-8 h-8 mx-auto mb-2 opacity-50" />
         <p className="text-sm">{emptyMessage}</p>
       </div>
@@ -252,7 +252,7 @@ export function CoachingTipsList({
   return (
     <div className="space-y-3">
       {title && (
-        <h3 className="text-sm font-medium text-white/60 uppercase tracking-wide">
+        <h3 className="text-sm font-medium text-ink/60 uppercase tracking-wide">
           {title}
         </h3>
       )}

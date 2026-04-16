@@ -55,7 +55,7 @@ interface Team {
 }
 
 const statusConfig: Record<GameStatus, { label: string; color: string; bgColor: string }> = {
-  scheduled: { label: "Scheduled", color: "text-blue-400", bgColor: "bg-blue-500/20 border-blue-500/30" },
+  scheduled: { label: "Scheduled", color: "text-primary", bgColor: "bg-primary/10 border-primary/20" },
   in_progress: { label: "In Progress", color: "text-amber-400", bgColor: "bg-amber-500/20 border-amber-500/30" },
   completed: { label: "Final", color: "text-emerald-400", bgColor: "bg-emerald-500/20 border-emerald-500/30" },
   postponed: { label: "Postponed", color: "text-orange-400", bgColor: "bg-orange-500/20 border-orange-500/30" },
@@ -169,20 +169,20 @@ function GameScoreModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-3xl bg-[#0a0a0f] border border-white/10 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md rounded-3xl bg-cream border border-border shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-white/10">
+        <div className="p-6 border-b border-border">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-xl hover:bg-white/10 transition-colors"
+            className="absolute top-4 right-4 p-2 rounded-xl hover:bg-cream-3 transition-colors"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5 text-ink-muted" />
           </button>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-ink flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-400" />
             Enter Score
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             {new Date(game.scheduledAt).toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
@@ -196,40 +196,40 @@ function GameScoreModal({
           <div className="flex items-center justify-center gap-4 mb-6">
             {/* Home Team */}
             <div className="text-center flex-1">
-              <p className="text-sm text-gray-500 mb-2">Home</p>
-              <p className="text-white font-medium mb-3">{homeTeamName}</p>
+              <p className="text-sm text-ink-muted mb-2">Home</p>
+              <p className="text-ink font-medium mb-3">{homeTeamName}</p>
               <input
                 type="number"
                 min="0"
                 value={homeScore}
                 onChange={(e) => setHomeScore(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-20 h-16 text-center text-3xl font-bold rounded-xl bg-white/[0.05] border border-white/10 text-white focus:outline-none focus:border-blue-500"
+                className="w-20 h-16 text-center text-3xl font-bold rounded-xl bg-cream-3 border border-border text-ink focus:outline-none focus:border-primary"
               />
             </div>
 
-            <div className="text-2xl font-bold text-gray-600">vs</div>
+            <div className="text-2xl font-bold text-ink-faint">vs</div>
 
             {/* Away Team */}
             <div className="text-center flex-1">
-              <p className="text-sm text-gray-500 mb-2">Away</p>
-              <p className="text-white font-medium mb-3">{awayTeamName}</p>
+              <p className="text-sm text-ink-muted mb-2">Away</p>
+              <p className="text-ink font-medium mb-3">{awayTeamName}</p>
               <input
                 type="number"
                 min="0"
                 value={awayScore}
                 onChange={(e) => setAwayScore(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-20 h-16 text-center text-3xl font-bold rounded-xl bg-white/[0.05] border border-white/10 text-white focus:outline-none focus:border-blue-500"
+                className="w-20 h-16 text-center text-3xl font-bold rounded-xl bg-cream-3 border border-border text-ink focus:outline-none focus:border-primary"
               />
             </div>
           </div>
 
           {/* Status */}
           <div className="mb-4">
-            <label className="block text-sm text-gray-500 mb-2">Game Status</label>
+            <label className="block text-sm text-ink-muted mb-2">Game Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as GameStatus)}
-              className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 text-white focus:outline-none focus:border-blue-500"
+              className="w-full px-4 py-3 rounded-xl bg-cream-3 border border-border text-ink focus:outline-none focus:border-primary"
             >
               <option value="in_progress">In Progress</option>
               <option value="completed">Final (Completed)</option>
@@ -240,13 +240,13 @@ function GameScoreModal({
 
           {/* Notes */}
           <div className="mb-6">
-            <label className="block text-sm text-gray-500 mb-2">Notes (optional)</label>
+            <label className="block text-sm text-ink-muted mb-2">Notes (optional)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add game notes..."
               rows={3}
-              className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500 resize-none"
+              className="w-full px-4 py-3 rounded-xl bg-cream-3 border border-border text-ink placeholder:text-ink-faint focus:outline-none focus:border-primary resize-none"
             />
           </div>
 
@@ -255,14 +255,14 @@ function GameScoreModal({
             <Button
               variant="outline"
               onClick={onClose}
-              className="flex-1 border-white/10"
+              className="flex-1 border-border"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              className="flex-1 bg-primary hover:bg-primary/90"
             >
               {isSaving ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -320,18 +320,18 @@ function GameCard({
   return (
     <div className={cn(
       "group relative overflow-hidden rounded-2xl border transition-all",
-      isCompleted ? "bg-white/[0.01]" : "bg-white/[0.02] hover:bg-white/[0.03]",
-      "border-white/[0.06] hover:border-white/10"
+      isCompleted ? "bg-paper" : "bg-paper hover:bg-cream-2",
+      "border-border hover:border-border"
     )}>
       <div className="p-4">
         {/* Date & Status Row */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-400">{formatDate(gameDate)}</span>
-            <span className="text-gray-600">•</span>
-            <Clock className="w-3.5 h-3.5 text-gray-500" />
-            <span className="text-sm text-gray-400">{formatTime(gameDate)}</span>
+            <Calendar className="w-4 h-4 text-ink-muted" />
+            <span className="text-sm text-ink-muted">{formatDate(gameDate)}</span>
+            <span className="text-ink-faint">•</span>
+            <Clock className="w-3.5 h-3.5 text-ink-muted" />
+            <span className="text-sm text-ink-muted">{formatTime(gameDate)}</span>
           </div>
           <Badge className={cn("text-[10px]", status.bgColor, status.color)}>
             {status.label}
@@ -344,38 +344,38 @@ function GameCard({
           <div className="flex-1 text-center">
             <p className={cn(
               "font-semibold mb-1",
-              game.isHome ? "text-white" : "text-gray-400"
+              game.isHome ? "text-ink" : "text-ink-muted"
             )}>
               {teamName}
             </p>
-            <p className="text-xs text-gray-500">{game.isHome ? "Home" : "Away"}</p>
+            <p className="text-xs text-ink-muted">{game.isHome ? "Home" : "Away"}</p>
           </div>
 
           {/* Score or VS */}
           {isCompleted && ourScore !== null && theirScore !== null ? (
-            <div className="px-4 py-2 rounded-xl bg-white/[0.05]">
+            <div className="px-4 py-2 rounded-xl bg-cream-3">
               <div className="flex items-center gap-3">
                 <span className={cn(
                   "text-2xl font-bold",
-                  won ? "text-emerald-400" : lost ? "text-red-400" : "text-white"
+                  won ? "text-emerald-400" : lost ? "text-red-400" : "text-ink"
                 )}>
                   {ourScore}
                 </span>
-                <span className="text-gray-600">-</span>
+                <span className="text-ink-faint">-</span>
                 <span className={cn(
                   "text-2xl font-bold",
-                  lost ? "text-emerald-400" : won ? "text-red-400" : "text-white"
+                  lost ? "text-emerald-400" : won ? "text-red-400" : "text-ink"
                 )}>
                   {theirScore}
                 </span>
               </div>
               {won && <p className="text-[10px] text-emerald-400 text-center mt-1">WIN</p>}
               {lost && <p className="text-[10px] text-red-400 text-center mt-1">LOSS</p>}
-              {tied && <p className="text-[10px] text-gray-400 text-center mt-1">TIE</p>}
+              {tied && <p className="text-[10px] text-ink-muted text-center mt-1">TIE</p>}
             </div>
           ) : (
-            <div className="px-4 py-3 rounded-xl bg-white/[0.03]">
-              <span className="text-lg font-bold text-gray-500">vs</span>
+            <div className="px-4 py-3 rounded-xl bg-cream-2">
+              <span className="text-lg font-bold text-ink-muted">vs</span>
             </div>
           )}
 
@@ -383,17 +383,17 @@ function GameCard({
           <div className="flex-1 text-center">
             <p className={cn(
               "font-semibold mb-1",
-              !game.isHome ? "text-white" : "text-gray-400"
+              !game.isHome ? "text-ink" : "text-ink-muted"
             )}>
               {game.opponent?.name ?? "TBD"}
             </p>
-            <p className="text-xs text-gray-500">{game.isHome ? "Away" : "Home"}</p>
+            <p className="text-xs text-ink-muted">{game.isHome ? "Away" : "Home"}</p>
           </div>
         </div>
 
         {/* Location */}
         {game.venue && (
-          <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+          <div className="flex items-center gap-2 mt-3 text-xs text-ink-muted">
             <MapPin className="w-3 h-3" />
             {game.venue.name}
             {game.fieldNumber && ` - Field ${game.fieldNumber}`}
@@ -402,7 +402,7 @@ function GameCard({
 
         {/* Notes */}
         {game.notes && (
-          <p className="mt-2 text-xs text-gray-500 italic">"{game.notes}"</p>
+          <p className="mt-2 text-xs text-ink-muted italic">"{game.notes}"</p>
         )}
 
         {/* Edit Score Button */}
@@ -410,7 +410,7 @@ function GameCard({
           variant="ghost"
           size="sm"
           onClick={() => onEditScore(game)}
-          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-white"
+          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-ink-muted hover:text-ink"
         >
           <Edit3 className="w-4 h-4" />
         </Button>
@@ -420,10 +420,11 @@ function GameCard({
 }
 
 interface CoachScheduleProps {
-  teams: Team[]
+  teams?: Team[]
 }
 
-export default function CoachSchedule({ teams }: CoachScheduleProps) {
+export default function CoachSchedule({ teams: teamsProp }: CoachScheduleProps) {
+  const [teams, setTeams] = useState<Team[]>(teamsProp || [])
   const [games, setGames] = useState<Game[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -431,6 +432,27 @@ export default function CoachSchedule({ teams }: CoachScheduleProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [showPast, setShowPast] = useState(true)
   const [editingGame, setEditingGame] = useState<Game | null>(null)
+
+  // Fetch teams if not provided as prop
+  useEffect(() => {
+    if (teamsProp && teamsProp.length > 0) {
+      setTeams(teamsProp)
+      return
+    }
+    const fetchTeams = async () => {
+      try {
+        const response = await fetch("/api/coach/teams")
+        if (response.ok) {
+          const data = await response.json()
+          const mapped = (data.teams || []).map((t: any) => ({ id: t.id, name: t.name }))
+          setTeams(mapped)
+        }
+      } catch (err) {
+        console.error("Error fetching teams:", err)
+      }
+    }
+    fetchTeams()
+  }, [teamsProp])
 
   useEffect(() => {
     fetchGames()
@@ -528,7 +550,7 @@ export default function CoachSchedule({ teams }: CoachScheduleProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
@@ -538,27 +560,27 @@ export default function CoachSchedule({ teams }: CoachScheduleProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-blue-400" />
+          <h2 className="text-xl font-bold text-ink flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-primary" />
             Game Schedule
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             {upcomingGames.length} upcoming, {pastGames.length} completed
           </p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="p-4 rounded-2xl bg-paper border border-border">
         <div className="flex flex-wrap items-center gap-4">
-          <Filter className="w-4 h-4 text-gray-500" />
+          <Filter className="w-4 h-4 text-ink-muted" />
 
           {/* Team Filter */}
           {teams.length > 1 && (
             <select
               value={selectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-gray-300 focus:outline-none focus:border-blue-500/50"
+              className="px-3 py-2 rounded-xl bg-cream-2 border border-border text-sm text-ink-2 focus:outline-none focus:border-primary/50"
             >
               <option value="all">All Teams</option>
               {teams.map(team => (
@@ -573,8 +595,8 @@ export default function CoachSchedule({ teams }: CoachScheduleProps) {
             className={cn(
               "px-3 py-2 rounded-xl text-sm font-medium transition-all",
               showPast
-                ? "bg-white/10 text-white border border-white/20"
-                : "bg-white/[0.03] text-gray-500 border border-white/[0.08]"
+                ? "bg-cream-3 text-ink border border-ink-faint/20"
+                : "bg-cream-2 text-ink-muted border border-border"
             )}
           >
             Show Past Games
@@ -584,10 +606,10 @@ export default function CoachSchedule({ teams }: CoachScheduleProps) {
 
       {/* Games List */}
       {filteredGames.length === 0 ? (
-        <div className="text-center py-16 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-          <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-white font-medium mb-1">No games found</h3>
-          <p className="text-sm text-gray-500">
+        <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border">
+          <Calendar className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">No games found</h3>
+          <p className="text-sm text-ink-muted">
             {!showPast ? "No upcoming games scheduled" : "No games have been scheduled yet"}
           </p>
         </div>
@@ -596,7 +618,7 @@ export default function CoachSchedule({ teams }: CoachScheduleProps) {
           {/* Upcoming Games */}
           {upcomingGames.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+              <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider mb-3">
                 Upcoming ({upcomingGames.length})
               </h3>
               <div className="space-y-3">
@@ -615,7 +637,7 @@ export default function CoachSchedule({ teams }: CoachScheduleProps) {
           {/* Past Games */}
           {showPast && pastGames.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+              <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider mb-3">
                 Past Games ({pastGames.length})
               </h3>
               <div className="space-y-3">

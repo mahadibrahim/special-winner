@@ -35,8 +35,8 @@ interface InSessionReminderProps {
 const typeConfig = {
   question: {
     icon: MessageCircleQuestion,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
+    color: "text-primary",
+    bg: "bg-primary/5",
   },
   reminder: {
     icon: Bell,
@@ -144,9 +144,9 @@ export function InSessionReminder({
     if (dismissed) return null;
     if (loading) {
       return (
-        <Card className="bg-[#12121a] border-white/10">
+        <Card className="bg-cream border-border">
           <CardContent className="py-4 text-center">
-            <div className="animate-pulse flex items-center justify-center gap-2 text-white/40">
+            <div className="animate-pulse flex items-center justify-center gap-2 text-ink/40">
               <RefreshCw className="w-4 h-4 animate-spin" />
               <span className="text-sm">Loading coaching tips...</span>
             </div>
@@ -162,7 +162,7 @@ export function InSessionReminder({
   const Icon = config.icon;
 
   return (
-    <Card className={`${config.bg} border-white/10 relative overflow-hidden`}>
+    <Card className={`${config.bg} border-border relative overflow-hidden`}>
       {/* Progress dots */}
       {tips.length > 1 && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-1">
@@ -170,7 +170,7 @@ export function InSessionReminder({
             <button
               key={i}
               className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                i === currentIndex ? "bg-white" : "bg-white/20"
+                i === currentIndex ? "bg-ink" : "bg-ink/20"
               }`}
               onClick={() => setCurrentIndex(i)}
             />
@@ -186,7 +186,7 @@ export function InSessionReminder({
               variant="ghost"
               size="sm"
               onClick={goToPrevious}
-              className="h-8 w-8 p-0 text-white/40 hover:text-white flex-shrink-0"
+              className="h-8 w-8 p-0 text-ink/40 hover:text-ink flex-shrink-0"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -199,20 +199,20 @@ export function InSessionReminder({
                 <Icon className={`w-4 h-4 ${config.color}`} />
               </div>
               {currentTip.title && (
-                <span className="font-medium text-white text-sm">
+                <span className="font-medium text-ink text-sm">
                   {currentTip.title}
                 </span>
               )}
               {currentTip.isQuestionBased && (
                 <Badge
                   variant="secondary"
-                  className="bg-white/10 text-white/60 border-0 text-xs"
+                  className="bg-cream-3 text-ink/60 border-0 text-xs"
                 >
                   Ask the player
                 </Badge>
               )}
             </div>
-            <p className="text-white/80 text-sm leading-relaxed">
+            <p className="text-ink/80 text-sm leading-relaxed">
               {currentTip.content}
             </p>
           </div>
@@ -223,7 +223,7 @@ export function InSessionReminder({
               variant="ghost"
               size="sm"
               onClick={goToNext}
-              className="h-8 w-8 p-0 text-white/40 hover:text-white flex-shrink-0"
+              className="h-8 w-8 p-0 text-ink/40 hover:text-ink flex-shrink-0"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -231,14 +231,14 @@ export function InSessionReminder({
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
           <div className="flex items-center gap-2">
             {autoRotate && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsPaused(!isPaused)}
-                className="h-7 text-xs text-white/40 hover:text-white"
+                className="h-7 text-xs text-ink/40 hover:text-ink"
               >
                 {isPaused ? (
                   <>
@@ -253,7 +253,7 @@ export function InSessionReminder({
                 )}
               </Button>
             )}
-            <span className="text-xs text-white/30">
+            <span className="text-xs text-ink/30">
               {currentIndex + 1} of {tips.length}
             </span>
           </div>
@@ -262,7 +262,7 @@ export function InSessionReminder({
               variant="ghost"
               size="sm"
               onClick={fetchTips}
-              className="h-7 text-xs text-white/40 hover:text-white"
+              className="h-7 text-xs text-ink/40 hover:text-ink"
             >
               <RefreshCw className="w-3 h-3 mr-1" />
               New
@@ -271,7 +271,7 @@ export function InSessionReminder({
               variant="ghost"
               size="sm"
               onClick={handleDismiss}
-              className="h-7 text-xs text-white/40 hover:text-white"
+              className="h-7 text-xs text-ink/40 hover:text-ink"
             >
               <X className="w-3 h-3 mr-1" />
               Got it
@@ -330,16 +330,16 @@ export function InSessionReminderFloat({
 
   return (
     <div className="fixed bottom-4 right-4 max-w-sm animate-in slide-in-from-bottom-4 z-50">
-      <Card className={`${config.bg} border-white/20 shadow-lg`}>
+      <Card className={`${config.bg} border-ink-faint/20 shadow-lg`}>
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
             <Icon className={`w-4 h-4 ${config.color} mt-0.5`} />
-            <p className="text-sm text-white/90 flex-1">{tip.content}</p>
+            <p className="text-sm text-ink/90 flex-1">{tip.content}</p>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setVisible(false)}
-              className="h-6 w-6 p-0 text-white/40 hover:text-white"
+              className="h-6 w-6 p-0 text-ink/40 hover:text-ink"
             >
               <X className="w-3 h-3" />
             </Button>

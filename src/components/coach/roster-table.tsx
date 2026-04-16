@@ -60,7 +60,7 @@ interface Team {
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
   active: { label: "Active", color: "text-emerald-400", bgColor: "bg-emerald-500/20 border-emerald-500/30" },
-  inactive: { label: "Inactive", color: "text-gray-400", bgColor: "bg-gray-500/20 border-gray-500/30" },
+  inactive: { label: "Inactive", color: "text-ink-muted", bgColor: "bg-gray-500/20 border-gray-500/30" },
   injured: { label: "Injured", color: "text-red-400", bgColor: "bg-red-500/20 border-red-500/30" },
 }
 
@@ -201,8 +201,8 @@ function PlayerCard({
 
   return (
     <div className={cn(
-      "rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden transition-all",
-      expanded && "ring-1 ring-blue-500/30"
+      "rounded-2xl bg-paper border border-border overflow-hidden transition-all",
+      expanded && "ring-1 ring-primary/30"
     )}>
       {/* Main Info */}
       <div className="p-4">
@@ -210,13 +210,13 @@ function PlayerCard({
           {/* Avatar */}
           <div className="relative">
             <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <span className="text-lg font-bold text-white">
+              <span className="text-lg font-bold text-ink">
                 {player.player.firstName[0]}{player.player.lastName[0]}
               </span>
             </div>
             {player.jerseyNumber && (
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">{player.jerseyNumber}</span>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-cream-3 border border-ink-faint/20 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-ink">{player.jerseyNumber}</span>
               </div>
             )}
           </div>
@@ -224,14 +224,14 @@ function PlayerCard({
           {/* Player Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-white">
+              <h3 className="font-semibold text-ink">
                 {player.player.firstName} {player.player.lastName}
               </h3>
               <Badge className={cn("text-[10px]", status.bgColor, status.color)}>
                 {status.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-3 text-sm text-gray-500">
+            <div className="flex items-center gap-3 text-sm text-ink-muted">
               {player.position && <span>{player.position}</span>}
               <span>Age {player.player.age}</span>
             </div>
@@ -249,19 +249,19 @@ function PlayerCard({
           <div className="flex items-center gap-1">
             <button
               onClick={onAddNote}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="p-2 rounded-lg hover:bg-cream-3 transition-colors"
               title="Add note"
             >
-              <MessageSquare className="w-4 h-4 text-gray-500 hover:text-blue-400" />
+              <MessageSquare className="w-4 h-4 text-ink-muted hover:text-primary" />
             </button>
             <button
               onClick={onToggleExpand}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="p-2 rounded-lg hover:bg-cream-3 transition-colors"
             >
               {expanded ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
+                <ChevronUp className="w-4 h-4 text-ink-muted" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+                <ChevronDown className="w-4 h-4 text-ink-muted" />
               )}
             </button>
           </div>
@@ -270,18 +270,18 @@ function PlayerCard({
 
       {/* Expanded Contact Info */}
       {expanded && (
-        <div className="border-t border-white/[0.06] p-4 bg-white/[0.01]">
+        <div className="border-t border-border p-4 bg-paper">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Parent Contact */}
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Parent/Guardian</p>
+              <p className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-2">Parent/Guardian</p>
               <div className="space-y-2">
-                <p className="text-sm text-white">
+                <p className="text-sm text-ink">
                   {player.parent.firstName} {player.parent.lastName}
                 </p>
                 <a
                   href={`mailto:${player.parent.email}`}
-                  className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
+                  className="flex items-center gap-2 text-sm text-primary hover:text-blue-300"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   {player.parent.email}
@@ -289,7 +289,7 @@ function PlayerCard({
                 {player.parent.phone && (
                   <a
                     href={`tel:${player.parent.phone}`}
-                    className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
+                    className="flex items-center gap-2 text-sm text-primary hover:text-blue-300"
                   >
                     <Phone className="w-3.5 h-3.5" />
                     {player.parent.phone}
@@ -300,14 +300,14 @@ function PlayerCard({
 
             {/* Emergency Contact */}
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Emergency Contact</p>
+              <p className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-2">Emergency Contact</p>
               {player.emergencyContact.name ? (
                 <div className="space-y-2">
-                  <p className="text-sm text-white">{player.emergencyContact.name}</p>
+                  <p className="text-sm text-ink">{player.emergencyContact.name}</p>
                   {player.emergencyContact.phone && (
                     <a
                       href={`tel:${player.emergencyContact.phone}`}
-                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
+                      className="flex items-center gap-2 text-sm text-primary hover:text-blue-300"
                     >
                       <Phone className="w-3.5 h-3.5" />
                       {player.emergencyContact.phone}
@@ -315,16 +315,16 @@ function PlayerCard({
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Not provided</p>
+                <p className="text-sm text-ink-muted">Not provided</p>
               )}
             </div>
           </div>
 
           {/* Coach Notes */}
           {player.notes && (
-            <div className="mt-4 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Coach Notes</p>
-              <p className="text-sm text-gray-300">{player.notes}</p>
+            <div className="mt-4 p-3 rounded-xl bg-cream-2 border border-border">
+              <p className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-1">Coach Notes</p>
+              <p className="text-sm text-ink-2">{player.notes}</p>
             </div>
           )}
         </div>
@@ -459,18 +459,18 @@ export default function RosterTable({ teamId }: RosterTableProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="text-center py-16 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border">
         <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-        <h3 className="text-white font-medium mb-1">Unable to load roster</h3>
-        <p className="text-sm text-gray-500 mb-4">{error}</p>
-        <Button onClick={fetchRoster} variant="outline" className="border-white/10">
+        <h3 className="text-ink font-medium mb-1">Unable to load roster</h3>
+        <p className="text-sm text-ink-muted mb-4">{error}</p>
+        <Button onClick={fetchRoster} variant="outline" className="border-border">
           Try Again
         </Button>
       </div>
@@ -482,11 +482,11 @@ export default function RosterTable({ teamId }: RosterTableProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-400" />
+          <h2 className="text-xl font-bold text-ink flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
             Team Roster
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             {filteredRoster.length} of {roster.length} players
             {team?.maxRosterSize && ` (max ${team.maxRosterSize})`}
           </p>
@@ -495,7 +495,7 @@ export default function RosterTable({ teamId }: RosterTableProps) {
         <Button
           onClick={handleExportRoster}
           variant="outline"
-          className="border-white/10 text-gray-400 hover:text-white"
+          className="border-border text-ink-muted hover:text-ink"
         >
           <Download className="w-4 h-4 mr-2" />
           Export
@@ -503,17 +503,17 @@ export default function RosterTable({ teamId }: RosterTableProps) {
       </div>
 
       {/* Filters */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="p-4 rounded-2xl bg-paper border border-border">
         <div className="flex flex-wrap items-center gap-4">
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
             <input
               type="text"
               placeholder="Search players..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-gray-600 text-sm focus:outline-none focus:border-blue-500/50 transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-cream-2 border border-border text-ink placeholder:text-ink-faint text-sm focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
 
@@ -521,7 +521,7 @@ export default function RosterTable({ teamId }: RosterTableProps) {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-gray-300 focus:outline-none focus:border-blue-500/50"
+            className="px-3 py-2.5 rounded-xl bg-cream-2 border border-border text-sm text-ink-2 focus:outline-none focus:border-primary/50"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -530,12 +530,12 @@ export default function RosterTable({ teamId }: RosterTableProps) {
           </select>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.03]">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-cream-2">
             <button
               onClick={() => setViewMode("grid")}
               className={cn(
                 "p-2 rounded-lg transition-all",
-                viewMode === "grid" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"
+                viewMode === "grid" ? "bg-cream-3 text-ink" : "text-ink-muted hover:text-ink-2"
               )}
               title="Grid view"
             >
@@ -545,7 +545,7 @@ export default function RosterTable({ teamId }: RosterTableProps) {
               onClick={() => setViewMode("list")}
               className={cn(
                 "p-2 rounded-lg transition-all",
-                viewMode === "list" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"
+                viewMode === "list" ? "bg-cream-3 text-ink" : "text-ink-muted hover:text-ink-2"
               )}
               title="List view"
             >
@@ -557,10 +557,10 @@ export default function RosterTable({ teamId }: RosterTableProps) {
 
       {/* Roster */}
       {filteredRoster.length === 0 ? (
-        <div className="text-center py-16 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-          <User className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-white font-medium mb-1">No players found</h3>
-          <p className="text-sm text-gray-500">
+        <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border">
+          <User className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">No players found</h3>
+          <p className="text-sm text-ink-muted">
             {searchQuery ? "Try adjusting your search" : "No players have been assigned to this team yet"}
           </p>
         </div>

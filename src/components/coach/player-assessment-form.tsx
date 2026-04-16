@@ -299,23 +299,23 @@ export default function PlayerAssessmentForm({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#12121a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-cream border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-              <Target className="h-5 w-5 text-white" />
+              <Target className="h-5 w-5 text-ink" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-white">Skill Assessment</h2>
-              <p className="text-sm text-gray-400">{playerName}</p>
+              <h2 className="text-xl font-semibold text-ink">Skill Assessment</h2>
+              <p className="text-sm text-ink-muted">{playerName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+            className="p-2 rounded-lg hover:bg-cream-2 transition-colors"
           >
-            <X className="h-5 w-5 text-gray-400" />
+            <X className="h-5 w-5 text-ink-muted" />
           </button>
         </div>
 
@@ -325,7 +325,7 @@ export default function PlayerAssessmentForm({
             {/* Team Selection */}
             {teams.length > 1 && (
               <div className="mb-6">
-                <label className="block text-xs text-gray-400 mb-2">Team / Program</label>
+                <label className="block text-xs text-ink-muted mb-2">Team / Program</label>
                 <select
                   value={selectedTeam?.id || ""}
                   onChange={(e) => {
@@ -333,7 +333,7 @@ export default function PlayerAssessmentForm({
                     setSelectedTeam(team || null);
                     setSelectedSkill(null);
                   }}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  className="w-full px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                 >
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
@@ -348,7 +348,7 @@ export default function PlayerAssessmentForm({
               /* Assessment Form for Selected Skill */
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Selected Skill Header */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="bg-cream-2 border border-border rounded-xl p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       {(() => {
@@ -366,19 +366,19 @@ export default function PlayerAssessmentForm({
                         );
                       })()}
                       <div>
-                        <h3 className="font-medium text-white">{selectedSkill.name}</h3>
-                        <p className="text-sm text-gray-400">
+                        <h3 className="font-medium text-ink">{selectedSkill.name}</h3>
+                        <p className="text-sm text-ink-muted">
                           {selectedSkill.domain.displayName} • {selectedSkill.stage.name}
                         </p>
                         {selectedSkill.description && (
-                          <p className="text-sm text-gray-500 mt-1">{selectedSkill.description}</p>
+                          <p className="text-sm text-ink-muted mt-1">{selectedSkill.description}</p>
                         )}
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSelectedSkill(null)}
-                      className="text-sm text-gray-400 hover:text-white"
+                      className="text-sm text-ink-muted hover:text-ink"
                     >
                       Change skill
                     </button>
@@ -387,7 +387,7 @@ export default function PlayerAssessmentForm({
 
                 {/* Level Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-white mb-3">
+                  <label className="block text-sm font-medium text-ink mb-3">
                     Assessment Level
                   </label>
                   <div className="grid grid-cols-5 gap-2">
@@ -401,8 +401,8 @@ export default function PlayerAssessmentForm({
                           onClick={() => setLevel(l)}
                           className={`p-3 rounded-xl border transition-all ${
                             isSelected
-                              ? `${levelInfo.color} border-transparent text-white`
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                              ? `${levelInfo.color} border-transparent text-ink`
+                              : "bg-cream-2 border-border text-ink-muted hover:bg-cream-3"
                           }`}
                         >
                           <div className="text-2xl font-bold">{l}</div>
@@ -412,9 +412,9 @@ export default function PlayerAssessmentForm({
                     })}
                   </div>
                   {selectedSkill.progressionLevels && selectedSkill.progressionLevels[level.toString()] && (
-                    <div className="mt-3 p-3 bg-white/5 rounded-lg border border-white/10">
-                      <p className="text-sm text-gray-300">
-                        <span className="font-medium text-white">Level {level}:</span>{" "}
+                    <div className="mt-3 p-3 bg-cream-2 rounded-lg border border-border">
+                      <p className="text-sm text-ink-2">
+                        <span className="font-medium text-ink">Level {level}:</span>{" "}
                         {selectedSkill.progressionLevels[level.toString()]}
                       </p>
                     </div>
@@ -423,7 +423,7 @@ export default function PlayerAssessmentForm({
 
                 {/* Observation Context */}
                 <div>
-                  <label className="block text-xs text-gray-400 mb-2">Observation Context</label>
+                  <label className="block text-xs text-ink-muted mb-2">Observation Context</label>
                   <div className="flex flex-wrap gap-2">
                     {CONTEXT_OPTIONS.map((ctx) => (
                       <button
@@ -433,7 +433,7 @@ export default function PlayerAssessmentForm({
                         className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
                           observationContext === ctx.value
                             ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50"
-                            : "bg-white/5 text-gray-400 hover:bg-white/10"
+                            : "bg-cream-2 text-ink-muted hover:bg-cream-3"
                         }`}
                       >
                         {ctx.label}
@@ -444,7 +444,7 @@ export default function PlayerAssessmentForm({
 
                 {/* Strengths */}
                 <div>
-                  <label className="block text-xs text-gray-400 mb-2">Observed Strengths</label>
+                  <label className="block text-xs text-ink-muted mb-2">Observed Strengths</label>
                   <div className="flex gap-2 mb-2">
                     <input
                       type="text"
@@ -452,7 +452,7 @@ export default function PlayerAssessmentForm({
                       onChange={(e) => setNewStrength(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addStrength())}
                       placeholder="Add a strength..."
-                      className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="flex-1 px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     />
                     <Button type="button" onClick={addStrength} variant="outline" size="sm">
                       Add
@@ -482,7 +482,7 @@ export default function PlayerAssessmentForm({
 
                 {/* Areas for Improvement */}
                 <div>
-                  <label className="block text-xs text-gray-400 mb-2">Areas for Improvement</label>
+                  <label className="block text-xs text-ink-muted mb-2">Areas for Improvement</label>
                   <div className="flex gap-2 mb-2">
                     <input
                       type="text"
@@ -490,7 +490,7 @@ export default function PlayerAssessmentForm({
                       onChange={(e) => setNewImprovement(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addImprovement())}
                       placeholder="Add an area to work on..."
-                      className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="flex-1 px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     />
                     <Button type="button" onClick={addImprovement} variant="outline" size="sm">
                       Add
@@ -522,18 +522,18 @@ export default function PlayerAssessmentForm({
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-xs text-gray-400 mb-2">Additional Notes</label>
+                  <label className="block text-xs text-ink-muted mb-2">Additional Notes</label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Any additional observations or context..."
                     rows={3}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+                    className="w-full px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
                   />
                 </div>
 
                 {/* Submit */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                <div className="flex items-center justify-between pt-4 border-t border-border">
                   {error && <p className="text-sm text-red-400">{error}</p>}
                   {success && (
                     <p className="text-sm text-green-400 flex items-center gap-2">
@@ -545,7 +545,7 @@ export default function PlayerAssessmentForm({
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-ink"
                   >
                     {isSubmitting ? (
                       <>
@@ -565,20 +565,20 @@ export default function PlayerAssessmentForm({
               /* Skill Selection */
               <div className="space-y-4">
                 {/* Filters */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-medium text-white">
-                    <Filter className="h-4 w-4 text-gray-400" />
+                <div className="bg-cream-2 border border-border rounded-xl p-4 space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                    <Filter className="h-4 w-4 text-ink-muted" />
                     Filter Skills
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Stage Filter */}
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Development Stage</label>
+                      <label className="block text-xs text-ink-muted mb-1">Development Stage</label>
                       <select
                         value={selectedStageId || ""}
                         onChange={(e) => setSelectedStageId(e.target.value || null)}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="w-full px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       >
                         <option value="">All Stages</option>
                         {stages.map((stage) => (
@@ -591,11 +591,11 @@ export default function PlayerAssessmentForm({
 
                     {/* Domain Filter */}
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Domain</label>
+                      <label className="block text-xs text-ink-muted mb-1">Domain</label>
                       <select
                         value={selectedDomainId || ""}
                         onChange={(e) => setSelectedDomainId(e.target.value || null)}
-                        className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="w-full px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       >
                         <option value="">All Domains</option>
                         {domains.map((domain) => (
@@ -608,15 +608,15 @@ export default function PlayerAssessmentForm({
 
                     {/* Search */}
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Search</label>
+                      <label className="block text-xs text-ink-muted mb-1">Search</label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
                         <input
                           type="text"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           placeholder="Search skills..."
-                          className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                          className="w-full pl-9 pr-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         />
                       </div>
                     </div>
@@ -628,9 +628,9 @@ export default function PlayerAssessmentForm({
                       type="checkbox"
                       checked={showCoreOnly}
                       onChange={(e) => setShowCoreOnly(e.target.checked)}
-                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-emerald-500/50"
+                      className="w-4 h-4 rounded border-ink-faint/20 bg-cream-2 text-emerald-500 focus:ring-emerald-500/50"
                     />
-                    <span className="text-sm text-gray-400">Show core skills only</span>
+                    <span className="text-sm text-ink-muted">Show core skills only</span>
                   </label>
                 </div>
 
@@ -640,7 +640,7 @@ export default function PlayerAssessmentForm({
                     <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
                   </div>
                 ) : filteredSkills.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-ink-muted">
                     <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p className="text-lg">No skills found</p>
                     <p className="text-sm mt-1">Try adjusting your filters</p>
@@ -656,19 +656,19 @@ export default function PlayerAssessmentForm({
                               className="h-5 w-5"
                               style={{ color: domain.color || "#666" }}
                             />
-                            <h3 className="font-medium text-white">{domainName}</h3>
-                            <span className="text-xs text-gray-500">({domainSkills.length})</span>
+                            <h3 className="font-medium text-ink">{domainName}</h3>
+                            <span className="text-xs text-ink-muted">({domainSkills.length})</span>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {domainSkills.map((skill) => (
                               <button
                                 key={skill.id}
                                 onClick={() => setSelectedSkill(skill)}
-                                className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all text-left group"
+                                className="flex items-center justify-between p-3 bg-cream-2 border border-border rounded-xl hover:bg-cream-3 hover:border-ink-faint/20 transition-all text-left group"
                               >
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-medium text-white truncate">
+                                    <span className="font-medium text-ink truncate">
                                       {skill.name}
                                     </span>
                                     {skill.isCore && (
@@ -677,11 +677,11 @@ export default function PlayerAssessmentForm({
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-xs text-gray-500 mt-0.5">
+                                  <p className="text-xs text-ink-muted mt-0.5">
                                     {skill.stage.name}
                                   </p>
                                 </div>
-                                <ChevronRight className="h-4 w-4 text-gray-500 group-hover:text-white transition-colors" />
+                                <ChevronRight className="h-4 w-4 text-ink-muted group-hover:text-ink transition-colors" />
                               </button>
                             ))}
                           </div>

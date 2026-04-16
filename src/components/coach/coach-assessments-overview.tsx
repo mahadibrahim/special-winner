@@ -145,7 +145,7 @@ function PlayerCard({
   const domainsAssessed = new Set(recentAssessments.map((a) => a.domain.name))
 
   return (
-    <div className="group p-4 rounded-xl border bg-white/[0.02] border-white/[0.06] hover:border-white/10 transition-all">
+    <div className="group p-4 rounded-xl border bg-paper border-border hover:border-border transition-all">
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
@@ -163,18 +163,18 @@ function PlayerCard({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium text-white truncate">
+            <h3 className="font-medium text-ink truncate">
               {player.firstName} {player.lastName}
             </h3>
             {age && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-white/[0.02] border-white/10 text-gray-400">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-paper border-border text-ink-muted">
                 {age}y
               </Badge>
             )}
           </div>
 
           {player.team && (
-            <p className="text-xs text-gray-500 mb-2 truncate">
+            <p className="text-xs text-ink-muted mb-2 truncate">
               {player.team.name} &middot; {player.team.sport.name}
             </p>
           )}
@@ -189,11 +189,11 @@ function PlayerCard({
                   key={domain}
                   className={cn(
                     "w-6 h-6 rounded-md flex items-center justify-center",
-                    isAssessed ? "bg-white/10" : "bg-white/[0.03]"
+                    isAssessed ? "bg-cream-3" : "bg-cream-2"
                   )}
                   title={`${domain.charAt(0).toUpperCase() + domain.slice(1)}: ${isAssessed ? "Assessed" : "Not assessed"}`}
                 >
-                  <DomainIcon className={cn("w-3 h-3", isAssessed ? "text-white" : "text-gray-600")} />
+                  <DomainIcon className={cn("w-3 h-3", isAssessed ? "text-ink" : "text-ink-faint")} />
                 </div>
               )
             })}
@@ -217,7 +217,7 @@ function PlayerCard({
             variant="ghost"
             size="sm"
             onClick={onClick}
-            className="h-8 text-xs gap-1.5 text-gray-500 hover:text-white"
+            className="h-8 text-xs gap-1.5 text-ink-muted hover:text-ink"
           >
             View
             <ChevronRight className="w-3 h-3" />
@@ -227,7 +227,7 @@ function PlayerCard({
 
       {/* Footer */}
       {lastAssessed && (
-        <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-gray-500">
+        <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs text-ink-muted">
           <span>Last assessed: {formatDate(lastAssessed)}</span>
           <span>{recentAssessments.length} recent assessments</span>
         </div>
@@ -240,7 +240,7 @@ function RecentAssessmentRow({ assessment }: { assessment: Assessment }) {
   const DomainIcon = getDomainIcon(assessment.domain.name)
 
   return (
-    <div className="flex items-center gap-4 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-all">
+    <div className="flex items-center gap-4 p-3 rounded-lg bg-paper border border-border hover:border-border transition-all">
       <div
         className="w-8 h-8 rounded-lg flex items-center justify-center"
         style={{ backgroundColor: `${assessment.domain.color}20` }}
@@ -250,11 +250,11 @@ function RecentAssessmentRow({ assessment }: { assessment: Assessment }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white truncate">
+          <span className="text-sm font-medium text-ink truncate">
             {assessment.player.firstName} {assessment.player.lastName}
           </span>
-          <span className="text-xs text-gray-500">&middot;</span>
-          <span className="text-xs text-gray-400 truncate">{assessment.skill.name}</span>
+          <span className="text-xs text-ink-muted">&middot;</span>
+          <span className="text-xs text-ink-muted truncate">{assessment.skill.name}</span>
         </div>
       </div>
 
@@ -270,7 +270,7 @@ function RecentAssessmentRow({ assessment }: { assessment: Assessment }) {
         Level {assessment.level}
       </Badge>
 
-      <span className="text-xs text-gray-500 shrink-0">{formatDate(assessment.assessedAt)}</span>
+      <span className="text-xs text-ink-muted shrink-0">{formatDate(assessment.assessedAt)}</span>
     </div>
   )
 }
@@ -384,8 +384,8 @@ export default function CoachAssessmentsOverview() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">Something went wrong</h3>
-        <p className="text-sm text-gray-500">{error}</p>
+        <h3 className="text-lg font-medium text-ink mb-2">Something went wrong</h3>
+        <p className="text-sm text-ink-muted">{error}</p>
       </div>
     )
   }
@@ -394,52 +394,52 @@ export default function CoachAssessmentsOverview() {
     <div className="space-y-8">
       {/* Stats Overview */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+        <div className="p-4 rounded-xl bg-paper border border-border">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
               <Users className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">{players.length}</p>
-              <p className="text-xs text-gray-500">Total Players</p>
+              <p className="text-2xl font-semibold text-ink">{players.length}</p>
+              <p className="text-xs text-ink-muted">Total Players</p>
             </div>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+        <div className="p-4 rounded-xl bg-paper border border-border">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
               <Target className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">{recentAssessments.length}</p>
-              <p className="text-xs text-gray-500">Recent Assessments</p>
+              <p className="text-2xl font-semibold text-ink">{recentAssessments.length}</p>
+              <p className="text-xs text-ink-muted">Recent Assessments</p>
             </div>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+        <div className="p-4 rounded-xl bg-paper border border-border">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-blue-400" />
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">{teams.length}</p>
-              <p className="text-xs text-gray-500">Teams</p>
+              <p className="text-2xl font-semibold text-ink">{teams.length}</p>
+              <p className="text-xs text-ink-muted">Teams</p>
             </div>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+        <div className="p-4 rounded-xl bg-paper border border-border">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">
+              <p className="text-2xl font-semibold text-ink">
                 {new Set(recentAssessments.map((a) => a.player.id)).size}
               </p>
-              <p className="text-xs text-gray-500">Players Assessed</p>
+              <p className="text-xs text-ink-muted">Players Assessed</p>
             </div>
           </div>
         </div>
@@ -450,24 +450,24 @@ export default function CoachAssessmentsOverview() {
         {/* Players List */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Users className="w-5 h-5 text-gray-500" />
+            <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
+              <Users className="w-5 h-5 text-ink-muted" />
               Players
             </h2>
 
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
                 <Input
                   placeholder="Search players..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-48 h-8 text-sm bg-white/[0.02] border-white/[0.06]"
+                  className="pl-9 w-48 h-8 text-sm bg-paper border-border"
                 />
               </div>
 
               <Select value={filterTeam} onValueChange={setFilterTeam}>
-                <SelectTrigger className="w-36 h-8 text-xs bg-white/[0.02] border-white/[0.06]">
+                <SelectTrigger className="w-36 h-8 text-xs bg-paper border-border">
                   <SelectValue placeholder="All Teams" />
                 </SelectTrigger>
                 <SelectContent>
@@ -484,9 +484,9 @@ export default function CoachAssessmentsOverview() {
 
           {/* Players grid */}
           {filteredPlayers.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-white/10 rounded-xl">
-              <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">No players found</p>
+            <div className="text-center py-12 border border-dashed border-border rounded-xl">
+              <Users className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+              <p className="text-sm text-ink-muted">No players found</p>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -505,16 +505,16 @@ export default function CoachAssessmentsOverview() {
 
         {/* Recent Activity */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-gray-500" />
+          <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-ink-muted" />
             Recent Assessments
           </h2>
 
           {recentAssessments.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-white/10 rounded-xl">
-              <Target className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">No assessments yet</p>
-              <p className="text-xs text-gray-600 mt-1">
+            <div className="text-center py-12 border border-dashed border-border rounded-xl">
+              <Target className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+              <p className="text-sm text-ink-muted">No assessments yet</p>
+              <p className="text-xs text-ink-faint mt-1">
                 Start by assessing a player
               </p>
             </div>
@@ -527,7 +527,7 @@ export default function CoachAssessmentsOverview() {
               {recentAssessments.length > 10 && (
                 <Button
                   variant="ghost"
-                  className="w-full text-sm text-gray-500 hover:text-white"
+                  className="w-full text-sm text-ink-muted hover:text-ink"
                 >
                   View all assessments
                 </Button>

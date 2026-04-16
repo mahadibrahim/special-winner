@@ -314,8 +314,8 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">Something went wrong</h3>
-        <p className="text-sm text-gray-500">{error}</p>
+        <h3 className="text-lg font-medium text-ink mb-2">Something went wrong</h3>
+        <p className="text-sm text-ink-muted">{error}</p>
       </div>
     )
   }
@@ -331,13 +331,13 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg transition-all",
               step === s
-                ? "bg-primary text-white"
-                : "bg-white/[0.02] text-gray-500 hover:text-white hover:bg-white/[0.04]"
+                ? "bg-primary text-ink"
+                : "bg-paper text-ink-muted hover:text-ink hover:bg-cream-2"
             )}
           >
             <span className={cn(
               "w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium",
-              step === s ? "bg-white/20" : "bg-white/10"
+              step === s ? "bg-white/20" : "bg-cream-3"
             )}>
               {index + 1}
             </span>
@@ -352,13 +352,13 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Left Column - Basic Info */}
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-white">Session Details</h2>
+              <h2 className="text-lg font-semibold text-ink">Session Details</h2>
 
               {/* Team Selection */}
               <div>
-                <label className="text-sm text-gray-400 mb-1.5 block">Team *</label>
+                <label className="text-sm text-ink-muted mb-1.5 block">Team *</label>
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                  <SelectTrigger className="bg-white/[0.02] border-white/[0.06]">
+                  <SelectTrigger className="bg-paper border-border">
                     <SelectValue placeholder="Select team" />
                   </SelectTrigger>
                   <SelectContent>
@@ -373,64 +373,64 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
               {/* Title */}
               <div>
-                <label className="text-sm text-gray-400 mb-1.5 block">Session Title *</label>
+                <label className="text-sm text-ink-muted mb-1.5 block">Session Title *</label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g., Week 3 - Dribbling Focus"
-                  className="bg-white/[0.02] border-white/[0.06]"
+                  className="bg-paper border-border"
                 />
               </div>
 
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-400 mb-1.5 block">Date *</label>
+                  <label className="text-sm text-ink-muted mb-1.5 block">Date *</label>
                   <Input
                     type="date"
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
-                    className="bg-white/[0.02] border-white/[0.06]"
+                    className="bg-paper border-border"
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400 mb-1.5 block">Time</label>
+                  <label className="text-sm text-ink-muted mb-1.5 block">Time</label>
                   <Input
                     type="time"
                     value={scheduledTime}
                     onChange={(e) => setScheduledTime(e.target.value)}
-                    className="bg-white/[0.02] border-white/[0.06]"
+                    className="bg-paper border-border"
                   />
                 </div>
               </div>
 
               {/* Duration */}
               <div>
-                <label className="text-sm text-gray-400 mb-1.5 block">Duration (minutes)</label>
+                <label className="text-sm text-ink-muted mb-1.5 block">Duration (minutes)</label>
                 <Input
                   type="number"
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 60)}
                   min={15}
                   max={180}
-                  className="bg-white/[0.02] border-white/[0.06]"
+                  className="bg-paper border-border"
                 />
               </div>
             </div>
 
             {/* Right Column - Template Selection */}
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-white">Start from Template</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-ink">Start from Template</h2>
+              <p className="text-sm text-ink-muted">
                 Choose a template to pre-populate your session structure, or build from scratch.
               </p>
 
               {selectedTeam ? (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                   {filteredTemplates.length === 0 ? (
-                    <div className="text-center py-8 border border-dashed border-white/10 rounded-xl">
-                      <FileText className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">No templates available for this sport</p>
+                    <div className="text-center py-8 border border-dashed border-border rounded-xl">
+                      <FileText className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+                      <p className="text-sm text-ink-muted">No templates available for this sport</p>
                     </div>
                   ) : (
                     filteredTemplates.map((template) => (
@@ -441,14 +441,14 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
                           "w-full p-4 rounded-xl border text-left transition-all",
                           selectedTemplate?.id === template.id
                             ? "bg-primary/10 border-primary/30"
-                            : "bg-white/[0.02] border-white/[0.06] hover:border-white/10"
+                            : "bg-paper border-border hover:border-border"
                         )}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <h4 className="font-medium text-white mb-1">{template.name}</h4>
-                            <p className="text-sm text-gray-500 line-clamp-2">{template.description}</p>
-                            <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                            <h4 className="font-medium text-ink mb-1">{template.name}</h4>
+                            <p className="text-sm text-ink-muted line-clamp-2">{template.description}</p>
+                            <div className="flex items-center gap-3 mt-2 text-xs text-ink-muted">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {template.totalDurationMinutes} min
@@ -467,9 +467,9 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8 border border-dashed border-white/10 rounded-xl">
-                  <Target className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">Select a team to see available templates</p>
+                <div className="text-center py-8 border border-dashed border-border rounded-xl">
+                  <Target className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+                  <p className="text-sm text-ink-muted">Select a team to see available templates</p>
                 </div>
               )}
             </div>
@@ -513,22 +513,22 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
             {/* Right - Quick Add Activities */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-400">Quick Add Activities</h3>
+              <h3 className="text-sm font-medium text-ink-muted">Quick Add Activities</h3>
 
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
                 <Input
                   placeholder="Search activities..."
                   value={activitySearchQuery}
                   onChange={(e) => setActivitySearchQuery(e.target.value)}
-                  className="pl-9 bg-white/[0.02] border-white/[0.06]"
+                  className="pl-9 bg-paper border-border"
                 />
               </div>
 
               {/* Type Filter */}
               <Select value={activityTypeFilter} onValueChange={setActivityTypeFilter}>
-                <SelectTrigger className="bg-white/[0.02] border-white/[0.06]">
+                <SelectTrigger className="bg-paper border-border">
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -558,7 +558,7 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
                 {filteredActivities.length > 10 && (
                   <Button
                     variant="ghost"
-                    className="w-full text-sm text-gray-500"
+                    className="w-full text-sm text-ink-muted"
                     onClick={() => setShowActivityBrowser(true)}
                   >
                     View all {filteredActivities.length} activities
@@ -567,8 +567,8 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
                 {filteredActivities.length === 0 && (
                   <div className="text-center py-8">
-                    <Target className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No activities found</p>
+                    <Target className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+                    <p className="text-sm text-ink-muted">No activities found</p>
                   </div>
                 )}
               </div>
@@ -595,35 +595,35 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
             {/* Left - Session Summary */}
             <div className="lg:col-span-2 space-y-6">
               {/* Summary Card */}
-              <div className="p-6 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                <h2 className="text-xl font-semibold text-white mb-4">{title}</h2>
+              <div className="p-6 rounded-xl bg-paper border border-border">
+                <h2 className="text-xl font-semibold text-ink mb-4">{title}</h2>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Team:</span>
-                    <span className="text-white ml-2">{selectedTeamData?.name}</span>
+                    <span className="text-ink-muted">Team:</span>
+                    <span className="text-ink ml-2">{selectedTeamData?.name}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Sport:</span>
-                    <span className="text-white ml-2">{selectedTeamData?.sport.name}</span>
+                    <span className="text-ink-muted">Sport:</span>
+                    <span className="text-ink ml-2">{selectedTeamData?.sport.name}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Date:</span>
-                    <span className="text-white ml-2">
+                    <span className="text-ink-muted">Date:</span>
+                    <span className="text-ink ml-2">
                       {scheduledDate && new Date(scheduledDate).toLocaleDateString()}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Time:</span>
-                    <span className="text-white ml-2">{scheduledTime}</span>
+                    <span className="text-ink-muted">Time:</span>
+                    <span className="text-ink ml-2">{scheduledTime}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Duration:</span>
-                    <span className="text-white ml-2">{durationMinutes} minutes</span>
+                    <span className="text-ink-muted">Duration:</span>
+                    <span className="text-ink ml-2">{durationMinutes} minutes</span>
                   </div>
                   {selectedTemplate && (
                     <div>
-                      <span className="text-gray-500">Template:</span>
-                      <span className="text-white ml-2">{selectedTemplate.name}</span>
+                      <span className="text-ink-muted">Template:</span>
+                      <span className="text-ink ml-2">{selectedTemplate.name}</span>
                     </div>
                   )}
                 </div>
@@ -631,7 +631,7 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
               {/* Timeline Preview */}
               <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-3">Session Plan</h3>
+                <h3 className="text-sm font-medium text-ink-muted mb-3">Session Plan</h3>
                 <SessionTimeline segments={segments} onChange={setSegments} readOnly />
               </div>
             </div>
@@ -640,22 +640,22 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
             <div className="space-y-4">
               {/* Pre-session Notes */}
               <div>
-                <label className="text-sm text-gray-400 mb-1.5 block">Pre-Session Notes</label>
+                <label className="text-sm text-ink-muted mb-1.5 block">Pre-Session Notes</label>
                 <Textarea
                   value={preSessionNotes}
                   onChange={(e) => setPreSessionNotes(e.target.value)}
                   placeholder="Any notes to review before the session..."
-                  className="min-h-[120px] bg-white/[0.02] border-white/[0.06]"
+                  className="min-h-[120px] bg-paper border-border"
                 />
               </div>
 
               {/* Equipment */}
               {equipmentNeeded.length > 0 && (
                 <div>
-                  <label className="text-sm text-gray-400 mb-1.5 block">Equipment Needed</label>
+                  <label className="text-sm text-ink-muted mb-1.5 block">Equipment Needed</label>
                   <div className="flex flex-wrap gap-2">
                     {equipmentNeeded.map((item, i) => (
-                      <Badge key={i} variant="outline" className="bg-white/[0.02] border-white/[0.06]">
+                      <Badge key={i} variant="outline" className="bg-paper border-border">
                         {item}
                       </Badge>
                     ))}
@@ -707,7 +707,7 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
       {/* Activity Browser Dialog */}
       <Dialog open={showActivityBrowser} onOpenChange={setShowActivityBrowser}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-[#0a0a0f] border-white/10">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-cream border-border">
           <DialogHeader>
             <DialogTitle>Activity Library</DialogTitle>
             <DialogDescription>
@@ -717,16 +717,16 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
           <div className="flex gap-4 mt-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
               <Input
                 placeholder="Search activities..."
                 value={activitySearchQuery}
                 onChange={(e) => setActivitySearchQuery(e.target.value)}
-                className="pl-9 bg-white/[0.02] border-white/[0.06]"
+                className="pl-9 bg-paper border-border"
               />
             </div>
             <Select value={activityTypeFilter} onValueChange={setActivityTypeFilter}>
-              <SelectTrigger className="w-40 bg-white/[0.02] border-white/[0.06]">
+              <SelectTrigger className="w-40 bg-paper border-border">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
@@ -756,8 +756,8 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
             {filteredActivities.length === 0 && (
               <div className="col-span-2 text-center py-12">
-                <Target className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-500">No activities found</p>
+                <Target className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+                <p className="text-ink-muted">No activities found</p>
               </div>
             )}
           </div>
@@ -766,7 +766,7 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
 
       {/* Success Modal */}
       <Dialog open={successModalOpen} onOpenChange={setSuccessModalOpen}>
-        <DialogContent className="bg-[#0a0a0f] border-white/10">
+        <DialogContent className="bg-cream border-border">
           <div className="text-center py-6">
             <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-green-400" />

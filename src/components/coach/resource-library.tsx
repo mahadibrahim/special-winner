@@ -151,10 +151,10 @@ export function ResourceLibrary({
       <div className="space-y-3">
         {loading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-5 h-5 animate-spin text-white/40" />
+            <Loader2 className="w-5 h-5 animate-spin text-ink/40" />
           </div>
         ) : filteredResources.length === 0 ? (
-          <p className="text-sm text-white/40 text-center py-4">No resources found</p>
+          <p className="text-sm text-ink/40 text-center py-4">No resources found</p>
         ) : (
           filteredResources.slice(0, 5).map((resource) => (
             <ResourceCard
@@ -178,12 +178,12 @@ export function ResourceLibrary({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-500/10">
-            <BookOpen className="w-5 h-5 text-blue-400" />
+          <div className="p-2 rounded-lg bg-primary/5">
+            <BookOpen className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">{title}</h2>
-            <p className="text-sm text-white/50">
+            <h2 className="text-xl font-bold text-ink">{title}</h2>
+            <p className="text-sm text-ink/50">
               {resources.length} resources available
             </p>
           </div>
@@ -192,22 +192,22 @@ export function ResourceLibrary({
 
       {/* Filters */}
       {showFilters && (
-        <Card className="bg-[#12121a] border-white/5">
+        <Card className="bg-cream border-border">
           <CardContent className="pt-4">
             <div className="flex flex-wrap gap-4">
               <div className="flex-1 min-w-[200px]">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/40" />
                   <Input
                     placeholder="Search resources..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-white/5 border-white/10"
+                    className="pl-10 bg-cream-2 border-border"
                   />
                 </div>
               </div>
               <Select value={selectedTopic} onValueChange={setSelectedTopic}>
-                <SelectTrigger className="w-[150px] bg-white/5 border-white/10">
+                <SelectTrigger className="w-[150px] bg-cream-2 border-border">
                   <SelectValue placeholder="Topic" />
                 </SelectTrigger>
                 <SelectContent>
@@ -220,7 +220,7 @@ export function ResourceLibrary({
                 </SelectContent>
               </Select>
               <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="w-[150px] bg-white/5 border-white/10">
+                <SelectTrigger className="w-[150px] bg-cream-2 border-border">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -234,7 +234,7 @@ export function ResourceLibrary({
                 variant={showFeaturedOnly ? "default" : "outline"}
                 size="sm"
                 onClick={() => setShowFeaturedOnly(!showFeaturedOnly)}
-                className={showFeaturedOnly ? "bg-yellow-600 hover:bg-yellow-700" : "border-white/10"}
+                className={showFeaturedOnly ? "bg-yellow-600 hover:bg-yellow-700" : "border-border"}
               >
                 <Star className="w-4 h-4 mr-1" />
                 Featured
@@ -247,19 +247,19 @@ export function ResourceLibrary({
       {/* Resources Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+          <Loader2 className="w-8 h-8 animate-spin text-ink/40" />
         </div>
       ) : filteredResources.length === 0 ? (
-        <Card className="bg-[#12121a] border-white/5">
+        <Card className="bg-cream border-border">
           <CardContent className="py-12 text-center">
-            <BookOpen className="w-12 h-12 mx-auto text-white/20 mb-4" />
-            <p className="text-white/50">No resources found</p>
+            <BookOpen className="w-12 h-12 mx-auto text-ink/20 mb-4" />
+            <p className="text-ink/50">No resources found</p>
             {searchQuery && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setSearchQuery("")}
-                className="mt-4 border-white/10"
+                className="mt-4 border-border"
               >
                 Clear search
               </Button>
@@ -302,17 +302,17 @@ function ResourceCard({
   if (compact) {
     return (
       <div
-        className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
+        className="flex items-center gap-3 p-3 rounded-lg bg-cream-2 hover:bg-cream-3 cursor-pointer transition-colors"
         onClick={onClick}
       >
-        <div className="p-2 rounded-lg bg-blue-500/10">
-          <Icon className="w-4 h-4 text-blue-400" />
+        <div className="p-2 rounded-lg bg-primary/5">
+          <Icon className="w-4 h-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-white truncate">
+          <h4 className="text-sm font-medium text-ink truncate">
             {resource.title}
           </h4>
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-ink/40">
             {typeLabels[resource.resourceType]}
             {resource.durationMinutes && ` • ${resource.durationMinutes} min`}
           </p>
@@ -326,17 +326,17 @@ function ResourceCard({
 
   return (
     <Card
-      className="bg-[#12121a] border-white/5 hover:border-white/10 cursor-pointer transition-colors group"
+      className="bg-cream border-border hover:border-border cursor-pointer transition-colors group"
       onClick={onClick}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-            <Icon className="w-5 h-5 text-blue-400" />
+          <div className="p-2 rounded-lg bg-primary/5 group-hover:bg-primary/10 transition-colors">
+            <Icon className="w-5 h-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-medium text-white group-hover:text-blue-400 transition-colors line-clamp-2">
+              <h3 className="font-medium text-ink group-hover:text-primary transition-colors line-clamp-2">
                 {resource.title}
               </h3>
               {resource.featured && (
@@ -344,11 +344,11 @@ function ResourceCard({
               )}
             </div>
             {resource.description && (
-              <p className="text-sm text-white/50 mt-1 line-clamp-2">
+              <p className="text-sm text-ink/50 mt-1 line-clamp-2">
                 {resource.description}
               </p>
             )}
-            <div className="flex items-center gap-3 mt-3 text-xs text-white/40">
+            <div className="flex items-center gap-3 mt-3 text-xs text-ink/40">
               <span className="flex items-center gap-1">
                 <Eye className="w-3 h-3" />
                 {resource.viewCount}
@@ -359,7 +359,7 @@ function ResourceCard({
                   {resource.durationMinutes} min
                 </span>
               )}
-              <Badge variant="secondary" className="bg-white/5 text-white/50 border-0">
+              <Badge variant="secondary" className="bg-cream-2 text-ink/50 border-0">
                 {typeLabels[resource.resourceType]}
               </Badge>
             </div>
@@ -369,7 +369,7 @@ function ResourceCard({
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="bg-white/5 text-white/40 border-0 text-xs"
+                    className="bg-cream-2 text-ink/40 border-0 text-xs"
                   >
                     {tag}
                   </Badge>
@@ -397,18 +397,18 @@ function ResourceDetailModal({
 
   return (
     <Dialog open={!!resource} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-[#12121a] border-white/10">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-cream border-border">
         <DialogHeader>
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10">
-              <Icon className="w-5 h-5 text-blue-400" />
+            <div className="p-2 rounded-lg bg-primary/5">
+              <Icon className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <DialogTitle className="text-white text-xl">
+              <DialogTitle className="text-ink text-xl">
                 {resource.title}
               </DialogTitle>
               {resource.source && (
-                <p className="text-sm text-white/50 mt-1">
+                <p className="text-sm text-ink/50 mt-1">
                   Source: {resource.source}
                   {resource.author && ` • ${resource.author}`}
                 </p>
@@ -419,12 +419,12 @@ function ResourceDetailModal({
 
         <div className="space-y-4 mt-4">
           {/* Meta info */}
-          <div className="flex items-center gap-4 text-sm text-white/50">
-            <Badge variant="secondary" className="bg-white/5 text-white/60 border-0">
+          <div className="flex items-center gap-4 text-sm text-ink/50">
+            <Badge variant="secondary" className="bg-cream-2 text-ink/60 border-0">
               {typeLabels[resource.resourceType]}
             </Badge>
             {resource.topic && (
-              <Badge variant="secondary" className="bg-white/5 text-white/60 border-0">
+              <Badge variant="secondary" className="bg-cream-2 text-ink/60 border-0">
                 {resource.topic}
               </Badge>
             )}
@@ -442,32 +442,32 @@ function ResourceDetailModal({
 
           {/* Description */}
           {resource.description && (
-            <p className="text-white/70">{resource.description}</p>
+            <p className="text-ink/70">{resource.description}</p>
           )}
 
           {/* Content or External Link */}
           {resource.content ? (
             <div className="prose prose-invert max-w-none">
               <div
-                className="text-white/80 leading-relaxed whitespace-pre-wrap"
+                className="text-ink/80 leading-relaxed whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{
                   __html: resource.content
-                    .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold text-white mt-6 mb-3">$1</h1>')
-                    .replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold text-white mt-5 mb-2">$1</h2>')
-                    .replace(/^### (.*$)/gm, '<h3 class="text-md font-medium text-white mt-4 mb-2">$1</h3>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-                    .replace(/^\- (.*$)/gm, '<li class="ml-4 text-white/70">$1</li>')
-                    .replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4 text-white/70">$2</li>')
+                    .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold text-ink mt-6 mb-3">$1</h1>')
+                    .replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold text-ink mt-5 mb-2">$1</h2>')
+                    .replace(/^### (.*$)/gm, '<h3 class="text-md font-medium text-ink mt-4 mb-2">$1</h3>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-ink">$1</strong>')
+                    .replace(/^\- (.*$)/gm, '<li class="ml-4 text-ink/70">$1</li>')
+                    .replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4 text-ink/70">$2</li>')
                     .replace(/\n\n/g, '</p><p class="mt-3">')
                 }}
               />
             </div>
           ) : resource.url ? (
             <div className="flex flex-col items-center py-8 gap-4">
-              <p className="text-white/50">This resource is hosted externally.</p>
+              <p className="text-ink/50">This resource is hosted externally.</p>
               <Button
                 onClick={() => window.open(resource.url, "_blank")}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary/90"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Open Resource
@@ -477,12 +477,12 @@ function ResourceDetailModal({
 
           {/* Tags */}
           {resource.tags && resource.tags.length > 0 && (
-            <div className="flex gap-2 flex-wrap pt-4 border-t border-white/10">
+            <div className="flex gap-2 flex-wrap pt-4 border-t border-border">
               {resource.tags.map((tag) => (
                 <Badge
                   key={tag}
                   variant="secondary"
-                  className="bg-white/5 text-white/50 border-0"
+                  className="bg-cream-2 text-ink/50 border-0"
                 >
                   {tag}
                 </Badge>

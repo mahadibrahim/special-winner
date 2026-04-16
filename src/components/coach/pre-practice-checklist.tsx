@@ -145,7 +145,7 @@ export function PrePracticeChecklist({
   const isComplete = checkedItems.size === defaultChecklist.length;
 
   return (
-    <Card className="bg-[#12121a] border-white/10">
+    <Card className="bg-cream border-border">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -153,10 +153,10 @@ export function PrePracticeChecklist({
               <ClipboardCheck className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <CardTitle className="text-lg text-white">
+              <CardTitle className="text-lg text-ink">
                 Pre-Practice Checklist
               </CardTitle>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-ink/50">
                 {isComplete
                   ? "Ready to go!"
                   : `${checkedItems.size}/${defaultChecklist.length} complete`}
@@ -167,7 +167,7 @@ export function PrePracticeChecklist({
             variant="ghost"
             size="sm"
             onClick={() => setExpanded(!expanded)}
-            className="text-white/50"
+            className="text-ink/50"
           >
             {expanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -177,7 +177,7 @@ export function PrePracticeChecklist({
           </Button>
         </div>
         {/* Progress bar */}
-        <div className="h-1 bg-white/5 rounded-full mt-3 overflow-hidden">
+        <div className="h-1 bg-cream-2 rounded-full mt-3 overflow-hidden">
           <div
             className="h-full bg-emerald-500 transition-all duration-300"
             style={{ width: `${progress}%` }}
@@ -199,7 +199,7 @@ export function PrePracticeChecklist({
                   className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
                     isChecked
                       ? "bg-emerald-500/10 border border-emerald-500/20"
-                      : "bg-white/5 hover:bg-white/10 border border-transparent"
+                      : "bg-cream-2 hover:bg-cream-3 border border-transparent"
                   }`}
                   onClick={() => toggleItem(item.id)}
                 >
@@ -211,19 +211,19 @@ export function PrePracticeChecklist({
                     <div className="flex items-center gap-2">
                       <Icon
                         className={`w-4 h-4 ${
-                          isChecked ? "text-emerald-400" : "text-white/40"
+                          isChecked ? "text-emerald-400" : "text-ink/40"
                         }`}
                       />
                       <span
                         className={`font-medium ${
-                          isChecked ? "text-emerald-400" : "text-white"
+                          isChecked ? "text-emerald-400" : "text-ink"
                         }`}
                       >
                         {item.label}
                       </span>
                     </div>
                     {item.description && (
-                      <p className="text-sm text-white/50 mt-0.5 ml-6">
+                      <p className="text-sm text-ink/50 mt-0.5 ml-6">
                         {item.description}
                       </p>
                     )}
@@ -236,14 +236,14 @@ export function PrePracticeChecklist({
           {/* Coaching Tips */}
           {loading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-white/40" />
+              <Loader2 className="w-5 h-5 animate-spin text-ink/40" />
             </div>
           ) : tips.length > 0 ? (
-            <div className="space-y-3 pt-2 border-t border-white/5">
+            <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Lightbulb className="w-4 h-4 text-yellow-400" />
-                  <span className="text-sm font-medium text-white/60">
+                  <span className="text-sm font-medium text-ink/60">
                     Today's Coaching Insight
                   </span>
                 </div>
@@ -251,7 +251,7 @@ export function PrePracticeChecklist({
                   variant="ghost"
                   size="sm"
                   onClick={fetchTips}
-                  className="h-7 text-white/40 hover:text-white"
+                  className="h-7 text-ink/40 hover:text-ink"
                 >
                   <RefreshCw className="w-3 h-3" />
                 </Button>

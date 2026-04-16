@@ -112,8 +112,8 @@ interface AssessmentHistoryProps {
 
 const LEVEL_LABELS = ["Emerging", "Developing", "Competent", "Proficient", "Advanced"]
 const LEVEL_COLORS = [
-  "bg-gray-500/20 text-gray-400 border-gray-500/30",
-  "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  "bg-gray-500/20 text-ink-muted border-gray-500/30",
+  "bg-primary/10 text-primary border-primary/20",
   "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
   "bg-amber-500/20 text-amber-400 border-amber-500/30",
   "bg-primary/20 text-primary border-primary/30",
@@ -189,7 +189,7 @@ function TrendBadge({ current, previous }: { current: number; previous: number |
     )
   }
   return (
-    <Badge variant="outline" className="bg-gray-500/20 text-gray-400 border-gray-500/30">
+    <Badge variant="outline" className="bg-gray-500/20 text-ink-muted border-gray-500/30">
       <Minus className="w-3 h-3" />
       Same
     </Badge>
@@ -208,16 +208,16 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
   return (
     <div className="group relative">
       {/* Timeline connector */}
-      <div className="absolute left-6 top-12 bottom-0 w-px bg-white/10 group-last:hidden" />
+      <div className="absolute left-6 top-12 bottom-0 w-px bg-cream-3 group-last:hidden" />
 
       <div className={cn(
         "relative p-4 rounded-xl border transition-all",
-        "bg-white/[0.02] border-white/[0.06] hover:border-white/10",
-        expanded && "bg-white/[0.04] border-white/10"
+        "bg-paper border-border hover:border-border",
+        expanded && "bg-cream-2 border-border"
       )}>
         {/* Timeline dot */}
         <div
-          className="absolute left-6 top-6 w-3 h-3 rounded-full border-2 border-white/20 bg-[#0a0a0f] z-10"
+          className="absolute left-6 top-6 w-3 h-3 rounded-full border-2 border-ink-faint/20 bg-cream z-10"
           style={{ backgroundColor: assessment.domain.color }}
         />
 
@@ -227,14 +227,14 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <DomainIcon className="w-4 h-4" style={{ color: assessment.domain.color }} />
-                <h4 className="font-medium text-white truncate">{assessment.skill.name}</h4>
+                <h4 className="font-medium text-ink truncate">{assessment.skill.name}</h4>
                 {assessment.skill.isCore && (
                   <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] px-1.5">
                     Core
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-3 text-xs text-gray-500">
+              <div className="flex items-center gap-3 text-xs text-ink-muted">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {formatRelativeDate(assessment.assessedAt)}
@@ -245,7 +245,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
                 </span>
                 <Badge
                   variant="outline"
-                  className="text-[10px] px-1.5 py-0 border-white/10"
+                  className="text-[10px] px-1.5 py-0 border-border"
                   style={{
                     backgroundColor: `${assessment.domain.color}15`,
                     color: assessment.domain.color,
@@ -266,7 +266,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
                   </Badge>
                   <TrendBadge current={assessment.level} previous={assessment.previousLevel} />
                 </div>
-                <p className="text-[10px] text-gray-500 mt-0.5">
+                <p className="text-[10px] text-ink-muted mt-0.5">
                   {LEVEL_LABELS[assessment.level - 1]}
                 </p>
               </div>
@@ -276,7 +276,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
                 variant="ghost"
                 size="sm"
                 onClick={onToggle}
-                className="p-1 h-auto text-gray-500 hover:text-white"
+                className="p-1 h-auto text-ink-muted hover:text-ink"
               >
                 {expanded ? (
                   <ChevronUp className="w-4 h-4" />
@@ -289,10 +289,10 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
 
           {/* Expanded content */}
           {expanded && (
-            <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+            <div className="mt-4 pt-4 border-t border-border space-y-4">
               {/* Level visualization */}
               <div>
-                <p className="text-xs text-gray-500 mb-2">Skill Level</p>
+                <p className="text-xs text-ink-muted mb-2">Skill Level</p>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((level) => (
                     <div
@@ -301,12 +301,12 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
                         "flex-1 h-2 rounded-full transition-all",
                         level <= assessment.level
                           ? "bg-gradient-to-r from-primary to-primary/70"
-                          : "bg-white/10"
+                          : "bg-cream-3"
                       )}
                     />
                   ))}
                 </div>
-                <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+                <div className="flex justify-between text-[10px] text-ink-faint mt-1">
                   <span>Emerging</span>
                   <span>Advanced</span>
                 </div>
@@ -315,7 +315,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
               {/* Strengths */}
               {assessment.strengths && assessment.strengths.length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                  <p className="text-xs text-ink-muted mb-2 flex items-center gap-1">
                     <Star className="w-3 h-3 text-emerald-400" />
                     Strengths
                   </p>
@@ -336,7 +336,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
               {/* Areas for improvement */}
               {assessment.areasForImprovement && assessment.areasForImprovement.length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                  <p className="text-xs text-ink-muted mb-2 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3 text-amber-400" />
                     Areas for Improvement
                   </p>
@@ -357,18 +357,18 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
               {/* Notes */}
               {assessment.notes && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                  <p className="text-xs text-ink-muted mb-2 flex items-center gap-1">
                     <FileText className="w-3 h-3" />
                     Coach Notes
                   </p>
-                  <p className="text-sm text-gray-300 bg-white/[0.02] rounded-lg p-3 border border-white/[0.06]">
+                  <p className="text-sm text-ink-2 bg-paper rounded-lg p-3 border border-border">
                     {assessment.notes}
                   </p>
                 </div>
               )}
 
               {/* Metadata */}
-              <div className="flex items-center gap-4 text-[10px] text-gray-600 pt-2">
+              <div className="flex items-center gap-4 text-[10px] text-ink-faint pt-2">
                 <span>Assessed: {formatDate(assessment.assessedAt)}</span>
                 <span>Stage: {assessment.stage.name}</span>
               </div>
@@ -385,7 +385,7 @@ function DomainOverviewCard({ domainAverage }: { domainAverage: DomainAverage })
 
   return (
     <div
-      className="p-4 rounded-xl border bg-white/[0.02] border-white/[0.06]"
+      className="p-4 rounded-xl border bg-paper border-border"
       style={{ borderColor: `${domainAverage.domain.color}20` }}
     >
       <div className="flex items-center justify-between mb-3">
@@ -397,18 +397,18 @@ function DomainOverviewCard({ domainAverage }: { domainAverage: DomainAverage })
             <DomainIcon className="w-4 h-4" style={{ color: domainAverage.domain.color }} />
           </div>
           <div>
-            <h4 className="font-medium text-white text-sm">{domainAverage.domain.displayName}</h4>
-            <p className="text-[10px] text-gray-500">{domainAverage.count} skills assessed</p>
+            <h4 className="font-medium text-ink text-sm">{domainAverage.domain.displayName}</h4>
+            <p className="text-[10px] text-ink-muted">{domainAverage.count} skills assessed</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xl font-semibold text-white">{domainAverage.averageLevel.toFixed(1)}</p>
-          <p className="text-[10px] text-gray-500">avg level</p>
+          <p className="text-xl font-semibold text-ink">{domainAverage.averageLevel.toFixed(1)}</p>
+          <p className="text-[10px] text-ink-muted">avg level</p>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+      <div className="h-2 bg-cream-3 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
@@ -467,11 +467,11 @@ export default function AssessmentHistory({
   if (assessments.length === 0) {
     return (
       <div className={cn("text-center py-12", className)}>
-        <div className="w-16 h-16 rounded-full bg-white/[0.05] flex items-center justify-center mx-auto mb-4">
-          <Target className="w-8 h-8 text-gray-500" />
+        <div className="w-16 h-16 rounded-full bg-cream-3 flex items-center justify-center mx-auto mb-4">
+          <Target className="w-8 h-8 text-ink-muted" />
         </div>
-        <h3 className="text-lg font-medium text-white mb-2">No Assessments Yet</h3>
-        <p className="text-sm text-gray-500 max-w-sm mx-auto">
+        <h3 className="text-lg font-medium text-ink mb-2">No Assessments Yet</h3>
+        <p className="text-sm text-ink-muted max-w-sm mx-auto">
           Assessments will appear here once coaches begin evaluating skills.
         </p>
       </div>
@@ -483,7 +483,7 @@ export default function AssessmentHistory({
       {/* Domain Overview */}
       {domainAverages.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-medium text-ink-muted mb-3 flex items-center gap-2">
             <Activity className="w-4 h-4" />
             Domain Overview
           </h3>
@@ -497,13 +497,13 @@ export default function AssessmentHistory({
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-ink-muted">
           <Filter className="w-4 h-4" />
           <span>Filter:</span>
         </div>
 
         <Select value={filterDomain} onValueChange={setFilterDomain}>
-          <SelectTrigger className="w-40 h-8 text-xs bg-white/[0.02] border-white/[0.06]">
+          <SelectTrigger className="w-40 h-8 text-xs bg-paper border-border">
             <SelectValue placeholder="All Domains" />
           </SelectTrigger>
           <SelectContent>
@@ -517,7 +517,7 @@ export default function AssessmentHistory({
         </Select>
 
         <Select value={filterContext} onValueChange={setFilterContext}>
-          <SelectTrigger className="w-36 h-8 text-xs bg-white/[0.02] border-white/[0.06]">
+          <SelectTrigger className="w-36 h-8 text-xs bg-paper border-border">
             <SelectValue placeholder="All Contexts" />
           </SelectTrigger>
           <SelectContent>
@@ -531,7 +531,7 @@ export default function AssessmentHistory({
         </Select>
 
         <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "newest" | "oldest")}>
-          <SelectTrigger className="w-32 h-8 text-xs bg-white/[0.02] border-white/[0.06]">
+          <SelectTrigger className="w-32 h-8 text-xs bg-paper border-border">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -540,14 +540,14 @@ export default function AssessmentHistory({
           </SelectContent>
         </Select>
 
-        <Badge variant="outline" className="text-xs bg-white/[0.02] border-white/[0.06]">
+        <Badge variant="outline" className="text-xs bg-paper border-border">
           {filteredAssessments.length} assessment{filteredAssessments.length !== 1 ? "s" : ""}
         </Badge>
       </div>
 
       {/* Assessment Timeline */}
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-gray-400 flex items-center gap-2">
+        <h3 className="text-sm font-medium text-ink-muted flex items-center gap-2">
           <Calendar className="w-4 h-4" />
           Assessment History
         </h3>

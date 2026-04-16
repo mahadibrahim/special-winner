@@ -184,27 +184,27 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
     if (rank === 1) {
       return (
         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600">
-          <Medal className="h-4 w-4 text-white" />
+          <Medal className="h-4 w-4 text-ink" />
         </div>
       );
     }
     if (rank === 2) {
       return (
         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-500">
-          <span className="text-sm font-bold text-white">2</span>
+          <span className="text-sm font-bold text-ink">2</span>
         </div>
       );
     }
     if (rank === 3) {
       return (
         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-amber-600 to-amber-800">
-          <span className="text-sm font-bold text-white">3</span>
+          <span className="text-sm font-bold text-ink">3</span>
         </div>
       );
     }
     return (
-      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5">
-        <span className="text-sm font-medium text-gray-400">{rank}</span>
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cream-2">
+        <span className="text-sm font-medium text-ink-muted">{rank}</span>
       </div>
     );
   };
@@ -212,19 +212,19 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
   const getPointDiffIcon = (diff: number) => {
     if (diff > 0) return <TrendingUp className="h-4 w-4 text-green-400" />;
     if (diff < 0) return <TrendingDown className="h-4 w-4 text-red-400" />;
-    return <Minus className="h-4 w-4 text-gray-400" />;
+    return <Minus className="h-4 w-4 text-ink-muted" />;
   };
 
   const getPointDiffColor = (diff: number) => {
     if (diff > 0) return "text-green-400";
     if (diff < 0) return "text-red-400";
-    return "text-gray-400";
+    return "text-ink-muted";
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 text-blue-400 animate-spin" />
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
       </div>
     );
   }
@@ -235,12 +235,12 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
-            <Trophy className="h-6 w-6 text-white" />
+            <Trophy className="h-6 w-6 text-ink" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white">Standings</h2>
+            <h2 className="text-2xl font-bold text-ink">Standings</h2>
             {seasonName && (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-ink-muted">
                 {programName} - {seasonName}
               </p>
             )}
@@ -253,7 +253,7 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
             <select
               value={selectedTeamId}
               onChange={(e) => setSelectedTeamId(e.target.value)}
-              className="appearance-none w-full sm:w-48 px-4 py-2 pr-10 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="appearance-none w-full sm:w-48 px-4 py-2 pr-10 bg-cream-2 border border-border rounded-lg text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
@@ -261,7 +261,7 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted pointer-events-none" />
           </div>
         )}
       </div>
@@ -275,56 +275,56 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
 
       {/* Standings Table */}
       {standings.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-ink-muted">
           <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p className="text-lg font-medium">No standings available</p>
           <p className="text-sm mt-1">Standings will appear once games are completed</p>
         </div>
       ) : (
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="bg-cream-2 border border-border rounded-2xl overflow-hidden">
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-border">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">
                     Rank
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">
                     Team
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     W
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     L
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     T
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     GP
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     Win %
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     PF
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     PA
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">
                     Diff
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {standings.map((team) => (
                   <tr
                     key={team.id}
-                    className={`transition-colors hover:bg-white/5 ${
-                      team.isCurrentTeam ? "bg-blue-500/10" : ""
+                    className={`transition-colors hover:bg-cream-2 ${
+                      team.isCurrentTeam ? "bg-primary/5" : ""
                     }`}
                   >
                     <td className="px-4 py-4">
@@ -336,10 +336,10 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: team.teamColor || "#666" }}
                         />
-                        <span className={`font-medium ${team.isCurrentTeam ? "text-blue-400" : "text-white"}`}>
+                        <span className={`font-medium ${team.isCurrentTeam ? "text-primary" : "text-ink"}`}>
                           {team.teamName}
                           {team.isCurrentTeam && (
-                            <span className="ml-2 text-xs text-blue-400">(Your team)</span>
+                            <span className="ml-2 text-xs text-primary">(Your team)</span>
                           )}
                         </span>
                       </div>
@@ -350,19 +350,19 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
                     <td className="px-4 py-4 text-center text-red-400 font-medium">
                       {team.losses}
                     </td>
-                    <td className="px-4 py-4 text-center text-gray-400 font-medium">
+                    <td className="px-4 py-4 text-center text-ink-muted font-medium">
                       {team.ties}
                     </td>
-                    <td className="px-4 py-4 text-center text-gray-300">
+                    <td className="px-4 py-4 text-center text-ink-2">
                       {team.gamesPlayed}
                     </td>
-                    <td className="px-4 py-4 text-center text-gray-300">
+                    <td className="px-4 py-4 text-center text-ink-2">
                       {(team.winPercentage * 100).toFixed(0)}%
                     </td>
-                    <td className="px-4 py-4 text-center text-gray-300">
+                    <td className="px-4 py-4 text-center text-ink-2">
                       {team.pointsFor}
                     </td>
-                    <td className="px-4 py-4 text-center text-gray-300">
+                    <td className="px-4 py-4 text-center text-ink-2">
                       {team.pointsAgainst}
                     </td>
                     <td className="px-4 py-4">
@@ -381,11 +381,11 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
           </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden divide-y divide-white/10">
+          <div className="md:hidden divide-y divide-border">
             {standings.map((team) => (
               <div
                 key={team.id}
-                className={`p-4 ${team.isCurrentTeam ? "bg-blue-500/10" : ""}`}
+                className={`p-4 ${team.isCurrentTeam ? "bg-primary/5" : ""}`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -395,7 +395,7 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: team.teamColor || "#666" }}
                       />
-                      <span className={`font-medium ${team.isCurrentTeam ? "text-blue-400" : "text-white"}`}>
+                      <span className={`font-medium ${team.isCurrentTeam ? "text-primary" : "text-ink"}`}>
                         {team.teamName}
                       </span>
                     </div>
@@ -410,24 +410,24 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
                 </div>
                 <div className="grid grid-cols-4 gap-4 text-center">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Record</p>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-xs text-ink-muted mb-1">Record</p>
+                    <p className="text-sm font-medium text-ink">
                       {team.wins}-{team.losses}-{team.ties}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Win %</p>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-xs text-ink-muted mb-1">Win %</p>
+                    <p className="text-sm font-medium text-ink">
                       {(team.winPercentage * 100).toFixed(0)}%
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">PF</p>
-                    <p className="text-sm font-medium text-white">{team.pointsFor}</p>
+                    <p className="text-xs text-ink-muted mb-1">PF</p>
+                    <p className="text-sm font-medium text-ink">{team.pointsFor}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">PA</p>
-                    <p className="text-sm font-medium text-white">{team.pointsAgainst}</p>
+                    <p className="text-xs text-ink-muted mb-1">PA</p>
+                    <p className="text-sm font-medium text-ink">{team.pointsAgainst}</p>
                   </div>
                 </div>
               </div>
@@ -437,7 +437,7 @@ export default function StandingsTable({ teamId, teams }: StandingsTableProps) {
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-6 text-xs text-gray-500">
+      <div className="flex flex-wrap items-center gap-6 text-xs text-ink-muted">
         <div className="flex items-center gap-2">
           <span className="font-medium">W</span> = Wins
         </div>

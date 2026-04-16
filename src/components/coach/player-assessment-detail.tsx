@@ -126,7 +126,7 @@ const DOMAIN_ICONS: Record<string, typeof Target> = {
 
 const TREND_CONFIG = {
   improving: { icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/20", label: "Improving" },
-  stable: { icon: Minus, color: "text-gray-400", bg: "bg-gray-500/20", label: "Stable" },
+  stable: { icon: Minus, color: "text-ink-muted", bg: "bg-gray-500/20", label: "Stable" },
   declining: { icon: TrendingDown, color: "text-red-400", bg: "bg-red-500/20", label: "Declining" },
   new: { icon: Star, color: "text-purple-400", bg: "bg-purple-500/20", label: "New" },
 }
@@ -155,7 +155,7 @@ function SkillSummaryCard({ summary }: { summary: SkillSummary }) {
   const levelLabels = ["Emerging", "Developing", "Competent", "Proficient", "Advanced"]
 
   return (
-    <div className="p-4 rounded-xl border bg-white/[0.02] border-white/[0.06] hover:border-white/10 transition-all">
+    <div className="p-4 rounded-xl border bg-paper border-border hover:border-border transition-all">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div
@@ -165,13 +165,13 @@ function SkillSummaryCard({ summary }: { summary: SkillSummary }) {
             <DomainIcon className="w-4 h-4" style={{ color: summary.domain.color }} />
           </div>
           <div>
-            <h4 className="font-medium text-white text-sm flex items-center gap-1.5">
+            <h4 className="font-medium text-ink text-sm flex items-center gap-1.5">
               {summary.skill.name}
               {summary.skill.isCore && (
                 <Star className="w-3 h-3 text-amber-400" fill="currentColor" />
               )}
             </h4>
-            <p className="text-[10px] text-gray-500">{summary.stage.name}</p>
+            <p className="text-[10px] text-ink-muted">{summary.stage.name}</p>
           </div>
         </div>
 
@@ -184,14 +184,14 @@ function SkillSummaryCard({ summary }: { summary: SkillSummary }) {
       {/* Level display */}
       <div className="mb-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-semibold text-white">{summary.currentLevel}</span>
-          <span className="text-xs text-gray-500">/ 5</span>
-          <span className="text-xs text-gray-400 ml-auto">{levelLabels[summary.currentLevel - 1]}</span>
+          <span className="text-2xl font-semibold text-ink">{summary.currentLevel}</span>
+          <span className="text-xs text-ink-muted">/ 5</span>
+          <span className="text-xs text-ink-muted ml-auto">{levelLabels[summary.currentLevel - 1]}</span>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-3">
+      <div className="h-2 bg-cream-3 rounded-full overflow-hidden mb-3">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
@@ -202,7 +202,7 @@ function SkillSummaryCard({ summary }: { summary: SkillSummary }) {
       </div>
 
       {/* Stats */}
-      <div className="flex items-center justify-between text-[10px] text-gray-500">
+      <div className="flex items-center justify-between text-[10px] text-ink-muted">
         <span>{summary.assessmentCount} assessments</span>
         <span>Highest: {summary.highestLevel}</span>
       </div>
@@ -307,8 +307,8 @@ export default function PlayerAssessmentDetail({
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">Something went wrong</h3>
-        <p className="text-sm text-gray-500">{error || "Player not found"}</p>
+        <h3 className="text-lg font-medium text-ink mb-2">Something went wrong</h3>
+        <p className="text-sm text-ink-muted">{error || "Player not found"}</p>
         <Button
           variant="outline"
           className="mt-4"
@@ -344,17 +344,17 @@ export default function PlayerAssessmentDetail({
         {/* Info */}
         <div className="flex-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold text-ink">
               {player.firstName} {player.lastName}
             </h1>
             {age && (
-              <Badge variant="outline" className="w-fit bg-white/[0.02] border-white/10 text-gray-400">
+              <Badge variant="outline" className="w-fit bg-paper border-border text-ink-muted">
                 {age} years old
               </Badge>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-ink-muted">
             <span className="flex items-center gap-1.5">
               <Target className="w-4 h-4" />
               {summaries.length} skills tracked
@@ -390,7 +390,7 @@ export default function PlayerAssessmentDetail({
             return (
               <div
                 key={avg.domain.id}
-                className="p-4 rounded-xl border bg-white/[0.02] border-white/[0.06]"
+                className="p-4 rounded-xl border bg-paper border-border"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -401,18 +401,18 @@ export default function PlayerAssessmentDetail({
                       <DomainIcon className="w-5 h-5" style={{ color: avg.domain.color }} />
                     </div>
                     <div>
-                      <h3 className="font-medium text-white text-sm">{avg.domain.displayName}</h3>
-                      <p className="text-[10px] text-gray-500">{avg.count} skills</p>
+                      <h3 className="font-medium text-ink text-sm">{avg.domain.displayName}</h3>
+                      <p className="text-[10px] text-ink-muted">{avg.count} skills</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-3xl font-bold text-white">{avg.averageLevel.toFixed(1)}</span>
-                  <span className="text-sm text-gray-500">/ 5</span>
+                  <span className="text-3xl font-bold text-ink">{avg.averageLevel.toFixed(1)}</span>
+                  <span className="text-sm text-ink-muted">/ 5</span>
                 </div>
 
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-2 bg-cream-3 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -436,7 +436,7 @@ export default function PlayerAssessmentDetail({
             onClick={() => setViewMode("overview")}
             className={cn(
               "h-8 text-xs",
-              viewMode !== "overview" && "bg-white/[0.02] border-white/[0.06]"
+              viewMode !== "overview" && "bg-paper border-border"
             )}
           >
             Skill Overview
@@ -447,7 +447,7 @@ export default function PlayerAssessmentDetail({
             onClick={() => setViewMode("history")}
             className={cn(
               "h-8 text-xs",
-              viewMode !== "history" && "bg-white/[0.02] border-white/[0.06]"
+              viewMode !== "history" && "bg-paper border-border"
             )}
           >
             Assessment History
@@ -456,7 +456,7 @@ export default function PlayerAssessmentDetail({
 
         {viewMode === "overview" && (
           <Select value={filterDomain} onValueChange={setFilterDomain}>
-            <SelectTrigger className="w-40 h-8 text-xs bg-white/[0.02] border-white/[0.06]">
+            <SelectTrigger className="w-40 h-8 text-xs bg-paper border-border">
               <SelectValue placeholder="All Domains" />
             </SelectTrigger>
             <SelectContent>
@@ -475,10 +475,10 @@ export default function PlayerAssessmentDetail({
       {viewMode === "overview" ? (
         <>
           {filteredSummaries.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-white/10 rounded-xl">
-              <Target className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-white mb-2">No Skills Assessed Yet</h3>
-              <p className="text-sm text-gray-500 max-w-sm mx-auto mb-4">
+            <div className="text-center py-12 border border-dashed border-border rounded-xl">
+              <Target className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-ink mb-2">No Skills Assessed Yet</h3>
+              <p className="text-sm text-ink-muted max-w-sm mx-auto mb-4">
                 Start assessing {player.firstName}'s skills to track their development progress.
               </p>
               <Button onClick={() => setAssessmentModalOpen(true)} className="gap-2">
