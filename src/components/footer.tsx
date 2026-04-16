@@ -11,12 +11,17 @@ const programLinks = [
   { label: "View All Programs", href: "/programs" },
 ]
 
+const resourceLinks = [
+  { label: "Coaching guides", href: "/guides" },
+  { label: "Our philosophy", href: "/about" },
+  { label: "For coaches", href: "/coach" },
+]
+
 const supportLinks = [
-  { label: "FAQ", href: "/faq" },
-  { label: "Contact Us", href: "/contact" },
-  { label: "Refund Policy", href: "/refund-policy" },
-  { label: "Terms of Service", href: "/terms" },
-  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Contact us", href: "/contact" },
+  { label: "Refund policy", href: "/refund-policy" },
+  { label: "Terms of service", href: "/terms" },
+  { label: "Privacy policy", href: "/privacy" },
 ]
 
 const locations = ["Powell", "Dublin", "Delaware"]
@@ -37,7 +42,6 @@ export default function Footer() {
     if (!email) return
 
     setIsSubmitting(true)
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000))
     setIsSubmitting(false)
     setIsSubscribed(true)
@@ -45,15 +49,24 @@ export default function Footer() {
   }
 
   return (
-    <footer className="relative bg-[#0a0a0f]">
-      {/* Top border accent */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    <footer className="relative bg-navy-deep text-cream/80">
+      {/* Editorial section break */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between py-6 border-b border-cream/10">
+          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/40">
+            § The Colophon
+          </p>
+          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/40">
+            Aspire Sports · Powell, Ohio
+          </p>
+        </div>
+      </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
         {/* Main footer grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-16">
-          {/* Column 1 - About & Newsletter */}
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-16">
+          {/* Column 1 - Brand & Newsletter */}
+          <div className="lg:col-span-4">
             {/* Logo */}
             <a href="/" className="inline-block mb-6 group">
               <img
@@ -63,14 +76,20 @@ export default function Footer() {
               />
             </a>
 
-            <p className="text-gray-400 text-sm leading-relaxed mb-6">
+            {/* Tagline */}
+            <p className="font-display text-xl italic text-cream/90 mb-4 leading-snug">
+              Youth sports, done with<br />
+              <span className="text-primary">conviction.</span>
+            </p>
+
+            <p className="text-sm leading-relaxed mb-8 text-cream/50 max-w-xs">
               Development-focused youth sports programs building character, confidence,
               and community through athletics in Central Ohio.
             </p>
 
             {/* Newsletter */}
             <div>
-              <h4 className="text-white font-semibold mb-3 text-sm">Stay Updated</h4>
+              <h4 className="text-cream font-semibold mb-3 text-sm">Stay Updated</h4>
               {isSubscribed ? (
                 <div className="flex items-center gap-2 text-primary text-sm">
                   <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
@@ -88,14 +107,14 @@ export default function Footer() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email"
-                      className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-primary/50 focus:bg-white/[0.07] transition-all"
+                      className="w-full px-4 py-2.5 bg-cream/5 border border-cream/15 rounded-lg text-cream text-sm placeholder:text-cream/30 focus:outline-none focus:border-primary/50 focus:bg-cream/[0.07] transition-all"
                       required
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                    className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-cream rounded-lg text-sm font-medium transition-all disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -109,8 +128,8 @@ export default function Footer() {
           </div>
 
           {/* Column 2 - Programs */}
-          <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+          <div className="lg:col-span-2">
+            <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
               Programs
             </h4>
             <ul className="space-y-3">
@@ -118,21 +137,37 @@ export default function Footer() {
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="text-gray-400 hover:text-primary text-sm transition-colors inline-flex items-center gap-1 group"
+                    className="text-cream/50 hover:text-primary text-sm transition-colors"
                   >
                     {link.label}
-                    {link.label === "View All Programs" && (
-                      <ArrowRight className="w-3 h-3 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                    )}
                   </a>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Column 3 - Support */}
-          <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+          {/* Column 3 - Resources */}
+          <div className="lg:col-span-2">
+            <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
+              Resources
+            </h4>
+            <ul className="space-y-3">
+              {resourceLinks.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    className="text-cream/50 hover:text-primary text-sm transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Column 4 - Support */}
+          <div className="lg:col-span-2">
+            <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
               Support
             </h4>
             <ul className="space-y-3">
@@ -140,7 +175,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="text-gray-400 hover:text-primary text-sm transition-colors"
+                    className="text-cream/50 hover:text-primary text-sm transition-colors"
                   >
                     {link.label}
                   </a>
@@ -149,9 +184,9 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 4 - Connect */}
-          <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+          {/* Column 5 - Connect */}
+          <div className="lg:col-span-2">
+            <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
               Connect
             </h4>
 
@@ -159,28 +194,22 @@ export default function Footer() {
             <div className="space-y-3 mb-6">
               <a
                 href="mailto:info@aspiresports.com"
-                className="flex items-center gap-3 text-gray-400 hover:text-primary text-sm transition-colors group"
+                className="flex items-center gap-3 text-cream/50 hover:text-primary text-sm transition-colors group"
               >
-                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                  <Mail className="w-4 h-4" />
-                </div>
+                <Mail className="w-4 h-4 flex-shrink-0" />
                 info@aspiresports.com
               </a>
               <a
                 href="tel:6145550123"
-                className="flex items-center gap-3 text-gray-400 hover:text-primary text-sm transition-colors group"
+                className="flex items-center gap-3 text-cream/50 hover:text-primary text-sm transition-colors group"
               >
-                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                  <Phone className="w-4 h-4" />
-                </div>
+                <Phone className="w-4 h-4 flex-shrink-0" />
                 (614) 555-0123
               </a>
-            </div>
-
-            {/* Locations */}
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
-              <MapPin className="w-4 h-4 flex-shrink-0" />
-              <span>{locations.join(" • ")}</span>
+              <div className="flex items-center gap-3 text-cream/40 text-sm">
+                <MapPin className="w-4 h-4 flex-shrink-0" />
+                {locations.join(" · ")}
+              </div>
             </div>
 
             {/* Social links */}
@@ -192,9 +221,9 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={social.label}
-                  className="w-10 h-10 rounded-lg bg-white/5 hover:bg-primary/20 flex items-center justify-center text-gray-400 hover:text-primary transition-all hover:scale-110"
+                  className="w-9 h-9 rounded-lg bg-cream/5 hover:bg-primary/20 flex items-center justify-center text-cream/40 hover:text-primary transition-all"
                 >
-                  <social.icon className="w-5 h-5" />
+                  <social.icon className="w-4 h-4" />
                 </a>
               ))}
             </div>
@@ -202,21 +231,18 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="pt-8 border-t border-white/5">
+        <div className="pt-8 border-t border-cream/10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-gray-500 text-sm">
+            <p className="text-cream/30 text-sm">
               &copy; {new Date().getFullYear()} Aspire Sports. All rights reserved.
             </p>
 
             <div className="flex items-center gap-6 text-sm">
-              <a href="/terms" className="text-gray-500 hover:text-gray-400 transition-colors">
+              <a href="/terms" className="text-cream/30 hover:text-cream/60 transition-colors">
                 Terms
               </a>
-              <a href="/privacy" className="text-gray-500 hover:text-gray-400 transition-colors">
+              <a href="/privacy" className="text-cream/30 hover:text-cream/60 transition-colors">
                 Privacy
-              </a>
-              <a href="/cookies" className="text-gray-500 hover:text-gray-400 transition-colors">
-                Cookies
               </a>
             </div>
           </div>

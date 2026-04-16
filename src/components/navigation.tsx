@@ -16,7 +16,7 @@ export default function Navigation() {
     }
 
     window.addEventListener("scroll", handleScroll, { passive: true })
-    handleScroll() // Check initial state
+    handleScroll()
 
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
@@ -30,20 +30,20 @@ export default function Navigation() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled
-          ? "bg-[#0a0a0f]/95 backdrop-blur-md border-b border-white/5 shadow-lg shadow-black/10"
+          ? "bg-cream/95 backdrop-blur-md shadow-[0_1px_0_0_var(--border)]"
           : "bg-transparent"
       }`}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="h-16 lg:h-20 flex items-center justify-between">
-          {/* Logo */}
+          {/* Logo — switches between light and dark variants */}
           <a href="/" className="flex items-center group">
             <img
-              src="/images/logo.svg"
+              src="/images/logo-dark.svg"
               alt="Aspire Sports"
-              className="h-10 w-auto transition-opacity group-hover:opacity-90"
+              className="h-10 w-auto transition-opacity group-hover:opacity-80"
             />
           </a>
 
@@ -53,37 +53,32 @@ export default function Navigation() {
               <a
                 key={link.href}
                 href={link.href}
-                className="relative px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors group"
+                className="relative px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors group"
               >
                 {link.label}
-                <span className="absolute bottom-1 left-4 right-4 h-[2px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+                <span className="absolute bottom-1 left-4 right-4 h-[1.5px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
               </a>
             ))}
           </div>
 
           {/* Desktop CTAs */}
-          <div className="hidden lg:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-3">
             {/* Location Selector */}
             <LocationSelector mode="dropdown" />
 
-            <div className="w-px h-6 bg-white/10" />
-
-            <Button
-              variant="ghost"
-              className="text-gray-300 hover:text-white hover:bg-white/10"
-              asChild
+            <a
+              href="/signin"
+              className="px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
             >
-              <a href="/signin">Sign In</a>
-            </Button>
-            <Button
-              className="group bg-primary hover:bg-primary/90 text-primary-foreground px-5 rounded-lg shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
-              asChild
+              Sign In
+            </a>
+            <a
+              href="#programs"
+              className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-cream rounded-lg hover:bg-primary/90 shadow-sm shadow-primary/15 transition-all"
             >
-              <a href="#programs" className="flex items-center gap-2">
-                Get Started
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </a>
-            </Button>
+              Get Started
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </a>
           </div>
 
           {/* Mobile Menu */}
@@ -92,7 +87,7 @@ export default function Navigation() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden text-white hover:bg-white/10"
+                className="lg:hidden text-ink hover:bg-cream-2"
               >
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle menu</span>
@@ -100,14 +95,14 @@ export default function Navigation() {
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="w-full sm:w-[400px] bg-[#0a0a0f] border-l border-white/10 p-0"
+              className="w-full sm:w-[400px] bg-cream border-l border-border p-0"
             >
               <div className="flex flex-col h-full">
                 {/* Mobile menu header */}
-                <div className="flex items-center justify-between p-6 border-b border-white/10">
+                <div className="flex items-center justify-between p-6 border-b border-border">
                   <a href="/" className="flex items-center">
                     <img
-                      src="/images/logo.svg"
+                      src="/images/logo-dark.svg"
                       alt="Aspire Sports"
                       className="h-9 w-auto"
                     />
@@ -116,7 +111,7 @@ export default function Navigation() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-gray-400 hover:text-white hover:bg-white/10"
+                    className="text-ink-muted hover:text-ink hover:bg-cream-2"
                   >
                     <X className="h-5 w-5" />
                   </Button>
@@ -130,7 +125,7 @@ export default function Navigation() {
                         key={link.href}
                         href={link.href}
                         onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between py-4 text-lg font-medium text-gray-300 hover:text-white border-b border-white/5 transition-colors group"
+                        className="flex items-center justify-between py-4 text-lg font-display font-medium text-ink-2 hover:text-ink border-b border-border transition-colors group"
                         style={{ animationDelay: `${index * 50}ms` }}
                       >
                         {link.label}
@@ -141,7 +136,7 @@ export default function Navigation() {
 
                   {/* Mobile Location Selector */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <h4 className="text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Your Location
                     </h4>
                     <LocationSelector mode="cards" />
@@ -149,10 +144,10 @@ export default function Navigation() {
                 </div>
 
                 {/* Mobile menu CTAs */}
-                <div className="p-6 border-t border-white/10 space-y-3">
+                <div className="p-6 border-t border-border space-y-3">
                   <Button
                     variant="outline"
-                    className="w-full border-white/20 text-white hover:bg-white/10 hover:border-white/30"
+                    className="w-full border-border text-ink hover:bg-cream-2"
                     asChild
                   >
                     <a href="/signin" onClick={() => setMobileMenuOpen(false)}>
@@ -160,7 +155,7 @@ export default function Navigation() {
                     </a>
                   </Button>
                   <Button
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                    className="w-full bg-primary hover:bg-primary/90 text-cream"
                     asChild
                   >
                     <a
