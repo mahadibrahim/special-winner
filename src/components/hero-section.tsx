@@ -21,7 +21,7 @@ export default function HeroSection() {
   useEffect(() => setMounted(true), [])
 
   return (
-    <section className="relative bg-cream text-ink">
+    <section className="relative bg-cream text-ink pt-20 lg:pt-24">
       {/* Top rule — editorial section break */}
       <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
         <div className="flex items-center justify-between py-6 border-b border-ink/15">
