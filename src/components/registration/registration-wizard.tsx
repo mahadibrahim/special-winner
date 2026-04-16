@@ -359,8 +359,8 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
     return (
       <div className="text-center py-20">
         <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-        <p className="text-white mb-2">Failed to load registration</p>
-        <p className="text-gray-400 text-sm">{error}</p>
+        <p className="text-ink mb-2">Failed to load registration</p>
+        <p className="text-ink-muted text-sm">{error}</p>
       </div>
     )
   }
@@ -373,7 +373,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
       <div className="mb-8">
         <div className="flex items-center justify-between relative">
           {/* Progress line */}
-          <div className="absolute top-5 left-0 right-0 h-0.5 bg-white/10" />
+          <div className="absolute top-5 left-0 right-0 h-0.5 bg-border" />
           <div
             className="absolute top-5 left-0 h-0.5 bg-primary transition-all duration-500"
             style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
@@ -392,7 +392,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                       ? "bg-primary text-primary-foreground"
                       : isActive
                         ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                        : "bg-white/10 text-gray-500"
+                        : "bg-cream-3 text-ink-muted"
                   }`}
                 >
                   {isComplete ? (
@@ -403,7 +403,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                 </div>
                 <span
                   className={`mt-2 text-xs font-medium ${
-                    isActive ? "text-white" : "text-gray-500"
+                    isActive ? "text-ink" : "text-ink-muted"
                   }`}
                 >
                   {step.name}
@@ -426,7 +426,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
       )}
 
       {/* Program Summary */}
-      <div className="mb-6 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="mb-6 p-4 rounded-xl bg-paper border border-border">
         <div className="flex items-center gap-4">
           <div
             className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl"
@@ -438,8 +438,8 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
             {season.sport.icon || "🏃"}
           </div>
           <div className="flex-1">
-            <h2 className="font-semibold text-white">{season.name}</h2>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+            <h2 className="font-semibold text-ink">{season.name}</h2>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
                 {formatDateRange(season.startDate, season.endDate)}
@@ -457,9 +457,9 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-white">${season.price}</div>
+            <div className="text-2xl font-bold text-ink">${season.price}</div>
             {season.allowDeposit && season.deposit && (
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-ink-muted">
                 or ${season.deposit} deposit
               </div>
             )}
@@ -468,13 +468,13 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
       </div>
 
       {/* Step Content */}
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+      <div className="bg-paper border border-border rounded-2xl p-6">
         {/* Step 1: Select Player */}
         {currentStep === 1 && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Select Player</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="text-lg font-semibold text-ink mb-2">Select Player</h3>
+              <p className="text-ink-muted text-sm">
                 Choose which family member you're registering for this program.
               </p>
             </div>
@@ -495,7 +495,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                         className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
                           selectedMemberId === member.id
                             ? "border-primary bg-primary/10"
-                            : "border-white/10 hover:border-white/20 bg-white/[0.02]"
+                            : "border-border hover:border-ink-faint bg-paper"
                         } ${!isEligible ? "opacity-50" : ""}`}
                       >
                         <RadioGroupItem
@@ -509,10 +509,10 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                           {member.lastName[0]}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-white">
+                          <p className="font-medium text-ink">
                             {member.firstName} {member.lastName}
                           </p>
-                          <p className="text-sm text-gray-500">Age {age}</p>
+                          <p className="text-sm text-ink-muted">Age {age}</p>
                         </div>
                         {!isEligible && (
                           <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded">
@@ -530,52 +530,52 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
               <Button
                 variant="outline"
                 onClick={() => setShowAddMember(true)}
-                className="w-full border-dashed border-white/20 text-gray-400 hover:text-white hover:bg-white/5"
+                className="w-full border-dashed border-border text-ink-muted hover:text-ink hover:bg-cream-2"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add New Family Member
               </Button>
             ) : (
-              <div className="space-y-4 p-4 rounded-xl border border-white/10 bg-white/[0.02]">
-                <h4 className="font-medium text-white">Add New Family Member</h4>
+              <div className="space-y-4 p-4 rounded-xl border border-border bg-paper">
+                <h4 className="font-medium text-ink">Add New Family Member</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-gray-400">First Name *</Label>
+                    <Label className="text-ink-muted">First Name *</Label>
                     <Input
                       value={newMemberFirstName}
                       onChange={(e) => setNewMemberFirstName(e.target.value)}
-                      className="bg-white/5 border-white/10 text-white"
+                      className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-gray-400">Last Name *</Label>
+                    <Label className="text-ink-muted">Last Name *</Label>
                     <Input
                       value={newMemberLastName}
                       onChange={(e) => setNewMemberLastName(e.target.value)}
-                      className="bg-white/5 border-white/10 text-white"
+                      className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-gray-400">Birth Date *</Label>
+                    <Label className="text-ink-muted">Birth Date *</Label>
                     <Input
                       type="date"
                       value={newMemberBirthDate}
                       onChange={(e) => setNewMemberBirthDate(e.target.value)}
-                      className="bg-white/5 border-white/10 text-white"
+                      className="bg-cream-2 border-border text-ink focus:border-primary"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-gray-400">Gender</Label>
+                    <Label className="text-ink-muted">Gender</Label>
                     <Select value={newMemberGender} onValueChange={setNewMemberGender}>
-                      <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectTrigger className="bg-cream-2 border-border text-ink">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#1a1a24] border-white/10">
-                        <SelectItem value="male" className="text-gray-300">Male</SelectItem>
-                        <SelectItem value="female" className="text-gray-300">Female</SelectItem>
-                        <SelectItem value="other" className="text-gray-300">Other</SelectItem>
+                      <SelectContent className="bg-cream border-border">
+                        <SelectItem value="male" className="text-ink-2">Male</SelectItem>
+                        <SelectItem value="female" className="text-ink-2">Female</SelectItem>
+                        <SelectItem value="other" className="text-ink-2">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -584,7 +584,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                   <Button
                     variant="outline"
                     onClick={() => setShowAddMember(false)}
-                    className="border-white/10 text-gray-400"
+                    className="border-border text-ink-muted"
                   >
                     Cancel
                   </Button>
@@ -606,44 +606,44 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
         {currentStep === 2 && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Participant Waiver</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="text-lg font-semibold text-ink mb-2">Participant Waiver</h3>
+              <p className="text-ink-muted text-sm">
                 Please read and sign the waiver to continue with registration.
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] max-h-64 overflow-y-auto">
-              <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-cream-2 border border-border max-h-64 overflow-y-auto">
+              <h4 className="font-medium text-ink mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />
                 Aspire Sports Participation Waiver
               </h4>
-              <div className="text-sm text-gray-400 space-y-3">
+              <div className="text-sm text-ink-muted space-y-3">
                 <p>
                   By signing this waiver, I acknowledge and agree to the following terms and conditions
                   for participation in Aspire Sports programs:
                 </p>
                 <p>
-                  <strong className="text-white">1. Assumption of Risk:</strong> I understand that participation in
+                  <strong className="text-ink">1. Assumption of Risk:</strong> I understand that participation in
                   sports activities involves inherent risks, including but not limited to physical
                   injury, illness, and exposure to communicable diseases. I voluntarily assume all
                   such risks.
                 </p>
                 <p>
-                  <strong className="text-white">2. Medical Authorization:</strong> In the event of an emergency, I
+                  <strong className="text-ink">2. Medical Authorization:</strong> In the event of an emergency, I
                   authorize Aspire Sports staff to seek and consent to medical treatment for the
                   participant if I cannot be reached.
                 </p>
                 <p>
-                  <strong className="text-white">3. Photo/Video Release:</strong> I grant permission for Aspire Sports
+                  <strong className="text-ink">3. Photo/Video Release:</strong> I grant permission for Aspire Sports
                   to use photographs and video recordings of the participant for promotional purposes.
                 </p>
                 <p>
-                  <strong className="text-white">4. Release of Liability:</strong> I release and hold harmless Aspire
+                  <strong className="text-ink">4. Release of Liability:</strong> I release and hold harmless Aspire
                   Sports, its coaches, volunteers, and facilities from any claims arising from
                   participation in the program.
                 </p>
                 <p>
-                  <strong className="text-white">5. Code of Conduct:</strong> I agree that the participant will adhere
+                  <strong className="text-ink">5. Code of Conduct:</strong> I agree that the participant will adhere
                   to all program rules and demonstrate good sportsmanship at all times.
                 </p>
               </div>
@@ -655,11 +655,11 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                   id="waiver"
                   checked={waiverAccepted}
                   onCheckedChange={(checked) => setWaiverAccepted(checked === true)}
-                  className="mt-1 border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
-                <Label htmlFor="waiver" className="text-sm text-gray-300 cursor-pointer">
+                <Label htmlFor="waiver" className="text-sm text-ink-2 cursor-pointer">
                   I have read, understand, and agree to the terms of this waiver on behalf of{" "}
-                  <span className="text-white font-medium">
+                  <span className="text-ink font-medium">
                     {selectedMember?.firstName} {selectedMember?.lastName}
                   </span>
                   .
@@ -667,14 +667,14 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
               </div>
 
               <div className="space-y-2">
-                <Label className="text-gray-400">Digital Signature *</Label>
+                <Label className="text-ink-muted">Digital Signature *</Label>
                 <Input
                   value={waiverSignature}
                   onChange={(e) => setWaiverSignature(e.target.value)}
                   placeholder="Type your full legal name"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                  className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-muted">
                   By typing your name above, you agree that this constitutes a legal signature.
                 </p>
               </div>
@@ -686,8 +686,8 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
         {currentStep === 3 && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Payment Option</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="text-lg font-semibold text-ink mb-2">Payment Option</h3>
+              <p className="text-ink-muted text-sm">
                 Choose how you'd like to pay for this registration.
               </p>
             </div>
@@ -699,15 +699,15 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                   className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
                     paymentOption === "full"
                       ? "border-primary bg-primary/10"
-                      : "border-white/10 hover:border-white/20 bg-white/[0.02]"
+                      : "border-border hover:border-ink-faint bg-paper"
                   }`}
                 >
                   <RadioGroupItem value="full" id="pay-full" className="mr-4" />
                   <div className="flex-1">
-                    <p className="font-medium text-white">Pay in Full</p>
-                    <p className="text-sm text-gray-500">Complete payment now</p>
+                    <p className="font-medium text-ink">Pay in Full</p>
+                    <p className="text-sm text-ink-muted">Complete payment now</p>
                   </div>
-                  <div className="text-xl font-bold text-white">${season.price}</div>
+                  <div className="text-xl font-bold text-ink">${season.price}</div>
                 </Label>
 
                 {season.allowDeposit && season.deposit && (
@@ -716,17 +716,17 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                     className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
                       paymentOption === "deposit"
                         ? "border-primary bg-primary/10"
-                        : "border-white/10 hover:border-white/20 bg-white/[0.02]"
+                        : "border-border hover:border-ink-faint bg-paper"
                     }`}
                   >
                     <RadioGroupItem value="deposit" id="pay-deposit" className="mr-4" />
                     <div className="flex-1">
-                      <p className="font-medium text-white">Pay Deposit</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-ink">Pay Deposit</p>
+                      <p className="text-sm text-ink-muted">
                         Remaining ${(season.price - season.deposit).toFixed(2)} due before season starts
                       </p>
                     </div>
-                    <div className="text-xl font-bold text-white">${season.deposit}</div>
+                    <div className="text-xl font-bold text-ink">${season.deposit}</div>
                   </Label>
                 )}
               </div>
@@ -734,7 +734,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
 
             {/* Discount Code */}
             <div className="space-y-3">
-              <Label className="text-gray-400 flex items-center gap-2">
+              <Label className="text-ink-muted flex items-center gap-2">
                 <Tag className="w-4 h-4" />
                 Discount Code
               </Label>
@@ -750,7 +750,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                   <button
                     type="button"
                     onClick={handleRemoveDiscount}
-                    className="text-gray-400 hover:text-white p-1"
+                    className="text-ink-muted hover:text-ink p-1"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -764,14 +764,14 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                       setDiscountError(null)
                     }}
                     placeholder="Enter code"
-                    className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 uppercase"
+                    className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint uppercase"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleApplyDiscount}
                     disabled={!discountCodeInput.trim() || isValidatingDiscount}
-                    className="border-white/10 text-gray-300 hover:text-white hover:bg-white/5 px-6"
+                    className="border-border text-ink-2 hover:text-ink hover:bg-cream-2 px-6"
                   >
                     {isValidatingDiscount ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -792,20 +792,20 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
             {/* Order Summary */}
             <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300">Registration for</span>
-                <span className="text-white font-medium">
+                <span className="text-ink-2">Registration for</span>
+                <span className="text-ink font-medium">
                   {selectedMember?.firstName} {selectedMember?.lastName}
                 </span>
               </div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300">Program</span>
-                <span className="text-white font-medium">{season.name}</span>
+                <span className="text-ink-2">Program</span>
+                <span className="text-ink font-medium">{season.name}</span>
               </div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300">
+                <span className="text-ink-2">
                   {paymentOption === "deposit" ? "Deposit" : "Subtotal"}
                 </span>
-                <span className="text-white">
+                <span className="text-ink">
                   ${paymentOption === "deposit" && season.deposit ? season.deposit : season.price}
                 </span>
               </div>
@@ -816,8 +816,8 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
                 </div>
               )}
               <div className="flex items-center justify-between pt-2 border-t border-primary/20">
-                <span className="text-white font-semibold">Total Due Today</span>
-                <span className="text-white font-bold text-xl">
+                <span className="text-ink font-semibold">Total Due Today</span>
+                <span className="text-ink font-bold text-xl">
                   ${(
                     (paymentOption === "deposit" && season.deposit ? season.deposit : season.price) -
                     (appliedDiscount ? appliedDiscount.discountAmountCents / 100 : 0)
@@ -834,13 +834,13 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
             <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-500" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Registration Submitted!</h3>
-            <p className="text-gray-400 mb-6">
+            <h3 className="text-xl font-semibold text-ink mb-2">Registration Submitted!</h3>
+            <p className="text-ink-muted mb-6">
               {selectedMember?.firstName} has been registered for {season.name}.
               You'll receive a confirmation email shortly.
             </p>
             <div className="flex justify-center gap-3">
-              <Button asChild variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <Button asChild variant="outline" className="border-border text-ink hover:bg-cream-2">
                 <a href="/dashboard">Go to Dashboard</a>
               </Button>
               <Button asChild className="bg-primary hover:bg-primary/90">
@@ -858,7 +858,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
             variant="ghost"
             onClick={() => setCurrentStep(currentStep - 1)}
             disabled={currentStep === 1}
-            className="text-gray-400 hover:text-white"
+            className="text-ink-muted hover:text-ink"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back
