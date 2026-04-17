@@ -112,7 +112,8 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error creating discount code:", error);
-    if (error.code === "23505") {
+    const pgCode = error.code ?? error.cause?.code;
+    if (pgCode === "23505") {
       return new Response(JSON.stringify({ error: "A discount code with this code already exists" }), {
         status: 409,
       });
@@ -167,7 +168,8 @@ export const PUT: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error updating discount code:", error);
-    if (error.code === "23505") {
+    const pgCode = error.code ?? error.cause?.code;
+    if (pgCode === "23505") {
       return new Response(JSON.stringify({ error: "A discount code with this code already exists" }), {
         status: 409,
       });

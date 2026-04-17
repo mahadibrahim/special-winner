@@ -251,7 +251,8 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error creating game:", error);
-    if (error.code === "23503") {
+    const pgCode = error.code ?? error.cause?.code;
+    if (pgCode === "23503") {
       return new Response(JSON.stringify({ error: "Invalid team, venue, or season selected" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to create game" }), { status: 500 });
@@ -411,7 +412,8 @@ export const PUT: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error updating game:", error);
-    if (error.code === "23503") {
+    const pgCode = error.code ?? error.cause?.code;
+    if (pgCode === "23503") {
       return new Response(JSON.stringify({ error: "Invalid team, venue, or season selected" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to update game" }), { status: 500 });
