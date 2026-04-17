@@ -1,3 +1,5 @@
+import { expect } from "vitest";
+
 const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:4321";
 
 /**

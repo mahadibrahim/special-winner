@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  // Playwright specs only. Vitest API tests (tests/api/**/*.test.ts) are run
+  // via `npm run test:api`; loading them here causes @playwright/test and
+  // @vitest/expect to collide on Symbol($$jest-matchers-object).
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,  // Disable retries while debugging
