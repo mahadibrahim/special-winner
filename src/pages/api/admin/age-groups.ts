@@ -5,6 +5,11 @@ import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 const ageGroupSchema = z.object({
   name: z.string().min(1, "Name is required"),
   minAge: z.number().min(0, "Min age must be 0 or greater"),
@@ -173,7 +178,7 @@ export const DELETE: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error deleting age group:", error);
-    if (error.code === "23503") {
+    if (getDbErrorCode(error) === "23503") {
       return new Response(
         JSON.stringify({ error: "Cannot delete age group that has seasons associated with it" }),
         { status: 400 }
