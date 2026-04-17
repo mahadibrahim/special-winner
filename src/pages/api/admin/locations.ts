@@ -5,6 +5,18 @@ import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
+const externalStoreSchema = z.object({
+  url: z.string().url(),
+  label: z.string().min(1).max(120),
+  partnerName: z.enum(["Squadlocker", "BSN", "Custom Ink", "Other"]),
+});
+
+const locationSettingsPatchSchema = z
+  .object({
+    externalStore: externalStoreSchema.nullable().optional(),
+  })
+  .optional();
+
 const locationSchema = z.object({
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/, "Slug must be lowercase with hyphens only"),
@@ -16,6 +28,7 @@ const locationSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   active: z.boolean().default(true),
+  settings: locationSettingsPatchSchema,
 });
 
 export const GET: APIRoute = async (context) => {
@@ -108,21 +121,47 @@ export const PUT: APIRoute = async (context) => {
     }
 
     const validData = result.data;
+
+    const updates: Record<string, unknown> = {
+      name: validData.name,
+      slug: validData.slug,
+      addressLine1: validData.addressLine1 || null,
+      addressLine2: validData.addressLine2 || null,
+      city: validData.city || null,
+      state: validData.state || null,
+      postalCode: validData.postalCode || null,
+      phone: validData.phone || null,
+      email: validData.email || null,
+      active: validData.active,
+      updatedAt: new Date(),
+    };
+
+    if (validData.settings !== undefined) {
+      const [existing] = await getDb()
+        .select({ settings: locations.settings })
+        .from(locations)
+        .where(eq(locations.id, id));
+
+      if (!existing) {
+        return new Response(JSON.stringify({ error: "Location not found" }), { status: 404 });
+      }
+
+      const current = (existing.settings ?? {}) as Record<string, unknown>;
+      const patch = validData.settings as Record<string, unknown>;
+      const merged: Record<string, unknown> = { ...current };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null) {
+          delete merged[key];
+        } else if (value !== undefined) {
+          merged[key] = value;
+        }
+      }
+      updates.settings = merged;
+    }
+
     const [updatedLocation] = await getDb()
       .update(locations)
-      .set({
-        name: validData.name,
-        slug: validData.slug,
-        addressLine1: validData.addressLine1 || null,
-        addressLine2: validData.addressLine2 || null,
-        city: validData.city || null,
-        state: validData.state || null,
-        postalCode: validData.postalCode || null,
-        phone: validData.phone || null,
-        email: validData.email || null,
-        active: validData.active,
-        updatedAt: new Date(),
-      })
+      .set(updates as any)
       .where(eq(locations.id, id))
       .returning();
 

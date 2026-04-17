@@ -15,6 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  ExternalStoreSettings,
+  type ExternalStoreValue,
+} from "./external-store-settings"
+
+interface LocationSettings {
+  externalStore?: ExternalStoreValue | null
+  [key: string]: unknown
+}
 
 interface Location {
   id: string
@@ -28,6 +37,7 @@ interface Location {
   phone: string | null
   email: string | null
   active: boolean
+  settings: LocationSettings | null
 }
 
 export function LocationsList() {
@@ -49,6 +59,8 @@ export function LocationsList() {
     email: "",
     active: true,
   })
+  const [externalStore, setExternalStore] =
+    useState<ExternalStoreValue | null>(null)
 
   useEffect(() => {
     fetchLocations()
@@ -81,6 +93,7 @@ export function LocationsList() {
       email: "",
       active: true,
     })
+    setExternalStore(null)
     setIsDialogOpen(true)
   }
 
@@ -98,6 +111,7 @@ export function LocationsList() {
       email: location.email || "",
       active: location.active,
     })
+    setExternalStore(location.settings?.externalStore ?? null)
     setIsDialogOpen(true)
   }
 
@@ -116,7 +130,13 @@ export function LocationsList() {
 
     try {
       const method = editingLocation ? "PUT" : "POST"
-      const body = editingLocation ? { id: editingLocation.id, ...formData } : formData
+      const baseBody = editingLocation
+        ? { id: editingLocation.id, ...formData }
+        : formData
+      // Only send settings on update — POST schema doesn't accept it yet.
+      const body = editingLocation
+        ? { ...baseBody, settings: { externalStore } }
+        : baseBody
 
       const response = await fetch("/api/admin/locations", {
         method,
@@ -340,6 +360,13 @@ export function LocationsList() {
                 />
                 <Label htmlFor="active" className="font-normal">Active</Label>
               </div>
+
+              {editingLocation && (
+                <ExternalStoreSettings
+                  value={externalStore}
+                  onChange={setExternalStore}
+                />
+              )}
             </div>
 
             <DialogFooter className="mt-6">
