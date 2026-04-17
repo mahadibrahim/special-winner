@@ -5,6 +5,11 @@ import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 const seasonSchema = z.object({
   programId: z.string().uuid("Invalid program"),
   ageGroupId: z.string().uuid().optional().nullable(),
@@ -125,7 +130,7 @@ export const POST: APIRoute = async (context) => {
     return new Response(JSON.stringify({ season: newSeason }), { status: 201 });
   } catch (error: any) {
     console.error("Error creating season:", error);
-    if (error.code === "23505") {
+    if (getDbErrorCode(error) === "23505") {
       return new Response(JSON.stringify({ error: "A season with this slug already exists for this program" }), { status: 409 });
     }
     return new Response(JSON.stringify({ error: "Failed to create season" }), { status: 500 });
@@ -202,7 +207,7 @@ export const DELETE: APIRoute = async (context) => {
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     console.error("Error deleting season:", error);
-    if (error.code === "23503") {
+    if (getDbErrorCode(error) === "23503") {
       return new Response(
         JSON.stringify({ error: "Cannot delete season that has registrations" }),
         { status: 400 }
