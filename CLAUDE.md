@@ -103,3 +103,29 @@ Required in `.env`:
 - Forms use react-hook-form with zod validation
 - Toast notifications via sonner
 - All timestamps stored in UTC, displayed in organization's timezone
+
+## Testing
+
+```bash
+npm run test:api          # Run API integration tests (Vitest)
+npm run test:api:watch    # Watch mode
+npm test                  # Run E2E tests (Playwright)
+```
+
+- API tests live in `tests/api/` — 156 tests across 27 files
+- Tests hit the running dev server over HTTP (start `npm run dev` first)
+- Test accounts: admin/coach/parent `@test.aspiresports.com` / `Test{Role}123!`
+
+## Design System
+
+See `docs/design-system.md` for the full editorial cream design system reference (colors, typography, components, layout patterns).
+
+## Disabled Skills
+
+Do not use these skills — they are not relevant to this project:
+- clinical-research
+- sentencing-data-analysis
+- text-message-table
+- fmv-food-service-analysis
+- presentation-builder
+- newsletter-builder
