@@ -1,24 +1,24 @@
 /**
- * Idempotent bootstrap for databases previously managed by `drizzle-kit push`
- * that are missing the drizzle migration tracking table (or have it empty).
+ * Idempotent reconciler for drizzle.__drizzle_migrations on databases that
+ * were previously managed by `drizzle-kit push` (or that inherited a stale
+ * tracking state from an earlier broken bootstrap).
  *
- * For each committed migration in src/lib/db/migrations:
+ * Algorithm per committed migration in src/lib/db/migrations:
  *   - parse every `CREATE TABLE "name"` statement from the file
- *   - check whether every one of those tables already exists in the target DB
- *   - if yes → mark that migration applied (insert hash + created_at row)
- *   - if any are missing → leave it un-applied; the subsequent `drizzle-orm`
- *     migrator will run it normally
+ *   - check whether every one of those tables exists in the target DB
+ *   - compute the expected "applied" state from that existence check
+ *   - reconcile the tracking table:
+ *       · missing expected rows → INSERT (hash, created_at)
+ *       · rows for hashes whose tables don't all exist → DELETE (drift)
  *
- * This lets us handle mixed states: a DB that was previously pushed up to,
- * say, migration 0001 but hasn't seen 0002/0003 yet. Only migrations whose
- * CREATE TABLE targets all exist are treated as "already applied."
+ * On a truly empty DB (no `users` table) the whole bootstrap is a no-op and
+ * the downstream migrator builds schema from scratch.
  *
- * Safe to run every build. On a truly empty DB (no `users` table) the whole
- * bootstrap is a no-op and the downstream migrator builds schema from scratch.
+ * Safe to run on every CI build.
  *
  * Limitation: a migration that only ALTERs existing tables (no CREATE TABLE)
  * can't be detected this way. None of the current migrations fit that shape.
- * If one is added later, a smarter check will be needed.
+ * If one is added later, a smarter detector will be needed.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -65,20 +65,8 @@ async function main() {
   const sql = postgres(connectionString!, { max: 1 });
 
   try {
-    // If the tracking table already has rows, trust it and don't touch
-    // anything. Users can wipe rows manually to force a re-bootstrap.
-    const existingRows = await sql<Array<{ hash: string }>>`
-      SELECT hash FROM drizzle.__drizzle_migrations
-    `.catch(() => null);
-
-    if (existingRows && existingRows.length > 0) {
-      console.log(
-        `Bootstrap skipped: drizzle.__drizzle_migrations already has ${existingRows.length} row(s).`,
-      );
-      return;
-    }
-
-    // Check for core schema presence. Absent = fresh DB, skip bootstrap.
+    // Fresh-DB check: if core tables are absent, skip bootstrap entirely and
+    // let the migrator run all migrations from scratch.
     const coreCheck = await sql<Array<{ table_name: string }>>`
       SELECT table_name
       FROM information_schema.tables
@@ -94,15 +82,7 @@ async function main() {
       return;
     }
 
-    // Pull every user table in the public schema for O(1) lookups.
-    const publicTables = await sql<Array<{ table_name: string }>>`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-    `;
-    const tableSet = new Set(publicTables.map((r) => r.table_name));
-
-    // Make sure the tracking table exists (safe on re-run).
+    // Ensure tracking schema + table exist.
     await sql`CREATE SCHEMA IF NOT EXISTS drizzle`;
     await sql`
       CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
@@ -112,46 +92,84 @@ async function main() {
       )
     `;
 
-    let markedApplied = 0;
-    let leftPending = 0;
+    // Snapshot the current set of public tables for O(1) lookups.
+    const publicTables = await sql<Array<{ table_name: string }>>`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+    `;
+    const tableSet = new Set(publicTables.map((r) => r.table_name));
+
+    // Compute the set of migration hashes that SHOULD be marked applied
+    // (every CREATE TABLE target already present in public).
+    const expectedApplied = new Map<string, { tag: string; when: number }>();
+    const expectedPending: Array<{ tag: string; missing: string[] }> = [];
+    const hashlessEntries: string[] = [];
+
     for (const entry of journal.entries) {
       const sqlFile = path.join(MIGRATIONS_DIR, `${entry.tag}.sql`);
       const content = fs.readFileSync(sqlFile, "utf-8");
+      const hash = crypto.createHash("sha256").update(content).digest("hex");
       const createdTables = extractCreatedTables(content);
 
       if (createdTables.length === 0) {
-        // No CREATE TABLE in this migration (ALTER-only or similar). We can't
-        // safely decide whether it's been applied — leave it for migrate, but
-        // warn so the maintainer notices.
-        console.warn(
-          `  ${entry.tag}: no CREATE TABLE statements found; leaving un-applied. ` +
-            `Migrator may fail if the ALTERs have already run.`,
-        );
-        leftPending++;
+        hashlessEntries.push(entry.tag);
         continue;
       }
 
-      const allPresent = createdTables.every((t) => tableSet.has(t));
-      if (!allPresent) {
-        const missing = createdTables.filter((t) => !tableSet.has(t));
-        console.log(
-          `  ${entry.tag}: leaving un-applied (missing tables: ${missing.join(", ")})`,
-        );
-        leftPending++;
-        continue;
+      const missing = createdTables.filter((t) => !tableSet.has(t));
+      if (missing.length === 0) {
+        expectedApplied.set(hash, { tag: entry.tag, when: entry.when });
+      } else {
+        expectedPending.push({ tag: entry.tag, missing });
       }
+    }
 
-      const hash = crypto.createHash("sha256").update(content).digest("hex");
-      await sql`
-        INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
-        VALUES (${hash}, ${entry.when})
-      `;
-      markedApplied++;
-      console.log(`  ${entry.tag}: marked applied (${hash.slice(0, 12)}…)`);
+    // Reconcile against the actual tracking-table contents.
+    const existingRows = await sql<Array<{ hash: string }>>`
+      SELECT hash FROM drizzle.__drizzle_migrations
+    `;
+    const existingHashes = new Set(existingRows.map((r) => r.hash));
+
+    // DELETE stale rows (hash in table but migration's tables don't all exist).
+    let deleted = 0;
+    for (const hash of existingHashes) {
+      if (!expectedApplied.has(hash)) {
+        await sql`DELETE FROM drizzle.__drizzle_migrations WHERE hash = ${hash}`;
+        deleted++;
+        console.log(`  removed stale tracking row (${hash.slice(0, 12)}…)`);
+      }
+    }
+
+    // INSERT missing rows.
+    let inserted = 0;
+    for (const [hash, meta] of expectedApplied) {
+      if (!existingHashes.has(hash)) {
+        await sql`
+          INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
+          VALUES (${hash}, ${meta.when})
+        `;
+        inserted++;
+        console.log(`  ${meta.tag}: marked applied (${hash.slice(0, 12)}…)`);
+      }
+    }
+
+    for (const { tag, missing } of expectedPending) {
+      console.log(
+        `  ${tag}: left un-applied (missing tables: ${missing.join(", ")})`,
+      );
+    }
+
+    for (const tag of hashlessEntries) {
+      console.warn(
+        `  ${tag}: no CREATE TABLE statements found; left un-applied. ` +
+          `Migrator may fail if the ALTERs have already run.`,
+      );
     }
 
     console.log(
-      `Bootstrap complete: ${markedApplied} marked applied, ${leftPending} left for migrator.`,
+      `Bootstrap complete: ${inserted} inserted, ${deleted} removed, ` +
+        `${expectedPending.length} pending for migrator.`,
     );
   } finally {
     await sql.end();
