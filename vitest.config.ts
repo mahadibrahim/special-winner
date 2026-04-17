@@ -5,7 +5,9 @@ export default defineConfig({
   test: {
     globals: true,
     testTimeout: 15000,
+    hookTimeout: 30000,
     passWithNoTests: true,
+    fileParallelism: false,
     include: ["tests/api/**/*.test.ts"],
     setupFiles: ["tests/api/setup/global-setup.ts"],
   },
