@@ -84,7 +84,7 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error creating venue:", error);
-    if (error.code === "23503") {
+    if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(JSON.stringify({ error: "Invalid location selected" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to create venue" }), { status: 500 });
@@ -131,7 +131,7 @@ export const PUT: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error updating venue:", error);
-    if (error.code === "23503") {
+    if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(JSON.stringify({ error: "Invalid location selected" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to update venue" }), { status: 500 });
@@ -163,7 +163,7 @@ export const DELETE: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error deleting venue:", error);
-    if (error.code === "23503") {
+    if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(
         JSON.stringify({ error: "Cannot delete venue that has games scheduled" }),
         { status: 400 }
