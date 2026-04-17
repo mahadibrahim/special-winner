@@ -186,7 +186,7 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error creating team:", error);
-    if (error.code === "23503") {
+    if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(JSON.stringify({ error: "Invalid season or coach selected" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to create team" }), { status: 500 });
@@ -267,7 +267,7 @@ export const PUT: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error updating team:", error);
-    if (error.code === "23503") {
+    if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(JSON.stringify({ error: "Invalid season or coach selected" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to update team" }), { status: 500 });
@@ -318,7 +318,7 @@ export const DELETE: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error deleting team:", error);
-    if (error.code === "23503") {
+    if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(
         JSON.stringify({ error: "Cannot delete team that has games or roster entries" }),
         { status: 400 }
