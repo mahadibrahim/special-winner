@@ -26,6 +26,7 @@ import {
   Tag,
   ListOrdered,
   BarChart3,
+  ShoppingBag,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -59,6 +60,7 @@ const navigation = [
   { name: "Refunds", href: "/admin/refunds", icon: RefreshCcw },
   { name: "Payments", href: "/admin/payments", icon: CreditCard },
   { name: "Discount Codes", href: "/admin/discount-codes", icon: Tag },
+  { name: "Gear", href: "/admin/gear", icon: ShoppingBag },
   { name: "Users", href: "/admin/users", icon: Users },
   { name: "Messages", href: "/messages", icon: MessageSquare },
   { name: "Announcements", href: "/admin/announcements", icon: Megaphone },

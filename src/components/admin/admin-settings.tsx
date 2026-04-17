@@ -1,21 +1,94 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Settings, Building2, Bell, CreditCard, Shield, Mail } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useEffect, useState } from "react";
+import { Bell, Building2, CreditCard, Loader2, Mail, Shield } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  ExternalStoreSettings,
+  type ExternalStoreValue,
+} from "./external-store-settings";
 
 export function AdminSettings() {
-  const [activeTab, setActiveTab] = useState("general")
+  const [activeTab, setActiveTab] = useState("general");
+  const [externalStore, setExternalStore] =
+    useState<ExternalStoreValue | null>(null);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/organizations/settings");
+        if (!res.ok) throw new Error("Failed to load settings");
+        const json = await res.json();
+        if (cancelled) return;
+        setExternalStore(json.settings?.externalStore ?? null);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Load failed");
+        }
+      } finally {
+        if (!cancelled) setInitialLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function saveExternalStore() {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/organizations/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { externalStore } }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save");
+      }
+      const json = await res.json();
+      setExternalStore(json.settings?.externalStore ?? null);
+      setSavedAt(Date.now());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">Manage organization settings and preferences</p>
+        <p className="text-gray-600 mt-1">
+          Manage organization settings and preferences
+        </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
         <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
@@ -39,17 +112,43 @@ export function AdminSettings() {
           <Card>
             <CardHeader>
               <CardTitle>Organization Settings</CardTitle>
-              <CardDescription>Manage your organization details and branding</CardDescription>
+              <CardDescription>
+                Manage your organization details and branding
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-8 text-center border-2 border-dashed rounded-lg">
-                <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-semibold text-lg mb-2">Organization Settings</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Organization settings are managed at the organization level.
-                  Contact your administrator to modify organization details.
-                </p>
-              </div>
+              {!initialLoaded ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {error && (
+                    <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
+                      {error}
+                    </div>
+                  )}
+
+                  <ExternalStoreSettings
+                    value={externalStore}
+                    onChange={setExternalStore}
+                  />
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    {savedAt && !isSaving && (
+                      <span className="text-sm text-muted-foreground">
+                        Saved
+                      </span>
+                    )}
+                    <Button onClick={saveExternalStore} disabled={isSaving}>
+                      {isSaving && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
+                      Save Changes
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -58,12 +157,16 @@ export function AdminSettings() {
           <Card>
             <CardHeader>
               <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>Configure email notifications and alerts</CardDescription>
+              <CardDescription>
+                Configure email notifications and alerts
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="p-8 text-center border-2 border-dashed rounded-lg">
                 <Mail className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-semibold text-lg mb-2">Email Notifications</h3>
+                <h3 className="font-semibold text-lg mb-2">
+                  Email Notifications
+                </h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
                   Email notifications are sent automatically for registrations,
                   payments, and announcements. Configure your email templates
@@ -78,16 +181,20 @@ export function AdminSettings() {
           <Card>
             <CardHeader>
               <CardTitle>Payment Settings</CardTitle>
-              <CardDescription>Configure Stripe and payment options</CardDescription>
+              <CardDescription>
+                Configure Stripe and payment options
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="p-8 text-center border-2 border-dashed rounded-lg">
                 <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-semibold text-lg mb-2">Stripe Integration</h3>
+                <h3 className="font-semibold text-lg mb-2">
+                  Stripe Integration
+                </h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Payment processing is handled through Stripe.
-                  Visit your Stripe dashboard to manage payment settings,
-                  view transactions, and configure payouts.
+                  Payment processing is handled through Stripe. Visit your
+                  Stripe dashboard to manage payment settings, view
+                  transactions, and configure payouts.
                 </p>
                 <a
                   href="https://dashboard.stripe.com"
@@ -106,21 +213,25 @@ export function AdminSettings() {
           <Card>
             <CardHeader>
               <CardTitle>Security Settings</CardTitle>
-              <CardDescription>Manage access controls and security options</CardDescription>
+              <CardDescription>
+                Manage access controls and security options
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="p-8 text-center border-2 border-dashed rounded-lg">
                 <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-semibold text-lg mb-2">Security Configuration</h3>
+                <h3 className="font-semibold text-lg mb-2">
+                  Security Configuration
+                </h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Security settings are managed system-wide.
-                  User roles and permissions can be configured in the Users section.
+                  Security settings are managed system-wide. User roles and
+                  permissions can be configured in the Users section.
                 </p>
                 <a
                   href="/admin/users"
                   className="inline-flex items-center gap-2 mt-4 text-primary hover:underline"
                 >
-                  Manage Users & Roles
+                  Manage Users &amp; Roles
                 </a>
               </div>
             </CardContent>
@@ -128,5 +239,5 @@ export function AdminSettings() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

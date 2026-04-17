@@ -26,3 +26,7 @@ export * from "./staff-notifications";
 
 // Discount schemas
 export * from "./discounts";
+
+// Commerce / gear
+export * from "./products";
+export * from "./program-gear";
