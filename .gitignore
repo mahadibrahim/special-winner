@@ -32,3 +32,6 @@ test-results/
 
 # Superpowers brainstorming
 .superpowers/
+
+# Git worktrees (isolated workspaces for parallel development)
+.worktrees/
