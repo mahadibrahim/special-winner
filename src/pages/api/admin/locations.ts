@@ -80,7 +80,7 @@ export const POST: APIRoute = async (context) => {
     return new Response(JSON.stringify({ location: newLocation }), { status: 201 });
   } catch (error: any) {
     console.error("Error creating location:", error);
-    if (error.code === "23505") {
+    if (error.code === "23505" || error.cause?.code === "23505") {
       return new Response(JSON.stringify({ error: "A location with this slug already exists" }), { status: 409 });
     }
     return new Response(JSON.stringify({ error: "Failed to create location" }), { status: 500 });
@@ -153,7 +153,7 @@ export const DELETE: APIRoute = async (context) => {
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     console.error("Error deleting location:", error);
-    if (error.code === "23503") {
+    if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(
         JSON.stringify({ error: "Cannot delete location that has programs associated with it" }),
         { status: 400 }
