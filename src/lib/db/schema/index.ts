@@ -29,3 +29,4 @@ export * from "./discounts";
 
 // Commerce / gear
 export * from "./products";
+export * from "./program-gear";
