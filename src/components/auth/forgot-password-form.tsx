@@ -43,16 +43,16 @@ export function ForgotPasswordForm() {
   if (success) {
     return (
       <div className="space-y-5">
-        <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-sm p-4 rounded-xl flex items-start gap-3">
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm p-4 rounded-xl flex items-start gap-3">
           <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">Check your email</p>
-            <p className="mt-1 text-green-400/80">
+            <p className="mt-1 text-green-600">
               If an account exists with the email <strong>{email}</strong>, you will receive a password reset link shortly.
             </p>
           </div>
         </div>
-        <p className="text-gray-400 text-sm text-center">
+        <p className="text-ink-muted text-sm text-center">
           Didn't receive an email?{" "}
           <button
             onClick={() => {
@@ -78,7 +78,7 @@ export function ForgotPasswordForm() {
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-gray-300">Email</Label>
+        <Label htmlFor="email" className="text-ink-muted">Email</Label>
         <Input
           id="email"
           type="email"
@@ -87,7 +87,7 @@ export function ForgotPasswordForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           disabled={isLoading}
-          className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50"
+          className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
         />
       </div>
 

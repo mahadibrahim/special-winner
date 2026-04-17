@@ -59,11 +59,11 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   if (success) {
     return (
       <div className="space-y-5">
-        <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-sm p-4 rounded-xl flex items-start gap-3">
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm p-4 rounded-xl flex items-start gap-3">
           <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">Password reset successful</p>
-            <p className="mt-1 text-green-400/80">
+            <p className="mt-1 text-green-600">
               Your password has been updated. You can now sign in with your new password.
             </p>
           </div>
@@ -88,7 +88,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-gray-300">New Password</Label>
+        <Label htmlFor="password" className="text-ink-muted">New Password</Label>
         <div className="relative">
           <Input
             id="password"
@@ -98,21 +98,21 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={isLoading}
-            className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50 pr-10"
+            className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50 pr-10"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-muted"
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-xs text-gray-500">Minimum 8 characters</p>
+        <p className="text-xs text-ink-faint">Minimum 8 characters</p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
+        <Label htmlFor="confirmPassword" className="text-ink-muted">Confirm Password</Label>
         <Input
           id="confirmPassword"
           type={showPassword ? "text" : "password"}
@@ -121,7 +121,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
           disabled={isLoading}
-          className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50"
+          className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
         />
       </div>
 

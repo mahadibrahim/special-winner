@@ -83,12 +83,12 @@ const statusConfig: Record<string, { label: string; icon: typeof CheckCircle2; c
   cancelled: {
     label: "Cancelled",
     icon: XCircle,
-    className: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+    className: "bg-gray-500/10 text-ink-muted border-gray-500/20",
   },
   refunded: {
     label: "Refunded",
     icon: XCircle,
-    className: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+    className: "bg-gray-500/10 text-ink-muted border-gray-500/20",
   },
 }
 
@@ -297,16 +297,16 @@ export default function RegistrationsCard() {
   }
 
   return (
-    <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="p-6 border-b border-white/[0.06]">
+    <div className="bg-paper border border-border rounded-2xl overflow-hidden">
+      <div className="p-6 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <ClipboardList className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">My Registrations</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="font-semibold text-ink">My Registrations</h3>
+              <p className="text-sm text-ink-muted">
                 {registrations.length} {registrations.length === 1 ? "registration" : "registrations"}
               </p>
             </div>
@@ -334,12 +334,12 @@ export default function RegistrationsCard() {
           </div>
         ) : registrations.length === 0 ? (
           <div className="text-center py-8">
-            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
-              <ClipboardList className="w-6 h-6 text-gray-500" />
+            <div className="w-12 h-12 rounded-full bg-cream-2 flex items-center justify-center mx-auto mb-3">
+              <ClipboardList className="w-6 h-6 text-ink-muted" />
             </div>
-            <p className="text-gray-400 mb-1">No registrations yet</p>
-            <p className="text-sm text-gray-500 mb-4">Browse programs and register your children</p>
-            <Button asChild variant="outline" className="border-white/10 text-white hover:bg-white/5">
+            <p className="text-ink-muted mb-1">No registrations yet</p>
+            <p className="text-sm text-ink-muted mb-4">Browse programs and register your children</p>
+            <Button asChild variant="outline" className="border-border text-ink hover:bg-cream-2">
               <a href="/#programs">Find Programs</a>
             </Button>
           </div>
@@ -353,7 +353,7 @@ export default function RegistrationsCard() {
               return (
                 <div
                   key={reg.id}
-                  className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.1] transition-colors"
+                  className="p-4 rounded-xl bg-paper border border-border hover:border-border transition-colors"
                 >
                   <div className="flex items-start gap-4">
                     {/* Sport Icon */}
@@ -371,8 +371,8 @@ export default function RegistrationsCard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div>
-                          <h4 className="font-semibold text-white">{reg.season.name}</h4>
-                          <p className="text-sm text-gray-400">
+                          <h4 className="font-semibold text-ink">{reg.season.name}</h4>
+                          <p className="text-sm text-ink-muted">
                             {reg.familyMember.firstName} {reg.familyMember.lastName}
                           </p>
                         </div>
@@ -382,7 +382,7 @@ export default function RegistrationsCard() {
                         </Badge>
                       </div>
 
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
                           {formatDateRange(reg.season.startDate, reg.season.endDate)}
@@ -396,10 +396,10 @@ export default function RegistrationsCard() {
 
                       {/* Actions section */}
                       {(reg.status === "pending" && reg.paymentStatus === "unpaid") || canCancel(reg.status) || canEdit(reg.status) ? (
-                        <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+                        <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                           {reg.status === "pending" && reg.paymentStatus === "unpaid" ? (
-                            <span className="text-sm text-gray-400">
-                              Amount due: <span className="text-white font-medium">${(reg.amountDueCents / 100).toFixed(2)}</span>
+                            <span className="text-sm text-ink-muted">
+                              Amount due: <span className="text-ink font-medium">${(reg.amountDueCents / 100).toFixed(2)}</span>
                             </span>
                           ) : (
                             <span />
@@ -410,7 +410,7 @@ export default function RegistrationsCard() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openEditDialog(reg)}
-                                className="border-white/20 text-gray-300 hover:bg-white/5"
+                                className="border-border text-ink-2 hover:bg-cream-2"
                               >
                                 <Pencil className="w-3.5 h-3.5 mr-1" />
                                 Edit
@@ -446,23 +446,23 @@ export default function RegistrationsCard() {
 
       {/* Cancel Confirmation Dialog */}
       <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-        <DialogContent className="bg-[#1a1a24] border-white/10 text-white sm:max-w-[450px]">
+        <DialogContent className="bg-cream border-border text-ink sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Ban className="w-5 h-5" />
               Cancel Registration
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogDescription className="text-ink-muted">
               {cancelResult ? (
                 "Your registration has been cancelled."
               ) : (
                 <>
                   Are you sure you want to cancel{" "}
-                  <span className="text-white font-medium">
+                  <span className="text-ink font-medium">
                     {cancellingRegistration?.familyMember.firstName}'s
                   </span>{" "}
                   registration for{" "}
-                  <span className="text-white font-medium">
+                  <span className="text-ink font-medium">
                     {cancellingRegistration?.season.name}
                   </span>
                   ?
@@ -473,18 +473,18 @@ export default function RegistrationsCard() {
 
           {cancelResult ? (
             <div className="py-4">
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
+              <div className="p-4 rounded-xl bg-paper border border-border space-y-3">
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle2 className="w-5 h-5" />
                   <span className="font-medium">Registration Cancelled</span>
                 </div>
                 {cancelResult.refundAmountCents > 0 ? (
-                  <div className="text-sm text-gray-400">
-                    <p className="mb-1">Refund Amount: <span className="text-white font-medium">${(cancelResult.refundAmountCents / 100).toFixed(2)}</span></p>
+                  <div className="text-sm text-ink-muted">
+                    <p className="mb-1">Refund Amount: <span className="text-ink font-medium">${(cancelResult.refundAmountCents / 100).toFixed(2)}</span></p>
                     <p>{cancelResult.message}</p>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400">{cancelResult.message}</p>
+                  <p className="text-sm text-ink-muted">{cancelResult.message}</p>
                 )}
               </div>
             </div>
@@ -502,7 +502,7 @@ export default function RegistrationsCard() {
 
               {/* Reason input */}
               <div className="space-y-2">
-                <Label htmlFor="cancelReason" className="text-gray-300">
+                <Label htmlFor="cancelReason" className="text-ink-2">
                   Reason for cancellation (optional)
                 </Label>
                 <Input
@@ -510,7 +510,7 @@ export default function RegistrationsCard() {
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   placeholder="Let us know why you're cancelling"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                  className="bg-cream-2 border-border text-ink placeholder:text-ink-muted"
                 />
               </div>
             </div>
@@ -530,7 +530,7 @@ export default function RegistrationsCard() {
                   type="button"
                   variant="outline"
                   onClick={closeCancelDialog}
-                  className="border-white/10 text-gray-300 hover:bg-white/5"
+                  className="border-border text-ink-2 hover:bg-cream-2"
                 >
                   Keep Registration
                 </Button>
@@ -559,19 +559,19 @@ export default function RegistrationsCard() {
 
       {/* Edit Registration Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="bg-[#1a1a24] border-white/10 text-white sm:max-w-[450px]">
+        <DialogContent className="bg-cream border-border text-ink sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="w-5 h-5 text-primary" />
               Edit Registration
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogDescription className="text-ink-muted">
               Update registration details for{" "}
-              <span className="text-white font-medium">
+              <span className="text-ink font-medium">
                 {editingRegistration?.familyMember.firstName}
               </span>{" "}
               in{" "}
-              <span className="text-white font-medium">
+              <span className="text-ink font-medium">
                 {editingRegistration?.season.name}
               </span>
             </DialogDescription>
@@ -584,14 +584,14 @@ export default function RegistrationsCard() {
                   <CheckCircle2 className="w-5 h-5" />
                   <span className="font-medium">Registration Updated</span>
                 </div>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-ink-muted">
                   <p className="mb-2">
                     You've upgraded to full payment. Additional amount due:{" "}
-                    <span className="text-white font-medium">
+                    <span className="text-ink font-medium">
                       ${(editResult.additionalAmountCents / 100).toFixed(2)}
                     </span>
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-ink-muted">
                     Complete your payment to finalize the upgrade.
                   </p>
                 </div>
@@ -601,18 +601,18 @@ export default function RegistrationsCard() {
             <div className="py-4 space-y-4">
               {/* Registration Type */}
               <div className="space-y-2">
-                <Label htmlFor="registrationType" className="text-gray-300">
+                <Label htmlFor="registrationType" className="text-ink-2">
                   Payment Type
                 </Label>
                 <Select value={editRegistrationType} onValueChange={setEditRegistrationType}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectTrigger className="bg-cream-2 border-border text-ink">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a1a24] border-white/10">
-                    <SelectItem value="deposit" className="text-gray-300">
+                  <SelectContent className="bg-cream border-border">
+                    <SelectItem value="deposit" className="text-ink-2">
                       Deposit Only
                     </SelectItem>
-                    <SelectItem value="full" className="text-gray-300">
+                    <SelectItem value="full" className="text-ink-2">
                       Full Payment
                     </SelectItem>
                   </SelectContent>
@@ -631,7 +631,7 @@ export default function RegistrationsCard() {
 
               {/* Notes */}
               <div className="space-y-2">
-                <Label htmlFor="editNotes" className="text-gray-300">
+                <Label htmlFor="editNotes" className="text-ink-2">
                   Notes (optional)
                 </Label>
                 <Textarea
@@ -640,7 +640,7 @@ export default function RegistrationsCard() {
                   onChange={(e) => setEditNotes(e.target.value)}
                   placeholder="Any special requests or information"
                   rows={3}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 resize-none"
+                  className="bg-cream-2 border-border text-ink placeholder:text-ink-muted resize-none"
                 />
               </div>
             </div>
@@ -652,7 +652,7 @@ export default function RegistrationsCard() {
                 <Button
                   variant="outline"
                   onClick={closeEditDialog}
-                  className="border-white/10 text-gray-300 hover:bg-white/5"
+                  className="border-border text-ink-2 hover:bg-cream-2"
                 >
                   Pay Later
                 </Button>
@@ -666,7 +666,7 @@ export default function RegistrationsCard() {
                   type="button"
                   variant="outline"
                   onClick={closeEditDialog}
-                  className="border-white/10 text-gray-300 hover:bg-white/5"
+                  className="border-border text-ink-2 hover:bg-cream-2"
                 >
                   Cancel
                 </Button>

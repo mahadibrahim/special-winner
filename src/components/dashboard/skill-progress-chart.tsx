@@ -55,7 +55,7 @@ function SkillBar({ skill }: { skill: SkillData }) {
   const trend = skill.current - skill.previous
   const trendIcon = trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus
   const TrendIcon = trendIcon
-  const trendColor = trend > 0 ? "text-emerald-400" : trend < 0 ? "text-red-400" : "text-gray-500"
+  const trendColor = trend > 0 ? "text-emerald-400" : trend < 0 ? "text-red-400" : "text-ink-muted"
 
   const levelLabels = ["Beginner", "Developing", "Competent", "Proficient", "Advanced"]
   const levelColors = [
@@ -67,11 +67,11 @@ function SkillBar({ skill }: { skill: SkillData }) {
   ]
 
   return (
-    <div className="group p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all">
+    <div className="group p-4 rounded-xl bg-paper border border-border hover:border-border transition-all">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h4 className="font-medium text-white text-sm">{skill.name}</h4>
-          <p className="text-xs text-gray-500">{levelLabels[skill.current - 1] || "Assessing"}</p>
+          <h4 className="font-medium text-ink text-sm">{skill.name}</h4>
+          <p className="text-xs text-ink-muted">{levelLabels[skill.current - 1] || "Assessing"}</p>
         </div>
         <div className="flex items-center gap-1.5">
           <TrendIcon className={cn("w-3.5 h-3.5", trendColor)} />
@@ -82,7 +82,7 @@ function SkillBar({ skill }: { skill: SkillData }) {
       </div>
 
       {/* Progress Bar */}
-      <div className="relative h-2 bg-white/10 rounded-full overflow-hidden mb-3">
+      <div className="relative h-2 bg-cream-3 rounded-full overflow-hidden mb-3">
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full bg-gradient-to-r transition-all duration-500",
@@ -95,7 +95,7 @@ function SkillBar({ skill }: { skill: SkillData }) {
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="flex-1 border-r border-white/20 last:border-0"
+              className="flex-1 border-r border-border last:border-0"
             />
           ))}
         </div>
@@ -203,7 +203,7 @@ export function SkillRadarPlaceholder({ skills }: { skills: SkillData[] }) {
       {points.map((point, index) => (
         <div
           key={index}
-          className="absolute text-[10px] text-gray-400 whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2"
+          className="absolute text-[10px] text-ink-muted whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2"
           style={{
             left: `${point.labelX}%`,
             top: `${point.labelY}%`,

@@ -97,7 +97,7 @@ const statusConfig: Record<PaymentStatus, {
   },
   processing: {
     icon: TrendingUp,
-    color: "text-blue-400",
+    color: "text-primary",
     bg: "bg-blue-500/10",
     label: "Processing"
   },
@@ -139,13 +139,13 @@ export default function PaymentsSummary() {
             <CreditCard className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-white">Payments</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-xl font-semibold text-ink">Payments</h2>
+            <p className="text-sm text-ink-muted">
               {pendingPayments.length} upcoming payment{pendingPayments.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white gap-1" asChild>
+        <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink gap-1" asChild>
           <a href="/dashboard/payments">
             View All
             <ChevronRight className="w-4 h-4" />
@@ -155,9 +155,9 @@ export default function PaymentsSummary() {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-          <div className="text-xs text-gray-500 mb-1">Pending</div>
-          <div className="text-2xl font-bold text-white">{formatCurrency(totalPending)}</div>
+        <div className="p-4 rounded-xl bg-paper border border-border">
+          <div className="text-xs text-ink-muted mb-1">Pending</div>
+          <div className="text-2xl font-bold text-ink">{formatCurrency(totalPending)}</div>
           {pendingPayments.length > 0 && (
             <div className="text-xs text-amber-400 mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" />
@@ -165,9 +165,9 @@ export default function PaymentsSummary() {
             </div>
           )}
         </div>
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-          <div className="text-xs text-gray-500 mb-1">Paid This Season</div>
-          <div className="text-2xl font-bold text-white">{formatCurrency(totalPaid)}</div>
+        <div className="p-4 rounded-xl bg-paper border border-border">
+          <div className="text-xs text-ink-muted mb-1">Paid This Season</div>
+          <div className="text-2xl font-bold text-ink">{formatCurrency(totalPaid)}</div>
           <div className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
             All caught up
@@ -178,7 +178,7 @@ export default function PaymentsSummary() {
       {/* Pending Payments */}
       {pendingPayments.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-400">Upcoming</h3>
+          <h3 className="text-sm font-medium text-ink-muted">Upcoming</h3>
           <div className="space-y-2">
             {pendingPayments.map((payment) => {
               const config = statusConfig[payment.status]
@@ -188,20 +188,20 @@ export default function PaymentsSummary() {
               return (
                 <div
                   key={payment.id}
-                  className="group flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all cursor-pointer"
+                  className="group flex items-center gap-3 p-3 rounded-xl bg-paper border border-border hover:border-border transition-all cursor-pointer"
                 >
                   <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", config.bg)}>
                     <Icon className={cn("w-4 h-4", config.color)} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white truncate">
+                      <span className="text-sm font-medium text-ink truncate">
                         {payment.description}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-ink-muted">
                       <span>{payment.childName}</span>
-                      <span className="text-gray-700">•</span>
+                      <span className="text-ink-faint">•</span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         Due {formatDate(payment.dueDate!)}
@@ -212,7 +212,7 @@ export default function PaymentsSummary() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-white">{formatCurrency(payment.amount)}</div>
+                    <div className="font-semibold text-ink">{formatCurrency(payment.amount)}</div>
                     <Button size="sm" className="mt-1 h-7 text-xs">
                       Pay Now
                     </Button>
@@ -227,33 +227,33 @@ export default function PaymentsSummary() {
       {/* Recent Payments */}
       {recentPayments.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-400">Recent</h3>
+          <h3 className="text-sm font-medium text-ink-muted">Recent</h3>
           <div className="space-y-1">
             {recentPayments.map((payment) => (
               <div
                 key={payment.id}
-                className="group flex items-center gap-3 p-3 rounded-lg hover:bg-white/[0.02] transition-all cursor-pointer"
+                className="group flex items-center gap-3 p-3 rounded-lg hover:bg-paper transition-all cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-300 truncate">
+                  <div className="text-sm text-ink-2 truncate">
                     {payment.description}
                   </div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-ink-faint">
                     {payment.childName} • Paid {formatDate(payment.paidDate!)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400">
+                  <span className="text-sm text-ink-muted">
                     {formatCurrency(payment.amount)}
                   </span>
                   {payment.invoiceUrl && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-7 h-7 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="w-7 h-7 text-ink-muted hover:text-ink opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Download className="w-4 h-4" />
                     </Button>
@@ -269,7 +269,7 @@ export default function PaymentsSummary() {
       <div className="pt-2">
         <Button
           variant="ghost"
-          className="w-full justify-between text-gray-500 hover:text-white hover:bg-white/[0.02] border border-transparent hover:border-white/[0.06]"
+          className="w-full justify-between text-ink-muted hover:text-ink hover:bg-paper border border-transparent hover:border-border"
         >
           <span className="flex items-center gap-2">
             <Receipt className="w-4 h-4" />

@@ -163,14 +163,14 @@ const sportGradients: Record<string, string> = {
 const eventTypeColors: Record<string, string> = {
   game: "text-amber-400 bg-amber-500/10",
   practice: "text-emerald-400 bg-emerald-500/10",
-  class: "text-blue-400 bg-blue-500/10",
+  class: "text-primary bg-blue-500/10",
   camp: "text-purple-400 bg-purple-500/10",
 }
 
 const noteCategories: Record<string, { color: string; icon: typeof Star }> = {
   progress: { color: "text-emerald-400", icon: TrendingUp },
   achievement: { color: "text-amber-400", icon: Award },
-  focus: { color: "text-blue-400", icon: Target },
+  focus: { color: "text-primary", icon: Target },
   encouragement: { color: "text-pink-400", icon: Star },
 }
 
@@ -188,7 +188,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
   return (
     <div className="space-y-6">
       {/* Back Navigation */}
-      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white -ml-2" asChild>
+      <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink -ml-2" asChild>
         <a href="/dashboard">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
@@ -196,7 +196,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
       </Button>
 
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/[0.04] to-transparent border border-white/[0.08]">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/[0.04] to-transparent border border-border">
         {/* Background decorations */}
         <div className={cn("absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-20 bg-gradient-to-br", gradient)} />
         <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full blur-3xl opacity-10 bg-primary" />
@@ -206,14 +206,14 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
             {/* Avatar */}
             <div className="relative flex-shrink-0">
               <div className={cn("w-24 h-24 sm:w-32 sm:h-32 rounded-2xl bg-gradient-to-br p-1", gradient)}>
-                <div className="w-full h-full rounded-xl bg-[#0a0a0f] flex items-center justify-center">
-                  <span className="text-3xl sm:text-4xl font-bold text-white">
+                <div className="w-full h-full rounded-xl bg-cream flex items-center justify-center">
+                  <span className="text-3xl sm:text-4xl font-bold text-ink">
                     {child.firstName[0]}{child.lastName[0]}
                   </span>
                 </div>
               </div>
-              <button className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors">
-                <Camera className="w-4 h-4 text-gray-400" />
+              <button className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-cream-3 border border-border flex items-center justify-center hover:bg-cream-3 transition-colors">
+                <Camera className="w-4 h-4 text-ink-muted" />
               </button>
               {child.stats.coachRating >= 4.5 && (
                 <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
@@ -226,16 +226,16 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
             <div className="flex-1">
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-ink mb-1">
                     {child.firstName} {child.lastName}
                   </h1>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400">
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-ink-muted">
                     <span>Age {child.age}</span>
-                    <span className="text-gray-600">•</span>
+                    <span className="text-ink-faint">•</span>
                     <span>Born {child.dateOfBirth.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                <Button variant="ghost" size="icon" className="text-ink-muted hover:text-ink">
                   <MoreHorizontal className="w-5 h-5" />
                 </Button>
               </div>
@@ -243,9 +243,9 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
               {/* Current Programs */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {child.programs.filter(p => p.status === "active").map((program) => (
-                  <Badge key={program.id} className="bg-white/10 text-white border-white/20">
+                  <Badge key={program.id} className="bg-cream-3 text-ink border-border">
                     {program.team || program.name}
-                    {program.role && <span className="text-gray-400 ml-1">• {program.role}</span>}
+                    {program.role && <span className="text-ink-muted ml-1">• {program.role}</span>}
                   </Badge>
                 ))}
               </div>
@@ -258,12 +258,12 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                   { label: "Achievements", value: child.stats.achievementsEarned, icon: Award },
                   { label: "Coach Rating", value: child.stats.coachRating.toFixed(1), icon: Star },
                 ].map((stat) => (
-                  <div key={stat.label} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                  <div key={stat.label} className="p-3 rounded-xl bg-cream-2 border border-border">
                     <div className="flex items-center gap-2 mb-1">
-                      <stat.icon className="w-3.5 h-3.5 text-gray-500" />
-                      <span className="text-xs text-gray-500">{stat.label}</span>
+                      <stat.icon className="w-3.5 h-3.5 text-ink-muted" />
+                      <span className="text-xs text-ink-muted">{stat.label}</span>
                     </div>
-                    <span className="text-xl font-bold text-white">{stat.value}</span>
+                    <span className="text-xl font-bold text-ink">{stat.value}</span>
                   </div>
                 ))}
               </div>
@@ -273,7 +273,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 p-1 rounded-xl bg-white/[0.02] border border-white/[0.06] overflow-x-auto">
+      <div className="flex gap-1 p-1 rounded-xl bg-paper border border-border overflow-x-auto">
         {[
           { key: "overview", label: "Overview", icon: Users },
           { key: "progress", label: "Progress", icon: TrendingUp },
@@ -287,8 +287,8 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
             className={cn(
               "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
               activeTab === key
-                ? "bg-white/10 text-white"
-                : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                ? "bg-cream-3 text-ink"
+                : "text-ink-muted hover:text-ink-2 hover:bg-cream-2"
             )}
           >
             <Icon className="w-4 h-4" />
@@ -305,7 +305,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
             <>
               {/* Current Programs */}
               <section>
-                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
                   <Dumbbell className="w-5 h-5 text-primary" />
                   Current Programs
                 </h2>
@@ -313,35 +313,35 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                   {child.programs.map((program) => (
                     <div
                       key={program.id}
-                      className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all"
+                      className="p-4 rounded-xl bg-paper border border-border hover:border-border transition-all"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-white">{program.name}</h3>
+                            <h3 className="font-semibold text-ink">{program.name}</h3>
                             <Badge variant="outline" className={cn(
                               "text-xs",
                               program.status === "active" ? "border-emerald-500/50 text-emerald-400" :
                               program.status === "upcoming" ? "border-amber-500/50 text-amber-400" :
-                              "border-gray-500/50 text-gray-400"
+                              "border-gray-500/50 text-ink-muted"
                             )}>
                               {program.status}
                             </Badge>
                           </div>
-                          <p className="text-sm text-gray-400">{program.team || program.sport}</p>
+                          <p className="text-sm text-ink-muted">{program.team || program.sport}</p>
                         </div>
-                        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                        <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink">
                           <ChevronRight className="w-4 h-4" />
                         </Button>
                       </div>
                       {program.schedule && (
-                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                        <div className="flex items-center gap-2 text-sm text-ink-muted mb-2">
                           <Clock className="w-3.5 h-3.5" />
                           {program.schedule}
                         </div>
                       )}
                       {program.location && (
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <div className="flex items-center gap-2 text-sm text-ink-muted">
                           <MapPin className="w-3.5 h-3.5" />
                           {program.location}
                         </div>
@@ -354,11 +354,11 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
               {/* Development Progress Preview */}
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-primary" />
                     Development Progress
                   </h2>
-                  <Button variant="ghost" size="sm" onClick={() => setActiveTab("progress")} className="text-gray-400 hover:text-white">
+                  <Button variant="ghost" size="sm" onClick={() => setActiveTab("progress")} className="text-ink-muted hover:text-ink">
                     View All
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
@@ -371,7 +371,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
           {activeTab === "progress" && (
             <section>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-primary" />
                   Development Progress
                 </h2>
@@ -388,7 +388,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
 
           {activeTab === "schedule" && (
             <section>
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-primary" />
                 Upcoming Schedule
               </h2>
@@ -396,13 +396,13 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                 {child.upcomingEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all"
+                    className="flex items-center gap-4 p-4 rounded-xl bg-paper border border-border hover:border-border transition-all"
                   >
                     <div className="text-center w-12">
-                      <div className="text-[10px] font-bold text-gray-500 uppercase">
+                      <div className="text-[10px] font-bold text-ink-muted uppercase">
                         {event.date.toLocaleDateString("en-US", { weekday: "short" })}
                       </div>
-                      <div className="text-xl font-bold text-white">
+                      <div className="text-xl font-bold text-ink">
                         {event.date.getDate()}
                       </div>
                     </div>
@@ -413,8 +413,8 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                        <Users className="w-5 h-5" />}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-white">{event.title}</h4>
-                      <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <h4 className="font-medium text-ink">{event.title}</h4>
+                      <div className="flex items-center gap-3 text-sm text-ink-muted">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {event.time}
@@ -425,7 +425,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                         </span>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-600" />
+                    <ChevronRight className="w-4 h-4 text-ink-faint" />
                   </div>
                 ))}
               </div>
@@ -434,7 +434,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
 
           {activeTab === "notes" && (
             <section>
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-primary" />
                 Coach Notes
               </h2>
@@ -445,21 +445,21 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                   return (
                     <div
                       key={note.id}
-                      className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all cursor-pointer"
+                      className="p-4 rounded-xl bg-paper border border-border hover:border-border transition-all cursor-pointer"
                     >
                       <div className="flex items-start gap-3">
-                        <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center bg-white/5", config.color)}>
+                        <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center bg-cream-2", config.color)}>
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-medium text-white">{note.title}</h4>
-                            <span className="text-xs text-gray-500">
+                            <h4 className="font-medium text-ink">{note.title}</h4>
+                            <span className="text-xs text-ink-muted">
                               {note.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-400 mb-2">{note.preview}</p>
-                          <span className="text-xs text-gray-500">{note.coachName}</span>
+                          <p className="text-sm text-ink-muted mb-2">{note.preview}</p>
+                          <span className="text-xs text-ink-muted">{note.coachName}</span>
                         </div>
                       </div>
                     </div>
@@ -471,7 +471,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
 
           {activeTab === "achievements" && (
             <section>
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
                 <Award className="w-5 h-5 text-primary" />
                 Achievements
               </h2>
@@ -483,8 +483,8 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Upcoming Events Quick View */}
-          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-            <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+          <div className="p-5 rounded-2xl bg-paper border border-border">
+            <h3 className="font-semibold text-ink mb-4 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-primary" />
               Next Up
             </h3>
@@ -495,20 +495,20 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                     {event.date.getDate()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{event.title}</p>
-                    <p className="text-xs text-gray-500">{event.time}</p>
+                    <p className="text-sm text-ink truncate">{event.title}</p>
+                    <p className="text-xs text-ink-muted">{event.time}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setActiveTab("schedule")} className="w-full mt-3 text-gray-400 hover:text-white">
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab("schedule")} className="w-full mt-3 text-ink-muted hover:text-ink">
               View Full Schedule
             </Button>
           </div>
 
           {/* Recent Achievements */}
-          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-            <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+          <div className="p-5 rounded-2xl bg-paper border border-border">
+            <h3 className="font-semibold text-ink mb-4 flex items-center gap-2">
               <Award className="w-4 h-4 text-amber-400" />
               Recent Achievements
             </h3>
@@ -516,16 +516,16 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
           </div>
 
           {/* Season History */}
-          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-            <h3 className="font-semibold text-white mb-4">Season History</h3>
+          <div className="p-5 rounded-2xl bg-paper border border-border">
+            <h3 className="font-semibold text-ink mb-4">Season History</h3>
             <div className="space-y-2">
               {child.seasonHistory.map((season, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-white/[0.06] last:border-0">
+                <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div>
-                    <p className="text-sm text-white">{season.program}</p>
-                    <p className="text-xs text-gray-500">{season.sport}</p>
+                    <p className="text-sm text-ink">{season.program}</p>
+                    <p className="text-xs text-ink-muted">{season.sport}</p>
                   </div>
-                  <span className="text-xs text-gray-400">{season.season}</span>
+                  <span className="text-xs text-ink-muted">{season.season}</span>
                 </div>
               ))}
             </div>

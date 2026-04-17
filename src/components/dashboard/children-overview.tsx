@@ -96,7 +96,7 @@ const sportColors: Record<string, string> = {
 function SkillBar({ level, trend }: { level: number; trend: string }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-cream-3 rounded-full overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-primary to-orange-500 rounded-full transition-all duration-500"
           style={{ width: `${(level / 5) * 100}%` }}
@@ -118,7 +118,7 @@ function ChildCard({ child }: { child: Child }) {
   const gradientClass = sportColors[primarySport] || "from-primary to-orange-500"
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all">
+    <div className="group relative overflow-hidden rounded-2xl bg-paper border border-border hover:border-border transition-all">
       {/* Gradient accent bar */}
       <div className={cn("absolute top-0 left-0 right-0 h-1 bg-gradient-to-r", gradientClass)} />
 
@@ -141,24 +141,24 @@ function ChildCard({ child }: { child: Child }) {
           {/* Name & Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-white text-lg">
+              <h3 className="font-semibold text-ink text-lg">
                 {child.firstName}
               </h3>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-ink-muted">
                 Age {child.age}
               </span>
             </div>
             {child.nextEvent && (
-              <p className="text-sm text-gray-400 mt-0.5">
-                Next: <span className="text-white">{child.nextEvent.title}</span>
-                <span className="text-gray-600"> • </span>
+              <p className="text-sm text-ink-muted mt-0.5">
+                Next: <span className="text-ink">{child.nextEvent.title}</span>
+                <span className="text-ink-faint"> • </span>
                 <span className="text-primary">{child.nextEvent.date}</span>
               </p>
             )}
           </div>
 
           {/* Actions */}
-          <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white -mr-2">
+          <Button variant="ghost" size="icon" className="text-ink-muted hover:text-ink -mr-2">
             <MoreHorizontal className="w-5 h-5" />
           </Button>
         </div>
@@ -170,8 +170,8 @@ function ChildCard({ child }: { child: Child }) {
               key={program.id}
               variant="outline"
               className={cn(
-                "border-white/10 text-xs font-medium",
-                program.status === "active" ? "text-white bg-white/5" : "text-gray-500"
+                "border-border text-xs font-medium",
+                program.status === "active" ? "text-ink bg-cream-2" : "text-ink-muted"
               )}
             >
               {program.team || program.name}
@@ -196,11 +196,11 @@ function ChildCard({ child }: { child: Child }) {
             onClick={() => setExpanded(!expanded)}
             className="flex items-center justify-between w-full text-left"
           >
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <span className="text-xs font-medium text-ink-muted uppercase tracking-wider">
               Development Progress
             </span>
             <ChevronRight className={cn(
-              "w-4 h-4 text-gray-600 transition-transform",
+              "w-4 h-4 text-ink-faint transition-transform",
               expanded && "rotate-90"
             )} />
           </button>
@@ -212,7 +212,7 @@ function ChildCard({ child }: { child: Child }) {
             <div className="overflow-hidden">
               {child.skillAssessments.map((assessment) => (
                 <div key={assessment.skill} className="flex items-center gap-3 py-2">
-                  <span className="text-sm text-gray-400 w-28 truncate">
+                  <span className="text-sm text-ink-muted w-28 truncate">
                     {assessment.skill}
                   </span>
                   <div className="flex-1">
@@ -226,7 +226,7 @@ function ChildCard({ child }: { child: Child }) {
           {!expanded && (
             <div className="flex gap-1">
               {child.skillAssessments.slice(0, 4).map((_, i) => (
-                <div key={i} className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                <div key={i} className="flex-1 h-1 bg-cream-3 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-primary/60 to-orange-500/60 rounded-full"
                     style={{ width: `${(child.skillAssessments[i].level / 5) * 100}%` }}
@@ -238,18 +238,18 @@ function ChildCard({ child }: { child: Child }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/[0.06]">
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 text-gray-400 hover:text-white hover:bg-white/5"
+            className="flex-1 text-ink-muted hover:text-ink hover:bg-cream-2"
           >
             View Profile
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 text-gray-400 hover:text-white hover:bg-white/5"
+            className="flex-1 text-ink-muted hover:text-ink hover:bg-cream-2"
           >
             Schedule
           </Button>
@@ -272,8 +272,8 @@ export default function ChildrenOverview() {
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Your Athletes</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h2 className="text-xl font-semibold text-ink">Your Athletes</h2>
+          <p className="text-sm text-ink-muted mt-0.5">
             {mockChildren.length} registered {mockChildren.length === 1 ? "child" : "children"}
           </p>
         </div>
@@ -292,12 +292,12 @@ export default function ChildrenOverview() {
 
       {/* Empty State */}
       {mockChildren.length === 0 && (
-        <div className="text-center py-12 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] border-dashed">
-          <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-            <Plus className="w-8 h-8 text-gray-600" />
+        <div className="text-center py-12 px-6 rounded-2xl bg-paper border border-border border-dashed">
+          <div className="w-16 h-16 rounded-full bg-cream-2 flex items-center justify-center mx-auto mb-4">
+            <Plus className="w-8 h-8 text-ink-faint" />
           </div>
-          <h3 className="text-lg font-medium text-white mb-2">Add Your First Child</h3>
-          <p className="text-gray-500 text-sm mb-4 max-w-sm mx-auto">
+          <h3 className="text-lg font-medium text-ink mb-2">Add Your First Child</h3>
+          <p className="text-ink-muted text-sm mb-4 max-w-sm mx-auto">
             Register your children to start signing them up for programs and tracking their progress.
           </p>
           <Button className="gap-2">

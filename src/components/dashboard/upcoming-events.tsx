@@ -100,8 +100,8 @@ const eventTypeConfig: Record<EventType, { icon: typeof Trophy; color: string; b
   },
   class: {
     icon: Users,
-    color: "text-blue-400",
-    bg: "bg-blue-500/20 border-blue-500/30"
+    color: "text-primary",
+    bg: "bg-primary/10 border-primary/20"
   },
   camp: {
     icon: Zap,
@@ -145,15 +145,15 @@ export default function UpcomingEvents() {
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
             <Calendar className="w-5 h-5 text-primary" />
             Upcoming Events
           </h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-ink-muted mt-0.5">
             {mockEvents.length} events this week
           </p>
         </div>
-        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white gap-1">
+        <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink gap-1">
           <Filter className="w-4 h-4" />
           Filter
         </Button>
@@ -178,31 +178,31 @@ export default function UpcomingEvents() {
 
             <div className="flex gap-5">
               {/* Date Block */}
-              <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex flex-col items-center justify-center">
-                <span className="text-[10px] font-bold text-gray-400 tracking-wider">
+              <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-cream-3 backdrop-blur-sm border border-border flex flex-col items-center justify-center">
+                <span className="text-[10px] font-bold text-ink-muted tracking-wider">
                   {formatDayOfWeek(nextEvent.date)}
                 </span>
-                <span className="text-2xl font-bold text-white leading-none">
+                <span className="text-2xl font-bold text-ink leading-none">
                   {formatDayNumber(nextEvent.date)}
                 </span>
               </div>
 
               {/* Event Info */}
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-white mb-1">
+                <h3 className="text-lg font-semibold text-ink mb-1">
                   {nextEvent.title}
                 </h3>
-                <div className="flex items-center gap-3 text-sm text-gray-400 mb-3">
+                <div className="flex items-center gap-3 text-sm text-ink-muted mb-3">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
                     {nextEvent.time}
                   </span>
-                  <span className="text-gray-600">•</span>
+                  <span className="text-ink-faint">•</span>
                   <span>{nextEvent.duration}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="w-3.5 h-3.5 text-gray-500" />
-                  <span className="text-gray-400 truncate">{nextEvent.location}</span>
+                  <MapPin className="w-3.5 h-3.5 text-ink-muted" />
+                  <span className="text-ink-muted truncate">{nextEvent.location}</span>
                 </div>
               </div>
 
@@ -215,13 +215,13 @@ export default function UpcomingEvents() {
             </div>
 
             {/* Quick Action */}
-            <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/10">
+            <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-white/20 text-gray-400 text-xs">
+                <Badge variant="outline" className="border-border text-ink-muted text-xs">
                   {nextEvent.sport}
                 </Badge>
                 {nextEvent.team && (
-                  <Badge variant="outline" className="border-white/20 text-gray-400 text-xs">
+                  <Badge variant="outline" className="border-border text-ink-muted text-xs">
                     {nextEvent.team}
                   </Badge>
                 )}
@@ -250,8 +250,8 @@ export default function UpcomingEvents() {
             className={cn(
               "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
               filter === key
-                ? "bg-white/10 text-white border border-white/20"
-                : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                ? "bg-cream-3 text-ink border border-border"
+                : "text-ink-muted hover:text-ink-2 hover:bg-cream-2"
             )}
           >
             {label}
@@ -268,15 +268,15 @@ export default function UpcomingEvents() {
           return (
             <div
               key={event.id}
-              className="group relative flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] hover:border-white/10 transition-all cursor-pointer"
+              className="group relative flex gap-4 p-4 rounded-xl bg-paper border border-border hover:bg-cream-2 hover:border-border transition-all cursor-pointer"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               {/* Date Column */}
               <div className="flex-shrink-0 w-12 text-center">
-                <span className="text-[10px] font-bold text-gray-500 tracking-wider block">
+                <span className="text-[10px] font-bold text-ink-muted tracking-wider block">
                   {formatDayOfWeek(event.date)}
                 </span>
-                <span className="text-xl font-bold text-white leading-tight">
+                <span className="text-xl font-bold text-ink leading-tight">
                   {formatDayNumber(event.date)}
                 </span>
               </div>
@@ -293,24 +293,24 @@ export default function UpcomingEvents() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h4 className="font-medium text-white group-hover:text-primary transition-colors">
+                    <h4 className="font-medium text-ink group-hover:text-primary transition-colors">
                       {event.title}
                     </h4>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
+                    <div className="flex items-center gap-2 text-sm text-ink-muted mt-0.5">
                       <Clock className="w-3 h-3" />
                       <span>{event.time}</span>
-                      <span className="text-gray-700">•</span>
+                      <span className="text-ink-faint">•</span>
                       <span>{event.duration}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-500 bg-white/5 px-2 py-1 rounded-md">
+                    <span className="text-xs font-medium text-ink-muted bg-cream-2 px-2 py-1 rounded-md">
                       {event.child.name}
                     </span>
-                    <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all" />
+                    <ChevronRight className="w-4 h-4 text-ink-faint group-hover:text-ink-muted group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </div>
-                <div className="flex items-center gap-1 mt-2 text-xs text-gray-600">
+                <div className="flex items-center gap-1 mt-2 text-xs text-ink-faint">
                   <MapPin className="w-3 h-3" />
                   <span className="truncate">{event.location}</span>
                 </div>
@@ -322,7 +322,7 @@ export default function UpcomingEvents() {
 
       {/* View All Link */}
       <div className="text-center pt-2">
-        <Button variant="ghost" className="text-gray-500 hover:text-white gap-2">
+        <Button variant="ghost" className="text-ink-muted hover:text-ink gap-2">
           View Full Schedule
           <ChevronRight className="w-4 h-4" />
         </Button>

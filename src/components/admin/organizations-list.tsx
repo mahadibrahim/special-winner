@@ -102,10 +102,10 @@ export default function OrganizationsList() {
 
   const getTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
-      headquarters: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-      franchise: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-      subsidiary: "bg-green-500/20 text-green-400 border-green-500/30",
-      partner: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+      headquarters: "bg-purple-50 text-purple-700 border-purple-200",
+      franchise: "bg-blue-50 text-blue-700 border-blue-200",
+      subsidiary: "bg-green-50 text-green-700 border-green-200",
+      partner: "bg-amber-50 text-amber-700 border-amber-200",
     }
 
     return (
@@ -118,7 +118,7 @@ export default function OrganizationsList() {
   const getStripeStatus = (org: Organization) => {
     if (!org.stripeAccountId) {
       return (
-        <span className="flex items-center gap-1 text-xs text-gray-500">
+        <span className="flex items-center gap-1 text-xs text-ink-faint">
           <CreditCard className="w-3 h-3" />
           Not Connected
         </span>
@@ -127,7 +127,7 @@ export default function OrganizationsList() {
 
     if (org.stripeOnboardingComplete) {
       return (
-        <span className="flex items-center gap-1 text-xs text-green-500">
+        <span className="flex items-center gap-1 text-xs text-green-600">
           <CheckCircle2 className="w-3 h-3" />
           Payments Active
         </span>
@@ -135,7 +135,7 @@ export default function OrganizationsList() {
     }
 
     return (
-      <span className="flex items-center gap-1 text-xs text-amber-500">
+      <span className="flex items-center gap-1 text-xs text-amber-600">
         <Clock className="w-3 h-3" />
         Onboarding Pending
       </span>
@@ -167,8 +167,8 @@ export default function OrganizationsList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Organizations</h2>
-          <p className="text-gray-400">Manage franchises, subsidiaries, and partner organizations</p>
+          <h2 className="text-2xl font-bold text-ink">Organizations</h2>
+          <p className="text-ink-muted">Manage franchises, subsidiaries, and partner organizations</p>
         </div>
 
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -178,9 +178,9 @@ export default function OrganizationsList() {
               Add Organization
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl bg-[#0a0a0f] border-white/10">
+          <DialogContent className="max-w-2xl bg-cream border-border">
             <DialogHeader>
-              <DialogTitle className="text-white">Create Organization</DialogTitle>
+              <DialogTitle className="text-ink">Create Organization</DialogTitle>
               <DialogDescription>
                 Add a new franchise, subsidiary, or partner organization.
               </DialogDescription>
@@ -192,63 +192,63 @@ export default function OrganizationsList() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-white/[0.02] border-white/[0.06]">
+        <Card className="bg-paper border-border">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-purple-400" />
+              <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{organizations.length}</p>
-                <p className="text-xs text-gray-500">Total Organizations</p>
+                <p className="text-2xl font-bold text-ink">{organizations.length}</p>
+                <p className="text-xs text-ink-faint">Total Organizations</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/[0.02] border-white/[0.06]">
+        <Card className="bg-paper border-border">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-400" />
+              <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-ink">
                   {organizations.filter((o) => o.status === "active").length}
                 </p>
-                <p className="text-xs text-gray-500">Active</p>
+                <p className="text-xs text-ink-faint">Active</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/[0.02] border-white/[0.06]">
+        <Card className="bg-paper border-border">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-blue-400" />
+              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-ink">
                   {organizations.filter((o) => o.stripeOnboardingComplete).length}
                 </p>
-                <p className="text-xs text-gray-500">Payments Active</p>
+                <p className="text-xs text-ink-faint">Payments Active</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/[0.02] border-white/[0.06]">
+        <Card className="bg-paper border-border">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-amber-400" />
+              <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-ink">
                   {organizations.reduce((acc, o) => acc + o.locationCount, 0)}
                 </p>
-                <p className="text-xs text-gray-500">Total Locations</p>
+                <p className="text-xs text-ink-faint">Total Locations</p>
               </div>
             </div>
           </CardContent>
@@ -258,12 +258,12 @@ export default function OrganizationsList() {
       {/* Organizations List */}
       <div className="space-y-4">
         {organizations.length === 0 ? (
-          <Card className="bg-white/[0.02] border-white/[0.06]">
+          <Card className="bg-paper border-border">
             <CardContent className="py-12">
               <div className="text-center">
-                <Building2 className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-white mb-2">No Organizations</h3>
-                <p className="text-gray-400 mb-4">Get started by creating your first organization.</p>
+                <Building2 className="w-12 h-12 text-ink-faint mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-ink mb-2">No Organizations</h3>
+                <p className="text-ink-muted mb-4">Get started by creating your first organization.</p>
                 <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
                   <Plus className="w-4 h-4" />
                   Create Organization
@@ -273,28 +273,28 @@ export default function OrganizationsList() {
           </Card>
         ) : (
           organizations.map((org) => (
-            <Card key={org.id} className="bg-white/[0.02] border-white/[0.06] hover:border-white/10 transition-colors">
+            <Card key={org.id} className="bg-paper border-border hover:border-border-2 transition-colors">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
                     {/* Logo */}
-                    <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                    <div className="w-14 h-14 rounded-xl bg-cream-2 border border-border flex items-center justify-center overflow-hidden">
                       {org.logoUrl ? (
                         <img src={org.logoUrl} alt={org.name} className="w-full h-full object-cover" />
                       ) : (
-                        <Building2 className="w-6 h-6 text-gray-500" />
+                        <Building2 className="w-6 h-6 text-ink-faint" />
                       )}
                     </div>
 
                     {/* Info */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold text-white">{org.name}</h3>
+                        <h3 className="text-lg font-semibold text-ink">{org.name}</h3>
                         {getTypeBadge(org.organizationType)}
                         {getStatusBadge(org.status)}
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <div className="flex items-center gap-4 text-sm text-ink-muted">
                         {org.city && org.state && (
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
@@ -313,7 +313,7 @@ export default function OrganizationsList() {
 
                       <div className="flex items-center gap-4">
                         {getStripeStatus(org)}
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-ink-faint">
                           Created {new Date(org.createdAt).toLocaleDateString()}
                         </span>
                       </div>
@@ -323,11 +323,11 @@ export default function OrganizationsList() {
                   {/* Actions */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                      <Button variant="ghost" size="icon" className="text-ink-muted hover:text-ink">
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-[#1a1a24] border-white/10">
+                    <DropdownMenuContent align="end" className="bg-paper border-border">
                       <DropdownMenuItem asChild>
                         <a href={`/admin/organizations/${org.id}`} className="flex items-center gap-2 cursor-pointer">
                           <Settings className="w-4 h-4" />
@@ -346,7 +346,7 @@ export default function OrganizationsList() {
                           Payments
                         </a>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-white/10" />
+                      <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem asChild>
                         <a
                           href={`https://${org.slug}.aspiresports.com`}

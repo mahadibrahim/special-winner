@@ -234,9 +234,9 @@ function EventCard({
       >
         <div className="flex items-center gap-2">
           <Icon className={cn("w-3 h-3 flex-shrink-0", config.color)} />
-          <span className="text-xs font-medium text-white truncate">{event.title}</span>
+          <span className="text-xs font-medium text-ink truncate">{event.title}</span>
         </div>
-        <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+        <div className="text-[10px] text-ink-muted mt-0.5 truncate">
           {formatTime(event.date)} - {event.childName}
         </div>
       </button>
@@ -249,7 +249,7 @@ function EventCard({
       className={cn(
         "group relative overflow-hidden rounded-2xl border transition-all cursor-pointer hover:scale-[1.01] hover:shadow-lg",
         config.borderColor,
-        "bg-white/[0.02] hover:bg-white/[0.04]"
+        "bg-paper hover:bg-cream-2"
       )}
     >
       <div className="p-4">
@@ -268,18 +268,18 @@ function EventCard({
               <Badge className={cn("text-[10px]", config.bgColor, config.color, "border-0")}>
                 {config.label}
               </Badge>
-              <Badge variant="outline" className="border-white/10 text-gray-500 text-[10px]">
+              <Badge variant="outline" className="border-border text-ink-muted text-[10px]">
                 {event.childName}
               </Badge>
             </div>
 
-            <h4 className="font-semibold text-white text-sm mb-1">{event.title}</h4>
+            <h4 className="font-semibold text-ink text-sm mb-1">{event.title}</h4>
 
             {event.opponent && (
-              <p className="text-xs text-gray-400 mb-2">vs {event.opponent}</p>
+              <p className="text-xs text-ink-muted mb-2">vs {event.opponent}</p>
             )}
 
-            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-ink-muted">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 {formatTime(event.date)}
@@ -335,20 +335,20 @@ function EventDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-3xl bg-[#0a0a0f] border border-white/10 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md rounded-3xl bg-cream border border-border shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className={cn("p-6 border-b border-white/10", config.bgColor)}>
+        <div className={cn("p-6 border-b border-border", config.bgColor)}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-xl hover:bg-white/10 transition-colors"
+            className="absolute top-4 right-4 p-2 rounded-xl hover:bg-cream-3 transition-colors"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5 text-ink-muted" />
           </button>
 
           <div className="flex items-center gap-4">
             <div className={cn(
               "w-14 h-14 rounded-2xl flex items-center justify-center",
-              "bg-white/10"
+              "bg-cream-3"
             )}>
               <Icon className={cn("w-7 h-7", config.color)} />
             </div>
@@ -356,9 +356,9 @@ function EventDetailModal({
               <Badge className={cn("text-[10px] mb-1", config.bgColor, config.color, "border-0")}>
                 {config.label}
               </Badge>
-              <h2 className="text-xl font-bold text-white">{event.title}</h2>
+              <h2 className="text-xl font-bold text-ink">{event.title}</h2>
               {event.opponent && (
-                <p className="text-sm text-gray-400">vs {event.opponent}</p>
+                <p className="text-sm text-ink-muted">vs {event.opponent}</p>
               )}
             </div>
           </div>
@@ -367,20 +367,20 @@ function EventDetailModal({
         {/* Details */}
         <div className="p-6 space-y-4">
           <div className="flex items-start gap-3">
-            <User className="w-5 h-5 text-gray-500 mt-0.5" />
+            <User className="w-5 h-5 text-ink-muted mt-0.5" />
             <div>
-              <p className="text-sm text-gray-400">Player</p>
-              <p className="text-white font-medium">{event.childName}</p>
-              <p className="text-xs text-gray-500">{event.program}</p>
+              <p className="text-sm text-ink-muted">Player</p>
+              <p className="text-ink font-medium">{event.childName}</p>
+              <p className="text-xs text-ink-muted">{event.program}</p>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-gray-500 mt-0.5" />
+            <Calendar className="w-5 h-5 text-ink-muted mt-0.5" />
             <div>
-              <p className="text-sm text-gray-400">Date & Time</p>
-              <p className="text-white font-medium">{formatDate(event.date)}</p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-ink-muted">Date & Time</p>
+              <p className="text-ink font-medium">{formatDate(event.date)}</p>
+              <p className="text-sm text-ink-muted">
                 {formatTime(event.date)}
                 {event.endDate && ` - ${formatTime(event.endDate)}`}
               </p>
@@ -388,10 +388,10 @@ function EventDetailModal({
           </div>
 
           <div className="flex items-start gap-3">
-            <MapPin className="w-5 h-5 text-gray-500 mt-0.5" />
+            <MapPin className="w-5 h-5 text-ink-muted mt-0.5" />
             <div>
-              <p className="text-sm text-gray-400">Location</p>
-              <p className="text-white font-medium">{event.location}</p>
+              <p className="text-sm text-ink-muted">Location</p>
+              <p className="text-ink font-medium">{event.location}</p>
               {event.address && (
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(event.address)}`}
@@ -407,9 +407,9 @@ function EventDetailModal({
           </div>
 
           {event.notes && (
-            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-              <p className="text-xs text-gray-500 mb-1">Notes</p>
-              <p className="text-sm text-gray-300">{event.notes}</p>
+            <div className="p-3 rounded-xl bg-paper border border-border">
+              <p className="text-xs text-ink-muted mb-1">Notes</p>
+              <p className="text-sm text-ink-2">{event.notes}</p>
             </div>
           )}
         </div>
@@ -426,7 +426,7 @@ function EventDetailModal({
           {event.address && (
             <Button
               variant="outline"
-              className="border-white/10 text-gray-400 hover:text-white"
+              className="border-border text-ink-muted hover:text-ink"
               onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(event.address!)}`, "_blank")}
             >
               <MapPin className="w-4 h-4 mr-2" />
@@ -486,11 +486,11 @@ function MonthCalendar({
     today.getDate() === day
 
   return (
-    <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+    <div className="rounded-2xl bg-paper border border-border overflow-hidden">
       {/* Day headers */}
-      <div className="grid grid-cols-7 border-b border-white/[0.06]">
+      <div className="grid grid-cols-7 border-b border-border">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-          <div key={day} className="p-3 text-center text-xs font-medium text-gray-500">
+          <div key={day} className="p-3 text-center text-xs font-medium text-ink-muted">
             {day}
           </div>
         ))}
@@ -504,9 +504,9 @@ function MonthCalendar({
             <div
               key={index}
               className={cn(
-                "min-h-[100px] p-2 border-b border-r border-white/[0.04] last:border-r-0",
+                "min-h-[100px] p-2 border-b border-r border-border last:border-r-0",
                 "[&:nth-child(7n)]:border-r-0",
-                !day && "bg-white/[0.01]"
+                !day && "bg-cream"
               )}
             >
               {day && (
@@ -515,7 +515,7 @@ function MonthCalendar({
                     "w-7 h-7 rounded-full flex items-center justify-center text-sm mb-1",
                     isToday(day)
                       ? "bg-primary text-white font-bold"
-                      : "text-gray-400"
+                      : "text-ink-muted"
                   )}>
                     {day}
                   </div>
@@ -529,7 +529,7 @@ function MonthCalendar({
                       />
                     ))}
                     {dayEvents.length > 3 && (
-                      <p className="text-[10px] text-gray-500 text-center">
+                      <p className="text-[10px] text-ink-muted text-center">
                         +{dayEvents.length - 3} more
                       </p>
                     )}
@@ -596,10 +596,10 @@ function ListView({
 
   if (events.length === 0) {
     return (
-      <div className="text-center py-16 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-        <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-        <h3 className="text-white font-medium mb-1">No events found</h3>
-        <p className="text-sm text-gray-500">
+      <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border">
+        <Calendar className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+        <h3 className="text-ink font-medium mb-1">No events found</h3>
+        <p className="text-sm text-ink-muted">
           Try adjusting your filters or date range
         </p>
       </div>
@@ -610,10 +610,10 @@ function ListView({
     <div className="space-y-8">
       {grouped.map((group, index) => (
         <div key={index}>
-          <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
+          <h3 className="font-semibold text-ink mb-4 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-ink-muted" />
             {formatDateHeader(group.date)}
-            <span className="text-xs text-gray-600 font-normal">
+            <span className="text-xs text-ink-faint font-normal">
               ({group.events.length} events)
             </span>
           </h3>
@@ -682,42 +682,42 @@ export default function FullSchedule() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-3">
             <Calendar className="w-7 h-7 text-primary" />
             Schedule
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             All upcoming events for your family
           </p>
         </div>
       </div>
 
       {/* Controls Bar */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-4">
+      <div className="p-4 rounded-2xl bg-paper border border-border space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Month Navigation (for month view) */}
           {viewMode === "month" && (
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigateMonth("prev")}
-                className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+                className="p-2 rounded-xl hover:bg-cream-3 transition-colors"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-400" />
+                <ChevronLeft className="w-5 h-5 text-ink-muted" />
               </button>
-              <h2 className="text-lg font-semibold text-white min-w-[180px] text-center">
+              <h2 className="text-lg font-semibold text-ink min-w-[180px] text-center">
                 {formatMonthYear(currentDate)}
               </h2>
               <button
                 onClick={() => navigateMonth("next")}
-                className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+                className="p-2 rounded-xl hover:bg-cream-3 transition-colors"
               >
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+                <ChevronRight className="w-5 h-5 text-ink-muted" />
               </button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentDate(new Date())}
-                className="border-white/10 text-gray-400 hover:text-white ml-2"
+                className="border-border text-ink-muted hover:text-ink ml-2"
               >
                 Today
               </Button>
@@ -725,20 +725,20 @@ export default function FullSchedule() {
           )}
 
           {viewMode === "list" && (
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-lg font-semibold text-ink">
               Upcoming Events
             </h2>
           )}
 
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.03]">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-paper">
             <button
               onClick={() => setViewMode("month")}
               className={cn(
                 "p-2 rounded-lg transition-all",
                 viewMode === "month"
-                  ? "bg-white/10 text-white"
-                  : "text-gray-500 hover:text-gray-300"
+                  ? "bg-cream-3 text-ink"
+                  : "text-ink-muted hover:text-ink-2"
               )}
               title="Month view"
             >
@@ -749,8 +749,8 @@ export default function FullSchedule() {
               className={cn(
                 "p-2 rounded-lg transition-all",
                 viewMode === "list"
-                  ? "bg-white/10 text-white"
-                  : "text-gray-500 hover:text-gray-300"
+                  ? "bg-cream-3 text-ink"
+                  : "text-ink-muted hover:text-ink-2"
               )}
               title="List view"
             >
@@ -761,13 +761,13 @@ export default function FullSchedule() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <Filter className="w-4 h-4 text-gray-500" />
+          <Filter className="w-4 h-4 text-ink-muted" />
 
           {/* Child Filter */}
           <select
             value={selectedChild}
             onChange={(e) => setSelectedChild(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-gray-300 focus:outline-none focus:border-primary/50"
+            className="px-3 py-2 rounded-xl bg-paper border border-border text-sm text-ink-2 focus:outline-none focus:border-primary/50"
           >
             <option value="all">All Children</option>
             {mockChildren.map(child => (
@@ -779,7 +779,7 @@ export default function FullSchedule() {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value as EventType | "all")}
-            className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-gray-300 focus:outline-none focus:border-primary/50"
+            className="px-3 py-2 rounded-xl bg-paper border border-border text-sm text-ink-2 focus:outline-none focus:border-primary/50"
           >
             <option value="all">All Event Types</option>
             {Object.entries(eventTypeConfig).map(([key, config]) => (
@@ -790,7 +790,7 @@ export default function FullSchedule() {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-ink-muted">
         {Object.entries(eventTypeConfig).map(([key, config]) => {
           const Icon = config.icon
           return (

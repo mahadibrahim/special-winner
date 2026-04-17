@@ -96,13 +96,13 @@ export function PhoneVerificationForm({
 
   if (step === "done") {
     return (
-      <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-          <Check className="w-4 h-4 text-emerald-400" />
+      <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+          <Check className="w-4 h-4 text-emerald-600" />
         </div>
         <div>
-          <p className="text-sm font-medium text-white">Phone verified</p>
-          <p className="text-xs text-gray-500">{phone}</p>
+          <p className="text-sm font-medium text-ink">Phone verified</p>
+          <p className="text-xs text-ink-faint">{phone}</p>
         </div>
       </div>
     )
@@ -113,11 +113,11 @@ export function PhoneVerificationForm({
       {step === "phone" && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-ink-muted mb-2">
               Phone number
             </label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint" />
               <Input
                 type="tel"
                 placeholder="(614) 555-1234"
@@ -132,7 +132,7 @@ export function PhoneVerificationForm({
                 }}
               />
             </div>
-            <p className="mt-1.5 text-xs text-gray-500">
+            <p className="mt-1.5 text-xs text-ink-faint">
               We'll text you a 6-digit code. Standard message rates apply.
             </p>
           </div>
@@ -153,7 +153,7 @@ export function PhoneVerificationForm({
       {step === "code" && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-ink-muted mb-2">
               Enter the 6-digit code
             </label>
             <Input
@@ -172,7 +172,7 @@ export function PhoneVerificationForm({
                 }
               }}
             />
-            <p className="mt-1.5 text-xs text-gray-500">
+            <p className="mt-1.5 text-xs text-ink-faint">
               Sent to {phone}.{" "}
               {expiresAt && (
                 <span>
@@ -214,7 +214,7 @@ export function PhoneVerificationForm({
             type="button"
             onClick={handleSendCode}
             disabled={loading}
-            className="w-full text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            className="w-full text-xs text-ink-faint hover:text-ink-muted transition-colors"
           >
             Didn't get it? Send a new code
           </button>
@@ -222,12 +222,12 @@ export function PhoneVerificationForm({
       )}
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-2 text-xs text-red-300">
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2 text-xs text-red-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>
             <p>{error}</p>
             {attemptsRemaining !== null && attemptsRemaining > 0 && (
-              <p className="text-red-400 mt-1">
+              <p className="text-red-600 mt-1">
                 {attemptsRemaining} attempt{attemptsRemaining === 1 ? "" : "s"} remaining
               </p>
             )}

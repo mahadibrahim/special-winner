@@ -67,7 +67,7 @@ export function SignInForm() {
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-gray-300">Email</Label>
+        <Label htmlFor="email" className="text-ink-muted">Email</Label>
         <Input
           id="email"
           type="email"
@@ -76,13 +76,13 @@ export function SignInForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           disabled={isLoading}
-          className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50"
+          className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
         />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="password" className="text-gray-300">Password</Label>
+          <Label htmlFor="password" className="text-ink-muted">Password</Label>
           <a href="/forgot-password" className="text-xs text-primary hover:text-primary/80">
             Forgot password?
           </a>
@@ -95,7 +95,7 @@ export function SignInForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           disabled={isLoading}
-          className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50"
+          className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
         />
       </div>
 

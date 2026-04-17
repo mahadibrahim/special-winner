@@ -92,7 +92,7 @@ export function SignUpForm() {
     }
   };
 
-  const inputClassName = "bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/50";
+  const inputClassName = "bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -105,7 +105,7 @@ export function SignUpForm() {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="firstName" className="text-gray-300">First Name</Label>
+          <Label htmlFor="firstName" className="text-ink-muted">First Name</Label>
           <Input
             id="firstName"
             name="firstName"
@@ -123,7 +123,7 @@ export function SignUpForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="lastName" className="text-gray-300">Last Name</Label>
+          <Label htmlFor="lastName" className="text-ink-muted">Last Name</Label>
           <Input
             id="lastName"
             name="lastName"
@@ -142,7 +142,7 @@ export function SignUpForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-gray-300">Email</Label>
+        <Label htmlFor="email" className="text-ink-muted">Email</Label>
         <Input
           id="email"
           name="email"
@@ -160,7 +160,7 @@ export function SignUpForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="phone" className="text-gray-300">Phone (optional)</Label>
+        <Label htmlFor="phone" className="text-ink-muted">Phone (optional)</Label>
         <Input
           id="phone"
           name="phone"
@@ -174,7 +174,7 @@ export function SignUpForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-gray-300">Password</Label>
+        <Label htmlFor="password" className="text-ink-muted">Password</Label>
         <Input
           id="password"
           name="password"
@@ -192,7 +192,7 @@ export function SignUpForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
+        <Label htmlFor="confirmPassword" className="text-ink-muted">Confirm Password</Label>
         <Input
           id="confirmPassword"
           name="confirmPassword"

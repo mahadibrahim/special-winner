@@ -277,16 +277,16 @@ export default function FamilyMembersCard() {
   }
 
   return (
-    <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="p-6 border-b border-white/[0.06]">
+    <div className="bg-paper border border-border rounded-2xl overflow-hidden">
+      <div className="p-6 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <User className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Family Members</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="font-semibold text-ink">Family Members</h3>
+              <p className="text-sm text-ink-muted">
                 {members.length} {members.length === 1 ? "child" : "children"} registered
               </p>
             </div>
@@ -302,12 +302,12 @@ export default function FamilyMembersCard() {
                 Add Child
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#1a1a24] border-white/10 text-white sm:max-w-[500px]">
+            <DialogContent className="bg-cream border-border text-ink sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>
                   {editingMember ? "Edit Family Member" : "Add Family Member"}
                 </DialogTitle>
-                <DialogDescription className="text-gray-400">
+                <DialogDescription className="text-ink-muted">
                   {editingMember
                     ? "Update the information for this family member."
                     : "Add a child or player to your family account."}
@@ -317,82 +317,82 @@ export default function FamilyMembersCard() {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-gray-300">First Name *</Label>
+                      <Label htmlFor="firstName" className="text-ink-2">First Name *</Label>
                       <Input
                         id="firstName"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         required
-                        className="bg-white/5 border-white/10 text-white"
+                        className="bg-cream-2 border-border text-ink"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-gray-300">Last Name *</Label>
+                      <Label htmlFor="lastName" className="text-ink-2">Last Name *</Label>
                       <Input
                         id="lastName"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         required
-                        className="bg-white/5 border-white/10 text-white"
+                        className="bg-cream-2 border-border text-ink"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="birthDate" className="text-gray-300">Birth Date *</Label>
+                      <Label htmlFor="birthDate" className="text-ink-2">Birth Date *</Label>
                       <Input
                         id="birthDate"
                         type="date"
                         value={birthDate}
                         onChange={(e) => setBirthDate(e.target.value)}
                         required
-                        className="bg-white/5 border-white/10 text-white"
+                        className="bg-cream-2 border-border text-ink"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="gender" className="text-gray-300">Gender</Label>
+                      <Label htmlFor="gender" className="text-ink-2">Gender</Label>
                       <Select value={gender} onValueChange={setGender}>
-                        <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                        <SelectTrigger className="bg-cream-2 border-border text-ink">
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#1a1a24] border-white/10">
-                          <SelectItem value="male" className="text-gray-300">Male</SelectItem>
-                          <SelectItem value="female" className="text-gray-300">Female</SelectItem>
-                          <SelectItem value="other" className="text-gray-300">Other</SelectItem>
-                          <SelectItem value="prefer_not_to_say" className="text-gray-300">Prefer not to say</SelectItem>
+                        <SelectContent className="bg-cream border-border">
+                          <SelectItem value="male" className="text-ink-2">Male</SelectItem>
+                          <SelectItem value="female" className="text-ink-2">Female</SelectItem>
+                          <SelectItem value="other" className="text-ink-2">Other</SelectItem>
+                          <SelectItem value="prefer_not_to_say" className="text-ink-2">Prefer not to say</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="medicalNotes" className="text-gray-300">Medical Notes / Allergies</Label>
+                    <Label htmlFor="medicalNotes" className="text-ink-2">Medical Notes / Allergies</Label>
                     <Input
                       id="medicalNotes"
                       value={medicalNotes}
                       onChange={(e) => setMedicalNotes(e.target.value)}
                       placeholder="Any medical conditions or allergies we should know about"
-                      className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                      className="bg-cream-2 border-border text-ink placeholder:text-ink-muted"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="emergencyContactName" className="text-gray-300">Emergency Contact</Label>
+                      <Label htmlFor="emergencyContactName" className="text-ink-2">Emergency Contact</Label>
                       <Input
                         id="emergencyContactName"
                         value={emergencyContactName}
                         onChange={(e) => setEmergencyContactName(e.target.value)}
                         placeholder="Contact name"
-                        className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                        className="bg-cream-2 border-border text-ink placeholder:text-ink-muted"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emergencyContactPhone" className="text-gray-300">Emergency Phone</Label>
+                      <Label htmlFor="emergencyContactPhone" className="text-ink-2">Emergency Phone</Label>
                       <Input
                         id="emergencyContactPhone"
                         value={emergencyContactPhone}
                         onChange={(e) => setEmergencyContactPhone(e.target.value)}
                         placeholder="Phone number"
-                        className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                        className="bg-cream-2 border-border text-ink placeholder:text-ink-muted"
                       />
                     </div>
                   </div>
@@ -402,7 +402,7 @@ export default function FamilyMembersCard() {
                     type="button"
                     variant="outline"
                     onClick={() => setIsDialogOpen(false)}
-                    className="border-white/10 text-gray-300 hover:bg-white/5"
+                    className="border-border text-ink-2 hover:bg-cream-2"
                   >
                     Cancel
                   </Button>
@@ -442,18 +442,18 @@ export default function FamilyMembersCard() {
           </div>
         ) : members.length === 0 ? (
           <div className="text-center py-8">
-            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
-              <User className="w-6 h-6 text-gray-500" />
+            <div className="w-12 h-12 rounded-full bg-cream-2 flex items-center justify-center mx-auto mb-3">
+              <User className="w-6 h-6 text-ink-muted" />
             </div>
-            <p className="text-gray-400 mb-1">No family members yet</p>
-            <p className="text-sm text-gray-500">Add your children to start registering for programs</p>
+            <p className="text-ink-muted mb-1">No family members yet</p>
+            <p className="text-sm text-ink-muted">Add your children to start registering for programs</p>
           </div>
         ) : (
           <div className="space-y-3">
             {members.map((member) => (
               <div
                 key={member.id}
-                className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.1] transition-colors"
+                className="p-4 rounded-xl bg-paper border border-border hover:border-border transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -478,10 +478,10 @@ export default function FamilyMembersCard() {
                       </button>
                     </div>
                     <div>
-                      <p className="font-medium text-white">
+                      <p className="font-medium text-ink">
                         {member.firstName} {member.lastName}
                       </p>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2 text-sm text-ink-muted">
                         <Calendar className="w-3 h-3" />
                         Age {calculateAge(member.birthDate)}
                       </div>
@@ -492,7 +492,7 @@ export default function FamilyMembersCard() {
                       variant="ghost"
                       size="icon"
                       onClick={() => openEditDialog(member)}
-                      className="text-gray-400 hover:text-white hover:bg-white/5"
+                      className="text-ink-muted hover:text-ink hover:bg-cream-2"
                     >
                       <Edit2 className="w-4 h-4" />
                     </Button>
@@ -500,7 +500,7 @@ export default function FamilyMembersCard() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(member.id)}
-                      className="text-gray-400 hover:text-destructive hover:bg-destructive/10"
+                      className="text-ink-muted hover:text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -514,13 +514,13 @@ export default function FamilyMembersCard() {
 
       {/* Photo Upload Dialog */}
       <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
-        <DialogContent className="bg-[#1a1a24] border-white/10 text-white sm:max-w-[420px]">
+        <DialogContent className="bg-cream border-border text-ink sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Camera className="w-5 h-5 text-primary" />
               {photoUploadMember?.firstName}'s Photo
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogDescription className="text-ink-muted">
               Upload a profile photo for {photoUploadMember?.firstName}. This will be visible to coaches and staff.
             </DialogDescription>
           </DialogHeader>
@@ -546,8 +546,8 @@ export default function FamilyMembersCard() {
                   </button>
                 </div>
               ) : (
-                <div className="w-32 h-32 rounded-full bg-white/5 border-2 border-dashed border-white/20 flex items-center justify-center">
-                  <Image className="w-10 h-10 text-gray-500" />
+                <div className="w-32 h-32 rounded-full bg-cream-2 border-2 border-dashed border-border flex items-center justify-center">
+                  <Image className="w-10 h-10 text-ink-muted" />
                 </div>
               )}
             </div>
@@ -564,13 +564,13 @@ export default function FamilyMembersCard() {
             {/* Upload area */}
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="p-6 border-2 border-dashed border-white/10 rounded-xl hover:border-primary/50 transition-colors cursor-pointer text-center group"
+              className="p-6 border-2 border-dashed border-border rounded-xl hover:border-primary/50 transition-colors cursor-pointer text-center group"
             >
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
                 <Upload className="w-6 h-6 text-primary" />
               </div>
-              <p className="text-gray-300 font-medium mb-1">Click to upload photo</p>
-              <p className="text-sm text-gray-500">JPG, PNG, or WebP • Max 5MB</p>
+              <p className="text-ink-2 font-medium mb-1">Click to upload photo</p>
+              <p className="text-sm text-ink-muted">JPG, PNG, or WebP • Max 5MB</p>
             </div>
           </div>
 
@@ -597,7 +597,7 @@ export default function FamilyMembersCard() {
               type="button"
               variant="outline"
               onClick={() => setIsPhotoDialogOpen(false)}
-              className="border-white/10 text-gray-300 hover:bg-white/5"
+              className="border-border text-ink-2 hover:bg-cream-2"
             >
               Cancel
             </Button>

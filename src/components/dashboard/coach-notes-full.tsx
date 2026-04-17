@@ -69,9 +69,9 @@ const categoryConfig: Record<NoteCategory, {
   focus: {
     icon: AlertCircle,
     label: "Focus Area",
-    color: "text-blue-400",
+    color: "text-primary",
     bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/30",
+    borderColor: "border-primary/20",
   },
   encouragement: {
     icon: Heart,
@@ -213,7 +213,7 @@ function NoteCard({
     <div
       className={cn(
         "group relative overflow-hidden rounded-2xl border transition-all duration-300",
-        expanded ? "bg-white/[0.04]" : "bg-white/[0.02] hover:bg-white/[0.03]",
+        expanded ? "bg-cream-2" : "bg-paper hover:bg-paper",
         config.borderColor,
         !note.isRead && "ring-1 ring-primary/30"
       )}
@@ -242,11 +242,11 @@ function NoteCard({
                   <Badge className={cn("text-[10px]", config.bgColor, config.color, "border-0")}>
                     {config.label}
                   </Badge>
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-ink-faint">
                     {formatDate(note.date)}
                   </span>
                 </div>
-                <h3 className="font-semibold text-white text-sm leading-tight">
+                <h3 className="font-semibold text-ink text-sm leading-tight">
                   {note.title}
                 </h3>
               </div>
@@ -255,28 +255,28 @@ function NoteCard({
               <div className="flex items-center gap-1">
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-                  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-cream-3 transition-colors"
                 >
                   {note.isFavorite ? (
                     <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                   ) : (
-                    <StarOff className="w-4 h-4 text-gray-600 hover:text-gray-400" />
+                    <StarOff className="w-4 h-4 text-ink-faint hover:text-ink-muted" />
                   )}
                 </button>
                 {!note.isRead && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onMarkRead(); }}
-                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-cream-3 transition-colors"
                     title="Mark as read"
                   >
-                    <Check className="w-4 h-4 text-gray-600 hover:text-emerald-400" />
+                    <Check className="w-4 h-4 text-ink-faint hover:text-emerald-400" />
                   </button>
                 )}
               </div>
             </div>
 
             {/* Meta info */}
-            <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+            <div className="flex items-center gap-3 text-xs text-ink-muted mb-3">
               <span className="flex items-center gap-1">
                 <User className="w-3 h-3" />
                 {note.childName}
@@ -287,7 +287,7 @@ function NoteCard({
 
             {/* Preview or full content */}
             <p className={cn(
-              "text-sm text-gray-400 leading-relaxed",
+              "text-sm text-ink-muted leading-relaxed",
               !expanded && "line-clamp-2"
             )}>
               {note.content}
@@ -296,7 +296,7 @@ function NoteCard({
             {/* Expand button */}
             <button
               onClick={onToggleExpand}
-              className="mt-3 flex items-center gap-1 text-xs text-gray-500 hover:text-white transition-colors"
+              className="mt-3 flex items-center gap-1 text-xs text-ink-muted hover:text-ink transition-colors"
             >
               {expanded ? (
                 <>
@@ -352,8 +352,8 @@ function GroupedByChild({
               </span>
             </div>
             <div>
-              <h3 className="font-semibold text-white">{childNotes[0].childName}</h3>
-              <p className="text-xs text-gray-500">{childNotes.length} notes</p>
+              <h3 className="font-semibold text-ink">{childNotes[0].childName}</h3>
+              <p className="text-xs text-ink-muted">{childNotes.length} notes</p>
             </div>
           </div>
           <div className="space-y-3 pl-[52px]">
@@ -411,10 +411,10 @@ function GroupedByDate({
     <div className="space-y-8">
       {grouped.map(group => (
         <div key={group.label}>
-          <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
+          <h3 className="font-semibold text-ink mb-4 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-ink-muted" />
             {group.label}
-            <span className="text-xs text-gray-600 font-normal">
+            <span className="text-xs text-ink-faint font-normal">
               ({group.notes.length})
             </span>
           </h3>
@@ -485,7 +485,7 @@ export default function CoachNotesFull() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-3">
             <MessageSquare className="w-7 h-7 text-primary" />
             Coach Notes
             {unreadCount > 0 && (
@@ -494,7 +494,7 @@ export default function CoachNotesFull() {
               </Badge>
             )}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             Feedback and updates from coaches across all programs
           </p>
         </div>
@@ -505,7 +505,7 @@ export default function CoachNotesFull() {
               variant="outline"
               size="sm"
               onClick={handleMarkAllRead}
-              className="border-white/10 text-gray-400 hover:text-white"
+              className="border-border text-ink-muted hover:text-ink"
             >
               <Check className="w-4 h-4 mr-1" />
               Mark all read
@@ -514,7 +514,7 @@ export default function CoachNotesFull() {
           <Button
             variant="outline"
             size="sm"
-            className="border-white/10 text-gray-400 hover:text-white"
+            className="border-border text-ink-muted hover:text-ink"
           >
             <Printer className="w-4 h-4 mr-1" />
             Print
@@ -522,7 +522,7 @@ export default function CoachNotesFull() {
           <Button
             variant="outline"
             size="sm"
-            className="border-white/10 text-gray-400 hover:text-white"
+            className="border-border text-ink-muted hover:text-ink"
           >
             <Download className="w-4 h-4 mr-1" />
             Export
@@ -531,23 +531,23 @@ export default function CoachNotesFull() {
       </div>
 
       {/* Filters Bar */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-4">
+      <div className="p-4 rounded-2xl bg-paper border border-border space-y-4">
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
           <input
             type="text"
             placeholder="Search notes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-gray-600 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-paper border border-border text-ink placeholder:text-ink-faint text-sm focus:outline-none focus:border-primary/50 transition-colors"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-cream-3"
             >
-              <X className="w-3.5 h-3.5 text-gray-500" />
+              <X className="w-3.5 h-3.5 text-ink-muted" />
             </button>
           )}
         </div>
@@ -555,7 +555,7 @@ export default function CoachNotesFull() {
         {/* Filter Row */}
         <div className="flex flex-wrap items-center gap-3">
           {/* View Mode */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.03]">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-paper">
             {[
               { key: "timeline", label: "Timeline" },
               { key: "by-child", label: "By Child" },
@@ -567,8 +567,8 @@ export default function CoachNotesFull() {
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                   viewMode === key
-                    ? "bg-white/10 text-white"
-                    : "text-gray-500 hover:text-gray-300"
+                    ? "bg-cream-3 text-ink"
+                    : "text-ink-muted hover:text-ink-2"
                 )}
               >
                 {label}
@@ -580,7 +580,7 @@ export default function CoachNotesFull() {
           <select
             value={selectedChild}
             onChange={(e) => setSelectedChild(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-gray-300 focus:outline-none focus:border-primary/50"
+            className="px-3 py-2 rounded-xl bg-paper border border-border text-sm text-ink-2 focus:outline-none focus:border-primary/50"
           >
             <option value="all">All Children</option>
             {mockChildren.map(child => (
@@ -592,7 +592,7 @@ export default function CoachNotesFull() {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value as NoteCategory | "all")}
-            className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-gray-300 focus:outline-none focus:border-primary/50"
+            className="px-3 py-2 rounded-xl bg-paper border border-border text-sm text-ink-2 focus:outline-none focus:border-primary/50"
           >
             <option value="all">All Categories</option>
             {Object.entries(categoryConfig).map(([key, config]) => (
@@ -607,7 +607,7 @@ export default function CoachNotesFull() {
               "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all",
               showFavoritesOnly
                 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                : "bg-white/[0.03] text-gray-500 border border-white/[0.08] hover:text-gray-300"
+                : "bg-paper text-ink-muted border border-border hover:text-ink-2"
             )}
           >
             <Star className={cn("w-3.5 h-3.5", showFavoritesOnly && "fill-amber-400")} />
@@ -617,16 +617,16 @@ export default function CoachNotesFull() {
       </div>
 
       {/* Results count */}
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-ink-muted">
         Showing {filteredNotes.length} of {notes.length} notes
       </p>
 
       {/* Notes Display */}
       {filteredNotes.length === 0 ? (
-        <div className="text-center py-16 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-          <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-white font-medium mb-1">No notes found</h3>
-          <p className="text-sm text-gray-500">
+        <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border">
+          <MessageSquare className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">No notes found</h3>
+          <p className="text-sm text-ink-muted">
             {searchQuery
               ? "Try adjusting your search or filters"
               : "Coach notes will appear here as they're added"}

@@ -40,7 +40,7 @@ const categoryConfig: Record<AchievementCategory, {
   skill: {
     icon: Target,
     gradient: "from-blue-500 to-cyan-500",
-    bgGlow: "bg-blue-500/20",
+    bgGlow: "bg-primary/10",
   },
   effort: {
     icon: Flame,
@@ -139,7 +139,7 @@ function AchievementCard({ achievement, compact = false }: { achievement: Achiev
   if (compact) {
     return (
       <div className={cn(
-        "group relative flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border transition-all cursor-pointer hover:bg-white/[0.04]",
+        "group relative flex items-center gap-3 p-3 rounded-xl bg-paper border transition-all cursor-pointer hover:bg-cream-2",
         rarity.border,
         rarity.glow
       )}>
@@ -153,17 +153,17 @@ function AchievementCard({ achievement, compact = false }: { achievement: Achiev
           <Icon className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-white text-sm truncate">{achievement.title}</h4>
-          <p className="text-xs text-gray-500 truncate">{achievement.description}</p>
+          <h4 className="font-medium text-ink text-sm truncate">{achievement.title}</h4>
+          <p className="text-xs text-ink-muted truncate">{achievement.description}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
+        <ChevronRight className="w-4 h-4 text-ink-faint group-hover:text-ink-muted transition-colors" />
       </div>
     )
   }
 
   return (
     <div className={cn(
-      "group relative overflow-hidden rounded-2xl bg-white/[0.02] border transition-all cursor-pointer hover:scale-[1.02]",
+      "group relative overflow-hidden rounded-2xl bg-paper border transition-all cursor-pointer hover:scale-[1.02]",
       rarity.border,
       rarity.glow
     )}>
@@ -190,14 +190,14 @@ function AchievementCard({ achievement, compact = false }: { achievement: Achiev
         </div>
 
         {/* Content */}
-        <h4 className="font-semibold text-white mb-1">{achievement.title}</h4>
-        <p className="text-sm text-gray-400 mb-3 line-clamp-2">{achievement.description}</p>
+        <h4 className="font-semibold text-ink mb-1">{achievement.title}</h4>
+        <p className="text-sm text-ink-muted mb-3 line-clamp-2">{achievement.description}</p>
 
         {/* Meta */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {achievement.sport && (
-              <Badge variant="outline" className="border-white/10 text-gray-500 text-[10px]">
+              <Badge variant="outline" className="border-border text-ink-muted text-[10px]">
                 {achievement.sport}
               </Badge>
             )}
@@ -205,13 +205,13 @@ function AchievementCard({ achievement, compact = false }: { achievement: Achiev
               "text-[10px]",
               achievement.rarity === "legendary" ? "border-amber-500/50 text-amber-400" :
               achievement.rarity === "epic" ? "border-purple-500/50 text-purple-400" :
-              achievement.rarity === "rare" ? "border-blue-500/50 text-blue-400" :
-              "border-white/10 text-gray-500"
+              achievement.rarity === "rare" ? "border-blue-500/50 text-primary" :
+              "border-border text-ink-muted"
             )}>
               {rarity.label}
             </Badge>
           </div>
-          <span className="text-[10px] text-gray-600">
+          <span className="text-[10px] text-ink-faint">
             {achievement.earnedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </span>
         </div>
@@ -250,7 +250,7 @@ export default function AchievementGallery({
           <AchievementCard key={achievement.id} achievement={achievement} compact />
         ))}
         {showViewAll && achievements.length > (limit || 0) && (
-          <Button variant="ghost" className="w-full text-gray-500 hover:text-white mt-2">
+          <Button variant="ghost" className="w-full text-ink-muted hover:text-ink mt-2">
             View All {achievements.length} Achievements
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
@@ -277,8 +277,8 @@ export default function AchievementGallery({
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
               selectedCategory === key
-                ? "bg-white/10 text-white border border-white/20"
-                : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                ? "bg-cream-3 text-ink border border-border"
+                : "text-ink-muted hover:text-ink-2 hover:bg-cream-2"
             )}
           >
             <FilterIcon className="w-3.5 h-3.5" />
@@ -296,10 +296,10 @@ export default function AchievementGallery({
 
       {/* Empty State */}
       {displayedAchievements.length === 0 && (
-        <div className="text-center py-12 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-          <Award className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-white font-medium mb-1">No achievements yet</h3>
-          <p className="text-sm text-gray-500">
+        <div className="text-center py-12 px-6 rounded-2xl bg-paper border border-border">
+          <Award className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">No achievements yet</h3>
+          <p className="text-sm text-ink-muted">
             Achievements are earned through participation, effort, and growth.
           </p>
         </div>

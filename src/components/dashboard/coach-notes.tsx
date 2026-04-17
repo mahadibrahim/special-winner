@@ -106,7 +106,7 @@ const categoryConfig: Record<NoteCategory, {
   },
   focus: {
     icon: Target,
-    color: "text-blue-400",
+    color: "text-primary",
     bg: "bg-blue-500/10 border-blue-500/20",
     label: "Area of Focus"
   },
@@ -140,8 +140,8 @@ function NoteCard({ note, featured = false }: { note: CoachNote; featured?: bool
       className={cn(
         "group relative rounded-xl border transition-all cursor-pointer",
         featured
-          ? "bg-gradient-to-br from-white/[0.04] to-transparent border-white/10 p-5"
-          : "bg-white/[0.02] border-white/[0.06] hover:border-white/10 p-4"
+          ? "bg-gradient-to-br from-white/[0.04] to-transparent border-border p-5"
+          : "bg-paper border-border hover:border-border p-4"
       )}
     >
       {/* New indicator */}
@@ -163,45 +163,45 @@ function NoteCard({ note, featured = false }: { note: CoachNote; featured?: bool
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h4 className={cn(
-              "font-medium text-white group-hover:text-primary transition-colors line-clamp-1",
+              "font-medium text-ink group-hover:text-primary transition-colors line-clamp-1",
               featured ? "text-base" : "text-sm"
             )}>
               {note.title}
             </h4>
-            <span className="text-xs text-gray-500 flex-shrink-0">
+            <span className="text-xs text-ink-muted flex-shrink-0">
               {formatTimeAgo(note.date)}
             </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant="outline" className="border-white/10 text-gray-400 text-[10px] px-1.5 py-0">
+            <Badge variant="outline" className="border-border text-ink-muted text-[10px] px-1.5 py-0">
               {note.childName}
             </Badge>
-            <span className="text-xs text-gray-600">•</span>
-            <span className="text-xs text-gray-500 truncate">{note.program}</span>
+            <span className="text-xs text-ink-faint">•</span>
+            <span className="text-xs text-ink-muted truncate">{note.program}</span>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <p className={cn(
-        "text-gray-400 leading-relaxed",
+        "text-ink-muted leading-relaxed",
         featured ? "text-sm line-clamp-3" : "text-xs line-clamp-2"
       )}>
         {note.content}
       </p>
 
       {/* Coach Attribution */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
-            <User className="w-3 h-3 text-gray-500" />
+          <div className="w-6 h-6 rounded-full bg-cream-3 flex items-center justify-center">
+            <User className="w-3 h-3 text-ink-muted" />
           </div>
           <div>
-            <span className="text-xs font-medium text-gray-300">{note.coachName}</span>
-            <span className="text-xs text-gray-600 ml-1">• {note.coachRole}</span>
+            <span className="text-xs font-medium text-ink-2">{note.coachName}</span>
+            <span className="text-xs text-ink-faint ml-1">• {note.coachRole}</span>
           </div>
         </div>
-        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all" />
+        <ChevronRight className="w-4 h-4 text-ink-faint group-hover:text-ink-muted group-hover:translate-x-0.5 transition-all" />
       </div>
     </div>
   )
@@ -230,7 +230,7 @@ export default function CoachNotes() {
             <MessageSquare className="w-5 h-5 text-violet-400" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
               Coach Notes
               {newNotesCount > 0 && (
                 <span className="text-xs bg-primary text-white px-2 py-0.5 rounded-full font-medium">
@@ -238,12 +238,12 @@ export default function CoachNotes() {
                 </span>
               )}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-muted">
               Development updates from your coaches
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white gap-1">
+        <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink gap-1">
           View All
           <ChevronRight className="w-4 h-4" />
         </Button>
@@ -257,8 +257,8 @@ export default function CoachNotes() {
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
               selectedChild === "all"
-                ? "bg-white/10 text-white border border-white/20"
-                : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                ? "bg-cream-3 text-ink border border-border"
+                : "text-ink-muted hover:text-ink-2 hover:bg-cream-2"
             )}
           >
             All Children
@@ -270,8 +270,8 @@ export default function CoachNotes() {
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
                 selectedChild === child.id
-                  ? "bg-white/10 text-white border border-white/20"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                  ? "bg-cream-3 text-ink border border-border"
+                  : "text-ink-muted hover:text-ink-2 hover:bg-cream-2"
               )}
             >
               {child.name}
@@ -296,10 +296,10 @@ export default function CoachNotes() {
           )}
         </div>
       ) : (
-        <div className="text-center py-10 px-6 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-          <MessageSquare className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-white font-medium mb-1">No coach notes yet</h3>
-          <p className="text-sm text-gray-500">
+        <div className="text-center py-10 px-6 rounded-xl bg-paper border border-border">
+          <MessageSquare className="w-10 h-10 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">No coach notes yet</h3>
+          <p className="text-sm text-ink-muted">
             Notes from coaches will appear here as your children participate in programs.
           </p>
         </div>
@@ -313,8 +313,8 @@ export default function CoachNotes() {
             <Star className="w-5 h-5 text-violet-400" />
           </div>
           <div>
-            <h4 className="font-medium text-white mb-1">Development-First Approach</h4>
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <h4 className="font-medium text-ink mb-1">Development-First Approach</h4>
+            <p className="text-sm text-ink-muted leading-relaxed">
               At Aspire, we focus on each child's individual growth. Our coaches provide regular
               feedback to help you understand and support your child's athletic journey.
             </p>

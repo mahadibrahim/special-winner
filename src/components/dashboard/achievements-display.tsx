@@ -97,7 +97,7 @@ const CATEGORY_CONFIG: Record<string, { gradient: string; bgGlow: string }> = {
   },
   skill: {
     gradient: "from-blue-500 to-cyan-500",
-    bgGlow: "bg-blue-500/20",
+    bgGlow: "bg-primary/10",
   },
   domain: {
     gradient: "from-emerald-500 to-green-500",
@@ -146,43 +146,43 @@ function AchievementCard({
         className={cn(
           "group relative flex items-center gap-3 p-3 rounded-xl border transition-all",
           locked
-            ? "bg-white/[0.01] border-white/[0.04] opacity-60"
-            : "bg-white/[0.02] border-white/[0.08] hover:border-white/[0.12]"
+            ? "bg-cream border-border opacity-60"
+            : "bg-paper border-border hover:border-border"
         )}
       >
         <div
           className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-            locked ? "bg-white/[0.05]" : `bg-gradient-to-br ${config.gradient}`
+            locked ? "bg-cream-2" : `bg-gradient-to-br ${config.gradient}`
           )}
         >
           {locked ? (
-            <Lock className="w-4 h-4 text-gray-500" />
+            <Lock className="w-4 h-4 text-ink-muted" />
           ) : (
             <Icon className="w-5 h-5 text-white" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className={cn("font-medium text-sm truncate", locked ? "text-gray-500" : "text-white")}>
+          <h4 className={cn("font-medium text-sm truncate", locked ? "text-ink-muted" : "text-ink")}>
             {achievement.name}
           </h4>
           {locked ? (
             <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-cream-3 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-white/30 rounded-full"
+                  className="h-full bg-ink-faint/40 rounded-full"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[10px] text-ink-muted">
                 {progress}/{total}
               </span>
             </div>
           ) : (
-            <p className="text-xs text-gray-500 truncate">{achievement.description}</p>
+            <p className="text-xs text-ink-muted truncate">{achievement.description}</p>
           )}
         </div>
-        {!locked && <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400" />}
+        {!locked && <ChevronRight className="w-4 h-4 text-ink-faint group-hover:text-ink-muted" />}
       </div>
     )
   }
@@ -192,8 +192,8 @@ function AchievementCard({
       className={cn(
         "group relative overflow-hidden rounded-2xl border transition-all",
         locked
-          ? "bg-white/[0.01] border-white/[0.04]"
-          : "bg-white/[0.02] border-white/[0.08] hover:scale-[1.02]"
+          ? "bg-cream border-border"
+          : "bg-paper border-border hover:scale-[1.02]"
       )}
     >
       {/* Glow effect */}
@@ -211,34 +211,34 @@ function AchievementCard({
         <div
           className={cn(
             "w-14 h-14 rounded-xl flex items-center justify-center mb-4",
-            locked ? "bg-white/[0.05]" : `bg-gradient-to-br ${config.gradient} shadow-lg`
+            locked ? "bg-cream-2" : `bg-gradient-to-br ${config.gradient} shadow-lg`
           )}
         >
           {locked ? (
-            <Lock className="w-6 h-6 text-gray-500" />
+            <Lock className="w-6 h-6 text-ink-muted" />
           ) : (
             <Icon className="w-7 h-7 text-white" />
           )}
         </div>
 
         {/* Content */}
-        <h4 className={cn("font-semibold mb-1", locked ? "text-gray-500" : "text-white")}>
+        <h4 className={cn("font-semibold mb-1", locked ? "text-ink-muted" : "text-ink")}>
           {achievement.name}
         </h4>
-        <p className={cn("text-sm mb-3 line-clamp-2", locked ? "text-gray-600" : "text-gray-400")}>
+        <p className={cn("text-sm mb-3 line-clamp-2", locked ? "text-ink-faint" : "text-ink-muted")}>
           {achievement.description}
         </p>
 
         {/* Progress or date */}
         {locked ? (
           <div className="space-y-1.5">
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-2 bg-cream-3 rounded-full overflow-hidden">
               <div
-                className="h-full bg-white/30 rounded-full transition-all"
+                className="h-full bg-ink-faint/40 rounded-full transition-all"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <div className="flex justify-between text-xs text-gray-600">
+            <div className="flex justify-between text-xs text-ink-faint">
               <span>Progress</span>
               <span>
                 {progress}/{total}
@@ -247,11 +247,11 @@ function AchievementCard({
           </div>
         ) : (
           <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-[10px] border-white/10 text-gray-500 capitalize">
+            <Badge variant="outline" className="text-[10px] border-border text-ink-muted capitalize">
               {achievement.category}
             </Badge>
             {unlockedAt && (
-              <span className="text-[10px] text-gray-600">{formatDate(unlockedAt)}</span>
+              <span className="text-[10px] text-ink-faint">{formatDate(unlockedAt)}</span>
             )}
           </div>
         )}
@@ -306,8 +306,8 @@ export default function AchievementsDisplay({
   if (error || !data) {
     return (
       <div className="text-center py-8">
-        <Award className="w-10 h-10 text-gray-600 mx-auto mb-2" />
-        <p className="text-sm text-gray-500">Unable to load achievements</p>
+        <Award className="w-10 h-10 text-ink-faint mx-auto mb-2" />
+        <p className="text-sm text-ink-muted">Unable to load achievements</p>
       </div>
     )
   }
@@ -332,12 +332,12 @@ export default function AchievementsDisplay({
           ))
         ) : (
           <div className="text-center py-4">
-            <Award className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <p className="text-xs text-gray-500">No achievements yet</p>
+            <Award className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+            <p className="text-xs text-ink-muted">No achievements yet</p>
           </div>
         )}
         {unlocked.length > (limit || 0) && (
-          <Button variant="ghost" className="w-full text-gray-500 hover:text-white text-sm" asChild>
+          <Button variant="ghost" className="w-full text-ink-muted hover:text-ink text-sm" asChild>
             <a href={`/dashboard/children/${familyMemberId}?tab=achievements`}>
               View All {unlocked.length} Achievements
               <ChevronRight className="w-4 h-4 ml-1" />
@@ -355,19 +355,19 @@ export default function AchievementsDisplay({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-400" />
-            <span className="text-lg font-semibold text-white">
+            <span className="text-lg font-semibold text-ink">
               {stats.achievementsUnlocked}
-              <span className="text-gray-500 font-normal">/{stats.totalAchievements}</span>
+              <span className="text-ink-muted font-normal">/{stats.totalAchievements}</span>
             </span>
           </div>
-          <span className="text-sm text-gray-500">achievements unlocked</span>
+          <span className="text-sm text-ink-muted">achievements unlocked</span>
         </div>
       </div>
 
       {/* Unlocked Achievements */}
       {displayUnlocked.length > 0 ? (
         <section>
-          <h3 className="text-sm font-medium text-gray-400 mb-3">Unlocked</h3>
+          <h3 className="text-sm font-medium text-ink-muted mb-3">Unlocked</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {displayUnlocked.map((item) => (
               <AchievementCard
@@ -381,10 +381,10 @@ export default function AchievementsDisplay({
           </div>
         </section>
       ) : (
-        <div className="text-center py-12 px-6 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-          <Award className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-white font-medium mb-1">Start Your Journey</h3>
-          <p className="text-sm text-gray-500 max-w-md mx-auto">
+        <div className="text-center py-12 px-6 rounded-2xl bg-paper border border-border">
+          <Award className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">Start Your Journey</h3>
+          <p className="text-sm text-ink-muted max-w-md mx-auto">
             Achievements are unlocked as you receive coach assessments and improve your skills. Keep
             practicing!
           </p>
@@ -394,7 +394,7 @@ export default function AchievementsDisplay({
       {/* Locked Achievements (In Progress) */}
       {showLocked && locked.length > 0 && (
         <section>
-          <h3 className="text-sm font-medium text-gray-400 mb-3">In Progress</h3>
+          <h3 className="text-sm font-medium text-ink-muted mb-3">In Progress</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {displayLocked.map((item) => (
               <AchievementCard
@@ -409,7 +409,7 @@ export default function AchievementsDisplay({
           {locked.length > 3 && !showAllLocked && (
             <Button
               variant="ghost"
-              className="w-full mt-4 text-gray-500 hover:text-white"
+              className="w-full mt-4 text-ink-muted hover:text-ink"
               onClick={() => setShowAllLocked(true)}
             >
               Show {locked.length - 3} More Locked Achievements
