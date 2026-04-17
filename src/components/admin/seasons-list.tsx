@@ -285,8 +285,8 @@ export function SeasonsList() {
                           <Badge className={statusConfig?.color}>{statusConfig?.label}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {season.program.name} &middot; {season.location.name}
-                          {season.ageGroup && ` &middot; ${season.ageGroup.name}`}
+                          {season.program.name} · {season.location.name}
+                          {season.ageGroup && ` · ${season.ageGroup.name}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {formatDate(season.startDate)} - {formatDate(season.endDate)}
