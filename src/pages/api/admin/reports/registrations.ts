@@ -61,7 +61,7 @@ export const GET: APIRoute = async (context) => {
 
     const registrationsByPeriod = await getDb()
       .select({
-        period: sql<string>`TO_CHAR(${registrations.createdAt}, ${dateFormat})`,
+        period: sql<string>`TO_CHAR(${registrations.createdAt}, ${sql.raw(`'${dateFormat}'`)})`,
         total: sql<number>`COUNT(*)`,
         confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
         pending: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'pending')`,
@@ -75,8 +75,8 @@ export const GET: APIRoute = async (context) => {
           lte(registrations.createdAt, end)
         )
       )
-      .groupBy(sql`TO_CHAR(${registrations.createdAt}, ${dateFormat})`)
-      .orderBy(sql`TO_CHAR(${registrations.createdAt}, ${dateFormat})`);
+      .groupBy(sql`TO_CHAR(${registrations.createdAt}, ${sql.raw(`'${dateFormat}'`)})`)
+      .orderBy(sql`TO_CHAR(${registrations.createdAt}, ${sql.raw(`'${dateFormat}'`)})`);
 
     // Registrations by sport
     const registrationsBySport = await getDb()

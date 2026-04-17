@@ -69,7 +69,7 @@ export const GET: APIRoute = async (context) => {
 
     const attendanceByPeriod = await getDb()
       .select({
-        period: sql<string>`TO_CHAR(${attendance.eventDate}, ${dateFormat})`,
+        period: sql<string>`TO_CHAR(${attendance.eventDate}, ${sql.raw(`'${dateFormat}'`)})`,
         totalRecords: sql<number>`COUNT(*)`,
         present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
         absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
@@ -78,8 +78,8 @@ export const GET: APIRoute = async (context) => {
       })
       .from(attendance)
       .where(and(...conditions))
-      .groupBy(sql`TO_CHAR(${attendance.eventDate}, ${dateFormat})`)
-      .orderBy(sql`TO_CHAR(${attendance.eventDate}, ${dateFormat})`);
+      .groupBy(sql`TO_CHAR(${attendance.eventDate}, ${sql.raw(`'${dateFormat}'`)})`)
+      .orderBy(sql`TO_CHAR(${attendance.eventDate}, ${sql.raw(`'${dateFormat}'`)})`);
 
     // Attendance by event type
     const attendanceByEventType = await getDb()

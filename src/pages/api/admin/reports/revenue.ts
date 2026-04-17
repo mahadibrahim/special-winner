@@ -57,7 +57,7 @@ export const GET: APIRoute = async (context) => {
 
     const revenueByPeriod = await getDb()
       .select({
-        period: sql<string>`TO_CHAR(${payments.createdAt}, ${dateFormat})`,
+        period: sql<string>`TO_CHAR(${payments.createdAt}, ${sql.raw(`'${dateFormat}'`)})`,
         revenue: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
         transactionCount: sql<number>`COUNT(*)`,
       })
@@ -69,8 +69,8 @@ export const GET: APIRoute = async (context) => {
           lte(payments.createdAt, end)
         )
       )
-      .groupBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`)
-      .orderBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`);
+      .groupBy(sql`TO_CHAR(${payments.createdAt}, ${sql.raw(`'${dateFormat}'`)})`)
+      .orderBy(sql`TO_CHAR(${payments.createdAt}, ${sql.raw(`'${dateFormat}'`)})`);
 
     // Revenue by payment type
     const revenueByType = await getDb()
