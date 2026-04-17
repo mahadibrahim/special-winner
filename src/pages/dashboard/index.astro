@@ -9,6 +9,7 @@ import PaymentsSummary from '../../components/dashboard/payments-summary';
 import { Announcements } from '../../components/dashboard/announcements';
 import { EmailVerificationBanner } from '../../components/dashboard/email-verification-banner';
 import { Button } from '../../components/ui/button';
+import { resolveExternalStore } from '../../lib/organization/external-store';
 
 // Get user from middleware locals
 const user = Astro.locals.user;
@@ -17,6 +18,9 @@ const user = Astro.locals.user;
 if (!user) {
   return Astro.redirect('/signin?redirect=/dashboard');
 }
+
+const organization = Astro.locals.organization;
+const externalStore = resolveExternalStore(null, organization as any);
 
 // Get current hour for greeting
 const hour = new Date().getHours();
@@ -177,6 +181,29 @@ else if (hour >= 17) greeting = "Good evening";
             <section class="dashboard-section">
               <PaymentsSummary client:visible />
             </section>
+
+            <!-- Shop Team Gear card -->
+            {externalStore && (
+              <section class="dashboard-section">
+                <a
+                  href={externalStore.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block p-5 rounded-2xl bg-cream-2 border border-border hover:border-primary/40 transition-all group"
+                >
+                  <h3 class="font-semibold text-ink mb-2 flex items-center gap-2">
+                    <span class="text-lg">🛍️</span>
+                    {externalStore.label}
+                  </h3>
+                  <p class="text-sm text-ink-faint mb-3">
+                    Shop team gear and spirit-wear from our partner store.
+                  </p>
+                  <span class="text-xs font-medium text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Shop now →
+                  </span>
+                </a>
+              </section>
+            )}
 
             <!-- How we teach card -->
             <section class="dashboard-section">
