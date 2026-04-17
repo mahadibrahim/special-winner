@@ -1,0 +1,99 @@
+const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:4321";
+
+/**
+ * Signs in with the given credentials and returns the auth_session cookie value.
+ * The signin API returns 200 with a Set-Cookie header containing the session.
+ */
+export async function getAuthCookie(
+  email: string,
+  password: string
+): Promise<string> {
+  const res = await fetch(`${BASE_URL}/api/auth/signin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+    redirect: "manual",
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Sign-in failed for ${email} (status ${res.status}): ${body}`
+    );
+  }
+
+  const setCookie = res.headers.get("set-cookie");
+  if (!setCookie) {
+    throw new Error(
+      `Sign-in for ${email} succeeded but no Set-Cookie header was returned`
+    );
+  }
+
+  return setCookie;
+}
+
+/**
+ * Convenience wrapper around fetch that prepends the base URL and sets
+ * JSON content-type. Pass a cookie string to authenticate the request.
+ */
+export async function apiFetch(
+  path: string,
+  options: RequestInit & { cookie?: string } = {}
+): Promise<Response> {
+  const { cookie, headers: extraHeaders, ...rest } = options;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(extraHeaders as Record<string, string>),
+  };
+
+  if (cookie) {
+    headers["Cookie"] = cookie;
+  }
+
+  return fetch(`${BASE_URL}${path}`, { headers, ...rest });
+}
+
+// ---- Cached admin cookie ----
+
+let _adminCookie: string | null = null;
+
+/**
+ * Returns a cached admin auth cookie. Signs in on first call.
+ */
+export async function getAdminCookie(): Promise<string> {
+  if (!_adminCookie) {
+    _adminCookie = await getAuthCookie(
+      "admin@test.aspiresports.com",
+      "TestAdmin123!"
+    );
+  }
+  return _adminCookie;
+}
+
+/**
+ * Resets the cached admin cookie. Call in afterAll if needed.
+ */
+export function resetCookies(): void {
+  _adminCookie = null;
+}
+
+/**
+ * Generates a unique slug for test data to avoid collisions.
+ */
+export function testSlug(prefix: string): string {
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${prefix}-test-${Date.now()}-${rand}`;
+}
+
+/**
+ * Asserts the response has the expected status code and returns parsed JSON.
+ */
+export async function expectJson(
+  res: Response,
+  status: number
+): Promise<any> {
+  expect(res.status).toBe(status);
+  const json = await res.json();
+  return json;
+}
