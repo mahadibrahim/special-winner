@@ -54,9 +54,10 @@ export async function apiFetch(
   return fetch(`${BASE_URL}${path}`, { headers, ...rest });
 }
 
-// ---- Cached admin cookie ----
+// ---- Cached cookies ----
 
 let _adminCookie: string | null = null;
+let _coachCookie: string | null = null;
 
 /**
  * Returns a cached admin auth cookie. Signs in on first call.
@@ -72,10 +73,24 @@ export async function getAdminCookie(): Promise<string> {
 }
 
 /**
- * Resets the cached admin cookie. Call in afterAll if needed.
+ * Returns a cached coach auth cookie. Signs in on first call.
+ */
+export async function getCoachCookie(): Promise<string> {
+  if (!_coachCookie) {
+    _coachCookie = await getAuthCookie(
+      "coach@test.aspiresports.com",
+      "TestCoach123!"
+    );
+  }
+  return _coachCookie;
+}
+
+/**
+ * Resets all cached cookies. Call in afterAll if needed.
  */
 export function resetCookies(): void {
   _adminCookie = null;
+  _coachCookie = null;
 }
 
 /**
