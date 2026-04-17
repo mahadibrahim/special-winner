@@ -8,6 +8,7 @@ import {
   integer,
   date,
   jsonb,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
@@ -27,7 +28,9 @@ export const sports = pgTable("sports", {
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  uniqueOrgSlug: unique().on(table.organizationId, table.slug),
+}));
 
 // Age groups (reusable across sports)
 export const ageGroups = pgTable("age_groups", {
