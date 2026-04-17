@@ -301,6 +301,12 @@ export function SeasonsList() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        <a
+                          href={`/admin/seasons/${season.id}`}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Manage gear →
+                        </a>
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(season)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
