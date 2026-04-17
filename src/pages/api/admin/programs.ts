@@ -93,7 +93,8 @@ export const POST: APIRoute = async (context) => {
     return new Response(JSON.stringify({ program: newProgram }), { status: 201 });
   } catch (error: any) {
     console.error("Error creating program:", error);
-    if (error.code === "23505") {
+    const pgCode = error.code ?? error.cause?.code;
+    if (pgCode === "23505") {
       return new Response(JSON.stringify({ error: "A program with this slug already exists at this location" }), { status: 409 });
     }
     return new Response(JSON.stringify({ error: "Failed to create program" }), { status: 500 });
@@ -162,7 +163,8 @@ export const DELETE: APIRoute = async (context) => {
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     console.error("Error deleting program:", error);
-    if (error.code === "23503") {
+    const pgCode = error.code ?? error.cause?.code;
+    if (pgCode === "23503") {
       return new Response(
         JSON.stringify({ error: "Cannot delete program that has seasons associated with it" }),
         { status: 400 }
