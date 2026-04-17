@@ -388,6 +388,13 @@ export const userOrganizationAccessRelations = relations(userOrganizationAccess,
 // TYPE DEFINITIONS
 // ============================================
 
+// External store (spirit wear / merchandise) link-out config
+export interface OrganizationExternalStore {
+  url: string;
+  label: string;
+  partnerName: "Squadlocker" | "BSN" | "Custom Ink" | "Other";
+}
+
 // Organization settings (stored in jsonb)
 export interface OrganizationSettings {
   branding: {
@@ -445,6 +452,7 @@ export interface OrganizationSettings {
     description?: string;
     keywords?: string[];
   };
+  externalStore?: OrganizationExternalStore;
 }
 
 // Organization features (feature flags)
@@ -482,6 +490,7 @@ export interface LocationSettings {
   };
   amenities?: string[];
   notes?: string;
+  externalStore?: OrganizationExternalStore;
 }
 
 // ============================================
