@@ -89,9 +89,9 @@ export function AdminLayout({ children, currentPath, user }: AdminLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-4 bg-navy">
-            <a href="/admin" className="flex items-center gap-2">
-              <Trophy className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold text-cream">Aspire Admin</span>
+            <a href="/admin" className="flex items-center gap-3">
+              <img src="/images/logo.svg" alt="Aspire Sports" className="h-8 w-auto" />
+              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/50">Admin</span>
             </a>
             <button
               onClick={() => setSidebarOpen(false)}
