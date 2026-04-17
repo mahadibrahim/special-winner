@@ -66,8 +66,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # drizzle-kit push is interactive by default and prompts for confirmation
+      # on data-loss statements. CI has no TTY, so without --force it hangs
+      # forever waiting for y/N input.
       - name: Push Database Schema
-        run: npm run db:push
+        run: npx drizzle-kit push --force
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
