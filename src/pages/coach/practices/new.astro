@@ -47,16 +47,16 @@ const teamId = Astro.url.searchParams.get('teamId') || undefined;
         <header class="mb-8">
           <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
-              <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
+              <h1 class="text-2xl sm:text-3xl font-bold text-ink mb-2">
                 Create Practice Session
               </h1>
-              <p class="text-gray-500">
+              <p class="text-ink-muted">
                 Build an engaging practice session using templates and our activity library.
               </p>
             </div>
 
             <div class="flex gap-2">
-              <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+              <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
                 Cancel
               </a>
             </div>
@@ -72,8 +72,8 @@ const teamId = Astro.url.searchParams.get('teamId') || undefined;
               </svg>
             </div>
             <div class="flex-1">
-              <p class="text-sm text-gray-300">
-                <strong class="text-white">Building a session on a specific skill?</strong>
+              <p class="text-sm text-ink-2">
+                <strong class="text-ink">Building a session on a specific skill?</strong>
                 Reference the Aspire skill minibook as you design the activity.
               </p>
               <a href="/coach/resources" class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">

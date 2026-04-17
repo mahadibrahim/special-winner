@@ -170,7 +170,7 @@ function TeamCard({ team }: { team: Team }) {
 
   return (
     <a
-      href={`/coach/teams/${team.id}`}
+      href={`/coach/roster/${team.id}`}
       className="group relative overflow-hidden rounded-2xl bg-paper border border-border hover:border-border transition-all hover:shadow-lg hover:shadow-ink/5"
     >
       {/* Gradient accent bar */}
