@@ -334,7 +334,7 @@ export function ActivityEditor() {
       cooldown: "bg-cyan-500/10 text-cyan-400",
       fun: "bg-pink-500/10 text-pink-400",
     };
-    return colors[type] || "bg-white/10 text-white";
+    return colors[type] || "bg-cream-3 text-ink";
   };
 
   return (
@@ -349,8 +349,8 @@ export function ActivityEditor() {
             </Button>
           </a>
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Dumbbell className="w-6 h-6 text-green-400" />
+            <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+              <Dumbbell className="w-6 h-6 text-green-600" />
               Activities Management
             </h1>
             <p className="text-muted-foreground">
@@ -365,7 +365,7 @@ export function ActivityEditor() {
       </div>
 
       {/* Filters */}
-      <Card className="bg-[#12121a] border-white/5">
+      <Card className="bg-paper border border-border">
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
@@ -375,12 +375,12 @@ export function ActivityEditor() {
                   placeholder="Search activities..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white/5 border-white/10"
+                  className="pl-10 bg-cream-2 border-border"
                 />
               </div>
             </div>
             <Select value={sportFilter} onValueChange={setSportFilter}>
-              <SelectTrigger className="w-[150px] bg-white/5 border-white/10">
+              <SelectTrigger className="w-[150px] bg-cream-2 border-border">
                 <SelectValue placeholder="All Sports" />
               </SelectTrigger>
               <SelectContent>
@@ -393,7 +393,7 @@ export function ActivityEditor() {
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[150px] bg-white/5 border-white/10">
+              <SelectTrigger className="w-[150px] bg-cream-2 border-border">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
@@ -406,7 +406,7 @@ export function ActivityEditor() {
               </SelectContent>
             </Select>
             <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-              <SelectTrigger className="w-[150px] bg-white/5 border-white/10">
+              <SelectTrigger className="w-[150px] bg-cream-2 border-border">
                 <SelectValue placeholder="All Levels" />
               </SelectTrigger>
               <SelectContent>
@@ -428,7 +428,7 @@ export function ActivityEditor() {
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
       ) : filteredActivities.length === 0 ? (
-        <Card className="bg-[#12121a] border-white/5">
+        <Card className="bg-paper border border-border">
           <CardContent className="py-12 text-center">
             <Dumbbell className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No activities found</p>
@@ -441,7 +441,7 @@ export function ActivityEditor() {
       ) : (
         <div className="grid gap-4">
           {filteredActivities.map((activity) => (
-            <Card key={activity.id} className="bg-[#12121a] border-white/5 hover:border-white/10 transition-colors">
+            <Card key={activity.id} className="bg-paper border border-border hover:border-ink-muted/30 transition-colors">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -450,7 +450,7 @@ export function ActivityEditor() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-white">{activity.name}</h3>
+                        <h3 className="font-medium text-ink">{activity.name}</h3>
                         {activity.featured && (
                           <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                         )}
@@ -464,13 +464,13 @@ export function ActivityEditor() {
                         {activity.description || "No description"}
                       </p>
                       <div className="flex gap-2 mt-1 flex-wrap">
-                        <Badge variant="secondary" className="bg-white/5 text-white/70 border-0">
+                        <Badge variant="secondary" className="bg-cream-2 text-ink-2 border-0">
                           {activity.sport.name}
                         </Badge>
                         <Badge variant="secondary" className={getTypeColor(activity.activityType)}>
                           {activity.activityType}
                         </Badge>
-                        <Badge variant="secondary" className="bg-white/5 text-white/70 border-0">
+                        <Badge variant="secondary" className="bg-cream-2 text-ink-2 border-0">
                           {activity.difficulty}
                         </Badge>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -489,7 +489,7 @@ export function ActivityEditor() {
                       variant="ghost"
                       size="sm"
                       onClick={() => openEditor(activity)}
-                      className="text-muted-foreground hover:text-white"
+                      className="text-muted-foreground hover:text-ink-2"
                     >
                       <Edit2 className="w-4 h-4" />
                     </Button>
@@ -511,9 +511,9 @@ export function ActivityEditor() {
 
       {/* Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-3xl bg-[#12121a] border-white/10 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl bg-paper border-border max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-ink">
               {editingActivity ? "Edit Activity" : "Add New Activity"}
             </DialogTitle>
             <DialogDescription>
@@ -537,7 +537,7 @@ export function ActivityEditor() {
                   value={formData.sportId}
                   onValueChange={(value) => setFormData({ ...formData, sportId: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select sport" />
                   </SelectTrigger>
                   <SelectContent>
@@ -556,7 +556,7 @@ export function ActivityEditor() {
                   value={formData.activityType}
                   onValueChange={(value) => setFormData({ ...formData, activityType: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -581,7 +581,7 @@ export function ActivityEditor() {
                     slug: generateSlug(e.target.value)
                   })}
                   placeholder="e.g., Shark Attack"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -591,7 +591,7 @@ export function ActivityEditor() {
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="shark-attack"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
             </div>
@@ -602,7 +602,7 @@ export function ActivityEditor() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Brief description of the activity..."
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -614,7 +614,7 @@ export function ActivityEditor() {
                   value={formData.difficulty}
                   onValueChange={(value) => setFormData({ ...formData, difficulty: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -634,7 +634,7 @@ export function ActivityEditor() {
                   min={1}
                   value={formData.durationMinutes}
                   onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -645,7 +645,7 @@ export function ActivityEditor() {
                   min={1}
                   value={formData.minPlayers}
                   onChange={(e) => setFormData({ ...formData, minPlayers: e.target.value })}
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -657,7 +657,7 @@ export function ActivityEditor() {
                   value={formData.maxPlayers}
                   onChange={(e) => setFormData({ ...formData, maxPlayers: e.target.value })}
                   placeholder="Unlimited"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
             </div>
@@ -669,7 +669,7 @@ export function ActivityEditor() {
                 value={formData.setupInstructions}
                 onChange={(e) => setFormData({ ...formData, setupInstructions: e.target.value })}
                 placeholder="How to set up the activity..."
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -679,7 +679,7 @@ export function ActivityEditor() {
                 value={formData.howToPlay}
                 onChange={(e) => setFormData({ ...formData, howToPlay: e.target.value })}
                 placeholder="Step-by-step instructions..."
-                className="bg-white/5 border-white/10 min-h-[100px]"
+                className="bg-cream-2 border-border min-h-[100px]"
               />
             </div>
 
@@ -691,7 +691,7 @@ export function ActivityEditor() {
                   value={formData.coachingPoints}
                   onChange={(e) => setFormData({ ...formData, coachingPoints: e.target.value })}
                   placeholder="Key things to watch for..."
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -701,7 +701,7 @@ export function ActivityEditor() {
                   value={formData.questionsToAsk}
                   onChange={(e) => setFormData({ ...formData, questionsToAsk: e.target.value })}
                   placeholder="Where should you look?&#10;What can you do next?"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
             </div>
@@ -712,7 +712,7 @@ export function ActivityEditor() {
                 value={formData.commonMistakes}
                 onChange={(e) => setFormData({ ...formData, commonMistakes: e.target.value })}
                 placeholder="What to correct..."
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -724,7 +724,7 @@ export function ActivityEditor() {
                   value={formData.makeEasier}
                   onChange={(e) => setFormData({ ...formData, makeEasier: e.target.value })}
                   placeholder="How to simplify..."
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -734,7 +734,7 @@ export function ActivityEditor() {
                   value={formData.makeHarder}
                   onChange={(e) => setFormData({ ...formData, makeHarder: e.target.value })}
                   placeholder="How to increase challenge..."
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
             </div>
@@ -747,7 +747,7 @@ export function ActivityEditor() {
                   value={formData.equipmentNeeded}
                   onChange={(e) => setFormData({ ...formData, equipmentNeeded: e.target.value })}
                   placeholder="Balls&#10;Cones&#10;Goals"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -757,7 +757,7 @@ export function ActivityEditor() {
                   value={formData.spaceRequired}
                   onChange={(e) => setFormData({ ...formData, spaceRequired: e.target.value })}
                   placeholder="e.g., 20x20 yards"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
             </div>
@@ -769,7 +769,7 @@ export function ActivityEditor() {
                 value={formData.tags}
                 onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                 placeholder="dribbling, 1v1, agility"
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -805,7 +805,7 @@ export function ActivityEditor() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="border-white/10">
+            <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="border-border">
               Cancel
             </Button>
             <Button
@@ -831,15 +831,15 @@ export function ActivityEditor() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="bg-[#12121a] border-white/10">
+        <DialogContent className="bg-paper border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">Delete Activity</DialogTitle>
+            <DialogTitle className="text-ink">Delete Activity</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this activity? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="border-white/10">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="border-border">
               Cancel
             </Button>
             <Button

@@ -266,8 +266,8 @@ export function SkillEditor() {
             </Button>
           </a>
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Target className="w-6 h-6 text-blue-400" />
+            <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+              <Target className="w-6 h-6 text-primary" />
               Skills Management
             </h1>
             <p className="text-muted-foreground">
@@ -275,14 +275,14 @@ export function SkillEditor() {
             </p>
           </div>
         </div>
-        <Button onClick={() => openEditor()} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={() => openEditor()} className="bg-primary hover:bg-primary/90">
           <Plus className="w-4 h-4 mr-2" />
           Add Skill
         </Button>
       </div>
 
       {/* Filters */}
-      <Card className="bg-[#12121a] border-white/5">
+      <Card className="bg-paper border border-border">
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
@@ -292,12 +292,12 @@ export function SkillEditor() {
                   placeholder="Search skills..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white/5 border-white/10"
+                  className="pl-10 bg-cream-2 border-border"
                 />
               </div>
             </div>
             <Select value={sportFilter} onValueChange={setSportFilter}>
-              <SelectTrigger className="w-[180px] bg-white/5 border-white/10">
+              <SelectTrigger className="w-[180px] bg-cream-2 border-border">
                 <SelectValue placeholder="All Sports" />
               </SelectTrigger>
               <SelectContent>
@@ -310,7 +310,7 @@ export function SkillEditor() {
               </SelectContent>
             </Select>
             <Select value={domainFilter} onValueChange={setDomainFilter}>
-              <SelectTrigger className="w-[180px] bg-white/5 border-white/10">
+              <SelectTrigger className="w-[180px] bg-cream-2 border-border">
                 <SelectValue placeholder="All Domains" />
               </SelectTrigger>
               <SelectContent>
@@ -332,7 +332,7 @@ export function SkillEditor() {
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
       ) : filteredSkills.length === 0 ? (
-        <Card className="bg-[#12121a] border-white/5">
+        <Card className="bg-paper border border-border">
           <CardContent className="py-12 text-center">
             <Target className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No skills found</p>
@@ -345,16 +345,16 @@ export function SkillEditor() {
       ) : (
         <div className="grid gap-4">
           {filteredSkills.map((skill) => (
-            <Card key={skill.id} className="bg-[#12121a] border-white/5 hover:border-white/10 transition-colors">
+            <Card key={skill.id} className="bg-paper border border-border hover:border-ink-muted/30 transition-colors">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="p-2 rounded-lg bg-blue-500/10">
-                      <Target className="w-5 h-5 text-blue-400" />
+                      <Target className="w-5 h-5 text-primary" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-white">{skill.name}</h3>
+                        <h3 className="font-medium text-ink">{skill.name}</h3>
                         {!skill.active && (
                           <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-400 border-0">
                             Inactive
@@ -365,13 +365,13 @@ export function SkillEditor() {
                         {skill.description || "No description"}
                       </p>
                       <div className="flex gap-2 mt-1">
-                        <Badge variant="secondary" className="bg-white/5 text-white/70 border-0">
+                        <Badge variant="secondary" className="bg-cream-2 text-ink-2 border-0">
                           {skill.sport.name}
                         </Badge>
-                        <Badge variant="secondary" className="bg-white/5 text-white/70 border-0">
+                        <Badge variant="secondary" className="bg-cream-2 text-ink-2 border-0">
                           {skill.domain.name}
                         </Badge>
-                        <Badge variant="secondary" className="bg-white/5 text-white/70 border-0">
+                        <Badge variant="secondary" className="bg-cream-2 text-ink-2 border-0">
                           {skill.assessmentMethod}
                         </Badge>
                       </div>
@@ -382,7 +382,7 @@ export function SkillEditor() {
                       variant="ghost"
                       size="sm"
                       onClick={() => openEditor(skill)}
-                      className="text-muted-foreground hover:text-white"
+                      className="text-muted-foreground hover:text-ink-2"
                     >
                       <Edit2 className="w-4 h-4" />
                     </Button>
@@ -404,9 +404,9 @@ export function SkillEditor() {
 
       {/* Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-2xl bg-[#12121a] border-white/10">
+        <DialogContent className="max-w-2xl bg-paper border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-ink">
               {editingSkill ? "Edit Skill" : "Add New Skill"}
             </DialogTitle>
             <DialogDescription>
@@ -429,7 +429,7 @@ export function SkillEditor() {
                   value={formData.sportId}
                   onValueChange={(value) => setFormData({ ...formData, sportId: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select sport" />
                   </SelectTrigger>
                   <SelectContent>
@@ -448,7 +448,7 @@ export function SkillEditor() {
                   value={formData.domainId}
                   onValueChange={(value) => setFormData({ ...formData, domainId: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select domain" />
                   </SelectTrigger>
                   <SelectContent>
@@ -473,7 +473,7 @@ export function SkillEditor() {
                     slug: generateSlug(e.target.value)
                   })}
                   placeholder="e.g., Ball Control"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -483,7 +483,7 @@ export function SkillEditor() {
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="ball-control"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
             </div>
@@ -494,7 +494,7 @@ export function SkillEditor() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Describe what this skill involves..."
-                className="bg-white/5 border-white/10 min-h-[100px]"
+                className="bg-cream-2 border-border min-h-[100px]"
               />
             </div>
 
@@ -505,7 +505,7 @@ export function SkillEditor() {
                   value={formData.stageId || "none"}
                   onValueChange={(value) => setFormData({ ...formData, stageId: value === "none" ? "" : value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
@@ -528,7 +528,7 @@ export function SkillEditor() {
                   value={formData.introductionAge}
                   onChange={(e) => setFormData({ ...formData, introductionAge: e.target.value })}
                   placeholder="e.g., 6"
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -538,7 +538,7 @@ export function SkillEditor() {
                   value={formData.assessmentMethod}
                   onValueChange={(value) => setFormData({ ...formData, assessmentMethod: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
                   <SelectContent>
@@ -557,7 +557,7 @@ export function SkillEditor() {
                 value={formData.coachingTips}
                 onChange={(e) => setFormData({ ...formData, coachingTips: e.target.value })}
                 placeholder="Keep your eyes on the ball&#10;Use both feet&#10;Stay balanced"
-                className="bg-white/5 border-white/10 min-h-[80px]"
+                className="bg-cream-2 border-border min-h-[80px]"
               />
             </div>
 
@@ -567,7 +567,7 @@ export function SkillEditor() {
                 value={formData.commonMistakes}
                 onChange={(e) => setFormData({ ...formData, commonMistakes: e.target.value })}
                 placeholder="Looking down at the ball&#10;Only using dominant foot&#10;Losing balance"
-                className="bg-white/5 border-white/10 min-h-[80px]"
+                className="bg-cream-2 border-border min-h-[80px]"
               />
             </div>
 
@@ -578,7 +578,7 @@ export function SkillEditor() {
                   type="number"
                   value={formData.sortOrder}
                   onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })}
-                  className="bg-white/5 border-white/10"
+                  className="bg-cream-2 border-border"
                 />
               </div>
 
@@ -588,7 +588,7 @@ export function SkillEditor() {
                   value={formData.active ? "active" : "inactive"}
                   onValueChange={(value) => setFormData({ ...formData, active: value === "active" })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -601,13 +601,13 @@ export function SkillEditor() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="border-white/10">
+            <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="border-border">
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={saving || !formData.sportId || !formData.domainId || !formData.name}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-primary hover:bg-primary/90"
             >
               {saving ? (
                 <>
@@ -627,15 +627,15 @@ export function SkillEditor() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="bg-[#12121a] border-white/10">
+        <DialogContent className="bg-paper border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">Delete Skill</DialogTitle>
+            <DialogTitle className="text-ink">Delete Skill</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this skill? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="border-white/10">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="border-border">
               Cancel
             </Button>
             <Button

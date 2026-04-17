@@ -2,7 +2,7 @@
 import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { GamesList } from '../../components/admin/games-list';
-import { db } from '../../lib/db';
+import { getDb } from '../../lib/db';
 import { seasons, programs, teams, venues } from '../../lib/db/schema';
 import { eq, asc } from 'drizzle-orm';
 
@@ -12,58 +12,57 @@ if (!user) {
   return Astro.redirect('/signin?returnUrl=/admin/games');
 }
 
-// Fetch data
+// Fetch data for dropdowns
 let seasonsList: any[] = [];
 let teamsList: any[] = [];
 let venuesList: any[] = [];
 
 try {
-  // Fetch seasons with programs
-  const allSeasons = await db
-    .select({
-      id: seasons.id,
-      name: seasons.name,
-      program: {
-        id: programs.id,
-        name: programs.name,
-      },
-    })
-    .from(seasons)
-    .leftJoin(programs, eq(seasons.programId, programs.id))
-    .orderBy(asc(programs.name), asc(seasons.name));
+  const db = getDb();
+
+  const [allSeasons, allTeams, allVenues] = await Promise.all([
+    db
+      .select({
+        id: seasons.id,
+        name: seasons.name,
+        program: {
+          id: programs.id,
+          name: programs.name,
+        },
+      })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .orderBy(asc(seasons.name)),
+
+    db
+      .select({
+        id: teams.id,
+        name: teams.name,
+        seasonId: teams.seasonId,
+        color: teams.color,
+      })
+      .from(teams)
+      .orderBy(asc(teams.name)),
+
+    db
+      .select({
+        id: venues.id,
+        name: venues.name,
+      })
+      .from(venues)
+      .where(eq(venues.active, true))
+      .orderBy(asc(venues.name)),
+  ]);
 
   seasonsList = allSeasons.map(s => ({
     id: s.id,
     name: s.name,
     program: s.program,
   }));
-
-  // Fetch all teams
-  const allTeams = await db
-    .select({
-      id: teams.id,
-      name: teams.name,
-      seasonId: teams.seasonId,
-      color: teams.color,
-    })
-    .from(teams)
-    .orderBy(asc(teams.name));
-
   teamsList = allTeams;
-
-  // Fetch all venues
-  const allVenues = await db
-    .select({
-      id: venues.id,
-      name: venues.name,
-    })
-    .from(venues)
-    .where(eq(venues.active, true))
-    .orderBy(asc(venues.name));
-
   venuesList = allVenues;
 } catch (error) {
-  console.error('Error fetching data:', error);
+  console.error('Error fetching games data:', error);
 }
 ---
 

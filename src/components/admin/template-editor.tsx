@@ -293,7 +293,7 @@ export function TemplateEditor() {
       conditioning: "bg-yellow-500/20 border-yellow-500/30",
       cooldown: "bg-cyan-500/20 border-cyan-500/30",
       fun: "bg-pink-500/20 border-pink-500/30",
-      other: "bg-white/10 border-white/20",
+      other: "bg-cream-3 border-border",
     };
     return colors[type] || colors.other;
   };
@@ -310,8 +310,8 @@ export function TemplateEditor() {
             </Button>
           </a>
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <FileText className="w-6 h-6 text-purple-400" />
+            <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+              <FileText className="w-6 h-6 text-purple-600" />
               Practice Templates
             </h1>
             <p className="text-muted-foreground">
@@ -326,7 +326,7 @@ export function TemplateEditor() {
       </div>
 
       {/* Filters */}
-      <Card className="bg-[#12121a] border-white/5">
+      <Card className="bg-paper border border-border">
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
@@ -336,12 +336,12 @@ export function TemplateEditor() {
                   placeholder="Search templates..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white/5 border-white/10"
+                  className="pl-10 bg-cream-2 border-border"
                 />
               </div>
             </div>
             <Select value={sportFilter} onValueChange={setSportFilter}>
-              <SelectTrigger className="w-[150px] bg-white/5 border-white/10">
+              <SelectTrigger className="w-[150px] bg-cream-2 border-border">
                 <SelectValue placeholder="All Sports" />
               </SelectTrigger>
               <SelectContent>
@@ -354,7 +354,7 @@ export function TemplateEditor() {
               </SelectContent>
             </Select>
             <Select value={stageFilter} onValueChange={setStageFilter}>
-              <SelectTrigger className="w-[180px] bg-white/5 border-white/10">
+              <SelectTrigger className="w-[180px] bg-cream-2 border-border">
                 <SelectValue placeholder="All Stages" />
               </SelectTrigger>
               <SelectContent>
@@ -376,7 +376,7 @@ export function TemplateEditor() {
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
       ) : filteredTemplates.length === 0 ? (
-        <Card className="bg-[#12121a] border-white/5">
+        <Card className="bg-paper border border-border">
           <CardContent className="py-12 text-center">
             <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No templates found</p>
@@ -389,7 +389,7 @@ export function TemplateEditor() {
       ) : (
         <div className="grid gap-4">
           {filteredTemplates.map((template) => (
-            <Card key={template.id} className="bg-[#12121a] border-white/5 hover:border-white/10 transition-colors">
+            <Card key={template.id} className="bg-paper border border-border hover:border-ink-muted/30 transition-colors">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -398,7 +398,7 @@ export function TemplateEditor() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-white">{template.name}</h3>
+                        <h3 className="font-medium text-ink">{template.name}</h3>
                         {template.isDefault && (
                           <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 border-0">
                             Default
@@ -414,10 +414,10 @@ export function TemplateEditor() {
                         {template.description || "No description"}
                       </p>
                       <div className="flex gap-2 mt-1 flex-wrap">
-                        <Badge variant="secondary" className="bg-white/5 text-white/70 border-0">
+                        <Badge variant="secondary" className="bg-cream-2 text-ink-2 border-0">
                           {template.sport.name}
                         </Badge>
-                        <Badge variant="secondary" className="bg-white/5 text-white/70 border-0">
+                        <Badge variant="secondary" className="bg-cream-2 text-ink-2 border-0">
                           {template.stage.name}
                         </Badge>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -437,7 +437,7 @@ export function TemplateEditor() {
                       variant="ghost"
                       size="sm"
                       onClick={() => openEditor(template)}
-                      className="text-muted-foreground hover:text-white"
+                      className="text-muted-foreground hover:text-ink-2"
                     >
                       <Edit2 className="w-4 h-4" />
                     </Button>
@@ -459,9 +459,9 @@ export function TemplateEditor() {
 
       {/* Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-3xl bg-[#12121a] border-white/10 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl bg-paper border-border max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-ink">
               {editingTemplate ? "Edit Template" : "Create New Template"}
             </DialogTitle>
             <DialogDescription>
@@ -485,7 +485,7 @@ export function TemplateEditor() {
                   value={formData.sportId}
                   onValueChange={(value) => setFormData({ ...formData, sportId: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select sport" />
                   </SelectTrigger>
                   <SelectContent>
@@ -504,7 +504,7 @@ export function TemplateEditor() {
                   value={formData.stageId}
                   onValueChange={(value) => setFormData({ ...formData, stageId: value })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
@@ -524,7 +524,7 @@ export function TemplateEditor() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., Fundamentals Practice (60 min)"
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -534,7 +534,7 @@ export function TemplateEditor() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="What this template is designed for..."
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -563,14 +563,14 @@ export function TemplateEditor() {
                         value={segment.name}
                         onChange={(e) => updateSegment(index, "name", e.target.value)}
                         placeholder="Segment name"
-                        className="flex-1 bg-white/5 border-white/10 h-8"
+                        className="flex-1 bg-cream-2 border-border h-8"
                       />
 
                       <Select
                         value={segment.type}
                         onValueChange={(value) => updateSegment(index, "type", value)}
                       >
-                        <SelectTrigger className="w-[140px] bg-white/5 border-white/10 h-8">
+                        <SelectTrigger className="w-[140px] bg-cream-2 border-border h-8">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -588,7 +588,7 @@ export function TemplateEditor() {
                           min={1}
                           value={segment.durationMinutes}
                           onChange={(e) => updateSegment(index, "durationMinutes", parseInt(e.target.value) || 0)}
-                          className="w-16 bg-white/5 border-white/10 h-8 text-center"
+                          className="w-16 bg-cream-2 border-border h-8 text-center"
                         />
                         <span className="text-sm text-muted-foreground">min</span>
                       </div>
@@ -607,7 +607,7 @@ export function TemplateEditor() {
                       value={segment.description || ""}
                       onChange={(e) => updateSegment(index, "description", e.target.value)}
                       placeholder="Optional description..."
-                      className="mt-2 bg-white/5 border-white/10 h-8 text-sm"
+                      className="mt-2 bg-cream-2 border-border h-8 text-sm"
                     />
                   </div>
                 ))}
@@ -615,7 +615,7 @@ export function TemplateEditor() {
                 <Button
                   variant="outline"
                   onClick={addSegment}
-                  className="w-full border-dashed border-white/10 hover:bg-white/5"
+                  className="w-full border-dashed border-border hover:bg-cream-2"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Segment
@@ -630,7 +630,7 @@ export function TemplateEditor() {
                 value={formData.equipmentNeeded}
                 onChange={(e) => setFormData({ ...formData, equipmentNeeded: e.target.value })}
                 placeholder="Balls&#10;Cones&#10;Goals"
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -640,7 +640,7 @@ export function TemplateEditor() {
                 value={formData.coachingNotes}
                 onChange={(e) => setFormData({ ...formData, coachingNotes: e.target.value })}
                 placeholder="Tips for coaches using this template..."
-                className="bg-white/5 border-white/10"
+                className="bg-cream-2 border-border"
               />
             </div>
 
@@ -667,7 +667,7 @@ export function TemplateEditor() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="border-white/10">
+            <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="border-border">
               Cancel
             </Button>
             <Button
@@ -693,15 +693,15 @@ export function TemplateEditor() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="bg-[#12121a] border-white/10">
+        <DialogContent className="bg-paper border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">Delete Template</DialogTitle>
+            <DialogTitle className="text-ink">Delete Template</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this template? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="border-white/10">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="border-border">
               Cancel
             </Button>
             <Button
