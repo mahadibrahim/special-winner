@@ -76,6 +76,8 @@ function channelIconFor(channel: string | null): string {
 
 try {
   const db = getDb();
+
+  // Core stats — these tables always exist
   const [
     [sportsCount],
     [locationsCount],
@@ -84,8 +86,6 @@ try {
     [registrationsCount],
     [usersCount],
     [pendingRefundsData],
-    [activeConversationsCount],
-    [needsReplyCount],
   ] = await Promise.all([
     db.select({ count: count() }).from(sports),
     db.select({ count: count() }).from(locations),
@@ -100,14 +100,17 @@ try {
       })
       .from(registrations)
       .where(eq(registrations.refundStatus, 'pending_approval')),
-    db
+  ]);
+
+  // Messaging stats — conversations table may not exist yet
+  let activeConversationsCount = { count: 0 };
+  let needsReplyCount = { count: 0 };
+  try {
+    [activeConversationsCount] = await db
       .select({ count: count() })
       .from(conversations)
-      .where(eq(conversations.status, 'active')),
-    // Conversations routed to a human (coach or admin) where the last
-    // inbound message is newer than the last outbound message — i.e. the
-    // parent is waiting on a reply.
-    db
+      .where(eq(conversations.status, 'active'));
+    [needsReplyCount] = await db
       .select({ count: count() })
       .from(conversations)
       .where(
@@ -118,8 +121,10 @@ try {
           isNotNull(conversations.lastInboundAt),
           sql`(${conversations.lastOutboundAt} IS NULL OR ${conversations.lastInboundAt} > ${conversations.lastOutboundAt})`,
         ),
-      ),
-  ]);
+      );
+  } catch {
+    // conversations table doesn't exist yet — messaging not deployed
+  }
 
   stats = {
     sports: sportsCount.count,
@@ -130,13 +135,14 @@ try {
     users: usersCount.count,
     pendingRefunds: pendingRefundsData.count,
     pendingRefundsAmountCents: Number(pendingRefundsData.totalAmount) || 0,
-    activeConversations: activeConversationsCount.count,
-    needsReply: needsReplyCount.count,
+    activeConversations: activeConversationsCount?.count ?? 0,
+    needsReply: needsReplyCount?.count ?? 0,
   };
 
   // Fetch the 5 most recent active conversations for the widget below the
   // stat grid. Each conversation includes parent name and the most recent
-  // message snippet.
+  // message snippet. Wrapped in try/catch since conversations table may not exist.
+  try {
   const recentRows = await db
     .select({
       id: conversations.id,
@@ -199,6 +205,9 @@ try {
       };
     });
   }
+  } catch {
+    // conversations table doesn't exist yet
+  }
 } catch (error) {
   console.error('Error fetching stats:', error);
   statsError = 'Failed to load dashboard statistics. Please check your database connection.';
@@ -225,9 +234,16 @@ try {
       user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
     >
       <div class="space-y-6">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p class="text-gray-600 mt-1">Welcome to the Aspire Sports admin panel</p>
+        <div class="flex items-end justify-between">
+          <div>
+            <p class="text-xs text-ink-muted mb-1">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user.firstName || 'Admin'}</p>
+            <h1 class="text-3xl font-display font-semibold text-ink">Dashboard</h1>
+          </div>
+          <div class="flex items-center gap-3">
+            <a href="/coach" class="text-sm text-ink-muted hover:text-ink transition-colors">Coach View</a>
+            <a href="/dashboard" class="text-sm text-ink-muted hover:text-ink transition-colors">Parent View</a>
+            <a href="/" class="text-sm text-primary hover:text-primary/80 font-medium transition-colors">View Site →</a>
+          </div>
         </div>
 
         {statsError ? (
