@@ -26,7 +26,7 @@ function getBotToken(): string {
   return token;
 }
 
-async function callTelegram<T = unknown>(
+export async function callTelegram<T = unknown>(
   method: string,
   params: Record<string, unknown>,
 ): Promise<T> {
