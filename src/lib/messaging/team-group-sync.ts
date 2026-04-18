@@ -39,6 +39,7 @@ export async function computeExpectedMembership(teamGroupId: string): Promise<st
     .where(
       and(
         eq(rosters.teamId, group.teamId),
+        eq(rosters.status, "active"),
         eq(familyMemberParents.canReceiveMessages, true),
         isNotNull(users.telegramChatId),
       ),
