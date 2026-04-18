@@ -13,29 +13,18 @@ export type CreateGroupResult = {
 }
 
 /**
- * Create a new Telegram Supergroup. Bot must be configured with createChatInviteLink scope.
- * In DRY_RUN mode, returns synthetic IDs for testing.
+ * DEPRECATED/PLACEHOLDER: Telegram Bot API does not support programmatic group creation.
+ * See docs/messaging/team-groups-runbook.md for the manual creation workflow.
+ * This function exists only for DRY_RUN testing and must NOT be called in production.
  */
 export async function createSupergroup(input: CreateGroupInput): Promise<CreateGroupResult> {
   if (DRY_RUN) {
     const synthetic = `-100${Date.now()}`
     return { chatId: synthetic, inviteLink: `https://t.me/+dryrun-${synthetic}` }
   }
-
-  // Telegram bot API does not support creating groups directly. The flow is:
-  //   1. Admin creates the group in Telegram client and adds the bot
-  //   2. Bot receives a getUpdates event with new_chat_members including itself
-  //   3. Bot sets the title via setChatTitle and generates invite link via createChatInviteLink
-  //
-  // For MVP, we use the "create via import bot" pattern: the bot is pre-added
-  // to an org-level "template" supergroup that is cloned per team. This is a
-  // documented Telegram limitation.
-  //
-  // For now: this function requires the caller to pre-create the group and pass
-  // the chatId. We adapt the signature to reflect reality.
-
   throw new Error(
-    "Telegram bots cannot create groups directly. A pre-created group chatId must be supplied. See docs for workaround.",
+    "createSupergroup is a test-only stub. Create the group manually in Telegram " +
+    "and call promoteGroupToActive(teamGroupId, chatId) instead. See runbook.",
   )
 }
 
