@@ -195,8 +195,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Check capacity
     if (season.maxParticipants) {
-      const [{ count }] = await getDb()
-        .select({ count: registrations.id })
+      const confirmedRows = await getDb()
+        .select({ id: registrations.id })
         .from(registrations)
         .where(
           and(
@@ -204,9 +204,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             eq(registrations.status, "confirmed")
           )
         );
-
-      // Note: This is a simplification - in production you'd want a more accurate count
-      const registeredCount = count ? 1 : 0;
+      const registeredCount = confirmedRows.length;
       if (registeredCount >= season.maxParticipants) {
         // Waitlist the registration
         const amountDue = data.registrationType === "deposit" && season.depositCents

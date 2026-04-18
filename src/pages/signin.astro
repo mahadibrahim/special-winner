@@ -1,5 +1,7 @@
 ---
-export const prerender = true;
+// NOT prerendered: the "already logged in" check below needs request-time
+// access to Astro.locals.user. With prerender=true the page was served as
+// static HTML and the redirect never fired for authenticated visitors.
 import '../styles/globals.css';
 import Navigation from '../components/navigation';
 import Footer from '../components/footer';

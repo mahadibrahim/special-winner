@@ -395,7 +395,8 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Season: ${season.name} (registration open)`);
 
-  // Create team assigned to coach
+  // Create teams assigned to coach — need at least two so Games tests can
+  // schedule home vs away.
   console.log("\n4. Setting up teams...");
   let [team] = await db
     .select()
@@ -417,6 +418,27 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Team: ${team.name} (Coach: ${coachUser.firstName})`);
+
+  let [team2] = await db
+    .select()
+    .from(teams)
+    .where(eq(teams.name, "E2E Test Team 2"))
+    .limit(1);
+
+  if (!team2) {
+    [team2] = await db
+      .insert(teams)
+      .values({
+        seasonId: season.id,
+        name: "E2E Test Team 2",
+        coachUserId: coachUser.id,
+        color: "#3b82f6",
+        maxRosterSize: 12,
+        division: "U8",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Team: ${team2.name}`);
 
   // Create family members for parent
   console.log("\n5. Setting up family members...");
