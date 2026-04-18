@@ -1,0 +1,265 @@
+---
+export const prerender = true;
+import '../styles/globals.css';
+import Navigation from '../components/navigation';
+import Footer from '../components/footer';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>About — Aspire Sports</title>
+    <meta name="description" content="Youth sports, done with conviction. Aspire Sports is an evidence-based youth athletics program serving Powell, Ohio and Central Ohio families since 2015." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-cream text-ink antialiased">
+    <Navigation client:load />
+
+    <main class="relative pt-28 lg:pt-36">
+      <div class="pointer-events-none absolute inset-0 opacity-[0.25] paper-grain"></div>
+
+      {/* Masthead */}
+      <header class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pb-16 lg:pb-24">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-6">
+          <span class="label-sm text-ink-muted">§ About Aspire</span>
+          <span class="label-sm text-ink-muted hidden sm:inline">Est. 2015 · Powell, Ohio</span>
+        </div>
+
+        <div class="grid grid-cols-12 gap-6 lg:gap-12 mt-16 lg:mt-24">
+          <div class="col-span-12 lg:col-span-9">
+            <p class="label-sm text-primary-orange mb-6 flex items-center gap-3">
+              <span class="inline-block w-8 h-px bg-primary-orange"></span>
+              Our Philosophy
+            </p>
+            <h1
+              class="display text-ink"
+              style="font-size: clamp(3rem, 9vw, 9rem); line-height: 0.92; letter-spacing: -0.035em; font-weight: 500;"
+            >
+              The case for
+              <br />
+              doing it{" "}
+              <span class="italic text-primary-orange">right</span>.
+            </h1>
+          </div>
+
+          <div class="col-span-12 lg:col-span-3 lg:pl-8 lg:border-l lg:border-ink/15">
+            <p class="label-sm text-ink-muted mb-4">In one sentence</p>
+            <p class="text-ink-2 text-base leading-relaxed serif italic">
+              We coach kids the way motor learning research says they
+              should be coached — and we publish our work so you can
+              judge it for yourself.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {/* The story — drop cap paragraph */}
+      <section class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pb-24 lg:pb-32 border-t border-ink/15">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mt-16 mb-14">
+          <h2 class="label-sm text-ink-muted">§ The Story</h2>
+          <span class="label-sm text-ink-muted">Why we started</span>
+        </div>
+
+        <div class="grid grid-cols-12 gap-8 lg:gap-16">
+          <div class="col-span-12 lg:col-span-8">
+            <p class="text-lg lg:text-xl text-ink leading-[1.55] mb-8">
+              <span class="drop-cap">A</span>spire started in 2015 with a
+              simple premise: youth sports in Central Ohio had been hijacked
+              by tournament economics, and the kids were paying for it.
+              Travel teams were charging five thousand dollars a year to
+              put nine-year-olds on buses. Local leagues were running three
+              volunteer coaches across four hundred kids with no shared
+              curriculum. Parents had a choice between expensive and
+              thin — and neither one was developing the athletes they were
+              billed as developing.
+            </p>
+            <p class="text-base lg:text-lg text-ink-2 leading-relaxed mb-8 max-w-prose">
+              We built Aspire as a third option. Professional coaching at a
+              price that matches a rec league. A shared curriculum rooted
+              in published motor learning research — not in whatever
+              drill the head coach remembered from his college team.
+              Progressions that respect how kids actually absorb new
+              skills. And we write it all down, so you can see exactly
+              what your kid is being taught, week by week.
+            </p>
+            <p class="text-base lg:text-lg text-ink-2 leading-relaxed max-w-prose">
+              Ten years later, we're still in Powell, still running four
+              sports, still free to read. We've coached thousands of kids
+              through the program. Some of them are in college now. Some
+              of them are coaches on our own staff. And we're still
+              building — still arguing about progressions, still rewriting
+              curriculum, still learning from every season what we got
+              right and what we need to change.
+            </p>
+          </div>
+
+          <aside class="col-span-12 lg:col-span-4 lg:pl-8 lg:border-l lg:border-ink/15 space-y-10">
+            <div>
+              <p class="label-sm text-primary-orange mb-3">Founded</p>
+              <p
+                class="display text-ink"
+                style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
+              >
+                2015
+              </p>
+              <p class="text-sm text-ink-muted mt-2 serif italic">
+                Powell, Ohio
+              </p>
+            </div>
+            <div>
+              <p class="label-sm text-primary-orange mb-3">Sports</p>
+              <p
+                class="display text-ink"
+                style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
+              >
+                Four
+              </p>
+              <p class="text-sm text-ink-muted mt-2 serif italic">
+                Soccer · Basketball · Hockey · Baseball
+              </p>
+            </div>
+            <div>
+              <p class="label-sm text-primary-orange mb-3">Ages</p>
+              <p
+                class="display text-ink"
+                style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
+              >
+                4–14
+              </p>
+              <p class="text-sm text-ink-muted mt-2 serif italic">
+                Long-term development model
+              </p>
+            </div>
+            <div>
+              <p class="label-sm text-primary-orange mb-3">Framework</p>
+              <p
+                class="display text-ink"
+                style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
+              >
+                TDEQ-5
+              </p>
+              <p class="text-sm text-ink-muted mt-2 serif italic">
+                Plus PCA Double-Goal Coach &amp; ELM
+              </p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      {/* What we believe — pull quotes */}
+      <section class="relative bg-cream-2 border-t border-ink/15">
+        <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-24 lg:py-36">
+          <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mb-16">
+            <h2 class="label-sm text-ink-muted">§ What We Believe</h2>
+            <span class="label-sm text-ink-muted">Five positions</span>
+          </div>
+
+          <div class="space-y-0 border-t border-ink/15">
+            {[
+              {
+                num: '01',
+                kicker: 'Development',
+                title: 'Talent is developed, not discovered.',
+                body: "The kid who looks fastest at seven is rarely the kid who wins at seventeen. We coach the body that'll still be improving at age twenty-five, not the one that'll peak at the end of the season.",
+              },
+              {
+                num: '02',
+                kicker: 'Curriculum',
+                title: 'Every drill has a reason.',
+                body: "Our progressions come from published motor learning research. If we can't explain why a drill sits where it sits in the week, we don't run the drill.",
+              },
+              {
+                num: '03',
+                kicker: 'Coaching',
+                title: 'Coaches are teachers first.',
+                body: 'Every Aspire coach is trained on the Positive Coaching Alliance Double-Goal model. Winning is the small goal; life lessons are the big one. We take both seriously, in that order.',
+              },
+              {
+                num: '04',
+                kicker: 'Transparency',
+                title: 'Parents deserve to see what we teach.',
+                body: 'Our coaching guides are published on this website, free to read, free to print, free to share. When you ask how we teach shooting, the answer is a page number.',
+              },
+              {
+                num: '05',
+                kicker: 'Fun',
+                title: "If the kids don't love it, nothing else matters.",
+                body: "Development research is unambiguous: long-term participation in sport is the biggest predictor of long-term athletic outcome. A kid who quits at nine doesn't get to develop.",
+              },
+            ].map((b) => (
+              <div class="py-14 lg:py-20 border-b border-ink/15 grid grid-cols-12 gap-6 lg:gap-12">
+                <div class="col-span-2 lg:col-span-2">
+                  <span
+                    class="display text-ink-faint italic"
+                    style="font-size: 1.75rem; font-weight: 500;"
+                  >
+                    {b.num}
+                  </span>
+                </div>
+                <div class="col-span-10 lg:col-span-8">
+                  <p class="label-sm text-primary-orange mb-4">{b.kicker}</p>
+                  <h3
+                    class="display text-ink mb-4"
+                    style="font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; letter-spacing: -0.015em; font-weight: 500;"
+                  >
+                    {b.title}
+                  </h3>
+                  <p class="text-base lg:text-lg text-ink-2 leading-relaxed max-w-2xl">
+                    {b.body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Footer CTA */}
+      <section class="relative border-t border-ink/15">
+        <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-20 lg:py-28">
+          <div class="grid grid-cols-12 gap-8 items-baseline">
+            <div class="col-span-12 lg:col-span-8">
+              <h2
+                class="display text-ink"
+                style="font-size: clamp(2rem, 5vw, 4rem); line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
+              >
+                See what we coach
+                <span class="italic text-primary-orange">in practice</span>.
+              </h2>
+            </div>
+            <div class="col-span-12 lg:col-span-4 lg:text-right flex flex-wrap gap-3 lg:justify-end">
+              <a
+                href="/guides"
+                class="inline-flex items-center gap-3 border border-ink/25 text-ink px-6 py-4 text-sm font-medium uppercase hover:bg-ink hover:text-cream transition-colors duration-300"
+                style="letter-spacing: 0.08em;"
+              >
+                Read the guides
+              </a>
+              <a
+                href="/#programs"
+                class="inline-flex items-center gap-3 bg-ink text-cream px-6 py-4 text-sm font-medium uppercase hover:bg-primary-orange transition-colors duration-300"
+                style="letter-spacing: 0.08em;"
+              >
+                Browse programs →
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <Footer client:idle />
+  </body>
+</html>
+
+<script is:inline>
+  // no-op; Astro islands already load their own scripts
+</script>

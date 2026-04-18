@@ -1,0 +1,238 @@
+---
+export const prerender = true;
+import '../styles/globals.css';
+import Navigation from '../components/navigation';
+import Footer from '../components/footer';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Contact — Aspire Sports</title>
+    <meta name="description" content="Talk to a real person at Aspire Sports. Text, email, or drop a message — usually same-day reply." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-cream text-ink antialiased">
+    <Navigation client:load />
+
+    <main class="relative pt-28 lg:pt-36">
+      {/* Subtle paper grain */}
+      <div class="pointer-events-none absolute inset-0 opacity-[0.25] paper-grain"></div>
+
+      {/* Masthead */}
+      <header class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pb-20 lg:pb-28">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-6">
+          <span class="label-sm text-ink-muted">§ Contact</span>
+          <span class="label-sm text-ink-muted hidden sm:inline">
+            Powell, Ohio · Mon–Sat
+          </span>
+        </div>
+
+        <div class="grid grid-cols-12 gap-6 lg:gap-12 mt-16 lg:mt-24">
+          <div class="col-span-12 lg:col-span-8">
+            <p class="label-sm text-primary-orange mb-6 flex items-center gap-3">
+              <span class="inline-block w-8 h-px bg-primary-orange"></span>
+              Talk to a Real Person
+            </p>
+            <h1
+              class="display text-ink"
+              style="font-size: clamp(3rem, 9vw, 9rem); line-height: 0.92; letter-spacing: -0.035em; font-weight: 500;"
+            >
+              No phone
+              <br />
+              <span class="italic text-primary-orange">trees</span>.
+            </h1>
+          </div>
+
+          <aside class="col-span-12 lg:col-span-4 lg:pl-8 lg:border-l lg:border-ink/15">
+            <p class="label-sm text-ink-muted mb-4">The promise</p>
+            <p class="text-ink-2 text-base leading-relaxed serif italic">
+              Text us, email us, drop a note in the form — a real Aspire
+              staff member will reply. Usually the same day during the
+              season, always within one business day.
+            </p>
+          </aside>
+        </div>
+      </header>
+
+      {/* Four ways to reach us */}
+      <section class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pb-28 lg:pb-40 border-t border-ink/15">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mt-16 mb-14">
+          <h2 class="label-sm text-ink-muted">§ Four Channels</h2>
+          <span class="label-sm text-ink-muted">Pick one</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0 border-t border-ink/15">
+          <a
+            href="sms:+16145550199"
+            class="group block border-b lg:border-b-0 lg:border-r border-ink/15 p-8 hover:bg-cream-2 transition-colors"
+          >
+            <span
+              class="display text-ink-faint italic block mb-6"
+              style="font-size: 1.25rem; font-weight: 500;"
+            >
+              01
+            </span>
+            <p class="label-sm text-primary-orange mb-3">Fastest</p>
+            <h3
+              class="display text-ink group-hover:text-primary-orange transition-colors mb-4"
+              style="font-size: clamp(1.5rem, 2.5vw, 1.875rem); line-height: 1.1; letter-spacing: -0.015em; font-weight: 500;"
+            >
+              Text message
+            </h3>
+            <p class="text-sm text-ink-2 leading-relaxed mb-6 serif italic">
+              Tap to open your texting app. Best for quick questions —
+              schedule conflicts, absences, late pickups.
+            </p>
+            <span
+              class="label-sm text-ink group-hover:text-primary-orange transition-colors"
+              style="letter-spacing: 0.1em;"
+            >
+              (614) 555-0199 →
+            </span>
+          </a>
+
+          <a
+            href="mailto:hello@aspiresports.com"
+            class="group block border-b lg:border-b-0 lg:border-r border-ink/15 p-8 hover:bg-cream-2 transition-colors"
+          >
+            <span
+              class="display text-ink-faint italic block mb-6"
+              style="font-size: 1.25rem; font-weight: 500;"
+            >
+              02
+            </span>
+            <p class="label-sm text-primary-orange mb-3">Most Detailed</p>
+            <h3
+              class="display text-ink group-hover:text-primary-orange transition-colors mb-4"
+              style="font-size: clamp(1.5rem, 2.5vw, 1.875rem); line-height: 1.1; letter-spacing: -0.015em; font-weight: 500;"
+            >
+              Email
+            </h3>
+            <p class="text-sm text-ink-2 leading-relaxed mb-6 serif italic">
+              For registration questions, refunds, or anything that needs
+              a paper trail. We read every one.
+            </p>
+            <span
+              class="label-sm text-ink group-hover:text-primary-orange transition-colors"
+              style="letter-spacing: 0.1em;"
+            >
+              hello@aspiresports.com →
+            </span>
+          </a>
+
+          <div class="group block border-b md:border-b-0 border-ink/15 lg:border-r p-8">
+            <span
+              class="display text-ink-faint italic block mb-6"
+              style="font-size: 1.25rem; font-weight: 500;"
+            >
+              03
+            </span>
+            <p class="label-sm text-primary-orange mb-3">Walk In</p>
+            <h3
+              class="display text-ink mb-4"
+              style="font-size: clamp(1.5rem, 2.5vw, 1.875rem); line-height: 1.1; letter-spacing: -0.015em; font-weight: 500;"
+            >
+              Powell Main
+            </h3>
+            <p class="text-sm text-ink-2 leading-relaxed mb-6 serif italic">
+              150 W Olentangy St, Powell, Ohio 43065.
+              <br />
+              Office hours Mon–Fri 9 AM – 5 PM, Saturdays on practice days.
+            </p>
+            <span class="label-sm text-ink-muted" style="letter-spacing: 0.1em;">
+              On the field, look for orange →
+            </span>
+          </div>
+
+          <a
+            href="/guides"
+            class="group block p-8 hover:bg-cream-2 transition-colors"
+          >
+            <span
+              class="display text-ink-faint italic block mb-6"
+              style="font-size: 1.25rem; font-weight: 500;"
+            >
+              04
+            </span>
+            <p class="label-sm text-primary-orange mb-3">Self-Service</p>
+            <h3
+              class="display text-ink group-hover:text-primary-orange transition-colors mb-4"
+              style="font-size: clamp(1.5rem, 2.5vw, 1.875rem); line-height: 1.1; letter-spacing: -0.015em; font-weight: 500;"
+            >
+              The Guides
+            </h3>
+            <p class="text-sm text-ink-2 leading-relaxed mb-6 serif italic">
+              Most questions about how we coach are answered in the free
+              coaching guides. Start there, contact us after.
+            </p>
+            <span
+              class="label-sm text-ink group-hover:text-primary-orange transition-colors"
+              style="letter-spacing: 0.1em;"
+            >
+              Read the guides →
+            </span>
+          </a>
+        </div>
+      </section>
+
+      {/* Closing statement */}
+      <section class="relative border-t border-ink/15 bg-cream-2">
+        <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-20 lg:py-28">
+          <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mb-12">
+            <h2 class="label-sm text-ink-muted">§ Our Standard</h2>
+            <span class="label-sm text-ink-muted">Every message, answered</span>
+          </div>
+
+          <div class="grid grid-cols-12 gap-8 lg:gap-16">
+            <div class="col-span-12 lg:col-span-8">
+              <p class="display text-ink text-3xl lg:text-5xl leading-[1.08]" style="font-weight: 500; letter-spacing: -0.02em;">
+                If we say the reply will be
+                <span class="italic text-primary-orange"> same-day</span>,
+                it will be same-day.
+              </p>
+              <p class="mt-10 text-base lg:text-lg text-ink-2 leading-relaxed max-w-2xl">
+                You will never be routed through an offshore call center,
+                sent a canned auto-reply, or told to "check our FAQ." A
+                person on our Powell team reads every message and answers
+                it directly.
+              </p>
+            </div>
+
+            <aside class="col-span-12 lg:col-span-4 lg:pl-12 lg:border-l lg:border-ink/15 space-y-6">
+              <div>
+                <p class="label-sm text-primary-orange mb-2">Weekdays</p>
+                <p class="text-ink-2 text-base leading-relaxed">
+                  Replies within two hours during office hours.
+                </p>
+              </div>
+              <div>
+                <p class="label-sm text-primary-orange mb-2">Weekends</p>
+                <p class="text-ink-2 text-base leading-relaxed">
+                  Same-day during the season, next-morning off-season.
+                </p>
+              </div>
+              <div>
+                <p class="label-sm text-primary-orange mb-2">Urgent</p>
+                <p class="text-ink-2 text-base leading-relaxed">
+                  Injury or safety? Text us — we monitor the line during
+                  every practice and game.
+                </p>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <Footer client:idle />
+  </body>
+</html>
