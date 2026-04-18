@@ -1,6 +1,7 @@
 ---
 import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
+import { MessagingMetricsCard } from '../../components/admin/messaging-metrics-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { getDb } from '../../lib/db';
 import { sports, locations, programs, seasons, registrations, users, conversations, conversationMessages } from '../../lib/db/schema';
@@ -423,6 +424,11 @@ try {
               </a>
             </CardContent>
           </Card>
+        )}
+
+        {/* Messaging adoption metrics */}
+        {!statsError && (
+          <MessagingMetricsCard client:load />
         )}
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -138,6 +138,8 @@ export interface SendRegistrationConfirmationParams {
   amountDueCents: number;
   paymentStatus: string;
   registrationStatus: string;
+  /** Pass true when the parent already has Telegram linked to suppress the connect CTA in the email. */
+  hasLinkedTelegram?: boolean;
 }
 
 export async function sendRegistrationConfirmationEmail(params: SendRegistrationConfirmationParams) {
@@ -163,6 +165,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
       paymentStatus: params.paymentStatus,
       registrationStatus: params.registrationStatus,
       dashboardUrl: `${appUrl}/dashboard`,
+      hasLinkedTelegram: params.hasLinkedTelegram ?? false,
     })
   );
 

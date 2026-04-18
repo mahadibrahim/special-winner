@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TelegramConnectStep } from "./telegram-connect-step"
 
 interface Season {
   id: string
@@ -81,6 +82,7 @@ interface FamilyMember {
 
 interface RegistrationWizardProps {
   seasonId: string
+  hasLinkedTelegram?: boolean
 }
 
 const STEPS = [
@@ -90,8 +92,9 @@ const STEPS = [
   { id: 4, name: "Confirm", icon: CheckCircle2 },
 ]
 
-export default function RegistrationWizard({ seasonId }: RegistrationWizardProps) {
+export default function RegistrationWizard({ seasonId, hasLinkedTelegram = false }: RegistrationWizardProps) {
   const [currentStep, setCurrentStep] = useState(1)
+  const [showTelegramStep, setShowTelegramStep] = useState(false)
   const [season, setSeason] = useState<Season | null>(null)
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -281,7 +284,11 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
           // If Stripe isn't configured, show success without payment
           if (checkoutData.error === "Payment processing is not configured") {
             setRegistrationComplete(true)
-            setCurrentStep(4)
+            if (!hasLinkedTelegram) {
+              setShowTelegramStep(true)
+            } else {
+              setCurrentStep(4)
+            }
             return
           }
           throw new Error(checkoutData.error || "Failed to create checkout session")
@@ -296,9 +303,13 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
         }
       }
 
-      // Waitlisted or no payment required
+      // Waitlisted or no payment required — show Telegram step first (if not already linked)
       setRegistrationComplete(true)
-      setCurrentStep(4)
+      if (!hasLinkedTelegram) {
+        setShowTelegramStep(true)
+      } else {
+        setCurrentStep(4)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to complete registration")
     } finally {
@@ -828,8 +839,22 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
           </div>
         )}
 
+        {/* Telegram Connect Step (between payment and confirmation) */}
+        {showTelegramStep && (
+          <TelegramConnectStep
+            onComplete={() => {
+              setShowTelegramStep(false)
+              setCurrentStep(4)
+            }}
+            onSkip={() => {
+              setShowTelegramStep(false)
+              setCurrentStep(4)
+            }}
+          />
+        )}
+
         {/* Step 4: Confirmation */}
-        {currentStep === 4 && registrationComplete && (
+        {currentStep === 4 && !showTelegramStep && registrationComplete && (
           <div className="text-center py-8">
             <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-500" />
@@ -852,7 +877,7 @@ export default function RegistrationWizard({ seasonId }: RegistrationWizardProps
       </div>
 
       {/* Navigation */}
-      {currentStep < 4 && (
+      {currentStep < 4 && !showTelegramStep && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"

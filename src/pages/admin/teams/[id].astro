@@ -3,6 +3,7 @@ import '../../../styles/globals.css';
 import { AdminLayout } from '../../../components/admin/admin-layout';
 import { RosterManager } from '../../../components/admin/roster-manager';
 import { TeamBroadcastSection } from '../../../components/admin/team-broadcast-section';
+import { TeamGroupManagementSection } from '../../../components/admin/team-group-management-section';
 
 // Check if user is admin
 const user = Astro.locals.user;
@@ -36,6 +37,7 @@ if (!id) {
       user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
     >
       <RosterManager client:load teamId={id} />
+      <TeamGroupManagementSection client:load teamId={id} />
       <TeamBroadcastSection client:load teamId={id} />
     </AdminLayout>
   </body>

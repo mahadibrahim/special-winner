@@ -36,6 +36,13 @@
       "when": 1776543434793,
       "tag": "0004_flaky_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776549162504,
+      "tag": "0005_warm_master_chief",
+      "breakpoints": true
     }
   ]
 }
