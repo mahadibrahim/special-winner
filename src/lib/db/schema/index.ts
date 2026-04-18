@@ -33,3 +33,6 @@ export * from "./program-gear";
 
 // Team groups (Telegram group management)
 export * from "./team-groups";
+
+// Broadcast schemas
+export * from "./broadcasts";
