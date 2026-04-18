@@ -20,12 +20,22 @@ describe("Admin Broadcasts API", () => {
 
   afterAll(() => resetCookies())
 
-  it("requires authentication (401 without cookie)", async () => {
+  // Valid v4-style UUID for payloads that need to pass zod validation without
+  // being a real team (auth/403 checks don't care if the team exists).
+  const VALID_FAKE_UUID = "00000000-0000-4000-8000-000000000001"
+
+  it("requires authentication (401 with valid payload but no cookie)", async () => {
     const res = await apiFetch(ENDPOINT, {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        targetType: "team_group",
+        teamIds: [VALID_FAKE_UUID],
+        messageType: "team_broadcast_general",
+        body: "test",
+      }),
     })
-    // No auth at all → 401 from requireCoachAccess (last fallback)
+    // Endpoint validates body first (by design — needs targetType to pick auth path),
+    // then falls through to coach auth which returns 401 when no cookie present.
     expect(res.status).toBe(401)
   })
 
@@ -35,7 +45,7 @@ describe("Admin Broadcasts API", () => {
       cookie: coachCookie,
       body: JSON.stringify({
         targetType: "multi_team",
-        teamIds: ["00000000-0000-0000-0000-000000000001"],
+        teamIds: [VALID_FAKE_UUID],
         messageType: "team_broadcast_general",
         body: "test",
       }),
@@ -43,13 +53,13 @@ describe("Admin Broadcasts API", () => {
     expect(res.status).toBe(403)
   })
 
-  it("returns 400 on invalid payload (missing body)", async () => {
+  it("returns 400 on invalid payload (missing body field)", async () => {
     const res = await apiFetch(ENDPOINT, {
       method: "POST",
       cookie: adminCookie,
       body: JSON.stringify({
         targetType: "team_group",
-        teamIds: ["00000000-0000-0000-0000-000000000001"],
+        teamIds: [VALID_FAKE_UUID],
         messageType: "team_broadcast_general",
         // body is missing
       }),
