@@ -26,6 +26,7 @@ interface RegistrationConfirmationEmailProps {
   paymentStatus: string;
   registrationStatus: string;
   dashboardUrl: string;
+  hasLinkedTelegram?: boolean;
 }
 
 export function RegistrationConfirmationEmail({
@@ -42,6 +43,7 @@ export function RegistrationConfirmationEmail({
   paymentStatus,
   registrationStatus,
   dashboardUrl,
+  hasLinkedTelegram = false,
 }: RegistrationConfirmationEmailProps) {
   const previewText = `Registration confirmed for ${childName} in ${programName}`;
   const isWaitlisted = registrationStatus === "waitlisted";
@@ -156,6 +158,19 @@ export function RegistrationConfirmationEmail({
               </Text>
             </Section>
           </Section>
+
+          {/* Telegram CTA — shown only when the parent hasn't linked Telegram yet */}
+          {!hasLinkedTelegram && (
+            <Section style={telegramCta}>
+              <Text style={telegramCtaHeading}>Prefer quick updates?</Text>
+              <Text style={telegramCtaBody}>
+                Connect Telegram to get real-time reminders and schedule changes from your team.
+              </Text>
+              <Link href={`${dashboardUrl}?connect=telegram`} style={telegramCtaLink}>
+                Connect Telegram →
+              </Link>
+            </Section>
+          )}
 
           <Hr style={hr} />
 
@@ -295,6 +310,31 @@ const footerText = {
   lineHeight: "16px",
   textAlign: "center" as const,
   margin: "0 0 8px",
+};
+
+const telegramCta = {
+  margin: "24px 32px",
+  padding: "16px",
+  backgroundColor: "#f0f9ff",
+  borderRadius: "8px",
+};
+
+const telegramCtaHeading = {
+  fontSize: "14px",
+  margin: "0",
+  fontWeight: 600,
+  color: "#1a1a1a",
+};
+
+const telegramCtaBody = {
+  fontSize: "13px",
+  margin: "4px 0 8px",
+  color: "#525f7f",
+};
+
+const telegramCtaLink = {
+  fontSize: "13px",
+  color: "#2563eb",
 };
 
 export default RegistrationConfirmationEmail;
