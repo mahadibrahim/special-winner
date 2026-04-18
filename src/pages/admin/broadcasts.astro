@@ -1,18 +1,11 @@
 ---
-import '../../../styles/globals.css';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { RosterManager } from '../../../components/admin/roster-manager';
-import { TeamBroadcastSection } from '../../../components/admin/team-broadcast-section';
+import '../../styles/globals.css';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { SentAnnouncementsList } from '../../components/admin/sent-announcements-list';
 
-// Check if user is admin
 const user = Astro.locals.user;
 if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/teams');
-}
-
-const { id } = Astro.params;
-if (!id) {
-  return Astro.redirect('/admin/teams');
+  return Astro.redirect('/signin?returnUrl=/admin/broadcasts');
 }
 ---
 
@@ -27,16 +20,18 @@ if (!id) {
       href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <title>Team Roster — Admin — Aspire Sports</title>
+    <title>Sent Announcements — Admin — Aspire Sports</title>
   </head>
   <body class="bg-cream text-ink antialiased">
     <AdminLayout
       client:load
-      currentPath="/admin/teams"
+      currentPath="/admin/broadcasts"
       user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
     >
-      <RosterManager client:load teamId={id} />
-      <TeamBroadcastSection client:load teamId={id} />
+      <div class="mx-auto max-w-3xl p-6">
+        <h1 class="mb-6 text-2xl font-semibold">Sent announcements</h1>
+        <SentAnnouncementsList client:load />
+      </div>
     </AdminLayout>
   </body>
 </html>

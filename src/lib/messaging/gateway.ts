@@ -8,6 +8,7 @@ import {
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { sendTelegramToParent } from "@/lib/telegram/send";
+import { resolveOrCreateConversation } from "./conversations-helper";
 
 /**
  * Outbound messaging gateway.
@@ -336,42 +337,4 @@ function wrapPlainTextAsHtml(text: string): string {
 
 function defaultSubjectFor(firstName: string | null): string {
   return firstName ? `A message from Aspire Sports, ${firstName}` : "A message from Aspire Sports";
-}
-
-async function resolveOrCreateConversation(
-  parentUserId: string,
-  organizationId: string,
-  existingId?: string,
-): Promise<string> {
-  const db = getDb();
-
-  if (existingId) return existingId;
-
-  // Look for an active conversation for this parent + org
-  const existing = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(
-      and(
-        eq(conversations.organizationId, organizationId),
-        eq(conversations.parentUserId, parentUserId),
-        eq(conversations.status, "active"),
-      ),
-    )
-    .limit(1);
-
-  if (existing.length > 0) return existing[0].id;
-
-  // Create a new conversation
-  const [row] = await db
-    .insert(conversations)
-    .values({
-      organizationId,
-      parentUserId,
-      status: "active",
-      assignmentRole: "bot",
-    })
-    .returning({ id: conversations.id });
-
-  return row.id;
 }

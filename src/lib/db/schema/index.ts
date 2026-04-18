@@ -30,3 +30,12 @@ export * from "./discounts";
 // Commerce / gear
 export * from "./products";
 export * from "./program-gear";
+
+// Team groups (Telegram group management)
+export * from "./team-groups";
+
+// Broadcast schemas
+export * from "./broadcasts";
+
+// Reconciliation log
+export * from "./reconciliation-log";

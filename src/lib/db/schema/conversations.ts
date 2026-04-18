@@ -79,6 +79,10 @@ export const conversationMessages = pgTable(
     deliveredAt: timestamp("delivered_at"),
     failedAt: timestamp("failed_at"),
     failureReason: text("failure_reason"),
+    // FKs for teamGroupId and broadcastId are added manually in the migration (no .references() here to avoid circular imports)
+    teamGroupId: uuid("team_group_id"),
+    broadcastId: uuid("broadcast_id"),
+    targetType: varchar("target_type", { length: 20 }).notNull().default("user"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
