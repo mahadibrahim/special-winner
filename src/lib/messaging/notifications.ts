@@ -8,6 +8,7 @@ import {
 import { sendToParent } from "./gateway";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
+import { composeBroadcast } from "./broadcast";
 
 /**
  * Outbound notification helpers.
@@ -163,6 +164,9 @@ function formatLocation(ctx: GameContext): string {
 /**
  * Notify all affected parents that a game's schedule has changed.
  * Call AFTER the database update so the loaded context reflects the new state.
+ *
+ * Routes through composeBroadcast (Telegram group + SMS/email fan-out) and
+ * logs to broadcastLog + conversationMessages for auditability.
  */
 export async function notifyScheduleChange(
   gameId: string,
@@ -177,43 +181,48 @@ export async function notifyScheduleChange(
   const teamIds = [ctx.homeTeamId, ctx.awayTeamId].filter(
     (t): t is string => Boolean(t),
   );
-  const parents = await findAffectedParents(teamIds);
 
-  let contacted = 0;
-  let skipped = 0;
+  if (teamIds.length === 0) {
+    return { contacted: 0, skipped: 0 };
+  }
 
   const newTime = formatGameDateTime(ctx.scheduledAt);
   const oldTime = formatGameDateTime(previousScheduledAt);
-  const locationLabel = formatLocation(ctx);
+  const eventName = `${ctx.programName} game`;
 
-  for (const parent of parents) {
-    const body = `Heads up: ${parent.kidFirstName}'s ${parent.teamName ?? "team"} game has been moved from ${oldTime} to ${newTime}. Location: ${locationLabel}. — Aspire`;
+  const hoursUntilEvent = Math.max(
+    0,
+    (ctx.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60),
+  );
 
-    try {
-      const result = await sendToParent({
-        parentUserId: parent.parentUserId,
-        organizationId: ctx.organizationId,
-        body,
-        senderType: "system",
-      });
-      if (result.ok) contacted++;
-      else skipped++;
-    } catch (err) {
-      skipped++;
-      console.error(
-        `Schedule change notification failed for parent ${parent.parentUserId}:`,
-        err,
-      );
-    }
+  try {
+    const result = await composeBroadcast({
+      organizationId: ctx.organizationId,
+      initiatorType: "system",
+      initiatorId: null,
+      targetType: "team_group",
+      teamIds,
+      messageType: "event_change",
+      body: `Heads up — ${eventName} has moved from ${oldTime} to ${newTime}.`,
+      hoursUntilEvent,
+    });
+
+    const contacted = result.telegramGroupPosts + result.smsSent + result.emailSent;
+    const skipped = result.errors.length;
+    return { contacted, skipped };
+  } catch (err) {
+    console.error(`notifyScheduleChange broadcast failed for game ${gameId}:`, err);
+    return { contacted: 0, skipped: teamIds.length };
   }
-
-  return { contacted, skipped };
 }
 
 /**
  * Notify all affected parents that a game has been cancelled or deleted.
  * For cancellations, call AFTER the database status update. For deletions,
  * call BEFORE the delete so the game context is still loadable.
+ *
+ * Routes through composeBroadcast (Telegram group + SMS/email fan-out) and
+ * logs to broadcastLog + conversationMessages for auditability.
  */
 export async function notifyEventCancellation(
   gameId: string,
@@ -228,40 +237,40 @@ export async function notifyEventCancellation(
   const teamIds = [ctx.homeTeamId, ctx.awayTeamId].filter(
     (t): t is string => Boolean(t),
   );
-  const parents = await findAffectedParents(teamIds);
 
-  let contacted = 0;
-  let skipped = 0;
-
-  const when = formatGameDateTime(ctx.scheduledAt);
-
-  for (const parent of parents) {
-    const body = buildCancellationBody(
-      parent.kidFirstName,
-      parent.teamName,
-      when,
-      reason,
-    );
-
-    try {
-      const result = await sendToParent({
-        parentUserId: parent.parentUserId,
-        organizationId: ctx.organizationId,
-        body,
-        senderType: "system",
-      });
-      if (result.ok) contacted++;
-      else skipped++;
-    } catch (err) {
-      skipped++;
-      console.error(
-        `Cancellation notification failed for parent ${parent.parentUserId}:`,
-        err,
-      );
-    }
+  if (teamIds.length === 0) {
+    return { contacted: 0, skipped: 0 };
   }
 
-  return { contacted, skipped };
+  const eventName = `${ctx.programName} game`;
+  const hoursUntilEvent = Math.max(
+    0,
+    (ctx.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60),
+  );
+
+  const reasonLabel: string | null =
+    reason === "postponed" ? "postponed" : reason === "deleted" ? "deleted" : null;
+  const body = `${eventName} has been cancelled${reasonLabel ? ` (${reasonLabel})` : ""}. Rescheduling details to follow.`;
+
+  try {
+    const result = await composeBroadcast({
+      organizationId: ctx.organizationId,
+      initiatorType: "system",
+      initiatorId: null,
+      targetType: "team_group",
+      teamIds,
+      messageType: "event_cancellation",
+      body,
+      hoursUntilEvent,
+    });
+
+    const contacted = result.telegramGroupPosts + result.smsSent + result.emailSent;
+    const skipped = result.errors.length;
+    return { contacted, skipped };
+  } catch (err) {
+    console.error(`notifyEventCancellation broadcast failed for game ${gameId}:`, err);
+    return { contacted: 0, skipped: teamIds.length };
+  }
 }
 
 function buildCancellationBody(
