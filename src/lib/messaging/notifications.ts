@@ -1,11 +1,6 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, gte, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { games, teams, rosters, venues } from "@/lib/db/schema/teams";
-import {
-  registrations,
-  familyMembers,
-} from "@/lib/db/schema/registrations";
-import { sendToParent } from "./gateway";
+import { games, teams, venues } from "@/lib/db/schema/teams";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { composeBroadcast } from "./broadcast";
@@ -101,49 +96,6 @@ async function loadGameContext(gameId: string): Promise<GameContext | null> {
   };
 }
 
-interface AffectedParent {
-  parentUserId: string;
-  kidFirstName: string;
-  teamId: string;
-  teamName: string | null;
-}
-
-async function findAffectedParents(
-  teamIds: string[],
-): Promise<AffectedParent[]> {
-  if (teamIds.length === 0) return [];
-  const db = getDb();
-
-  const rows = await db
-    .selectDistinct({
-      parentUserId: familyMembers.parentUserId,
-      kidFirstName: familyMembers.firstName,
-      teamId: rosters.teamId,
-      teamName: teams.name,
-    })
-    .from(rosters)
-    .innerJoin(teams, eq(teams.id, rosters.teamId))
-    .innerJoin(registrations, eq(registrations.id, rosters.registrationId))
-    .innerJoin(familyMembers, eq(familyMembers.id, registrations.familyMemberId))
-    .where(
-      and(
-        inArray(rosters.teamId, teamIds),
-        eq(rosters.status, "active"),
-      ),
-    );
-
-  // Dedupe on parent+team (rare, but a parent with twins on the same team
-  // should only get one notification per game)
-  const seen = new Set<string>();
-  const result: AffectedParent[] = [];
-  for (const r of rows) {
-    const key = `${r.parentUserId}:${r.teamId}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(r);
-  }
-  return result;
-}
 
 function formatGameDateTime(scheduledAt: Date): string {
   return scheduledAt.toLocaleString("en-US", {
@@ -277,8 +229,13 @@ export async function notifyEventCancellation(
  * Send day-before reminders for tomorrow's practices and games.
  * Intended to be called from a cron task (daily, ~24 hours before the event).
  *
+ * Routes through composeBroadcast (Telegram group + SMS/email fan-out) once
+ * per team per game, rather than per-parent, so Telegram group members only
+ * receive one message regardless of how many parents are in the group.
+ *
  * Returns { contacted, skipped, eventCount } so the cron runner can log
- * meaningful telemetry.
+ * meaningful telemetry. `contacted` counts successful broadcast calls (one
+ * per team per game); `skipped` counts broadcast call errors.
  */
 export async function sendDayBeforeReminders(): Promise<{
   contacted: number;
@@ -293,7 +250,7 @@ export async function sendDayBeforeReminders(): Promise<{
   const windowStart = new Date(now.getTime() + 16 * 60 * 60 * 1000);
   const windowEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000);
 
-  const tomorrowGames = await db
+  const dueGames = await db
     .select({
       gameId: games.id,
       scheduledAt: games.scheduledAt,
@@ -301,8 +258,8 @@ export async function sendDayBeforeReminders(): Promise<{
       venueName: venues.name,
       homeTeamId: games.homeTeamId,
       awayTeamId: games.awayTeamId,
-      status: games.status,
       organizationId: locations.organizationId,
+      programName: programs.name,
     })
     .from(games)
     .innerJoin(seasons, eq(seasons.id, games.seasonId))
@@ -312,61 +269,45 @@ export async function sendDayBeforeReminders(): Promise<{
     .where(
       and(
         eq(games.status, "scheduled"),
-        // gte/lte — using raw range via and() with manual comparisons
-        or(
-          and(
-            // gte windowStart
-            eq(games.status, "scheduled"),
-          ),
-        ),
+        gte(games.scheduledAt, windowStart),
+        lte(games.scheduledAt, windowEnd),
       ),
     );
-
-  // Filter in JS (avoid gnarly Drizzle conditional range syntax)
-  const filtered = tomorrowGames.filter(
-    (g) =>
-      g.scheduledAt &&
-      g.scheduledAt >= windowStart &&
-      g.scheduledAt <= windowEnd &&
-      g.status === "scheduled",
-  );
 
   let contacted = 0;
   let skipped = 0;
 
-  for (const game of filtered) {
-    const teamIds = [game.homeTeamId, game.awayTeamId].filter(
-      (t): t is string => Boolean(t),
-    );
-    const parents = await findAffectedParents(teamIds);
-
-    const when = formatGameDateTime(game.scheduledAt);
-    const venue = game.venueName
+  for (const game of dueGames) {
+    const formattedTime = formatGameDateTime(game.scheduledAt);
+    const venueLabel = game.venueName
       ? game.fieldNumber
         ? `${game.venueName} (field ${game.fieldNumber})`
         : game.venueName
-      : "TBD";
+      : null;
+    const body = `Reminder: ${game.programName} tomorrow at ${formattedTime}${venueLabel ? `, ${venueLabel}` : ""}.`;
 
-    for (const parent of parents) {
-      const body = `Reminder: ${parent.kidFirstName} has ${parent.teamName ?? "a team event"} tomorrow at ${when}. Location: ${venue}. See you there! — Aspire`;
+    const teamIds = [game.homeTeamId, game.awayTeamId].filter(
+      (t): t is string => Boolean(t),
+    );
+
+    for (const teamId of teamIds) {
       try {
-        const result = await sendToParent({
-          parentUserId: parent.parentUserId,
+        await composeBroadcast({
           organizationId: game.organizationId,
+          initiatorId: null,
+          initiatorType: "system",
+          targetType: "team_group",
+          teamIds: [teamId],
+          messageType: "day_before_reminder",
           body,
-          senderType: "system",
         });
-        if (result.ok) contacted++;
-        else skipped++;
+        contacted++;
       } catch (err) {
+        console.warn(`[sendDayBeforeReminders] failed for team ${teamId}:`, err);
         skipped++;
-        console.error(
-          `Day-before reminder failed for parent ${parent.parentUserId}:`,
-          err,
-        );
       }
     }
   }
 
-  return { contacted, skipped, eventCount: filtered.length };
+  return { contacted, skipped, eventCount: dueGames.length };
 }
