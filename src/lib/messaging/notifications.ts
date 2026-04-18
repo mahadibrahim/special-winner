@@ -273,20 +273,6 @@ export async function notifyEventCancellation(
   }
 }
 
-function buildCancellationBody(
-  kidFirstName: string,
-  teamName: string | null,
-  when: string,
-  reason: "cancelled" | "postponed" | "deleted",
-): string {
-  const team = teamName ?? "team";
-  if (reason === "postponed") {
-    return `Heads up: ${kidFirstName}'s ${team} event on ${when} has been postponed. We'll send the new time as soon as it's set. — Aspire`;
-  }
-  // Cancelled or deleted — same phrasing
-  return `Heads up: ${kidFirstName}'s ${team} event on ${when} has been cancelled. No need to come out — take the evening. — Aspire`;
-}
-
 /**
  * Send day-before reminders for tomorrow's practices and games.
  * Intended to be called from a cron task (daily, ~24 hours before the event).
