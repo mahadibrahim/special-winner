@@ -15,7 +15,7 @@ import {
   users,
   rosters,
 } from "../db/schema"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, gt } from "drizzle-orm"
 import { resolveRouting, type MessageType } from "./routing-policy"
 import { postToGroup } from "../telegram/group"
 import { sendEmail } from "../email"
@@ -67,9 +67,10 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
       where: and(
         eq(broadcastLog.nonce, input.nonce),
         eq(broadcastLog.organizationId, input.organizationId),
+        gt(broadcastLog.createdAt, fiveMinutesAgo),
       ),
     })
-    if (existing && existing.createdAt > fiveMinutesAgo) {
+    if (existing) {
       return {
         broadcastId: existing.id,
         deduplicated: true,
@@ -110,7 +111,13 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
   let emailSent = 0
 
   const recipients = await resolveRecipients(input)
-  const displayBody = buildDisplayBody(input, recipients.initiatorFirstName)
+
+  const org = await db.query.organizations.findFirst({
+    where: eq(organizations.id, input.organizationId),
+  })
+  const orgName = org?.slug ?? "Organization"
+
+  const displayBody = buildDisplayBody(input, recipients.initiatorFirstName, orgName)
 
   // ── Telegram group posts ──────────────────────────────────────────────────
   if (route.telegramGroup && input.targetType !== "org_dm") {
@@ -334,12 +341,16 @@ async function resolveRecipients(input: ComposeBroadcastInput): Promise<Resolved
   }
 }
 
-function buildDisplayBody(input: ComposeBroadcastInput, initiatorFirstName: string | null): string {
+function buildDisplayBody(
+  input: ComposeBroadcastInput,
+  initiatorFirstName: string | null,
+  orgName: string,
+): string {
   if (input.initiatorType === "coach" && initiatorFirstName) {
     return `From Coach ${initiatorFirstName}:\n${input.body}`
   }
   if (input.initiatorType === "admin") {
-    return `From Organization Admin:\n${input.body}`
+    return `From ${orgName} Admin:\n${input.body}`
   }
   return input.body
 }
