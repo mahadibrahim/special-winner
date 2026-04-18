@@ -9,8 +9,12 @@ import PaymentsSummary from '../../components/dashboard/payments-summary';
 import { Announcements } from '../../components/dashboard/announcements';
 import { EmailVerificationBanner } from '../../components/dashboard/email-verification-banner';
 import { TeamGroupsPanel } from '../../components/dashboard/team-groups-panel';
+import { TelegramConnectBanner } from '../../components/dashboard/telegram-connect-banner';
 import { Button } from '../../components/ui/button';
 import { resolveExternalStore } from '../../lib/organization/external-store';
+import { getDb } from '../../lib/db';
+import { userNudgeState } from '../../lib/db/schema';
+import { and, eq } from 'drizzle-orm';
 
 // Get user from middleware locals
 const user = Astro.locals.user;
@@ -22,6 +26,17 @@ if (!user) {
 
 const organization = Astro.locals.organization;
 const externalStore = resolveExternalStore(null, organization as any);
+
+// Fetch nudge state for Telegram connect banner
+const db = getDb();
+const telegramNudge = await db.query.userNudgeState.findFirst({
+  where: and(
+    eq(userNudgeState.userId, user.id),
+    eq(userNudgeState.nudgeKey, 'telegram_connect_banner'),
+  ),
+});
+const hasLinkedTelegram = !!(user as unknown as { telegramChatId?: string | null }).telegramChatId;
+const telegramNudgeLastDismissedAt = telegramNudge?.lastDismissedAt?.toISOString() ?? null;
 
 // Get current hour for greeting
 const hour = new Date().getHours();
@@ -114,6 +129,15 @@ else if (hour >= 17) greeting = "Good evening";
             </div>
           </div>
         </header>
+
+        <!-- Telegram Connect Banner -->
+        <div class="mb-6">
+          <TelegramConnectBanner
+            client:load
+            hasLinkedTelegram={hasLinkedTelegram}
+            lastDismissedAt={telegramNudgeLastDismissedAt}
+          />
+        </div>
 
         <!-- Email Verification Banner -->
         <div class="mb-6">
