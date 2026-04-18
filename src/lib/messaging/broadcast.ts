@@ -20,6 +20,7 @@ import { resolveRouting, type MessageType } from "./routing-policy"
 import { postToGroup } from "../telegram/group"
 import { sendEmail } from "../email"
 import { sendSms } from "../sms/send"
+import { resolveOrCreateConversation } from "./conversations-helper"
 
 /**
  * Adaptations from spec:
@@ -358,41 +359,4 @@ function buildEmailSubject(input: ComposeBroadcastInput): string {
     default:
       return "Announcement"
   }
-}
-
-/**
- * Resolve an existing active conversation for the parent, or create a new one.
- * Required because conversationMessages.conversationId is NOT NULL.
- */
-async function resolveOrCreateConversation(
-  parentUserId: string,
-  organizationId: string,
-): Promise<string> {
-  const db = getDb()
-
-  const existing = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(
-      and(
-        eq(conversations.organizationId, organizationId),
-        eq(conversations.parentUserId, parentUserId),
-        eq(conversations.status, "active"),
-      ),
-    )
-    .limit(1)
-
-  if (existing.length > 0) return existing[0].id
-
-  const [row] = await db
-    .insert(conversations)
-    .values({
-      organizationId,
-      parentUserId,
-      status: "active",
-      assignmentRole: "bot",
-    })
-    .returning({ id: conversations.id })
-
-  return row.id
 }
