@@ -1,9 +1,11 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { rosters, teams, registrations, familyMembers, seasons, programs, locations } from "@/lib/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { rosters, teams, teamGroups, games, registrations, familyMembers, seasons, programs, locations } from "@/lib/db/schema";
+import { eq, and, isNull, or, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { scheduleGroupCreation } from "@/lib/messaging/group-lifecycle";
+import { syncTeamGroupMembership } from "@/lib/messaging/team-group-sync";
 
 const rosterSchema = z.object({
   teamId: z.string().uuid("Valid team ID is required"),
@@ -167,6 +169,12 @@ export const POST: APIRoute = async (context) => {
       })
       .returning();
 
+    // Trigger team group sync — fire and forget; don't block on Telegram failures
+    const rosteredTeamId = result.data.teamId;
+    triggerTeamGroupSync(rosteredTeamId).catch((err) => {
+      console.warn(`Team group sync failed for team ${rosteredTeamId}:`, err);
+    });
+
     return new Response(JSON.stringify({ roster: newRoster }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
@@ -279,3 +287,38 @@ export const DELETE: APIRoute = async (context) => {
     return new Response(JSON.stringify({ error: "Failed to remove player from roster" }), { status: 500 });
   }
 };
+
+/**
+ * After a roster write succeeds, ensure a team_group row exists (scheduled or
+ * active) and sync membership for any active group. Runs async — roster writes
+ * are never blocked on Telegram failures.
+ */
+async function triggerTeamGroupSync(teamId: string): Promise<void> {
+  const db = getDb();
+
+  // Find the earliest upcoming scheduled game for this team so we can seed
+  // creationScheduledFor = 7 days before first event.
+  const firstGameRows = await db
+    .select({ scheduledAt: games.scheduledAt })
+    .from(games)
+    .where(
+      and(
+        or(eq(games.homeTeamId, teamId), eq(games.awayTeamId, teamId)),
+        eq(games.status, "scheduled"),
+      ),
+    )
+    .orderBy(asc(games.scheduledAt))
+    .limit(1);
+
+  const firstEventAt: Date | null = firstGameRows[0]?.scheduledAt ?? null;
+
+  await scheduleGroupCreation({ teamId, firstEventAt });
+
+  const activeGroup = await db.query.teamGroups.findFirst({
+    where: and(eq(teamGroups.teamId, teamId), eq(teamGroups.status, "active")),
+  });
+
+  if (activeGroup) {
+    await syncTeamGroupMembership(activeGroup.id);
+  }
+}
