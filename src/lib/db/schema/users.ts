@@ -42,6 +42,7 @@ export const users = pgTable("users", {
   messagingFallbackChannel: varchar("messaging_fallback_channel", { length: 20 }),
   telegramChatId: varchar("telegram_chat_id", { length: 100 }),
   telegramUsername: varchar("telegram_username", { length: 100 }),
+  alsoEmailCopy: boolean("also_email_copy").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

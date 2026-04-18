@@ -46,6 +46,7 @@ export const programs = pgTable("programs", {
   description: text("description"),
   programType: programTypeEnum("program_type").default("league").notNull(),
   settings: jsonb("settings"),
+  audienceType: varchar("audience_type", { length: 20 }).notNull().default("parents"),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
