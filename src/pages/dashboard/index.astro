@@ -8,6 +8,7 @@ import CoachNotes from '../../components/dashboard/coach-notes';
 import PaymentsSummary from '../../components/dashboard/payments-summary';
 import { Announcements } from '../../components/dashboard/announcements';
 import { EmailVerificationBanner } from '../../components/dashboard/email-verification-banner';
+import { TeamGroupsPanel } from '../../components/dashboard/team-groups-panel';
 import { Button } from '../../components/ui/button';
 import { resolveExternalStore } from '../../lib/organization/external-store';
 
@@ -170,6 +171,11 @@ else if (hour >= 17) greeting = "Good evening";
             <!-- Announcements -->
             <section class="dashboard-section">
               <Announcements client:visible />
+            </section>
+
+            <!-- Team Groups -->
+            <section class="dashboard-section">
+              <TeamGroupsPanel client:load />
             </section>
 
             <!-- Coach Notes - Key Differentiator -->
