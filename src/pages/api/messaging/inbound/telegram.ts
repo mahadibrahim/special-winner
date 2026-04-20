@@ -71,6 +71,21 @@ export const POST: APIRoute = async ({ request }) => {
 
   const chatId = message.chat.id;
   const text = message.text.trim();
+
+  // /chatid — echo chat info. Works in any chat type (private, group, supergroup,
+  // channel). Useful during team-group onboarding to capture the chat ID for
+  // admin UI promotion. Does not hit the DB.
+  if (text === "/chatid") {
+    const chatType = message.chat.type;
+    const chatTitle =
+      (message.chat as { title?: string }).title ?? "(no title)";
+    await telegramSendMessage(
+      chatId,
+      `Chat ID: \`${chatId}\`\nType: ${chatType}\nTitle: ${chatTitle}`,
+    );
+    return json({ ok: true, chatId, chatType });
+  }
+
   const db = getDb();
 
   // /start binds a parent account to this chat id via magic link
