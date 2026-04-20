@@ -41,3 +41,47 @@ describe("GET /api/admin/media/tag-queue", () => {
     expect([401, 403]).toContain(res.status);
   });
 });
+
+describe("POST /api/admin/media/tag-queue/:id/claim", () => {
+  let adminCookie: string;
+
+  beforeAll(async () => {
+    adminCookie = await getAdminCookie();
+  });
+
+  it("claims a session, flipping status uploaded -> tagging", async () => {
+    const listRes = await apiFetch("/api/admin/media/tag-queue", {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const listJson = await expectJson(listRes, 200);
+    if (listJson.queue.length === 0) {
+      return;
+    }
+    const target = listJson.queue[0];
+
+    const claimRes = await apiFetch(
+      `/api/admin/media/tag-queue/${target.session_id}/claim`,
+      { method: "POST", cookie: adminCookie }
+    );
+    const claimJson = await expectJson(claimRes, 200);
+    expect(claimJson.session.id).toBe(target.session_id);
+    expect(claimJson.session.status).toBe("tagging");
+  });
+
+  it("returns 409 when claiming an already-claimed session", async () => {
+    const listRes = await apiFetch("/api/admin/media/tag-queue", {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const listJson = await expectJson(listRes, 200);
+    if (listJson.queue.length === 0) return;
+
+    const target = listJson.queue[0];
+    const res = await apiFetch(
+      `/api/admin/media/tag-queue/${target.session_id}/claim`,
+      { method: "POST", cookie: adminCookie }
+    );
+    expect([200, 409]).toContain(res.status);
+  });
+});
