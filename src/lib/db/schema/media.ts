@@ -11,11 +11,13 @@ import {
   pgEnum,
   index,
   jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { users } from "./users";
 import { organizations, locations } from "./organizations";
-import { games, venues } from "./teams";
+import { games, venues, teams } from "./teams";
+import { familyMembers } from "./registrations";
 
 // --- Enums ---
 
@@ -299,3 +301,63 @@ export type MediaStaffProfile = typeof mediaStaffProfiles.$inferSelect;
 export type NewMediaStaffProfile = typeof mediaStaffProfiles.$inferInsert;
 export type MediaAuditLog = typeof mediaAuditLog.$inferSelect;
 export type NewMediaAuditLog = typeof mediaAuditLog.$inferInsert;
+
+// --- Phase 2: media_tags ---
+
+export const tagScopeEnum = pgEnum("media_tag_scope", [
+  "player", "team", "both_teams",
+]);
+
+export const tagSourceEnum = pgEnum("media_tag_source", [
+  "manual_staff", "manual_offshore", "manual_admin",
+  "auto_jersey_ocr", "auto_face", "burst_propagated",
+]);
+
+export const mediaTags = pgTable(
+  "media_tags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mediaAssetId: uuid("media_asset_id").notNull()
+      .references(() => mediaAssets.id, { onDelete: "cascade" }),
+    familyMemberId: uuid("family_member_id").references(
+      () => familyMembers.id, { onDelete: "cascade" }
+    ),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    tagScope: tagScopeEnum("tag_scope").notNull(),
+    source: tagSourceEnum("source").notNull(),
+    confidence: decimal("confidence", { precision: 3, scale: 2 })
+      .notNull().default("1.00"),
+    taggedByUserId: uuid("tagged_by_user_id").notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqPlayerTag: uniqueIndex("media_tags_unique_player")
+      .on(t.mediaAssetId, t.familyMemberId)
+      .where(sql`${t.familyMemberId} IS NOT NULL`),
+    uniqTeamTag: uniqueIndex("media_tags_unique_team")
+      .on(t.mediaAssetId, t.teamId)
+      .where(sql`${t.teamId} IS NOT NULL AND ${t.familyMemberId} IS NULL`),
+    assetIdx: index("media_tags_asset_idx").on(t.mediaAssetId),
+    familyMemberIdx: index("media_tags_family_member_idx").on(t.familyMemberId),
+    teamIdx: index("media_tags_team_idx").on(t.teamId),
+  })
+);
+
+export const mediaTagsRelations = relations(mediaTags, ({ one }) => ({
+  asset: one(mediaAssets, {
+    fields: [mediaTags.mediaAssetId], references: [mediaAssets.id],
+  }),
+  familyMember: one(familyMembers, {
+    fields: [mediaTags.familyMemberId], references: [familyMembers.id],
+  }),
+  team: one(teams, {
+    fields: [mediaTags.teamId], references: [teams.id],
+  }),
+  taggedBy: one(users, {
+    fields: [mediaTags.taggedByUserId], references: [users.id],
+  }),
+}));
+
+export type MediaTag = typeof mediaTags.$inferSelect;
+export type NewMediaTag = typeof mediaTags.$inferInsert;
