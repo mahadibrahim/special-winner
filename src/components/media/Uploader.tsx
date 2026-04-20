@@ -153,14 +153,21 @@ export function Uploader({ sessionId, onAssetCompleted }: UploaderProps) {
         for (let i = 0; i < partCount; i++) {
           const start = i * PART_SIZE;
           const end = Math.min(entry.size, start + PART_SIZE);
-          const blob = entry.file.slice(start, end);
-          const putRes = await fetch(partUrls[i], {
-            method: "PUT",
-            body: blob,
-          });
-          if (!putRes.ok) throw new Error(`Part ${i + 1} failed: ${putRes.status}`);
-          const etag = putRes.headers.get("etag") || '"fake-etag"';
-          etags.push({ ETag: etag, PartNumber: i + 1 });
+          // R2_MOCK=1 server issues mock-r2.local URLs that the browser
+          // can't reach; skip the real PUT and record a fake ETag so the
+          // complete endpoint still runs end-to-end in tests.
+          if (partUrls[i].startsWith("http://mock-r2.local/")) {
+            etags.push({ ETag: '"fake-etag"', PartNumber: i + 1 });
+          } else {
+            const blob = entry.file.slice(start, end);
+            const putRes = await fetch(partUrls[i], {
+              method: "PUT",
+              body: blob,
+            });
+            if (!putRes.ok) throw new Error(`Part ${i + 1} failed: ${putRes.status}`);
+            const etag = putRes.headers.get("etag") || '"fake-etag"';
+            etags.push({ ETag: etag, PartNumber: i + 1 });
+          }
           update({ progress: (i + 1) / partCount });
         }
 
