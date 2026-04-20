@@ -29,19 +29,32 @@ export async function createSupergroup(input: CreateGroupInput): Promise<CreateG
 }
 
 /**
- * Set the group title. Used during lifecycle setup.
+ * Set the group title. Tolerant of Telegram's "not modified" error.
  */
 export async function setGroupTitle(chatId: string, title: string): Promise<void> {
   if (DRY_RUN) return
-  await callTelegram("setChatTitle", { chat_id: chatId, title })
+  try {
+    await callTelegram("setChatTitle", { chat_id: chatId, title })
+  } catch (err) {
+    const msg = String(err)
+    if (msg.includes("not modified")) return
+    throw err
+  }
 }
 
 /**
- * Set the group description.
+ * Set the group description. Tolerant of Telegram's "not modified" error
+ * (which means the description is already exactly what we're setting).
  */
 export async function setGroupDescription(chatId: string, description: string): Promise<void> {
   if (DRY_RUN) return
-  await callTelegram("setChatDescription", { chat_id: chatId, description })
+  try {
+    await callTelegram("setChatDescription", { chat_id: chatId, description })
+  } catch (err) {
+    const msg = String(err)
+    if (msg.includes("not modified")) return
+    throw err
+  }
 }
 
 /**
