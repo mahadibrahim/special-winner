@@ -27,7 +27,12 @@ import {
   registrations,
   venues,
 } from "../schema";
-import { mediaStaffProfiles } from "../schema/media";
+import {
+  mediaStaffProfiles,
+  shootSessions,
+  mediaAssets,
+} from "../schema/media";
+import { rosters, games } from "../schema";
 import { eq, and } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -636,6 +641,117 @@ async function seedE2ETests() {
     })
     .onConflictDoNothing();
   console.log(`   ✓ MediaStaffProfile seeded for ${TEST_USERS.mediaStaff.email}`);
+
+  await db
+    .insert(mediaStaffProfiles)
+    .values({
+      userId: mediaEditorUser.id,
+      organizationId: org.id,
+      serviceLocationIds: [location.id],
+      active: true,
+      onboardedAt: new Date(),
+    })
+    .onConflictDoNothing();
+  console.log(`   ✓ MediaStaffProfile seeded for ${TEST_USERS.mediaEditor.email}`);
+
+  // --- Phase 2: roster + game + uploaded shoot sessions for the tagger ---
+  console.log("\n8. Setting up tagger fixtures (Phase 2)...");
+
+  let [rosterRow] = await db
+    .select()
+    .from(rosters)
+    .where(
+      and(eq(rosters.teamId, team.id), eq(rosters.registrationId, existingReg.id))
+    )
+    .limit(1);
+  if (!rosterRow) {
+    [rosterRow] = await db
+      .insert(rosters)
+      .values({
+        teamId: team.id,
+        registrationId: existingReg.id,
+        jerseyNumber: "7",
+        status: "active",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Roster entry: #${rosterRow.jerseyNumber} on ${team.name}`);
+
+  let [game] = await db
+    .select()
+    .from(games)
+    .where(
+      and(eq(games.homeTeamId, team.id), eq(games.awayTeamId, team2.id))
+    )
+    .limit(1);
+  if (!game) {
+    [game] = await db
+      .insert(games)
+      .values({
+        seasonId: season.id,
+        homeTeamId: team.id,
+        awayTeamId: team2.id,
+        scheduledAt: new Date(),
+        status: "scheduled",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Game: ${team.name} vs ${team2.name}`);
+
+  const existingSessions = await db
+    .select()
+    .from(shootSessions)
+    .where(
+      and(
+        eq(shootSessions.organizationId, org.id),
+        eq(shootSessions.gameId, game.id),
+        eq(shootSessions.status, "uploaded")
+      )
+    );
+
+  const needed = Math.max(0, 2 - existingSessions.length);
+  for (let n = 0; n < needed; n++) {
+    const [s] = await db
+      .insert(shootSessions)
+      .values({
+        organizationId: org.id,
+        locationId: location.id,
+        gameId: game.id,
+        assignedUserId: mediaStaffUser.id,
+        assignedByUserId: adminUser.id,
+        sessionType: "game",
+        status: "uploaded",
+        scheduledStart: new Date(),
+        scheduledEnd: new Date(Date.now() + 60 * 60 * 1000),
+        rateType: "per_game",
+        rateCents: 0,
+        payoutStatus: "unearned",
+      })
+      .returning();
+
+    const base = Date.now();
+    for (let i = 0; i < 6; i++) {
+      await db.insert(mediaAssets).values({
+        shootSessionId: s.id,
+        organizationId: org.id,
+        assetType: "photo",
+        storageKey: `seed/session-${s.id}/asset-${i}.jpg`,
+        thumbnailKey: `seed/session-${s.id}/thumb-${i}.jpg`,
+        originalFilename: `asset-${i}.jpg`,
+        fileSizeBytes: 1024,
+        mimeType: "image/jpeg",
+        capturedAt: new Date(base + i * 800),
+        uploadedAt: new Date(),
+        status: "uploaded",
+      });
+    }
+    console.log(`   ✓ Tagger fixture session ${s.id.slice(0, 8)} with 6 assets`);
+  }
+  if (needed === 0) {
+    console.log(
+      `   ✓ ${existingSessions.length} tagger fixture session(s) already present`
+    );
+  }
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

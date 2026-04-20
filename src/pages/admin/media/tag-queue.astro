@@ -1,0 +1,36 @@
+---
+import '../../../styles/globals.css';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { TagQueueList } from '../../../components/media/tag-queue-list';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/signin?returnUrl=/admin/media/tag-queue');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Tag queue — Admin — Aspire Sports</title>
+  </head>
+  <body class="bg-cream text-ink antialiased">
+    <AdminLayout
+      client:load
+      currentPath="/admin/media/tag-queue"
+      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    >
+      <section class="p-6">
+        <header class="mb-4">
+          <h1 class="text-2xl font-semibold">Tag queue</h1>
+          <p class="text-sm text-neutral-600">
+            Sessions uploaded and awaiting tagging, oldest first.
+          </p>
+        </header>
+        <TagQueueList client:load />
+      </section>
+    </AdminLayout>
+  </body>
+</html>

@@ -1,0 +1,54 @@
+---
+import '../../../styles/globals.css';
+import { TaggerApp } from '../../../components/media/tagger-app';
+import { canTagSession } from '../../../lib/media/tag-permissions';
+
+const user = Astro.locals.user;
+const sessionId = Astro.params.session_id;
+
+if (!user) {
+  return Astro.redirect(`/signin?returnUrl=/media/tag/${sessionId}`);
+}
+if (!sessionId) {
+  return Astro.redirect('/admin/media/tag-queue');
+}
+
+const perm = await canTagSession(user.id, sessionId);
+if (!perm.allowed) {
+  return new Response(
+    `<!doctype html><html><body><main style="font-family:system-ui;padding:2rem">
+      <h1>Forbidden</h1>
+      <p>${perm.reason}</p>
+      <p><a href="/admin/media/tag-queue">Back to queue</a></p>
+    </main></body></html>`,
+    { status: 403, headers: { 'Content-Type': 'text/html' } }
+  );
+}
+
+const res = await fetch(`${Astro.url.origin}/api/media/tag/${sessionId}`, {
+  headers: { cookie: Astro.request.headers.get('cookie') ?? '' },
+});
+if (!res.ok) {
+  const body = await res.text();
+  return new Response(
+    `<!doctype html><html><body><main style="font-family:system-ui;padding:2rem">
+      <h1>Failed to load session</h1><pre>${body}</pre></main></body></html>`,
+    { status: res.status, headers: { 'Content-Type': 'text/html' } }
+  );
+}
+const initialPayload = await res.json();
+---
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Tag session</title>
+  </head>
+  <body>
+    <TaggerApp
+      client:load
+      sessionId={sessionId}
+      initialPayload={initialPayload}
+    />
+  </body>
+</html>
