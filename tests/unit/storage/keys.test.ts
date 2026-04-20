@@ -33,4 +33,18 @@ describe("storage keys", () => {
     const parsed = parseKey(key);
     expect(parsed).toEqual({ orgId, sessionId, assetId, ext: "jpg" });
   });
+
+  it("parseKey returns null for a thumbnail key", () => {
+    const key = thumbnailKey(orgId, sessionId, assetId);
+    expect(parseKey(key)).toBeNull();
+  });
+
+  it("parseKey returns null for an extension-less key", () => {
+    const key = originalKey(orgId, sessionId, assetId, "");
+    expect(parseKey(key)).toBeNull();
+  });
+
+  it("parseKey returns null for an arbitrary invalid string", () => {
+    expect(parseKey("not/a/valid/key")).toBeNull();
+  });
 });
