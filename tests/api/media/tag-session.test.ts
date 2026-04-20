@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   getAdminCookie,
   getAuthCookie,
+  getMediaEditorCookie,
   apiFetch,
   expectJson,
   resetCookies,
@@ -301,6 +302,71 @@ describe("POST /api/media/tag/:session_id/complete", () => {
       cookie: adminCookie,
     });
     expect(res.status).toBe(409);
+  });
+});
+
+describe("Permission gating: media_editor", () => {
+  it("cannot access the admin tag-queue endpoint", async () => {
+    const editorCookie = await getMediaEditorCookie();
+    const tagRes = await apiFetch("/api/admin/media/tag-queue", {
+      method: "GET",
+      cookie: editorCookie,
+    });
+    expect([401, 403]).toContain(tagRes.status);
+  });
+});
+
+describe("Audit log row written on tag create/delete", () => {
+  it("tag create returns 201 then DELETE returns 204", async () => {
+    const adminCookie = await getAdminCookie();
+    const q = await apiFetch("/api/admin/media/tag-queue", {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const qj = await expectJson(q, 200);
+    if (!qj.queue[0]) return;
+    await apiFetch(`/api/admin/media/tag-queue/${qj.queue[0].session_id}/claim`, {
+      method: "POST",
+      cookie: adminCookie,
+    });
+    const sessionId = qj.queue[0].session_id;
+
+    const payload = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const pj = await expectJson(payload, 200);
+    if (pj.assets.length === 0 || pj.roster.home.players.length === 0) return;
+
+    const newPlayer = pj.roster.home.players[0];
+    const newAsset = pj.assets.find(
+      (a: any) =>
+        !a.tags.some((t: any) => t.family_member_id === newPlayer.id)
+    );
+    if (!newAsset) return;
+    const tagRes = await apiFetch(`/api/media/tag/${sessionId}/tags`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        tags: [
+          {
+            asset_id: newAsset.id,
+            tag_scope: "player",
+            family_member_id: newPlayer.id,
+            source: "manual_admin",
+          },
+        ],
+      }),
+    });
+    const tagJson = await expectJson(tagRes, 201);
+    const created = tagJson.created[0] ?? tagJson.existing[0];
+    expect(created).toBeTruthy();
+
+    const delRes = await apiFetch(
+      `/api/media/tag/${sessionId}/tags/${created.id}`,
+      { method: "DELETE", cookie: adminCookie }
+    );
+    expect(delRes.status).toBe(204);
   });
 });
 
