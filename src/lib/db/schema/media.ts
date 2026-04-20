@@ -262,7 +262,7 @@ export const shootSessionsRelations = relations(shootSessions, ({ one, many }) =
   assets: many(mediaAssets),
 }));
 
-export const mediaAssetsRelations = relations(mediaAssets, ({ one }) => ({
+export const mediaAssetsRelations = relations(mediaAssets, ({ one, many }) => ({
   session: one(shootSessions, {
     fields: [mediaAssets.shootSessionId],
     references: [shootSessions.id],
@@ -271,6 +271,7 @@ export const mediaAssetsRelations = relations(mediaAssets, ({ one }) => ({
     fields: [mediaAssets.organizationId],
     references: [organizations.id],
   }),
+  tags: many(mediaTags),
 }));
 
 export const mediaStaffProfilesRelations = relations(mediaStaffProfiles, ({ one }) => ({
