@@ -133,7 +133,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Literal CI-only value so cron endpoints enforce auth and the
+          # 401-rejection tests can assert it. Not a real secret.
+          CRON_SECRET: ci-cron-test-secret
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
@@ -187,7 +189,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Literal CI-only value so cron endpoints enforce auth and the
+          # 401-rejection tests can assert it. Not a real secret.
+          CRON_SECRET: ci-cron-test-secret
 
       - name: Wait for dev server
         run: npx --yes wait-on http://localhost:4321/api/auth/session --timeout 180000
@@ -198,6 +202,9 @@ jobs:
           CI: true
           TEST_BASE_URL: http://localhost:4321
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Must match the dev server's CRON_SECRET so the "runs job with
+          # correct secret" cron tests can hit the endpoints successfully.
+          CRON_SECRET: ci-cron-test-secret
 
       - name: Stop dev server
         if: always()
