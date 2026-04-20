@@ -3,6 +3,10 @@ import { test, expect } from "@playwright/test";
 test("admin creates shoot, photographer confirms, checks in, uploads, admin sees asset count", async ({
   browser,
 }) => {
+  // This test drives a multi-step UI flow (confirm → check-in → upload →
+  // complete) across two browser contexts. Under CI parallel load the
+  // global 30-s test timeout runs out before the final assertions.
+  test.setTimeout(90_000);
   // Admin context: sign in via API (faster, no race with other parallel
   // tests that also exercise /signin). The cookie is stored on the
   // context and available to subsequent requests.
