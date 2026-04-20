@@ -57,6 +57,23 @@ async function seed() {
         description: "View own schedule and team information",
         permissions: ["schedules:read_own", "teams:read_own"],
       },
+      {
+        name: "media_staff",
+        description:
+          "Photographer/videographer assigned to shoots; uploads assets to their sessions",
+        permissions: [
+          "media_jobs:read_own",
+          "media_jobs:check_in",
+          "media_jobs:upload",
+          "rosters:read_assigned",
+        ],
+      },
+      {
+        name: "media_editor",
+        description:
+          "Offshore or in-house tagger; sees only assets in sessions scoped to their service locations",
+        permissions: ["media_assets:read_scoped", "media_tags:write_scoped"],
+      },
     ])
     .onConflictDoNothing();
 
