@@ -43,6 +43,13 @@
       "when": 1776549162504,
       "tag": "0005_warm_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776696709607,
+      "tag": "0006_dear_psynapse",
+      "breakpoints": true
     }
   ]
 }
