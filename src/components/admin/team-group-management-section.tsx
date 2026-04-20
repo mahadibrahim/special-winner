@@ -31,19 +31,21 @@ export function TeamGroupManagementSection({ teamId }: Props) {
   // Still loading
   if (teamGroup === undefined) return null
 
-  // No group exists yet
-  if (teamGroup === null) return null
-
   // Group is archived — nothing actionable
-  if (teamGroup.status === "archived") return null
+  if (teamGroup && teamGroup.status === "archived") return null
+
+  // No group yet — offer initialize-and-promote UX. The promote endpoint
+  // creates the row on the fly when none exists.
+  const currentStatus = teamGroup?.status ?? "not_initialized"
+  const groupName = teamGroup?.name ?? "this team's parent group"
 
   return (
     <section className="mt-8 px-4 pb-8">
       <h2 className="mb-4 text-xl font-semibold">Team group management</h2>
       <PromoteTeamGroupForm
         teamId={teamId}
-        currentStatus={teamGroup.status}
-        groupName={teamGroup.name}
+        currentStatus={currentStatus}
+        groupName={groupName}
         onPromoted={loadGroup}
       />
     </section>
