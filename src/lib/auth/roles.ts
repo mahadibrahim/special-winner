@@ -4,7 +4,14 @@ import { userRoles, roles, teams, rosters, registrations, organizations } from "
 import { eq, and, or, inArray } from "drizzle-orm";
 import { validateSession } from "./session";
 
-export type RoleName = "super_admin" | "location_admin" | "coach" | "parent" | "player";
+export type RoleName =
+  | "super_admin"
+  | "location_admin"
+  | "coach"
+  | "parent"
+  | "player"
+  | "media_staff"
+  | "media_editor";
 export type ScopeType = "global" | "organization" | "location" | "program" | "team";
 
 export interface UserRole {
