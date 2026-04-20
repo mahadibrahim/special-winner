@@ -635,6 +635,7 @@ async function seedE2ETests() {
       onboardedAt: new Date(),
     })
     .onConflictDoNothing();
+  console.log(`   ✓ MediaStaffProfile seeded for ${TEST_USERS.mediaStaff.email}`);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
@@ -642,6 +643,8 @@ async function seedE2ETests() {
   console.log(`Admin:  ${TEST_USERS.admin.email} / ${TEST_USERS.admin.password}`);
   console.log(`Coach:  ${TEST_USERS.coach.email} / ${TEST_USERS.coach.password}`);
   console.log(`Parent: ${TEST_USERS.parent.email} / ${TEST_USERS.parent.password}`);
+  console.log(`MediaStaff: ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
+  console.log(`MediaEditor: ${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
   console.log("─".repeat(50));
 }
 

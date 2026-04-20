@@ -103,6 +103,9 @@ export async function getParentCookie(): Promise<string> {
   return _parentCookie;
 }
 
+/**
+ * Returns a cached media staff auth cookie. Signs in on first call.
+ */
 export async function getMediaStaffCookie(): Promise<string> {
   if (!_mediaStaffCookie) {
     _mediaStaffCookie = await getAuthCookie(
@@ -113,6 +116,9 @@ export async function getMediaStaffCookie(): Promise<string> {
   return _mediaStaffCookie;
 }
 
+/**
+ * Returns a cached media editor auth cookie. Signs in on first call.
+ */
 export async function getMediaEditorCookie(): Promise<string> {
   if (!_mediaEditorCookie) {
     _mediaEditorCookie = await getAuthCookie(
