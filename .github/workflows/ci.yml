@@ -109,6 +109,7 @@ jobs:
         run: npm test
         env:
           CI: true
+          R2_MOCK: "1"
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
@@ -163,6 +164,7 @@ jobs:
           echo $! > /tmp/dev-server.pid
         env:
           CI: true
+          R2_MOCK: "1"
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
@@ -195,6 +197,7 @@ jobs:
         env:
           CI: true
           TEST_BASE_URL: http://localhost:4321
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Stop dev server
         if: always()
