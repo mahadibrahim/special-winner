@@ -18,13 +18,20 @@ test.describe("Media tagger — golden path", () => {
     const page = await adminCtx.newPage();
     await page.goto("/admin/media/tag-queue");
 
-    const firstRow = page.locator('[data-testid^="queue-row-"]').first();
-    await expect(firstRow).toBeVisible({ timeout: 15_000 });
-    const rowTestId = await firstRow.getAttribute("data-testid");
+    // Pick the row whose matchup is the seeded tagger fixture. CI may have
+    // stale 'uploaded' sessions from prior Phase 1 runs without a game —
+    // those rows would render as "—" in the matchup column and their roster
+    // would be empty, which would fail the per-player interactions below.
+    const targetRow = page
+      .locator('[data-testid^="queue-row-"]')
+      .filter({ hasText: "E2E Test Team vs E2E Test Team 2" })
+      .first();
+    await expect(targetRow).toBeVisible({ timeout: 15_000 });
+    const rowTestId = await targetRow.getAttribute("data-testid");
     expect(rowTestId).toBeTruthy();
     const sessionId = rowTestId!.replace("queue-row-", "");
 
-    await firstRow.locator('[data-testid^="claim-button-"]').click();
+    await targetRow.locator('[data-testid^="claim-button-"]').click();
 
     await page.waitForURL(/\/media\/tag\//, {
       timeout: 15_000,
