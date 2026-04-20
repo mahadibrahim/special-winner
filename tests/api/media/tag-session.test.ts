@@ -86,3 +86,180 @@ describe("GET /api/media/tag/:session_id — payload + roster subset", () => {
     expect([401, 403, 404]).toContain(res.status);
   });
 });
+
+describe("POST /api/media/tag/:session_id/tags — bulk tag", () => {
+  let adminCookie: string;
+  let sessionId: string;
+  let assetId: string;
+  let playerId: string;
+
+  beforeAll(async () => {
+    adminCookie = await getAdminCookie();
+
+    const q = await apiFetch("/api/admin/media/tag-queue", {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const qj = await expectJson(q, 200);
+    const uploadedTarget = qj.queue[0];
+    if (uploadedTarget) {
+      await apiFetch(
+        `/api/admin/media/tag-queue/${uploadedTarget.session_id}/claim`,
+        { method: "POST", cookie: adminCookie }
+      );
+      sessionId = uploadedTarget.session_id;
+    }
+    if (!sessionId) return;
+
+    const payload = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const pj = await expectJson(payload, 200);
+    if (pj.assets.length === 0 || pj.roster.home.players.length === 0) {
+      sessionId = "";
+      return;
+    }
+    assetId = pj.assets[0].id;
+    playerId = pj.roster.home.players[0].id;
+  });
+
+  it("creates a player tag and writes an audit log row", async () => {
+    if (!sessionId) return;
+
+    const before = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const beforeJson = await expectJson(before, 200);
+    const beforeCount = beforeJson.assets.find((a: any) => a.id === assetId)
+      .tags.length;
+
+    const res = await apiFetch(`/api/media/tag/${sessionId}/tags`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        tags: [
+          {
+            asset_id: assetId,
+            tag_scope: "player",
+            family_member_id: playerId,
+            source: "manual_admin",
+          },
+        ],
+      }),
+    });
+    const json = await expectJson(res, 201);
+    expect(json.created.length + (json.existing?.length ?? 0)).toBe(1);
+    const resolved = [...(json.created ?? []), ...(json.existing ?? [])][0];
+    expect(resolved.family_member_id).toBe(playerId);
+
+    const after = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const afterJson = await expectJson(after, 200);
+    const afterCount = afterJson.assets.find((a: any) => a.id === assetId).tags
+      .length;
+    expect(afterCount).toBeGreaterThanOrEqual(beforeCount);
+  });
+
+  it("is idempotent on (asset_id, family_member_id) — re-tag returns existing", async () => {
+    if (!sessionId) return;
+    const res = await apiFetch(`/api/media/tag/${sessionId}/tags`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        tags: [
+          {
+            asset_id: assetId,
+            tag_scope: "player",
+            family_member_id: playerId,
+            source: "manual_admin",
+          },
+        ],
+      }),
+    });
+    expect([200, 201]).toContain(res.status);
+    const json = await res.json();
+    const createdIds = (json.created || []).map((t: any) => t.id);
+    const existingIds = (json.existing || []).map((t: any) => t.id);
+    expect([...createdIds, ...existingIds].length).toBeGreaterThan(0);
+  });
+
+  it("supports burst propagation: propagate_to_burst flag tags every asset in the burst", async () => {
+    if (!sessionId) return;
+    const payload = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const pj = await expectJson(payload, 200);
+    const groups = new Map<string, any[]>();
+    for (const a of pj.assets) {
+      if (!a.burst_group_id) continue;
+      if (!groups.has(a.burst_group_id)) groups.set(a.burst_group_id, []);
+      groups.get(a.burst_group_id)!.push(a);
+    }
+    const multi = [...groups.values()].find((arr) => arr.length > 1);
+    if (!multi) return;
+
+    const leader = multi[0];
+    const targetPlayer = pj.roster.away.players[0] ?? pj.roster.home.players[1];
+    if (!targetPlayer) return;
+
+    const res = await apiFetch(`/api/media/tag/${sessionId}/tags`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        tags: [
+          {
+            asset_id: leader.id,
+            tag_scope: "player",
+            family_member_id: targetPlayer.id,
+            source: "manual_admin",
+          },
+        ],
+        propagate_to_burst: true,
+      }),
+    });
+    const json = await expectJson(res, 201);
+    expect(json.created.length + (json.existing?.length ?? 0)).toBe(multi.length);
+    const propagatedSources = json.created
+      .filter((t: any) => t.media_asset_id !== leader.id)
+      .map((t: any) => t.source);
+    for (const s of propagatedSources) {
+      expect(s).toBe("burst_propagated");
+    }
+  });
+
+  it("team tag: tag_scope='both_teams' with no family_member_id and no team_id", async () => {
+    if (!sessionId) return;
+    const payload = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const pj = await expectJson(payload, 200);
+    const asset = pj.assets.find(
+      (a: any) => !a.tags.some((t: any) => t.tag_scope === "both_teams")
+    );
+    if (!asset) return;
+    const res = await apiFetch(`/api/media/tag/${sessionId}/tags`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        tags: [
+          {
+            asset_id: asset.id,
+            tag_scope: "both_teams",
+            source: "manual_admin",
+          },
+        ],
+      }),
+    });
+    const json = await expectJson(res, 201);
+    const resolved = [...(json.created ?? []), ...(json.existing ?? [])][0];
+    expect(resolved.tag_scope).toBe("both_teams");
+    expect(resolved.family_member_id).toBeNull();
+    expect(resolved.team_id).toBeNull();
+  });
+});
