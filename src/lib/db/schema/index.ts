@@ -42,3 +42,6 @@ export * from "./reconciliation-log";
 
 // Nudge state (banner dismissal tracking)
 export * from "./user-nudge-state";
+
+// Media (photography/video operation)
+export * from "./media";
