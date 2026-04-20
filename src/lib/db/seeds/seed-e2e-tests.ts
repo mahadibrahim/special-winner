@@ -27,6 +27,7 @@ import {
   registrations,
   venues,
 } from "../schema";
+import { mediaStaffProfiles } from "../schema/media";
 import { eq, and } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -54,6 +55,18 @@ export const TEST_USERS = {
     password: "TestNew123!",
     firstName: "New",
     lastName: "User",
+  },
+  mediaStaff: {
+    email: "media_staff@test.aspiresports.com",
+    password: "TestMedia123!",
+    firstName: "Test",
+    lastName: "MediaStaff",
+  },
+  mediaEditor: {
+    email: "media_editor@test.aspiresports.com",
+    password: "TestMedia123!",
+    firstName: "Test",
+    lastName: "MediaEditor",
   },
 };
 
@@ -539,6 +552,89 @@ async function seedE2ETests() {
 
   }
   console.log(`   ✓ Registration: ${child1.firstName} - ${season.name} (confirmed)`);
+
+  // --- Media staff user ---
+  const mediaStaffPasswordHash = await hashPassword(
+    TEST_USERS.mediaStaff.password
+  );
+  let [mediaStaffUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.mediaStaff.email))
+    .limit(1);
+
+  if (!mediaStaffUser) {
+    [mediaStaffUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.mediaStaff.email,
+        passwordHash: mediaStaffPasswordHash,
+        firstName: TEST_USERS.mediaStaff.firstName,
+        lastName: TEST_USERS.mediaStaff.lastName,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: mediaStaffPasswordHash, emailVerified: true })
+      .where(eq(users.id, mediaStaffUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, mediaStaffUser.id));
+  await db.insert(userRoles).values({
+    userId: mediaStaffUser.id,
+    roleId: roleMap.media_staff.id,
+    scopeType: "location",
+    scopeId: location.id,
+  });
+  console.log(`   ✓ MediaStaff: ${mediaStaffUser.email}`);
+
+  // --- Media editor user ---
+  const mediaEditorPasswordHash = await hashPassword(
+    TEST_USERS.mediaEditor.password
+  );
+  let [mediaEditorUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.mediaEditor.email))
+    .limit(1);
+
+  if (!mediaEditorUser) {
+    [mediaEditorUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.mediaEditor.email,
+        passwordHash: mediaEditorPasswordHash,
+        firstName: TEST_USERS.mediaEditor.firstName,
+        lastName: TEST_USERS.mediaEditor.lastName,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: mediaEditorPasswordHash, emailVerified: true })
+      .where(eq(users.id, mediaEditorUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, mediaEditorUser.id));
+  await db.insert(userRoles).values({
+    userId: mediaEditorUser.id,
+    roleId: roleMap.media_editor.id,
+    scopeType: "location",
+    scopeId: location.id,
+  });
+  console.log(`   ✓ MediaEditor: ${mediaEditorUser.email}`);
+
+  await db
+    .insert(mediaStaffProfiles)
+    .values({
+      userId: mediaStaffUser.id,
+      organizationId: org.id,
+      serviceLocationIds: [location.id],
+      active: true,
+      onboardedAt: new Date(),
+    })
+    .onConflictDoNothing();
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

@@ -61,6 +61,8 @@ export async function apiFetch(
 let _adminCookie: string | null = null;
 let _coachCookie: string | null = null;
 let _parentCookie: string | null = null;
+let _mediaStaffCookie: string | null = null;
+let _mediaEditorCookie: string | null = null;
 
 /**
  * Returns a cached admin auth cookie. Signs in on first call.
@@ -101,6 +103,26 @@ export async function getParentCookie(): Promise<string> {
   return _parentCookie;
 }
 
+export async function getMediaStaffCookie(): Promise<string> {
+  if (!_mediaStaffCookie) {
+    _mediaStaffCookie = await getAuthCookie(
+      "media_staff@test.aspiresports.com",
+      "TestMedia123!"
+    );
+  }
+  return _mediaStaffCookie;
+}
+
+export async function getMediaEditorCookie(): Promise<string> {
+  if (!_mediaEditorCookie) {
+    _mediaEditorCookie = await getAuthCookie(
+      "media_editor@test.aspiresports.com",
+      "TestMedia123!"
+    );
+  }
+  return _mediaEditorCookie;
+}
+
 /**
  * Resets all cached cookies. Call in afterAll if needed.
  */
@@ -108,6 +130,8 @@ export function resetCookies(): void {
   _adminCookie = null;
   _coachCookie = null;
   _parentCookie = null;
+  _mediaStaffCookie = null;
+  _mediaEditorCookie = null;
 }
 
 /**
