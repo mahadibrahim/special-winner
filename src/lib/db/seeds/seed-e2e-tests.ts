@@ -33,7 +33,7 @@ import {
   mediaAssets,
 } from "../schema/media";
 import { rosters, games } from "../schema";
-import { eq, and } from "drizzle-orm";
+import { asc, eq, and } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
 export const TEST_USERS = {
@@ -79,12 +79,18 @@ async function seedE2ETests() {
   console.log("🧪 Seeding E2E test data...\n");
   const db = getDb();
 
-  // Get or create organization
+  // Get or create organization. We prefer the oldest existing org because
+  // the super-admin org-resolution fallback (getOrganizationId in roles.ts)
+  // orders by createdAt asc — if this seed put fixtures in a different org
+  // than that fallback returns, admin API calls on localhost/CI wouldn't
+  // see them. On a fresh DB the first insert becomes aspire-sports. On a
+  // shared/dirty CI DB we reuse whichever org has the earliest createdAt
+  // so the seed and runtime agree.
   console.log("1. Setting up organization...");
   let [org] = await db
     .select()
     .from(organizations)
-    .where(eq(organizations.slug, "aspire-sports"))
+    .orderBy(asc(organizations.createdAt))
     .limit(1);
 
   if (!org) {
