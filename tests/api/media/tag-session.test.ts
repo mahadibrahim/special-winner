@@ -263,3 +263,51 @@ describe("POST /api/media/tag/:session_id/tags — bulk tag", () => {
     expect(resolved.team_id).toBeNull();
   });
 });
+
+describe("DELETE /api/media/tag/:session_id/tags/:tag_id", () => {
+  let adminCookie: string;
+  let sessionId: string;
+
+  beforeAll(async () => {
+    adminCookie = await getAdminCookie();
+    const q = await apiFetch("/api/admin/media/tag-queue", {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const qj = await expectJson(q, 200);
+    if (qj.queue[0]) {
+      await apiFetch(
+        `/api/admin/media/tag-queue/${qj.queue[0].session_id}/claim`,
+        { method: "POST", cookie: adminCookie }
+      );
+      sessionId = qj.queue[0].session_id;
+    }
+  });
+
+  it("removes a tag and writes an audit log row", async () => {
+    if (!sessionId) return;
+    const payload = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const pj = await expectJson(payload, 200);
+    const firstTag = pj.assets.flatMap((a: any) => a.tags)[0];
+    if (!firstTag) return;
+
+    const res = await apiFetch(
+      `/api/media/tag/${sessionId}/tags/${firstTag.id}`,
+      { method: "DELETE", cookie: adminCookie }
+    );
+    expect(res.status).toBe(204);
+
+    const after = await apiFetch(`/api/media/tag/${sessionId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const aj = await expectJson(after, 200);
+    const stillThere = aj.assets
+      .flatMap((a: any) => a.tags)
+      .some((t: any) => t.id === firstTag.id);
+    expect(stillThere).toBe(false);
+  });
+});
