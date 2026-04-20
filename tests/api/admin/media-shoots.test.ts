@@ -81,4 +81,34 @@ describe("Admin Media Shoots API", () => {
     const res = await apiFetch(ENDPOINT, { method: "GET" });
     expect(res.status).toBe(401);
   });
+
+  it("GET /:id returns session detail", async () => {
+    const res = await apiFetch(`${ENDPOINT}/${createdId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    expect(json.session.id).toBe(createdId);
+  });
+
+  it("PATCH /:id reschedules the session", async () => {
+    const newStart = new Date(Date.now() + 10 * 86400_000).toISOString();
+    const res = await apiFetch(`${ENDPOINT}/${createdId}`, {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ scheduledStart: newStart }),
+    });
+    const json = await expectJson(res, 200);
+    expect(new Date(json.session.scheduledStart).toISOString()).toBe(newStart);
+  });
+
+  it("PATCH /:id cancels the session", async () => {
+    const res = await apiFetch(`${ENDPOINT}/${createdId}`, {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ status: "cancelled" }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.session.status).toBe("cancelled");
+  });
 });
