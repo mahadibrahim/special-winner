@@ -264,6 +264,46 @@ describe("POST /api/media/tag/:session_id/tags — bulk tag", () => {
   });
 });
 
+describe("POST /api/media/tag/:session_id/complete", () => {
+  let adminCookie: string;
+  let sessionId: string;
+
+  beforeAll(async () => {
+    adminCookie = await getAdminCookie();
+    const q = await apiFetch("/api/admin/media/tag-queue", {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const qj = await expectJson(q, 200);
+    if (qj.queue[0]) {
+      await apiFetch(
+        `/api/admin/media/tag-queue/${qj.queue[0].session_id}/claim`,
+        { method: "POST", cookie: adminCookie }
+      );
+      sessionId = qj.queue[0].session_id;
+    }
+  });
+
+  it("flips status tagging -> ready and writes audit log", async () => {
+    if (!sessionId) return;
+    const res = await apiFetch(`/api/media/tag/${sessionId}/complete`, {
+      method: "POST",
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    expect(json.session.status).toBe("ready");
+  });
+
+  it("returns 409 if session not in 'tagging'", async () => {
+    if (!sessionId) return;
+    const res = await apiFetch(`/api/media/tag/${sessionId}/complete`, {
+      method: "POST",
+      cookie: adminCookie,
+    });
+    expect(res.status).toBe(409);
+  });
+});
+
 describe("DELETE /api/media/tag/:session_id/tags/:tag_id", () => {
   let adminCookie: string;
   let sessionId: string;
