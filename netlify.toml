@@ -22,7 +22,9 @@
   # To re-enable auto-deploy: remove the ignore line and either
   # `exit 1` here, or delete the line entirely.
   # ============================================================
-  ignore = "exit 0"
+  # TEMPORARY (2026-04-20): re-enabled during Telegram onboarding.
+  # Flip back to `exit 0` before the pilot ramps function volume.
+  ignore = "exit 1"
 
 # Stop automatic deploys - we deploy manually via CI on releases
 [build.processing]
