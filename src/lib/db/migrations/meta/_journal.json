@@ -50,6 +50,13 @@
       "when": 1776696709607,
       "tag": "0006_dear_psynapse",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776717090374,
+      "tag": "0007_unknown_venom",
+      "breakpoints": true
     }
   ]
 }
