@@ -1,7 +1,7 @@
 import type { APIContext } from "astro";
 import { getDb } from "@/lib/db";
 import { userRoles, roles, teams, rosters, registrations, organizations } from "@/lib/db/schema";
-import { eq, and, or, inArray } from "drizzle-orm";
+import { eq, and, or, inArray, asc } from "drizzle-orm";
 import { validateSession } from "./session";
 
 export type RoleName =
@@ -334,8 +334,12 @@ export async function getOrganizationId(context: APIContext): Promise<string | n
       const isSuperAdmin = userRolesList.some((role) => role.name === "super_admin");
 
       if (isSuperAdmin) {
-        // Super admin can access first org as fallback (for development)
-        const firstOrg = await getDb().query.organizations.findFirst();
+        // Super admin can access oldest org as fallback (for development /
+        // CI where no domain maps to an org). Ordered by createdAt so
+        // shared test DBs with multiple orgs resolve deterministically.
+        const firstOrg = await getDb().query.organizations.findFirst({
+          orderBy: (o) => asc(o.createdAt),
+        });
         return firstOrg?.id || null;
       }
     }

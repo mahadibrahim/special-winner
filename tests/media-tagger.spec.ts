@@ -15,28 +15,34 @@ test.describe("Media tagger — golden path", () => {
     });
     expect(adminLoginRes.ok()).toBeTruthy();
 
+    // Find a queue item that has a game attached (so its roster is non-empty).
+    // CI's shared DB can contain stale Phase 1 'uploaded' sessions without a
+    // game that the default row ordering places first, and whoever wins the
+    // super-admin org-resolution fallback is non-deterministic — so we can't
+    // rely on the seeded fixture being the first (or even visible) row.
+    // Going via the API avoids UI row ordering and text entirely.
+    const queueRes = await adminCtx.request.get(
+      "/api/admin/media/tag-queue"
+    );
+    expect(queueRes.ok()).toBeTruthy();
+    const { queue } = await queueRes.json();
+    const withGame = queue.find(
+      (q: any) => q.game && q.game.id && typeof q.asset_count === "number"
+    );
+    expect(
+      withGame,
+      "no 'uploaded' shoot session with a game found — seed didn't land in the admin's org"
+    ).toBeTruthy();
+    const sessionId = withGame.session_id;
+
+    const claimRes = await adminCtx.request.post(
+      `/api/admin/media/tag-queue/${sessionId}/claim`
+    );
+    expect(claimRes.ok()).toBeTruthy();
+
     const page = await adminCtx.newPage();
-    await page.goto("/admin/media/tag-queue");
+    await page.goto(`/media/tag/${sessionId}`);
 
-    // Pick the row whose matchup is the seeded tagger fixture. CI may have
-    // stale 'uploaded' sessions from prior Phase 1 runs without a game —
-    // those rows would render as "—" in the matchup column and their roster
-    // would be empty, which would fail the per-player interactions below.
-    const targetRow = page
-      .locator('[data-testid^="queue-row-"]')
-      .filter({ hasText: "E2E Test Team vs E2E Test Team 2" })
-      .first();
-    await expect(targetRow).toBeVisible({ timeout: 15_000 });
-    const rowTestId = await targetRow.getAttribute("data-testid");
-    expect(rowTestId).toBeTruthy();
-    const sessionId = rowTestId!.replace("queue-row-", "");
-
-    await targetRow.locator('[data-testid^="claim-button-"]').click();
-
-    await page.waitForURL(/\/media\/tag\//, {
-      timeout: 15_000,
-      waitUntil: "domcontentloaded",
-    });
     await expect(page.locator('[data-testid="asset-viewer"]')).toBeVisible();
     await expect(page.locator('[data-testid="roster-sidebar"]')).toBeVisible();
 
@@ -66,7 +72,12 @@ test.describe("Media tagger — golden path", () => {
       waitUntil: "domcontentloaded",
     });
 
-    const rowForSession = page.locator(`[data-testid="queue-row-${sessionId}"]`);
-    await expect(rowForSession).toHaveCount(0);
+    // Verify the session moved out of 'uploaded' (i.e., no longer in the queue).
+    const afterRes = await adminCtx.request.get("/api/admin/media/tag-queue");
+    const afterJson = await afterRes.json();
+    const stillQueued = afterJson.queue.some(
+      (q: any) => q.session_id === sessionId
+    );
+    expect(stillQueued).toBe(false);
   });
 });
