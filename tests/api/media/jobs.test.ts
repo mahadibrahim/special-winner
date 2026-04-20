@@ -92,4 +92,13 @@ describe("Photographer Jobs API", () => {
     const json = await expectJson(res, 200);
     expect(json.session.checkedOutAt).toBeTruthy();
   });
+
+  it("POST /api/media/jobs/:id/confirm returns 409 when session is already confirmed", async () => {
+    const res = await apiFetch(`/api/media/jobs/${sessionId}/confirm`, {
+      method: "POST",
+      cookie: mediaCookie,
+      body: "{}",
+    });
+    expect(res.status).toBe(409);
+  });
 });

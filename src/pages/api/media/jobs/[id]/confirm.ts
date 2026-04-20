@@ -17,6 +17,13 @@ export const POST: APIRoute = async (context) => {
   if (!session)
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
 
+  if (session.status !== "assigned") {
+    return new Response(
+      JSON.stringify({ error: "Session is not in 'assigned' state" }),
+      { status: 409 }
+    );
+  }
+
   const [updated] = await getDb()
     .update(shootSessions)
     .set({
