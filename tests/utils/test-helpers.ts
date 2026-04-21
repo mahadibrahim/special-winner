@@ -192,6 +192,28 @@ export async function waitForPageLoad(page: Page): Promise<void> {
 }
 
 /**
+ * Wait for React hydration on pages that opt in via `useHydrationBeacon`.
+ *
+ * Astro SSRs React components (`client:load`) — the DOM is present before
+ * React attaches event handlers. On CI (headless, slower) clicks and key
+ * presses can land before hydration and silently drop, causing mysterious
+ * flakes. Pages that e2e tests drive should import and call
+ * `useHydrationBeacon()` in their top-level client component; this helper
+ * waits for the beacon it sets on <html>.
+ *
+ * Falls back gracefully if the page doesn't use the beacon — the selector
+ * just won't match, and you'll see a timeout with a clear error.
+ */
+export async function waitForHydration(
+  page: Page,
+  options?: { timeout?: number }
+): Promise<void> {
+  await page.waitForSelector("html[data-hydrated='true']", {
+    timeout: options?.timeout ?? 15_000,
+  });
+}
+
+/**
  * Get table row count
  */
 export async function getTableRowCount(page: Page): Promise<number> {

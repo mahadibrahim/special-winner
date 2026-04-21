@@ -10,6 +10,7 @@ import {
 } from "./tagger-asset-viewer";
 import { TaggerPerformanceBar } from "./tagger-performance-bar";
 import { TaggerBurstHint } from "./tagger-burst-hint";
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 
 type Payload = {
   session: { id: string; status: string; game_id: string | null };
@@ -33,6 +34,7 @@ type Props = { sessionId: string; initialPayload: Payload };
 type UndoEntry = { tagIds: string[] };
 
 export function TaggerApp({ sessionId, initialPayload }: Props) {
+  useHydrationBeacon();
   const [payload, setPayload] = useState<Payload>(initialPayload);
   const [idx, setIdx] = useState(0);
   const [side, setSide] = useState<"home" | "away">("home");

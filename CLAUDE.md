@@ -112,9 +112,35 @@ npm run test:api:watch    # Watch mode
 npm test                  # Run E2E tests (Playwright)
 ```
 
-- API tests live in `tests/api/` — 156 tests across 27 files
-- Tests hit the running dev server over HTTP (start `npm run dev` first)
-- Test accounts: admin/coach/parent `@test.aspiresports.com` / `Test{Role}123!`
+- API tests live in `tests/api/` — hit the running dev server over HTTP (start `npm run dev` first)
+- Test accounts: admin/coach/parent `@test.aspiresports.com` / `Test{Role}123!`; media staff/editor use `TestMedia123!`
+- E2E seed data comes from `src/lib/db/seeds/seed-e2e-tests.ts` via `npm run db:seed:e2e`
+
+### Playwright conventions
+
+- Pages driven by e2e tests should have their top-level `client:load` React component call `useHydrationBeacon()` from `@/lib/hooks/use-hydration-beacon`. It sets `data-hydrated="true"` on `<html>` once `useEffect` runs.
+- In the test, call `await waitForHydration(page)` from `tests/utils/test-helpers.ts` **before** any click or keypress. CI's headless Chromium hydrates slower than local headed runs — interactions that land on un-hydrated DOM silently drop (clicks don't fire, window `keydown` listeners aren't attached yet).
+- Prefer element clicks over `page.keyboard.press(...)` for keyboard shortcuts tied to `window.addEventListener("keydown", ...)`. Element clicks go through React's synthetic event system and are reliable even mid-hydration; window-level keys need the listener to already be attached.
+- If `page.goto()` hangs on a page that has broken images (e.g. `mock-r2.local` URLs when `R2_MOCK=1`), use `waitUntil: "domcontentloaded"` instead of the default `"load"`.
+
+## Pre-push checklist (major work — schema changes, new endpoints, new E2E flows)
+
+CI has bitten us twice for the same reasons. Run this sequence locally before pushing anything that touches schema, admin endpoints, or Playwright flows. All steps are fast (under ~5 min combined):
+
+1. **Generate migration if you touched `src/lib/db/schema/*`.** `npm run db:push` is great for iteration but does NOT produce a migration file — CI's `npm run db:migrate` will fail on the new schema. Run `npm run db:generate`, review the generated `src/lib/db/migrations/NNNN_*.sql`, and commit it. Phase 1 and Phase 2 both shipped this gap.
+2. **Re-seed e2e data:** `npm run db:seed:e2e`. The seed is idempotent; re-run catches any new fixtures the tests depend on and surfaces seed errors early.
+3. **Run API tests with CI-equivalent env:** from a shell with the dev server already up (ideally started with `R2_MOCK=1 CRON_SECRET=<anything>`):
+   ```bash
+   CRON_SECRET=<same-as-dev-server> TEST_BASE_URL=http://localhost:4321 npm run test:api
+   ```
+   Mismatched `CRON_SECRET` between dev server and test runtime manifests as spurious 401 cron failures — don't chase those down, just match them.
+4. **Run Playwright:** `PLAYWRIGHT_BASE_URL=http://localhost:4321 npm test`. If new specs interact with `client:load` components, confirm they use `waitForHydration(page)` and click-driven interactions.
+5. **Build:** `npm run build`. Catches SSR-vs-prerender mistakes (e.g. `Astro.request.headers` on a prerendered page) that don't fire in `npm run dev`.
+6. **Type check:** `npx tsc --noEmit`. There's a baseline of ~5 pre-existing errors in `src/lib/db/seeds/seed-full-year.ts`, `seed-programs-catalog.ts`, `src/pages/api/public/seasons.ts`, `tests/utils/test-helpers.ts` — don't add to them.
+
+### Multi-tenant query hazards
+
+The CI database is shared across runs and accumulates orgs, users, sessions, etc. Any query that picks "a" row from a set of possible matches (`findFirst`, `.limit(1)`) MUST have an explicit `orderBy` — otherwise it runs fine locally (one match) and silently picks the wrong row on CI (many matches). The domain resolver and super-admin org fallback already enforce this; new code should too. When in doubt, `orderBy: (t, { asc }) => asc(t.createdAt)` is a safe default for "give me the oldest matching row."
 
 ## Design System
 

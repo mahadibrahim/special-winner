@@ -54,6 +54,9 @@ export async function canTagSession(
   const profile = await db.query.mediaStaffProfiles.findFirst({
     where: eq(mediaStaffProfiles.userId, userId),
     columns: { serviceLocationIds: true, active: true },
+    // userId should be 1-to-1 with profiles; orderBy keeps this deterministic
+    // if the uniqueness isn't enforced by schema.
+    orderBy: (p, { asc }) => asc(p.createdAt),
   });
   if (!profile || profile.active === false) {
     return { allowed: false, reason: "No active media staff profile" };

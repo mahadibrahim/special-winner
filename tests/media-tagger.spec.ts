@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForHydration } from "./utils/test-helpers";
 
 test.describe("Media tagger — golden path", () => {
   test("admin claims queue item, tags assets with mixed shortcuts, completes session", async ({
@@ -46,15 +47,9 @@ test.describe("Media tagger — golden path", () => {
     await expect(page.locator('[data-testid="asset-viewer"]')).toBeVisible();
     await expect(page.locator('[data-testid="roster-sidebar"]')).toBeVisible();
 
-    // Wait for React hydration to complete before interacting. Astro SSRs
-    // the tagger-app with client:load, so the DOM is present before React
-    // attaches event handlers. Clicks / keypresses that land before
-    // hydration silently drop. The perf-bar's elapsed counter is updated
-    // by a useEffect setInterval, so once it reads >= 0:01 the app is
-    // interactive.
-    await expect(
-      page.locator('[data-testid="tagger-performance-bar"]')
-    ).toContainText(/0:0[1-9]|0:[1-5]\d/, { timeout: 15_000 });
+    // TaggerApp calls useHydrationBeacon(); wait for it before interacting
+    // so clicks/keys don't drop onto un-hydrated DOM on slower CI runners.
+    await waitForHydration(page);
 
     // Click a roster entry to tag the current asset. Click-driven (not
     // keyboard-driven) so we don't depend on the window-level keydown

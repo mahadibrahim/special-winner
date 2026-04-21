@@ -82,12 +82,15 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Check for duplicate code within this organization
+    // Check for duplicate code within this organization. orderBy ensures a
+    // stable "does a duplicate exist" answer on shared DBs with any
+    // accidental duplicates.
     const existing = await getDb().query.discountCodes.findFirst({
       where: and(
         eq(discountCodes.code, result.data.code),
         eq(discountCodes.organizationId, orgContext.organizationId)
       ),
+      orderBy: (d, { asc }) => asc(d.createdAt),
     });
 
     if (existing) {
