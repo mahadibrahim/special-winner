@@ -10,9 +10,16 @@ function getDbErrorCode(error: any): string | undefined {
   return error?.code ?? error?.cause?.code;
 }
 
+const scaffoldSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("empty") }),
+  z.object({ type: z.literal("clone"), sourceSeasonId: z.string().uuid() }),
+  z.object({ type: z.literal("bulk"), count: z.number().int().min(0).max(50) }),
+]);
+
 const seasonSchema = z.object({
   programId: z.string().uuid("Invalid program"),
   ageGroupId: z.string().uuid().optional().nullable(),
+  venueId: z.string().uuid().optional().nullable(),
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/),
   startDate: z.string().min(1, "Start date is required"),
@@ -25,6 +32,7 @@ const seasonSchema = z.object({
   allowDeposit: z.boolean().default(true),
   status: z.enum(["draft", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
   scheduleNotes: z.string().optional().nullable(),
+  scaffold: scaffoldSchema.optional(),
 });
 
 export const GET: APIRoute = async (context) => {
@@ -112,6 +120,7 @@ export const POST: APIRoute = async (context) => {
       .values({
         programId: data.programId,
         ageGroupId: data.ageGroupId || null,
+        venueId: data.venueId || null,
         name: data.name,
         slug: data.slug,
         startDate: data.startDate,
@@ -163,6 +172,7 @@ export const PUT: APIRoute = async (context) => {
       .set({
         programId: validData.programId,
         ageGroupId: validData.ageGroupId || null,
+        venueId: validData.venueId || null,
         name: validData.name,
         slug: validData.slug,
         startDate: validData.startDate,
