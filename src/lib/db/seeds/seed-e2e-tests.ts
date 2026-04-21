@@ -752,7 +752,13 @@ async function seedE2ETests() {
       )
     );
 
-  const needed = Math.max(0, 2 - existingSessions.length);
+  // API tests (test-api job) and Playwright tests (test job) run in parallel
+  // against the same DB. Each describe's beforeAll in tests/api/media/
+  // tag-session.test.ts and tests/api/admin/media-tag-queue.test.ts claims
+  // queue[0], transitioning a fixture out of 'uploaded' and making it
+  // invisible to the Playwright tagger test. Seed 10 so there are always
+  // some left for Playwright.
+  const needed = Math.max(0, 10 - existingSessions.length);
   for (let n = 0; n < needed; n++) {
     const [s] = await db
       .insert(shootSessions)
