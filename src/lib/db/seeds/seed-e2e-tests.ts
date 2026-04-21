@@ -33,7 +33,7 @@ import {
   mediaAssets,
 } from "../schema/media";
 import { rosters, games } from "../schema";
-import { asc, eq, and } from "drizzle-orm";
+import { asc, eq, and, or } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
 export const TEST_USERS = {
@@ -114,6 +114,33 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Organization: ${org.name} (${org.id})`);
+
+  // Demote any OTHER headquarters/active orgs so aspire-sports is the
+  // unambiguous default org on shared CI databases. Without this, prior
+  // test runs that created additional HQ/active orgs (e.g., via the admin
+  // organizations API) can win the resolveDefaultOrganization tiebreaker
+  // and cause admin's API calls to miss seeded fixtures.
+  const candidates = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(
+      or(
+        eq(organizations.organizationType, "headquarters"),
+        eq(organizations.status, "active")
+      )
+    );
+  let demotedCount = 0;
+  for (const row of candidates) {
+    if (row.id === org.id) continue;
+    await db
+      .update(organizations)
+      .set({ organizationType: "franchise", status: "inactive" })
+      .where(eq(organizations.id, row.id));
+    demotedCount++;
+  }
+  if (demotedCount > 0) {
+    console.log(`   ✓ Demoted ${demotedCount} other HQ/active org(s) to franchise/inactive`);
+  }
 
   // Get or create location
   let [location] = await db
