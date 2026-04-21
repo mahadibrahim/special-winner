@@ -69,6 +69,8 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
         eq(broadcastLog.organizationId, input.organizationId),
         gt(broadcastLog.createdAt, fiveMinutesAgo),
       ),
+      // desc so the most-recent match wins if somehow multiple exist
+      orderBy: (b, { desc }) => desc(b.createdAt),
     })
     if (existing) {
       return {
@@ -124,6 +126,8 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
     for (const teamId of input.teamIds) {
       const group = await db.query.teamGroups.findFirst({
         where: and(eq(teamGroups.teamId, teamId), eq(teamGroups.status, "active")),
+        // Deterministic oldest-active-wins if multiple active groups share a team
+        orderBy: (g, { asc }) => asc(g.createdAt),
       })
       if (!group?.telegramChatId) {
         errors.push(`No active group for team ${teamId}`)

@@ -69,9 +69,11 @@ export async function scheduleGroupCreation(input: ScheduleCreationInput): Promi
     creationScheduledFor = sevenDaysBefore <= new Date() ? new Date() : sevenDaysBefore
   }
 
-  // Upsert: create if missing, update creation_scheduled_for if present and still 'scheduled'
+  // Upsert: create if missing, update creation_scheduled_for if present and still 'scheduled'.
+  // orderBy keeps this deterministic on shared DBs if duplicates somehow exist.
   const existing = await db.query.teamGroups.findFirst({
     where: and(eq(teamGroups.teamId, teamId), eq(teamGroups.status, "scheduled")),
+    orderBy: (g, { asc }) => asc(g.createdAt),
   })
 
   if (!existing) {
