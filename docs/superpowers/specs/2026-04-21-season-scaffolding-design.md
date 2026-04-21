@@ -27,7 +27,7 @@ Collapse season setup into a single form. Give admins three ways to populate a n
 Replace the current plain create-season form (at `/admin/seasons` → `seasons-list.tsx`) with a form that has a **"Starting structure"** picker at the top. Three options:
 
 1. **Clone from previous season.** Picker lists prior seasons for the selected program, sorted newest-first. Selected by default if any exist. When chosen, pulls the source season's pricing, max participants, and structural settings into the form as defaults (admin can override). On save, clones the team list, coach assignments, and home-venue assignments.
-2. **Bulk-create teams.** Expands a small grid: one row per age group attached to the organization, integer input for team count. Auto-generates team names like `"U10 Team 1"`, `"U10 Team 2"` — admin renames later. Good for day-one setup when no prior season exists.
+2. **Bulk-create teams.** Expands a small grid: one row per age group attached to the organization, integer input for team count. Auto-generates team names using the pattern `"{Program} {AgeGroup} Team {N}"` (e.g. `"Soccer U10 Team 1"`) to avoid collisions across programs sharing the same age group. Admin renames later. Good for day-one setup when no prior season exists.
 3. **Empty season.** Creates the season shell, no teams. For unusual cases.
 
 **Default selection:** #1 if prior seasons exist for this program, otherwise #2.
@@ -126,7 +126,7 @@ Scale: this dialog is the first multi-mode form in the admin UI. Keep it contain
 - `POST /api/admin/seasons` with `scaffold.type === "empty"` behaves like today
 - `POST` with `scaffold.type === "clone"` creates the expected teams, coach assignments, and venue assignments; dates/status are reset
 - `POST` with `scaffold.type === "clone"` across programs → 400
-- `POST` with `scaffold.type === "bulk"` creates N teams per age group with auto-generated names
+- `POST` with `scaffold.type === "bulk"` creates N teams per age group with names matching the `"{Program} {AgeGroup} Team {N}"` pattern
 - `POST` with `scaffold.type === "bulk"` and unknown `ageGroupId` → 400, no season row created (rollback verified)
 - `POST` with `scaffold.type === "bulk"` and `count: 0` row → row skipped, no error
 - `POST` with `scaffold` omitted → still works (back-compat)
