@@ -22,6 +22,7 @@ export async function cloneSeasonTeams(
         seasonId: args.targetSeasonId,
         name: t.name,
         color: t.color,
+        logoUrl: t.logoUrl,
         coachUserId: t.coachUserId,
         assistantCoachUserId: t.assistantCoachUserId,
         maxRosterSize: t.maxRosterSize,
