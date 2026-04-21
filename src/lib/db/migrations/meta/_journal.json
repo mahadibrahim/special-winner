@@ -57,6 +57,13 @@
       "when": 1776717090374,
       "tag": "0007_unknown_venom",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776801629352,
+      "tag": "0008_ambitious_goliath",
+      "breakpoints": true
     }
   ]
 }

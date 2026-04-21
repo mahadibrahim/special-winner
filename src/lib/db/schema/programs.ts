@@ -13,6 +13,7 @@ import {
 import { relations } from "drizzle-orm";
 import { locations } from "./organizations";
 import { sports, ageGroups } from "./sports";
+import { venues } from "./teams";
 
 // Enums
 export const programTypeEnum = pgEnum("program_type", [
@@ -61,6 +62,9 @@ export const seasons = pgTable("seasons", {
   ageGroupId: uuid("age_group_id").references(() => ageGroups.id, {
     onDelete: "set null",
   }),
+  venueId: uuid("venue_id").references(() => venues.id, {
+    onDelete: "set null",
+  }),
   name: varchar("name", { length: 255 }).notNull(), // 'Fall 2024', 'Summer Camp Week 1'
   slug: varchar("slug", { length: 100 }).notNull(),
   startDate: date("start_date").notNull(),
@@ -102,6 +106,10 @@ export const seasonsRelations = relations(seasons, ({ one }) => ({
   ageGroup: one(ageGroups, {
     fields: [seasons.ageGroupId],
     references: [ageGroups.id],
+  }),
+  venue: one(venues, {
+    fields: [seasons.venueId],
+    references: [venues.id],
   }),
 }));
 
