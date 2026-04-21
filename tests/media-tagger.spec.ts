@@ -30,10 +30,20 @@ test.describe("Media tagger — golden path", () => {
     const withGame = queue.find(
       (q: any) => q.game && q.game.id && typeof q.asset_count === "number"
     );
-    expect(
-      withGame,
-      "no 'uploaded' shoot session with a game found — seed didn't land in the admin's org"
-    ).toBeTruthy();
+    if (!withGame) {
+      // Diagnostic: tell us what admin's org actually sees so we can fix
+      // the seed/resolver alignment instead of playing whack-a-mole.
+      const summary = queue.map((q: any) => ({
+        id: q.session_id,
+        assets: q.asset_count,
+        game_id: q.game?.id ?? null,
+        matchup: q.game ? `${q.game.home} vs ${q.game.away}` : "—",
+      }));
+      throw new Error(
+        "no 'uploaded' shoot session with a game found — seed didn't land in the admin's org.\n" +
+          `queue length=${queue.length}, items=${JSON.stringify(summary, null, 2)}`
+      );
+    }
     const sessionId = withGame.session_id;
 
     const claimRes = await adminCtx.request.post(
