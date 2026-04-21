@@ -46,13 +46,20 @@ test.describe("Media tagger — golden path", () => {
     await expect(page.locator('[data-testid="asset-viewer"]')).toBeVisible();
     await expect(page.locator('[data-testid="roster-sidebar"]')).toBeVisible();
 
-    // Click a roster entry to tag the current asset. We use click-driven
-    // tagging here instead of the keyboard shortcut flow (jersey buffer +
-    // Enter, h/a/t for team tags) because CI has a hydration race where
-    // page.keyboard.press fires before the tagger app's window keydown
-    // listener is attached via useEffect — events silently drop. Clicks
-    // go through React's synthetic event system on the elements directly
-    // and don't depend on the window-level listener.
+    // Wait for React hydration to complete before interacting. Astro SSRs
+    // the tagger-app with client:load, so the DOM is present before React
+    // attaches event handlers. Clicks / keypresses that land before
+    // hydration silently drop. The perf-bar's elapsed counter is updated
+    // by a useEffect setInterval, so once it reads >= 0:01 the app is
+    // interactive.
+    await expect(
+      page.locator('[data-testid="tagger-performance-bar"]')
+    ).toContainText(/0:0[1-9]|0:[1-5]\d/, { timeout: 15_000 });
+
+    // Click a roster entry to tag the current asset. Click-driven (not
+    // keyboard-driven) so we don't depend on the window-level keydown
+    // listener — clicks go through React's synthetic event system on
+    // the target element directly.
     const firstEntry = page.locator('[data-testid^="roster-entry-"]').first();
     await expect(firstEntry).toBeVisible();
     await firstEntry.click();
