@@ -79,18 +79,18 @@ async function seedE2ETests() {
   console.log("🧪 Seeding E2E test data...\n");
   const db = getDb();
 
-  // Get or create organization. We prefer the oldest existing org because
-  // the super-admin org-resolution fallback (getOrganizationId in roles.ts)
-  // orders by createdAt asc — if this seed put fixtures in a different org
-  // than that fallback returns, admin API calls on localhost/CI wouldn't
-  // see them. On a fresh DB the first insert becomes aspire-sports. On a
-  // shared/dirty CI DB we reuse whichever org has the earliest createdAt
-  // so the seed and runtime agree.
+  // Get or create organization. The domain-resolver's default-org logic
+  // (lib/organization/domain-resolver.ts > resolveDefaultOrganization) picks
+  // the oldest active headquarters org, else the oldest active org. To keep
+  // the seed and runtime in lockstep we upsert aspire-sports as an active
+  // headquarters so it is unambiguously what middleware will return on
+  // localhost/CI. Pre-existing rows from earlier seed versions may have
+  // status='pending' or organizationType='franchise' — we fix those here.
   console.log("1. Setting up organization...");
   let [org] = await db
     .select()
     .from(organizations)
-    .orderBy(asc(organizations.createdAt))
+    .where(eq(organizations.slug, "aspire-sports"))
     .limit(1);
 
   if (!org) {
@@ -100,7 +100,17 @@ async function seedE2ETests() {
         name: "Aspire Sports",
         slug: "aspire-sports",
         status: "active",
+        organizationType: "headquarters",
       })
+      .returning();
+  } else if (
+    org.status !== "active" ||
+    org.organizationType !== "headquarters"
+  ) {
+    [org] = await db
+      .update(organizations)
+      .set({ status: "active", organizationType: "headquarters" })
+      .where(eq(organizations.id, org.id))
       .returning();
   }
   console.log(`   ✓ Organization: ${org.name} (${org.id})`);

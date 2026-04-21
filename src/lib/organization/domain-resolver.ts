@@ -6,7 +6,7 @@ import {
   type Organization,
   type Location,
 } from "@/lib/db/schema/organizations"
-import { eq, and, or } from "drizzle-orm"
+import { asc, eq, and, or } from "drizzle-orm"
 
 // ============================================
 // TYPES
@@ -194,7 +194,7 @@ async function resolveBySubdomain(hostname: string): Promise<ResolvedOrganizatio
 async function resolveDefaultOrganization(): Promise<ResolvedOrganization | null> {
   if (false) return null
 
-  // Look for headquarters first
+  // Look for headquarters first (oldest HQ if multiple)
   const [hq] = await getDb()
     .select()
     .from(organizations)
@@ -204,6 +204,7 @@ async function resolveDefaultOrganization(): Promise<ResolvedOrganization | null
         eq(organizations.status, "active")
       )
     )
+    .orderBy(asc(organizations.createdAt))
     .limit(1)
 
   if (hq) {
@@ -215,11 +216,12 @@ async function resolveDefaultOrganization(): Promise<ResolvedOrganization | null
     }
   }
 
-  // Fall back to first active organization
+  // Fall back to oldest active organization (deterministic for shared DBs).
   const [firstOrg] = await getDb()
     .select()
     .from(organizations)
     .where(eq(organizations.status, "active"))
+    .orderBy(asc(organizations.createdAt))
     .limit(1)
 
   if (firstOrg) {
