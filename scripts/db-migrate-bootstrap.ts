@@ -16,9 +16,13 @@
  *
  * Safe to run on every CI build.
  *
- * Limitation: a migration that only ALTERs existing tables (no CREATE TABLE)
- * can't be detected this way. None of the current migrations fit that shape.
- * If one is added later, a smarter detector will be needed.
+ * Handles two schema-effect shapes per migration:
+ *   · CREATE TABLE "name"          → applied if that table already exists
+ *   · ALTER TABLE "t" ADD COLUMN "c" → applied if that column already exists
+ *
+ * A migration is treated as applied when ALL of its parsed effects are
+ * already present in the target DB. Mixed-effect migrations (both creates
+ * and alters) work too.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -47,15 +51,26 @@ if (!connectionString) {
 
 const MIGRATIONS_DIR = "src/lib/db/migrations";
 
-function extractCreatedTables(sqlText: string): string[] {
-  // Matches: CREATE TABLE "name" ... (ignores IF NOT EXISTS variants too).
-  const regex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi;
-  const names: string[] = [];
+type SchemaEffect =
+  | { kind: "table"; name: string }
+  | { kind: "column"; table: string; column: string };
+
+function extractSchemaEffects(sqlText: string): SchemaEffect[] {
+  const effects: SchemaEffect[] = [];
+
+  const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi;
   let m: RegExpExecArray | null;
-  while ((m = regex.exec(sqlText)) !== null) {
-    names.push(m[1]);
+  while ((m = createRe.exec(sqlText)) !== null) {
+    effects.push({ kind: "table", name: m[1] });
   }
-  return names;
+
+  const alterRe =
+    /ALTER\s+TABLE\s+"([^"]+)"\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi;
+  while ((m = alterRe.exec(sqlText)) !== null) {
+    effects.push({ kind: "column", table: m[1], column: m[2] });
+  }
+
+  return effects;
 }
 
 async function main() {
@@ -92,7 +107,7 @@ async function main() {
       )
     `;
 
-    // Snapshot the current set of public tables for O(1) lookups.
+    // Snapshot the current set of public tables and columns for O(1) lookups.
     const publicTables = await sql<Array<{ table_name: string }>>`
       SELECT table_name
       FROM information_schema.tables
@@ -100,8 +115,19 @@ async function main() {
     `;
     const tableSet = new Set(publicTables.map((r) => r.table_name));
 
+    const publicColumns = await sql<
+      Array<{ table_name: string; column_name: string }>
+    >`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+    `;
+    const columnSet = new Set(
+      publicColumns.map((r) => `${r.table_name}.${r.column_name}`),
+    );
+
     // Compute the set of migration hashes that SHOULD be marked applied
-    // (every CREATE TABLE target already present in public).
+    // (every schema effect — CREATE TABLE or ADD COLUMN — already present).
     const expectedApplied = new Map<string, { tag: string; when: number }>();
     const expectedPending: Array<{ tag: string; missing: string[] }> = [];
     const hashlessEntries: string[] = [];
@@ -110,14 +136,21 @@ async function main() {
       const sqlFile = path.join(MIGRATIONS_DIR, `${entry.tag}.sql`);
       const content = fs.readFileSync(sqlFile, "utf-8");
       const hash = crypto.createHash("sha256").update(content).digest("hex");
-      const createdTables = extractCreatedTables(content);
+      const effects = extractSchemaEffects(content);
 
-      if (createdTables.length === 0) {
+      if (effects.length === 0) {
         hashlessEntries.push(entry.tag);
         continue;
       }
 
-      const missing = createdTables.filter((t) => !tableSet.has(t));
+      const missing = effects
+        .filter((e) =>
+          e.kind === "table"
+            ? !tableSet.has(e.name)
+            : !columnSet.has(`${e.table}.${e.column}`),
+        )
+        .map((e) => (e.kind === "table" ? e.name : `${e.table}.${e.column}`));
+
       if (missing.length === 0) {
         expectedApplied.set(hash, { tag: entry.tag, when: entry.when });
       } else {
@@ -162,8 +195,8 @@ async function main() {
 
     for (const tag of hashlessEntries) {
       console.warn(
-        `  ${tag}: no CREATE TABLE statements found; left un-applied. ` +
-          `Migrator may fail if the ALTERs have already run.`,
+        `  ${tag}: no detectable schema effects (CREATE TABLE / ADD COLUMN); ` +
+          `left un-applied. Migrator may fail if the changes have already run.`,
       );
     }
 
