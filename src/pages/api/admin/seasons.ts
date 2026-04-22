@@ -136,7 +136,7 @@ export const POST: APIRoute = async (context) => {
       })
       .returning();
 
-    return new Response(JSON.stringify({ season: newSeason }), { status: 201 });
+    return new Response(JSON.stringify({ season: newSeason, teams: [] }), { status: 201 });
   } catch (error: any) {
     console.error("Error creating season:", error);
     if (getDbErrorCode(error) === "23505") {

@@ -144,6 +144,37 @@ describe("Admin Seasons CRUD API", () => {
     });
   });
 
+  // ---- Scaffold modes ----
+
+  describe("POST - Scaffold modes", () => {
+    it("creates a season with scaffold.type=empty and zero teams (201)", async () => {
+      const slug = testSlug("season-empty");
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Empty Scaffold Season",
+          slug,
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 10000,
+          scaffold: { type: "empty" },
+        }),
+      });
+
+      const json = await expectJson(res, 201);
+      expect(json.season).toBeDefined();
+      expect(json.teams).toEqual([]);
+
+      // Cleanup
+      await apiFetch(`${ENDPOINT}?id=${json.season.id}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    });
+  });
+
   // ---- Auth ----
 
   describe("Unauthenticated requests", () => {
