@@ -339,6 +339,107 @@ describe("Admin Seasons CRUD API", () => {
     });
   });
 
+  // ---- Venue validation ----
+
+  describe("POST - Venue validation", () => {
+    it("rejects venue belonging to a different location than the program (400)", async () => {
+      // Arrange: find a venue NOT in the program's location
+      // First find the program's location
+      const progsRes = await apiFetch("/api/admin/programs", {
+        method: "GET",
+        cookie: adminCookie,
+      });
+      const progsJson = await expectJson(progsRes, 200);
+      const program = progsJson.programs.find((p: any) => p.id === programId);
+      expect(program).toBeDefined();
+      const programLocationId = program.location.id;
+
+      // Find a venue at a different location, or skip if none exists
+      const venuesRes = await apiFetch("/api/admin/venues", {
+        method: "GET",
+        cookie: adminCookie,
+      });
+      const venuesJson = await expectJson(venuesRes, 200);
+      const otherVenue = venuesJson.venues?.find(
+        (v: any) => v.locationId !== programLocationId
+      );
+      if (!otherVenue) {
+        console.warn("Skipping cross-location venue test: only one location seeded");
+        return;
+      }
+
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Bad Venue Season",
+          slug: testSlug("bad-venue"),
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 10000,
+          venueId: otherVenue.id,
+          scaffold: { type: "empty" },
+        }),
+      });
+
+      expect(res.status).toBe(400);
+
+      // Verify no season row was created (rollback)
+      const listRes = await apiFetch(ENDPOINT, { method: "GET", cookie: adminCookie });
+      const listJson = await expectJson(listRes, 200);
+      const found = listJson.seasons.find((s: any) => s.name === "Bad Venue Season");
+      expect(found).toBeUndefined();
+    });
+
+    it("accepts venue belonging to the program's location (201)", async () => {
+      const progsRes = await apiFetch("/api/admin/programs", {
+        method: "GET",
+        cookie: adminCookie,
+      });
+      const progsJson = await expectJson(progsRes, 200);
+      const program = progsJson.programs.find((p: any) => p.id === programId);
+      const programLocationId = program.location.id;
+
+      const venuesRes = await apiFetch("/api/admin/venues", {
+        method: "GET",
+        cookie: adminCookie,
+      });
+      const venuesJson = await expectJson(venuesRes, 200);
+      const matchingVenue = venuesJson.venues?.find(
+        (v: any) => v.locationId === programLocationId
+      );
+      if (!matchingVenue) {
+        console.warn("Skipping matching-location venue test: no venue seeded for program's location");
+        return;
+      }
+
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Good Venue Season",
+          slug: testSlug("good-venue"),
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 10000,
+          venueId: matchingVenue.id,
+          scaffold: { type: "empty" },
+        }),
+      });
+
+      const json = await expectJson(res, 201);
+      expect(json.season.venueId).toBe(matchingVenue.id);
+
+      // Cleanup
+      await apiFetch(`${ENDPOINT}?id=${json.season.id}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    });
+  });
+
   // ---- Auth ----
 
   describe("Unauthenticated requests", () => {

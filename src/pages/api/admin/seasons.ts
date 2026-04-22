@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { seasons, programs, sports, locations, ageGroups, teams } from "@/lib/db/schema";
+import { seasons, programs, sports, locations, ageGroups, teams, venues } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -125,7 +125,7 @@ export const POST: APIRoute = async (context) => {
 
     // Need program details for team name prefix
     const [program] = await getDb()
-      .select({ id: programs.id, name: programs.name })
+      .select({ id: programs.id, name: programs.name, locationId: programs.locationId })
       .from(programs)
       .where(eq(programs.id, data.programId))
       .limit(1);
@@ -165,6 +165,21 @@ export const POST: APIRoute = async (context) => {
           scheduleNotes: data.scheduleNotes || null,
         })
         .returning();
+
+      if (data.venueId) {
+        const [venue] = await tx
+          .select({ locationId: venues.locationId })
+          .from(venues)
+          .where(eq(venues.id, data.venueId))
+          .limit(1);
+
+        if (!venue) {
+          throw new ScaffoldError(400, "Venue not found");
+        }
+        if (venue.locationId !== program.locationId) {
+          throw new ScaffoldError(400, "Venue does not belong to the program's location");
+        }
+      }
 
       const scaffold = data.scaffold ?? { type: "empty" as const };
       let createdTeams: typeof teams.$inferSelect[] = [];
