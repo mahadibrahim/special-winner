@@ -113,13 +113,16 @@ test.describe("Season scaffolding — clone-from-prior flow", () => {
       // Click the submit button inside the dialog footer (not the "Add Season" page button)
       await page.getByRole("dialog").getByRole("button", { name: /add season/i }).click()
 
-      // Dialog should close
-      await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 8000 })
+      // Dialog should close. Timeout is generous because handleSubmit awaits
+      // a full refetch (seasons + programs + age-groups + venues) before
+      // closing the dialog. CI's DB is slow enough that ~10s is the floor —
+      // 20s gives headroom without masking a real hang.
+      await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 20000 })
 
       // The new season should appear in the list
       await expect(
         page.getByRole("heading", { name: targetName, level: 3 })
-      ).toBeVisible({ timeout: 8000 })
+      ).toBeVisible({ timeout: 10000 })
 
       // ── Step 7: verify via API that the new season has 3 cloned teams ──
       const listRes = await page.request.get("/api/admin/seasons", {
