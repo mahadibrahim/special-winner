@@ -232,6 +232,111 @@ describe("Admin Seasons CRUD API", () => {
 
       expect(res.status).toBe(400);
     });
+
+    it("clones teams from a source season (201)", async () => {
+      // Arrange: create a source season and 3 teams in it
+      const sourceSlug = testSlug("season-clone-src");
+      const sourceRes = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Clone Source Season",
+          slug: sourceSlug,
+          startDate: "2025-09-01",
+          endDate: "2025-12-15",
+          priceCents: 10000,
+          scaffold: { type: "bulk", count: 3 },
+        }),
+      });
+      const sourceJson = await expectJson(sourceRes, 201);
+      const sourceTeamNames = sourceJson.teams.map((t: any) => t.name).sort();
+
+      // Act: clone into a new season
+      const cloneSlug = testSlug("season-clone-dst");
+      const cloneRes = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Clone Target Season",
+          slug: cloneSlug,
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 12000, // intentionally different — pricing comes from form, not clone
+          scaffold: { type: "clone", sourceSeasonId: sourceJson.season.id },
+        }),
+      });
+
+      const cloneJson = await expectJson(cloneRes, 201);
+      expect(cloneJson.teams).toHaveLength(3);
+      expect(cloneJson.teams.map((t: any) => t.name).sort()).toEqual(sourceTeamNames);
+      expect(cloneJson.season.priceCents).toBe(12000);
+      expect(cloneJson.season.status).toBe("draft");
+
+      // Cleanup
+      await apiFetch(`${ENDPOINT}?id=${cloneJson.season.id}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+      await apiFetch(`${ENDPOINT}?id=${sourceJson.season.id}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    });
+
+    it("rejects clone from a different program (400)", async () => {
+      // Find a second program if available; skip otherwise
+      const progsRes = await apiFetch("/api/admin/programs", {
+        method: "GET",
+        cookie: adminCookie,
+      });
+      const progsJson = await expectJson(progsRes, 200);
+      const otherProgram = progsJson.programs.find((p: any) => p.id !== programId);
+      if (!otherProgram) {
+        console.warn("Skipping cross-program clone test: only one program seeded");
+        return;
+      }
+
+      // Create a source season under the other program
+      const sourceRes = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId: otherProgram.id,
+          name: "Other Program Source",
+          slug: testSlug("other-prog-src"),
+          startDate: "2025-09-01",
+          endDate: "2025-12-15",
+          priceCents: 10000,
+          scaffold: { type: "bulk", count: 2 },
+        }),
+      });
+      const sourceJson = await expectJson(sourceRes, 201);
+
+      // Try to clone into our program — should 400
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId, // different from sourceJson.season's program
+          name: "Cross Program Clone",
+          slug: testSlug("cross-prog-clone"),
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 10000,
+          scaffold: { type: "clone", sourceSeasonId: sourceJson.season.id },
+        }),
+      });
+
+      expect(res.status).toBe(400);
+
+      // Cleanup
+      await apiFetch(`${ENDPOINT}?id=${sourceJson.season.id}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    });
   });
 
   // ---- Auth ----

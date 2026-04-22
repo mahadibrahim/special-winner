@@ -4,11 +4,17 @@ import { seasons, programs, sports, locations, ageGroups, teams } from "@/lib/db
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
-import { bulkCreateTeams } from "@/lib/seasons/scaffold";
+import { bulkCreateTeams, cloneSeasonTeams } from "@/lib/seasons/scaffold";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
   return error?.code ?? error?.cause?.code;
+}
+
+class ScaffoldError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
 }
 
 const scaffoldSchema = z.discriminatedUnion("type", [
@@ -171,7 +177,26 @@ export const POST: APIRoute = async (context) => {
           ageGroupName,
         });
       }
-      // clone path: handled in Task 6
+      if (scaffold.type === "clone") {
+        // Validate source belongs to the same program
+        const [source] = await tx
+          .select({ id: seasons.id, programId: seasons.programId })
+          .from(seasons)
+          .where(eq(seasons.id, scaffold.sourceSeasonId))
+          .limit(1);
+
+        if (!source) {
+          throw new ScaffoldError(400, "Source season not found");
+        }
+        if (source.programId !== data.programId) {
+          throw new ScaffoldError(400, "Source season belongs to a different program");
+        }
+
+        createdTeams = await cloneSeasonTeams(tx, {
+          sourceSeasonId: scaffold.sourceSeasonId,
+          targetSeasonId: newSeason.id,
+        });
+      }
 
       return { season: newSeason, teams: createdTeams };
     });
@@ -179,6 +204,9 @@ export const POST: APIRoute = async (context) => {
     return new Response(JSON.stringify(result2), { status: 201 });
   } catch (error: any) {
     console.error("Error creating season:", error);
+    if (error instanceof ScaffoldError) {
+      return new Response(JSON.stringify({ error: error.message }), { status: error.status });
+    }
     if (getDbErrorCode(error) === "23505") {
       return new Response(JSON.stringify({ error: "A season with this slug already exists for this program" }), { status: 409 });
     }
