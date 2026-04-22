@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Plus, Pencil, Trash2, Loader2, Calendar } from "lucide-react"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -68,6 +69,7 @@ const statusOptions = [
 ]
 
 export function SeasonsList() {
+  useHydrationBeacon()
   const [seasons, setSeasons] = useState<Season[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
   const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([])
@@ -440,14 +442,14 @@ export function SeasonsList() {
               <div className="space-y-2">
                 <Label>Age Group</Label>
                 <Select
-                  value={formData.ageGroupId}
-                  onValueChange={(v) => setFormData((prev) => ({ ...prev, ageGroupId: v }))}
+                  value={formData.ageGroupId || "none"}
+                  onValueChange={(v) => setFormData((prev) => ({ ...prev, ageGroupId: v === "none" ? "" : v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select age group (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No age restriction</SelectItem>
+                    <SelectItem value="none">No age restriction</SelectItem>
                     {ageGroups.map((ag) => (
                       <SelectItem key={ag.id} value={ag.id}>
                         {ag.name} (Ages {ag.minAge}-{ag.maxAge})
@@ -460,14 +462,14 @@ export function SeasonsList() {
               <div className="space-y-2">
                 <Label>Venue</Label>
                 <Select
-                  value={formData.venueId}
-                  onValueChange={(v) => setFormData((prev) => ({ ...prev, venueId: v }))}
+                  value={formData.venueId || "none"}
+                  onValueChange={(v) => setFormData((prev) => ({ ...prev, venueId: v === "none" ? "" : v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select venue (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No venue assigned</SelectItem>
+                    <SelectItem value="none">No venue assigned</SelectItem>
                     {venuesForProgram.map((v) => (
                       <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                     ))}
