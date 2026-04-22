@@ -1,18 +1,32 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { seasons, programs, sports, locations, ageGroups } from "@/lib/db/schema";
+import { seasons, programs, sports, locations, ageGroups, teams, venues } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { bulkCreateTeams, cloneSeasonTeams } from "@/lib/seasons/scaffold";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
   return error?.code ?? error?.cause?.code;
 }
 
+class ScaffoldError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+const scaffoldSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("empty") }),
+  z.object({ type: z.literal("clone"), sourceSeasonId: z.string().uuid() }),
+  z.object({ type: z.literal("bulk"), count: z.number().int().min(0).max(50) }),
+]);
+
 const seasonSchema = z.object({
   programId: z.string().uuid("Invalid program"),
   ageGroupId: z.string().uuid().optional().nullable(),
+  venueId: z.string().uuid().optional().nullable(),
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/),
   startDate: z.string().min(1, "Start date is required"),
@@ -25,6 +39,7 @@ const seasonSchema = z.object({
   allowDeposit: z.boolean().default(true),
   status: z.enum(["draft", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
   scheduleNotes: z.string().optional().nullable(),
+  scaffold: scaffoldSchema.optional(),
 });
 
 export const GET: APIRoute = async (context) => {
@@ -107,29 +122,106 @@ export const POST: APIRoute = async (context) => {
     }
 
     const data = result.data;
-    const [newSeason] = await getDb()
-      .insert(seasons)
-      .values({
-        programId: data.programId,
-        ageGroupId: data.ageGroupId || null,
-        name: data.name,
-        slug: data.slug,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        registrationOpens: data.registrationOpens ? new Date(data.registrationOpens) : null,
-        registrationCloses: data.registrationCloses ? new Date(data.registrationCloses) : null,
-        maxParticipants: data.maxParticipants || null,
-        priceCents: data.priceCents,
-        depositCents: data.depositCents || null,
-        allowDeposit: data.allowDeposit,
-        status: data.status,
-        scheduleNotes: data.scheduleNotes || null,
-      })
-      .returning();
 
-    return new Response(JSON.stringify({ season: newSeason }), { status: 201 });
+    // Need program details for team name prefix
+    const [program] = await getDb()
+      .select({ id: programs.id, name: programs.name, locationId: programs.locationId })
+      .from(programs)
+      .where(eq(programs.id, data.programId))
+      .limit(1);
+
+    if (!program) {
+      return new Response(JSON.stringify({ error: "Program not found" }), { status: 400 });
+    }
+
+    let ageGroupName: string | null = null;
+    if (data.ageGroupId) {
+      const [ag] = await getDb()
+        .select({ name: ageGroups.name })
+        .from(ageGroups)
+        .where(eq(ageGroups.id, data.ageGroupId))
+        .limit(1);
+      ageGroupName = ag?.name ?? null;
+    }
+
+    const result2 = await getDb().transaction(async (tx) => {
+      const [newSeason] = await tx
+        .insert(seasons)
+        .values({
+          programId: data.programId,
+          ageGroupId: data.ageGroupId || null,
+          venueId: data.venueId || null,
+          name: data.name,
+          slug: data.slug,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          registrationOpens: data.registrationOpens ? new Date(data.registrationOpens) : null,
+          registrationCloses: data.registrationCloses ? new Date(data.registrationCloses) : null,
+          maxParticipants: data.maxParticipants || null,
+          priceCents: data.priceCents,
+          depositCents: data.depositCents || null,
+          allowDeposit: data.allowDeposit,
+          status: data.status,
+          scheduleNotes: data.scheduleNotes || null,
+        })
+        .returning();
+
+      if (data.venueId) {
+        const [venue] = await tx
+          .select({ locationId: venues.locationId })
+          .from(venues)
+          .where(eq(venues.id, data.venueId))
+          .limit(1);
+
+        if (!venue) {
+          throw new ScaffoldError(400, "Venue not found");
+        }
+        if (venue.locationId !== program.locationId) {
+          throw new ScaffoldError(400, "Venue does not belong to the program's location");
+        }
+      }
+
+      const scaffold = data.scaffold ?? { type: "empty" as const };
+      let createdTeams: typeof teams.$inferSelect[] = [];
+
+      if (scaffold.type === "bulk") {
+        createdTeams = await bulkCreateTeams(tx, {
+          targetSeasonId: newSeason.id,
+          count: scaffold.count,
+          programName: program.name,
+          ageGroupName,
+        });
+      }
+      if (scaffold.type === "clone") {
+        // Validate source belongs to the same program
+        const [source] = await tx
+          .select({ id: seasons.id, programId: seasons.programId })
+          .from(seasons)
+          .where(eq(seasons.id, scaffold.sourceSeasonId))
+          .limit(1);
+
+        if (!source) {
+          throw new ScaffoldError(400, "Source season not found");
+        }
+        if (source.programId !== data.programId) {
+          throw new ScaffoldError(400, "Source season belongs to a different program");
+        }
+
+        createdTeams = await cloneSeasonTeams(tx, {
+          sourceSeasonId: scaffold.sourceSeasonId,
+          targetSeasonId: newSeason.id,
+        });
+      }
+
+      return { season: newSeason, teams: createdTeams };
+    });
+
+    return new Response(JSON.stringify(result2), { status: 201 });
   } catch (error: any) {
     console.error("Error creating season:", error);
+    if (error instanceof ScaffoldError) {
+      return new Response(JSON.stringify({ error: error.message }), { status: error.status });
+    }
     if (getDbErrorCode(error) === "23505") {
       return new Response(JSON.stringify({ error: "A season with this slug already exists for this program" }), { status: 409 });
     }
@@ -163,6 +255,7 @@ export const PUT: APIRoute = async (context) => {
       .set({
         programId: validData.programId,
         ageGroupId: validData.ageGroupId || null,
+        venueId: validData.venueId || null,
         name: validData.name,
         slug: validData.slug,
         startDate: validData.startDate,
