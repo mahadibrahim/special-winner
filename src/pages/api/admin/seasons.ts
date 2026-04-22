@@ -1,9 +1,10 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { seasons, programs, sports, locations, ageGroups } from "@/lib/db/schema";
+import { seasons, programs, sports, locations, ageGroups, teams } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { bulkCreateTeams } from "@/lib/seasons/scaffold";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -115,28 +116,67 @@ export const POST: APIRoute = async (context) => {
     }
 
     const data = result.data;
-    const [newSeason] = await getDb()
-      .insert(seasons)
-      .values({
-        programId: data.programId,
-        ageGroupId: data.ageGroupId || null,
-        venueId: data.venueId || null,
-        name: data.name,
-        slug: data.slug,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        registrationOpens: data.registrationOpens ? new Date(data.registrationOpens) : null,
-        registrationCloses: data.registrationCloses ? new Date(data.registrationCloses) : null,
-        maxParticipants: data.maxParticipants || null,
-        priceCents: data.priceCents,
-        depositCents: data.depositCents || null,
-        allowDeposit: data.allowDeposit,
-        status: data.status,
-        scheduleNotes: data.scheduleNotes || null,
-      })
-      .returning();
 
-    return new Response(JSON.stringify({ season: newSeason, teams: [] }), { status: 201 });
+    // Need program details for team name prefix
+    const [program] = await getDb()
+      .select({ id: programs.id, name: programs.name })
+      .from(programs)
+      .where(eq(programs.id, data.programId))
+      .limit(1);
+
+    if (!program) {
+      return new Response(JSON.stringify({ error: "Program not found" }), { status: 400 });
+    }
+
+    let ageGroupName: string | null = null;
+    if (data.ageGroupId) {
+      const [ag] = await getDb()
+        .select({ name: ageGroups.name })
+        .from(ageGroups)
+        .where(eq(ageGroups.id, data.ageGroupId))
+        .limit(1);
+      ageGroupName = ag?.name ?? null;
+    }
+
+    const result2 = await getDb().transaction(async (tx) => {
+      const [newSeason] = await tx
+        .insert(seasons)
+        .values({
+          programId: data.programId,
+          ageGroupId: data.ageGroupId || null,
+          venueId: data.venueId || null,
+          name: data.name,
+          slug: data.slug,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          registrationOpens: data.registrationOpens ? new Date(data.registrationOpens) : null,
+          registrationCloses: data.registrationCloses ? new Date(data.registrationCloses) : null,
+          maxParticipants: data.maxParticipants || null,
+          priceCents: data.priceCents,
+          depositCents: data.depositCents || null,
+          allowDeposit: data.allowDeposit,
+          status: data.status,
+          scheduleNotes: data.scheduleNotes || null,
+        })
+        .returning();
+
+      const scaffold = data.scaffold ?? { type: "empty" as const };
+      let createdTeams: typeof teams.$inferSelect[] = [];
+
+      if (scaffold.type === "bulk") {
+        createdTeams = await bulkCreateTeams(tx, {
+          targetSeasonId: newSeason.id,
+          count: scaffold.count,
+          programName: program.name,
+          ageGroupName,
+        });
+      }
+      // clone path: handled in Task 6
+
+      return { season: newSeason, teams: createdTeams };
+    });
+
+    return new Response(JSON.stringify(result2), { status: 201 });
   } catch (error: any) {
     console.error("Error creating season:", error);
     if (getDbErrorCode(error) === "23505") {

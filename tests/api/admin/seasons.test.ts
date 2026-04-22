@@ -173,6 +173,65 @@ describe("Admin Seasons CRUD API", () => {
         cookie: adminCookie,
       });
     });
+
+    it("creates 4 teams with scaffold.type=bulk count=4 (201)", async () => {
+      const slug = testSlug("season-bulk");
+
+      // Look up the program name and (optional) age group for naming assertions
+      const progRes = await apiFetch("/api/admin/programs", {
+        method: "GET",
+        cookie: adminCookie,
+      });
+      const progJson = await expectJson(progRes, 200);
+      const program = progJson.programs.find((p: any) => p.id === programId);
+      expect(program).toBeDefined();
+
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Bulk Scaffold Season",
+          slug,
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 10000,
+          scaffold: { type: "bulk", count: 4 },
+        }),
+      });
+
+      const json = await expectJson(res, 201);
+      expect(json.teams).toHaveLength(4);
+      // Names match "{Program} Team {N}" when no ageGroup, else "{Program} {AgeGroup} Team {N}"
+      json.teams.forEach((t: any, i: number) => {
+        expect(t.name).toMatch(new RegExp(`Team ${i + 1}$`));
+        expect(t.seasonId).toBe(json.season.id);
+      });
+
+      // Cleanup
+      await apiFetch(`${ENDPOINT}?id=${json.season.id}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    });
+
+    it("rejects scaffold.type=bulk with count > 50 (400)", async () => {
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Too Many",
+          slug: testSlug("season-toomany"),
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 10000,
+          scaffold: { type: "bulk", count: 51 },
+        }),
+      });
+
+      expect(res.status).toBe(400);
+    });
   });
 
   // ---- Auth ----
