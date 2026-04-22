@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { SeasonScaffoldPicker, type ScaffoldChoice } from "./season-scaffold-picker"
 
 interface Season {
   id: string
@@ -30,6 +31,7 @@ interface Season {
   allowDeposit: boolean
   status: string
   scheduleNotes: string | null
+  venueId: string | null
   program: { id: string; name: string; slug: string }
   sport: { id: string; name: string; icon: string | null; color: string | null }
   location: { id: string; name: string }
@@ -50,6 +52,12 @@ interface AgeGroup {
   maxAge: number
 }
 
+interface Venue {
+  id: string
+  name: string
+  locationId: string
+}
+
 const statusOptions = [
   { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-700" },
   { value: "open", label: "Open", color: "bg-green-100 text-green-700" },
@@ -63,14 +71,17 @@ export function SeasonsList() {
   const [seasons, setSeasons] = useState<Season[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
   const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([])
+  const [venues, setVenues] = useState<Venue[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editingSeason, setEditingSeason] = useState<Season | null>(null)
+  const [scaffold, setScaffold] = useState<ScaffoldChoice>({ type: "empty" })
   const [formData, setFormData] = useState({
     programId: "",
     ageGroupId: "",
+    venueId: "",
     name: "",
     slug: "",
     startDate: "",
@@ -89,25 +100,28 @@ export function SeasonsList() {
 
   async function fetchData() {
     try {
-      const [seasonsRes, programsRes, ageGroupsRes] = await Promise.all([
+      const [seasonsRes, programsRes, ageGroupsRes, venuesRes] = await Promise.all([
         fetch("/api/admin/seasons"),
         fetch("/api/admin/programs"),
         fetch("/api/admin/age-groups"),
+        fetch("/api/admin/venues"),
       ])
 
-      if (!seasonsRes.ok || !programsRes.ok || !ageGroupsRes.ok) {
+      if (!seasonsRes.ok || !programsRes.ok || !ageGroupsRes.ok || !venuesRes.ok) {
         throw new Error("Failed to fetch data")
       }
 
-      const [seasonsData, programsData, ageGroupsData] = await Promise.all([
+      const [seasonsData, programsData, ageGroupsData, venuesData] = await Promise.all([
         seasonsRes.json(),
         programsRes.json(),
         ageGroupsRes.json(),
+        venuesRes.json(),
       ])
 
       setSeasons(seasonsData.seasons)
       setPrograms(programsData.programs)
       setAgeGroups(ageGroupsData.ageGroups)
+      setVenues(venuesData.venues || [])
     } catch (err) {
       setError("Failed to load data")
       console.error(err)
@@ -122,6 +136,7 @@ export function SeasonsList() {
     setFormData({
       programId: programs[0]?.id || "",
       ageGroupId: "",
+      venueId: "",
       name: "",
       slug: "",
       startDate: today,
@@ -133,6 +148,7 @@ export function SeasonsList() {
       status: "draft",
       scheduleNotes: "",
     })
+    setScaffold({ type: "empty" })
     setIsDialogOpen(true)
   }
 
@@ -141,6 +157,7 @@ export function SeasonsList() {
     setFormData({
       programId: season.program.id,
       ageGroupId: season.ageGroup?.id || "",
+      venueId: season.venueId || "",
       name: season.name,
       slug: season.slug,
       startDate: season.startDate,
@@ -152,6 +169,7 @@ export function SeasonsList() {
       status: season.status,
       scheduleNotes: season.scheduleNotes || "",
     })
+    setScaffold({ type: "empty" })
     setIsDialogOpen(true)
   }
 
@@ -160,6 +178,21 @@ export function SeasonsList() {
       ...prev,
       name,
       slug: editingSeason ? prev.slug : name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
+    }))
+  }
+
+  function handleCloneSourceSelected(sourceSeasonId: string) {
+    const source = seasons.find((s) => s.id === sourceSeasonId)
+    if (!source) return
+    setFormData((prev) => ({
+      ...prev,
+      ageGroupId: source.ageGroup?.id || "",
+      venueId: source.venueId || "",
+      maxParticipants: source.maxParticipants?.toString() || "",
+      priceCents: (source.priceCents / 100).toString(),
+      depositCents: source.depositCents ? (source.depositCents / 100).toString() : "",
+      allowDeposit: source.allowDeposit,
+      scheduleNotes: source.scheduleNotes || "",
     }))
   }
 
@@ -174,6 +207,7 @@ export function SeasonsList() {
         ...(editingSeason ? { id: editingSeason.id } : {}),
         programId: formData.programId,
         ageGroupId: formData.ageGroupId || null,
+        venueId: formData.venueId || null,
         name: formData.name,
         slug: formData.slug,
         startDate: formData.startDate,
@@ -184,6 +218,7 @@ export function SeasonsList() {
         allowDeposit: formData.allowDeposit,
         status: formData.status,
         scheduleNotes: formData.scheduleNotes || null,
+        ...(editingSeason ? {} : { scaffold }),
       }
 
       const response = await fetch("/api/admin/seasons", {
@@ -228,6 +263,17 @@ export function SeasonsList() {
       </div>
     )
   }
+
+  const priorSeasons = formData.programId
+    ? seasons
+        .filter((s) => s.program.id === formData.programId)
+        .map((s) => ({ id: s.id, name: s.name, startDate: s.startDate }))
+        .sort((a, b) => b.startDate.localeCompare(a.startDate))
+    : []
+
+  // Programs don't expose locationId in the current API; show all venues for now.
+  // Server-side validation in Task 7 enforces the correct-location check.
+  const venuesForProgram = venues
 
   return (
     <div className="space-y-6">
@@ -337,6 +383,17 @@ export function SeasonsList() {
               <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg mb-4">{error}</div>
             )}
 
+            {!editingSeason && (
+              <div className="mb-4">
+                <SeasonScaffoldPicker
+                  priorSeasons={priorSeasons}
+                  value={scaffold}
+                  onChange={setScaffold}
+                  onCloneSourceSelected={handleCloneSourceSelected}
+                />
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Program *</Label>
@@ -395,6 +452,24 @@ export function SeasonsList() {
                       <SelectItem key={ag.id} value={ag.id}>
                         {ag.name} (Ages {ag.minAge}-{ag.maxAge})
                       </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Venue</Label>
+                <Select
+                  value={formData.venueId}
+                  onValueChange={(v) => setFormData((prev) => ({ ...prev, venueId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select venue (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No venue assigned</SelectItem>
+                    {venuesForProgram.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
