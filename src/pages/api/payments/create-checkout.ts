@@ -172,6 +172,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       await db
         .update(registrations)
         .set({
+          status: "confirmed",
           paymentStatus: "paid",
           amountDueCents: registration.amountDueCents - discountAmountCents,
           amountPaidCents: registration.amountDueCents - discountAmountCents,

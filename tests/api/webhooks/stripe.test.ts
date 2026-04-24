@@ -233,6 +233,44 @@ describe("handleCheckoutComplete", () => {
     expect(paymentRows).toHaveLength(1);
   });
 
+  it("flips to deposit_paid when amount_total matches depositCents", async () => {
+    const db = getDb();
+    const { registrationId } = await seedPendingRegistration({
+      amountDueCents: 20000,
+      registrationType: "deposit",
+    });
+
+    const result = await handleCheckoutComplete(
+      makeCheckoutSession({
+        sessionId: `cs_test_dep_${Math.random().toString(36).slice(2)}`,
+        paymentIntentId: `pi_test_dep_${Math.random().toString(36).slice(2)}`,
+        registrationId,
+        amountTotal: 5000,
+        customerEmail: "pat@test.example",
+      })
+    );
+
+    expect(result.status).toBe("processed");
+
+    const [reg] = await db
+      .select()
+      .from(registrations)
+      .where(eq(registrations.id, registrationId));
+
+    expect(reg.status).toBe("confirmed");
+    expect(reg.paymentStatus).toBe("deposit_paid");
+    expect(reg.amountPaidCents).toBe(5000);
+
+    const paymentRows = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.registrationId, registrationId));
+
+    expect(paymentRows).toHaveLength(1);
+    expect(paymentRows[0].amountCents).toBe(5000);
+    expect(paymentRows[0].paymentType).toBe("deposit");
+  });
+
   it("sends the registration confirmation email on successful payment", async () => {
     const spy = vi
       .spyOn(emailModule, "sendRegistrationConfirmationEmail")
