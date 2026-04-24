@@ -192,4 +192,38 @@ describe("handleCheckoutComplete", () => {
     const result = await handleCheckoutComplete(session);
     expect(result.status).toBe("skipped");
   });
+
+  it("is idempotent when the same checkout session is delivered twice", async () => {
+    const db = getDb();
+    const { registrationId } = await seedPendingRegistration({
+      amountDueCents: 10000,
+    });
+
+    const session = makeCheckoutSession({
+      sessionId: `cs_test_idem_${Math.random().toString(36).slice(2)}`,
+      paymentIntentId: `pi_test_idem_${Math.random().toString(36).slice(2)}`,
+      registrationId,
+      amountTotal: 10000,
+      customerEmail: "pat@test.example",
+    });
+
+    const first = await handleCheckoutComplete(session);
+    const second = await handleCheckoutComplete(session);
+
+    expect(first.status).toBe("processed");
+    expect(second.status).toBe("skipped");
+
+    const [reg] = await db
+      .select()
+      .from(registrations)
+      .where(eq(registrations.id, registrationId));
+    // Must NOT have double-counted the payment.
+    expect(reg.amountPaidCents).toBe(10000);
+
+    const paymentRows = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.registrationId, registrationId));
+    expect(paymentRows).toHaveLength(1);
+  });
 });

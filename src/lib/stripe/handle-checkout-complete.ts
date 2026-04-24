@@ -1,11 +1,12 @@
 import type Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { registrations, payments } from "@/lib/db/schema";
 
 /**
  * Handle a `checkout.session.completed` event for a registration payment.
- * Returns an object describing what happened so callers/tests can assert.
+ * Idempotent: if a payments row with the same stripeCheckoutSessionId already
+ * exists, returns "skipped" without mutating state.
  */
 export async function handleCheckoutComplete(
   session: Stripe.Checkout.Session
@@ -21,6 +22,23 @@ export async function handleCheckoutComplete(
   }
 
   const db = getDb();
+
+  // Idempotency: if we've already recorded this checkout session, short-circuit.
+  // The session id lives in payments.metadata->>'stripeCheckoutSessionId'.
+  const existingPayment = await db
+    .select({ id: payments.id })
+    .from(payments)
+    .where(
+      sql`${payments.metadata} ->> 'stripeCheckoutSessionId' = ${session.id}`
+    )
+    .limit(1);
+
+  if (existingPayment.length > 0) {
+    return {
+      status: "skipped",
+      reason: `duplicate delivery for session ${session.id}`,
+    };
+  }
 
   const [registration] = await db
     .select()
