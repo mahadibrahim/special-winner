@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, locations, ageGroups, users } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { z } from "zod";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 
@@ -184,7 +184,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
           eq(registrations.seasonId, data.seasonId),
           eq(registrations.familyMemberId, data.familyMemberId)
         )
-      );
+      )
+      .orderBy(asc(registrations.createdAt))
+      .limit(1);
 
     if (existingReg) {
       const isPendingUnpaid =
