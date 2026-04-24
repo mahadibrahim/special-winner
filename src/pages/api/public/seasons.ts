@@ -45,19 +45,22 @@ export const GET: APIRoute = async ({ url }) => {
     if (sportSlug) {
       conditions.push(eq(sports.slug, sportSlug));
     }
-    // Hide seeded test/E2E programs from the public catalog. Admin tooling can
-    // still surface them via other endpoints.
-    conditions.push(
-      not(
-        or(
-          ilike(seasons.name, "%e2e%"),
-          ilike(programs.name, "%e2e%"),
-          ilike(programs.slug, "e2e-%"),
-          ilike(seasons.slug, "e2e-%"),
-          ilike(seasons.slug, "%test-%")
-        )!
-      )
-    );
+    // In production, hide seeded test/E2E programs from the public catalog.
+    // Dev + CI keep them visible so Playwright fixtures continue to drive the
+    // registration flow.
+    if (import.meta.env.PROD) {
+      conditions.push(
+        not(
+          or(
+            ilike(seasons.name, "%e2e%"),
+            ilike(programs.name, "%e2e%"),
+            ilike(programs.slug, "e2e-%"),
+            ilike(seasons.slug, "e2e-%"),
+            ilike(seasons.slug, "%test-%")
+          )!
+        )
+      );
+    }
 
     const rows = await db
       .select({
