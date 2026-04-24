@@ -322,42 +322,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
       })
       .returning();
 
-    // Send confirmation email (don't block on failure)
-    try {
-      // Get program and location info for email
-      const [programData] = await getDb()
-        .select({
-          program: programs,
-          location: locations,
-        })
-        .from(programs)
-        .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(eq(programs.id, season.programId));
-
-      if (programData) {
-        sendRegistrationConfirmationEmail({
-          userId: user.id,
-          organizationId: programData.location.organizationId,
-          registrationId: newRegistration.id,
-          parentEmail: user.email,
-          parentName: user.firstName || user.email.split("@")[0],
-          childName: `${familyMember.firstName} ${familyMember.lastName}`,
-          programName: programData.program.name,
-          seasonName: season.name,
-          startDate: season.startDate,
-          endDate: season.endDate,
-          scheduleNotes: season.scheduleNotes || undefined,
-          locationName: programData.location.name,
-          locationAddress: [programData.location.addressLine1, programData.location.city, programData.location.state].filter(Boolean).join(", ") || undefined,
-          amountDueCents: amountDue,
-          paymentStatus: "unpaid",
-          registrationStatus: "pending",
-        }).catch((err) => console.error("Error sending confirmation email:", err));
-      }
-    } catch (emailError) {
-      console.error("Error preparing confirmation email:", emailError);
-    }
-
     return new Response(
       JSON.stringify({
         registration: newRegistration,

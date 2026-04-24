@@ -1,7 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
+import { vi } from "vitest";
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { getDb } from "@/lib/db";
+import * as emailModule from "@/lib/email/send";
 import {
   registrations,
   payments,
@@ -147,6 +149,10 @@ async function seedPendingRegistration(opts: {
 }
 
 describe("handleCheckoutComplete", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("confirms the registration and records the payment on success", async () => {
     const db = getDb();
     const { registrationId } = await seedPendingRegistration({
@@ -225,5 +231,53 @@ describe("handleCheckoutComplete", () => {
       .from(payments)
       .where(eq(payments.registrationId, registrationId));
     expect(paymentRows).toHaveLength(1);
+  });
+
+  it("sends the registration confirmation email on successful payment", async () => {
+    const spy = vi
+      .spyOn(emailModule, "sendRegistrationConfirmationEmail")
+      .mockResolvedValue({ success: true } as never);
+
+    const { registrationId } = await seedPendingRegistration({
+      amountDueCents: 7500,
+    });
+
+    await handleCheckoutComplete(
+      makeCheckoutSession({
+        sessionId: `cs_test_email_${Math.random().toString(36).slice(2)}`,
+        paymentIntentId: `pi_test_email_${Math.random().toString(36).slice(2)}`,
+        registrationId,
+        amountTotal: 7500,
+        customerEmail: "pat@test.example",
+      })
+    );
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const args = spy.mock.calls[0][0];
+    expect(args.registrationId).toBe(registrationId);
+    expect(args.paymentStatus).toBe("paid");
+    expect(args.registrationStatus).toBe("confirmed");
+  });
+
+  it("does NOT re-send the email on duplicate webhook delivery", async () => {
+    const spy = vi
+      .spyOn(emailModule, "sendRegistrationConfirmationEmail")
+      .mockResolvedValue({ success: true } as never);
+
+    const { registrationId } = await seedPendingRegistration({
+      amountDueCents: 5000,
+    });
+    const session = makeCheckoutSession({
+      sessionId: `cs_test_nodup_${Math.random().toString(36).slice(2)}`,
+      paymentIntentId: `pi_test_nodup_${Math.random().toString(36).slice(2)}`,
+      registrationId,
+      amountTotal: 5000,
+      customerEmail: "pat@test.example",
+    });
+
+    await handleCheckoutComplete(session);
+    await handleCheckoutComplete(session);
+
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
