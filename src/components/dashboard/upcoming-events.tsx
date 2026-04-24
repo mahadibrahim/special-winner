@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Calendar,
   MapPin,
@@ -35,57 +35,57 @@ interface ScheduledEvent {
   isNext?: boolean
 }
 
-// Mock data - will be replaced with API calls
-const mockEvents: ScheduledEvent[] = [
-  {
-    id: "1",
-    title: "Soccer Practice",
-    type: "practice",
-    date: new Date(Date.now() + 1000 * 60 * 60 * 3), // 3 hours from now
-    time: "4:00 PM",
-    duration: "1.5 hours",
-    location: "Powell Sports Complex - Field 3",
-    child: { name: "Emma" },
-    sport: "Soccer",
-    team: "U10 Lightning",
-    isNext: true,
-  },
-  {
-    id: "2",
-    title: "Basketball Game",
-    type: "game",
-    date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2), // 2 days from now
-    time: "10:00 AM",
-    duration: "2 hours",
-    location: "Dublin Recreation Center",
-    child: { name: "Jake" },
-    sport: "Basketball",
-    team: "U12 Hawks",
-  },
-  {
-    id: "3",
-    title: "Skills Camp",
-    type: "camp",
-    date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3),
-    time: "9:00 AM",
-    duration: "4 hours",
-    location: "Aspire Training Center",
-    child: { name: "Emma" },
-    sport: "Soccer",
-  },
-  {
-    id: "4",
-    title: "Team Practice",
-    type: "practice",
-    date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 4),
-    time: "5:30 PM",
-    duration: "1.5 hours",
-    location: "Powell Sports Complex - Field 1",
-    child: { name: "Jake" },
-    sport: "Basketball",
-    team: "U12 Hawks",
-  },
-]
+interface RegistrationApiRow {
+  id: string
+  status: string
+  familyMember: { firstName: string; lastName: string }
+  season: {
+    id: string
+    name: string
+    startDate: string
+    endDate: string
+    scheduleNotes: string | null
+  }
+  program: { name: string }
+  sport: { name: string }
+  location?: { name: string; city: string | null }
+}
+
+// Parses a YYYY-MM-DD string in the viewer's local timezone so season dates
+// don't drift by a day when a UTC-midnight Date crosses into yesterday.
+function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1)
+}
+
+function registrationsToEvents(rows: RegistrationApiRow[]): ScheduledEvent[] {
+  const now = Date.now()
+  const events: ScheduledEvent[] = []
+  for (const r of rows) {
+    if (r.status === "cancelled") continue
+    const date = parseLocalDate(r.season.startDate)
+    if (date.getTime() < now) continue
+    const locationName = r.location
+      ? r.location.city && r.location.city.toLowerCase() !== r.location.name.toLowerCase()
+        ? `${r.location.name}, ${r.location.city}`
+        : r.location.name
+      : "Location TBD"
+    events.push({
+      id: r.id,
+      title: `${r.program.name} — ${r.season.name}`,
+      type: "class",
+      date,
+      time: r.season.scheduleNotes ?? "Schedule coming soon",
+      duration: "Season begins",
+      location: locationName,
+      child: { name: `${r.familyMember.firstName} ${r.familyMember.lastName}` },
+      sport: r.sport.name,
+    })
+  }
+  events.sort((a, b) => a.date.getTime() - b.date.getTime())
+  if (events.length > 0) events[0].isNext = true
+  return events
+}
 
 const eventTypeConfig: Record<EventType, { icon: typeof Trophy; color: string; bg: string }> = {
   game: {
@@ -132,13 +132,53 @@ function formatDayNumber(date: Date): string {
 }
 
 export default function UpcomingEvents() {
+  const [events, setEvents] = useState<ScheduledEvent[]>([])
   const [filter, setFilter] = useState<EventType | "all">("all")
 
-  const filteredEvents = filter === "all"
-    ? mockEvents
-    : mockEvents.filter(e => e.type === filter)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/registrations")
+        if (!cancelled && res.ok) {
+          const data = await res.json()
+          setEvents(registrationsToEvents(data.registrations ?? []))
+        }
+      } catch (err) {
+        console.error("Failed to load upcoming events:", err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  const nextEvent = mockEvents.find(e => e.isNext)
+  const filteredEvents = filter === "all"
+    ? events
+    : events.filter(e => e.type === filter)
+
+  const nextEvent = events.find(e => e.isNext)
+
+  if (events.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-primary" />
+          Upcoming Events
+        </h2>
+        <div className="text-center py-10 px-6 rounded-2xl bg-paper border border-border">
+          <Calendar className="w-10 h-10 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">No events scheduled yet</h3>
+          <p className="text-sm text-ink-muted mb-4">
+            Practice times, games, and camps will appear here once your child is registered.
+          </p>
+          <Button asChild size="sm">
+            <a href="/programs">Browse programs</a>
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -150,7 +190,7 @@ export default function UpcomingEvents() {
             Upcoming Events
           </h2>
           <p className="text-sm text-ink-muted mt-0.5">
-            {mockEvents.length} events this week
+            {events.length} upcoming {events.length === 1 ? "event" : "events"}
           </p>
         </div>
         <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink gap-1">

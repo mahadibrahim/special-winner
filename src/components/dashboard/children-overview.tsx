@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ChevronRight,
   Star,
@@ -45,45 +45,44 @@ interface Child {
   }
 }
 
-// Mock data
-const mockChildren: Child[] = [
-  {
-    id: "1",
-    firstName: "Emma",
-    lastName: "Johnson",
-    age: 9,
-    programs: [
-      { id: "p1", name: "Fall Soccer League", sport: "Soccer", team: "U10 Lightning", status: "active" },
-      { id: "p2", name: "Winter Skills Camp", sport: "Soccer", status: "upcoming" },
-    ],
-    recentAchievement: "Most Improved Player - October",
-    skillAssessments: [
-      { skill: "Ball Control", level: 4, trend: "up" },
-      { skill: "Teamwork", level: 5, trend: "stable" },
-      { skill: "Game Awareness", level: 3, trend: "up" },
-      { skill: "Stamina", level: 4, trend: "stable" },
-    ],
-    coachRating: 4.5,
-    nextEvent: { title: "Practice", date: "Today, 4:00 PM" },
-  },
-  {
-    id: "2",
-    firstName: "Jake",
-    lastName: "Johnson",
-    age: 11,
-    programs: [
-      { id: "p3", name: "Youth Basketball League", sport: "Basketball", team: "U12 Hawks", status: "active" },
-    ],
-    skillAssessments: [
-      { skill: "Shooting", level: 3, trend: "up" },
-      { skill: "Defense", level: 4, trend: "stable" },
-      { skill: "Court Vision", level: 3, trend: "new" },
-      { skill: "Hustle", level: 5, trend: "stable" },
-    ],
-    coachRating: 4.2,
-    nextEvent: { title: "Game vs. Dublin Thunder", date: "Saturday, 10:00 AM" },
-  },
-]
+interface FamilyMemberApi {
+  id: string
+  firstName: string
+  lastName: string
+  birthDate: string
+}
+
+interface RegistrationApiRow {
+  id: string
+  status: string
+  familyMember: { id: string }
+  season: { id: string; name: string; startDate: string; endDate: string }
+  program: { id: string; name: string }
+  sport: { name: string }
+}
+
+function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1)
+}
+
+function computeAge(birthDate: string): number {
+  const dob = parseLocalDate(birthDate)
+  const now = new Date()
+  let age = now.getFullYear() - dob.getFullYear()
+  const pre =
+    now.getMonth() < dob.getMonth() ||
+    (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())
+  if (pre) age -= 1
+  return age
+}
+
+function statusForSeason(start: string, end: string): "upcoming" | "active" | "completed" {
+  const now = Date.now()
+  if (parseLocalDate(start).getTime() > now) return "upcoming"
+  if (parseLocalDate(end).getTime() < now) return "completed"
+  return "active"
+}
 
 const sportColors: Record<string, string> = {
   Soccer: "from-emerald-500 to-green-600",
@@ -267,6 +266,48 @@ function ChildCard({ child }: { child: Child }) {
 }
 
 export default function ChildrenOverview() {
+  const [children, setChildren] = useState<Child[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [familyRes, regsRes] = await Promise.all([
+          fetch("/api/family-members"),
+          fetch("/api/registrations"),
+        ])
+        if (cancelled || !familyRes.ok) return
+        const familyData = await familyRes.json()
+        const members: FamilyMemberApi[] = familyData.familyMembers ?? []
+        const regs: RegistrationApiRow[] = regsRes.ok
+          ? ((await regsRes.json()).registrations ?? [])
+          : []
+        const kids: Child[] = members.map((m) => ({
+          id: m.id,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          age: computeAge(m.birthDate),
+          programs: regs
+            .filter((r) => r.familyMember.id === m.id && r.status !== "cancelled")
+            .map((r) => ({
+              id: r.id,
+              name: r.program.name,
+              sport: r.sport.name,
+              team: r.season.name,
+              status: statusForSeason(r.season.startDate, r.season.endDate),
+            })),
+          skillAssessments: [],
+        }))
+        setChildren(kids)
+      } catch (err) {
+        console.error("Failed to load children:", err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="space-y-5">
       {/* Section Header */}
@@ -274,24 +315,26 @@ export default function ChildrenOverview() {
         <div>
           <h2 className="text-xl font-semibold text-ink">Your Athletes</h2>
           <p className="text-sm text-ink-muted mt-0.5">
-            {mockChildren.length} registered {mockChildren.length === 1 ? "child" : "children"}
+            {children.length} registered {children.length === 1 ? "child" : "children"}
           </p>
         </div>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="w-4 h-4" />
-          Add Child
+        <Button size="sm" className="gap-1.5" asChild>
+          <a href="/programs">
+            <Plus className="w-4 h-4" />
+            Add Child
+          </a>
         </Button>
       </div>
 
       {/* Children Grid */}
       <div className="grid gap-4 md:grid-cols-2">
-        {mockChildren.map((child) => (
+        {children.map((child) => (
           <ChildCard key={child.id} child={child} />
         ))}
       </div>
 
       {/* Empty State */}
-      {mockChildren.length === 0 && (
+      {children.length === 0 && (
         <div className="text-center py-12 px-6 rounded-2xl bg-paper border border-border border-dashed">
           <div className="w-16 h-16 rounded-full bg-cream-2 flex items-center justify-center mx-auto mb-4">
             <Plus className="w-8 h-8 text-ink-faint" />
@@ -300,9 +343,11 @@ export default function ChildrenOverview() {
           <p className="text-ink-muted text-sm mb-4 max-w-sm mx-auto">
             Register your children to start signing them up for programs and tracking their progress.
           </p>
-          <Button className="gap-2">
-            <Plus className="w-4 h-4" />
-            Add Child
+          <Button className="gap-2" asChild>
+            <a href="/programs">
+              <Plus className="w-4 h-4" />
+              Add Child
+            </a>
           </Button>
         </div>
       )}

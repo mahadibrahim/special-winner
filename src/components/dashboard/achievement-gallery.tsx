@@ -71,65 +71,9 @@ const rarityConfig: Record<string, { border: string; glow: string; label: string
   legendary: { border: "border-amber-500/50", glow: "shadow-amber-500/30 shadow-xl", label: "Legendary" },
 }
 
-// Mock data
-const mockAchievements: Achievement[] = [
-  {
-    id: "1",
-    title: "Most Improved Player",
-    description: "Recognized for showing the most growth this month",
-    category: "skill",
-    earnedDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
-    sport: "Soccer",
-    program: "U10 Lightning",
-    isNew: true,
-    rarity: "rare",
-  },
-  {
-    id: "2",
-    title: "Perfect Attendance",
-    description: "Attended every practice and game this season",
-    category: "effort",
-    earnedDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
-    sport: "Soccer",
-    rarity: "epic",
-  },
-  {
-    id: "3",
-    title: "Team Spirit Award",
-    description: "Always encouraging teammates and showing great sportsmanship",
-    category: "teamwork",
-    earnedDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 21),
-    sport: "Soccer",
-    rarity: "rare",
-  },
-  {
-    id: "4",
-    title: "First Goal",
-    description: "Scored their first competitive goal",
-    category: "milestone",
-    earnedDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
-    sport: "Soccer",
-    rarity: "common",
-  },
-  {
-    id: "5",
-    title: "Hustle Award",
-    description: "Gave 110% effort every single play",
-    category: "effort",
-    earnedDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45),
-    sport: "Basketball",
-    rarity: "common",
-  },
-  {
-    id: "6",
-    title: "Rising Star",
-    description: "Selected by coaches as a standout developing player",
-    category: "special",
-    earnedDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60),
-    sport: "Soccer",
-    rarity: "legendary",
-  },
-]
+// Real data wiring pending. Empty array surfaces the empty state below
+// rather than showing fictional achievements to real parents.
+const mockAchievements: Achievement[] = []
 
 function AchievementCard({ achievement, compact = false }: { achievement: Achievement; compact?: boolean }) {
   const config = categoryConfig[achievement.category]
@@ -244,6 +188,17 @@ export default function AchievementGallery({
     : filteredAchievements
 
   if (compact) {
+    if (displayedAchievements.length === 0) {
+      return (
+        <div className="text-center py-8 px-4 rounded-xl bg-paper border border-border">
+          <Award className="w-8 h-8 text-ink-faint mx-auto mb-2" />
+          <h4 className="text-ink font-medium text-sm mb-1">No achievements yet</h4>
+          <p className="text-xs text-ink-muted">
+            Achievements will appear here as your child earns them.
+          </p>
+        </div>
+      )
+    }
     return (
       <div className="space-y-2">
         {displayedAchievements.map((achievement) => (

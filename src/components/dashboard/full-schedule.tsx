@@ -195,12 +195,11 @@ function generateMockEvents(): ScheduleEvent[] {
   return events.sort((a, b) => a.date.getTime() - b.date.getTime())
 }
 
-const mockEvents = generateMockEvents()
+// Real data wiring pending. Empty arrays surface empty calendar/list states
+// rather than another family's fictional schedule.
+const mockEvents: ReturnType<typeof generateMockEvents> = []
 
-const mockChildren = [
-  { id: "emma", name: "Emma" },
-  { id: "liam", name: "Liam" },
-]
+const mockChildren: Array<{ id: string; name: string }> = []
 
 function EventCard({
   event,

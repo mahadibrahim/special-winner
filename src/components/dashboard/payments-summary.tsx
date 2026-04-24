@@ -29,47 +29,8 @@ interface Payment {
   invoiceUrl?: string
 }
 
-// Mock data
-const mockPayments: Payment[] = [
-  {
-    id: "pay_1",
-    description: "Fall Soccer League Registration",
-    program: "U10 Lightning",
-    childName: "Emma",
-    amount: 195.00,
-    status: "paid",
-    paidDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
-    invoiceUrl: "#",
-  },
-  {
-    id: "pay_2",
-    description: "Basketball League - Monthly Payment",
-    program: "U12 Hawks",
-    childName: "Jake",
-    amount: 75.00,
-    status: "pending",
-    dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5),
-  },
-  {
-    id: "pay_3",
-    description: "Winter Skills Camp Deposit",
-    program: "Soccer Skills Camp",
-    childName: "Emma",
-    amount: 50.00,
-    status: "pending",
-    dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 12),
-  },
-  {
-    id: "pay_4",
-    description: "Youth Basketball League Registration",
-    program: "U12 Hawks",
-    childName: "Jake",
-    amount: 225.00,
-    status: "paid",
-    paidDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
-    invoiceUrl: "#",
-  },
-]
+// Real data wiring pending. Empty array shows an honest empty state.
+const mockPayments: Payment[] = []
 
 const statusConfig: Record<PaymentStatus, {
   icon: typeof CheckCircle2
@@ -129,6 +90,24 @@ export default function PaymentsSummary() {
 
   const totalPending = pendingPayments.reduce((sum, p) => sum + p.amount, 0)
   const totalPaid = recentPayments.reduce((sum, p) => sum + p.amount, 0)
+
+  if (mockPayments.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
+          <CreditCard className="w-5 h-5 text-emerald-400" />
+          Payments
+        </h2>
+        <div className="text-center py-10 px-6 rounded-2xl bg-paper border border-border">
+          <Receipt className="w-10 h-10 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-1">No payments yet</h3>
+          <p className="text-sm text-ink-muted">
+            Registration receipts and upcoming charges will show up here.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">

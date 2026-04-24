@@ -7,11 +7,8 @@ import {
   Calendar,
   User,
   ChevronRight,
-  Loader2,
   Bell,
-  X,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -39,26 +36,28 @@ interface Announcement {
 
 export function Announcements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  // Render the empty state immediately; swap in content once the fetch resolves.
+  // Avoids an indefinite SSR-rendered spinner if hydration is slow or the
+  // request stalls (cold function, flaky network).
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
 
   useEffect(() => {
-    fetchAnnouncements()
-  }, [])
-
-  async function fetchAnnouncements() {
-    try {
-      const response = await fetch("/api/user/announcements")
-      if (response.ok) {
-        const data = await response.json()
-        setAnnouncements(data.announcements || [])
+    let cancelled = false
+    ;(async () => {
+      try {
+        const response = await fetch("/api/user/announcements")
+        if (!cancelled && response.ok) {
+          const data = await response.json()
+          setAnnouncements(data.announcements || [])
+        }
+      } catch (err) {
+        console.error("Failed to load announcements:", err)
       }
-    } catch (err) {
-      console.error("Failed to load announcements:", err)
-    } finally {
-      setIsLoading(false)
+    })()
+    return () => {
+      cancelled = true
     }
-  }
+  }, [])
 
   function formatDate(dateString: string | null) {
     if (!dateString) return ""
@@ -92,24 +91,12 @@ export function Announcements() {
     return author.firstName || "Admin"
   }
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-8 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    )
-  }
-
   if (announcements.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center">
-          <Bell className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-50" />
-          <p className="text-muted-foreground">No announcements at this time</p>
-        </CardContent>
-      </Card>
+      <div className="rounded-2xl bg-paper border border-border py-8 text-center px-6">
+        <Bell className="h-10 w-10 text-ink-faint mx-auto mb-3" />
+        <p className="text-ink-muted">No announcements at this time</p>
+      </div>
     )
   }
 

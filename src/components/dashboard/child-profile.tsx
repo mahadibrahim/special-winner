@@ -90,68 +90,9 @@ interface ChildData {
   }[]
 }
 
-// Mock data
-const mockChild: ChildData = {
-  id: "1",
-  firstName: "Emma",
-  lastName: "Johnson",
-  age: 9,
-  dateOfBirth: new Date(2016, 3, 15),
-  programs: [
-    {
-      id: "p1",
-      name: "Fall Soccer League",
-      sport: "Soccer",
-      team: "U10 Lightning",
-      role: "Midfielder",
-      status: "active",
-      startDate: new Date(2025, 8, 1),
-      endDate: new Date(2025, 11, 15),
-      schedule: "Tue & Thu 4:00 PM, Sat 10:00 AM (games)",
-      location: "Powell Sports Complex",
-      coach: "Coach Mike",
-    },
-    {
-      id: "p2",
-      name: "Winter Skills Camp",
-      sport: "Soccer",
-      status: "upcoming",
-      startDate: new Date(2025, 11, 20),
-      schedule: "Mon-Fri 9:00 AM - 12:00 PM",
-      location: "Aspire Training Center",
-    },
-  ],
-  stats: {
-    gamesPlayed: 8,
-    practicesAttended: 24,
-    achievementsEarned: 6,
-    coachRating: 4.5,
-  },
-  skills: [
-    { name: "Ball Control", current: 4, previous: 3, history: [2, 2, 3, 3, 3, 4, 4] },
-    { name: "Passing", current: 3, previous: 3, history: [2, 2, 2, 3, 3, 3, 3] },
-    { name: "Shooting", current: 3, previous: 2, history: [1, 2, 2, 2, 2, 3, 3] },
-    { name: "Teamwork", current: 5, previous: 4, history: [3, 3, 4, 4, 4, 5, 5] },
-    { name: "Game Awareness", current: 3, previous: 2, history: [1, 1, 2, 2, 2, 3, 3] },
-    { name: "Stamina", current: 4, previous: 4, history: [3, 3, 3, 4, 4, 4, 4] },
-  ],
-  upcomingEvents: [
-    { id: "e1", title: "Team Practice", type: "practice", date: new Date(Date.now() + 1000 * 60 * 60 * 3), time: "4:00 PM", location: "Powell Sports Complex - Field 3" },
-    { id: "e2", title: "Game vs Dublin FC", type: "game", date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3), time: "10:00 AM", location: "Dublin Recreation Center" },
-    { id: "e3", title: "Team Practice", type: "practice", date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5), time: "4:00 PM", location: "Powell Sports Complex - Field 3" },
-    { id: "e4", title: "Skills Camp Registration", type: "camp", date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14), time: "9:00 AM", location: "Aspire Training Center" },
-  ],
-  recentNotes: [
-    { id: "n1", coachName: "Coach Mike", date: new Date(Date.now() - 1000 * 60 * 60 * 2), category: "progress", title: "Great improvement in ball control!", preview: "Emma has been working really hard on her dribbling drills..." },
-    { id: "n2", coachName: "Coach Mike", date: new Date(Date.now() - 1000 * 60 * 60 * 72), category: "focus", title: "Area to work on: Passing accuracy", preview: "We're going to focus on passing drills this week..." },
-    { id: "n3", coachName: "Coach Sarah", date: new Date(Date.now() - 1000 * 60 * 60 * 168), category: "achievement", title: "Most Improved Player - October", preview: "Congratulations! Emma was selected as most improved..." },
-  ],
-  seasonHistory: [
-    { season: "Fall 2025", program: "U10 Lightning", sport: "Soccer", year: 2025 },
-    { season: "Spring 2025", program: "U9 Storm", sport: "Soccer", year: 2025 },
-    { season: "Fall 2024", program: "U8 Development", sport: "Soccer", year: 2024 },
-  ],
-}
+// Real data wiring pending. Null surfaces the empty state below rather
+// than showing a fictional child profile to real parents.
+const mockChild: ChildData | null = null
 
 const sportGradients: Record<string, string> = {
   Soccer: "from-emerald-500 to-green-600",
@@ -181,6 +122,29 @@ interface ChildProfileProps {
 export default function ChildProfile({ childId }: ChildProfileProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "progress" | "schedule" | "notes" | "achievements">("overview")
   const child = mockChild // In production, fetch based on childId
+
+  if (child === null) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink -ml-2" asChild>
+          <a href="/dashboard">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </a>
+        </Button>
+        <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border">
+          <Users className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+          <h2 className="text-ink font-medium mb-1">No child profile available</h2>
+          <p className="text-sm text-ink-muted mb-4">
+            Profiles appear here once a child is registered for a program.
+          </p>
+          <Button asChild size="sm">
+            <a href="/programs">Browse programs</a>
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const primarySport = child.programs[0]?.sport || "Sports"
   const gradient = sportGradients[primarySport] || "from-primary to-orange-500"

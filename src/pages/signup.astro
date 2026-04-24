@@ -1,5 +1,7 @@
 ---
-export const prerender = true;
+// NOT prerendered: needs request-time access to Astro.locals.user for the
+// "already logged in" redirect, and needs Astro.url.search to pass the
+// redirect= param through to the "Sign in" link below.
 import '../styles/globals.css';
 import Navigation from '../components/navigation';
 import Footer from '../components/footer';
@@ -47,7 +49,10 @@ if (user) {
           <div class="mt-6 text-center">
             <p class="text-ink-faint text-sm">
               Already have an account?{' '}
-              <a href="/signin" class="text-primary hover:text-primary/80 font-medium">
+              <a
+                href={`/signin${Astro.url.search}`}
+                class="text-primary hover:text-primary/80 font-medium"
+              >
                 Sign in
               </a>
             </p>

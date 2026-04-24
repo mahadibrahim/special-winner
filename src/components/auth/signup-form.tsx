@@ -220,6 +220,18 @@ export function SignUpForm() {
           "Create Account"
         )}
       </Button>
+
+      <p className="text-xs text-ink-faint text-center leading-relaxed">
+        By creating an account, you agree to our{" "}
+        <a href="/terms" className="text-primary hover:text-primary/80 underline underline-offset-2">
+          Terms of Service
+        </a>{" "}
+        and{" "}
+        <a href="/privacy" className="text-primary hover:text-primary/80 underline underline-offset-2">
+          Privacy Policy
+        </a>
+        .
+      </p>
     </form>
   );
 }

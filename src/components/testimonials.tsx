@@ -3,29 +3,15 @@
 import { useEffect, useRef, useState } from "react"
 import { Star, Quote } from "lucide-react"
 
-const testimonials = [
-  {
-    quote: "Aspire has been incredible for my son. He's gained so much confidence and made amazing friends. The coaches truly care about each child's development.",
-    name: "Sarah M.",
-    role: "Parent of U8 Soccer Player",
-    initials: "SM",
-    gradient: "from-rose-500 to-orange-500",
-  },
-  {
-    quote: "We tried other leagues, but nothing compares to Aspire. The focus on sportsmanship and fun has made our daughter fall in love with basketball.",
-    name: "Michael T.",
-    role: "Parent of U10 Basketball Player",
-    initials: "MT",
-    gradient: "from-amber-500 to-yellow-500",
-  },
-  {
-    quote: "The coaches at Aspire go above and beyond. My kids have learned so much about teamwork and perseverance. Worth every penny!",
-    name: "Jennifer L.",
-    role: "Parent of U6 & U8 Players",
-    initials: "JL",
-    gradient: "from-emerald-500 to-teal-500",
-  },
-]
+// Populate with real parent quotes once collected and consented to. Empty
+// hides the whole section — safer than shipping fabricated testimonials.
+const testimonials: Array<{
+  quote: string
+  name: string
+  role: string
+  initials: string
+  gradient: string
+}> = []
 
 export default function Testimonials() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -48,6 +34,10 @@ export default function Testimonials() {
 
     return () => observer.disconnect()
   }, [])
+
+  // Hide the section until real quotes are collected. Kept after hooks so we
+  // don't conditionally call them.
+  if (testimonials.length === 0) return null
 
   return (
     <section

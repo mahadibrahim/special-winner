@@ -354,15 +354,19 @@ export default function ProgramsDirectory() {
                   <SelectItem value="all" className="text-ink-2 focus:bg-cream-3 focus:text-ink">
                     All Locations
                   </SelectItem>
-                  {locations.map((loc) => (
-                    <SelectItem
-                      key={loc.id}
-                      value={loc.slug}
-                      className="text-ink-2 focus:bg-cream-3 focus:text-ink"
-                    >
-                      {loc.name}{loc.city ? `, ${loc.city}` : ""}
-                    </SelectItem>
-                  ))}
+                  {locations.map((loc) => {
+                    const showCity =
+                      loc.city && loc.city.toLowerCase() !== loc.name.toLowerCase()
+                    return (
+                      <SelectItem
+                        key={loc.id}
+                        value={loc.slug}
+                        className="text-ink-2 focus:bg-cream-3 focus:text-ink"
+                      >
+                        {loc.name}{showCity ? `, ${loc.city}` : ""}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
 

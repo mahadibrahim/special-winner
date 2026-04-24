@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations } from "@/lib/db/schema";
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, sql, asc, not, or, ilike } from "drizzle-orm";
 
 // Mock data for preview when DB has no seasons
 const mockSeasons = [
@@ -45,6 +45,19 @@ export const GET: APIRoute = async ({ url }) => {
     if (sportSlug) {
       conditions.push(eq(sports.slug, sportSlug));
     }
+    // Hide seeded test/E2E programs from the public catalog. Admin tooling can
+    // still surface them via other endpoints.
+    conditions.push(
+      not(
+        or(
+          ilike(seasons.name, "%e2e%"),
+          ilike(programs.name, "%e2e%"),
+          ilike(programs.slug, "e2e-%"),
+          ilike(seasons.slug, "e2e-%"),
+          ilike(seasons.slug, "%test-%")
+        )!
+      )
+    );
 
     const rows = await db
       .select({

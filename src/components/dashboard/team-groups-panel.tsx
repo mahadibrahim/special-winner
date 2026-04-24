@@ -88,16 +88,10 @@ export function TeamGroupsPanel() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-6 rounded-2xl bg-paper border border-border flex items-center justify-center">
-        <Loader2 className="w-5 h-5 animate-spin text-ink-muted" />
-      </div>
-    )
-  }
-
-  // Hide entirely if no groups
-  if (!loading && groups.length === 0) {
+  // Hide entirely while loading or when there are no groups — the panel
+  // should only appear once there's something to show. This prevents a
+  // perpetual spinner if hydration or the fetch stalls.
+  if (loading || groups.length === 0) {
     return null
   }
 

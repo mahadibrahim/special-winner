@@ -3,32 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { Users, Trophy, Clock, TrendingUp } from "lucide-react"
 
-const stats = [
-  {
-    value: 1000,
-    suffix: "+",
-    label: "Families Served",
-    icon: Users,
-  },
-  {
-    value: 15,
-    suffix: "",
-    label: "Different Sports",
-    icon: Trophy,
-  },
-  {
-    value: 10,
-    suffix: "+",
-    label: "Years Experience",
-    icon: Clock,
-  },
-  {
-    value: 98,
-    suffix: "%",
-    label: "Return Rate",
-    icon: TrendingUp,
-  },
-]
+// Populate once real, verifiable numbers exist. Empty array hides the section.
+const stats: Array<{ value: number; suffix: string; label: string; icon: typeof Users }> = []
 
 function useCountUp(end: number, duration: number = 2000, start: boolean = false) {
   const [count, setCount] = useState(0)
@@ -81,6 +57,10 @@ export default function StatsSection() {
 
     return () => observer.disconnect()
   }, [])
+
+  // Hide the section when no stats are configured (don't call hooks
+  // conditionally — the early return sits after all hook calls).
+  if (stats.length === 0) return null
 
   return (
     <section

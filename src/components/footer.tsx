@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, ArrowRight, Loader2 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import { Mail, MapPin, ArrowRight, Loader2 } from "lucide-react"
 
 const programLinks = [
   { label: "Soccer", href: "/programs?sport=soccer" },
@@ -26,11 +27,8 @@ const supportLinks = [
 
 const locations = ["Powell", "Dublin", "Delaware"]
 
-const socialLinks = [
-  { icon: Facebook, href: "https://facebook.com", label: "Facebook" },
-  { icon: Instagram, href: "https://instagram.com", label: "Instagram" },
-  { icon: Twitter, href: "https://twitter.com", label: "Twitter" },
-]
+// Add social links with real URLs once company accounts are set up.
+const socialLinks: Array<{ icon: LucideIcon; href: string; label: string }> = []
 
 export default function Footer() {
   const [email, setEmail] = useState("")
@@ -199,13 +197,6 @@ export default function Footer() {
                 <Mail className="w-4 h-4 flex-shrink-0" />
                 info@aspiresports.com
               </a>
-              <a
-                href="tel:6145550123"
-                className="flex items-center gap-3 text-cream/50 hover:text-primary text-sm transition-colors group"
-              >
-                <Phone className="w-4 h-4 flex-shrink-0" />
-                (614) 555-0123
-              </a>
               <div className="flex items-center gap-3 text-cream/40 text-sm">
                 <MapPin className="w-4 h-4 flex-shrink-0" />
                 {locations.join(" · ")}
@@ -213,20 +204,22 @@ export default function Footer() {
             </div>
 
             {/* Social links */}
-            <div className="flex gap-2">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={social.label}
-                  className="w-9 h-9 rounded-lg bg-cream/5 hover:bg-primary/20 flex items-center justify-center text-cream/40 hover:text-primary transition-all"
-                >
-                  <social.icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
+            {socialLinks.length > 0 && (
+              <div className="flex gap-2">
+                {socialLinks.map((social) => (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.label}
+                    className="w-9 h-9 rounded-lg bg-cream/5 hover:bg-primary/20 flex items-center justify-center text-cream/40 hover:text-primary transition-all"
+                  >
+                    <social.icon className="w-4 h-4" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -71,24 +71,24 @@ export function TelegramConnectBanner({
   }
 
   return (
-    <div className="rounded-2xl bg-gradient-to-r from-sky-500/10 via-blue-500/5 to-transparent border border-sky-500/20 p-4">
+    <div className="rounded-2xl bg-sky-50 border border-sky-200 p-4">
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 mt-0.5">
-          <div className="w-8 h-8 rounded-full bg-sky-500/20 flex items-center justify-center">
-            <MessageSquare className="w-4 h-4 text-sky-400" />
+          <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center">
+            <MessageSquare className="w-4 h-4 text-sky-700" />
           </div>
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sky-200">Connect Telegram for instant team updates</h3>
-          <p className="text-sm text-sky-200/70 mt-1">
+          <h3 className="font-semibold text-sky-900">Connect Telegram for instant team updates</h3>
+          <p className="text-sm text-sky-800 mt-1">
             Get schedule changes, coach messages, and game reminders directly in Telegram.
             No app install needed beyond what you already have.
           </p>
 
           <div className="flex items-center gap-3 mt-3 flex-wrap">
             {connectSuccess ? (
-              <div className="flex items-center gap-2 text-sm text-emerald-400">
+              <div className="flex items-center gap-2 text-sm text-emerald-700">
                 <Check className="w-4 h-4" />
                 <span>Tap "Start" in Telegram, then come back and refresh.</span>
               </div>
@@ -98,7 +98,7 @@ export function TelegramConnectBanner({
                 size="sm"
                 onClick={handleConnect}
                 disabled={connecting}
-                className="border-sky-500/30 text-sky-200 hover:bg-sky-500/10 hover:text-sky-100"
+                className="border-sky-300 bg-white text-sky-800 hover:bg-sky-100 hover:text-sky-900"
               >
                 {connecting ? (
                   <Loader2 className="w-3 h-3 mr-2 animate-spin" />
@@ -110,14 +110,14 @@ export function TelegramConnectBanner({
             )}
 
             {error && (
-              <span className="text-sm text-red-400">{error}</span>
+              <span className="text-sm text-red-700">{error}</span>
             )}
           </div>
         </div>
 
         <button
           onClick={handleDismiss}
-          className="flex-shrink-0 p-1 rounded-lg hover:bg-white/5 text-sky-200/50 hover:text-sky-200 transition-colors"
+          className="flex-shrink-0 p-1 rounded-lg hover:bg-sky-100 text-sky-700 hover:text-sky-900 transition-colors"
           aria-label="Dismiss"
         >
           <X className="w-4 h-4" />

@@ -331,8 +331,11 @@ export default function RegistrationWizard({ seasonId, hasLinkedTelegram = false
   }
 
   const formatDateRange = (start: string, end: string) => {
-    const startDate = new Date(start)
-    const endDate = new Date(end)
+    // Parse as local dates so "2026-05-16" doesn't render as May 15 in -04 TZs.
+    const [sy, sm, sd] = start.split("-").map(Number)
+    const [ey, em, ed] = end.split("-").map(Number)
+    const startDate = new Date(sy, (sm ?? 1) - 1, sd ?? 1)
+    const endDate = new Date(ey, (em ?? 1) - 1, ed ?? 1)
     const startMonth = startDate.toLocaleDateString("en-US", { month: "short" })
     const endMonth = endDate.toLocaleDateString("en-US", { month: "short" })
     const startDay = startDate.getDate()
@@ -672,8 +675,7 @@ export default function RegistrationWizard({ seasonId, hasLinkedTelegram = false
                   I have read, understand, and agree to the terms of this waiver on behalf of{" "}
                   <span className="text-ink font-medium">
                     {selectedMember?.firstName} {selectedMember?.lastName}
-                  </span>
-                  .
+                  </span>.
                 </Label>
               </div>
 

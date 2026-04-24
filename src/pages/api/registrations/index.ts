@@ -172,7 +172,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Check for existing registration
+    // Check for existing registration. If a registration was started earlier
+    // but payment never completed (e.g. Stripe checkout creation failed), we
+    // return that same row so the client can retry checkout instead of being
+    // blocked with a duplicate-registration error.
     const [existingReg] = await getDb()
       .select()
       .from(registrations)
@@ -184,6 +187,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
 
     if (existingReg) {
+      const isPendingUnpaid =
+        existingReg.status === "pending" && existingReg.paymentStatus === "unpaid";
+      if (isPendingUnpaid) {
+        return new Response(
+          JSON.stringify({
+            registration: existingReg,
+            requiresPayment: existingReg.amountDueCents > 0,
+            amountDueCents: existingReg.amountDueCents,
+            resumed: true,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
       return new Response(
         JSON.stringify({ error: "This player is already registered for this season" }),
         {

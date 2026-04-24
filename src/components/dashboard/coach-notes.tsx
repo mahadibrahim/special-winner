@@ -33,58 +33,9 @@ interface CoachNote {
   isNew?: boolean
 }
 
-// Mock data
-const mockNotes: CoachNote[] = [
-  {
-    id: "1",
-    childName: "Emma",
-    childId: "c1",
-    coachName: "Coach Mike",
-    coachRole: "Head Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    category: "progress",
-    title: "Great improvement in ball control!",
-    content: "Emma has been working really hard on her dribbling drills. Today she completed the cone exercise with much better control than last week. Keep encouraging her to practice at home!",
-    program: "U10 Lightning - Soccer",
-    isNew: true,
-  },
-  {
-    id: "2",
-    childName: "Jake",
-    childId: "c2",
-    coachName: "Coach Sarah",
-    coachRole: "Assistant Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    category: "achievement",
-    title: "Outstanding defensive play!",
-    content: "Jake showed excellent hustle and court awareness during today's scrimmage. He made 3 great defensive stops that helped his team win. His leadership is really starting to show!",
-    program: "U12 Hawks - Basketball",
-  },
-  {
-    id: "3",
-    childName: "Emma",
-    childId: "c1",
-    coachName: "Coach Mike",
-    coachRole: "Head Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 72), // 3 days ago
-    category: "focus",
-    title: "Area to work on: Passing accuracy",
-    content: "We're going to focus on passing drills this week. Emma has great vision but sometimes rushes her passes. A few minutes of wall passes at home would really help!",
-    program: "U10 Lightning - Soccer",
-  },
-  {
-    id: "4",
-    childName: "Jake",
-    childId: "c2",
-    coachName: "Coach Sarah",
-    coachRole: "Assistant Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 96), // 4 days ago
-    category: "encouragement",
-    title: "Keep up the positive attitude!",
-    content: "Jake has been such a great teammate lately. He's always encouraging others and staying positive even when things get tough. This attitude will take him far!",
-    program: "U12 Hawks - Basketball",
-  },
-]
+// Real data wiring pending. Empty array → dashboard shows an honest empty
+// state instead of fabricated coach notes for children who don't exist.
+const mockNotes: CoachNote[] = []
 
 const categoryConfig: Record<NoteCategory, {
   icon: typeof Star

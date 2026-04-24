@@ -1,15 +1,13 @@
 ---
-export const prerender = true;
+// NOT prerendered: org/catalog data is request-scoped via middleware so we
+// can't freeze it at build time without leaking one tenant's catalog to all.
 import '../../styles/globals.css';
 import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
 import ProgramsDirectory from '../../components/programs-directory';
 import { db } from '../../lib/db';
-import { sports, locations, seasons, programs, registrations } from '../../lib/db/schema';
-import { eq, and, asc, gte, sql } from 'drizzle-orm';
-
-// Get current organization
-const organization = Astro.locals.organization;
+import { sports, locations } from '../../lib/db/schema';
+import { eq, asc } from 'drizzle-orm';
 
 // Fetch sports and locations
 let sportsList: any[] = [];

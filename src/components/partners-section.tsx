@@ -18,58 +18,9 @@ const LogoPlaceholder = ({ name, icon }: { name: string; icon: string }) => (
   </div>
 )
 
-const partners: Partner[] = [
-  // Sponsors
-  {
-    id: "nike",
-    name: "Nike Community",
-    tier: "sponsor",
-    logo: <LogoPlaceholder name="NIKE" icon="✓" />,
-  },
-  {
-    id: "under-armour",
-    name: "Under Armour",
-    tier: "sponsor",
-    logo: <LogoPlaceholder name="UNDER ARMOUR" icon="◆" />,
-  },
-  {
-    id: "sportsplex",
-    name: "Columbus Sportsplex",
-    tier: "sponsor",
-    logo: <LogoPlaceholder name="SPORTSPLEX" icon="⬡" />,
-  },
-  {
-    id: "ohio-youth",
-    name: "Ohio Youth Athletics",
-    tier: "sponsor",
-    logo: <LogoPlaceholder name="OYA" icon="★" />,
-  },
-  // Community Partners
-  {
-    id: "powell-chamber",
-    name: "Powell Chamber",
-    tier: "community",
-    logo: <LogoPlaceholder name="POWELL" icon="◎" />,
-  },
-  {
-    id: "dublin-rec",
-    name: "Dublin Recreation",
-    tier: "community",
-    logo: <LogoPlaceholder name="DUBLIN REC" icon="▲" />,
-  },
-  {
-    id: "delaware-parks",
-    name: "Delaware County Parks",
-    tier: "community",
-    logo: <LogoPlaceholder name="DC PARKS" icon="♦" />,
-  },
-  {
-    id: "local-first",
-    name: "Local First Columbus",
-    tier: "community",
-    logo: <LogoPlaceholder name="LOCAL FIRST" icon="●" />,
-  },
-]
+// Populate with partners once real logos and partnership agreements are in place.
+// Do not list national brands (e.g. Nike, Under Armour) without written partnership.
+const partners: Partner[] = []
 
 interface PartnersSectionProps {
   mode?: "compact" | "expanded"
@@ -78,6 +29,10 @@ interface PartnersSectionProps {
 
 export default function PartnersSection({ mode = "compact", className = "" }: PartnersSectionProps) {
   const [isPaused, setIsPaused] = useState(false)
+
+  // Hide the section entirely until real partners are configured — prevents
+  // misleading visitors with placeholder or trademark-protected logos.
+  if (partners.length === 0) return null
 
   if (mode === "expanded") {
     return <ExpandedPartners className={className} />

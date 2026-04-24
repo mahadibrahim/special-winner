@@ -81,10 +81,11 @@ export default function ProgramCard({ season }: { season: Season }) {
   const isFull = hasCapacity && spotsLeft === 0
   const isPopular = hasCapacity && filledPercent >= 60
 
-  // Format location display
-  const locationDisplay = season.location.city
-    ? `${season.location.name}, ${season.location.city}`
-    : season.location.name
+  // Format location display — avoid "Powell, Powell" when name and city match.
+  const locationDisplay =
+    season.location.city && season.location.city.toLowerCase() !== season.location.name.toLowerCase()
+      ? `${season.location.name}, ${season.location.city}`
+      : season.location.name
 
   // Format schedule from dates or notes
   const scheduleDisplay = season.scheduleNotes || formatDateRange(season.startDate, season.endDate)
@@ -208,7 +209,7 @@ export default function ProgramCard({ season }: { season: Season }) {
                     </div>
                   ) : (
                     <div className="text-sm text-ink-muted">
-                      {spotsLeft} of {totalSpots} spots
+                      {spotsLeft} spots open
                     </div>
                   )}
                 </div>
@@ -258,9 +259,16 @@ export default function ProgramCard({ season }: { season: Season }) {
   )
 }
 
+// Parses a YYYY-MM-DD date string in the viewer's local timezone so season
+// dates don't drift by a day when a UTC-midnight Date crosses into yesterday.
+function parseLocalDate(isoDate: string): Date {
+  const [y, m, d] = isoDate.split("-").map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1)
+}
+
 function formatDateRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate)
-  const end = new Date(endDate)
+  const start = parseLocalDate(startDate)
+  const end = parseLocalDate(endDate)
 
   const startMonth = start.toLocaleDateString("en-US", { month: "short" })
   const startDay = start.getDate()

@@ -82,104 +82,11 @@ const categoryConfig: Record<NoteCategory, {
   },
 }
 
-// Mock data
-const mockNotes: CoachNote[] = [
-  {
-    id: "1",
-    childId: "emma",
-    childName: "Emma",
-    coachName: "Coach Martinez",
-    coachRole: "Head Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    category: "progress",
-    title: "Great improvement in ball control",
-    content: "Emma has shown remarkable improvement in her ball control over the past few weeks. During today's practice, she successfully completed all dribbling drills with significantly fewer touches lost. I've noticed she's more confident when receiving passes under pressure. Her dedication to practicing the techniques we've discussed is really paying off. Keep encouraging her to work on her weak foot as well - she's ready for that challenge!",
-    program: "U10 Lightning",
-    sport: "Soccer",
-    isRead: false,
-    isFavorite: false,
-  },
-  {
-    id: "2",
-    childId: "emma",
-    childName: "Emma",
-    coachName: "Coach Thompson",
-    coachRole: "Assistant Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2),
-    category: "achievement",
-    title: "Team Player of the Week",
-    content: "Congratulations! Emma has been selected as our Team Player of the Week. She demonstrated exceptional sportsmanship during Saturday's game, helping a teammate who was struggling and always being the first to encourage others. This kind of positive attitude is exactly what makes great teams. She'll receive her certificate at the next practice.",
-    program: "U10 Lightning",
-    sport: "Soccer",
-    isRead: true,
-    isFavorite: true,
-  },
-  {
-    id: "3",
-    childId: "liam",
-    childName: "Liam",
-    coachName: "Coach Johnson",
-    coachRole: "Skills Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
-    category: "focus",
-    title: "Defensive positioning needs work",
-    content: "During our last few sessions, I've noticed Liam tends to commit too early when defending, which leaves him out of position. This is very common at his age and easily correctable. We're going to spend some extra time on defensive drills over the next few practices. Some video examples might help - I'll send some age-appropriate clips that demonstrate proper positioning. Please reinforce patience when he's playing defense.",
-    program: "U8 Thunder",
-    sport: "Soccer",
-    isRead: true,
-    isFavorite: false,
-  },
-  {
-    id: "4",
-    childId: "liam",
-    childName: "Liam",
-    coachName: "Coach Martinez",
-    coachRole: "Head Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
-    category: "encouragement",
-    title: "Keep up the positive attitude!",
-    content: "Just wanted to share how impressed I am with Liam's attitude at practice. Even when drills are challenging, he keeps trying and maintains a great spirit. This resilience is one of the most important traits in sports and in life. He's a pleasure to coach and his enthusiasm is contagious for the whole team!",
-    program: "U8 Thunder",
-    sport: "Soccer",
-    isRead: true,
-    isFavorite: true,
-  },
-  {
-    id: "5",
-    childId: "emma",
-    childName: "Emma",
-    coachName: "Coach Williams",
-    coachRole: "Basketball Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
-    category: "progress",
-    title: "Shooting form improvement",
-    content: "Emma's shooting form has improved significantly since we adjusted her hand positioning. Her free throw percentage in practice has gone from about 30% to nearly 50%. We'll continue working on follow-through and arc. She's picking up basketball fundamentals quickly despite this being her first season!",
-    program: "Youth Basketball",
-    sport: "Basketball",
-    isRead: true,
-    isFavorite: false,
-  },
-  {
-    id: "6",
-    childId: "emma",
-    childName: "Emma",
-    coachName: "Coach Martinez",
-    coachRole: "Head Coach",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
-    category: "achievement",
-    title: "First competitive goal!",
-    content: "What a moment! Emma scored her first competitive goal in yesterday's match. It was a well-placed shot from just inside the box after a great team build-up. You should have seen her face - pure joy! This is a milestone moment and I hope you can celebrate it at home too. She's been working hard and it's wonderful to see it pay off.",
-    program: "U10 Lightning",
-    sport: "Soccer",
-    isRead: true,
-    isFavorite: true,
-  },
-]
+// Real data wiring pending. Empty arrays surface the existing
+// "No notes found" empty state rather than fictional notes.
+const mockNotes: CoachNote[] = []
 
-const mockChildren = [
-  { id: "emma", name: "Emma" },
-  { id: "liam", name: "Liam" },
-]
+const mockChildren: Array<{ id: string; name: string }> = []
 
 function NoteCard({
   note,

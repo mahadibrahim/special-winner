@@ -252,9 +252,41 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     );
   } catch (error) {
     console.error("Error creating checkout session:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+
+    // Distinguish Stripe configuration problems from generic server errors so
+    // the wizard can show parents something actionable instead of a naked 500.
+    const e = error as { type?: string; message?: string };
+    const stripeType =
+      typeof e?.type === "string" && e.type.startsWith("Stripe") ? e.type : null;
+
+    if (stripeType === "StripeAuthenticationError") {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Payment processing is not configured correctly. Please contact support — your registration is saved and you won't be charged twice when payments come back online.",
+          code: "stripe_auth_error",
+        }),
+        { status: 503, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (stripeType) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "We couldn't start your payment. Please try again in a moment — your registration is saved.",
+          code: "stripe_error",
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        error:
+          "Something went wrong starting your payment. Your registration is saved; please try again.",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 };

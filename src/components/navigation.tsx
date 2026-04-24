@@ -1,14 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Menu, X, ArrowRight } from "lucide-react"
+import { Menu, X, ArrowRight, LogOut, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import LocationSelector from "@/components/location-selector"
 
+interface MeUser {
+  id: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+}
+
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [user, setUser] = useState<MeUser | null>(null)
+  const [authResolved, setAuthResolved] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +29,38 @@ export default function Navigation() {
 
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : { user: null }))
+      .then((data) => {
+        if (!cancelled) setUser(data.user ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null)
+      })
+      .finally(() => {
+        if (!cancelled) setAuthResolved(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/signout", { method: "POST", credentials: "same-origin" })
+    } finally {
+      window.location.href = "/"
+    }
+  }
+
+  const initials = user
+    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
+      user.email[0]?.toUpperCase() ||
+      "U"
+    : ""
 
   const navLinks = [
     { href: "#programs", label: "Programs" },
@@ -66,19 +107,51 @@ export default function Navigation() {
             {/* Location Selector */}
             <LocationSelector mode="dropdown" />
 
-            <a
-              href="/signin"
-              className="px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
-            >
-              Sign In
-            </a>
-            <a
-              href="#programs"
-              className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-cream rounded-lg hover:bg-primary/90 shadow-sm shadow-primary/15 transition-all"
-            >
-              Get Started
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-            </a>
+            {!authResolved ? (
+              // Reserve space to avoid layout shift while /api/auth/me resolves.
+              <div className="h-10 w-40" aria-hidden />
+            ) : user ? (
+              <>
+                <a
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </a>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign out
+                </button>
+                <a
+                  href="/dashboard"
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-cream text-sm font-semibold shadow-sm shadow-primary/15 hover:bg-primary/90 transition-all"
+                  title={`${user.firstName ?? user.email}${user.lastName ? ` ${user.lastName}` : ""}`}
+                >
+                  {initials}
+                </a>
+              </>
+            ) : (
+              <>
+                <a
+                  href="/signin"
+                  className="px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
+                >
+                  Sign In
+                </a>
+                <a
+                  href="#programs"
+                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-cream rounded-lg hover:bg-primary/90 shadow-sm shadow-primary/15 transition-all"
+                >
+                  Get Started
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                </a>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu */}
@@ -145,28 +218,59 @@ export default function Navigation() {
 
                 {/* Mobile menu CTAs */}
                 <div className="p-6 border-t border-border space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full border-border text-ink hover:bg-cream-2"
-                    asChild
-                  >
-                    <a href="/signin" onClick={() => setMobileMenuOpen(false)}>
-                      Sign In
-                    </a>
-                  </Button>
-                  <Button
-                    className="w-full bg-primary hover:bg-primary/90 text-cream"
-                    asChild
-                  >
-                    <a
-                      href="#programs"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      Get Started
-                      <ArrowRight className="w-4 h-4" />
-                    </a>
-                  </Button>
+                  {user ? (
+                    <>
+                      <Button
+                        className="w-full bg-primary hover:bg-primary/90 text-cream"
+                        asChild
+                      >
+                        <a
+                          href="/dashboard"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          Dashboard
+                        </a>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full border-border text-ink hover:bg-cream-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          handleSignOut()
+                        }}
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign out
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="w-full border-border text-ink hover:bg-cream-2"
+                        asChild
+                      >
+                        <a href="/signin" onClick={() => setMobileMenuOpen(false)}>
+                          Sign In
+                        </a>
+                      </Button>
+                      <Button
+                        className="w-full bg-primary hover:bg-primary/90 text-cream"
+                        asChild
+                      >
+                        <a
+                          href="#programs"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          Get Started
+                          <ArrowRight className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </SheetContent>
