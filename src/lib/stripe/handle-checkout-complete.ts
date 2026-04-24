@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { registrations, payments } from "@/lib/db/schema";
 
@@ -31,6 +31,7 @@ export async function handleCheckoutComplete(
     .where(
       sql`${payments.metadata} ->> 'stripeCheckoutSessionId' = ${session.id}`
     )
+    .orderBy(asc(payments.createdAt))
     .limit(1);
 
   if (existingPayment.length > 0) {
