@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     const { registrationId, discountCode } = validation.data;
 
     // Get registration with related data
-    const [result] = await getDb()
+    const [result] = await db
       .select({
         registration: registrations,
         familyMember: familyMembers,
@@ -98,7 +98,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
     if (discountCode) {
       // Find and validate the discount code
-      const [foundDiscount] = await getDb()
+      const [foundDiscount] = await db
         .select()
         .from(discountCodes)
         .where(eq(discountCodes.code, discountCode.toUpperCase()));
@@ -117,7 +117,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           // Check per-user limit
           let userCanUse = true;
           if (foundDiscount.maxUsesPerUser) {
-            const userUsageCount = await getDb()
+            const userUsageCount = await db
               .select({ count: sql<number>`count(*)` })
               .from(discountUsages)
               .where(
@@ -154,7 +154,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     if (amountDue <= 0) {
       // Record discount usage if applicable
       if (appliedDiscountCode) {
-        await getDb().insert(discountUsages).values({
+        await db.insert(discountUsages).values({
           discountCodeId: appliedDiscountCode.id,
           userId: user.id,
           registrationId,
@@ -162,14 +162,14 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         });
 
         // Increment usage count
-        await getDb()
+        await db
           .update(discountCodes)
           .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
           .where(eq(discountCodes.id, appliedDiscountCode.id));
       }
 
       // Update registration as paid with reduced amount
-      await getDb()
+      await db
         .update(registrations)
         .set({
           paymentStatus: "paid",
@@ -194,7 +194,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
     // If a discount was applied, update the registration and record usage
     if (appliedDiscountCode && discountAmountCents > 0) {
-      await getDb().insert(discountUsages).values({
+      await db.insert(discountUsages).values({
         discountCodeId: appliedDiscountCode.id,
         userId: user.id,
         registrationId,
@@ -202,13 +202,13 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       });
 
       // Increment usage count
-      await getDb()
+      await db
         .update(discountCodes)
         .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
         .where(eq(discountCodes.id, appliedDiscountCode.id));
 
       // Update registration with reduced amount due
-      await getDb()
+      await db
         .update(registrations)
         .set({
           amountDueCents: registration.amountDueCents - discountAmountCents,
