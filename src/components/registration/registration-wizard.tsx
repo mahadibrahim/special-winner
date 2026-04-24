@@ -83,6 +83,7 @@ interface FamilyMember {
 interface RegistrationWizardProps {
   seasonId: string
   hasLinkedTelegram?: boolean
+  wasCancelled?: boolean
 }
 
 const STEPS = [
@@ -92,7 +93,11 @@ const STEPS = [
   { id: 4, name: "Confirm", icon: CheckCircle2 },
 ]
 
-export default function RegistrationWizard({ seasonId, hasLinkedTelegram = false }: RegistrationWizardProps) {
+export default function RegistrationWizard({
+  seasonId,
+  hasLinkedTelegram = false,
+  wasCancelled = false,
+}: RegistrationWizardProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [showTelegramStep, setShowTelegramStep] = useState(false)
   const [season, setSeason] = useState<Season | null>(null)
@@ -128,9 +133,39 @@ export default function RegistrationWizard({ seasonId, hasLinkedTelegram = false
   const [newMemberGender, setNewMemberGender] = useState("")
   const [isAddingMember, setIsAddingMember] = useState(false)
 
+  // Cancel-resume state
+  const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
+  const [isResumingPayment, setIsResumingPayment] = useState(false)
+
   useEffect(() => {
     fetchData()
   }, [seasonId])
+
+  useEffect(() => {
+    if (!wasCancelled) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/registrations")
+        if (!res.ok) return
+        const data = await res.json()
+        const match = (data.registrations ?? []).find(
+          (r: { id: string; season: { id: string }; status: string; paymentStatus: string }) =>
+            r.season.id === seasonId &&
+            r.status === "pending" &&
+            r.paymentStatus === "unpaid"
+        )
+        if (!cancelled && match) {
+          setResumableRegistrationId(match.id)
+        }
+      } catch {
+        // swallow — fall back to normal wizard
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [wasCancelled, seasonId])
 
   const fetchData = async () => {
     try {
@@ -238,6 +273,34 @@ export default function RegistrationWizard({ seasonId, hasLinkedTelegram = false
     setDiscountCode("")
     setAppliedDiscount(null)
     setDiscountError(null)
+  }
+
+  const handleResumePayment = async () => {
+    if (!resumableRegistrationId) return
+    setIsResumingPayment(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/payments/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId: resumableRegistrationId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create checkout session")
+      }
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+        return
+      }
+      // No URL + ok → discount zeroed the bill; treat as complete.
+      setRegistrationComplete(true)
+      setCurrentStep(4)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start payment")
+    } finally {
+      setIsResumingPayment(false)
+    }
   }
 
   const handleSubmitRegistration = async () => {
@@ -380,6 +443,44 @@ export default function RegistrationWizard({ seasonId, hasLinkedTelegram = false
   }
 
   if (!season) return null
+
+  if (resumableRegistrationId) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm">
+          <h2 className="text-2xl font-medium text-ink mb-2">Finish your payment</h2>
+          <p className="text-ink/80 mb-6">
+            You started registering for this season but didn't complete payment.
+            Your spot is saved — click below to go back to Stripe Checkout.
+          </p>
+          {error && (
+            <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+              {error}
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <Button onClick={handleResumePayment} disabled={isResumingPayment}>
+              {isResumingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redirecting…
+                </>
+              ) : (
+                "Continue to payment"
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setResumableRegistrationId(null)}
+              disabled={isResumingPayment}
+            >
+              Start over
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
