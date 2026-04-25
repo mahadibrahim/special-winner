@@ -33,7 +33,7 @@ import {
   mediaAssets,
 } from "../schema/media";
 import { rosters, games } from "../schema";
-import { asc, eq, and, or } from "drizzle-orm";
+import { asc, eq, ne, and, or } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
 export const TEST_USERS = {
@@ -593,12 +593,37 @@ async function seedE2ETests() {
         status: "confirmed",
         paymentStatus: "paid",
         registrationType: "full",
-        amountDueCents: 15000,
+        amountDueCents: 0,
         amountPaidCents: 15000,
       })
       .returning();
-
+  } else if (
+    existingReg.paymentStatus === "paid" &&
+    existingReg.amountDueCents !== 0
+  ) {
+    // Heal stale rows from older seed runs that left amountDueCents=15000
+    // on a fully-paid registration; the detail UI reads it as "Balance".
+    [existingReg] = await db
+      .update(registrations)
+      .set({ amountDueCents: 0 })
+      .where(eq(registrations.id, existingReg.id))
+      .returning();
   }
+
+  // Heal any other fully-paid rows in this org with non-zero amountDueCents.
+  // Older seeds and the pre-fix Stripe webhook left amountDueCents at the
+  // full season price even after payment landed, which renders as a wrong
+  // "Balance $X.XX" on the new registration-detail page.
+  await db
+    .update(registrations)
+    .set({ amountDueCents: 0 })
+    .where(
+      and(
+        eq(registrations.paymentStatus, "paid"),
+        ne(registrations.amountDueCents, 0)
+      )
+    );
+
   console.log(`   ✓ Registration: ${child1.firstName} - ${season.name} (confirmed)`);
 
   // --- Media staff user ---

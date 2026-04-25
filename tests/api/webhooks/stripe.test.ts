@@ -179,6 +179,7 @@ describe("handleCheckoutComplete", () => {
     expect(reg.status).toBe("confirmed");
     expect(reg.paymentStatus).toBe("paid");
     expect(reg.amountPaidCents).toBe(12500);
+    expect(reg.amountDueCents).toBe(0);
 
     const paymentRows = await db
       .select()
@@ -260,6 +261,7 @@ describe("handleCheckoutComplete", () => {
     expect(reg.status).toBe("confirmed");
     expect(reg.paymentStatus).toBe("deposit_paid");
     expect(reg.amountPaidCents).toBe(5000);
+    expect(reg.amountDueCents).toBe(15000);
 
     const paymentRows = await db
       .select()
