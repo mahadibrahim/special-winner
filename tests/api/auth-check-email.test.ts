@@ -30,10 +30,15 @@ describe("GET /api/auth/check-email", () => {
   });
 
   it("rate-limits after 10 requests in 60s from the same IP and fails open", async () => {
-    // Burn through 10 requests so the bucket is at the limit, then expect the 11th
-    // to fail-open with exists:false and the x-ratelimit-exceeded header set.
+    // Test assumption: the dev server's in-memory bucket for this test runner's IP
+    // is at < 10 entries when this test starts. If a previous test run within the
+    // last 60s populated the bucket, the early-request assertion below catches it
+    // with a clear error rather than letting this test pass for the wrong reason.
     const email = `unique-${Date.now()}@example.com`;
-    for (let i = 0; i < 10; i++) {
+    const firstRes = await fetch(`${BASE}/api/auth/check-email?email=${email}`);
+    expect(firstRes.headers.get("x-ratelimit-exceeded")).toBeNull();
+    // Burn through 9 more (10 total), all of which should still be allowed.
+    for (let i = 0; i < 9; i++) {
       await fetch(`${BASE}/api/auth/check-email?email=${email}`);
     }
     const res = await fetch(`${BASE}/api/auth/check-email?email=${email}`);
