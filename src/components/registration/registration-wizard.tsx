@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TelegramConnectStep } from "./telegram-connect-step"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 interface Season {
   id: string
@@ -108,6 +109,7 @@ export default function RegistrationWizard({
   user,
 }: RegistrationWizardProps) {
   const isGuest = user === null
+  useHydrationBeacon()
   const [currentStep, setCurrentStep] = useState(1)
   const [showTelegramStep, setShowTelegramStep] = useState(false)
   const [season, setSeason] = useState<Season | null>(null)
@@ -164,7 +166,7 @@ export default function RegistrationWizard({
   }, [seasonId])
 
   useEffect(() => {
-    if (!wasCancelled) return
+    if (!wasCancelled || isGuest) return
     let cancelled = false
     ;(async () => {
       try {
@@ -187,7 +189,7 @@ export default function RegistrationWizard({
     return () => {
       cancelled = true
     }
-  }, [wasCancelled, seasonId])
+  }, [wasCancelled, seasonId, isGuest])
 
   useEffect(() => {
     if (!isGuest || !guestParentEmail) {
@@ -229,14 +231,14 @@ export default function RegistrationWizard({
       setIsLoading(true)
       const [seasonRes, membersRes] = await Promise.all([
         fetch(`/api/public/seasons/${seasonId}`),
-        fetch("/api/family-members"),
+        isGuest ? Promise.resolve(null) : fetch("/api/family-members"),
       ])
 
       if (!seasonRes.ok) throw new Error("Failed to fetch season")
       const seasonData = await seasonRes.json()
       setSeason(seasonData.season)
 
-      if (membersRes.ok) {
+      if (membersRes && membersRes.ok) {
         const membersData = await membersRes.json()
         setFamilyMembers(membersData.familyMembers || [])
       }
@@ -361,7 +363,7 @@ export default function RegistrationWizard({
   }
 
   const handleSubmitGuestCheckout = async () => {
-    if (!season) return
+    if (!season || !waiverAccepted || !waiverSignature) return
     setIsSubmitting(true)
     setError(null)
     try {
