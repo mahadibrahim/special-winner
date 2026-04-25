@@ -1,14 +1,10 @@
 import type { APIRoute } from "astro";
-import { getDb } from "@/lib/db";
-import { registrations, payments } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
+import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
 import type Stripe from "stripe";
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const db = getDb();
-
     const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
       console.error("Stripe webhook secret not configured");
@@ -18,7 +14,6 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Get raw body and signature
     const payload = await request.text();
     const signature = request.headers.get("stripe-signature");
 
@@ -29,7 +24,6 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Verify webhook signature
     const event = verifyWebhookSignature(payload, signature, webhookSecret);
     if (!event) {
       return new Response(JSON.stringify({ error: "Invalid signature" }), {
@@ -38,11 +32,11 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Handle the event
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutComplete(session);
+        const result = await handleCheckoutComplete(session);
+        console.log(`[stripe webhook] checkout.session.completed → ${result.status}`, result);
         break;
       }
 
@@ -74,59 +68,3 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 };
-
-async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
-  const registrationId = session.metadata?.registrationId;
-  const paymentType = session.metadata?.type;
-
-  if (paymentType !== "registration_payment" || !registrationId) {
-    console.log("Not a registration payment, skipping");
-    return;
-  }
-
-  // Get the registration
-  const [registration] = await getDb()
-    .select()
-    .from(registrations)
-    .where(eq(registrations.id, registrationId));
-
-  if (!registration) {
-    console.error("Registration not found:", registrationId);
-    return;
-  }
-
-  // Calculate payment amount
-  const amountPaid = session.amount_total || 0;
-  const newAmountPaid = registration.amountPaidCents + amountPaid;
-  const isFullyPaid = newAmountPaid >= registration.amountDueCents;
-
-  // Determine payment type based on registration type
-  const paymentTypeValue = registration.registrationType === "deposit" ? "deposit" : "full";
-
-  // Update registration
-  await getDb()
-    .update(registrations)
-    .set({
-      status: "confirmed",
-      paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
-      amountPaidCents: newAmountPaid,
-      updatedAt: new Date(),
-    })
-    .where(eq(registrations.id, registrationId));
-
-  // Create payment record
-  await getDb().insert(payments).values({
-    registrationId,
-    userId: registration.registeredByUserId,
-    amountCents: amountPaid,
-    paymentType: paymentTypeValue as "deposit" | "full" | "balance" | "refund" | "installment",
-    status: "succeeded",
-    stripePaymentIntentId: session.payment_intent as string,
-    metadata: {
-      customerEmail: session.customer_email,
-      stripeCheckoutSessionId: session.id,
-    },
-  });
-
-  console.log(`Payment processed for registration ${registrationId}: $${amountPaid / 100}`);
-}

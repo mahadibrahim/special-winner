@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, locations, ageGroups, users } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { z } from "zod";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 
@@ -184,7 +184,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
           eq(registrations.seasonId, data.seasonId),
           eq(registrations.familyMemberId, data.familyMemberId)
         )
-      );
+      )
+      .orderBy(asc(registrations.createdAt))
+      .limit(1);
 
     if (existingReg) {
       const isPendingUnpaid =
@@ -321,42 +323,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
         notes: data.notes || null,
       })
       .returning();
-
-    // Send confirmation email (don't block on failure)
-    try {
-      // Get program and location info for email
-      const [programData] = await getDb()
-        .select({
-          program: programs,
-          location: locations,
-        })
-        .from(programs)
-        .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(eq(programs.id, season.programId));
-
-      if (programData) {
-        sendRegistrationConfirmationEmail({
-          userId: user.id,
-          organizationId: programData.location.organizationId,
-          registrationId: newRegistration.id,
-          parentEmail: user.email,
-          parentName: user.firstName || user.email.split("@")[0],
-          childName: `${familyMember.firstName} ${familyMember.lastName}`,
-          programName: programData.program.name,
-          seasonName: season.name,
-          startDate: season.startDate,
-          endDate: season.endDate,
-          scheduleNotes: season.scheduleNotes || undefined,
-          locationName: programData.location.name,
-          locationAddress: [programData.location.addressLine1, programData.location.city, programData.location.state].filter(Boolean).join(", ") || undefined,
-          amountDueCents: amountDue,
-          paymentStatus: "unpaid",
-          registrationStatus: "pending",
-        }).catch((err) => console.error("Error sending confirmation email:", err));
-      }
-    } catch (emailError) {
-      console.error("Error preparing confirmation email:", emailError);
-    }
 
     return new Response(
       JSON.stringify({

@@ -6,6 +6,7 @@
     "dev": "node -r dotenv/config ./node_modules/.bin/astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "stripe:listen": "stripe listen --forward-to localhost:4321/api/webhooks/stripe --events checkout.session.completed,payment_intent.succeeded,payment_intent.payment_failed",
     "astro": "astro",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",

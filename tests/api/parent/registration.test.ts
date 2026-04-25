@@ -96,6 +96,61 @@ describe("Parent Registration API", () => {
 
       expect(res.status).toBe(401);
     });
+
+    it("returns resumed=true and same id on duplicate pending POST (200)", async () => {
+      if (!seasonId || !familyMemberId) {
+        console.warn(
+          "Skipping: no open season or family member available",
+          { seasonId, familyMemberId }
+        );
+        return;
+      }
+
+      const body = JSON.stringify({
+        seasonId,
+        familyMemberId,
+        registrationType: "full",
+        waiverSigned: true,
+        waiverSignedBy: "Test Parent",
+      });
+
+      // First POST — may be 201 (new) or 200 with resumed=true if a pending
+      // registration already exists from a previous test run.
+      const first = await apiFetch("/api/registrations", {
+        method: "POST",
+        cookie: parentCookie,
+        body,
+      });
+
+      // If first call came back 400 (already confirmed/waitlisted), we cannot
+      // exercise the resume path — skip gracefully.
+      if (first.status === 400) {
+        const json = await first.json();
+        console.warn("Skipping resume test: registration already confirmed/waitlisted:", json.error);
+        return;
+      }
+
+      const firstJson = await first.json();
+      expect([200, 201]).toContain(first.status);
+      const firstId = firstJson.registration?.id;
+      expect(firstId).toBeDefined();
+
+      // If the first call already returned resumed=true, the state is already
+      // "pending+unpaid" — the second call must also return resumed=true.
+      // If the first call created a new registration (201), the second call
+      // must return 200 with resumed=true.
+
+      const second = await apiFetch("/api/registrations", {
+        method: "POST",
+        cookie: parentCookie,
+        body,
+      });
+
+      expect(second.status).toBe(200);
+      const secondJson = await second.json();
+      expect(secondJson.resumed).toBe(true);
+      expect(secondJson.registration?.id).toBe(firstId);
+    });
   });
 
   // ---- GET (List Registrations) ----
