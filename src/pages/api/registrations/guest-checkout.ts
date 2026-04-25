@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
@@ -16,7 +16,7 @@ import {
   createCheckoutForRegistration,
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
-import { lucia } from "@/lib/auth/lucia";
+import { createSession } from "@/lib/auth";
 
 const guestCheckoutSchema = z.object({
   seasonId: z.string().uuid(),
@@ -38,7 +38,8 @@ const guestCheckoutSchema = z.object({
   discountCode: z.string().optional(),
 });
 
-export const POST: APIRoute = async ({ request, url, cookies }) => {
+export const POST: APIRoute = async (context) => {
+  const { request, url } = context;
   try {
     const body = await request.json();
     const parsed = guestCheckoutSchema.safeParse(body);
@@ -55,28 +56,24 @@ export const POST: APIRoute = async ({ request, url, cookies }) => {
     const db = getDb();
     const normalizedEmail = data.parent.email.toLowerCase().trim();
 
-    // Step 1: resolve user (upsert)
-    let userRow = (
-      await db
-        .select()
-        .from(users)
-        .where(eq(users.email, normalizedEmail))
-        .limit(1)
-    )[0];
+    // Step 1: resolve user (upsert with conflict handling)
     let wasNewUser = false;
-    if (!userRow) {
-      const [inserted] = await db
-        .insert(users)
-        .values({
-          email: normalizedEmail,
-          passwordHash: null,
-          firstName: data.parent.firstName,
-          lastName: data.parent.lastName,
-          phone: data.parent.phone || null,
-          emailVerified: false,
-        })
-        .returning();
-      userRow = inserted;
+    const insertedUsers = await db
+      .insert(users)
+      .values({
+        email: normalizedEmail,
+        passwordHash: null,
+        firstName: data.parent.firstName,
+        lastName: data.parent.lastName,
+        phone: data.parent.phone || null,
+        emailVerified: false,
+      })
+      .onConflictDoNothing({ target: users.email })
+      .returning();
+
+    let userRow: typeof users.$inferSelect;
+    if (insertedUsers.length > 0) {
+      userRow = insertedUsers[0];
       wasNewUser = true;
 
       // Assign global parent role (mirroring /api/auth/signup)
@@ -91,6 +88,18 @@ export const POST: APIRoute = async ({ request, url, cookies }) => {
           scopeType: "global",
         });
       }
+    } else {
+      // Either the email already existed or a concurrent insert won the race.
+      // Either way, re-fetch the row that's now in the table.
+      const [existing] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, normalizedEmail));
+      if (!existing) {
+        // Should be impossible — log and 500
+        throw new Error("User row vanished after upsert race");
+      }
+      userRow = existing;
     }
 
     // Step 2: resolve family member (dedupe by parent + lower(name) + DOB)
@@ -108,6 +117,7 @@ export const POST: APIRoute = async ({ request, url, cookies }) => {
             eq(familyMembersTable.birthDate, data.child.birthDate),
           ),
         )
+        .orderBy(asc(familyMembersTable.createdAt))
         .limit(1)
     )[0];
     if (!familyMemberRow) {
@@ -153,9 +163,7 @@ export const POST: APIRoute = async ({ request, url, cookies }) => {
     // Step 4: if waitlisted (no payment), set session cookie for new users and return
     if (regResult.kind === "waitlisted") {
       if (wasNewUser) {
-        const session = await lucia.createSession(userRow.id, {});
-        const sc = lucia.createSessionCookie(session.id);
-        cookies.set(sc.name, sc.value, sc.attributes);
+        await createSession(userRow.id, context);
       }
       return new Response(
         JSON.stringify({
@@ -180,9 +188,7 @@ export const POST: APIRoute = async ({ request, url, cookies }) => {
 
       // Account-takeover prevention: only set Lucia session for genuinely new users
       if (wasNewUser) {
-        const session = await lucia.createSession(userRow.id, {});
-        const sc = lucia.createSessionCookie(session.id);
-        cookies.set(sc.name, sc.value, sc.attributes);
+        await createSession(userRow.id, context);
       }
 
       if (checkout.kind === "paid_zero") {
