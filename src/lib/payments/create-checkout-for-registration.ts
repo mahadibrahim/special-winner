@@ -212,7 +212,10 @@ export async function createCheckoutForRegistration(
     .from(users)
     .where(eq(users.id, userId));
 
-  const customerEmail = userRow?.email ?? "";
+  if (!userRow) {
+    throw new CheckoutError(500, "Could not resolve user email for checkout");
+  }
+  const customerEmail = userRow.email;
 
   // 9. Build URLs
   const successUrl = `${baseUrl}/dashboard?payment=success&registration=${registrationId}`;
