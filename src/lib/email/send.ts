@@ -431,6 +431,8 @@ export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) 
 
   const subject = "You're registered — finish setting up your account";
 
+  // magicLinkUrl contains a single-use, 15-minute login token. Routing it via
+  // SMS is the whole point of this email type — see /m/[token] for redemption.
   const smsBody = `You're registered! Sign in to your Aspire Sports account: ${params.magicLinkUrl}`;
 
   const result = await sendViaGatewayOrDirect({
