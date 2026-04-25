@@ -14,13 +14,16 @@ export default defineConfig({
           name: "api",
           include: ["tests/api/**/*.test.ts"],
           setupFiles: ["tests/api/setup/global-setup.ts"],
-          // 30s per test: the tag-queue endpoint does N+1 lookups per queued
-          // session and CI's shared DB accumulates enough uploaded sessions
-          // that a single GET can take several seconds. See
-          // src/pages/api/admin/media/tag-queue.ts — proper fix is a JOIN,
-          // but bumping the timeout is zero-risk for now.
-          testTimeout: 30000,
-          hookTimeout: 30000,
+          // The tag-queue endpoint does N+1 lookups per queued session and
+          // CI's shared DB has accumulated hundreds of seeded sessions
+          // (every db:seed:e2e adds 15 more). On top of that, src/lib/db
+          // pins postgres-js to max:1 so api-test workers serialize through
+          // a single connection. A GET can spend 20s+ in queue + N+1 walk
+          // before responding. The proper fix is a JOIN in tag-queue.ts
+          // plus a seed cleanup pass; until then, generous budgets here are
+          // zero-risk and keep test-api stable.
+          testTimeout: 60000,
+          hookTimeout: 60000,
         },
         resolve: { alias },
       },

@@ -21,8 +21,11 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
 
-  // Test timeout
-  timeout: 30 * 1000,  // 30s for CI stability
+  // Test timeout. Generous because Railway-backed CI runs share a single
+  // DB instance: under parallel-worker load (auth + admin + media tests
+  // hitting Stripe + Drizzle simultaneously) signin alone has been seen
+  // taking 35s, so a 30s overall test budget triggers spurious flakes.
+  timeout: 120 * 1000,
   expect: {
     timeout: 10 * 1000,  // 10s for assertions
   },

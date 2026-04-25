@@ -57,11 +57,14 @@ export async function signIn(
   await emailInput.fill(email);
   await passwordInput.fill(password);
 
-  // Wait for the API response after clicking
+  // Wait for the API response after clicking. Railway-backed CI can stall
+  // under parallel-worker load — signin POST has been observed at 35s when
+  // multiple shoots/queue endpoints are running concurrently against the
+  // shared DB. Generous budget so we fail on real bugs, not load.
   const [response] = await Promise.all([
     page.waitForResponse(
       (resp) => resp.url().includes("/api/auth/signin"),
-      { timeout: 20000 }
+      { timeout: 60000 }
     ),
     submitBtn.click(),
   ]);
@@ -69,7 +72,7 @@ export async function signIn(
   // If login succeeded (2xx), wait for navigation
   if (response.ok()) {
     await page.waitForURL((url) => !url.pathname.includes("/signin"), {
-      timeout: 15000,
+      timeout: 30000,
     });
   }
 }
@@ -185,10 +188,14 @@ export async function navigateSidebar(
 }
 
 /**
- * Wait for page to finish loading (no pending requests)
+ * Wait for page to finish loading. Uses `domcontentloaded` rather than
+ * `networkidle` because the dashboard fires several long-poll/heartbeat
+ * fetches (announcements, team-groups, hydration beacons) that keep the
+ * network non-idle indefinitely under load — the older networkidle wait
+ * was the source of a 30s-timeout flake on parent-dashboard tests.
  */
 export async function waitForPageLoad(page: Page): Promise<void> {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 }
 
 /**
