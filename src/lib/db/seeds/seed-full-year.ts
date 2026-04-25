@@ -252,7 +252,7 @@ async function seedFullYear() {
         status: "confirmed",
         paymentStatus: "paid",
         amountPaidCents: 17500,
-        amountDueCents: 17500,
+        amountDueCents: 0,
         registrationType: "full",
         waiverSigned: true,
         waiverSignedAt: new Date("2025-08-15"),
@@ -421,6 +421,7 @@ async function seedFullYear() {
       const isPaid = Math.random() > 0.3;
       const isDeposit = !isPaid && Math.random() > 0.5;
       const amountPaid = isPaid ? season.priceCents : isDeposit ? (season.depositCents || 0) : 0;
+      const amountDue = Math.max(0, season.priceCents - amountPaid);
 
       const [reg] = await db.insert(registrations).values({
         seasonId: season.id,
@@ -429,7 +430,7 @@ async function seedFullYear() {
         status: isPaid ? "confirmed" : "pending",
         paymentStatus: isPaid ? "paid" : isDeposit ? "deposit_paid" : "unpaid",
         amountPaidCents: amountPaid,
-        amountDueCents: season.priceCents,
+        amountDueCents: amountDue,
         registrationType: isDeposit ? "deposit" : "full",
         waiverSigned: isPaid,
         waiverSignedAt: isPaid ? new Date() : null,

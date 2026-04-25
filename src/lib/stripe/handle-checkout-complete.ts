@@ -55,6 +55,7 @@ export async function handleCheckoutComplete(
   const amountPaid = session.amount_total || 0;
   const newAmountPaid = registration.amountPaidCents + amountPaid;
   const isFullyPaid = newAmountPaid >= registration.amountDueCents;
+  const newAmountDue = Math.max(0, registration.amountDueCents - amountPaid);
   const paymentTypeValue =
     registration.registrationType === "deposit" ? "deposit" : "full";
 
@@ -64,6 +65,7 @@ export async function handleCheckoutComplete(
       status: "confirmed",
       paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
       amountPaidCents: newAmountPaid,
+      amountDueCents: newAmountDue,
       updatedAt: new Date(),
     })
     .where(eq(registrations.id, registrationId));
