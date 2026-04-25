@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, sports, locations, ageGroups, users } from "@/lib/db/schema";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { registrations, familyMembers, seasons, programs, sports, locations, ageGroups } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
-import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
+import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
 
 const createRegistrationSchema = z.object({
   seasonId: z.string().uuid("Invalid season ID"),
@@ -120,31 +120,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const db = getDb();
-
     const body = await request.json();
     const validation = createRegistrationSchema.safeParse(body);
-
     if (!validation.success) {
       return new Response(
         JSON.stringify({
           error: "Validation failed",
           details: validation.error.flatten().fieldErrors,
         }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
-
     const data = validation.data;
 
-    // Verify family member belongs to user
-    const [familyMember] = await getDb()
+    const [familyMember] = await db
       .select()
       .from(familyMembers)
-      .where(and(eq(familyMembers.id, data.familyMemberId), eq(familyMembers.parentUserId, user.id)));
-
+      .where(
+        and(
+          eq(familyMembers.id, data.familyMemberId),
+          eq(familyMembers.parentUserId, user.id),
+        ),
+      );
     if (!familyMember) {
       return new Response(JSON.stringify({ error: "Family member not found" }), {
         status: 404,
@@ -152,189 +149,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Get season details
-    const [season] = await getDb()
-      .select()
-      .from(seasons)
-      .where(eq(seasons.id, data.seasonId));
-
-    if (!season) {
-      return new Response(JSON.stringify({ error: "Season not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (season.status !== "open") {
-      return new Response(JSON.stringify({ error: "Registration is not open for this season" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Check for existing registration. If a registration was started earlier
-    // but payment never completed (e.g. Stripe checkout creation failed), we
-    // return that same row so the client can retry checkout instead of being
-    // blocked with a duplicate-registration error.
-    const [existingReg] = await getDb()
-      .select()
-      .from(registrations)
-      .where(
-        and(
-          eq(registrations.seasonId, data.seasonId),
-          eq(registrations.familyMemberId, data.familyMemberId)
-        )
-      )
-      .orderBy(asc(registrations.createdAt))
-      .limit(1);
-
-    if (existingReg) {
-      const isPendingUnpaid =
-        existingReg.status === "pending" && existingReg.paymentStatus === "unpaid";
-      if (isPendingUnpaid) {
-        return new Response(
-          JSON.stringify({
-            registration: existingReg,
-            requiresPayment: existingReg.amountDueCents > 0,
-            amountDueCents: existingReg.amountDueCents,
-            resumed: true,
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: "This player is already registered for this season" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Check capacity
-    if (season.maxParticipants) {
-      const confirmedRows = await getDb()
-        .select({ id: registrations.id })
-        .from(registrations)
-        .where(
-          and(
-            eq(registrations.seasonId, data.seasonId),
-            eq(registrations.status, "confirmed")
-          )
-        );
-      const registeredCount = confirmedRows.length;
-      if (registeredCount >= season.maxParticipants) {
-        // Waitlist the registration
-        const amountDue = data.registrationType === "deposit" && season.depositCents
-          ? season.depositCents
-          : season.priceCents;
-
-        const [newRegistration] = await getDb()
-          .insert(registrations)
-          .values({
-            seasonId: data.seasonId,
-            familyMemberId: data.familyMemberId,
-            registeredByUserId: user.id,
-            status: "waitlisted",
-            paymentStatus: "unpaid",
-            amountPaidCents: 0,
-            amountDueCents: amountDue,
-            registrationType: data.registrationType,
-            waiverSigned: data.waiverSigned,
-            waiverSignedAt: data.waiverSigned ? new Date() : null,
-            waiverSignedBy: data.waiverSignedBy,
-            notes: data.notes || null,
-          })
-          .returning();
-
-        // Send waitlist confirmation email
-        try {
-          const [programData] = await getDb()
-            .select({
-              program: programs,
-              location: locations,
-            })
-            .from(programs)
-            .innerJoin(locations, eq(programs.locationId, locations.id))
-            .where(eq(programs.id, season.programId));
-
-          if (programData) {
-            sendRegistrationConfirmationEmail({
-              userId: user.id,
-              organizationId: programData.location.organizationId,
-              registrationId: newRegistration.id,
-              parentEmail: user.email,
-              parentName: user.firstName || user.email.split("@")[0],
-              childName: `${familyMember.firstName} ${familyMember.lastName}`,
-              programName: programData.program.name,
-              seasonName: season.name,
-              startDate: season.startDate,
-              endDate: season.endDate,
-              scheduleNotes: season.scheduleNotes || undefined,
-              locationName: programData.location.name,
-              locationAddress: [programData.location.addressLine1, programData.location.city, programData.location.state].filter(Boolean).join(", ") || undefined,
-              amountDueCents: amountDue,
-              paymentStatus: "unpaid",
-              registrationStatus: "waitlisted",
-            }).catch((err) => console.error("Error sending waitlist email:", err));
-          }
-        } catch (emailError) {
-          console.error("Error preparing waitlist email:", emailError);
-        }
-
-        return new Response(
-          JSON.stringify({
-            registration: newRegistration,
-            message: "Added to waitlist - season is at capacity",
-            requiresPayment: false,
-          }),
-          {
-            status: 201,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    }
-
-    // Calculate amount due
-    const amountDue = data.registrationType === "deposit" && season.depositCents
-      ? season.depositCents
-      : season.priceCents;
-
-    // Create registration (pending payment)
-    const [newRegistration] = await getDb()
-      .insert(registrations)
-      .values({
+    try {
+      const result = await createRegistration({
+        db,
+        user: { id: user.id, email: user.email, firstName: user.firstName },
+        familyMember,
         seasonId: data.seasonId,
-        familyMemberId: data.familyMemberId,
-        registeredByUserId: user.id,
-        status: "pending",
-        paymentStatus: "unpaid",
-        amountPaidCents: 0,
-        amountDueCents: amountDue,
         registrationType: data.registrationType,
         waiverSigned: data.waiverSigned,
-        waiverSignedAt: data.waiverSigned ? new Date() : null,
         waiverSignedBy: data.waiverSignedBy,
-        notes: data.notes || null,
-      })
-      .returning();
+        notes: data.notes,
+      });
 
-    return new Response(
-      JSON.stringify({
-        registration: newRegistration,
-        requiresPayment: true,
-        amountDueCents: amountDue,
-      }),
-      {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
+      const status = result.kind === "resumed" ? 200 : 201;
+      return new Response(
+        JSON.stringify({
+          registration: result.registration,
+          requiresPayment: result.requiresPayment,
+          amountDueCents: result.amountDueCents,
+          ...(result.kind === "resumed" ? { resumed: true } : {}),
+          ...(result.kind === "waitlisted"
+            ? { message: "Added to waitlist - season is at capacity" }
+            : {}),
+        }),
+        { status, headers: { "Content-Type": "application/json" } },
+      );
+    } catch (err) {
+      if (err instanceof RegistrationError) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: err.status,
+          headers: { "Content-Type": "application/json" },
+        });
       }
-    );
+      throw err;
+    }
   } catch (error) {
     console.error("Error creating registration:", error);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
