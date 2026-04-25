@@ -753,12 +753,17 @@ async function seedE2ETests() {
     );
 
   // API tests (test-api job) and Playwright tests (test job) run in parallel
-  // against the same DB. Each describe's beforeAll in tests/api/media/
-  // tag-session.test.ts and tests/api/admin/media-tag-queue.test.ts claims
-  // queue[0], transitioning a fixture out of 'uploaded' and making it
-  // invisible to the Playwright tagger test. Seed 10 so there are always
-  // some left for Playwright.
-  const needed = Math.max(0, 10 - existingSessions.length);
+  // against the same shared CI DB. tag-session.test.ts has 5 describe blocks
+  // (each beforeAll claims queue[0]) plus inline claims, so test-api can
+  // consume ~6 sessions on its own. Add 15 fresh fixtures every seed run
+  // (don't subtract existing) so Playwright always finds plenty regardless
+  // of how many concurrent CI runs are racing on the same DB. Stale
+  // 'uploaded' rows from prior runs get reused by the tag-queue endpoint
+  // anyway — extra ones aren't wasteful.
+  console.log(
+    `   ℹ Existing 'uploaded' sessions for this game in org: ${existingSessions.length}`
+  );
+  const needed = 15;
   for (let n = 0; n < needed; n++) {
     const [s] = await db
       .insert(shootSessions)
@@ -796,12 +801,6 @@ async function seedE2ETests() {
     }
     console.log(`   ✓ Tagger fixture session ${s.id.slice(0, 8)} with 6 assets`);
   }
-  if (needed === 0) {
-    console.log(
-      `   ✓ ${existingSessions.length} tagger fixture session(s) already present`
-    );
-  }
-
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
   console.log("─".repeat(50));
