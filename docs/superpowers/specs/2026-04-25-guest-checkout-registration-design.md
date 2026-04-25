@@ -127,7 +127,7 @@ Parent opens email → taps magic link →
 - **$0 after discount or waitlist (no Stripe redirect).** Wizard receives `{ requiresPayment: false }` and calls `POST /api/auth/send-magic-link` itself, then shows the existing confirmation step. Auth on that endpoint accepts a fresh registration row owned by the target user (last 10 min) as proof of intent.
 - **Logged-in user uses the page.** No `parent` section, no guest-checkout endpoint, no magic-link email. Existing behavior.
 - **Rate-limit hit on check-email.** Endpoint returns `{ exists: false }` (fail-open) so the wizard never blocks. The user just won't see the inline collision notice; they'll still successfully complete the flow.
-- **Magic-link email send fails after webhook.** Logged. Registration remains good. User can tap "Forgot password" on `/signin` — but that requires `passwordHash IS NOT NULL`. Need a fallback: if `passwordHash IS NULL`, the forgot-password flow should also send a `login`-purpose magic link instead of a `password_reset_login` link. (Small amendment to `/api/auth/forgot-password.ts`; included in this spec since it's a direct consequence.)
+- **Magic-link email send fails after webhook.** Logged. Registration remains good. User can tap "Forgot password" on `/signin`, which already mints a `password_reset_login` magic link via `forgot-password.ts:66-71` — and that purpose's redemption (`/m/[token].ts:55-57`) just creates a session and redirects to `/dashboard`, so it works for passwordless users without modification.
 
 ## Testing
 
@@ -162,7 +162,6 @@ Parent opens email → taps magic link →
 | `src/components/registration/registration-wizard.tsx` | Anonymous-vs-authed Step 1 branch; email check-on-blur; collision subcopy; route submit through the appropriate endpoint |
 | `src/pages/api/auth/check-email.ts` | New endpoint with per-IP rate limit |
 | `src/pages/api/auth/send-magic-link.ts` | New endpoint for $0/waitlist + future re-trigger needs |
-| `src/pages/api/auth/forgot-password.ts` | If user has no passwordHash, send `login`-purpose magic link instead of `password_reset_login` |
 | `src/pages/api/registrations/guest-checkout.ts` | New endpoint |
 | `src/lib/registrations/create-registration.ts` | New shared helper extracted from existing `/api/registrations` POST |
 | `src/pages/api/registrations/index.ts` | Refactor POST to call the shared helper |
