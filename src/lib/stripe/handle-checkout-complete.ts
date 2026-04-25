@@ -125,12 +125,13 @@ export async function handleCheckoutComplete(
       }).catch((err) => console.error("[stripe webhook] email send failed:", err));
 
       // Guest-checkout users get a magic-link sign-in alongside the receipt.
-      // Triggered by the metadata flag set by /api/payments/create-checkout
-      // when called from /api/registrations/guest-checkout (Task 6).
+      // The flag is set by the guest-checkout registration endpoint when
+      // creating the Stripe session.
       if (session.metadata?.via_guest_checkout === "true") {
         try {
           const link = await createMagicLink({
             userId: registration.registeredByUserId,
+            organizationId: row.location.organizationId ?? undefined,
             purpose: "login",
             purposeContext: { redirectTo: `/dashboard?welcome=${registrationId}` },
             deliveredChannel: "email",
