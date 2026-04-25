@@ -266,9 +266,11 @@ export default function UpcomingEvents() {
                   </Badge>
                 )}
               </div>
-              <Button size="sm" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 gap-1">
-                View Details
-                <ChevronRight className="w-4 h-4" />
+              <Button asChild size="sm" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 gap-1">
+                <a href={`/dashboard/registrations/${nextEvent.id}`}>
+                  View Details
+                  <ChevronRight className="w-4 h-4" />
+                </a>
               </Button>
             </div>
           </div>
@@ -306,8 +308,9 @@ export default function UpcomingEvents() {
           const Icon = config.icon
 
           return (
-            <div
+            <a
               key={event.id}
+              href={`/dashboard/registrations/${event.id}`}
               className="group relative flex gap-4 p-4 rounded-xl bg-paper border border-border hover:bg-cream-2 hover:border-border transition-all cursor-pointer"
               style={{ animationDelay: `${index * 50}ms` }}
             >
@@ -355,16 +358,18 @@ export default function UpcomingEvents() {
                   <span className="truncate">{event.location}</span>
                 </div>
               </div>
-            </div>
+            </a>
           )
         })}
       </div>
 
       {/* View All Link */}
       <div className="text-center pt-2">
-        <Button variant="ghost" className="text-ink-muted hover:text-ink gap-2">
-          View Full Schedule
-          <ChevronRight className="w-4 h-4" />
+        <Button asChild variant="ghost" className="text-ink-muted hover:text-ink gap-2">
+          <a href="/dashboard/schedule">
+            View Full Schedule
+            <ChevronRight className="w-4 h-4" />
+          </a>
         </Button>
       </div>
     </div>

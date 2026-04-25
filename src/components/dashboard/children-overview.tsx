@@ -165,19 +165,24 @@ function ChildCard({ child }: { child: Child }) {
         {/* Programs */}
         <div className="flex flex-wrap gap-2 mb-4">
           {child.programs.map((program) => (
-            <Badge
+            <a
               key={program.id}
-              variant="outline"
-              className={cn(
-                "border-border text-xs font-medium",
-                program.status === "active" ? "text-ink bg-cream-2" : "text-ink-muted"
-              )}
+              href={`/dashboard/registrations/${program.id}`}
+              className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-md"
             >
-              {program.team || program.name}
-              {program.status === "upcoming" && (
-                <span className="ml-1 text-amber-400">• Soon</span>
-              )}
-            </Badge>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "border-border text-xs font-medium hover:border-primary/40 hover:bg-cream-2 transition-colors cursor-pointer",
+                  program.status === "active" ? "text-ink bg-cream-2" : "text-ink-muted"
+                )}
+              >
+                {program.team || program.name}
+                {program.status === "upcoming" && (
+                  <span className="ml-1 text-amber-400">• Soon</span>
+                )}
+              </Badge>
+            </a>
           ))}
         </div>
 
@@ -239,25 +244,30 @@ function ChildCard({ child }: { child: Child }) {
         {/* Quick Actions */}
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
           <Button
+            asChild
             variant="ghost"
             size="sm"
             className="flex-1 text-ink-muted hover:text-ink hover:bg-cream-2"
           >
-            View Profile
+            <a href={`/dashboard/children/${child.id}`}>View Profile</a>
           </Button>
           <Button
+            asChild
             variant="ghost"
             size="sm"
             className="flex-1 text-ink-muted hover:text-ink hover:bg-cream-2"
           >
-            Schedule
+            <a href="/dashboard/schedule">Schedule</a>
           </Button>
           <Button
+            asChild
             variant="ghost"
             size="sm"
             className="text-primary hover:text-primary hover:bg-primary/10"
           >
-            <ChevronRight className="w-4 h-4" />
+            <a href={`/dashboard/children/${child.id}`} aria-label={`Open ${child.firstName}'s profile`}>
+              <ChevronRight className="w-4 h-4" />
+            </a>
           </Button>
         </div>
       </div>
