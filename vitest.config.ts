@@ -21,9 +21,11 @@ export default defineConfig({
           // a single connection. A GET can spend 20s+ in queue + N+1 walk
           // before responding. The proper fix is a JOIN in tag-queue.ts
           // plus a seed cleanup pass; until then, generous budgets here are
-          // zero-risk and keep test-api stable.
-          testTimeout: 60000,
-          hookTimeout: 60000,
+          // zero-risk and keep test-api stable. Bumped to 120s on
+          // 2026-04-25 after CI run 24945582493 hit the 60s ceiling on
+          // tag-session.test.ts and media-tag-queue.test.ts.
+          testTimeout: 120000,
+          hookTimeout: 120000,
         },
         resolve: { alias },
       },
