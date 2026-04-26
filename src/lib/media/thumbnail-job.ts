@@ -7,6 +7,13 @@ import * as r2 from "@/lib/storage/r2";
 import { thumbnailKey, parseKey } from "@/lib/storage/keys";
 
 export async function processThumbnail(assetId: string): Promise<void> {
+  // Mock mode (CI / local without R2 configured): the upload endpoints
+  // already skip real R2 calls; the thumbnail step has nothing to read,
+  // so short-circuit. Without this guard, every uploaded asset triggers a
+  // 500 "R2 not configured" in the fire-and-forget trigger from the
+  // complete-upload endpoint.
+  if (process.env.R2_MOCK === "1") return;
+
   const db = getDb();
   const [asset] = await db
     .select()
