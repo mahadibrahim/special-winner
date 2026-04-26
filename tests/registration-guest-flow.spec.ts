@@ -59,11 +59,6 @@ test.describe("Anonymous registration (guest checkout)", () => {
       .filter({ has: page.locator('label', { hasText: "Email *" }) })
       .locator('input');
 
-    const phoneInput = page
-      .locator('div.space-y-2')
-      .filter({ has: page.locator('label', { hasText: "Phone (optional)" }) })
-      .locator('input');
-
     // Child (player) section — second occurrence of "First name *" / "Last name *"
     const childFirstInput = page
       .locator('div.space-y-2')
