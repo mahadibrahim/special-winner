@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: OrganizationSettings = {
     borderRadius: "0.75rem",
   },
   contact: {
-    supportEmail: "support@aspiresports.com",
+    supportEmail: "hello@aspiresportsohio.com",
   },
   payments: {
     currency: "USD",

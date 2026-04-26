@@ -5,13 +5,19 @@ import { MessagingMetricsCard } from '../../components/admin/messaging-metrics-c
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { getDb } from '../../lib/db';
 import { sports, locations, programs, seasons, registrations, users, conversations, conversationMessages } from '../../lib/db/schema';
-import { count, eq, and, isNotNull, sql, desc } from 'drizzle-orm';
+import { userOrganizationAccess } from '../../lib/db/schema/organizations';
+import { count, eq, and, isNotNull, sql, desc, inArray } from 'drizzle-orm';
 
 // User is guaranteed to be an admin by middleware
 const user = Astro.locals.user;
 if (!user) {
   return Astro.redirect('/signin?returnUrl=/admin');
 }
+
+// Resolve the organization context. Stats need to be org-scoped — global
+// counts leak data about other tenants and aren't actionable for a single
+// org's admin anyway.
+const organization = Astro.locals.organization;
 
 // Admin role is verified by middleware - non-admins are redirected to dashboard
 
@@ -78,7 +84,14 @@ function channelIconFor(channel: string | null): string {
 try {
   const db = getDb();
 
-  // Core stats — these tables always exist
+  // Without an organization in context (e.g. local dev hitting /admin on
+  // localhost without a domain mapping) we can't safely scope stats — show
+  // zeros rather than leak global counts.
+  const orgId = organization?.id ?? null;
+
+  // Core stats — all org-scoped via organizationId or via locations join.
+  // Each query includes a tenant filter; queries that go through a join chain
+  // (programs, seasons, registrations) join through locations.
   const [
     [sportsCount],
     [locationsCount],
@@ -88,43 +101,92 @@ try {
     [usersCount],
     [pendingRefundsData],
   ] = await Promise.all([
-    db.select({ count: count() }).from(sports),
-    db.select({ count: count() }).from(locations),
-    db.select({ count: count() }).from(programs),
-    db.select({ count: count() }).from(seasons).where(eq(seasons.status, 'open')),
-    db.select({ count: count() }).from(registrations),
-    db.select({ count: count() }).from(users),
-    db
-      .select({
-        count: count(),
-        totalAmount: sql<number>`COALESCE(SUM(${registrations.refundAmountCents}), 0)`,
-      })
-      .from(registrations)
-      .where(eq(registrations.refundStatus, 'pending_approval')),
+    orgId
+      ? db.select({ count: count() }).from(sports).where(eq(sports.organizationId, orgId))
+      : Promise.resolve([{ count: 0 }]),
+    orgId
+      ? db.select({ count: count() }).from(locations).where(eq(locations.organizationId, orgId))
+      : Promise.resolve([{ count: 0 }]),
+    orgId
+      ? db
+          .select({ count: count() })
+          .from(programs)
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(eq(locations.organizationId, orgId))
+      : Promise.resolve([{ count: 0 }]),
+    orgId
+      ? db
+          .select({ count: count() })
+          .from(seasons)
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(and(eq(seasons.status, 'open'), eq(locations.organizationId, orgId)))
+      : Promise.resolve([{ count: 0 }]),
+    orgId
+      ? db
+          .select({ count: count() })
+          .from(registrations)
+          .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(eq(locations.organizationId, orgId))
+      : Promise.resolve([{ count: 0 }]),
+    // "users" count = distinct users with org access for this org
+    orgId
+      ? db
+          .select({ count: sql<number>`COUNT(DISTINCT ${userOrganizationAccess.userId})` })
+          .from(userOrganizationAccess)
+          .where(eq(userOrganizationAccess.organizationId, orgId))
+      : Promise.resolve([{ count: 0 }]),
+    orgId
+      ? db
+          .select({
+            count: count(),
+            totalAmount: sql<number>`COALESCE(SUM(${registrations.refundAmountCents}), 0)`,
+          })
+          .from(registrations)
+          .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(
+            and(
+              eq(registrations.refundStatus, 'pending_approval'),
+              eq(locations.organizationId, orgId),
+            ),
+          )
+      : Promise.resolve([{ count: 0, totalAmount: 0 }]),
   ]);
 
-  // Messaging stats — conversations table may not exist yet
+  // Messaging stats — conversations table may not exist yet, also org-scoped
   let activeConversationsCount = { count: 0 };
   let needsReplyCount = { count: 0 };
-  try {
-    [activeConversationsCount] = await db
-      .select({ count: count() })
-      .from(conversations)
-      .where(eq(conversations.status, 'active'));
-    [needsReplyCount] = await db
-      .select({ count: count() })
-      .from(conversations)
-      .where(
-        and(
-          eq(conversations.status, 'active'),
-          isNotNull(conversations.assignmentRole),
-          sql`${conversations.assignmentRole} <> 'bot'`,
-          isNotNull(conversations.lastInboundAt),
-          sql`(${conversations.lastOutboundAt} IS NULL OR ${conversations.lastInboundAt} > ${conversations.lastOutboundAt})`,
-        ),
-      );
-  } catch {
-    // conversations table doesn't exist yet — messaging not deployed
+  if (orgId) {
+    try {
+      [activeConversationsCount] = await db
+        .select({ count: count() })
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.status, 'active'),
+            eq(conversations.organizationId, orgId),
+          ),
+        );
+      [needsReplyCount] = await db
+        .select({ count: count() })
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.status, 'active'),
+            eq(conversations.organizationId, orgId),
+            isNotNull(conversations.assignmentRole),
+            sql`${conversations.assignmentRole} <> 'bot'`,
+            isNotNull(conversations.lastInboundAt),
+            sql`(${conversations.lastOutboundAt} IS NULL OR ${conversations.lastInboundAt} > ${conversations.lastOutboundAt})`,
+          ),
+        );
+    } catch {
+      // conversations table doesn't exist yet — messaging not deployed
+    }
   }
 
   stats = {
@@ -144,20 +206,27 @@ try {
   // stat grid. Each conversation includes parent name and the most recent
   // message snippet. Wrapped in try/catch since conversations table may not exist.
   try {
-  const recentRows = await db
-    .select({
-      id: conversations.id,
-      parentFirstName: users.firstName,
-      parentLastName: users.lastName,
-      parentEmail: users.email,
-      assignmentRole: conversations.assignmentRole,
-      lastMessageAt: conversations.lastMessageAt,
-    })
-    .from(conversations)
-    .innerJoin(users, eq(users.id, conversations.parentUserId))
-    .where(eq(conversations.status, 'active'))
-    .orderBy(desc(conversations.lastMessageAt))
-    .limit(5);
+  const recentRows = orgId
+    ? await db
+        .select({
+          id: conversations.id,
+          parentFirstName: users.firstName,
+          parentLastName: users.lastName,
+          parentEmail: users.email,
+          assignmentRole: conversations.assignmentRole,
+          lastMessageAt: conversations.lastMessageAt,
+        })
+        .from(conversations)
+        .innerJoin(users, eq(users.id, conversations.parentUserId))
+        .where(
+          and(
+            eq(conversations.status, 'active'),
+            eq(conversations.organizationId, orgId),
+          ),
+        )
+        .orderBy(desc(conversations.lastMessageAt))
+        .limit(5)
+    : [];
 
   // For each recent conversation, fetch the most recent message snippet
   if (recentRows.length > 0) {

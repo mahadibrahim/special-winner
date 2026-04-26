@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { payments, registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
+import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
@@ -23,8 +24,8 @@ export const GET: APIRoute = async (context) => {
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // Build conditions
-    const conditions = [];
+    // Build conditions — always scope to caller's org via locations join
+    const conditions = [eq(locations.organizationId, orgContext.organizationId)];
 
     if (status && status !== "all") {
       conditions.push(eq(payments.status, status as any));
@@ -80,13 +81,14 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(users, eq(payments.userId, users.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(payments.createdAt))
       .limit(limit)
       .offset(offset);
 
-    // Get summary
+    // Get summary — also org-scoped
     const summaryResult = await getDb()
       .select({
         totalPayments: sql<number>`COUNT(*)`,
@@ -96,7 +98,12 @@ export const GET: APIRoute = async (context) => {
         succeededPayments: sql<number>`COUNT(*) FILTER (WHERE ${payments.status} = 'succeeded')`,
         failedPayments: sql<number>`COUNT(*) FILTER (WHERE ${payments.status} = 'failed')`,
       })
-      .from(payments);
+      .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(locations.organizationId, orgContext.organizationId));
 
     return new Response(
       JSON.stringify({

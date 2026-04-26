@@ -5,6 +5,7 @@ import { render } from "@react-email/components";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
 
@@ -26,8 +27,17 @@ const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, clientAddress }) => {
   try {
+    const ip = clientAddress || "unknown";
+
+    // Per-IP burst limit. Stops a single attacker from flooding the
+    // magic-link issuer (which sends real emails).
+    const ipLimit = rateLimit(`forgot-password:ip:${ip}`, 3, 60_000);
+    if (!ipLimit.allowed) {
+      return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+    }
+
     const body = await request.json();
     const result = forgotPasswordSchema.safeParse(body);
 
@@ -40,6 +50,17 @@ export const POST: APIRoute = async ({ request }) => {
 
     const { email } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
+
+    // Per-email hourly cap. Caps the volume of magic-link emails any single
+    // address can generate even from rotating IPs (mailbox-bombing defense).
+    const emailLimit = rateLimit(
+      `forgot-password:email:${normalizedEmail}`,
+      5,
+      60 * 60 * 1000,
+    );
+    if (!emailLimit.allowed) {
+      return rateLimitedResponse(emailLimit.retryAfter ?? 3600);
+    }
 
     // Find user by email
     const user = await getDb()

@@ -127,6 +127,35 @@ export default function RegistrationsCard() {
     additionalAmountCents: number
   } | null>(null)
 
+  // Resume-payment state
+  const [resumingRegistrationId, setResumingRegistrationId] = useState<string | null>(null)
+
+  const handleResumePayment = async (registrationId: string) => {
+    setResumingRegistrationId(registrationId)
+    setError(null)
+    try {
+      const response = await fetch("/api/payments/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start payment")
+      }
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+        return
+      }
+      // paid_zero: registration already complete; just refresh
+      await fetchRegistrations()
+      setResumingRegistrationId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start payment")
+      setResumingRegistrationId(null)
+    }
+  }
+
   useEffect(() => {
     fetchRegistrations()
   }, [])
@@ -312,7 +341,7 @@ export default function RegistrationsCard() {
             </div>
           </div>
           <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
-            <a href="/#programs">
+            <a href="/programs">
               Browse Programs
               <ArrowRight className="w-4 h-4 ml-1" />
             </a>
@@ -340,7 +369,7 @@ export default function RegistrationsCard() {
             <p className="text-ink-muted mb-1">No registrations yet</p>
             <p className="text-sm text-ink-muted mb-4">Browse programs and register your children</p>
             <Button asChild variant="outline" className="border-border text-ink hover:bg-cream-2">
-              <a href="/#programs">Find Programs</a>
+              <a href="/programs">Find Programs</a>
             </Button>
           </div>
         ) : (
@@ -428,8 +457,20 @@ export default function RegistrationsCard() {
                               </Button>
                             )}
                             {reg.status === "pending" && reg.paymentStatus === "unpaid" && (
-                              <Button size="sm" className="bg-primary hover:bg-primary/90">
-                                Complete Payment
+                              <Button
+                                size="sm"
+                                className="bg-primary hover:bg-primary/90"
+                                onClick={() => handleResumePayment(reg.id)}
+                                disabled={resumingRegistrationId === reg.id}
+                              >
+                                {resumingRegistrationId === reg.id ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                    Starting…
+                                  </>
+                                ) : (
+                                  "Complete Payment"
+                                )}
                               </Button>
                             )}
                           </div>
@@ -656,8 +697,25 @@ export default function RegistrationsCard() {
                 >
                   Pay Later
                 </Button>
-                <Button className="bg-primary hover:bg-primary/90">
-                  Complete Payment
+                <Button
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={() => {
+                    if (editingRegistration) {
+                      const id = editingRegistration.id
+                      closeEditDialog()
+                      handleResumePayment(id)
+                    }
+                  }}
+                  disabled={!editingRegistration || resumingRegistrationId === editingRegistration?.id}
+                >
+                  {editingRegistration && resumingRegistrationId === editingRegistration.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Starting…
+                    </>
+                  ) : (
+                    "Complete Payment"
+                  )}
                 </Button>
               </>
             ) : (

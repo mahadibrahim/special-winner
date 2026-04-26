@@ -4,6 +4,11 @@ import { venues, locations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgLocation,
+  requireSameOrgVenue,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
 
 const venueSchema = z.object({
   locationId: z.string().uuid("Valid location ID is required"),
@@ -60,6 +65,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = venueSchema.safeParse(body);
@@ -70,6 +78,13 @@ export const POST: APIRoute = async (context) => {
         { status: 400 }
       );
     }
+
+    // Verify the posted locationId belongs to caller's org
+    const locationCheck = await requireSameOrgLocation(
+      orgContext.organizationId,
+      result.data.locationId,
+    );
+    if (!locationCheck.ok) return ownershipDeniedResponse();
 
     const [newVenue] = await getDb()
       .insert(venues)
@@ -96,6 +111,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -104,6 +122,10 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Venue ID is required" }), { status: 400 });
     }
 
+    // Verify the existing venue belongs to caller's org
+    const existing = await requireSameOrgVenue(orgContext.organizationId, id);
+    if (!existing.ok) return ownershipDeniedResponse();
+
     const result = venueSchema.safeParse(data);
     if (!result.success) {
       return new Response(
@@ -111,6 +133,13 @@ export const PUT: APIRoute = async (context) => {
         { status: 400 }
       );
     }
+
+    // Verify the (possibly different) target locationId still belongs to caller's org
+    const locationCheck = await requireSameOrgLocation(
+      orgContext.organizationId,
+      result.data.locationId,
+    );
+    if (!locationCheck.ok) return ownershipDeniedResponse();
 
     const [updatedVenue] = await getDb()
       .update(venues)
@@ -143,6 +172,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -150,6 +182,9 @@ export const DELETE: APIRoute = async (context) => {
     if (!id) {
       return new Response(JSON.stringify({ error: "Venue ID is required" }), { status: 400 });
     }
+
+    const existing = await requireSameOrgVenue(orgContext.organizationId, id);
+    if (!existing.ok) return ownershipDeniedResponse();
 
     const [deletedVenue] = await getDb().delete(venues).where(eq(venues.id, id)).returning();
 

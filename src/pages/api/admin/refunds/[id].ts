@@ -1,11 +1,21 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, users, locations, payments } from "@/lib/db/schema";
+import {
+  registrations,
+  familyMembers,
+  seasons,
+  programs,
+  users,
+  locations,
+  payments,
+  organizations,
+} from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
+import type Stripe from "stripe";
 
 const refundActionSchema = z.object({
   action: z.enum(["approve", "deny"]),
@@ -115,17 +125,48 @@ export const POST: APIRoute = async (context) => {
           );
         }
 
-        try {
-          const refund = await stripe.refunds.create({
-            payment_intent: stripePaymentIntentId,
-            amount: refundAmountCents,
-            reason: "requested_by_customer",
-            metadata: {
-              registrationId: id,
-              approvedBy: auth.user.id,
-            },
-          });
+        // Connect-aware: if this org has a connected Stripe account AND the
+        // payment was a destination charge to that account, the refund must
+        // be issued on the connected account (`stripeAccount` request opt)
+        // and we want to reverse the transfer + refund the application fee.
+        // Otherwise it's a platform-direct refund.
+        const [org] = await getDb()
+          .select({
+            stripeAccountId: organizations.stripeAccountId,
+            stripeOnboardingComplete: organizations.stripeOnboardingComplete,
+          })
+          .from(organizations)
+          .where(eq(organizations.id, orgContext.organizationId))
+          .limit(1);
 
+        const useConnect =
+          !!org?.stripeAccountId && org.stripeOnboardingComplete === true;
+
+        const refundParams: Stripe.RefundCreateParams = {
+          payment_intent: stripePaymentIntentId,
+          amount: refundAmountCents,
+          reason: "requested_by_customer",
+          metadata: {
+            registrationId: id,
+            approvedBy: auth.user.id,
+          },
+        };
+
+        if (useConnect) {
+          refundParams.reverse_transfer = true;
+          refundParams.refund_application_fee = true;
+        }
+
+        const requestOptions: Stripe.RequestOptions = {
+          // Stable idempotency key — see src/lib/stripe/client.ts top.
+          idempotencyKey: `${id}:refund:${refundAmountCents}`,
+        };
+        if (useConnect && org?.stripeAccountId) {
+          requestOptions.stripeAccount = org.stripeAccountId;
+        }
+
+        try {
+          const refund = await stripe.refunds.create(refundParams, requestOptions);
           stripeRefundId = refund.id;
         } catch (stripeError) {
           console.error("Stripe refund error:", stripeError);
@@ -142,16 +183,38 @@ export const POST: APIRoute = async (context) => {
         }
       }
 
-      // Update registration status
+      // Determine partial vs full and apply consistent state updates to BOTH
+      // the registration and the underlying payment row.
+      const previousAmountPaid = registration.registration.amountPaidCents ?? 0;
+      const isPartialRefund = refundAmountCents < previousAmountPaid;
+      const newAmountPaid = Math.max(0, previousAmountPaid - refundAmountCents);
+
+      // Update registration: status / refundStatus / amountPaidCents
       const [updated] = await getDb()
         .update(registrations)
         .set({
           refundStatus: "processed",
-          status: "refunded",
+          status: isPartialRefund ? registration.registration.status : "refunded",
+          amountPaidCents: newAmountPaid,
+          paymentStatus: isPartialRefund ? "partial_refund" : "refunded",
           updatedAt: new Date(),
         })
         .where(eq(registrations.id, id))
         .returning();
+
+      // Update the payment row so admin views and reconciliation see the
+      // refund. Mark partial refunds as `refunded` too — there's no
+      // `partial_refund` value on the payment status enum (see schema).
+      if (payment) {
+        await getDb()
+          .update(payments)
+          .set({
+            status: "refunded",
+            refundReason: reason ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(payments.id, payment.id));
+      }
 
       // Send approval email
       if (parentUser) {

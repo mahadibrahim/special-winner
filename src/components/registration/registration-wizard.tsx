@@ -1216,7 +1216,7 @@ export default function RegistrationWizard({
                 <a href="/dashboard">Go to Dashboard</a>
               </Button>
               <Button asChild className="bg-primary hover:bg-primary/90">
-                <a href="/#programs">Register Another</a>
+                <a href="/programs">Register Another</a>
               </Button>
             </div>
           </div>

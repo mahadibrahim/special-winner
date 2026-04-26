@@ -8,8 +8,13 @@ import {
   discountCodes,
   discountUsages,
   users,
+  locations,
 } from "@/lib/db/schema";
 import { createCheckoutSession, isStripeConfigured } from "@/lib/stripe/client";
+import {
+  createConnectCheckoutSession,
+  getOrganizationPaymentConfig,
+} from "@/lib/stripe/connect";
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -57,18 +62,22 @@ export async function createCheckoutForRegistration(
     throw new CheckoutError(503, "Payment processing is not configured");
   }
 
-  // 2. Look up registration (scoped to userId) with related data
+  // 2. Look up registration (scoped to userId) with related data, including
+  //    the owning organization (joined via location) so we can decide whether
+  //    to route the payment through Stripe Connect.
   const [result] = await db
     .select({
       registration: registrations,
       familyMember: familyMembers,
       season: seasons,
       program: programs,
+      location: locations,
     })
     .from(registrations)
     .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
     .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
     .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
     .where(
       and(
         eq(registrations.id, registrationId),
@@ -80,7 +89,7 @@ export async function createCheckoutForRegistration(
     throw new CheckoutError(404, "Registration not found");
   }
 
-  const { registration, familyMember, season, program } = result;
+  const { registration, familyMember, season, program, location } = result;
 
   // 3. Already paid?
   if (registration.paymentStatus === "paid") {
@@ -221,7 +230,44 @@ export async function createCheckoutForRegistration(
   const successUrl = `${baseUrl}/dashboard?payment=success&registration=${registrationId}`;
   const cancelUrl = `${baseUrl}/register/${season.id}?payment=cancelled`;
 
-  // 10. Create Stripe checkout session
+  // 10. Decide platform-direct vs Stripe Connect based on the org config.
+  //     Connect is used when the org has a connected account and onboarding
+  //     is complete; otherwise the payment goes to the platform account
+  //     (HQ direct or franchise-not-yet-onboarded).
+  const orgId = location.organizationId;
+  const paymentConfig = orgId
+    ? await getOrganizationPaymentConfig(orgId)
+    : null;
+
+  const merged = {
+    registrationId,
+    type: "registration_payment",
+    ...(extraMetadata ?? {}),
+  };
+
+  if (
+    paymentConfig?.useConnect &&
+    paymentConfig.destinationAccountId
+  ) {
+    const session = await createConnectCheckoutSession({
+      amountCents: amountDue,
+      destinationAccountId: paymentConfig.destinationAccountId,
+      applicationFeePercent: paymentConfig.applicationFeePercent,
+      customerEmail,
+      successUrl,
+      cancelUrl,
+      productName: `${program.name} - ${season.name}`,
+      productDescription: `Registration for ${familyMember.firstName} ${familyMember.lastName}`,
+      metadata: merged,
+    });
+
+    if (!session || !session.url) {
+      throw new CheckoutError(500, "Failed to create Connect checkout session");
+    }
+    return { kind: "stripe_session", checkoutUrl: session.url, sessionId: session.id };
+  }
+
+  // Platform-direct (HQ, or franchise without a connected account yet)
   const session = await createCheckoutSession({
     registrationId,
     seasonName: `${program.name} - ${season.name}`,

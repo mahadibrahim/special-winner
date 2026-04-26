@@ -10,7 +10,11 @@ import {
   familyMembers,
   users,
 } from "@/lib/db/schema";
-import { sendRegistrationConfirmationEmail, sendMagicLinkLoginEmail } from "@/lib/email/send";
+import {
+  sendRegistrationConfirmationEmail,
+  sendMagicLinkLoginEmail,
+  sendPaymentReceiptEmail,
+} from "@/lib/email/send";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 
 export async function handleCheckoutComplete(
@@ -125,6 +129,26 @@ export async function handleCheckoutComplete(
         paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
         registrationStatus: "confirmed",
       }).catch((err) => console.error("[stripe webhook] email send failed:", err));
+
+      // Payment receipt — separate from the registration-confirmation email
+      // so the parent gets a clean, archival receipt with a stable receipt
+      // number (the Stripe checkout session id).
+      sendPaymentReceiptEmail({
+        userId: row.user.id,
+        organizationId: row.location.organizationId ?? undefined,
+        registrationId,
+        parentEmail: row.user.email,
+        parentName: row.user.firstName || row.user.email.split("@")[0],
+        childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
+        programName: row.program.name,
+        seasonName: row.season.name,
+        amountPaidCents: amountPaid,
+        paymentType: paymentTypeValue,
+        remainingBalanceCents: isFullyPaid ? undefined : newAmountDue,
+        receiptNumber: session.id.replace(/^cs_(test|live)_/, "").slice(0, 12),
+      }).catch((err) =>
+        console.error("[stripe webhook] receipt email send failed:", err),
+      );
 
       // Guest-checkout users get a magic-link sign-in alongside the receipt.
       // The flag is set by the guest-checkout registration endpoint when

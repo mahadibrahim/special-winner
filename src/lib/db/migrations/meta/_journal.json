@@ -64,6 +64,20 @@
       "when": 1776801629352,
       "tag": "0008_ambitious_goliath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777204599487,
+      "tag": "0009_powerful_klaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777206330256,
+      "tag": "0010_harsh_randall_flagg",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,7 @@ import { users } from "@/lib/db/schema/users";
 import { familyMembers, registrations } from "@/lib/db/schema/registrations";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { sendToParent } from "@/lib/messaging/gateway";
 
@@ -37,6 +37,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   let payload;
   try {
     payload = await context.request.json();
@@ -51,7 +54,7 @@ export const POST: APIRoute = async (context) => {
 
   const db = getDb();
 
-  // Load the new season and its program
+  // Load the new season — and require it belongs to caller's organization
   const [newSeasonInfo] = await db
     .select({
       season: seasons,
@@ -61,7 +64,12 @@ export const POST: APIRoute = async (context) => {
     .from(seasons)
     .innerJoin(programs, eq(programs.id, seasons.programId))
     .innerJoin(locations, eq(locations.id, programs.locationId))
-    .where(eq(seasons.id, parsed.data.seasonId))
+    .where(
+      and(
+        eq(seasons.id, parsed.data.seasonId),
+        eq(locations.organizationId, orgContext.organizationId),
+      ),
+    )
     .limit(1);
 
   if (!newSeasonInfo) {

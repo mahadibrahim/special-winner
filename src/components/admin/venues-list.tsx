@@ -23,6 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Location {
   id: string
@@ -46,6 +48,7 @@ interface VenuesListProps {
 }
 
 export function VenuesList({ locations }: VenuesListProps) {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [venues, setVenues] = useState<Venue[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -142,7 +145,13 @@ export function VenuesList({ locations }: VenuesListProps) {
   }
 
   async function handleDelete(venue: Venue) {
-    if (!confirm(`Are you sure you want to delete "${venue.name}"?`)) return
+    const ok = await confirm({
+      title: "Delete venue?",
+      description: <>Delete <strong>{venue.name}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/venues?id=${venue.id}`, {
@@ -156,8 +165,9 @@ export function VenuesList({ locations }: VenuesListProps) {
       }
 
       await fetchVenues()
+      toast.success(`Deleted "${venue.name}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete venue")
     }
   }
 
@@ -171,6 +181,7 @@ export function VenuesList({ locations }: VenuesListProps) {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Venues</h1>

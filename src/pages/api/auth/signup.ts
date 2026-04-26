@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { hashPassword, createSession } from "@/lib/auth";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 
 const signupSchema = z.object({
@@ -15,6 +16,15 @@ const signupSchema = z.object({
 
 export const POST: APIRoute = async (context) => {
   try {
+    const ip = context.clientAddress || "unknown";
+
+    // 3 signups/min per IP. Stops scripted account-creation floods that would
+    // otherwise create users + send transactional emails on every request.
+    const ipLimit = rateLimit(`signup:ip:${ip}`, 3, 60_000);
+    if (!ipLimit.allowed) {
+      return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+    }
+
     const body = await context.request.json();
     const result = signupSchema.safeParse(body);
 

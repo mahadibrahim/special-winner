@@ -45,3 +45,6 @@ export * from "./user-nudge-state";
 
 // Media (photography/video operation)
 export * from "./media";
+
+// Stripe webhook idempotency ledger
+export * from "./stripe-events";

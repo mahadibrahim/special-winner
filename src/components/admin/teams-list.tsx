@@ -22,6 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Season {
   id: string
@@ -61,6 +63,7 @@ interface TeamsListProps {
 }
 
 export function TeamsList({ seasons, coaches }: TeamsListProps) {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -172,7 +175,13 @@ export function TeamsList({ seasons, coaches }: TeamsListProps) {
   }
 
   async function handleDelete(team: Team) {
-    if (!confirm(`Are you sure you want to delete "${team.name}"?`)) return
+    const ok = await confirm({
+      title: "Delete team?",
+      description: <>Delete <strong>{team.name}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/teams?id=${team.id}`, {
@@ -186,8 +195,9 @@ export function TeamsList({ seasons, coaches }: TeamsListProps) {
       }
 
       await fetchTeams()
+      toast.success(`Deleted "${team.name}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete team")
     }
   }
 
@@ -201,6 +211,7 @@ export function TeamsList({ seasons, coaches }: TeamsListProps) {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Teams</h1>

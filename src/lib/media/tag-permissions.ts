@@ -21,6 +21,7 @@ export async function canTagSession(
       venueId: true,
       status: true,
     },
+    orderBy: (t, { asc }) => asc(t.createdAt),
   });
   if (!session) return { allowed: false, reason: "Session not found" };
 
@@ -44,6 +45,7 @@ export async function canTagSession(
     const v = await db.query.venues.findFirst({
       where: eq(venues.id, session.venueId),
       columns: { locationId: true },
+      orderBy: (t, { asc }) => asc(t.createdAt),
     });
     sessionLocationId = v?.locationId ?? null;
   }

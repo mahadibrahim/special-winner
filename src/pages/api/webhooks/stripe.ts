@@ -1,7 +1,40 @@
 import type { APIRoute } from "astro";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
 import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
+import { handlePaymentFailed } from "@/lib/stripe/handle-payment-failed";
+import { getDb } from "@/lib/db";
+import { stripeEvents } from "@/lib/db/schema";
 import type Stripe from "stripe";
+
+/**
+ * Try to claim this Stripe event id in the stripe_events ledger.
+ * Returns true if this is the first time we've seen the event (process it),
+ * false if it was already processed (short-circuit).
+ *
+ * This is the canonical webhook idempotency mechanism. Per-handler dedupe
+ * (e.g. handle-checkout-complete looking up payments by session id) is a
+ * belt-and-braces secondary check.
+ */
+async function claimStripeEvent(event: Stripe.Event): Promise<boolean> {
+  try {
+    const inserted = await getDb()
+      .insert(stripeEvents)
+      .values({
+        id: event.id,
+        eventId: event.id,
+        eventType: event.type,
+      })
+      .onConflictDoNothing({ target: stripeEvents.eventId })
+      .returning({ id: stripeEvents.id });
+    return inserted.length > 0;
+  } catch (err) {
+    // If the ledger insert blew up, fail open (process the event) so we
+    // don't silently drop legitimate webhooks. The per-handler dedupe will
+    // catch obvious dupes.
+    console.error("[stripe webhook] stripe_events insert failed:", err);
+    return true;
+  }
+}
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -32,6 +65,17 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    const isFirstDelivery = await claimStripeEvent(event);
+    if (!isFirstDelivery) {
+      console.log(
+        `[stripe webhook] duplicate delivery for event ${event.id} (${event.type}), skipping`,
+      );
+      return new Response(JSON.stringify({ received: true, deduped: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -48,7 +92,8 @@ export const POST: APIRoute = async ({ request }) => {
 
       case "payment_intent.payment_failed": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log("Payment failed:", paymentIntent.id);
+        const result = await handlePaymentFailed(paymentIntent);
+        console.log(`[stripe webhook] payment_intent.payment_failed → ${result.status}`, result);
         break;
       }
 

@@ -23,8 +23,10 @@ import { sendInviteDM, removeMember } from "../telegram/group"
 export async function computeExpectedMembership(teamGroupId: string): Promise<string[]> {
   const db = getDb()
 
+  // Lookup by primary key but be explicit about ordering for CI determinism.
   const group = await db.query.teamGroups.findFirst({
     where: eq(teamGroups.id, teamGroupId),
+    orderBy: (t, { asc }) => asc(t.createdAt),
   })
   if (!group) return []
 
@@ -57,6 +59,7 @@ export async function syncTeamGroupMembership(teamGroupId: string): Promise<{
 
   const group = await db.query.teamGroups.findFirst({
     where: eq(teamGroups.id, teamGroupId),
+    orderBy: (t, { asc }) => asc(t.createdAt),
   })
   if (!group || group.status !== "active" || !group.telegramChatId) {
     return { invited: [], removed: [], errors: [] }

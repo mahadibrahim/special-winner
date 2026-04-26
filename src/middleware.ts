@@ -2,6 +2,12 @@ import { defineMiddleware } from "astro:middleware";
 import { resolveOrganizationFromHost } from "./lib/organization/domain-resolver";
 import { lucia } from "./lib/auth/lucia";
 import { getUserRoles, getCoachTeamIds } from "./lib/auth/roles";
+import { ensureEnvValidated } from "./lib/env";
+
+// Env validation runs on the first request, not at module load. Validating
+// at module load would also fire during `astro build` prerender and break
+// builds run without the full prod env set (CI builds without Stripe keys,
+// for example).
 
 // Routes that require authentication
 const protectedRoutes = ["/dashboard", "/coach", "/admin"];
@@ -16,6 +22,11 @@ const coachRoutes = ["/coach"];
 const authRoutes = ["/signin", "/signup"];
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  // Validate env on first request; cached afterwards. In PROD this throws
+  // (and fails the request) if required env vars are missing. In DEV it
+  // warns to console.
+  ensureEnvValidated();
+
   // Default to no user/session/organization
   context.locals.user = null;
   context.locals.session = null;

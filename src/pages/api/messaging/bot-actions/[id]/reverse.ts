@@ -83,13 +83,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return json({ success: true });
   } catch (err) {
     console.error("Bot action reversal error:", err);
-    return json(
-      {
-        error: "Reversal failed",
-        details: err instanceof Error ? err.message : String(err),
-      },
-      500,
-    );
+    return json({ error: "Reversal failed" }, 500);
   }
 };
 

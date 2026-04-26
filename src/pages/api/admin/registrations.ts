@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
+import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, desc, or, ilike, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
@@ -23,8 +24,8 @@ export const GET: APIRoute = async (context) => {
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // Build conditions
-    const conditions = [];
+    // Build conditions — always scope to caller's org via locations join
+    const conditions = [eq(locations.organizationId, orgContext.organizationId)];
 
     if (status && status !== "all") {
       conditions.push(eq(registrations.status, status as any));
@@ -79,9 +80,10 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .innerJoin(users, eq(registrations.registeredByUserId, users.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(registrations.createdAt))
       .limit(limit)
       .offset(offset);
@@ -100,7 +102,7 @@ export const GET: APIRoute = async (context) => {
       );
     }
 
-    // Get summary counts
+    // Get summary counts — also org-scoped
     const summaryResult = await getDb()
       .select({
         total: sql<number>`COUNT(*)`,
@@ -112,7 +114,11 @@ export const GET: APIRoute = async (context) => {
         unpaid: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'unpaid')`,
         partial: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'deposit_paid')`,
       })
-      .from(registrations);
+      .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(locations.organizationId, orgContext.organizationId));
 
     return new Response(
       JSON.stringify({

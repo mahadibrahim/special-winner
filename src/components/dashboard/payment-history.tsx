@@ -183,7 +183,7 @@ export default function PaymentHistory() {
             <p className="text-ink-muted mb-2">No payments yet</p>
             <p className="text-sm text-ink-muted mb-4">Your payment history will appear here</p>
             <Button asChild className="bg-primary hover:bg-primary/90">
-              <a href="/#programs">Browse Programs</a>
+              <a href="/programs">Browse Programs</a>
             </Button>
           </div>
         ) : (

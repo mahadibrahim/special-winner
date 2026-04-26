@@ -2,9 +2,13 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { practiceTemplates, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, asc, ilike, or } from "drizzle-orm";
+import { eq, and, asc, ilike, or, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgSport,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
 
 const templateSegmentSchema = z.object({
   name: z.string(),
@@ -35,6 +39,9 @@ export const GET: APIRoute = async (context) => {
     return auth.response;
   }
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -47,8 +54,13 @@ export const GET: APIRoute = async (context) => {
     const limit = parseInt(url.searchParams.get("limit") || "100");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // Build conditions
-    const conditions = [];
+    // Build conditions — restrict to caller's org or globally-owned (null) templates
+    const conditions = [
+      or(
+        eq(practiceTemplates.organizationId, orgContext.organizationId),
+        isNull(practiceTemplates.organizationId),
+      )!,
+    ];
     if (activeOnly) {
       conditions.push(eq(practiceTemplates.active, true));
     }
@@ -99,14 +111,18 @@ export const GET: APIRoute = async (context) => {
       .from(practiceTemplates)
       .innerJoin(sports, eq(practiceTemplates.sportId, sports.id))
       .innerJoin(developmentStages, eq(practiceTemplates.stageId, developmentStages.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(asc(practiceTemplates.name))
       .limit(limit)
       .offset(offset);
 
-    // Get reference data
+    // Get reference data — sports scoped to caller's org
     const [sportsList, stagesList] = await Promise.all([
-      getDb().select({ id: sports.id, name: sports.name }).from(sports).orderBy(asc(sports.name)),
+      getDb()
+        .select({ id: sports.id, name: sports.name })
+        .from(sports)
+        .where(eq(sports.organizationId, orgContext.organizationId))
+        .orderBy(asc(sports.name)),
       getDb().select({ id: developmentStages.id, name: developmentStages.name, slug: developmentStages.slug }).from(developmentStages).orderBy(asc(developmentStages.sortOrder)),
     ]);
 
@@ -135,6 +151,9 @@ export const POST: APIRoute = async (context) => {
     return auth.response;
   }
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -148,9 +167,16 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
+    // Verify the posted sportId belongs to the caller's org
+    const sportCheck = await requireSameOrgSport(
+      orgContext.organizationId,
+      result.data.sportId,
+    );
+    if (!sportCheck.ok) return ownershipDeniedResponse();
+
     const [newTemplate] = await getDb()
       .insert(practiceTemplates)
-      .values(result.data)
+      .values({ ...result.data, organizationId: orgContext.organizationId })
       .returning();
 
     return new Response(JSON.stringify({ template: newTemplate }), {

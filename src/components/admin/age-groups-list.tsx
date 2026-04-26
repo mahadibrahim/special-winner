@@ -15,6 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface AgeGroup {
   id: string
@@ -26,6 +28,7 @@ interface AgeGroup {
 }
 
 export function AgeGroupsList() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -116,7 +119,13 @@ export function AgeGroupsList() {
   }
 
   async function handleDelete(ageGroup: AgeGroup) {
-    if (!confirm(`Are you sure you want to delete "${ageGroup.name}"?`)) return
+    const ok = await confirm({
+      title: "Delete age group?",
+      description: <>Delete <strong>{ageGroup.name}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/age-groups?id=${ageGroup.id}`, {
@@ -130,8 +139,9 @@ export function AgeGroupsList() {
       }
 
       await fetchAgeGroups()
+      toast.success(`Deleted "${ageGroup.name}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete age group")
     }
   }
 
@@ -145,6 +155,7 @@ export function AgeGroupsList() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Age Groups</h1>

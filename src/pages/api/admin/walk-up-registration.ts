@@ -11,7 +11,8 @@ import { seasons, programs } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { normalizeUsPhone, sendSms } from "@/lib/sms/send";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 
 /**
  * POST /api/admin/walk-up-registration
@@ -63,6 +64,9 @@ export const POST: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
   const adminUser = auth.user;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   let payload;
   try {
     payload = await context.request.json();
@@ -84,7 +88,8 @@ export const POST: APIRoute = async (context) => {
   const input = parsed.data;
   const db = getDb();
 
-  // Look up the season to verify it exists and get the organization
+  // Look up the season — and require it belongs to caller's organization,
+  // so an admin from Org-A can't register people into Org-B's season.
   const [seasonInfo] = await db
     .select({
       season: seasons,
@@ -94,14 +99,20 @@ export const POST: APIRoute = async (context) => {
     .from(seasons)
     .innerJoin(programs, eq(programs.id, seasons.programId))
     .innerJoin(locations, eq(locations.id, programs.locationId))
-    .where(eq(seasons.id, input.seasonId))
+    .where(
+      and(
+        eq(seasons.id, input.seasonId),
+        eq(locations.organizationId, orgContext.organizationId),
+      ),
+    )
     .limit(1);
 
   if (!seasonInfo) {
     return json({ error: "Season not found" }, 404);
   }
 
-  const organizationId = seasonInfo.location.organizationId;
+  // Use the caller's org id (which now matches the season's org by construction).
+  const organizationId = orgContext.organizationId;
   const normalizedPhone = normalizeUsPhone(input.parent.phone);
   if (!normalizedPhone) {
     return json({ error: "Invalid phone number" }, 400);
@@ -220,6 +231,37 @@ export const POST: APIRoute = async (context) => {
     body: welcomeBody,
     bypassOptInCheck: true,
   });
+
+  // Fire-and-forget registration confirmation email. Walk-up parents may not
+  // have an active session, so send directly via the email pipeline rather
+  // than the gateway (gateway routing is by-userId).
+  sendRegistrationConfirmationEmail({
+    userId: parentUserId,
+    organizationId,
+    registrationId: registration.id,
+    parentEmail: emailNormalized,
+    parentName: input.parent.firstName,
+    childName: `${input.kid.firstName} ${input.kid.lastName}`,
+    programName: seasonInfo.program.name,
+    seasonName: seasonInfo.season.name,
+    startDate: seasonInfo.season.startDate,
+    endDate: seasonInfo.season.endDate,
+    scheduleNotes: seasonInfo.season.scheduleNotes ?? undefined,
+    locationName: seasonInfo.location.name,
+    locationAddress:
+      [
+        seasonInfo.location.addressLine1,
+        seasonInfo.location.city,
+        seasonInfo.location.state,
+      ]
+        .filter(Boolean)
+        .join(", ") || undefined,
+    amountDueCents: seasonInfo.season.priceCents - (input.amountPaidCents ?? 0),
+    paymentStatus,
+    registrationStatus,
+  }).catch((err) =>
+    console.error("[walk-up-registration] email send failed:", err),
+  );
 
   return json({
     success: true,

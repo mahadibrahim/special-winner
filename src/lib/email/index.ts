@@ -9,7 +9,7 @@ export function isEmailConfigured(): boolean {
   return resend !== null;
 }
 
-export const EMAIL_FROM = import.meta.env.RESEND_FROM_EMAIL || "Aspire Sports <noreply@aspiresports.com>";
+export const EMAIL_FROM = import.meta.env.RESEND_FROM_EMAIL || "Aspire Sports <hello@aspiresportsohio.com>";
 
 export interface EmailOptions {
   to: string | string[];

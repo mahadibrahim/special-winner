@@ -62,10 +62,7 @@ export const POST: APIRoute = async ({ request }) => {
   } catch (err) {
     console.error("[cron] Day-before reminder job failed:", err);
     return new Response(
-      JSON.stringify({
-        error: "Cron job failed",
-        details: err instanceof Error ? err.message : String(err),
-      }),
+      JSON.stringify({ error: "Cron job failed" }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }

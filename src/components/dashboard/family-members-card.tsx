@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface FamilyMember {
   id: string
@@ -29,6 +30,7 @@ interface FamilyMember {
 }
 
 export default function FamilyMembersCard() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -141,7 +143,16 @@ export default function FamilyMembersCard() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this family member?")) return
+    const member = members.find((m) => m.id === id)
+    const ok = await confirm({
+      title: "Remove family member?",
+      description: member
+        ? <>Remove <strong>{member.firstName} {member.lastName}</strong> from your family? This cannot be undone.</>
+        : "Are you sure you want to remove this family member?",
+      confirmLabel: "Remove",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/family-members/${id}`, { method: "DELETE" })
@@ -278,6 +289,7 @@ export default function FamilyMembersCard() {
 
   return (
     <div className="bg-paper border border-border rounded-2xl overflow-hidden">
+      {confirmDialog}
       <div className="p-6 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

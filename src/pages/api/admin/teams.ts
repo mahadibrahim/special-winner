@@ -32,6 +32,7 @@ export const GET: APIRoute = async (context) => {
     if (teamId) {
       const team = await getDb().query.teams.findFirst({
         where: eq(teams.id, teamId),
+        orderBy: (t, { asc }) => asc(t.createdAt),
         with: {
           season: {
             with: {

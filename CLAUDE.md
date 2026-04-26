@@ -92,7 +92,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 Required in `.env`:
 - `DATABASE_URL` - PostgreSQL connection string
-- `AUTH_SECRET` - 32+ character secret for sessions
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
 - `PUBLIC_APP_URL` - Base URL for the app
 

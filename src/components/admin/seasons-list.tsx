@@ -19,6 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { SeasonScaffoldPicker, type ScaffoldChoice } from "./season-scaffold-picker"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Season {
   id: string
@@ -70,6 +72,7 @@ const statusOptions = [
 
 export function SeasonsList() {
   useHydrationBeacon()
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [seasons, setSeasons] = useState<Season[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
   const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([])
@@ -103,7 +106,10 @@ export function SeasonsList() {
   async function fetchData() {
     try {
       const [seasonsRes, programsRes, ageGroupsRes, venuesRes] = await Promise.all([
-        fetch("/api/admin/seasons"),
+        // include_test=1 so admins see the full catalog (test fixtures included)
+        // on /admin/seasons. Walk-up registration / re-registration callers
+        // omit this flag and get the test-free list.
+        fetch("/api/admin/seasons?include_test=1"),
         fetch("/api/admin/programs"),
         fetch("/api/admin/age-groups"),
         fetch("/api/admin/venues"),
@@ -242,15 +248,22 @@ export function SeasonsList() {
   }
 
   async function handleDelete(season: Season) {
-    if (!confirm(`Delete "${season.name}"?`)) return
+    const ok = await confirm({
+      title: "Delete season?",
+      description: <>Delete <strong>{season.name}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/seasons?id=${season.id}`, { method: "DELETE" })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error)
       await fetchData()
+      toast.success(`Deleted "${season.name}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete season")
     }
   }
 
@@ -279,6 +292,7 @@ export function SeasonsList() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Seasons</h1>

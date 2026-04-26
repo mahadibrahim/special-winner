@@ -5,9 +5,12 @@ import { PaymentReceiptEmail } from "./templates/payment-receipt";
 import { WaitlistPromotionEmail } from "./templates/waitlist-promotion";
 import { RefundNotificationEmail } from "./templates/refund-notification";
 import { MagicLinkLoginEmail } from "./templates/magic-link-login";
+import { PaymentFailedEmail } from "./templates/payment-failed";
+import { AnnouncementEmail } from "./templates/announcement";
 import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
+import { env } from "@/lib/env";
 
 /**
  * Helper: if organizationId is provided and we can route through the
@@ -67,7 +70,8 @@ function stripHtmlTags(html: string): string {
     .trim();
 }
 
-// Helper to log emails
+// Helper to log emails. Writes one row per send attempt to email_logs;
+// failures are swallowed so a logging error never blocks the email itself.
 async function logEmail(data: {
   userId?: string;
   registrationId?: string;
@@ -77,8 +81,6 @@ async function logEmail(data: {
   resendMessageId?: string;
   status: string;
 }) {
-  if (false) return;
-
   try {
     await getDb().insert(emailLogs).values({
       userId: data.userId,
@@ -149,7 +151,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:4321";
+  const appUrl = env.PUBLIC_APP_URL;
 
   const html = await render(
     RegistrationConfirmationEmail({
@@ -224,7 +226,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:4321";
+  const appUrl = env.PUBLIC_APP_URL;
 
   const html = await render(
     PaymentReceiptEmail({
@@ -290,7 +292,7 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:4321";
+  const appUrl = env.PUBLIC_APP_URL;
 
   const html = await render(
     WaitlistPromotionEmail({
@@ -353,7 +355,7 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:4321";
+  const appUrl = env.PUBLIC_APP_URL;
 
   const html = await render(
     RefundNotificationEmail({
@@ -448,6 +450,126 @@ export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) 
     userId: params.userId,
     emailType: "magic_link_login",
     recipientEmail: params.parentEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// Payment-failed notification (Stripe payment_intent.payment_failed webhook)
+export interface SendPaymentFailedParams {
+  userId: string;
+  organizationId?: string;
+  registrationId: string;
+  parentEmail: string;
+  parentName: string;
+  childName: string;
+  programName: string;
+  seasonName: string;
+  failureMessage: string;
+  retryUrl: string;
+}
+
+export async function sendPaymentFailedEmail(params: SendPaymentFailedParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping payment-failed email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const html = await render(
+    PaymentFailedEmail({
+      parentName: params.parentName,
+      childName: params.childName,
+      programName: params.programName,
+      seasonName: params.seasonName,
+      failureMessage: params.failureMessage,
+      retryUrl: params.retryUrl,
+    }),
+  );
+
+  const subject = `Payment failed — ${params.childName}'s ${params.programName} registration`;
+
+  const smsBody = `Heads up: your payment for ${params.childName}'s ${params.programName} registration didn't go through. Retry: ${params.retryUrl}`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
+    to: params.parentEmail,
+    subject,
+    html,
+    smsBody,
+  });
+
+  await logEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: "payment_failed",
+    recipientEmail: params.parentEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// Announcement email — fire-and-forget per-recipient send used by the
+// admin announcements API when `sendEmail: true` is set on the announcement.
+export interface SendAnnouncementParams {
+  userId: string;
+  organizationId?: string;
+  recipientEmail: string;
+  recipientName: string;
+  announcementTitle: string;
+  announcementContent: string;
+  authorName: string;
+  publishedAt: string;
+  organizationName: string;
+  dashboardUrl: string;
+}
+
+export async function sendAnnouncementEmail(params: SendAnnouncementParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping announcement email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const html = await render(
+    AnnouncementEmail({
+      recipientName: params.recipientName,
+      announcementTitle: params.announcementTitle,
+      announcementContent: params.announcementContent,
+      authorName: params.authorName,
+      publishedAt: params.publishedAt,
+      organizationName: params.organizationName,
+      dashboardUrl: params.dashboardUrl,
+    }),
+  );
+
+  const subject = `${params.organizationName}: ${params.announcementTitle}`;
+
+  // Trim SMS body so a long announcement body doesn't blow past 160 chars.
+  const trimmed =
+    params.announcementContent.length > 100
+      ? `${params.announcementContent.slice(0, 100).trim()}…`
+      : params.announcementContent;
+  const smsBody = `${params.organizationName}: ${params.announcementTitle}. ${trimmed} ${params.dashboardUrl}`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
+    to: params.recipientEmail,
+    subject,
+    html,
+    smsBody,
+  });
+
+  await logEmail({
+    userId: params.userId,
+    emailType: "announcement",
+    recipientEmail: params.recipientEmail,
     subject,
     resendMessageId: result.messageId,
     status: result.success ? "sent" : "failed",

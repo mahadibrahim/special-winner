@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { discountCodes, discountUsages } from "@/lib/db/schema";
 import { eq, and, or, isNull, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 const validateDiscountSchema = z.object({
   code: z.string().min(1, "Code is required").toUpperCase(),
@@ -12,8 +13,19 @@ const validateDiscountSchema = z.object({
 });
 
 // POST - Validate a discount code
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   try {
+    const ip = clientAddress || "unknown";
+
+    // Per-IP rate limit. Without it, a discount-code enumeration attack is
+    // trivial (each request returns a clean valid/invalid signal). 30/min
+    // is generous for a real user iterating on a checkout but slow enough
+    // that brute-forcing a 6-character code space is impractical.
+    const ipLimit = rateLimit(`validate-discount:${ip}`, 30, 60_000);
+    if (!ipLimit.allowed) {
+      return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+    }
+
     // Require organization context to prevent cross-tenant discount code leakage
     const organization = locals.organization;
     if (!organization) {

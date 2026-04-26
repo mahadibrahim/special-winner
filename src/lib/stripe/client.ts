@@ -1,3 +1,21 @@
+/**
+ * Stripe client + checkout session helper.
+ *
+ * Idempotency keys are passed to every Stripe write so Netlify Function
+ * retries (and double-fired client requests) don't double-charge.
+ *
+ * Key conventions used across the codebase:
+ *   - checkout session create:  `${registrationId}:checkout:${amountCents}`
+ *   - connect checkout create:  `${registrationId}:connect-checkout:${amountCents}`
+ *   - refund:                   `${registrationId}:refund:${amountCents}`
+ *   - connect account create:   `${organizationId}:connect-account`
+ *   - connect payment intent:   `${registrationId}:connect-pi:${amountCents}`
+ *
+ * The amountCents suffix matters because partial-pay flows can legitimately
+ * charge the same registration multiple times for different amounts; using
+ * a static `${id}:checkout` would make the second charge fail with the
+ * Stripe duplicate-idempotency-key error.
+ */
 import Stripe from "stripe";
 
 // Initialize Stripe with secret key
@@ -41,31 +59,36 @@ export async function createCheckoutSession({
   }
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: seasonName,
-              description: `Registration for ${playerName}`,
+    const session = await stripe.checkout.sessions.create(
+      {
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: seasonName,
+                description: `Registration for ${playerName}`,
+              },
+              unit_amount: amountCents,
             },
-            unit_amount: amountCents,
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        mode: "payment",
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        customer_email: customerEmail,
+        metadata: {
+          registrationId,
+          type: "registration_payment",
+          ...(extraMetadata ?? {}),
         },
-      ],
-      mode: "payment",
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      customer_email: customerEmail,
-      metadata: {
-        registrationId,
-        type: "registration_payment",
-        ...(extraMetadata ?? {}),
       },
-    });
+      {
+        idempotencyKey: `${registrationId}:checkout:${amountCents}`,
+      },
+    );
 
     return session;
   } catch (error) {

@@ -5,7 +5,12 @@ import { and, eq, ne } from "drizzle-orm"
 import {
   requireAdminAccess,
   requireCoachAccessToTeam,
+  requireOrganizationContext,
 } from "@/lib/auth"
+import {
+  requireSameOrgTeam,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership"
 
 export const prerender = false
 
@@ -24,9 +29,16 @@ export const GET: APIRoute = async (context) => {
     })
   }
 
-  // Allow admin access
+  // Allow admin access OR coach-of-this-team access. We also verify the team
+  // belongs to the caller's organization for admin paths (coach path is already
+  // pinned by team via requireCoachAccessToTeam).
   const adminAuth = await requireAdminAccess(context)
-  if (!adminAuth.authorized) {
+  if (adminAuth.authorized) {
+    const orgContext = await requireOrganizationContext(context)
+    if (!orgContext.hasOrganization) return orgContext.response
+    const teamCheck = await requireSameOrgTeam(orgContext.organizationId, teamId)
+    if (!teamCheck.ok) return ownershipDeniedResponse()
+  } else {
     // Not an admin — try coach access to this specific team
     const coachAuth = await requireCoachAccessToTeam(context, teamId)
     if (!coachAuth.authorized) {
@@ -36,8 +48,11 @@ export const GET: APIRoute = async (context) => {
   }
 
   const db = getDb()
+  // Explicit orderBy for CI determinism — multiple non-archived rows for the
+  // same team are unexpected but defensive (CLAUDE.md multi-tenant hazard).
   const group = await db.query.teamGroups.findFirst({
     where: and(eq(teamGroups.teamId, teamId), ne(teamGroups.status, "archived")),
+    orderBy: (t, { asc }) => asc(t.createdAt),
   })
 
   return new Response(JSON.stringify({ teamGroup: group ?? null }), {

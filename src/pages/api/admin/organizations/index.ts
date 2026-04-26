@@ -11,11 +11,37 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  // super_admins can see every org; everyone else only sees orgs they have
+  // userOrganizationAccess access to (typically just their own).
+  const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+
   try {
     const db = getDb();
 
-    // Get all organizations with counts
-    const orgsWithCounts = await getDb()
+    // For non-super_admins: pull the set of orgs the caller is a member of.
+    let allowedOrgIds: string[] | null = null;
+    if (!isSuperAdmin) {
+      const memberships = await getDb()
+        .select({ organizationId: userOrganizationAccess.organizationId })
+        .from(userOrganizationAccess)
+        .where(
+          and(
+            eq(userOrganizationAccess.userId, auth.user.id),
+            eq(userOrganizationAccess.active, true),
+          ),
+        );
+      allowedOrgIds = memberships.map((m) => m.organizationId);
+
+      if (allowedOrgIds.length === 0) {
+        return new Response(JSON.stringify({ organizations: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Get organizations with counts
+    const orgsQuery = getDb()
       .select({
         id: organizations.id,
         name: organizations.name,
@@ -45,8 +71,11 @@ export const GET: APIRoute = async (context) => {
           WHERE user_organization_access.organization_id = ${organizations.id}
         )::int`,
       })
-      .from(organizations)
-      .orderBy(organizations.name);
+      .from(organizations);
+
+    const orgsWithCounts = await (allowedOrgIds
+      ? orgsQuery.where(inArray(organizations.id, allowedOrgIds)).orderBy(organizations.name)
+      : orgsQuery.orderBy(organizations.name));
 
     return new Response(
       JSON.stringify({
@@ -73,9 +102,17 @@ export const GET: APIRoute = async (context) => {
 export const POST: APIRoute = async (context) => {
   const { request, locals } = context;
 
-  // Require admin access - only admins can create organizations
+  // Require admin access — only super_admins can create new organizations
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+
+  const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+  if (!isSuperAdmin) {
+    return new Response(
+      JSON.stringify({ error: "Forbidden: super_admin required" }),
+      { status: 403, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   try {
     const db = getDb();

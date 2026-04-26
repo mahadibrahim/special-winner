@@ -4,6 +4,12 @@ import { programs, sports, locations } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgLocation,
+  requireSameOrgSport,
+  requireSameOrgProgram,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
 
 const programSchema = z.object({
   locationId: z.string().uuid("Invalid location"),
@@ -66,6 +72,9 @@ export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const result = programSchema.safeParse(body);
@@ -76,6 +85,12 @@ export const POST: APIRoute = async (context) => {
         { status: 400 }
       );
     }
+
+    // Verify the posted location and sport belong to the caller's org
+    const locationCheck = await requireSameOrgLocation(orgContext.organizationId, result.data.locationId);
+    if (!locationCheck.ok) return ownershipDeniedResponse();
+    const sportCheck = await requireSameOrgSport(orgContext.organizationId, result.data.sportId);
+    if (!sportCheck.ok) return ownershipDeniedResponse();
 
     const [newProgram] = await getDb()
       .insert(programs)
@@ -105,6 +120,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -113,6 +131,10 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Program ID is required" }), { status: 400 });
     }
 
+    // Verify the existing program belongs to caller's org
+    const existing = await requireSameOrgProgram(orgContext.organizationId, id);
+    if (!existing.ok) return ownershipDeniedResponse();
+
     const result = programSchema.safeParse(data);
     if (!result.success) {
       return new Response(
@@ -120,6 +142,12 @@ export const PUT: APIRoute = async (context) => {
         { status: 400 }
       );
     }
+
+    // Verify any changed location/sport ids also belong to caller's org
+    const locationCheck = await requireSameOrgLocation(orgContext.organizationId, result.data.locationId);
+    if (!locationCheck.ok) return ownershipDeniedResponse();
+    const sportCheck = await requireSameOrgSport(orgContext.organizationId, result.data.sportId);
+    if (!sportCheck.ok) return ownershipDeniedResponse();
 
     const [updatedProgram] = await getDb()
       .update(programs)
@@ -151,6 +179,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -158,6 +189,9 @@ export const DELETE: APIRoute = async (context) => {
     if (!id) {
       return new Response(JSON.stringify({ error: "Program ID is required" }), { status: 400 });
     }
+
+    const existing = await requireSameOrgProgram(orgContext.organizationId, id);
+    if (!existing.ok) return ownershipDeniedResponse();
 
     await getDb().delete(programs).where(eq(programs.id, id));
     return new Response(JSON.stringify({ success: true }), { status: 200 });

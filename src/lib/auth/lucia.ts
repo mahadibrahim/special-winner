@@ -1,3 +1,8 @@
+// Lucia generates session IDs from a CSPRNG and stores them server-side; the
+// cookie value is just an opaque random ID, not a signed token. There is no
+// `AUTH_SECRET` to wire in — Lucia doesn't sign or HMAC anything. If a future
+// auth piece (custom JWTs, signed-cookie middleware, etc.) ever needs a server
+// secret, plumb it in through env at that layer.
 import { Lucia } from "lucia";
 import { DrizzlePostgreSQLAdapter } from "@lucia-auth/adapter-drizzle";
 import { getDb } from "../db";

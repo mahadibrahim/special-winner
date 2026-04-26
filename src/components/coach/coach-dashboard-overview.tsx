@@ -11,7 +11,6 @@ import {
   MapPin,
   Loader2,
   AlertCircle,
-  TrendingUp,
   MessageSquare,
   Plus,
   Target,
@@ -74,84 +73,6 @@ const sportGradients: Record<string, string> = {
 }
 
 const defaultGradient = "from-blue-500 to-indigo-600"
-
-// Mock data for development
-const mockTeams: Team[] = [
-  {
-    id: "1",
-    name: "U10 Lightning",
-    color: "#22c55e",
-    logoUrl: null,
-    division: "U10 Fall League",
-    maxRosterSize: 15,
-    isHeadCoach: true,
-    rosterCount: 12,
-    season: {
-      id: "s1",
-      name: "Fall 2025",
-      startDate: "2025-09-01",
-      endDate: "2025-12-15",
-      status: "active",
-    },
-    program: {
-      id: "p1",
-      name: "Youth Soccer League",
-    },
-    sport: {
-      id: "sp1",
-      name: "Soccer",
-      icon: "soccer",
-      color: "#22c55e",
-    },
-    location: {
-      id: "l1",
-      name: "Powell Sports Complex",
-    },
-    nextGame: {
-      id: "g1",
-      scheduledAt: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(),
-      opponent: "Dublin FC",
-      venue: "Field 3",
-    },
-  },
-  {
-    id: "2",
-    name: "U8 Thunder",
-    color: "#3b82f6",
-    logoUrl: null,
-    division: "U8 Development",
-    maxRosterSize: 12,
-    isHeadCoach: false,
-    rosterCount: 10,
-    season: {
-      id: "s1",
-      name: "Fall 2025",
-      startDate: "2025-09-01",
-      endDate: "2025-12-15",
-      status: "active",
-    },
-    program: {
-      id: "p1",
-      name: "Youth Soccer League",
-    },
-    sport: {
-      id: "sp1",
-      name: "Soccer",
-      icon: "soccer",
-      color: "#22c55e",
-    },
-    location: {
-      id: "l1",
-      name: "Powell Sports Complex",
-    },
-    nextGame: {
-      id: "g2",
-      scheduledAt: new Date(Date.now() + 1000 * 60 * 60 * 72).toISOString(),
-      opponent: "Westerville United",
-      venue: "Field 1",
-    },
-  },
-]
 
 function TeamCard({ team }: { team: Team }) {
   const gradient = sportGradients[team.sport.name] || defaultGradient
@@ -360,13 +281,12 @@ export default function CoachDashboardOverview() {
       }
 
       const data = await response.json()
-      // Use real data if available, otherwise use mock data for development
-      setTeams(data.teams.length > 0 ? data.teams : mockTeams)
+      setTeams(data.teams ?? [])
+      setError(null)
     } catch (err) {
       console.error("Error fetching teams:", err)
-      // Fall back to mock data for development
-      setTeams(mockTeams)
-      setError(null) // Don't show error in development
+      setTeams([])
+      setError(err instanceof Error ? err.message : "Unable to load teams")
     } finally {
       setIsLoading(false)
     }
@@ -499,44 +419,6 @@ export default function CoachDashboardOverview() {
             </a>
           </section>
 
-          {/* Recent Activity Placeholder */}
-          <section className="dashboard-section">
-            <div className="p-5 rounded-2xl bg-paper border border-border">
-              <h3 className="font-semibold text-ink mb-4 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
-                Recent Activity
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-cream-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                    <Trophy className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-ink">Game completed</p>
-                    <p className="text-xs text-ink-muted">U10 Lightning won 3-1</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-cream-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-ink">Note added</p>
-                    <p className="text-xs text-ink-muted">Progress note for Emma J.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-cream-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                    <Users className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-ink">New player</p>
-                    <p className="text-xs text-ink-muted">Liam M. joined U8 Thunder</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
       </div>
     </div>

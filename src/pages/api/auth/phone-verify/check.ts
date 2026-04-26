@@ -1,6 +1,10 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { phoneVerifications } from "@/lib/db/schema/phone-verifications";
 import { verifyPhoneCode } from "@/lib/auth/phone-otp";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 /**
  * POST /api/auth/phone-verify/check
@@ -25,6 +29,29 @@ export const POST: APIRoute = async ({ request }) => {
         JSON.stringify({ error: result.error.issues[0].message }),
         { status: 400 },
       );
+    }
+
+    // Rate-limit OTP guesses per verification's phone number. The OTP itself
+    // is 6 digits / 5 attempts / 10-min window, so brute force isn't really
+    // feasible on a single record, but a determined attacker could request
+    // many records and try a few codes on each. Capping by phone closes
+    // that loop. Look up the phone before calling verify so the limit
+    // applies even on wrong codes.
+    const phoneRow = await getDb()
+      .select({ phone: phoneVerifications.phone })
+      .from(phoneVerifications)
+      .where(eq(phoneVerifications.id, result.data.verificationId))
+      .limit(1);
+
+    if (phoneRow.length > 0) {
+      const phoneLimit = rateLimit(
+        `phone-otp-check:${phoneRow[0].phone}`,
+        5,
+        60_000,
+      );
+      if (!phoneLimit.allowed) {
+        return rateLimitedResponse(phoneLimit.retryAfter ?? 60);
+      }
     }
 
     const verify = await verifyPhoneCode(

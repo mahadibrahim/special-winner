@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { verifyPassword, createSession } from "@/lib/auth";
+import { lucia } from "@/lib/auth/lucia";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 
 const signinSchema = z.object({
@@ -12,6 +14,14 @@ const signinSchema = z.object({
 
 export const POST: APIRoute = async (context) => {
   try {
+    const ip = context.clientAddress || "unknown";
+
+    // Per-IP rate limit first (cheap, applies even before parsing body).
+    const ipLimit = rateLimit(`signin:ip:${ip}`, 5, 60_000);
+    if (!ipLimit.allowed) {
+      return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+    }
+
     const body = await context.request.json();
     const result = signinSchema.safeParse(body);
 
@@ -26,10 +36,18 @@ export const POST: APIRoute = async (context) => {
     }
 
     const { email, password } = result.data;
+    const normalizedEmail = email.toLowerCase();
+
+    // Per-email rate limit (slows down credential-stuffing against one
+    // account from rotating IPs).
+    const emailLimit = rateLimit(`signin:email:${normalizedEmail}`, 10, 60_000);
+    if (!emailLimit.allowed) {
+      return rateLimitedResponse(emailLimit.retryAfter ?? 60);
+    }
 
     // Find user
     const user = await getDb().query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
+      where: eq(users.email, normalizedEmail),
     });
 
     if (!user || !user.passwordHash) {
@@ -47,6 +65,22 @@ export const POST: APIRoute = async (context) => {
         JSON.stringify({ error: "Invalid email or password" }),
         { status: 401 }
       );
+    }
+
+    // Session fixation defense: if the request arrived with an existing
+    // session cookie (e.g., a pre-attached anon session), invalidate it
+    // before issuing a new authenticated one. Otherwise an attacker who
+    // pre-set a session cookie on a victim's browser could ride along on
+    // the privilege escalation.
+    const existingSessionId =
+      context.cookies.get(lucia.sessionCookieName)?.value ?? null;
+    if (existingSessionId) {
+      try {
+        await lucia.invalidateSession(existingSessionId);
+      } catch (err) {
+        // Don't block signin if invalidation fails — log and continue.
+        console.error("Pre-signin session invalidation failed:", err);
+      }
     }
 
     // Create session

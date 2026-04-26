@@ -151,10 +151,7 @@ export const POST: APIRoute = async (context) => {
   } catch (err) {
     console.error("[admin/broadcasts] composeBroadcast failed:", err)
     return new Response(
-      JSON.stringify({
-        error: "Broadcast failed",
-        details: err instanceof Error ? err.message : String(err),
-      }),
+      JSON.stringify({ error: "Broadcast failed" }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     )
   }

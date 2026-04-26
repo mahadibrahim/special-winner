@@ -63,7 +63,7 @@ export default function Navigation() {
     : ""
 
   const navLinks = [
-    { href: "#programs", label: "Programs" },
+    { href: "/programs", label: "Programs" },
     { href: "/guides", label: "Guides" },
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },
@@ -71,10 +71,10 @@ export default function Navigation() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+      className={`fixed top-0 left-0 right-0 z-50 bg-cream/95 backdrop-blur-md transition-all duration-500 ${
         isScrolled
-          ? "bg-cream/95 backdrop-blur-md shadow-[0_1px_0_0_var(--border)]"
-          : "bg-transparent"
+          ? "shadow-[0_1px_0_0_var(--border)]"
+          : ""
       }`}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -144,7 +144,7 @@ export default function Navigation() {
                   Sign In
                 </a>
                 <a
-                  href="#programs"
+                  href="/programs"
                   className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-cream rounded-lg hover:bg-primary/90 shadow-sm shadow-primary/15 transition-all"
                 >
                   Get Started
@@ -261,7 +261,7 @@ export default function Navigation() {
                         asChild
                       >
                         <a
-                          href="#programs"
+                          href="/programs"
                           onClick={() => setMobileMenuOpen(false)}
                           className="flex items-center justify-center gap-2"
                         >

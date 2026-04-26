@@ -337,10 +337,10 @@ export default function OrganizationOnboarding({
                   Contact support if you need assistance setting up your organization.
                 </p>
                 <a
-                  href="mailto:support@aspiresports.com"
+                  href="mailto:hello@aspiresportsohio.com"
                   className="text-sm text-primary hover:underline mt-2 inline-flex items-center gap-1"
                 >
-                  support@aspiresports.com
+                  hello@aspiresportsohio.com
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </div>

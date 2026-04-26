@@ -24,6 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Author {
   id: string
@@ -63,6 +65,7 @@ const targetLabels: Record<string, string> = {
 }
 
 export function AnnouncementsList() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -167,7 +170,13 @@ export function AnnouncementsList() {
   }
 
   async function handleDelete(announcement: Announcement) {
-    if (!confirm(`Are you sure you want to delete "${announcement.title}"?`)) return
+    const ok = await confirm({
+      title: "Delete announcement?",
+      description: <>Delete <strong>{announcement.title}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/announcements?id=${announcement.id}`, {
@@ -181,8 +190,9 @@ export function AnnouncementsList() {
       }
 
       await fetchAnnouncements()
+      toast.success(`Deleted "${announcement.title}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete announcement")
     }
   }
 
@@ -204,6 +214,7 @@ export function AnnouncementsList() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Announcements</h1>

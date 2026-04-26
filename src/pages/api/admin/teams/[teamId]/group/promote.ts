@@ -11,7 +11,11 @@ import {
   sports,
 } from "@/lib/db/schema"
 import { and, eq, ne } from "drizzle-orm"
-import { requireAdminAccess } from "@/lib/auth"
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth"
+import {
+  requireSameOrgTeam,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership"
 import { promoteGroupToActive } from "@/lib/messaging/group-lifecycle"
 
 export const prerender = false
@@ -24,10 +28,17 @@ export const POST: APIRoute = async (context) => {
   const adminAuth = await requireAdminAccess(context)
   if (!adminAuth.authorized) return adminAuth.response
 
+  const orgContext = await requireOrganizationContext(context)
+  if (!orgContext.hasOrganization) return orgContext.response
+
   const teamId = context.params.teamId
   if (!teamId) {
     return new Response(JSON.stringify({ error: "teamId required" }), { status: 400 })
   }
+
+  // Verify the team belongs to caller's organization
+  const teamCheck = await requireSameOrgTeam(orgContext.organizationId, teamId)
+  if (!teamCheck.ok) return ownershipDeniedResponse()
 
   let raw: unknown
   try { raw = await context.request.json() } catch {
@@ -43,10 +54,12 @@ export const POST: APIRoute = async (context) => {
 
   const db = getDb()
 
-  // Find existing non-archived group for this team
+  // Find existing non-archived group for this team — explicit orderBy so CI's
+  // accumulated rows resolve deterministically (CLAUDE.md multi-tenant query hazard).
   let targetId: string | undefined
   const existing = await db.query.teamGroups.findFirst({
     where: and(eq(teamGroups.teamId, teamId), ne(teamGroups.status, "archived")),
+    orderBy: (t, { asc }) => asc(t.createdAt),
   })
   if (existing) {
     if (existing.status === "active") {

@@ -7,6 +7,7 @@ import {
   timestamp,
   integer,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
@@ -51,83 +52,112 @@ export const eventTypeEnum = pgEnum("event_type", [
 ]);
 
 // Venues/Facilities
-export const venues = pgTable("venues", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  locationId: uuid("location_id")
-    .notNull()
-    .references(() => locations.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 255 }).notNull(),
-  address: text("address"),
-  fieldCount: integer("field_count").default(1),
-  indoor: boolean("indoor").default(false),
-  notes: text("notes"),
-  active: boolean("active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const venues = pgTable(
+  "venues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    locationId: uuid("location_id")
+      .notNull()
+      .references(() => locations.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    address: text("address"),
+    fieldCount: integer("field_count").default(1),
+    indoor: boolean("indoor").default(false),
+    notes: text("notes"),
+    active: boolean("active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("venues_location_idx").on(table.locationId),
+  ],
+);
 
 // Teams
-export const teams = pgTable("teams", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  seasonId: uuid("season_id")
-    .notNull()
-    .references(() => seasons.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 100 }).notNull(),
-  color: varchar("color", { length: 20 }),
-  logoUrl: text("logo_url"),
-  coachUserId: uuid("coach_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  assistantCoachUserId: uuid("assistant_coach_user_id").references(
-    () => users.id,
-    { onDelete: "set null" }
-  ),
-  maxRosterSize: integer("max_roster_size"),
-  division: varchar("division", { length: 50 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const teams = pgTable(
+  "teams",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    seasonId: uuid("season_id")
+      .notNull()
+      .references(() => seasons.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    color: varchar("color", { length: 20 }),
+    logoUrl: text("logo_url"),
+    coachUserId: uuid("coach_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    assistantCoachUserId: uuid("assistant_coach_user_id").references(
+      () => users.id,
+      { onDelete: "set null" }
+    ),
+    maxRosterSize: integer("max_roster_size"),
+    division: varchar("division", { length: 50 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("teams_season_idx").on(table.seasonId),
+    index("teams_coach_user_idx").on(table.coachUserId),
+  ],
+);
 
 // Roster entries (players on teams)
-export const rosters = pgTable("rosters", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  teamId: uuid("team_id")
-    .notNull()
-    .references(() => teams.id, { onDelete: "cascade" }),
-  registrationId: uuid("registration_id")
-    .notNull()
-    .references(() => registrations.id, { onDelete: "cascade" }),
-  jerseyNumber: varchar("jersey_number", { length: 10 }),
-  position: varchar("position", { length: 50 }),
-  status: rosterStatusEnum("status").default("active").notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const rosters = pgTable(
+  "rosters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    registrationId: uuid("registration_id")
+      .notNull()
+      .references(() => registrations.id, { onDelete: "cascade" }),
+    jerseyNumber: varchar("jersey_number", { length: 10 }),
+    position: varchar("position", { length: 50 }),
+    status: rosterStatusEnum("status").default("active").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("rosters_team_idx").on(table.teamId),
+    index("rosters_registration_idx").on(table.registrationId),
+  ],
+);
 
 // Games/Matches
-export const games = pgTable("games", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  seasonId: uuid("season_id")
-    .notNull()
-    .references(() => seasons.id, { onDelete: "cascade" }),
-  homeTeamId: uuid("home_team_id").references(() => teams.id, {
-    onDelete: "set null",
-  }),
-  awayTeamId: uuid("away_team_id").references(() => teams.id, {
-    onDelete: "set null",
-  }),
-  venueId: uuid("venue_id").references(() => venues.id, { onDelete: "set null" }),
-  fieldNumber: varchar("field_number", { length: 20 }),
-  scheduledAt: timestamp("scheduled_at").notNull(),
-  durationMinutes: integer("duration_minutes"),
-  status: gameStatusEnum("status").default("scheduled").notNull(),
-  homeScore: integer("home_score"),
-  awayScore: integer("away_score"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const games = pgTable(
+  "games",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    seasonId: uuid("season_id")
+      .notNull()
+      .references(() => seasons.id, { onDelete: "cascade" }),
+    homeTeamId: uuid("home_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    awayTeamId: uuid("away_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    venueId: uuid("venue_id").references(() => venues.id, { onDelete: "set null" }),
+    fieldNumber: varchar("field_number", { length: 20 }),
+    scheduledAt: timestamp("scheduled_at").notNull(),
+    durationMinutes: integer("duration_minutes"),
+    status: gameStatusEnum("status").default("scheduled").notNull(),
+    homeScore: integer("home_score"),
+    awayScore: integer("away_score"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("games_season_idx").on(table.seasonId),
+    index("games_home_team_idx").on(table.homeTeamId),
+    index("games_away_team_idx").on(table.awayTeamId),
+    index("games_scheduled_at_idx").on(table.scheduledAt),
+  ],
+);
 
 // Standings (calculated/cached)
 export const standings = pgTable("standings", {
@@ -149,45 +179,64 @@ export const standings = pgTable("standings", {
 });
 
 // Coach Notes (feedback about players)
-export const coachNotes = pgTable("coach_notes", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  familyMemberId: uuid("family_member_id")
-    .notNull()
-    .references(() => familyMembers.id, { onDelete: "cascade" }),
-  teamId: uuid("team_id")
-    .notNull()
-    .references(() => teams.id, { onDelete: "cascade" }),
-  coachUserId: uuid("coach_user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  category: noteCategoryEnum("category").default("general").notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  content: text("content").notNull(),
-  visibleToParent: boolean("visible_to_parent").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const coachNotes = pgTable(
+  "coach_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    familyMemberId: uuid("family_member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    coachUserId: uuid("coach_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: noteCategoryEnum("category").default("general").notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    content: text("content").notNull(),
+    visibleToParent: boolean("visible_to_parent").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("coach_notes_family_member_team_idx").on(
+      table.familyMemberId,
+      table.teamId,
+    ),
+  ],
+);
 
 // Attendance tracking
-export const attendance = pgTable("attendance", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  teamId: uuid("team_id")
-    .notNull()
-    .references(() => teams.id, { onDelete: "cascade" }),
-  rosterId: uuid("roster_id")
-    .notNull()
-    .references(() => rosters.id, { onDelete: "cascade" }),
-  gameId: uuid("game_id").references(() => games.id, { onDelete: "cascade" }),
-  eventDate: timestamp("event_date").notNull(),
-  eventType: eventTypeEnum("event_type").default("practice").notNull(),
-  status: attendanceStatusEnum("status").default("present").notNull(),
-  notes: text("notes"),
-  recordedByUserId: uuid("recorded_by_user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const attendance = pgTable(
+  "attendance",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    rosterId: uuid("roster_id")
+      .notNull()
+      .references(() => rosters.id, { onDelete: "cascade" }),
+    gameId: uuid("game_id").references(() => games.id, { onDelete: "cascade" }),
+    eventDate: timestamp("event_date").notNull(),
+    eventType: eventTypeEnum("event_type").default("practice").notNull(),
+    status: attendanceStatusEnum("status").default("present").notNull(),
+    notes: text("notes"),
+    recordedByUserId: uuid("recorded_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("attendance_team_event_date_idx").on(
+      table.teamId,
+      table.eventDate,
+    ),
+    index("attendance_roster_idx").on(table.rosterId),
+  ],
+);
 
 // Relations
 export const venuesRelations = relations(venues, ({ one, many }) => ({

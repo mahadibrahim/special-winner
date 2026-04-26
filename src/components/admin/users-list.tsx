@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface UserRole {
   id: string
@@ -66,6 +68,7 @@ const roleLabels: Record<string, string> = {
 }
 
 export function UsersList() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [users, setUsers] = useState<User[]>([])
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -134,14 +137,20 @@ export function UsersList() {
       await fetchUsers(pagination.page)
       setIsRoleDialogOpen(false)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to assign role")
     } finally {
       setIsSubmitting(false)
     }
   }
 
   async function handleRemoveRole(userRoleId: string) {
-    if (!confirm("Are you sure you want to remove this role?")) return
+    const ok = await confirm({
+      title: "Remove role?",
+      description: "Are you sure you want to remove this role?",
+      confirmLabel: "Remove",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/users?userRoleId=${userRoleId}`, {
@@ -154,8 +163,9 @@ export function UsersList() {
       }
 
       await fetchUsers(pagination.page)
+      toast.success("Role removed")
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to remove role")
     }
   }
 
@@ -167,6 +177,7 @@ export function UsersList() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Users</h1>

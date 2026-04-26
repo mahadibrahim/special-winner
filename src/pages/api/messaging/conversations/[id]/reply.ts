@@ -4,6 +4,11 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { conversations } from "@/lib/db/schema/conversations";
 import { sendToParent } from "@/lib/messaging/gateway";
+import {
+  getUserRoles,
+  getCoachTeamIds,
+  requireOrganizationContext,
+} from "@/lib/auth";
 
 /**
  * POST /api/messaging/conversations/:id/reply
@@ -22,7 +27,8 @@ const replySchema = z.object({
   forceChannel: z.enum(["sms", "email", "telegram"]).optional(),
 });
 
-export const POST: APIRoute = async ({ params, request, locals }) => {
+export const POST: APIRoute = async (context) => {
+  const { params, request, locals } = context;
   const user = locals.user;
   if (!user) {
     return json({ error: "Unauthorized" }, 401);
@@ -56,10 +62,36 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     return json({ error: "Conversation not found" }, 404);
   }
 
-  // Determine sender type based on the staff user's role.
-  // For now, assume admin — a full role check can be added when the coach
-  // inbox view is live and we need to distinguish coach vs admin replies.
-  const senderType = "admin" as const;
+  // Resolve caller's role/scope and confirm authorization to reply on this
+  // conversation's organization. Plain `locals.user` is not enough: it would
+  // let any logged-in parent post into staff-only conversations as 'admin'.
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
+  // Pin to the resolved org-context: the conversation must belong to the
+  // organization the request is being made against.
+  if (conversation.organizationId !== orgContext.organizationId) {
+    return json({ error: "Forbidden" }, 403);
+  }
+
+  const userRoles = await getUserRoles(user.id);
+  const isAdmin = userRoles.some(
+    (r) => r.name === "super_admin" || r.name === "location_admin",
+  );
+
+  let senderType: "admin" | "coach";
+  if (isAdmin) {
+    senderType = "admin";
+  } else {
+    // Allow a coach to reply only if they coach a team in this org. We don't
+    // currently scope conversations to a specific team, so coach access is
+    // treated as "coach for this org".
+    const coachTeamIds = await getCoachTeamIds(user.id);
+    if (coachTeamIds.length === 0) {
+      return json({ error: "Forbidden" }, 403);
+    }
+    senderType = "coach";
+  }
 
   const result = await sendToParent({
     parentUserId: conversation.parentUserId,

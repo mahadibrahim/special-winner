@@ -137,7 +137,6 @@ Double-check every variable is set:
 ```
 # Core
 DATABASE_URL=
-AUTH_SECRET=
 PUBLIC_APP_URL=
 
 # Stripe (existing)

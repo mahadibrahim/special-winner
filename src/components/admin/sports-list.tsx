@@ -15,6 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Sport {
   id: string
@@ -27,6 +29,7 @@ interface Sport {
 }
 
 export function SportsList() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [sports, setSports] = useState<Sport[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -126,7 +129,13 @@ export function SportsList() {
   }
 
   async function handleDelete(sport: Sport) {
-    if (!confirm(`Are you sure you want to delete "${sport.name}"?`)) return
+    const ok = await confirm({
+      title: "Delete sport?",
+      description: <>Delete <strong>{sport.name}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/sports?id=${sport.id}`, {
@@ -140,8 +149,9 @@ export function SportsList() {
       }
 
       await fetchSports()
+      toast.success(`Deleted "${sport.name}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete sport")
     }
   }
 
@@ -155,6 +165,7 @@ export function SportsList() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Sports</h1>

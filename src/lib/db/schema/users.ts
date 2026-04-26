@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -50,14 +51,21 @@ export const users = pgTable("users", {
 });
 
 // Sessions table (for Lucia Auth)
-export const sessions = pgTable("sessions", {
-  id: varchar("id", { length: 255 }).primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("sessions_user_idx").on(table.userId),
+    index("sessions_expires_at_idx").on(table.expiresAt),
+  ],
+);
 
 // Roles table
 export const roles = pgTable("roles", {
@@ -69,47 +77,53 @@ export const roles = pgTable("roles", {
 });
 
 // User roles (assignments)
-export const userRoles = pgTable("user_roles", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  roleId: uuid("role_id")
-    .notNull()
-    .references(() => roles.id, { onDelete: "cascade" }),
-  scopeType: scopeTypeEnum("scope_type").default("global").notNull(),
-  scopeId: uuid("scope_id"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  expiresAt: timestamp("expires_at"),
-});
+export const userRoles = pgTable(
+  "user_roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    scopeType: scopeTypeEnum("scope_type").default("global").notNull(),
+    scopeId: uuid("scope_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at"),
+  },
+  (table) => [
+    index("user_roles_user_idx").on(table.userId),
+    index("user_roles_role_scope_idx").on(
+      table.roleId,
+      table.scopeType,
+      table.scopeId,
+    ),
+  ],
+);
 
 // Email verification tokens
-export const emailVerificationTokens = pgTable("email_verification_tokens", {
-  id: varchar("id", { length: 255 }).primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  email: varchar("email", { length: 255 }).notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// Password reset tokens
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: varchar("id", { length: 255 }).primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const emailVerificationTokens = pgTable(
+  "email_verification_tokens",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 255 }).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("email_verification_tokens_user_idx").on(table.userId),
+  ],
+);
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   userRoles: many(userRoles),
   emailVerificationTokens: many(emailVerificationTokens),
-  passwordResetTokens: many(passwordResetTokens),
   // Organization access is defined in organizations.ts to avoid circular imports
 }));
 

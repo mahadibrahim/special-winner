@@ -64,128 +64,6 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
   injured: { label: "Injured", color: "text-red-400", bgColor: "bg-red-500/20 border-red-500/30" },
 }
 
-// Mock data for development
-const mockRoster: RosterPlayer[] = [
-  {
-    id: "1",
-    jerseyNumber: "10",
-    position: "Forward",
-    status: "active",
-    notes: "Team captain",
-    player: {
-      id: "p1",
-      firstName: "Emma",
-      lastName: "Johnson",
-      birthDate: "2016-04-15",
-      age: 9,
-      gender: "female",
-      photoUrl: null,
-      medicalNotes: null,
-    },
-    parent: {
-      id: "u1",
-      firstName: "Sarah",
-      lastName: "Johnson",
-      email: "sarah.johnson@email.com",
-      phone: "(614) 555-0101",
-    },
-    emergencyContact: {
-      name: "Mike Johnson",
-      phone: "(614) 555-0102",
-    },
-  },
-  {
-    id: "2",
-    jerseyNumber: "7",
-    position: "Midfielder",
-    status: "active",
-    notes: null,
-    player: {
-      id: "p2",
-      firstName: "Liam",
-      lastName: "Williams",
-      birthDate: "2016-08-22",
-      age: 9,
-      gender: "male",
-      photoUrl: null,
-      medicalNotes: "Asthma - has inhaler",
-    },
-    parent: {
-      id: "u2",
-      firstName: "Jennifer",
-      lastName: "Williams",
-      email: "jwilliams@email.com",
-      phone: "(614) 555-0201",
-    },
-    emergencyContact: {
-      name: "David Williams",
-      phone: "(614) 555-0202",
-    },
-  },
-  {
-    id: "3",
-    jerseyNumber: "3",
-    position: "Defender",
-    status: "injured",
-    notes: "Sprained ankle - out 2 weeks",
-    player: {
-      id: "p3",
-      firstName: "Olivia",
-      lastName: "Brown",
-      birthDate: "2016-01-10",
-      age: 9,
-      gender: "female",
-      photoUrl: null,
-      medicalNotes: null,
-    },
-    parent: {
-      id: "u3",
-      firstName: "Michael",
-      lastName: "Brown",
-      email: "mbrown@email.com",
-      phone: "(614) 555-0301",
-    },
-    emergencyContact: {
-      name: "Lisa Brown",
-      phone: "(614) 555-0302",
-    },
-  },
-  {
-    id: "4",
-    jerseyNumber: "1",
-    position: "Goalkeeper",
-    status: "active",
-    notes: null,
-    player: {
-      id: "p4",
-      firstName: "Noah",
-      lastName: "Davis",
-      birthDate: "2016-06-05",
-      age: 9,
-      gender: "male",
-      photoUrl: null,
-      medicalNotes: "Peanut allergy - EpiPen in bag",
-    },
-    parent: {
-      id: "u4",
-      firstName: "Amanda",
-      lastName: "Davis",
-      email: "amanda.d@email.com",
-      phone: "(614) 555-0401",
-    },
-    emergencyContact: {
-      name: "James Davis",
-      phone: "(614) 555-0402",
-    },
-  },
-]
-
-const mockTeam: Team = {
-  id: "1",
-  name: "U10 Lightning",
-  maxRosterSize: 15,
-}
-
 function PlayerCard({
   player,
   expanded,
@@ -361,14 +239,14 @@ export default function RosterTable({ teamId }: RosterTableProps) {
       }
 
       const data = await response.json()
-      setRoster(data.roster.length > 0 ? data.roster : mockRoster)
-      setTeam(data.team || mockTeam)
+      setRoster(data.roster ?? [])
+      setTeam(data.team ?? null)
+      setError(null)
     } catch (err) {
       console.error("Error fetching roster:", err)
-      // Fall back to mock data for development
-      setRoster(mockRoster)
-      setTeam(mockTeam)
-      setError(null)
+      setRoster([])
+      setTeam(null)
+      setError(err instanceof Error ? err.message : "Unable to load roster")
     } finally {
       setIsLoading(false)
     }

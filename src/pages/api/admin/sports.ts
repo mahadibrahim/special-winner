@@ -1,9 +1,13 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { sports } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgSport,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -89,6 +93,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -96,6 +103,10 @@ export const PUT: APIRoute = async (context) => {
     if (!id) {
       return new Response(JSON.stringify({ error: "Sport ID is required" }), { status: 400 });
     }
+
+    // Verify the sport belongs to caller's org
+    const existing = await requireSameOrgSport(orgContext.organizationId, id);
+    if (!existing.ok) return ownershipDeniedResponse();
 
     const result = sportSchema.safeParse(data);
     if (!result.success) {
@@ -111,7 +122,9 @@ export const PUT: APIRoute = async (context) => {
         ...result.data,
         updatedAt: new Date(),
       })
-      .where(eq(sports.id, id))
+      .where(
+        and(eq(sports.id, id), eq(sports.organizationId, orgContext.organizationId)),
+      )
       .returning();
 
     if (!updatedSport) {
@@ -136,6 +149,9 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -144,7 +160,15 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Sport ID is required" }), { status: 400 });
     }
 
-    const [deletedSport] = await getDb().delete(sports).where(eq(sports.id, id)).returning();
+    const existing = await requireSameOrgSport(orgContext.organizationId, id);
+    if (!existing.ok) return ownershipDeniedResponse();
+
+    const [deletedSport] = await getDb()
+      .delete(sports)
+      .where(
+        and(eq(sports.id, id), eq(sports.organizationId, orgContext.organizationId)),
+      )
+      .returning();
 
     if (!deletedSport) {
       return new Response(JSON.stringify({ error: "Sport not found" }), { status: 404 });

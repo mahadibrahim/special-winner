@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
 import type { LucideIcon } from "lucide-react"
-import { Mail, MapPin, ArrowRight, Loader2 } from "lucide-react"
+import { Mail, MapPin } from "lucide-react"
 
 const programLinks = [
   { label: "Soccer", href: "/programs?sport=soccer" },
@@ -31,21 +30,6 @@ const locations = ["Powell", "Dublin", "Delaware"]
 const socialLinks: Array<{ icon: LucideIcon; href: string; label: string }> = []
 
 export default function Footer() {
-  const [email, setEmail] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSubscribed, setIsSubscribed] = useState(false)
-
-  const handleNewsletterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) return
-
-    setIsSubmitting(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsSubmitting(false)
-    setIsSubscribed(true)
-    setEmail("")
-  }
-
   return (
     <footer className="relative bg-navy-deep text-cream/80">
       {/* Editorial section break */}
@@ -84,45 +68,6 @@ export default function Footer() {
               Development-focused youth sports programs building character, confidence,
               and community through athletics in Central Ohio.
             </p>
-
-            {/* Newsletter */}
-            <div>
-              <h4 className="text-cream font-semibold mb-3 text-sm">Stay Updated</h4>
-              {isSubscribed ? (
-                <div className="flex items-center gap-2 text-primary text-sm">
-                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  Thanks for subscribing!
-                </div>
-              ) : (
-                <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="w-full px-4 py-2.5 bg-cream/5 border border-cream/15 rounded-lg text-cream text-sm placeholder:text-cream/30 focus:outline-none focus:border-primary/50 focus:bg-cream/[0.07] transition-all"
-                      required
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-cream rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <ArrowRight className="w-4 h-4" />
-                    )}
-                  </button>
-                </form>
-              )}
-            </div>
           </div>
 
           {/* Column 2 - Programs */}

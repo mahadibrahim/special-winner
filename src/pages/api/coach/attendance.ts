@@ -112,19 +112,35 @@ export const GET: APIRoute = async (context) => {
       .orderBy(games.scheduledAt)
       .limit(10);
 
-    // Calculate attendance stats
-    const stats = await getDb()
+    // Calculate attendance stats.
+    // pg returns COUNT(*) as bigint -> string in the JS driver. Coerce to numbers
+    // so the client can do arithmetic (otherwise "1" + "0" = "10" -> 1000% rate).
+    const rawStats = await getDb()
       .select({
         rosterId: attendance.rosterId,
-        totalPresent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
-        totalAbsent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
-        totalLate: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
-        totalExcused: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
-        totalRecords: sql<number>`COUNT(*)`,
+        totalPresent: sql<number | string>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
+        totalAbsent: sql<number | string>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
+        totalLate: sql<number | string>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
+        totalExcused: sql<number | string>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
+        totalRecords: sql<number | string>`COUNT(*)`,
       })
       .from(attendance)
       .where(eq(attendance.teamId, teamId))
       .groupBy(attendance.rosterId);
+
+    const toNum = (v: unknown): number => {
+      const n = typeof v === "number" ? v : Number(v ?? 0);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const stats = rawStats.map((s) => ({
+      rosterId: s.rosterId,
+      totalPresent: toNum(s.totalPresent),
+      totalAbsent: toNum(s.totalAbsent),
+      totalLate: toNum(s.totalLate),
+      totalExcused: toNum(s.totalExcused),
+      totalRecords: toNum(s.totalRecords),
+    }));
 
     return new Response(
       JSON.stringify({

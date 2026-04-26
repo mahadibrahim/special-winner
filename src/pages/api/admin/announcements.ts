@@ -1,9 +1,19 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { announcements, users } from "@/lib/db/schema";
+import {
+  announcements,
+  users,
+  registrations,
+  seasons,
+  programs,
+  locations,
+  organizations,
+} from "@/lib/db/schema";
 import { eq, desc, and, or, isNull, gte } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { sendAnnouncementEmail } from "@/lib/email/send";
+import { env } from "@/lib/env";
 
 const announcementSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -122,6 +132,20 @@ export const POST: APIRoute = async (context) => {
       })
       .returning();
 
+    // Fan out announcement email if requested AND the announcement is now
+    // published. Drafts are not emailed. Fire-and-forget — we don't block
+    // the API response on potentially-hundreds of recipient sends.
+    if (
+      newAnnouncement &&
+      result.data.sendEmail &&
+      result.data.status === "published"
+    ) {
+      // Don't await — let it run in the background.
+      void fanOutAnnouncementEmails(newAnnouncement.id, auth.user).catch(
+        (err) => console.error("[announcements] fan-out failed:", err),
+      );
+    }
+
     return new Response(JSON.stringify({ announcement: newAnnouncement }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
@@ -131,6 +155,98 @@ export const POST: APIRoute = async (context) => {
     return new Response(JSON.stringify({ error: "Failed to create announcement" }), { status: 500 });
   }
 };
+
+/**
+ * Fan out an announcement email to every parent in the org who has at least
+ * one registration in any of the org's seasons. Done as fire-and-forget in
+ * batches of 50 with Promise.allSettled so a failed send doesn't abort the
+ * batch.
+ *
+ * Recipient set is "users who registered a child for any season at any
+ * location in this organization." That's our best proxy for "opted-in
+ * parents" until we wire up a per-user email-announcement preference.
+ */
+async function fanOutAnnouncementEmails(
+  announcementId: string,
+  author: { id: string; firstName: string | null; email: string },
+) {
+  const db = getDb();
+
+  // Reload the announcement (cheap; gives us the published copy of the row).
+  const [announcement] = await db
+    .select()
+    .from(announcements)
+    .where(eq(announcements.id, announcementId))
+    .limit(1);
+
+  if (!announcement) return;
+
+  const [org] = await db
+    .select({ id: organizations.id, name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, announcement.organizationId))
+    .limit(1);
+
+  if (!org) return;
+
+  // Distinct recipient parents: users with at least one registration whose
+  // season belongs to a location in this org.
+  const recipients = await db
+    .selectDistinct({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+    })
+    .from(users)
+    .innerJoin(registrations, eq(registrations.registeredByUserId, users.id))
+    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+    .innerJoin(programs, eq(programs.id, seasons.programId))
+    .innerJoin(locations, eq(locations.id, programs.locationId))
+    .where(eq(locations.organizationId, org.id));
+
+  if (recipients.length === 0) {
+    await db
+      .update(announcements)
+      .set({ emailSentAt: new Date() })
+      .where(eq(announcements.id, announcementId));
+    return;
+  }
+
+  const authorName =
+    author.firstName ??
+    (author.email ? author.email.split("@")[0] : "Aspire Sports");
+  const publishedAt = (announcement.publishedAt ?? new Date()).toLocaleDateString(
+    "en-US",
+    { month: "long", day: "numeric", year: "numeric" },
+  );
+  const dashboardUrl = `${env.PUBLIC_APP_URL}/dashboard`;
+
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    const batch = recipients.slice(i, i + BATCH_SIZE);
+    await Promise.allSettled(
+      batch.map((r) =>
+        sendAnnouncementEmail({
+          userId: r.id,
+          organizationId: org.id,
+          recipientEmail: r.email,
+          recipientName: r.firstName ?? r.email.split("@")[0],
+          announcementTitle: announcement.title,
+          announcementContent: announcement.content,
+          authorName,
+          publishedAt,
+          organizationName: org.name,
+          dashboardUrl,
+        }),
+      ),
+    );
+  }
+
+  await db
+    .update(announcements)
+    .set({ emailSentAt: new Date() })
+    .where(eq(announcements.id, announcementId));
+}
 
 // PUT - Update announcement
 export const PUT: APIRoute = async (context) => {
@@ -159,6 +275,7 @@ export const PUT: APIRoute = async (context) => {
     // Verify announcement belongs to this organization
     const existing = await getDb().query.announcements.findFirst({
       where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
+      orderBy: (t, { asc }) => asc(t.createdAt),
     });
 
     if (!existing) {
@@ -214,6 +331,7 @@ export const DELETE: APIRoute = async (context) => {
     // Verify announcement belongs to this organization before deleting
     const existing = await getDb().query.announcements.findFirst({
       where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
+      orderBy: (t, { asc }) => asc(t.createdAt),
     });
 
     if (!existing) {

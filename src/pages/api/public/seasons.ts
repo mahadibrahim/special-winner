@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations } from "@/lib/db/schema";
-import { eq, and, sql, asc, not, or, ilike } from "drizzle-orm";
+import { eq, and, sql, asc } from "drizzle-orm";
 
 // Mock data for preview when DB has no seasons
 const mockSeasons = [
@@ -45,22 +45,12 @@ export const GET: APIRoute = async ({ url }) => {
     if (sportSlug) {
       conditions.push(eq(sports.slug, sportSlug));
     }
-    // In production, hide seeded test/E2E programs from the public catalog.
-    // Dev + CI keep them visible so Playwright fixtures continue to drive the
-    // registration flow.
-    if (import.meta.env.PROD) {
-      conditions.push(
-        not(
-          or(
-            ilike(seasons.name, "%e2e%"),
-            ilike(programs.name, "%e2e%"),
-            ilike(programs.slug, "e2e-%"),
-            ilike(seasons.slug, "e2e-%"),
-            ilike(seasons.slug, "%test-%")
-          )!
-        )
-      );
-    }
+    // Always exclude test fixtures from the public catalog. Programs/seasons
+    // are flagged via the `is_test` column (backfilled by migration 0009 and
+    // set explicitly by the e2e seed). Playwright drives the registration flow
+    // through admin endpoints with `?include_test=1`, not the public catalog.
+    conditions.push(eq(seasons.isTest, false));
+    conditions.push(eq(programs.isTest, false));
 
     const rows = await db
       .select({

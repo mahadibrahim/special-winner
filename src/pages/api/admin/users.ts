@@ -293,6 +293,7 @@ export const POST: APIRoute = async (context) => {
     if (scopeType === "location" && scopeId) {
       const location = await getDb().query.locations.findFirst({
         where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
+        orderBy: (t, { asc }) => asc(t.createdAt),
       });
       if (!location) {
         return new Response(JSON.stringify({ error: "Location not found in this organization" }), { status: 404 });
@@ -328,9 +329,10 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Cannot assign global roles" }), { status: 403 });
     }
 
-    // Find the role by name
+    // Find the role by name — explicit orderBy for CI determinism
     const role = await getDb().query.roles.findFirst({
       where: eq(roles.name, result.data.roleName),
+      orderBy: (t, { asc }) => asc(t.id),
     });
 
     if (!role) {
@@ -343,6 +345,7 @@ export const POST: APIRoute = async (context) => {
         eq(ur.userId, result.data.userId) &&
         eq(ur.roleId, role.id) &&
         eq(ur.scopeType, result.data.scopeType),
+      orderBy: (t, { asc }) => asc(t.createdAt),
     });
 
     if (existingRole) {
@@ -392,6 +395,7 @@ export const DELETE: APIRoute = async (context) => {
     // Verify the role being deleted is scoped to this organization
     const roleToDelete = await getDb().query.userRoles.findFirst({
       where: eq(userRoles.id, userRoleId),
+      orderBy: (t, { asc }) => asc(t.createdAt),
     });
 
     if (!roleToDelete) {
@@ -412,6 +416,7 @@ export const DELETE: APIRoute = async (context) => {
     if (scopeType === "location" && scopeId) {
       const location = await getDb().query.locations.findFirst({
         where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
+        orderBy: (t, { asc }) => asc(t.createdAt),
       });
       if (!location) {
         return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });

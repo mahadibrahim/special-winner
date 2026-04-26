@@ -37,22 +37,29 @@ export async function createConnectAccount(
 
   try {
     // Create Stripe Connect account
-    const account = await stripe.accounts.create({
-      type,
-      country,
-      email,
-      business_profile: {
-        name: businessName,
-        mcc: "7941", // Sports clubs/fields/stadiums
+    // Idempotency key: see top of client.ts — keyed on organizationId
+    // since a single org should only ever have one Connect account.
+    const account = await stripe.accounts.create(
+      {
+        type,
+        country,
+        email,
+        business_profile: {
+          name: businessName,
+          mcc: "7941", // Sports clubs/fields/stadiums
+        },
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        metadata: {
+          organizationId,
+        },
       },
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
+      {
+        idempotencyKey: `${organizationId}:connect-account`,
       },
-      metadata: {
-        organizationId,
-      },
-    });
+    );
 
     // Update organization with Stripe account ID
     await getDb()
@@ -256,7 +263,17 @@ export async function createConnectCheckoutSession(
       },
     };
 
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // Idempotency: prefer the caller-supplied registrationId in metadata —
+    // see top of client.ts for the convention. Fall back to destination +
+    // amount when the caller didn't pass one (rare; preserves correctness).
+    const registrationId = metadata.registrationId;
+    const idempotencyKey = registrationId
+      ? `${registrationId}:connect-checkout:${amountCents}`
+      : `${destinationAccountId}:connect-checkout:${amountCents}`;
+
+    const session = await stripe.checkout.sessions.create(sessionConfig, {
+      idempotencyKey,
+    });
     return session;
   } catch (error) {
     console.error("Error creating Connect checkout session:", error);
@@ -290,16 +307,24 @@ export async function createConnectPaymentIntent(
   }
 
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency,
-      customer: customerId,
-      application_fee_amount: applicationFee,
-      transfer_data: {
-        destination: destinationAccountId,
+    const registrationId = metadata.registrationId;
+    const idempotencyKey = registrationId
+      ? `${registrationId}:connect-pi:${amountCents}`
+      : `${destinationAccountId}:connect-pi:${amountCents}`;
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: amountCents,
+        currency,
+        customer: customerId,
+        application_fee_amount: applicationFee,
+        transfer_data: {
+          destination: destinationAccountId,
+        },
+        metadata,
       },
-      metadata,
-    });
+      { idempotencyKey },
+    );
 
     return paymentIntent;
   } catch (error) {

@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface RosterEntry {
   id: string
@@ -157,9 +158,9 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
       }
 
       await fetchAttendanceData()
-      alert("Attendance saved successfully!")
+      toast.success("Attendance saved successfully")
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to save attendance")
     } finally {
       setIsSaving(false)
     }

@@ -17,6 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Program {
   id: string
@@ -52,6 +54,7 @@ const programTypes = [
 ]
 
 export function ProgramsList() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [programs, setPrograms] = useState<Program[]>([])
   const [sports, setSports] = useState<Sport[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -167,15 +170,22 @@ export function ProgramsList() {
   }
 
   async function handleDelete(program: Program) {
-    if (!confirm(`Delete "${program.name}"?`)) return
+    const ok = await confirm({
+      title: "Delete program?",
+      description: <>Delete <strong>{program.name}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/programs?id=${program.id}`, { method: "DELETE" })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error)
       await fetchData()
+      toast.success(`Deleted "${program.name}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete program")
     }
   }
 
@@ -189,6 +199,7 @@ export function ProgramsList() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Programs</h1>

@@ -19,6 +19,8 @@ import {
   ExternalStoreSettings,
   type ExternalStoreValue,
 } from "./external-store-settings"
+import { toast } from "sonner"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface LocationSettings {
   externalStore?: ExternalStoreValue | null
@@ -41,6 +43,7 @@ interface Location {
 }
 
 export function LocationsList() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [locations, setLocations] = useState<Location[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -157,15 +160,22 @@ export function LocationsList() {
   }
 
   async function handleDelete(location: Location) {
-    if (!confirm(`Delete "${location.name}"?`)) return
+    const ok = await confirm({
+      title: "Delete location?",
+      description: <>Delete <strong>{location.name}</strong>? This cannot be undone.</>,
+      confirmLabel: "Delete",
+      destructive: true,
+    })
+    if (!ok) return
 
     try {
       const response = await fetch(`/api/admin/locations?id=${location.id}`, { method: "DELETE" })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error)
       await fetchLocations()
+      toast.success(`Deleted "${location.name}"`)
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message ?? "Failed to delete location")
     }
   }
 
@@ -179,6 +189,7 @@ export function LocationsList() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Locations</h1>

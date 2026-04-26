@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import crypto from "node:crypto";
+import { Webhook } from "svix";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
@@ -156,7 +156,7 @@ export const POST: APIRoute = async ({ request }) => {
 function verifyResendSignature(request: Request, rawBody: string): boolean {
   const secret = import.meta.env.RESEND_INBOUND_WEBHOOK_SECRET;
   if (!secret) {
-    // In dev, allow unsigned requests with a warning
+    // In dev, allow unsigned requests with a warning. In prod, refuse.
     if (!import.meta.env.PROD) {
       console.warn(
         "[email webhook] RESEND_INBOUND_WEBHOOK_SECRET not set — skipping signature verification (dev only)",
@@ -169,23 +169,24 @@ function verifyResendSignature(request: Request, rawBody: string): boolean {
     return false;
   }
 
-  const signature =
-    request.headers.get("resend-signature") ||
-    request.headers.get("Resend-Signature") ||
-    request.headers.get("svix-signature");
-  if (!signature) return false;
+  // Resend webhooks are signed via Svix. The signature is computed over
+  // `${svix-id}.${svix-timestamp}.${body}` and delivered as
+  // `v1,<base64>` (possibly multiple space-separated tokens) in the
+  // `svix-signature` header. Use the svix package so we get correct
+  // base64 handling, timestamp tolerance, and timing-safe comparison.
+  const headers = {
+    "svix-id": request.headers.get("svix-id") ?? "",
+    "svix-timestamp": request.headers.get("svix-timestamp") ?? "",
+    "svix-signature": request.headers.get("svix-signature") ?? "",
+  };
+  if (!headers["svix-id"] || !headers["svix-timestamp"] || !headers["svix-signature"]) {
+    return false;
+  }
 
   try {
-    const expected = crypto
-      .createHmac("sha256", secret)
-      .update(rawBody)
-      .digest("hex");
-
-    // Timing-safe compare
-    const sigBuf = Buffer.from(signature, "utf8");
-    const expBuf = Buffer.from(expected, "utf8");
-    if (sigBuf.length !== expBuf.length) return false;
-    return crypto.timingSafeEqual(sigBuf, expBuf);
+    const wh = new Webhook(secret);
+    wh.verify(rawBody, headers);
+    return true;
   } catch (err) {
     console.error("Resend signature validation error:", err);
     return false;
