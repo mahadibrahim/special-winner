@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TelegramConnectStep } from "./telegram-connect-step"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 interface Season {
   id: string
@@ -80,10 +81,18 @@ interface FamilyMember {
   gender: string | null
 }
 
+interface AuthedUser {
+  id: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+}
+
 interface RegistrationWizardProps {
   seasonId: string
   hasLinkedTelegram?: boolean
   wasCancelled?: boolean
+  user: AuthedUser | null
 }
 
 const STEPS = [
@@ -97,7 +106,10 @@ export default function RegistrationWizard({
   seasonId,
   hasLinkedTelegram = false,
   wasCancelled = false,
+  user,
 }: RegistrationWizardProps) {
+  const isGuest = user === null
+  useHydrationBeacon()
   const [currentStep, setCurrentStep] = useState(1)
   const [showTelegramStep, setShowTelegramStep] = useState(false)
   const [season, setSeason] = useState<Season | null>(null)
@@ -112,6 +124,18 @@ export default function RegistrationWizard({
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignature, setWaiverSignature] = useState("")
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full")
+
+  // Guest-mode parent + child fields (only used when isGuest === true)
+  const [guestParentFirstName, setGuestParentFirstName] = useState("")
+  const [guestParentLastName, setGuestParentLastName] = useState("")
+  const [guestParentEmail, setGuestParentEmail] = useState("")
+  const [guestParentPhone, setGuestParentPhone] = useState("")
+  const [guestChildFirstName, setGuestChildFirstName] = useState("")
+  const [guestChildLastName, setGuestChildLastName] = useState("")
+  const [guestChildBirthDate, setGuestChildBirthDate] = useState("")
+  const [guestChildGender, setGuestChildGender] = useState("")
+  const [guestEmailCollision, setGuestEmailCollision] = useState(false)
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
   // Discount code state
   const [discountCode, setDiscountCode] = useState("")
@@ -142,7 +166,7 @@ export default function RegistrationWizard({
   }, [seasonId])
 
   useEffect(() => {
-    if (!wasCancelled) return
+    if (!wasCancelled || isGuest) return
     let cancelled = false
     ;(async () => {
       try {
@@ -165,21 +189,56 @@ export default function RegistrationWizard({
     return () => {
       cancelled = true
     }
-  }, [wasCancelled, seasonId])
+  }, [wasCancelled, seasonId, isGuest])
+
+  useEffect(() => {
+    if (!isGuest || !guestParentEmail) {
+      setGuestEmailCollision(false)
+      return
+    }
+    // Quick client-side validity check before pinging the server
+    const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail)
+    if (!looksLikeEmail) {
+      setGuestEmailCollision(false)
+      return
+    }
+    const ctrl = new AbortController()
+    const handle = setTimeout(async () => {
+      setIsCheckingEmail(true)
+      try {
+        const res = await fetch(
+          `/api/auth/check-email?email=${encodeURIComponent(guestParentEmail)}`,
+          { signal: ctrl.signal },
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setGuestEmailCollision(data.exists === true)
+        }
+      } catch {
+        // Network error or aborted — treat as no collision (fail open)
+      } finally {
+        setIsCheckingEmail(false)
+      }
+    }, 400)
+    return () => {
+      clearTimeout(handle)
+      ctrl.abort()
+    }
+  }, [isGuest, guestParentEmail])
 
   const fetchData = async () => {
     try {
       setIsLoading(true)
       const [seasonRes, membersRes] = await Promise.all([
         fetch(`/api/public/seasons/${seasonId}`),
-        fetch("/api/family-members"),
+        isGuest ? Promise.resolve(null) : fetch("/api/family-members"),
       ])
 
       if (!seasonRes.ok) throw new Error("Failed to fetch season")
       const seasonData = await seasonRes.json()
       setSeason(seasonData.season)
 
-      if (membersRes.ok) {
+      if (membersRes && membersRes.ok) {
         const membersData = await membersRes.json()
         setFamilyMembers(membersData.familyMembers || [])
       }
@@ -303,6 +362,58 @@ export default function RegistrationWizard({
     }
   }
 
+  const handleSubmitGuestCheckout = async () => {
+    if (!season || !waiverAccepted || !waiverSignature) return
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/registrations/guest-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seasonId,
+          parent: {
+            firstName: guestParentFirstName,
+            lastName: guestParentLastName,
+            email: guestParentEmail,
+            phone: guestParentPhone || undefined,
+          },
+          child: {
+            firstName: guestChildFirstName,
+            lastName: guestChildLastName,
+            birthDate: guestChildBirthDate,
+            gender: guestChildGender || undefined,
+          },
+          registrationType: paymentOption,
+          waiverSigned: true,
+          waiverSignedBy: waiverSignature,
+          discountCode: discountCode || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to complete registration")
+      }
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+        return
+      }
+      if (data.paid) {
+        window.location.href = `/dashboard?registered=${data.registrationId}`
+        return
+      }
+      if (data.waitlisted) {
+        window.location.href = `/dashboard?waitlisted=${data.registrationId}`
+        return
+      }
+      setError("Unexpected response — please try again.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to complete registration")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleSubmitRegistration = async () => {
     if (!selectedMemberId || !waiverAccepted || !waiverSignature) return
 
@@ -383,6 +494,16 @@ export default function RegistrationWizard({
   const canProceed = () => {
     switch (currentStep) {
       case 1:
+        if (isGuest) {
+          return (
+            guestParentFirstName.trim().length > 0 &&
+            guestParentLastName.trim().length > 0 &&
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail) &&
+            guestChildFirstName.trim().length > 0 &&
+            guestChildLastName.trim().length > 0 &&
+            /^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate)
+          )
+        }
         return selectedMemberId !== ""
       case 2:
         return waiverAccepted && waiverSignature.length >= 2
@@ -585,7 +706,7 @@ export default function RegistrationWizard({
       {/* Step Content */}
       <div className="bg-paper border border-border rounded-2xl p-6">
         {/* Step 1: Select Player */}
-        {currentStep === 1 && (
+        {currentStep === 1 && !isGuest && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-ink mb-2">Select Player</h3>
@@ -717,6 +838,125 @@ export default function RegistrationWizard({
           </div>
         )}
 
+        {/* Step 1 (guest): About you + player */}
+        {currentStep === 1 && isGuest && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-ink mb-2">Your info & player</h3>
+              <p className="text-ink-muted text-sm">
+                We'll create an account for you and email a one-tap sign-in link after
+                payment. No password needed.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-medium text-ink">About you</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-ink-muted">First name *</Label>
+                  <Input
+                    value={guestParentFirstName}
+                    onChange={(e) => setGuestParentFirstName(e.target.value)}
+                    className="bg-cream-2 border-border text-ink focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-ink-muted">Last name *</Label>
+                  <Input
+                    value={guestParentLastName}
+                    onChange={(e) => setGuestParentLastName(e.target.value)}
+                    className="bg-cream-2 border-border text-ink focus:border-primary"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-ink-muted">Email *</Label>
+                <Input
+                  type="email"
+                  value={guestParentEmail}
+                  onChange={(e) => setGuestParentEmail(e.target.value)}
+                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                />
+                {guestEmailCollision && (
+                  <p className="text-xs text-ink-muted">
+                    We already have an account with this email. After payment we'll
+                    send a sign-in link to{" "}
+                    <span className="font-medium">{guestParentEmail}</span>.
+                  </p>
+                )}
+                {isCheckingEmail && !guestEmailCollision && (
+                  <p className="text-xs text-ink-faint">Checking…</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-ink-muted">Phone (optional)</Label>
+                <Input
+                  type="tel"
+                  value={guestParentPhone}
+                  onChange={(e) => setGuestParentPhone(e.target.value)}
+                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-border">
+              <h4 className="font-medium text-ink">Player</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-ink-muted">First name *</Label>
+                  <Input
+                    value={guestChildFirstName}
+                    onChange={(e) => setGuestChildFirstName(e.target.value)}
+                    className="bg-cream-2 border-border text-ink focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-ink-muted">Last name *</Label>
+                  <Input
+                    value={guestChildLastName}
+                    onChange={(e) => setGuestChildLastName(e.target.value)}
+                    className="bg-cream-2 border-border text-ink focus:border-primary"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-ink-muted">Birth date *</Label>
+                  <Input
+                    type="date"
+                    value={guestChildBirthDate}
+                    onChange={(e) => setGuestChildBirthDate(e.target.value)}
+                    className="bg-cream-2 border-border text-ink focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-ink-muted">Gender</Label>
+                  <Select value={guestChildGender} onValueChange={setGuestChildGender}>
+                    <SelectTrigger className="bg-cream-2 border-border text-ink">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-cream border-border">
+                      <SelectItem value="male" className="text-ink-2">Male</SelectItem>
+                      <SelectItem value="female" className="text-ink-2">Female</SelectItem>
+                      <SelectItem value="other" className="text-ink-2">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-ink-muted">
+              Already have an account?{" "}
+              <a
+                href={`/signin?redirect=/register/${seasonId}`}
+                className="text-primary hover:text-primary/80 font-medium"
+              >
+                Sign in
+              </a>
+            </p>
+          </div>
+        )}
+
         {/* Step 2: Waiver */}
         {currentStep === 2 && (
           <div className="space-y-6">
@@ -775,7 +1015,9 @@ export default function RegistrationWizard({
                 <Label htmlFor="waiver" className="text-sm text-ink-2 cursor-pointer">
                   I have read, understand, and agree to the terms of this waiver on behalf of{" "}
                   <span className="text-ink font-medium">
-                    {selectedMember?.firstName} {selectedMember?.lastName}
+                    {isGuest
+                      ? `${guestChildFirstName} ${guestChildLastName}`.trim()
+                      : `${selectedMember?.firstName ?? ""} ${selectedMember?.lastName ?? ""}`.trim()}
                   </span>.
                 </Label>
               </div>
@@ -908,7 +1150,9 @@ export default function RegistrationWizard({
               <div className="flex items-center justify-between mb-2">
                 <span className="text-ink-2">Registration for</span>
                 <span className="text-ink font-medium">
-                  {selectedMember?.firstName} {selectedMember?.lastName}
+                  {isGuest
+                    ? `${guestChildFirstName} ${guestChildLastName}`.trim()
+                    : `${selectedMember?.firstName ?? ""} ${selectedMember?.lastName ?? ""}`.trim()}
                 </span>
               </div>
               <div className="flex items-center justify-between mb-2">
@@ -1003,7 +1247,7 @@ export default function RegistrationWizard({
             </Button>
           ) : (
             <Button
-              onClick={handleSubmitRegistration}
+              onClick={isGuest ? handleSubmitGuestCheckout : handleSubmitRegistration}
               disabled={isSubmitting}
               className="bg-primary hover:bg-primary/90"
             >

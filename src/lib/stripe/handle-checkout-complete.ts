@@ -10,7 +10,8 @@ import {
   familyMembers,
   users,
 } from "@/lib/db/schema";
-import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
+import { sendRegistrationConfirmationEmail, sendMagicLinkLoginEmail } from "@/lib/email/send";
+import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 
 export async function handleCheckoutComplete(
   session: Stripe.Checkout.Session
@@ -124,6 +125,37 @@ export async function handleCheckoutComplete(
         paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
         registrationStatus: "confirmed",
       }).catch((err) => console.error("[stripe webhook] email send failed:", err));
+
+      // Guest-checkout users get a magic-link sign-in alongside the receipt.
+      // The flag is set by the guest-checkout registration endpoint when
+      // creating the Stripe session.
+      if (session.metadata?.via_guest_checkout === "true") {
+        try {
+          const link = await createMagicLink({
+            userId: registration.registeredByUserId,
+            organizationId: row.location.organizationId ?? undefined,
+            purpose: "login",
+            purposeContext: { redirectTo: `/dashboard?welcome=${registrationId}` },
+            deliveredChannel: "email",
+            deliveredTo: row.user.email,
+          });
+          sendMagicLinkLoginEmail({
+            userId: row.user.id,
+            organizationId: row.location.organizationId ?? undefined,
+            parentEmail: row.user.email,
+            parentName: row.user.firstName || row.user.email.split("@")[0],
+            magicLinkUrl: buildMagicLinkUrl(link.token),
+            expiresIn: "15 minutes",
+            programName: row.program.name,
+            childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
+            seasonName: row.season.name,
+          }).catch((err) =>
+            console.error("[stripe webhook] magic-link email send failed:", err),
+          );
+        } catch (err) {
+          console.error("[stripe webhook] magic-link mint failed:", err);
+        }
+      }
     }
   } catch (err) {
     console.error("[stripe webhook] email payload build failed:", err);

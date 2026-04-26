@@ -4,6 +4,7 @@ import { RegistrationConfirmationEmail } from "./templates/registration-confirma
 import { PaymentReceiptEmail } from "./templates/payment-receipt";
 import { WaitlistPromotionEmail } from "./templates/waitlist-promotion";
 import { RefundNotificationEmail } from "./templates/refund-notification";
+import { MagicLinkLoginEmail } from "./templates/magic-link-login";
 import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
@@ -389,6 +390,63 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
     userId: params.userId,
     registrationId: params.registrationId,
     emailType: params.refundStatus === "approved" ? "refund_approved" : "refund_denied",
+    recipientEmail: params.parentEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// Magic-link login email (sent to guests after checkout to let them access their account)
+export interface SendMagicLinkLoginParams {
+  userId: string;
+  organizationId?: string;
+  parentEmail: string;
+  parentName: string;
+  magicLinkUrl: string;
+  expiresIn?: string;
+  programName?: string;
+  childName?: string;
+  seasonName?: string;
+}
+
+export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping magic-link login email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const html = await render(
+    MagicLinkLoginEmail({
+      parentName: params.parentName,
+      magicLinkUrl: params.magicLinkUrl,
+      expiresIn: params.expiresIn ?? "15 minutes",
+      programName: params.programName,
+      childName: params.childName,
+      seasonName: params.seasonName,
+    }),
+  );
+
+  const subject = "You're registered — finish setting up your account";
+
+  // magicLinkUrl contains a single-use, 15-minute login token. Routing it via
+  // SMS is the whole point of this email type — see /m/[token] for redemption.
+  const smsBody = `You're registered! Sign in to your Aspire Sports account: ${params.magicLinkUrl}`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
+    to: params.parentEmail,
+    subject,
+    html,
+    smsBody,
+  });
+
+  await logEmail({
+    userId: params.userId,
+    emailType: "magic_link_login",
     recipientEmail: params.parentEmail,
     subject,
     resendMessageId: result.messageId,

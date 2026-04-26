@@ -53,8 +53,14 @@ function destinationFor(
 
   switch (purpose) {
     case "login":
-    case "password_reset_login":
+    case "password_reset_login": {
+      const redirectTo = typeof ctx.redirectTo === "string" ? ctx.redirectTo : null;
+      // Only honor relative paths starting with "/" to prevent open redirects.
+      if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+        return redirectTo;
+      }
       return "/dashboard";
+    }
 
     case "pay_invoice": {
       const invoiceId = typeof ctx.invoiceId === "string" ? ctx.invoiceId : null;

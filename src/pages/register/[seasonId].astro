@@ -5,16 +5,17 @@ import Footer from '../../components/footer';
 import RegistrationWizard from '../../components/registration/registration-wizard';
 
 const { seasonId } = Astro.params;
-
-// Get user from middleware locals
 const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect(`/signin?redirect=/register/${seasonId}`);
-}
-
 const wasCancelled = Astro.url.searchParams.get('payment') === 'cancelled';
+
+const userProp = user
+  ? {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    }
+  : null;
 ---
 
 <!DOCTYPE html>
@@ -35,7 +36,7 @@ const wasCancelled = Astro.url.searchParams.get('payment') === 'cancelled';
 
     <main class="flex-1 pt-24 pb-16 px-4">
       <div class="container mx-auto">
-        <RegistrationWizard seasonId={seasonId!} wasCancelled={wasCancelled} client:load />
+        <RegistrationWizard seasonId={seasonId!} wasCancelled={wasCancelled} user={userProp} client:load />
       </div>
     </main>
 

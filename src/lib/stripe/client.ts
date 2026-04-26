@@ -24,6 +24,7 @@ export async function createCheckoutSession({
   customerEmail,
   successUrl,
   cancelUrl,
+  extraMetadata,
 }: {
   registrationId: string;
   seasonName: string;
@@ -32,6 +33,7 @@ export async function createCheckoutSession({
   customerEmail: string;
   successUrl: string;
   cancelUrl: string;
+  extraMetadata?: Record<string, string>;
 }): Promise<Stripe.Checkout.Session | null> {
   if (!stripe) {
     console.error("Stripe is not configured");
@@ -61,6 +63,7 @@ export async function createCheckoutSession({
       metadata: {
         registrationId,
         type: "registration_payment",
+        ...(extraMetadata ?? {}),
       },
     });
 
