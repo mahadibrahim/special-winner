@@ -45,6 +45,11 @@ export function rateLimit(
   windowMs: number,
   now: () => number = defaultNow,
 ): RateLimitResult {
+  // Test bypass: integration tests sign in dozens of times per run from one IP.
+  // Opt-in via env so prod and CI keep the real limit.
+  if (process.env.DISABLE_RATE_LIMIT === "1") {
+    return { allowed: true };
+  }
   try {
     const t = now();
     const cutoff = t - windowMs;

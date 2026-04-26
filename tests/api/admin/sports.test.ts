@@ -175,7 +175,7 @@ describe("Admin Sports CRUD API", () => {
       });
 
       const json = await expectJson(res, 404);
-      expect(json.error).toBe("Sport not found");
+      expect(json.error).toBe("Resource not found");
     });
   });
 
@@ -199,7 +199,7 @@ describe("Admin Sports CRUD API", () => {
       });
 
       const json = await expectJson(res, 404);
-      expect(json.error).toBe("Sport not found");
+      expect(json.error).toBe("Resource not found");
     });
   });
 });

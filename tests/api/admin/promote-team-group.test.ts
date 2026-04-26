@@ -16,13 +16,17 @@ describe("Admin: promote team group", () => {
     expect([401, 403]).toContain(res.status)
   })
 
-  it("returns 400 when telegramChatId is missing", async () => {
+  it("returns 404 when team is not in caller's org (ownership check runs before validation)", async () => {
+    // VALID_FAKE_UUID doesn't belong to any org. The new requireSameOrgTeam
+    // helper returns 404 before the payload validation that would otherwise
+    // return 400 for missing telegramChatId. This is intentional — don't leak
+    // existence of resources the caller doesn't own.
     const res = await apiFetch(`/api/admin/teams/${VALID_FAKE_UUID}/group/promote`, {
       method: "POST",
       cookie: adminCookie,
       body: JSON.stringify({}),
     })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(404)
   })
 
   it("returns 404 when no pending team group exists for that team", async () => {
