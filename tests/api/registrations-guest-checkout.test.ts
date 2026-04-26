@@ -2,6 +2,12 @@ import { describe, it, expect } from "vitest";
 
 const BASE = process.env.TEST_BASE_URL || "http://localhost:4321";
 
+// CI doesn't carry STRIPE_SECRET_KEY by default; the endpoint then 503s on the
+// Stripe-session step. The negative-path tests (400/404) still work without
+// Stripe and stay enabled. The happy-path tests are gated below.
+const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+const itWithStripe = stripeConfigured ? it : it.skip;
+
 async function fetchOpenSeasonId(): Promise<string> {
   const res = await fetch(`${BASE}/api/public/seasons?status=open`);
   if (!res.ok) throw new Error(`Failed to fetch seasons: ${res.status}`);
@@ -39,7 +45,7 @@ const validBody = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("POST /api/registrations/guest-checkout", () => {
-  it("creates user, family member, registration, and returns checkoutUrl for new email", async () => {
+  itWithStripe("creates user, family member, registration, and returns checkoutUrl for new email", async () => {
     const seasonId = await fetchOpenSeasonId();
     const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
       method: "POST",
@@ -56,7 +62,7 @@ describe("POST /api/registrations/guest-checkout", () => {
     expect(setCookie).toMatch(/auth_session=/);
   });
 
-  it("matches existing email without setting a session cookie", async () => {
+  itWithStripe("matches existing email without setting a session cookie", async () => {
     const seasonId = await fetchOpenSeasonId();
     const body = validBody({
       parent: {
@@ -110,7 +116,7 @@ describe("POST /api/registrations/guest-checkout", () => {
     expect(res.status).toBe(404);
   });
 
-  it("dedupes child + resumes registration when called twice with same email/child/season", async () => {
+  itWithStripe("dedupes child + resumes registration when called twice with same email/child/season", async () => {
     const seasonId = await fetchOpenSeasonId();
     const email = `guest-dedupe-${Date.now()}@example.com`;
     const child = {
