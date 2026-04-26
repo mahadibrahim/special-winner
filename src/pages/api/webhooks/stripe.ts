@@ -107,6 +107,16 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (error) {
     console.error("Webhook error:", error);
+    try {
+      const { getPostHogServer } = await import("@/lib/posthog-server");
+      // The `event` variable is scoped to the outer try and not visible
+      // here. The webhook signature verification + event metadata that
+      // landed in the event-handler branches above already log on their
+      // own; this catch is for anything that escapes those.
+      getPostHogServer().captureException(error, "stripe-webhook");
+    } catch {
+      // Never fail a webhook because of analytics.
+    }
     return new Response(JSON.stringify({ error: "Webhook handler failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

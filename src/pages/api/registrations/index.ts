@@ -4,6 +4,7 @@ import { registrations, familyMembers, seasons, programs, sports, locations, age
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const createRegistrationSchema = z.object({
   seasonId: z.string().uuid("Invalid season ID"),
@@ -160,6 +161,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
         waiverSignedBy: data.waiverSignedBy,
         notes: data.notes,
       });
+
+      const posthog = getPostHogServer();
+      const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
+      if (result.kind === "waitlisted") {
+        posthog.capture({ distinctId: user.id, event: "registration_waitlisted", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType } });
+      } else if (result.kind !== "resumed") {
+        posthog.capture({ distinctId: user.id, event: "registration_created", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, requires_payment: result.requiresPayment, amount_due_cents: result.amountDueCents } });
+      }
 
       const status = result.kind === "resumed" ? 200 : 201;
       return new Response(

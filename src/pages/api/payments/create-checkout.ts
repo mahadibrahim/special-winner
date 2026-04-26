@@ -5,6 +5,7 @@ import {
   createCheckoutForRegistration,
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const checkoutSchema = z.object({
   registrationId: z.string().uuid("Invalid registration ID"),
@@ -48,7 +49,11 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       discountCode,
     });
 
+    const posthog = getPostHogServer();
+    const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
+
     if (result.kind === "paid_zero") {
+      posthog.capture({ distinctId: user.id, event: "checkout_zero_amount", properties: { $session_id: phSessionId, registration_id: registrationId, discount_code: discountCode } });
       return new Response(
         JSON.stringify({
           success: true,
@@ -63,6 +68,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     }
 
     // kind === "stripe_session"
+    posthog.capture({ distinctId: user.id, event: "checkout_initiated", properties: { $session_id: phSessionId, registration_id: registrationId, stripe_session_id: result.sessionId, discount_code: discountCode } });
     return new Response(
       JSON.stringify({
         checkoutUrl: result.checkoutUrl,

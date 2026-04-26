@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { familyMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const createFamilyMemberSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -90,6 +91,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         emergencyContactPhone: data.emergencyContactPhone || null,
       })
       .returning();
+
+    const posthog = getPostHogServer();
+    posthog.capture({ distinctId: user.id, event: "family_member_added", properties: { family_member_id: newMember.id, has_gender: !!data.gender, has_medical_notes: !!data.medicalNotes, has_emergency_contact: !!data.emergencyContactName } });
 
     return new Response(JSON.stringify({ familyMember: newMember }), {
       status: 201,

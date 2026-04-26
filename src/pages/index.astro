@@ -2,6 +2,7 @@
 export const prerender = true;
 import '../styles/globals.css';
 import Navigation from '../components/navigation';
+import PostHog from '../components/posthog.astro';
 import HeroSection from '../components/hero-section';
 import WhyAspire from '../components/why-aspire';
 import StatsSection from '../components/stats-section';
@@ -24,6 +25,7 @@ import Footer from '../components/footer';
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Aspire Sports | Youth Sports Programs in Central Ohio</title>
+    <PostHog />
 
     <!-- Editorial typography — Newsreader (display) + IBM Plex Sans (body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

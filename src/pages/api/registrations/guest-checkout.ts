@@ -17,6 +17,7 @@ import {
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
 import { createSession } from "@/lib/auth";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const guestCheckoutSchema = z.object({
   seasonId: z.string().uuid(),
@@ -40,6 +41,8 @@ const guestCheckoutSchema = z.object({
 
 export const POST: APIRoute = async (context) => {
   const { request, url } = context;
+  const posthog = getPostHogServer();
+  const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
   try {
     const body = await request.json();
     const parsed = guestCheckoutSchema.safeParse(body);
@@ -53,6 +56,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
     const data = parsed.data;
+    posthog.capture({ distinctId: data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType } });
     const db = getDb();
     const normalizedEmail = data.parent.email.toLowerCase().trim();
 
@@ -190,6 +194,9 @@ export const POST: APIRoute = async (context) => {
       if (wasNewUser) {
         await createSession(userRow.id, context);
       }
+
+      posthog.identify({ distinctId: userRow.id, properties: { email: userRow.email, firstName: userRow.firstName, lastName: userRow.lastName } });
+      posthog.capture({ distinctId: userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: data.discountCode, paid_zero: checkout.kind === "paid_zero" } });
 
       if (checkout.kind === "paid_zero") {
         return new Response(

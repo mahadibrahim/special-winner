@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { stripe, updateOrganizationStripeStatus } from "@/lib/stripe/connect";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const STRIPE_CONNECT_WEBHOOK_SECRET = import.meta.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
@@ -51,6 +52,11 @@ export const POST: APIRoute = async ({ request }) => {
         }
 
         await updateOrganizationStripeStatus(accountId, status);
+
+        if (status === "active") {
+          const posthog = getPostHogServer();
+          posthog.capture({ distinctId: accountId, event: "stripe_connect_account_activated", properties: { stripe_account_id: accountId } });
+        }
 
         console.log(`Updated organization Stripe status: ${accountId} -> ${status}`);
         break;

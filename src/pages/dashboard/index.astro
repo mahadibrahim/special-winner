@@ -2,6 +2,7 @@
 import '../../styles/globals.css';
 import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
+import PostHog from '../../components/posthog.astro';
 import UpcomingEvents from '../../components/dashboard/upcoming-events';
 import ChildrenOverview from '../../components/dashboard/children-overview';
 import CoachNotes from '../../components/dashboard/coach-notes';
@@ -62,6 +63,7 @@ else if (hour >= 17) greeting = "Good evening";
       rel="stylesheet"
     />
     <title>Dashboard — Aspire Sports</title>
+    <PostHog />
     <style>
       /* Stagger animation for dashboard sections */
       @keyframes fadeSlideIn {

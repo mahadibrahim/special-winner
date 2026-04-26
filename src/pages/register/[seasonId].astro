@@ -3,6 +3,7 @@ import '../../styles/globals.css';
 import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
 import RegistrationWizard from '../../components/registration/registration-wizard';
+import PostHog from '../../components/posthog.astro';
 
 const { seasonId } = Astro.params;
 const user = Astro.locals.user;
@@ -30,6 +31,7 @@ const userProp = user
       rel="stylesheet"
     />
     <title>Register — Aspire Sports</title>
+    <PostHog />
   </head>
   <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />

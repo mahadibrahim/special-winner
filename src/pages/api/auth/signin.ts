@@ -6,6 +6,7 @@ import { verifyPassword, createSession } from "@/lib/auth";
 import { lucia } from "@/lib/auth/lucia";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const signinSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -97,6 +98,11 @@ export const POST: APIRoute = async (context) => {
       .where(eq(userRoles.userId, user.id));
 
     const roleNames = userRolesList.map((r) => r.roleName);
+
+    const posthog = getPostHogServer();
+    const phSessionId = context.request.headers.get("X-PostHog-Session-Id") || undefined;
+    posthog.identify({ distinctId: user.id, properties: { email: user.email, firstName: user.firstName, lastName: user.lastName } });
+    posthog.capture({ distinctId: user.id, event: "user_signed_in", properties: { $session_id: phSessionId, roles: roleNames } });
 
     return new Response(
       JSON.stringify({

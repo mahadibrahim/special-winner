@@ -18,9 +18,14 @@ export function SignInForm() {
     setIsLoading(true);
 
     try {
+      const sessionId = (window as any).posthog?.get_session_id?.() || undefined;
+
       const response = await fetch("/api/auth/signin", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(sessionId ? { "X-PostHog-Session-Id": sessionId } : {}),
+        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -28,8 +33,16 @@ export function SignInForm() {
 
       if (!response.ok) {
         setError(data.error || "Failed to sign in");
+        (window as any).posthog?.capture("sign_in_failed", { reason: data.error });
         return;
       }
+
+      // Identify the user client-side for session continuity
+      (window as any).posthog?.identify(data.user?.id, {
+        email: data.user?.email,
+        firstName: data.user?.firstName,
+        lastName: data.user?.lastName,
+      });
 
       // Check for explicit redirect URL in query params
       const urlParams = new URLSearchParams(window.location.search);
@@ -50,8 +63,9 @@ export function SignInForm() {
           window.location.href = "/dashboard";
         }
       }
-    } catch {
+    } catch (err) {
       setError("An unexpected error occurred");
+      (window as any).posthog?.captureException(err);
     } finally {
       setIsLoading(false);
     }

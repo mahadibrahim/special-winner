@@ -5,6 +5,7 @@ import { users, userRoles, roles } from "@/lib/db/schema";
 import { hashPassword, createSession } from "@/lib/auth";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -83,6 +84,11 @@ export const POST: APIRoute = async (context) => {
 
     // Create session
     await createSession(newUser.id, context);
+
+    const posthog = getPostHogServer();
+    const phSessionId = context.request.headers.get("X-PostHog-Session-Id") || undefined;
+    posthog.identify({ distinctId: newUser.id, properties: { email: newUser.email, firstName: newUser.firstName, lastName: newUser.lastName } });
+    posthog.capture({ distinctId: newUser.id, event: "user_signed_up", properties: { $session_id: phSessionId, has_phone: !!phone } });
 
     return new Response(
       JSON.stringify({

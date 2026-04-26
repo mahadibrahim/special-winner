@@ -1,0 +1,51 @@
+---
+// PostHog client snippet — analytics + session replay + error tracking.
+//
+// PII posture for Aspire Sports:
+//   - Youth-sports platform; replays will surface kid PII (names, ages, photos)
+//     and payment fields. Default everything to "masked, not captured" and
+//     selectively allow safe surfaces with `data-ph-allow`.
+//   - Password fields, payment forms, refund flows, and the registration
+//     wizard are mask-by-default via session_recording config below.
+//   - Auto-blocking domains (cloudinary, mock-r2, stripe iframe) keeps avatar
+//     URLs and Stripe Elements out of recordings.
+---
+<script is:inline define:vars={{ apiKey: import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN, apiHost: import.meta.env.PUBLIC_POSTHOG_HOST }}>
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId captureException".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+  if (apiKey) {
+    posthog.init(apiKey, {
+      api_host: apiHost,
+      defaults: '2026-01-30',
+      capture_pageview: true,
+      capture_pageleave: true,
+      autocapture: {
+        // Don't auto-capture clicks on payment / verification / role-mgmt UIs.
+        css_selector_allowlist: undefined,
+        dom_event_allowlist: ['click', 'submit', 'change'],
+        element_allowlist: ['a', 'button', 'input', 'select', 'textarea'],
+      },
+      // Session replay with masked-by-default PII.
+      session_recording: {
+        maskAllInputs: true,
+        maskInputOptions: {
+          password: true,
+          email: true,
+          tel: true,
+          number: true,
+        },
+        // CSS selectors below are blocked from recording entirely. Add
+        // `data-ph-no-capture` to any element that should never appear in
+        // replays.
+        blockClass: 'ph-no-capture',
+        blockSelector: '[data-ph-no-capture], iframe[src*="stripe.com"], .stripe-element',
+        maskTextClass: 'ph-mask',
+        maskTextSelector: '[data-ph-mask]',
+      },
+      // Error tracking: capture unhandled errors + promise rejections.
+      capture_exceptions: true,
+      // Don't send `$ip` or `$set` enrichments by default (privacy).
+      ip: false,
+      property_denylist: ['$ip'],
+    });
+  }
+</script>

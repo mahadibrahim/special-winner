@@ -4,6 +4,7 @@ import { registrations, familyMembers, seasons, programs, locations } from "@/li
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { sendWaitlistPromotionEmail } from "@/lib/email/send";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 const cancelSchema = z.object({
   reason: z.string().optional(),
@@ -136,6 +137,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
     // Check for waitlisted registrations to promote
     const waitlistPromotion = await promoteFromWaitlist(registration.seasonId, season);
+
+    const posthog = getPostHogServer();
+    posthog.capture({ distinctId: user.id, event: "registration_cancelled", properties: { registration_id: id, season_id: registration.seasonId, refund_amount_cents: refundAmountCents, refund_status: refundStatus, has_reason: !!reason } });
 
     return new Response(
       JSON.stringify({

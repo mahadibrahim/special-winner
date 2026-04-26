@@ -10,6 +10,7 @@ import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { consumeMagicLink } from "@/lib/auth/magic-link";
 import { telegramSendMessage } from "@/lib/telegram/client";
 import { routeInboundMessage } from "@/lib/messaging/inbound-pipeline";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 /**
  * POST /api/messaging/inbound/telegram
@@ -115,6 +116,17 @@ export const POST: APIRoute = async ({ request }) => {
       chatId,
       "You're all set. Aspire will send schedule updates, reminders, and coach messages here. Reply to me anytime — I'll route your question to the right person. Reply /stop to switch back to SMS.",
     );
+    // PostHog: completes the funnel started by `telegram_link_clicked` on the
+    // dashboard banner. Pair these to compute Telegram adoption rate.
+    try {
+      getPostHogServer().capture({
+        distinctId: consumed.userId,
+        event: "telegram_group_joined",
+        properties: { source: "magic_link_bind" },
+      });
+    } catch {
+      // Don't fail binding if analytics is down.
+    }
     return json({ ok: true, bound: true });
   }
 

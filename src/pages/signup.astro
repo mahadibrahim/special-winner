@@ -6,6 +6,7 @@ import '../styles/globals.css';
 import Navigation from '../components/navigation';
 import Footer from '../components/footer';
 import { SignUpForm } from '../components/auth/signup-form';
+import PostHog from '../components/posthog.astro';
 
 // Redirect if already logged in
 const user = Astro.locals.user;
@@ -26,6 +27,7 @@ if (user) {
       rel="stylesheet"
     />
     <title>Create Account — Aspire Sports</title>
+    <PostHog />
   </head>
   <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />

@@ -61,6 +61,13 @@ export function TelegramConnectBanner({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Could not generate Telegram link")
+      // PostHog: parent clicked through to connect Telegram. Pair with the
+      // server-side /api/telegram/webhook event that fires when they actually
+      // bind to track real adoption rate.
+      ;(window as unknown as { posthog?: { capture: (e: string, p?: Record<string, unknown>) => void } }).posthog?.capture(
+        "telegram_link_clicked",
+        { source: "dashboard_banner" },
+      )
       window.open(data.url, "_blank", "noopener,noreferrer")
       setConnectSuccess(true)
     } catch (err) {
