@@ -766,28 +766,33 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Game: ${team.name} vs ${team2.name}`);
 
-  const existingSessions = await db
-    .select()
-    .from(shootSessions)
+  // Cleanup pass: delete leftover 'uploaded' sessions from prior seed runs
+  // so we don't accumulate hundreds of rows over time. Cascades through
+  // mediaAssets and mediaTags via onDelete: "cascade". Only targets the
+  // exact (org, game, status) tuple this seed creates — won't touch any
+  // non-seed shoot session, and won't touch sessions that current CI
+  // workers have already claimed (those are status='tagging' now).
+  const deleted = await db
+    .delete(shootSessions)
     .where(
       and(
         eq(shootSessions.organizationId, org.id),
         eq(shootSessions.gameId, game.id),
         eq(shootSessions.status, "uploaded")
       )
-    );
+    )
+    .returning({ id: shootSessions.id });
+  console.log(
+    `   ✓ Cleared ${deleted.length} stale 'uploaded' fixtures (cascading to assets/tags)`
+  );
 
   // API tests (test-api job) and Playwright tests (test job) run in parallel
   // against the same shared CI DB. tag-session.test.ts has 5 describe blocks
   // (each beforeAll claims queue[0]) plus inline claims, so test-api can
-  // consume ~6 sessions on its own. Add 15 fresh fixtures every seed run
-  // (don't subtract existing) so Playwright always finds plenty regardless
-  // of how many concurrent CI runs are racing on the same DB. Stale
-  // 'uploaded' rows from prior runs get reused by the tag-queue endpoint
-  // anyway — extra ones aren't wasteful.
-  console.log(
-    `   ℹ Existing 'uploaded' sessions for this game in org: ${existingSessions.length}`
-  );
+  // consume ~6 sessions on its own. Add 15 fresh fixtures every seed run.
+  // Concurrent runs are safe: this delete only touches status='uploaded',
+  // so any session another worker has already claimed (status='tagging')
+  // is preserved.
   const needed = 15;
   for (let n = 0; n < needed; n++) {
     const [s] = await db
