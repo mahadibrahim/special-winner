@@ -1,40 +1,25 @@
 ---
-import '../../styles/globals.css';
+import BaseLayout from '../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { RefundsManagement } from '../../components/admin/refunds-management';
 
-// Auth/role check is handled by middleware - /admin/* routes require admin role
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Refund Management — Aspire Sports Admin</title>
-  </head>
-  <body class="bg-cream text-ink antialiased">
-    <AdminLayout
-      client:load
-      currentPath="/admin/refunds"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-    >
-      <div class="space-y-6">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900">Refund Management</h1>
-          <p class="text-gray-600 mt-1">Review and process refund requests from cancelled registrations</p>
-        </div>
-
-        <RefundsManagement client:load />
+<BaseLayout title="Refund Management — Aspire Sports Admin" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/refunds"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-6">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Refund Management</h1>
+        <p class="text-gray-600 mt-1">Review and process refund requests from cancelled registrations</p>
       </div>
-    </AdminLayout>
-  </body>
-</html>
+
+      <RefundsManagement client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>

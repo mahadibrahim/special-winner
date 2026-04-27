@@ -1,51 +1,37 @@
 ---
-import '../../../styles/globals.css';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../components/admin/admin-layout';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Gear & Merchandise — Admin — Aspire Sports</title>
-  </head>
-  <body class="bg-cream text-ink antialiased">
-    <AdminLayout
-      client:load
-      currentPath="/admin/gear"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-    >
-      <div class="space-y-6">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900">Gear & Merchandise</h1>
-          <p class="text-gray-600 mt-1">
-            Manage your product catalog, program gear bindings, and external team
-            store links.
-          </p>
-        </div>
-
-        <div class="grid gap-4 md:grid-cols-3">
-          <a
-            href="/admin/gear/products"
-            class="block p-6 rounded-lg border bg-white hover:bg-muted transition-colors"
-          >
-            <h2 class="text-xl font-semibold">Products</h2>
-            <p class="text-sm text-muted-foreground mt-1">
-              Manage your gear catalog and variants.
-            </p>
-          </a>
-        </div>
+<BaseLayout title="Gear & Merchandise — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/gear"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-6">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Gear & Merchandise</h1>
+        <p class="text-gray-600 mt-1">
+          Manage your product catalog, program gear bindings, and external team
+          store links.
+        </p>
       </div>
-    </AdminLayout>
-  </body>
-</html>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <a
+          href="/admin/gear/products"
+          class="block p-6 rounded-lg border bg-white hover:bg-muted transition-colors"
+        >
+          <h2 class="text-xl font-semibold">Products</h2>
+          <p class="text-sm text-muted-foreground mt-1">
+            Manage your gear catalog and variants.
+          </p>
+        </a>
+      </div>
+    </div>
+  </AdminLayout>
+</BaseLayout>

@@ -1,33 +1,18 @@
 ---
-import '../../../styles/globals.css';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../components/admin/admin-layout';
 import { WaitlistManager } from '../../../components/admin/waitlist-manager';
 
-// Check if user is admin
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Waitlist Management — Admin — Aspire Sports</title>
-  </head>
-  <body class="bg-cream text-ink antialiased">
-    <AdminLayout
-      client:load
-      currentPath="/admin/waitlist"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-    >
-      <WaitlistManager client:load />
-    </AdminLayout>
-  </body>
-</html>
+<BaseLayout title="Waitlist Management — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/waitlist"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <WaitlistManager client:load />
+  </AdminLayout>
+</BaseLayout>

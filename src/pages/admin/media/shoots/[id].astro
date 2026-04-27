@@ -1,5 +1,5 @@
 ---
-import '../../../../styles/globals.css';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../../components/admin/admin-layout';
 import { ShootDetail } from '../../../../components/media/shoot-detail';
 
@@ -8,13 +8,9 @@ const user = Astro.locals.user!;
 const id = Astro.params.id as string;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>Shoot Detail — Admin</title></head>
-  <body class="bg-cream text-ink">
-    <AdminLayout client:load currentPath="/admin/media/shoots"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
-      <ShootDetail client:load sessionId={id} />
-    </AdminLayout>
-  </body>
-</html>
+<BaseLayout title="Shoot Detail — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout client:load currentPath="/admin/media/shoots"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
+    <ShootDetail client:load sessionId={id} />
+  </AdminLayout>
+</BaseLayout>

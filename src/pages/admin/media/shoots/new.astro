@@ -1,5 +1,5 @@
 ---
-import '../../../../styles/globals.css';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../../components/admin/admin-layout';
 import { ShootWizard } from '../../../../components/media/shoot-wizard';
 
@@ -7,13 +7,9 @@ import { ShootWizard } from '../../../../components/media/shoot-wizard';
 const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>New Shoot — Admin</title></head>
-  <body class="bg-cream text-ink">
-    <AdminLayout client:load currentPath="/admin/media/shoots/new"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
-      <ShootWizard client:load />
-    </AdminLayout>
-  </body>
-</html>
+<BaseLayout title="New Shoot — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout client:load currentPath="/admin/media/shoots/new"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
+    <ShootWizard client:load />
+  </AdminLayout>
+</BaseLayout>
