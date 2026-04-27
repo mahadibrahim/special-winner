@@ -4,16 +4,24 @@ import { registrations, familyMembers, seasons, programs, sports, locations, age
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { getPostHogServer } from "@/lib/posthog-server";
 
-const createRegistrationSchema = z.object({
-  seasonId: z.string().uuid("Invalid season ID"),
-  familyMemberId: z.string().uuid("Invalid family member ID"),
-  registrationType: z.enum(["full", "deposit"]),
-  waiverSigned: z.boolean(),
-  waiverSignedBy: z.string().min(1, "Waiver signature required"),
-  notes: z.string().optional(),
-});
+const createRegistrationSchema = z
+  .object({
+    seasonId: z.string().uuid("Invalid season ID"),
+    familyMemberId: z.string().uuid("Invalid family member ID").optional(),
+    registerSelf: z.boolean().optional(),
+    registrationType: z.enum(["full", "deposit"]),
+    waiverSigned: z.boolean(),
+    waiverSignedBy: z.string().min(1, "Waiver signature required"),
+    notes: z.string().optional(),
+    lookingForTeam: z.boolean().optional(),
+  })
+  .refine(
+    (v) => Boolean(v.familyMemberId) !== Boolean(v.registerSelf),
+    { message: "Provide exactly one of familyMemberId or registerSelf:true" },
+  );
 
 // GET - List registrations for current user
 export const GET: APIRoute = async ({ locals }) => {
@@ -134,20 +142,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     const data = validation.data;
 
-    const [familyMember] = await db
-      .select()
-      .from(familyMembers)
-      .where(
-        and(
-          eq(familyMembers.id, data.familyMemberId),
-          eq(familyMembers.parentUserId, user.id),
-        ),
-      );
-    if (!familyMember) {
-      return new Response(JSON.stringify({ error: "Family member not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
+    let familyMember;
+    if (data.registerSelf) {
+      if (!user.birthDate) {
+        return new Response(
+          JSON.stringify({ error: "Profile birthDate required for self registration" }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      familyMember = await resolvePerson(db, {
+        kind: "self",
+        user: {
+          id: user.id,
+          firstName: user.firstName ?? "",
+          lastName: user.lastName ?? "",
+          birthDate: user.birthDate,
+        },
       });
+    } else {
+      const [fm] = await db
+        .select()
+        .from(familyMembers)
+        .where(
+          and(
+            eq(familyMembers.id, data.familyMemberId!),
+            eq(familyMembers.parentUserId, user.id),
+          ),
+        );
+      if (!fm) {
+        return new Response(JSON.stringify({ error: "Family member not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      familyMember = fm;
     }
 
     try {
@@ -160,6 +188,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         waiverSigned: data.waiverSigned,
         waiverSignedBy: data.waiverSignedBy,
         notes: data.notes,
+        lookingForTeam: data.registerSelf ? (data.lookingForTeam ?? false) : false,
       });
 
       const posthog = getPostHogServer();

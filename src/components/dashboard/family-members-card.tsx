@@ -27,6 +27,7 @@ interface FamilyMember {
   emergencyContactName: string | null
   emergencyContactPhone: string | null
   photoUrl: string | null
+  kind: "self" | "dependent"
 }
 
 export default function FamilyMembersCard() {
@@ -67,7 +68,12 @@ export default function FamilyMembersCard() {
       const response = await fetch("/api/family-members")
       if (!response.ok) throw new Error("Failed to fetch")
       const data = await response.json()
-      setMembers(data.familyMembers || [])
+      const sorted = [...(data.familyMembers || [])].sort((a: FamilyMember, b: FamilyMember) => {
+        if (a.kind === "self" && b.kind !== "self") return -1
+        if (b.kind === "self" && a.kind !== "self") return 1
+        return 0
+      })
+      setMembers(sorted)
     } catch {
       setError("Failed to load family members")
     } finally {
@@ -316,7 +322,7 @@ export default function FamilyMembersCard() {
             <div>
               <h3 className="font-semibold text-ink">Family Members</h3>
               <p className="text-sm text-ink-muted">
-                {members.length} {members.length === 1 ? "child" : "children"} registered
+                {members.length} {members.length === 1 ? "player" : "players"} registered
               </p>
             </div>
           </div>
@@ -495,12 +501,20 @@ export default function FamilyMembersCard() {
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : members.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="w-12 h-12 rounded-full bg-cream-2 flex items-center justify-center mx-auto mb-3">
-              <User className="w-6 h-6 text-ink-muted" />
+          <div className="text-center py-8 space-y-4">
+            <h3 className="text-lg font-semibold">Get started</h3>
+            <p className="text-muted-foreground text-sm">
+              Register yourself for an adult program, or add a child to register them
+              for a youth program.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
+              <Button asChild>
+                <a href="/programs?audience=adult">Register myself</a>
+              </Button>
+              <Button variant="outline" onClick={openAddDialog}>
+                Add a child
+              </Button>
             </div>
-            <p className="text-ink-muted mb-1">No family members yet</p>
-            <p className="text-sm text-ink-muted">Add your children to start registering for programs</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -532,8 +546,13 @@ export default function FamilyMembersCard() {
                       </button>
                     </div>
                     <div>
-                      <p className="font-medium text-ink">
+                      <p className="font-medium text-ink flex items-center gap-2">
                         {member.firstName} {member.lastName}
+                        {member.kind === "self" && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                            You
+                          </span>
+                        )}
                       </p>
                       <div className="flex items-center gap-2 text-sm text-ink-muted">
                         <Calendar className="w-3 h-3" />
@@ -550,14 +569,16 @@ export default function FamilyMembersCard() {
                     >
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(member.id)}
-                      className="text-ink-muted hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {member.kind !== "self" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(member.id)}
+                        className="text-ink-muted hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

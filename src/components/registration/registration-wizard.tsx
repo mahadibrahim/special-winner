@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TelegramConnectStep } from "./telegram-connect-step"
+import { WhoStep } from "./who-step"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 interface Season {
@@ -86,6 +87,7 @@ interface AuthedUser {
   email: string
   firstName: string | null
   lastName: string | null
+  birthDate: string | null
 }
 
 interface RegistrationWizardProps {
@@ -120,7 +122,8 @@ export default function RegistrationWizard({
   const [registrationComplete, setRegistrationComplete] = useState(false)
 
   // Form state
-  const [selectedMemberId, setSelectedMemberId] = useState<string>("")
+  // selectedKey: "self" | <dependentId> | null
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignature, setWaiverSignature] = useState("")
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full")
@@ -156,6 +159,9 @@ export default function RegistrationWizard({
   const [newMemberBirthDate, setNewMemberBirthDate] = useState("")
   const [newMemberGender, setNewMemberGender] = useState("")
   const [isAddingMember, setIsAddingMember] = useState(false)
+
+  // Free-agent flag: shown only for adult self-registrants
+  const [lookingForTeam, setLookingForTeam] = useState(false)
 
   // Cancel-resume state
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
@@ -272,7 +278,7 @@ export default function RegistrationWizard({
 
       const data = await response.json()
       setFamilyMembers([...familyMembers, data.familyMember])
-      setSelectedMemberId(data.familyMember.id)
+      setSelectedKey(data.familyMember.id)
       setShowAddMember(false)
       setNewMemberFirstName("")
       setNewMemberLastName("")
@@ -415,24 +421,37 @@ export default function RegistrationWizard({
   }
 
   const handleSubmitRegistration = async () => {
-    if (!selectedMemberId || !waiverAccepted || !waiverSignature) return
+    if (!selectedKey || !waiverAccepted || !waiverSignature) return
 
     setIsSubmitting(true)
     setError(null)
+
+    const registrationBody =
+      selectedKey === "self"
+        ? {
+            seasonId,
+            registerSelf: true,
+            registrationType: paymentOption,
+            waiverSigned: true,
+            waiverSignedBy: waiverSignature,
+            discountCode: discountCode || undefined,
+            lookingForTeam,
+          }
+        : {
+            seasonId,
+            familyMemberId: selectedKey,
+            registrationType: paymentOption,
+            waiverSigned: true,
+            waiverSignedBy: waiverSignature,
+            discountCode: discountCode || undefined,
+          }
 
     try {
       // Step 1: Create registration
       const regResponse = await fetch("/api/registrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          seasonId,
-          familyMemberId: selectedMemberId,
-          registrationType: paymentOption,
-          waiverSigned: true,
-          waiverSignedBy: waiverSignature,
-          discountCode: discountCode || undefined,
-        }),
+        body: JSON.stringify(registrationBody),
       })
 
       if (!regResponse.ok) {
@@ -504,7 +523,7 @@ export default function RegistrationWizard({
             /^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate)
           )
         }
-        return selectedMemberId !== ""
+        return selectedKey !== null
       case 2:
         return waiverAccepted && waiverSignature.length >= 2
       case 3:
@@ -543,7 +562,27 @@ export default function RegistrationWizard({
     return age
   }
 
-  const selectedMember = familyMembers.find((m) => m.id === selectedMemberId)
+  const isAgeEligible = (birthDate: string, currentSeason: Season): boolean => {
+    if (!currentSeason.ageGroup) return true
+    const age = calculateAge(birthDate)
+    return age >= currentSeason.ageGroup.minAge && age <= currentSeason.ageGroup.maxAge
+  }
+
+  // Resolve the display name for the selected registrant (used in waiver label + order summary)
+  const selectedDisplayName =
+    selectedKey === "self"
+      ? `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim()
+      : selectedKey
+      ? (() => {
+          const m = familyMembers.find((m) => m.id === selectedKey)
+          return m ? `${m.firstName} ${m.lastName}` : ""
+        })()
+      : ""
+
+  // Keep selectedMember for backward-compat references (waiver, order summary)
+  const selectedMember = selectedKey && selectedKey !== "self"
+    ? familyMembers.find((m) => m.id === selectedKey)
+    : undefined
 
   if (isLoading) {
     return (
@@ -705,136 +744,94 @@ export default function RegistrationWizard({
 
       {/* Step Content */}
       <div className="bg-paper border border-border rounded-2xl p-6">
-        {/* Step 1: Select Player */}
-        {currentStep === 1 && !isGuest && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-ink mb-2">Select Player</h3>
-              <p className="text-ink-muted text-sm">
-                Choose which family member you're registering for this program.
-              </p>
+        {/* Step 1: Who are you registering? (authenticated path) */}
+        {currentStep === 1 && !isGuest && !showAddMember && (
+          <WhoStep
+            selfOption={
+              user?.birthDate
+                ? {
+                    firstName: user.firstName ?? "",
+                    lastName: user.lastName ?? "",
+                    ageEligible: isAgeEligible(user.birthDate, season),
+                  }
+                : null
+            }
+            dependents={familyMembers.map((m) => ({
+              id: m.id,
+              firstName: m.firstName,
+              lastName: m.lastName,
+              birthDate: m.birthDate,
+              ageEligible: isAgeEligible(m.birthDate, season),
+            }))}
+            selectedKey={selectedKey}
+            onSelect={setSelectedKey}
+            onAddDependent={() => setShowAddMember(true)}
+          />
+        )}
+
+        {/* Add dependent inline form (authenticated path, step 1) */}
+        {currentStep === 1 && !isGuest && showAddMember && (
+          <div className="space-y-4 p-4 rounded-xl border border-border bg-paper">
+            <h4 className="font-medium text-ink">Add New Player</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-ink-muted">First Name *</Label>
+                <Input
+                  value={newMemberFirstName}
+                  onChange={(e) => setNewMemberFirstName(e.target.value)}
+                  className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-ink-muted">Last Name *</Label>
+                <Input
+                  value={newMemberLastName}
+                  onChange={(e) => setNewMemberLastName(e.target.value)}
+                  className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
+                />
+              </div>
             </div>
-
-            {familyMembers.length > 0 && !showAddMember && (
-              <RadioGroup value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                <div className="space-y-3">
-                  {familyMembers.map((member) => {
-                    const age = calculateAge(member.birthDate)
-                    const isEligible =
-                      !season.ageGroup ||
-                      (age >= season.ageGroup.minAge && age <= season.ageGroup.maxAge)
-
-                    return (
-                      <Label
-                        key={member.id}
-                        htmlFor={`member-${member.id}`}
-                        className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
-                          selectedMemberId === member.id
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:border-ink-faint bg-paper"
-                        } ${!isEligible ? "opacity-50" : ""}`}
-                      >
-                        <RadioGroupItem
-                          value={member.id}
-                          id={`member-${member.id}`}
-                          disabled={!isEligible}
-                          className="mr-4"
-                        />
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold mr-3">
-                          {member.firstName[0]}
-                          {member.lastName[0]}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-ink">
-                            {member.firstName} {member.lastName}
-                          </p>
-                          <p className="text-sm text-ink-muted">Age {age}</p>
-                        </div>
-                        {!isEligible && (
-                          <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded">
-                            Outside age range
-                          </span>
-                        )}
-                      </Label>
-                    )
-                  })}
-                </div>
-              </RadioGroup>
-            )}
-
-            {!showAddMember ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-ink-muted">Birth Date *</Label>
+                <Input
+                  type="date"
+                  value={newMemberBirthDate}
+                  onChange={(e) => setNewMemberBirthDate(e.target.value)}
+                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-ink-muted">Gender</Label>
+                <Select value={newMemberGender} onValueChange={setNewMemberGender}>
+                  <SelectTrigger className="bg-cream-2 border-border text-ink">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-cream border-border">
+                    <SelectItem value="male" className="text-ink-2">Male</SelectItem>
+                    <SelectItem value="female" className="text-ink-2">Female</SelectItem>
+                    <SelectItem value="other" className="text-ink-2">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-3">
               <Button
                 variant="outline"
-                onClick={() => setShowAddMember(true)}
-                className="w-full border-dashed border-border text-ink-muted hover:text-ink hover:bg-cream-2"
+                onClick={() => setShowAddMember(false)}
+                className="border-border text-ink-muted"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Add New Family Member
+                Cancel
               </Button>
-            ) : (
-              <div className="space-y-4 p-4 rounded-xl border border-border bg-paper">
-                <h4 className="font-medium text-ink">Add New Family Member</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-ink-muted">First Name *</Label>
-                    <Input
-                      value={newMemberFirstName}
-                      onChange={(e) => setNewMemberFirstName(e.target.value)}
-                      className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-ink-muted">Last Name *</Label>
-                    <Input
-                      value={newMemberLastName}
-                      onChange={(e) => setNewMemberLastName(e.target.value)}
-                      className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-ink-muted">Birth Date *</Label>
-                    <Input
-                      type="date"
-                      value={newMemberBirthDate}
-                      onChange={(e) => setNewMemberBirthDate(e.target.value)}
-                      className="bg-cream-2 border-border text-ink focus:border-primary"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-ink-muted">Gender</Label>
-                    <Select value={newMemberGender} onValueChange={setNewMemberGender}>
-                      <SelectTrigger className="bg-cream-2 border-border text-ink">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-cream border-border">
-                        <SelectItem value="male" className="text-ink-2">Male</SelectItem>
-                        <SelectItem value="female" className="text-ink-2">Female</SelectItem>
-                        <SelectItem value="other" className="text-ink-2">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowAddMember(false)}
-                    className="border-border text-ink-muted"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleAddMember}
-                    disabled={!newMemberFirstName || !newMemberLastName || !newMemberBirthDate || isAddingMember}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    {isAddingMember ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Add & Select
-                  </Button>
-                </div>
-              </div>
-            )}
+              <Button
+                onClick={handleAddMember}
+                disabled={!newMemberFirstName || !newMemberLastName || !newMemberBirthDate || isAddingMember}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isAddingMember ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Add & Select
+              </Button>
+            </div>
           </div>
         )}
 
@@ -1004,6 +1001,24 @@ export default function RegistrationWizard({
               </div>
             </div>
 
+            {/* Branched waiver body: self vs dependent (guest path handled separately) */}
+            {!isGuest && (
+              <div className="mb-2">
+                {selectedKey === "self" ? (
+                  <p className="text-sm text-ink-muted">
+                    I, <strong className="text-ink">{selectedDisplayName}</strong>, agree to participate in this
+                    program and accept the terms of the participation waiver.
+                  </p>
+                ) : (
+                  <p className="text-sm text-ink-muted">
+                    I authorize <strong className="text-ink">{selectedDisplayName}</strong> to participate in this
+                    program on my behalf as their parent or legal guardian, and accept the
+                    terms of the participation waiver.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <Checkbox
@@ -1013,12 +1028,16 @@ export default function RegistrationWizard({
                   className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
                 <Label htmlFor="waiver" className="text-sm text-ink-2 cursor-pointer">
-                  I have read, understand, and agree to the terms of this waiver on behalf of{" "}
-                  <span className="text-ink font-medium">
-                    {isGuest
-                      ? `${guestChildFirstName} ${guestChildLastName}`.trim()
-                      : `${selectedMember?.firstName ?? ""} ${selectedMember?.lastName ?? ""}`.trim()}
-                  </span>.
+                  {isGuest ? (
+                    <>
+                      I have read, understand, and agree to the terms of this waiver on behalf of{" "}
+                      <span className="text-ink font-medium">
+                        {`${guestChildFirstName} ${guestChildLastName}`.trim()}
+                      </span>.
+                    </>
+                  ) : (
+                    "I agree to the terms above."
+                  )}
                 </Label>
               </div>
 
@@ -1034,6 +1053,20 @@ export default function RegistrationWizard({
                   By typing your name above, you agree that this constitutes a legal signature.
                 </p>
               </div>
+
+              {selectedKey === "self" && (
+                <div className="mt-4 flex items-start gap-2">
+                  <Checkbox
+                    id="looking-for-team"
+                    checked={lookingForTeam}
+                    onCheckedChange={(v) => setLookingForTeam(v === true)}
+                    className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <Label htmlFor="looking-for-team" className="text-sm leading-tight text-ink-2 cursor-pointer">
+                    I'm not registering with a team — please place me with one.
+                  </Label>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1152,7 +1185,7 @@ export default function RegistrationWizard({
                 <span className="text-ink font-medium">
                   {isGuest
                     ? `${guestChildFirstName} ${guestChildLastName}`.trim()
-                    : `${selectedMember?.firstName ?? ""} ${selectedMember?.lastName ?? ""}`.trim()}
+                    : selectedDisplayName}
                 </span>
               </div>
               <div className="flex items-center justify-between mb-2">
@@ -1208,7 +1241,7 @@ export default function RegistrationWizard({
             </div>
             <h3 className="text-xl font-semibold text-ink mb-2">Registration Submitted!</h3>
             <p className="text-ink-muted mb-6">
-              {selectedMember?.firstName} has been registered for {season.name}.
+              {selectedDisplayName || "You"} has been registered for {season.name}.
               You'll receive a confirmation email shortly.
             </p>
             <div className="flex justify-center gap-3">

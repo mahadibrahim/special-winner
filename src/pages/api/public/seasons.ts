@@ -30,6 +30,7 @@ export const GET: APIRoute = async ({ url }) => {
   const locationSlug = url.searchParams.get("location");
   const sportSlug = url.searchParams.get("sport");
   const status = url.searchParams.get("status");
+  const audience = url.searchParams.get("audience"); // "youth" | "adult" | null
 
   try {
     if (!db) throw new Error("No DB");
@@ -44,6 +45,20 @@ export const GET: APIRoute = async ({ url }) => {
     }
     if (sportSlug) {
       conditions.push(eq(sports.slug, sportSlug));
+    }
+    // Audience filter: apply age-group bounds when audience is specified.
+    // For seasons without an age group we include them in both views (no
+    // ageGroupId means the season is open to all).
+    if (audience === "youth") {
+      // Youth: ageGroup.minAge < 18 (overlaps with kids' ages), OR no ageGroup
+      conditions.push(
+        sql`(${seasons.ageGroupId} IS NULL OR ${ageGroups.minAge} < 18)`
+      );
+    } else if (audience === "adult") {
+      // Adult: ageGroup.minAge >= 18, OR no ageGroup
+      conditions.push(
+        sql`(${seasons.ageGroupId} IS NULL OR ${ageGroups.minAge} >= 18)`
+      );
     }
     // Always exclude test fixtures from the public catalog. Programs/seasons
     // are flagged via the `is_test` column (backfilled by migration 0009 and
@@ -158,6 +173,15 @@ export const GET: APIRoute = async ({ url }) => {
     }
     if (sportSlug) {
       filteredSeasons = filteredSeasons.filter((s) => s.sport.slug === sportSlug);
+    }
+    if (audience === "youth") {
+      filteredSeasons = filteredSeasons.filter(
+        (s) => s.ageGroup === null || s.ageGroup.minAge < 18
+      );
+    } else if (audience === "adult") {
+      filteredSeasons = filteredSeasons.filter(
+        (s) => s.ageGroup === null || s.ageGroup.minAge >= 18
+      );
     }
     return new Response(JSON.stringify({ seasons: filteredSeasons }), {
       status: 200,

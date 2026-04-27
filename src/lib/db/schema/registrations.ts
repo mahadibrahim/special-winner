@@ -10,7 +10,9 @@ import {
   jsonb,
   pgEnum,
   index,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { seasons } from "./programs";
@@ -42,14 +44,21 @@ export const refundStatusEnum = pgEnum("refund_status", [
 
 export const genderEnum = pgEnum("gender", ["male", "female", "other", "prefer_not_to_say"]);
 
-// Family members (children/players)
+// Family members (children/players or adult self-registrants)
 export const familyMembers = pgTable(
   "family_members",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    parentUserId: uuid("parent_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    // Exactly one of parentUserId or selfUserId is non-null. Enforced by
+    // a DB CHECK constraint added in the migration. parentUserId means
+    // "this person is a dependent of that user" (youth/COPPA path).
+    // selfUserId means "this person IS that user" (adult self path).
+    parentUserId: uuid("parent_user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    selfUserId: uuid("self_user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
     firstName: varchar("first_name", { length: 100 }).notNull(),
     lastName: varchar("last_name", { length: 100 }).notNull(),
     birthDate: date("birth_date").notNull(),
@@ -79,6 +88,11 @@ export const familyMembers = pgTable(
   },
   (table) => [
     index("family_members_parent_user_idx").on(table.parentUserId),
+    index("family_members_self_user_idx").on(table.selfUserId),
+    check(
+      "family_members_self_xor_parent",
+      sql`(${table.parentUserId} IS NOT NULL AND ${table.selfUserId} IS NULL) OR (${table.parentUserId} IS NULL AND ${table.selfUserId} IS NOT NULL)`,
+    ),
   ],
 );
 
@@ -117,6 +131,8 @@ export const registrations = pgTable(
     waitlistPosition: integer("waitlist_position"),
     waitlistPromotedAt: timestamp("waitlist_promoted_at"),
     waitlistExpiresAt: timestamp("waitlist_expires_at"),
+    // Free-agent flag: adult self-registrants who want placement on a team
+    lookingForTeam: boolean("looking_for_team").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -159,6 +175,12 @@ export const familyMembersRelations = relations(familyMembers, ({ one, many }) =
   parent: one(users, {
     fields: [familyMembers.parentUserId],
     references: [users.id],
+    relationName: "parent_of",
+  }),
+  self: one(users, {
+    fields: [familyMembers.selfUserId],
+    references: [users.id],
+    relationName: "self_of",
   }),
   registrations: many(registrations),
 }));

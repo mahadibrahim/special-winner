@@ -12,6 +12,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 interface SeasonOption {
   id: string
@@ -32,6 +34,13 @@ interface FormState {
   kidBirthDate: string
   kidGender: "male" | "female" | "other" | "prefer_not_to_say" | ""
   kidMedicalNotes: string
+  // adult mode fields
+  adultFirstName: string
+  adultLastName: string
+  adultEmail: string
+  adultPhone: string
+  adultBirthDate: string
+  adultGender: "male" | "female" | "other" | ""
   seasonId: string
   paymentStatus: PaymentStatus
   amountPaidCents: number
@@ -49,6 +58,12 @@ const initialState: FormState = {
   kidBirthDate: "",
   kidGender: "",
   kidMedicalNotes: "",
+  adultFirstName: "",
+  adultLastName: "",
+  adultEmail: "",
+  adultPhone: "",
+  adultBirthDate: "",
+  adultGender: "",
   seasonId: "",
   paymentStatus: "paid",
   amountPaidCents: 0,
@@ -57,6 +72,7 @@ const initialState: FormState = {
 }
 
 export function WalkUpRegistrationForm() {
+  const [mode, setMode] = useState<"child" | "adult">("child")
   const [form, setForm] = useState<FormState>(initialState)
   const [seasons, setSeasons] = useState<SeasonOption[]>([])
   const [loadingSeasons, setLoadingSeasons] = useState(true)
@@ -109,25 +125,49 @@ export function WalkUpRegistrationForm() {
     setSuccess(null)
 
     try {
-      const payload = {
-        parent: {
-          firstName: form.parentFirstName,
-          lastName: form.parentLastName,
-          email: form.parentEmail,
-          phone: form.parentPhone,
-        },
-        kid: {
-          firstName: form.kidFirstName,
-          lastName: form.kidLastName,
-          birthDate: form.kidBirthDate,
-          gender: form.kidGender || undefined,
-          medicalNotes: form.kidMedicalNotes || undefined,
-        },
-        seasonId: form.seasonId,
-        paymentStatus: form.paymentStatus,
-        amountPaidCents: form.amountPaidCents,
-        waiverSigned: form.waiverSigned,
-        notes: form.notes || undefined,
+      let payload: Record<string, unknown>
+
+      if (mode === "adult") {
+        const registrantName = `${form.adultFirstName} ${form.adultLastName}`.trim()
+        payload = {
+          adultMode: true,
+          registrant: {
+            firstName: form.adultFirstName,
+            lastName: form.adultLastName,
+            email: form.adultEmail,
+            phone: form.adultPhone || undefined,
+            birthDate: form.adultBirthDate,
+            gender: form.adultGender || undefined,
+          },
+          seasonId: form.seasonId,
+          registrationType: "full" as const,
+          paymentStatus: form.paymentStatus,
+          amountPaidCents: form.amountPaidCents,
+          waiverSigned: form.waiverSigned,
+          waiverSignedBy: registrantName,
+          notes: form.notes || undefined,
+        }
+      } else {
+        payload = {
+          parent: {
+            firstName: form.parentFirstName,
+            lastName: form.parentLastName,
+            email: form.parentEmail,
+            phone: form.parentPhone,
+          },
+          kid: {
+            firstName: form.kidFirstName,
+            lastName: form.kidLastName,
+            birthDate: form.kidBirthDate,
+            gender: form.kidGender || undefined,
+            medicalNotes: form.kidMedicalNotes || undefined,
+          },
+          seasonId: form.seasonId,
+          paymentStatus: form.paymentStatus,
+          amountPaidCents: form.amountPaidCents,
+          waiverSigned: form.waiverSigned,
+          notes: form.notes || undefined,
+        }
       }
 
       const res = await fetch("/api/admin/walk-up-registration", {
@@ -168,8 +208,8 @@ export function WalkUpRegistrationForm() {
         </p>
         <p className="text-sm text-ink-muted mb-6">
           {success.smsStatus === "sent"
-            ? "Opt-in welcome SMS delivered. The parent will reply YES to activate messaging."
-            : "Registration created but the opt-in SMS didn't go through. Check the parent's phone number and try sending a manual welcome via the messages inbox."}
+            ? "Opt-in welcome SMS delivered. The registrant will reply YES to activate messaging."
+            : "Registration created but the opt-in SMS didn't go through. Check the phone number and try sending a manual welcome via the messages inbox."}
         </p>
         <Button onClick={() => setSuccess(null)}>Add another walk-up</Button>
       </div>
@@ -178,124 +218,258 @@ export function WalkUpRegistrationForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Parent section */}
-      <fieldset className="p-5 rounded-xl bg-paper border border-border space-y-4">
-        <legend className="text-sm font-semibold text-ink flex items-center gap-2 px-2">
-          <UserPlus className="w-4 h-4 text-primary" />
-          Parent
-        </legend>
+      {/* Mode toggle */}
+      <div className="mb-6">
+        <Label className="mb-2 block text-sm font-semibold text-ink">
+          Who are you registering?
+        </Label>
+        <RadioGroup
+          value={mode}
+          onValueChange={(v) => setMode(v as "child" | "adult")}
+        >
+          <div className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="child" id="mode-child" />
+              <Label htmlFor="mode-child">A child (parent registers)</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="adult" id="mode-adult" />
+              <Label htmlFor="mode-adult">An adult (registers themselves)</Label>
+            </div>
+          </div>
+        </RadioGroup>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
+      {mode === "child" ? (
+        <>
+          {/* Parent section */}
+          <fieldset className="p-5 rounded-xl bg-paper border border-border space-y-4">
+            <legend className="text-sm font-semibold text-ink flex items-center gap-2 px-2">
+              <UserPlus className="w-4 h-4 text-primary" />
+              Parent
+            </legend>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                  First name
+                </label>
+                <Input
+                  required
+                  value={form.parentFirstName}
+                  onChange={(e) => update("parentFirstName", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                  Last name
+                </label>
+                <Input
+                  required
+                  value={form.parentLastName}
+                  onChange={(e) => update("parentLastName", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
+                <Input
+                  required
+                  type="email"
+                  value={form.parentEmail}
+                  onChange={(e) => update("parentEmail", e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                Phone
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
+                <Input
+                  required
+                  type="tel"
+                  value={form.parentPhone}
+                  onChange={(e) => update("parentPhone", e.target.value)}
+                  placeholder="(614) 555-1234"
+                  className="pl-10"
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-ink-muted">
+                We'll send an opt-in welcome text to this number after saving. Parent replies
+                YES to activate messaging.
+              </p>
+            </div>
+          </fieldset>
+
+          {/* Kid section */}
+          <fieldset className="p-5 rounded-xl bg-paper border border-border space-y-4">
+            <legend className="text-sm font-semibold text-ink px-2">Child</legend>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                  First name
+                </label>
+                <Input
+                  required
+                  value={form.kidFirstName}
+                  onChange={(e) => update("kidFirstName", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                  Last name
+                </label>
+                <Input
+                  required
+                  value={form.kidLastName}
+                  onChange={(e) => update("kidLastName", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                  Birth date
+                </label>
+                <Input
+                  required
+                  type="date"
+                  value={form.kidBirthDate}
+                  onChange={(e) => update("kidBirthDate", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                  Gender
+                </label>
+                <select
+                  value={form.kidGender}
+                  onChange={(e) =>
+                    update(
+                      "kidGender",
+                      e.target.value as FormState["kidGender"],
+                    )
+                  }
+                  className="w-full px-3 py-2 rounded-md bg-cream-2 border border-border text-sm text-ink"
+                >
+                  <option value="">—</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                  <option value="prefer_not_to_say">Prefer not to say</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                Medical notes (optional)
+              </label>
+              <textarea
+                value={form.kidMedicalNotes}
+                onChange={(e) => update("kidMedicalNotes", e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 rounded-md bg-cream-2 border border-border text-sm text-ink"
+                placeholder="Allergies, medications, or anything the coach should know"
+              />
+            </div>
+          </fieldset>
+        </>
+      ) : (
+        /* Adult registrant section */
+        <fieldset className="p-5 rounded-xl bg-paper border border-border space-y-4">
+          <legend className="text-sm font-semibold text-ink flex items-center gap-2 px-2">
+            <UserPlus className="w-4 h-4 text-primary" />
+            Registrant info
+          </legend>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                First name
+              </label>
+              <Input
+                required
+                value={form.adultFirstName}
+                onChange={(e) => update("adultFirstName", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                Last name
+              </label>
+              <Input
+                required
+                value={form.adultLastName}
+                onChange={(e) => update("adultLastName", e.target.value)}
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-ink-muted mb-1.5">
-              First name
+              Email
             </label>
-            <Input
-              required
-              value={form.parentFirstName}
-              onChange={(e) => update("parentFirstName", e.target.value)}
-            />
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
+              <Input
+                required
+                type="email"
+                value={form.adultEmail}
+                onChange={(e) => update("adultEmail", e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                Phone (optional)
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
+                <Input
+                  type="tel"
+                  value={form.adultPhone}
+                  onChange={(e) => update("adultPhone", e.target.value)}
+                  placeholder="(614) 555-1234"
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                Birth date
+              </label>
+              <Input
+                required
+                type="date"
+                value={form.adultBirthDate}
+                onChange={(e) => update("adultBirthDate", e.target.value)}
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-ink-muted mb-1.5">
-              Last name
-            </label>
-            <Input
-              required
-              value={form.parentLastName}
-              onChange={(e) => update("parentLastName", e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1.5">
-            Email
-          </label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
-            <Input
-              required
-              type="email"
-              value={form.parentEmail}
-              onChange={(e) => update("parentEmail", e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1.5">
-            Phone
-          </label>
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
-            <Input
-              required
-              type="tel"
-              value={form.parentPhone}
-              onChange={(e) => update("parentPhone", e.target.value)}
-              placeholder="(614) 555-1234"
-              className="pl-10"
-            />
-          </div>
-          <p className="mt-1 text-[10px] text-ink-muted">
-            We'll send an opt-in welcome text to this number after saving. Parent replies
-            YES to activate messaging.
-          </p>
-        </div>
-      </fieldset>
-
-      {/* Kid section */}
-      <fieldset className="p-5 rounded-xl bg-paper border border-border space-y-4">
-        <legend className="text-sm font-semibold text-ink px-2">Child</legend>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1.5">
-              First name
-            </label>
-            <Input
-              required
-              value={form.kidFirstName}
-              onChange={(e) => update("kidFirstName", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1.5">
-              Last name
-            </label>
-            <Input
-              required
-              value={form.kidLastName}
-              onChange={(e) => update("kidLastName", e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1.5">
-              Birth date
-            </label>
-            <Input
-              required
-              type="date"
-              value={form.kidBirthDate}
-              onChange={(e) => update("kidBirthDate", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1.5">
-              Gender
+              Gender (optional)
             </label>
             <select
-              value={form.kidGender}
+              value={form.adultGender}
               onChange={(e) =>
-                update(
-                  "kidGender",
-                  e.target.value as FormState["kidGender"],
-                )
+                update("adultGender", e.target.value as FormState["adultGender"])
               }
               className="w-full px-3 py-2 rounded-md bg-cream-2 border border-border text-sm text-ink"
             >
@@ -303,24 +477,10 @@ export function WalkUpRegistrationForm() {
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="other">Other</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
             </select>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1.5">
-            Medical notes (optional)
-          </label>
-          <textarea
-            value={form.kidMedicalNotes}
-            onChange={(e) => update("kidMedicalNotes", e.target.value)}
-            rows={2}
-            className="w-full px-3 py-2 rounded-md bg-cream-2 border border-border text-sm text-ink"
-            placeholder="Allergies, medications, or anything the coach should know"
-          />
-        </div>
-      </fieldset>
+        </fieldset>
+      )}
 
       {/* Season + payment section */}
       <fieldset className="p-5 rounded-xl bg-paper border border-border space-y-4">
@@ -394,7 +554,9 @@ export function WalkUpRegistrationForm() {
             className="w-4 h-4"
           />
           <label htmlFor="waiver" className="text-xs text-ink-2">
-            Liability waiver signed (parent signed the paper waiver at the front desk)
+            {mode === "adult"
+              ? `Liability waiver signed — I, ${form.adultFirstName || "registrant"} ${form.adultLastName || ""}, agree to the terms at the front desk`.trim()
+              : "Liability waiver signed (parent signed the paper waiver at the front desk)"}
           </label>
         </div>
 

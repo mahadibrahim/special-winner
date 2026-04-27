@@ -115,6 +115,12 @@ export const POST: APIRoute = async (context) => {
       ),
     );
 
+  // The innerJoin on users guarantees parent_user_id is non-null, but Drizzle's
+  // types don't model that. Narrow explicitly so the loop doesn't need !.
+  const validCandidates = candidates.filter(
+    (c): c is typeof c & { parentUserId: string } => c.parentUserId !== null,
+  );
+
   const dryRunList: Array<{
     parentName: string | null;
     parentEmail: string;
@@ -124,7 +130,7 @@ export const POST: APIRoute = async (context) => {
   let contacted = 0;
   let skipped = 0;
 
-  for (const candidate of candidates) {
+  for (const candidate of validCandidates) {
     if (parsed.data.dryRun) {
       dryRunList.push({
         parentName: candidate.parentFirstName,

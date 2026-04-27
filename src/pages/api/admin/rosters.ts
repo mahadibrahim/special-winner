@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { rosters, teams, teamGroups, games, registrations, familyMembers, seasons, programs, locations } from "@/lib/db/schema";
-import { eq, and, isNull, or, asc } from "drizzle-orm";
+import { eq, and, isNull, or, asc, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { scheduleGroupCreation } from "@/lib/messaging/group-lifecycle";
@@ -27,6 +27,7 @@ export const GET: APIRoute = async (context) => {
   try {
     const url = new URL(context.request.url);
     const teamId = url.searchParams.get("teamId");
+    const freeAgentsOnly = url.searchParams.get("freeAgents") === "true";
 
     if (!teamId) {
       return new Response(JSON.stringify({ error: "Team ID is required" }), { status: 400 });
@@ -50,11 +51,23 @@ export const GET: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
     }
 
-    // Get all confirmed registrations for this season
+    // Get all confirmed registrations for this season (optionally filtered to free agents)
+    const registrationWhere = freeAgentsOnly
+      ? and(
+          eq(registrations.seasonId, team.seasonId),
+          eq(registrations.status, "confirmed"),
+          eq(registrations.lookingForTeam, true),
+        )
+      : and(
+          eq(registrations.seasonId, team.seasonId),
+          eq(registrations.status, "confirmed"),
+        );
+
     const seasonRegistrations = await getDb()
       .select({
         id: registrations.id,
         status: registrations.status,
+        lookingForTeam: registrations.lookingForTeam,
         familyMember: {
           id: familyMembers.id,
           firstName: familyMembers.firstName,
@@ -64,12 +77,7 @@ export const GET: APIRoute = async (context) => {
       })
       .from(registrations)
       .leftJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .where(
-        and(
-          eq(registrations.seasonId, team.seasonId),
-          eq(registrations.status, "confirmed")
-        )
-      );
+      .where(registrationWhere);
 
     // Get registrations already assigned to any team in this season
     const assignedRegistrationIds = await getDb()

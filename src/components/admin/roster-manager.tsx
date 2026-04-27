@@ -76,6 +76,7 @@ interface Team {
 
 interface AvailablePlayer {
   id: string
+  lookingForTeam?: boolean
   familyMember: FamilyMember
 }
 
@@ -98,11 +99,12 @@ export function RosterManager({ teamId }: RosterManagerProps) {
   const [selectedRegistrationId, setSelectedRegistrationId] = useState("")
   const [jerseyNumber, setJerseyNumber] = useState("")
   const [position, setPosition] = useState("")
+  const [freeAgentsOnly, setFreeAgentsOnly] = useState(false)
 
   useEffect(() => {
     fetchTeam()
     fetchAvailablePlayers()
-  }, [teamId])
+  }, [teamId, freeAgentsOnly])
 
   async function fetchTeam() {
     try {
@@ -119,7 +121,9 @@ export function RosterManager({ teamId }: RosterManagerProps) {
 
   async function fetchAvailablePlayers() {
     try {
-      const response = await fetch(`/api/admin/rosters?teamId=${teamId}`)
+      const params = new URLSearchParams({ teamId })
+      if (freeAgentsOnly) params.set("freeAgents", "true")
+      const response = await fetch(`/api/admin/rosters?${params}`)
       if (!response.ok) throw new Error("Failed to fetch available players")
       const data = await response.json()
       setAvailablePlayers(data.availablePlayers)
@@ -284,13 +288,26 @@ export function RosterManager({ teamId }: RosterManagerProps) {
               {team.rosters.length} player{team.rosters.length !== 1 ? "s" : ""} on roster
             </CardDescription>
           </div>
-          <Button
-            onClick={() => setIsDialogOpen(true)}
-            disabled={availablePlayers.length === 0 || (team.maxRosterSize !== null && team.rosters.length >= team.maxRosterSize)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Player
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFreeAgentsOnly((v) => !v)}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                freeAgentsOnly
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:border-primary hover:text-foreground"
+              }`}
+            >
+              Free agents only
+            </button>
+            <Button
+              onClick={() => setIsDialogOpen(true)}
+              disabled={availablePlayers.length === 0 || (team.maxRosterSize !== null && team.rosters.length >= team.maxRosterSize)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Player
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {team.rosters.length === 0 ? (

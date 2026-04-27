@@ -13,6 +13,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import ProgramCard from "@/components/program-card"
 import { useSelectedLocation } from "@/components/location-selector"
 
+type AudienceParam = "youth" | "adult" | null
+
 interface Sport {
   id: string
   name: string
@@ -71,7 +73,11 @@ interface Season {
   } | null
 }
 
-export default function ProgramsDirectory() {
+interface ProgramsDirectoryProps {
+  initialAudience?: AudienceParam
+}
+
+export default function ProgramsDirectory({ initialAudience = null }: ProgramsDirectoryProps) {
   const [seasons, setSeasons] = useState<Season[]>([])
   const [sports, setSports] = useState<Sport[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -83,7 +89,10 @@ export default function ProgramsDirectory() {
   const [selectedLocation, setSelectedLocation] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedSports, setSelectedSports] = useState<string[]>([])
-  const [ageRange, setAgeRange] = useState([3, 18])
+  // Pre-set age range slider to match the incoming audience param
+  const [ageRange, setAgeRange] = useState(
+    initialAudience === "adult" ? [18, 99] : initialAudience === "youth" ? [3, 17] : [3, 18]
+  )
   const [selectedSeason, setSelectedSeason] = useState("all")
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -122,6 +131,9 @@ export default function ProgramsDirectory() {
           params.set("location", selectedLocation)
         }
         params.set("status", "open")
+        if (initialAudience) {
+          params.set("audience", initialAudience)
+        }
 
         const response = await fetch(`/api/public/seasons?${params}`)
         if (!response.ok) throw new Error("Failed to fetch programs")
@@ -135,7 +147,7 @@ export default function ProgramsDirectory() {
       }
     }
     fetchSeasons()
-  }, [selectedLocation])
+  }, [selectedLocation, initialAudience])
 
   // Get unique season names for filter
   const seasonOptions = useMemo(() => {
@@ -198,19 +210,21 @@ export default function ProgramsDirectory() {
     )
   }
 
+  const defaultAgeRange = initialAudience === "adult" ? [18, 99] : initialAudience === "youth" ? [3, 17] : [3, 18]
+
   const activeFilterCount = useMemo(() => {
     let count = 0
     if (selectedSports.length > 0) count++
-    if (ageRange[0] !== 3 || ageRange[1] !== 18) count++
+    if (ageRange[0] !== defaultAgeRange[0] || ageRange[1] !== defaultAgeRange[1]) count++
     if (selectedSeason !== "all") count++
     if (onlyAvailable) count++
     return count
-  }, [selectedSports, ageRange, selectedSeason, onlyAvailable])
+  }, [selectedSports, ageRange, selectedSeason, onlyAvailable, defaultAgeRange])
 
   const clearAllFilters = () => {
     setSearchQuery("")
     setSelectedSports([])
-    setAgeRange([3, 18])
+    setAgeRange(defaultAgeRange)
     setSelectedSeason("all")
     setOnlyAvailable(false)
   }
@@ -249,14 +263,14 @@ export default function ProgramsDirectory() {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm uppercase tracking-wider text-ink">Age Range</h3>
           <span className="text-sm text-primary font-medium">
-            {ageRange[0]}-{ageRange[1]} years
+            {ageRange[0]}-{ageRange[1] === 99 ? "99+" : ageRange[1]} years
           </span>
         </div>
         <Slider
           value={ageRange}
           onValueChange={setAgeRange}
           min={3}
-          max={18}
+          max={99}
           step={1}
           className="py-4"
         />

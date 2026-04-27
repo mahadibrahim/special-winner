@@ -1,0 +1,3 @@
+ALTER TABLE "family_members" DROP CONSTRAINT "family_members_self_xor_parent";--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "birth_date" date;--> statement-breakpoint
+ALTER TABLE "family_members" ADD CONSTRAINT "family_members_self_xor_parent" CHECK (("family_members"."parent_user_id" IS NOT NULL AND "family_members"."self_user_id" IS NULL) OR ("family_members"."parent_user_id" IS NULL AND "family_members"."self_user_id" IS NOT NULL));
