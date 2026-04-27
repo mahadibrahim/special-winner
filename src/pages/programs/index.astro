@@ -9,6 +9,29 @@ import { db } from '../../lib/db';
 import { sports, locations } from '../../lib/db/schema';
 import { eq, asc } from 'drizzle-orm';
 
+// Parse audience filter
+const rawAudience = Astro.url.searchParams.get("audience");
+const audience = (rawAudience === "youth" || rawAudience === "adult") ? rawAudience : null;
+const isYouth = audience === "youth";
+const isAdult = audience === "adult";
+
+// Canonical: each filtered URL is its own canonical
+const canonicalUrl = audience
+  ? `${Astro.url.origin}/programs?audience=${audience}`
+  : `${Astro.url.origin}/programs`;
+
+// Audience-aware title / description
+const pageTitle = isAdult
+  ? "Adult Programs — Aspire Sports"
+  : isYouth
+  ? "Youth Programs — Aspire Sports"
+  : "Programs — Aspire Sports";
+const pageDescription = isAdult
+  ? "Browse and register for adult sports programs including leagues, training, and open play."
+  : isYouth
+  ? "Browse and register for youth sports programs including leagues, camps, clinics, and training."
+  : "Browse and register for sports programs including leagues, camps, clinics, and training.";
+
 // Fetch sports and locations
 let sportsList: any[] = [];
 let locationsList: any[] = [];
@@ -58,8 +81,9 @@ try {
       href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <title>Programs — Aspire Sports</title>
-    <meta name="description" content="Browse and register for sports programs including leagues, camps, clinics, and training." />
+    <link rel="canonical" href={canonicalUrl} />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
   </head>
   <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
@@ -77,12 +101,41 @@ try {
         </div>
       </div>
 
+      <!-- Audience filter chips -->
+      <div class="max-w-7xl mx-auto px-4 pt-2 pb-4">
+        <nav class="flex gap-2" aria-label="Audience filter">
+          <a
+            href="/programs"
+            class={!isYouth && !isAdult
+              ? "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-primary text-cream shadow-sm"
+              : "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors"}
+          >
+            All
+          </a>
+          <a
+            href="/programs?audience=youth"
+            class={isYouth
+              ? "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-primary text-cream shadow-sm"
+              : "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors"}
+          >
+            Youth
+          </a>
+          <a
+            href="/programs?audience=adult"
+            class={isAdult
+              ? "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-primary text-cream shadow-sm"
+              : "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors"}
+          >
+            Adult
+          </a>
+        </nav>
+      </div>
+
       <!-- Programs Directory -->
       <div class="max-w-7xl mx-auto px-4 pb-16">
         <ProgramsDirectory
           client:load
-          sports={sportsList}
-          locations={locationsList}
+          initialAudience={audience}
         />
       </div>
     </main>
