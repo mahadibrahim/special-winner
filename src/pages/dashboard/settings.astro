@@ -1,7 +1,5 @@
 ---
-import '../../styles/globals.css';
-import Navigation from '../../components/navigation';
-import Footer from '../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import { ProfileSettings } from '../../components/dashboard/profile-settings';
 import { PasswordChange } from '../../components/dashboard/password-change';
 import { NotificationSettings } from '../../components/dashboard/notification-settings';
@@ -11,45 +9,27 @@ import { MessagingSettings } from '../../components/dashboard/messaging-settings
 const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Settings — Dashboard — Aspire Sports</title>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
-
-    <main id="main-content" class="flex-1 pt-20 pb-12">
-      <div class="max-w-3xl mx-auto px-4">
-        <!-- Header -->
-        <div class="mb-8">
-          <div class="flex items-center gap-2 text-sm text-ink-muted mb-2">
-            <a href="/dashboard" class="hover:text-ink">Dashboard</a>
-            <span>/</span>
-            <span>Settings</span>
-          </div>
-          <h1 class="text-3xl font-bold text-ink">Account Settings</h1>
-          <p class="text-ink-muted mt-1">Manage your profile and security settings</p>
+<BaseLayout title="Settings — Dashboard — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-20 pb-12">
+    <div class="max-w-3xl mx-auto px-4">
+      <!-- Header -->
+      <div class="mb-8">
+        <div class="flex items-center gap-2 text-sm text-ink-muted mb-2">
+          <a href="/dashboard" class="hover:text-ink">Dashboard</a>
+          <span>/</span>
+          <span>Settings</span>
         </div>
-
-        <!-- Settings Cards -->
-        <div class="space-y-6">
-          <ProfileSettings client:load />
-          <MessagingSettings client:load />
-          <PasswordChange client:load />
-          <NotificationSettings client:load />
-        </div>
+        <h1 class="text-3xl font-bold text-ink">Account Settings</h1>
+        <p class="text-ink-muted mt-1">Manage your profile and security settings</p>
       </div>
-    </main>
 
-    <Footer client:idle />
-  </body>
-</html>
+      <!-- Settings Cards -->
+      <div class="space-y-6">
+        <ProfileSettings client:load />
+        <MessagingSettings client:load />
+        <PasswordChange client:load />
+        <NotificationSettings client:load />
+      </div>
+    </div>
+  </main>
+</BaseLayout>

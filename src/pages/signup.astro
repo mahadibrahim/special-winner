@@ -1,63 +1,41 @@
 ---
 // NOT prerendered: needs request-time Astro.url.search to pass the redirect=
 // param through to the "Sign in" link below.
-import '../styles/globals.css';
-import Navigation from '../components/navigation';
-import Footer from '../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import { SignUpForm } from '../components/auth/signup-form';
-import PostHog from '../components/posthog.astro';
 
 // Authenticated users are redirected to /dashboard by middleware — no check needed here.
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Create Account — Aspire Sports</title>
-    <PostHog />
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+<BaseLayout title="Create Account — Aspire Sports">
+  <main id="main-content" class="flex-1 flex items-center justify-center py-12 px-4 pt-24">
+    <div class="w-full max-w-md">
+      <!-- Card -->
+      <div class="bg-cream-2 border border-border rounded-2xl p-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+          <h1 class="text-2xl font-bold text-ink mb-2">Create Your Account</h1>
+          <p class="text-ink-muted">
+            Join Aspire Sports to register for programs and manage your family's activities
+          </p>
+        </div>
 
-    <main id="main-content" class="flex-1 flex items-center justify-center py-12 px-4 pt-24">
-      <div class="w-full max-w-md">
-        <!-- Card -->
-        <div class="bg-cream-2 border border-border rounded-2xl p-8">
-          <!-- Header -->
-          <div class="text-center mb-8">
-            <h1 class="text-2xl font-bold text-ink mb-2">Create Your Account</h1>
-            <p class="text-ink-muted">
-              Join Aspire Sports to register for programs and manage your family's activities
-            </p>
-          </div>
+        <!-- Form -->
+        <SignUpForm client:load />
 
-          <!-- Form -->
-          <SignUpForm client:load />
-
-          <!-- Sign in link -->
-          <div class="mt-6 text-center">
-            <p class="text-ink-faint text-sm">
-              Already have an account?{' '}
-              <a
-                href={`/signin${Astro.url.search}`}
-                class="text-primary hover:text-primary/80 font-medium"
-              >
-                Sign in
-              </a>
-            </p>
-          </div>
+        <!-- Sign in link -->
+        <div class="mt-6 text-center">
+          <p class="text-ink-faint text-sm">
+            Already have an account?{' '}
+            <a
+              href={`/signin${Astro.url.search}`}
+              class="text-primary hover:text-primary/80 font-medium"
+            >
+              Sign in
+            </a>
+          </p>
         </div>
       </div>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+    </div>
+  </main>
+</BaseLayout>

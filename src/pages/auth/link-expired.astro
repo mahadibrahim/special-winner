@@ -1,8 +1,6 @@
 ---
 export const prerender = true;
-import '../../styles/globals.css';
-import Navigation from '../../components/navigation';
-import Footer from '../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 
 const reason = Astro.url.searchParams.get('reason') || 'expired';
 
@@ -28,48 +26,30 @@ const messages: Record<string, { title: string; body: string }> = {
 const message = messages[reason] || messages.expired;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Link Expired — Aspire Sports</title>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 flex items-center justify-center">
-      <div class="max-w-md w-full text-center p-8 rounded-2xl bg-cream-2 border border-border">
-        <div class="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
-          <svg class="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h1 class="text-2xl font-bold mb-3">{message.title}</h1>
-        <p class="text-ink-muted leading-relaxed mb-6">{message.body}</p>
-        <div class="flex flex-col gap-3">
-          <a
-            href="/signin"
-            class="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium transition-colors"
-          >
-            Sign in to request a new link
-          </a>
-          <a
-            href="/"
-            class="text-sm text-ink-faint hover:text-ink-muted transition-colors"
-          >
-            Back to home
-          </a>
-        </div>
+<BaseLayout title="Link Expired — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 flex items-center justify-center">
+    <div class="max-w-md w-full text-center p-8 rounded-2xl bg-cream-2 border border-border">
+      <div class="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
+        <svg class="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
       </div>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+      <h1 class="text-2xl font-bold mb-3">{message.title}</h1>
+      <p class="text-ink-muted leading-relaxed mb-6">{message.body}</p>
+      <div class="flex flex-col gap-3">
+        <a
+          href="/signin"
+          class="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium transition-colors"
+        >
+          Sign in to request a new link
+        </a>
+        <a
+          href="/"
+          class="text-sm text-ink-faint hover:text-ink-muted transition-colors"
+        >
+          Back to home
+        </a>
+      </div>
+    </div>
+  </main>
+</BaseLayout>

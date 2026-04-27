@@ -1,25 +1,13 @@
 ---
-import '../../styles/globals.css';
-import Navigation from '../../components/navigation';
-import Footer from '../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import CoachNotesFull from '../../components/dashboard/coach-notes-full';
 
 // Middleware guarantees user is authenticated for /dashboard routes.
 const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Coach Notes — Aspire Sports</title>
+<BaseLayout title="Coach Notes — Aspire Sports">
+  <Fragment slot="head">
     <style>
       /* Background pattern */
       .notes-bg {
@@ -28,23 +16,18 @@ const user = Astro.locals.user!;
           radial-gradient(circle at 10% 90%, rgba(34, 197, 94, 0.04), transparent);
       }
     </style>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+  </Fragment>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 notes-bg">
-      <div class="max-w-5xl mx-auto fade-in">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
-          <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
-          <span>/</span>
-          <span class="text-ink">Coach Notes</span>
-        </nav>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 notes-bg">
+    <div class="max-w-5xl mx-auto fade-in">
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
+        <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
+        <span>/</span>
+        <span class="text-ink">Coach Notes</span>
+      </nav>
 
-        <CoachNotesFull client:load />
-      </div>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+      <CoachNotesFull client:load />
+    </div>
+  </main>
+</BaseLayout>

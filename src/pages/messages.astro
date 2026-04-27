@@ -1,6 +1,5 @@
 ---
-import '../styles/globals.css';
-import Navigation from '../components/navigation';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import { StaffInbox } from '../components/messages/staff-inbox';
 
 // Middleware guarantees user is authenticated for /messages routes.
@@ -16,18 +15,8 @@ if (!isAdmin && !isCoach) {
 }
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Messages — Aspire Sports</title>
+<BaseLayout title="Messages — Aspire Sports" footer={false}>
+  <Fragment slot="head">
     <style>
       .messages-bg {
         background-image:
@@ -35,22 +24,19 @@ if (!isAdmin && !isCoach) {
           radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.03), transparent);
       }
     </style>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+  </Fragment>
 
-    <main id="main-content" class="flex-1 pt-24 pb-6 px-4 messages-bg">
-      <div class="max-w-[1600px] mx-auto fade-in">
-        <header class="mb-6">
-          <h1 class="text-2xl sm:text-3xl font-bold text-ink">Messages</h1>
-          <p class="text-sm text-ink-faint mt-1">
-            Parent conversations routed to {isAdmin ? 'the admin inbox' : 'your coach inbox'}.
-            The bot handles most messages automatically — everything you see here needed a human.
-          </p>
-        </header>
+  <main id="main-content" class="flex-1 pt-24 pb-6 px-4 messages-bg">
+    <div class="max-w-[1600px] mx-auto fade-in">
+      <header class="mb-6">
+        <h1 class="text-2xl sm:text-3xl font-bold text-ink">Messages</h1>
+        <p class="text-sm text-ink-faint mt-1">
+          Parent conversations routed to {isAdmin ? 'the admin inbox' : 'your coach inbox'}.
+          The bot handles most messages automatically — everything you see here needed a human.
+        </p>
+      </header>
 
-        <StaffInbox client:load currentUserId={user.id} isAdmin={isAdmin} />
-      </div>
-    </main>
-  </body>
-</html>
+      <StaffInbox client:load currentUserId={user.id} isAdmin={isAdmin} />
+    </div>
+  </main>
+</BaseLayout>

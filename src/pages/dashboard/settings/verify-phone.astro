@@ -1,7 +1,5 @@
 ---
-import '../../../styles/globals.css';
-import Navigation from '../../../components/navigation';
-import Footer from '../../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import { PhoneVerificationClient } from '../../../components/dashboard/phone-verification-client';
 
 // Middleware guarantees user is authenticated for /dashboard routes.
@@ -11,55 +9,37 @@ const organization = (Astro.locals as unknown as { organization?: { id: string }
 const organizationId = organization?.id ?? '';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Verify your phone — Aspire Sports</title>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+<BaseLayout title="Verify your phone — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-md mx-auto">
+      <nav class="text-sm text-ink-faint mb-6">
+        <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
+        <span class="mx-2">/</span>
+        <a href="/dashboard/settings" class="hover:text-ink transition-colors">Settings</a>
+        <span class="mx-2">/</span>
+        <span class="text-ink">Verify phone</span>
+      </nav>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-md mx-auto">
-        <nav class="text-sm text-ink-faint mb-6">
-          <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
-          <span class="mx-2">/</span>
-          <a href="/dashboard/settings" class="hover:text-ink transition-colors">Settings</a>
-          <span class="mx-2">/</span>
-          <span class="text-ink">Verify phone</span>
-        </nav>
-
-        <header class="mb-8">
-          <h1 class="text-2xl font-bold text-ink mb-2">Verify your phone</h1>
-          <p class="text-sm text-ink-faint leading-relaxed">
-            Once your phone is verified, we can send you schedule updates, cancellations,
-            and reminders via SMS — and you can reply to us just by texting back.
-            You'll also be able to log in without a password via magic links.
-          </p>
-        </header>
-
-        <div class="p-6 rounded-2xl bg-cream-2 border border-border">
-          <PhoneVerificationClient
-            client:load
-            organizationId={organizationId}
-            initialPhone={user.phone || ''}
-          />
-        </div>
-
-        <p class="mt-6 text-xs text-ink-faint text-center">
-          Your phone number is never shared. Reply STOP anytime to opt out.
+      <header class="mb-8">
+        <h1 class="text-2xl font-bold text-ink mb-2">Verify your phone</h1>
+        <p class="text-sm text-ink-faint leading-relaxed">
+          Once your phone is verified, we can send you schedule updates, cancellations,
+          and reminders via SMS — and you can reply to us just by texting back.
+          You'll also be able to log in without a password via magic links.
         </p>
-      </div>
-    </main>
+      </header>
 
-    <Footer client:idle />
-  </body>
-</html>
+      <div class="p-6 rounded-2xl bg-cream-2 border border-border">
+        <PhoneVerificationClient
+          client:load
+          organizationId={organizationId}
+          initialPhone={user.phone || ''}
+        />
+      </div>
+
+      <p class="mt-6 text-xs text-ink-faint text-center">
+        Your phone number is never shared. Reply STOP anytime to opt out.
+      </p>
+    </div>
+  </main>
+</BaseLayout>
