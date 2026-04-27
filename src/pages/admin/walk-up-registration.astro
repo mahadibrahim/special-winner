@@ -3,10 +3,8 @@ import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { WalkUpRegistrationForm } from '../../components/admin/walk-up-registration-form';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/walk-up-registration');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

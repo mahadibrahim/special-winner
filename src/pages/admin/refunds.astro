@@ -4,10 +4,8 @@ import { AdminLayout } from '../../components/admin/admin-layout';
 import { RefundsManagement } from '../../components/admin/refunds-management';
 
 // Auth/role check is handled by middleware - /admin/* routes require admin role
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/refunds');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

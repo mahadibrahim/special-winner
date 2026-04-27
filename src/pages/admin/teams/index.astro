@@ -7,10 +7,8 @@ import { seasons, programs, users, userRoles, roles } from '../../../lib/db/sche
 import { eq, asc, or } from 'drizzle-orm';
 
 // Check if user is admin
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/teams');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 
 // Fetch seasons with programs
 let seasonsList: any[] = [];

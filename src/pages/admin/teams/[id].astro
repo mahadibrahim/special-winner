@@ -5,11 +5,8 @@ import { RosterManager } from '../../../components/admin/roster-manager';
 import { TeamBroadcastSection } from '../../../components/admin/team-broadcast-section';
 import { TeamGroupManagementSection } from '../../../components/admin/team-group-management-section';
 
-// Check if user is admin
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/teams');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 
 const { id } = Astro.params;
 if (!id) {

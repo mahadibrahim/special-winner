@@ -2,8 +2,8 @@
 import '../../../styles/globals.css';
 import { JobsList } from '../../../components/media/jobs-list';
 
-const user = Astro.locals.user;
-if (!user) return Astro.redirect('/signin?returnUrl=/media/jobs');
+// Middleware guarantees user is authenticated for /media routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

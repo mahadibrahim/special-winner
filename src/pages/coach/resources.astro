@@ -4,13 +4,8 @@ import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
 import { ResourceLibrary } from '../../components/coach/resource-library';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/coach/resources');
-}
+// Middleware guarantees user is authenticated for /coach routes.
+const user = Astro.locals.user!;
 
 // Static curriculum content — the 4 sport guides and 15 skill minibooks
 // This lives in the page rather than in a DB because it IS the organization's

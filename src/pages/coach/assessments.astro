@@ -4,13 +4,8 @@ import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
 import CoachAssessmentsOverview from '../../components/coach/coach-assessments-overview';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/coach/assessments');
-}
+// Middleware guarantees user is authenticated for /coach routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

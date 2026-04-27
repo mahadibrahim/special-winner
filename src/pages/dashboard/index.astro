@@ -18,13 +18,8 @@ import { getDb } from '../../lib/db';
 import { userNudgeState } from '../../lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/dashboard');
-}
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 
 const paymentStatus = Astro.url.searchParams.get('payment');
 const registrationIdParam = Astro.url.searchParams.get('registration');

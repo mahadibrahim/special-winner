@@ -3,10 +3,7 @@ import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { SentAnnouncementsList } from '../../components/admin/sent-announcements-list';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/broadcasts');
-}
+// Middleware guarantees user is an admin for /admin routes.
 ---
 
 <!DOCTYPE html>

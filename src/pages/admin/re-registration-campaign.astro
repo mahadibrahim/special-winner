@@ -3,10 +3,8 @@ import '../../styles/globals.css';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { ReRegistrationCampaign as CampaignForm } from '../../components/admin/re-registration-campaign';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/re-registration-campaign');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

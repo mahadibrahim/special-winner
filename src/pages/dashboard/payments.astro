@@ -4,13 +4,8 @@ import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
 import PaymentHistory from '../../components/dashboard/payment-history';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/dashboard/payments');
-}
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

@@ -4,13 +4,8 @@ import Navigation from '../../../components/navigation';
 import Footer from '../../../components/footer';
 import PracticePlanner from '../../../components/coach/practice-planner';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/coach/practices/new');
-}
+// Middleware guarantees user is authenticated for /coach routes.
+const user = Astro.locals.user!;
 
 // Get optional teamId from query params
 const teamId = Astro.url.searchParams.get('teamId') || undefined;

@@ -7,10 +7,8 @@ import { seasons, programs, teams, venues } from '../../lib/db/schema';
 import { eq, asc } from 'drizzle-orm';
 
 // Check if user is admin
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/games');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 
 // Fetch data for dropdowns
 let seasonsList: any[] = [];

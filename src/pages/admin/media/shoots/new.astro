@@ -3,8 +3,8 @@ import '../../../../styles/globals.css';
 import { AdminLayout } from '../../../../components/admin/admin-layout';
 import { ShootWizard } from '../../../../components/media/shoot-wizard';
 
-const user = Astro.locals.user;
-if (!user) return Astro.redirect('/signin?returnUrl=/admin/media/shoots/new');
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

@@ -8,11 +8,8 @@ import { sports, locations, programs, seasons, registrations, users, conversatio
 import { userOrganizationAccess } from '../../lib/db/schema/organizations';
 import { count, eq, and, isNotNull, sql, desc, inArray } from 'drizzle-orm';
 
-// User is guaranteed to be an admin by middleware
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 
 // Resolve the organization context. Stats need to be org-scoped — global
 // counts leak data about other tenants and aren't actionable for a single

@@ -5,13 +5,8 @@ import Footer from '../../../../components/footer';
 import DevelopmentReport from '../../../../components/dashboard/development-report';
 import AchievementsDisplay from '../../../../components/dashboard/achievements-display';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/dashboard');
-}
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 
 // Get child ID from params
 const { id } = Astro.params;

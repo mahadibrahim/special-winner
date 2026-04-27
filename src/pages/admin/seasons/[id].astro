@@ -6,10 +6,8 @@ import { getDb } from '../../../lib/db';
 import { seasons, programs, locations } from '../../../lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/seasons');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 
 const organization = Astro.locals.organization;
 const { id } = Astro.params;

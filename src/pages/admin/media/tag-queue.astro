@@ -3,10 +3,8 @@ import '../../../styles/globals.css';
 import { AdminLayout } from '../../../components/admin/admin-layout';
 import { TagQueueList } from '../../../components/media/tag-queue-list';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/media/tag-queue');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

@@ -3,12 +3,10 @@ import '../../../styles/globals.css';
 import { TaggerApp } from '../../../components/media/tagger-app';
 import { canTagSession } from '../../../lib/media/tag-permissions';
 
-const user = Astro.locals.user;
+// Middleware guarantees user is authenticated for /media routes.
+const user = Astro.locals.user!;
 const sessionId = Astro.params.session_id;
 
-if (!user) {
-  return Astro.redirect(`/signin?returnUrl=/media/tag/${sessionId}`);
-}
 if (!sessionId) {
   return Astro.redirect('/admin/media/tag-queue');
 }

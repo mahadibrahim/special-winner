@@ -4,11 +4,8 @@ import Navigation from '../../../components/navigation';
 import Footer from '../../../components/footer';
 import RegistrationDetail from '../../../components/dashboard/registration-detail';
 
-const user = Astro.locals.user;
-
-if (!user) {
-  return Astro.redirect(`/signin?redirect=${encodeURIComponent(Astro.url.pathname)}`);
-}
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 
 const { id } = Astro.params;
 

@@ -1,18 +1,13 @@
 ---
-// NOT prerendered: the "already logged in" check below needs request-time
-// access to Astro.locals.user. With prerender=true the page was served as
-// static HTML and the redirect never fired for authenticated visitors.
+// NOT prerendered: needs request-time Astro.locals.user so the middleware
+// "already logged in" bounce to /dashboard fires correctly.
 import '../styles/globals.css';
 import Navigation from '../components/navigation';
 import Footer from '../components/footer';
 import { SignInForm } from '../components/auth/signin-form';
 import PostHog from '../components/posthog.astro';
 
-// Redirect if already logged in
-const user = Astro.locals.user;
-if (user) {
-  return Astro.redirect('/dashboard');
-}
+// Authenticated users are redirected to /dashboard by middleware — no check needed here.
 ---
 
 <!DOCTYPE html>

@@ -4,10 +4,8 @@ import Navigation from '../../../components/navigation';
 import Footer from '../../../components/footer';
 import { PhoneVerificationClient } from '../../../components/dashboard/phone-verification-client';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?redirect=/dashboard/settings/verify-phone');
-}
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 
 const organization = (Astro.locals as unknown as { organization?: { id: string } | null }).organization;
 const organizationId = organization?.id ?? '';

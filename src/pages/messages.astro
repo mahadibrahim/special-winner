@@ -3,11 +3,8 @@ import '../styles/globals.css';
 import Navigation from '../components/navigation';
 import { StaffInbox } from '../components/messages/staff-inbox';
 
-// Require authentication
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?redirect=/messages');
-}
+// Middleware guarantees user is authenticated for /messages routes.
+const user = Astro.locals.user!;
 
 // Admin / coach gate — the staff inbox is only for staff. Parents don't have
 // their own inbox view in Phase 1; they interact via SMS and email.

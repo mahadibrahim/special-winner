@@ -4,10 +4,8 @@ import { AdminLayout } from '../../components/admin/admin-layout';
 import { PaymentsList } from '../../components/admin/payments-list';
 
 // Auth check handled by middleware
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/payments');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>

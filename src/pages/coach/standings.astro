@@ -4,13 +4,8 @@ import Navigation from '../../components/navigation';
 import Footer from '../../components/footer';
 import StandingsTable from '../../components/coach/standings-table';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/coach/standings');
-}
+// Middleware guarantees user is authenticated for /coach routes.
+const user = Astro.locals.user!;
 ---
 
 <!DOCTYPE html>
