@@ -1,5 +1,5 @@
 ---
-import '../../../styles/globals.css';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { TaggerApp } from '../../../components/media/tagger-app';
 import { canTagSession } from '../../../lib/media/tag-permissions';
 
@@ -36,17 +36,11 @@ if (!res.ok) {
 }
 const initialPayload = await res.json();
 ---
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Tag session</title>
-  </head>
-  <body>
-    <TaggerApp
-      client:load
-      sessionId={sessionId}
-      initialPayload={initialPayload}
-    />
-  </body>
-</html>
+
+<BaseLayout title="Tag Session — Aspire Media" navigation={false} footer={false}>
+  <TaggerApp
+    client:load
+    sessionId={sessionId}
+    initialPayload={initialPayload}
+  />
+</BaseLayout>

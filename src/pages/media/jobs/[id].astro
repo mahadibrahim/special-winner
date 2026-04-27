@@ -1,5 +1,5 @@
 ---
-import '../../../styles/globals.css';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { JobDetail } from '../../../components/media/job-detail';
 
 // Middleware guarantees user is authenticated for /media routes.
@@ -7,12 +7,8 @@ const user = Astro.locals.user!;
 const id = Astro.params.id as string;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>Shoot — Aspire Media</title></head>
-  <body class="bg-cream text-ink">
-    <main id="main-content" class="mx-auto max-w-3xl p-6">
-      <JobDetail client:load sessionId={id} />
-    </main>
-  </body>
-</html>
+<BaseLayout title="Shoot — Aspire Media">
+  <main id="main-content" class="mx-auto max-w-3xl p-6">
+    <JobDetail client:load sessionId={id} />
+  </main>
+</BaseLayout>

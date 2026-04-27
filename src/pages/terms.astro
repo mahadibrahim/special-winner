@@ -1,95 +1,77 @@
 ---
 // NOT prerendered: nav needs request-time auth state.
-import '../styles/globals.css';
-import Navigation from '../components/navigation';
-import Footer from '../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Terms of Service — Aspire Sports</title>
-    <meta name="description" content="Aspire Sports terms of service." />
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+<BaseLayout
+  title="Terms of Service — Aspire Sports"
+  description="Aspire Sports terms of service."
+>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <article class="max-w-3xl mx-auto prose prose-ink">
+      <h1 class="text-3xl sm:text-4xl font-display font-bold text-ink mb-2">Terms of Service</h1>
+      <p class="text-ink-muted mb-8">Last updated: April 2026</p>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <article class="max-w-3xl mx-auto prose prose-ink">
-        <h1 class="text-3xl sm:text-4xl font-display font-bold text-ink mb-2">Terms of Service</h1>
-        <p class="text-ink-muted mb-8">Last updated: April 2026</p>
+      <section class="space-y-4 text-ink-2 leading-relaxed">
+        <p>
+          These terms govern your use of the Aspire Sports website, registration platform, and
+          related services. By creating an account or registering a child for a program, you agree
+          to these terms on behalf of yourself and the participant.
+        </p>
 
-        <section class="space-y-4 text-ink-2 leading-relaxed">
-          <p>
-            These terms govern your use of the Aspire Sports website, registration platform, and
-            related services. By creating an account or registering a child for a program, you agree
-            to these terms on behalf of yourself and the participant.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Accounts</h2>
+        <p>
+          You are responsible for keeping your account credentials confidential and for all
+          activity under your account. Accounts are for parents or legal guardians; participants
+          under 13 may not create their own accounts.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Accounts</h2>
-          <p>
-            You are responsible for keeping your account credentials confidential and for all
-            activity under your account. Accounts are for parents or legal guardians; participants
-            under 13 may not create their own accounts.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Program registration</h2>
+        <p>
+          Registration is complete only when payment or a deposit is received. Aspire Sports
+          reserves the right to decline, cancel, or modify registrations (including moving a
+          participant between age groups or teams) for safety, fairness, or operational reasons.
+          Waivers signed during registration are part of these terms.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Program registration</h2>
-          <p>
-            Registration is complete only when payment or a deposit is received. Aspire Sports
-            reserves the right to decline, cancel, or modify registrations (including moving a
-            participant between age groups or teams) for safety, fairness, or operational reasons.
-            Waivers signed during registration are part of these terms.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Payments and refunds</h2>
+        <p>
+          Payments are processed by our payment provider; Aspire Sports does not store full
+          payment-card details. Refunds follow the <a class="text-primary" href="/refund-policy">Refund Policy</a>.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Payments and refunds</h2>
-          <p>
-            Payments are processed by our payment provider; Aspire Sports does not store full
-            payment-card details. Refunds follow the <a class="text-primary" href="/refund-policy">Refund Policy</a>.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Conduct</h2>
+        <p>
+          Participants, parents, and spectators agree to follow the Aspire Code of Conduct
+          (sportsmanship, respect for coaches and officials, no harassment). Violations may result
+          in removal from a program without refund.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Conduct</h2>
-          <p>
-            Participants, parents, and spectators agree to follow the Aspire Code of Conduct
-            (sportsmanship, respect for coaches and officials, no harassment). Violations may result
-            in removal from a program without refund.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Media</h2>
+        <p>
+          We occasionally photograph or record games and practices for program coverage. The
+          registration waiver covers your consent preferences; you can opt out at any time by
+          emailing us.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Media</h2>
-          <p>
-            We occasionally photograph or record games and practices for program coverage. The
-            registration waiver covers your consent preferences; you can opt out at any time by
-            emailing us.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Limitation of liability</h2>
+        <p>
+          Participation in sports involves inherent risk. The registration waiver releases Aspire
+          Sports, its coaches, volunteers, and facilities from claims arising from participation,
+          except where prohibited by law.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Limitation of liability</h2>
-          <p>
-            Participation in sports involves inherent risk. The registration waiver releases Aspire
-            Sports, its coaches, volunteers, and facilities from claims arising from participation,
-            except where prohibited by law.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Changes</h2>
+        <p>
+          We may update these terms. Material changes will be announced on this page with a new
+          "last updated" date. Continued use after changes means you accept the updated terms.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Changes</h2>
-          <p>
-            We may update these terms. Material changes will be announced on this page with a new
-            "last updated" date. Continued use after changes means you accept the updated terms.
-          </p>
-
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Contact</h2>
-          <p>
-            Questions? Email <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
-          </p>
-        </section>
-      </article>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Contact</h2>
+        <p>
+          Questions? Email <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
+        </p>
+      </section>
+    </article>
+  </main>
+</BaseLayout>

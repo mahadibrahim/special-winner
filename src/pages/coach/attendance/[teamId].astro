@@ -1,7 +1,5 @@
 ---
-import '../../../styles/globals.css';
-import Navigation from '../../../components/navigation';
-import Footer from '../../../components/footer';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AttendanceTracker } from '../../../components/coach/attendance-tracker';
 
 // Middleware guarantees user is authenticated for /coach routes.
@@ -15,21 +13,7 @@ if (!teamId) {
 }
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Attendance Tracker — Aspire Sports</title>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+<BaseLayout title="Attendance Tracker — Aspire Sports">
 
     <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
       <div class="max-w-5xl mx-auto">
@@ -44,6 +28,5 @@ if (!teamId) {
       </div>
     </main>
 
-    <Footer client:idle />
-  </body>
-</html>
+
+</BaseLayout>

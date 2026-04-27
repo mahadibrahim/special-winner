@@ -1,76 +1,58 @@
 ---
 // NOT prerendered: nav needs request-time auth state.
-import '../styles/globals.css';
-import Navigation from '../components/navigation';
-import Footer from '../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Refund Policy — Aspire Sports</title>
-    <meta name="description" content="Aspire Sports refund and cancellation policy." />
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+<BaseLayout
+  title="Refund Policy — Aspire Sports"
+  description="Aspire Sports refund and cancellation policy."
+>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <article class="max-w-3xl mx-auto prose prose-ink">
+      <h1 class="text-3xl sm:text-4xl font-display font-bold text-ink mb-2">Refund Policy</h1>
+      <p class="text-ink-muted mb-8">Last updated: April 2026</p>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <article class="max-w-3xl mx-auto prose prose-ink">
-        <h1 class="text-3xl sm:text-4xl font-display font-bold text-ink mb-2">Refund Policy</h1>
-        <p class="text-ink-muted mb-8">Last updated: April 2026</p>
+      <section class="space-y-4 text-ink-2 leading-relaxed">
+        <p>
+          We want every family to feel confident registering with Aspire Sports. This policy
+          covers cancellations, refunds, and credits for our programs.
+        </p>
 
-        <section class="space-y-4 text-ink-2 leading-relaxed">
-          <p>
-            We want every family to feel confident registering with Aspire Sports. This policy
-            covers cancellations, refunds, and credits for our programs.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Full refund window</h2>
+        <p>
+          Registrations cancelled <strong>14 or more days before a season's start date</strong> are
+          eligible for a full refund, less any non-refundable payment-processing fees passed
+          through by our payment provider.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Full refund window</h2>
-          <p>
-            Registrations cancelled <strong>14 or more days before a season's start date</strong> are
-            eligible for a full refund, less any non-refundable payment-processing fees passed
-            through by our payment provider.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Partial refunds and credits</h2>
+        <p>
+          Cancellations received <strong>less than 14 days before a season begins</strong> are
+          reviewed case by case. The default is a prorated credit toward a future Aspire Sports
+          program. Refunds may still be issued for medical reasons, relocation, or documented
+          conflicts.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Partial refunds and credits</h2>
-          <p>
-            Cancellations received <strong>less than 14 days before a season begins</strong> are
-            reviewed case by case. The default is a prorated credit toward a future Aspire Sports
-            program. Refunds may still be issued for medical reasons, relocation, or documented
-            conflicts.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Once a season starts</h2>
+        <p>
+          Refunds are not guaranteed after the first scheduled session. We will work with you on a
+          prorated credit if your family's circumstances change materially (injury, move, family
+          emergency, etc.).
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Once a season starts</h2>
-          <p>
-            Refunds are not guaranteed after the first scheduled session. We will work with you on a
-            prorated credit if your family's circumstances change materially (injury, move, family
-            emergency, etc.).
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Program cancellations by Aspire</h2>
+        <p>
+          If Aspire Sports cancels a program for any reason (insufficient enrollment, facility
+          loss, etc.), we refund the full amount paid within 10 business days.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Program cancellations by Aspire</h2>
-          <p>
-            If Aspire Sports cancels a program for any reason (insufficient enrollment, facility
-            loss, etc.), we refund the full amount paid within 10 business days.
-          </p>
-
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">How to request a refund</h2>
-          <p>
-            Email <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>
-            from the address on your registration with your child's name and the program. We confirm
-            receipt within one business day.
-          </p>
-        </section>
-      </article>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">How to request a refund</h2>
+        <p>
+          Email <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>
+          from the address on your registration with your child's name and the program. We confirm
+          receipt within one business day.
+        </p>
+      </section>
+    </article>
+  </main>
+</BaseLayout>

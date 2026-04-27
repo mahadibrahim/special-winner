@@ -1,21 +1,17 @@
 ---
-import '../../../styles/globals.css';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { JobsList } from '../../../components/media/jobs-list';
 
 // Middleware guarantees user is authenticated for /media routes.
 const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>My Jobs — Aspire Media</title></head>
-  <body class="bg-cream text-ink">
-    <main id="main-content" class="mx-auto max-w-5xl p-6">
-      <header class="mb-6 flex items-center justify-between">
-        <h1 class="font-serif text-3xl">My jobs</h1>
-        <a href="/media/history" class="text-sm underline">History</a>
-      </header>
-      <JobsList client:load />
-    </main>
-  </body>
-</html>
+<BaseLayout title="My Jobs — Aspire Media">
+  <main id="main-content" class="mx-auto max-w-5xl p-6">
+    <header class="mb-6 flex items-center justify-between">
+      <h1 class="font-serif text-3xl">My jobs</h1>
+      <a href="/media/history" class="text-sm underline">History</a>
+    </header>
+    <JobsList client:load />
+  </main>
+</BaseLayout>
