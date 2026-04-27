@@ -31,6 +31,33 @@ beforeAll(async () => {
   );
 });
 
+describe("POST /api/registrations/guest-checkout — adult self path", () => {
+  it("creates user + self person + registration when registrant is an adult", async () => {
+    const email = `adult-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+
+    const res = await apiFetch("/api/registrations/guest-checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        seasonId: adultSeasonId,
+        registrant: {
+          firstName: "Sam",
+          lastName: "Adult",
+          email,
+          phone: "+15555550100",
+          birthDate: "1985-06-15",
+          isSelf: true,
+        },
+        registrationType: "full",
+        waiverSigned: true,
+        waiverSignedBy: "Sam Adult",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.checkoutUrl ?? body.paid ?? body.waitlisted).toBeTruthy();
+  });
+});
+
 describe("POST /api/registrations — self registration", () => {
   it("registers an adult user for an adult-eligible season without a family member id", async () => {
     const res = await apiFetch("/api/registrations", {
