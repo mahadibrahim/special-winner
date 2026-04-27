@@ -66,6 +66,9 @@ describe("family_members self/dependent constraint", () => {
         firstName: "Orphan",
         lastName: "Row",
         birthDate: "1990-01-01",
+        // `as any`: the schema's TS types require one of parentUserId/selfUserId
+        // at compile time. We're testing the *DB* CHECK enforces it at runtime,
+        // so we deliberately bypass the ORM type layer here.
       } as any),
       /family_members_self_xor_parent/,
     );
@@ -84,18 +87,23 @@ describe("family_members self/dependent constraint", () => {
     // UNIQUE constraint failures from leaked rows in prior test runs.
     await db.delete(familyMembers).where(eq(familyMembers.selfUserId, u.id));
 
-    const [row] = await db
-      .insert(familyMembers)
-      .values({
-        selfUserId: u.id,
-        firstName: u.firstName ?? "Test",
-        lastName: u.lastName ?? "Self",
-        birthDate: "1990-01-01",
-      })
-      .returning();
-    expect(row.selfUserId).toBe(u.id);
-    expect(row.parentUserId).toBeNull();
-    // cleanup
-    await db.delete(familyMembers).where(eq(familyMembers.id, row.id));
+    let row: typeof familyMembers.$inferSelect | undefined;
+    try {
+      [row] = await db
+        .insert(familyMembers)
+        .values({
+          selfUserId: u.id,
+          firstName: u.firstName ?? "Test",
+          lastName: u.lastName ?? "Self",
+          birthDate: "1990-01-01",
+        })
+        .returning();
+      expect(row.selfUserId).toBe(u.id);
+      expect(row.parentUserId).toBeNull();
+    } finally {
+      if (row?.id) {
+        await db.delete(familyMembers).where(eq(familyMembers.id, row.id));
+      }
+    }
   });
 });
