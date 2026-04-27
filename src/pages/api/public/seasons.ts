@@ -37,7 +37,7 @@ export const GET: APIRoute = async ({ url }) => {
     // Build query conditions
     const conditions = [];
     if (status) {
-      conditions.push(eq(seasons.status, status));
+      conditions.push(eq(seasons.status, status as typeof seasons.status.enumValues[number]));
     }
     if (locationSlug && locationSlug !== "all") {
       conditions.push(eq(locations.slug, locationSlug));

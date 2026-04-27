@@ -55,12 +55,9 @@ async function seedFullYear() {
     [venue] = await db.insert(venues).values({
       locationId: location.id,
       name: "Powell Sports Complex",
-      addressLine1: "123 Main St",
-      city: "Powell",
-      state: "OH",
-      zipCode: "43065",
+      address: "123 Main St, Powell, OH 43065",
       fieldCount: 6,
-      surfaceType: "outdoor",
+      indoor: false,
       active: true,
     }).returning();
   }
@@ -172,14 +169,13 @@ async function seedFullYear() {
     .where(eq(programs.slug, "youth-soccer-league")).limit(1);
   if (!soccerLeague) {
     [soccerLeague] = await db.insert(programs).values({
-      organizationId: org.id,
       locationId: location.id,
       sportId: sportMap.soccer.id,
       name: "Youth Soccer League",
       slug: "youth-soccer-league",
       description: "Competitive youth soccer league",
       programType: "league",
-      status: "active",
+      active: true,
     }).returning();
   }
 
