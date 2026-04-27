@@ -17,6 +17,9 @@ export interface CreateRegistrationInput {
   seasonId: string;
   registrationType: "full" | "deposit";
   waiverSigned: boolean;
+  // `waiverSignedBy` is supplied by the caller. For self registrations, the
+  // caller passes the registrant's own name; for dependents, the parent's name.
+  // The helper does not infer this — it just records what's passed in.
   waiverSignedBy: string;
   notes?: string;
 }
