@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { getAuthCookie, apiFetch } from "./setup/test-helpers";
+import { getAuthCookie, apiFetch, getAdminCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { seasons } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -109,5 +109,38 @@ describe("POST /api/registrations — self registration", () => {
     });
 
     expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/admin/walk-up-registration — adult mode", () => {
+  it("admin walk-up creates an adult self registration", async () => {
+    const adminCookie = await getAdminCookie();
+    const email = `walkup-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+
+    const res = await apiFetch("/api/admin/walk-up-registration", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        seasonId: adultSeasonId,
+        adultMode: true,
+        registrant: {
+          firstName: "Walkup",
+          lastName: "Adult",
+          email,
+          phone: "+15555550101",
+          birthDate: "1990-03-03",
+        },
+        registrationType: "full",
+        paymentStatus: "paid",
+        amountPaidCents: 0,
+        waiverSigned: true,
+        waiverSignedBy: "Walkup Adult",
+      }),
+    });
+
+    expect(res.status).toBeLessThan(300);
+    const body = await res.json();
+    expect(body.registrationId).toBeTruthy();
+    expect(body.familyMemberId).toBeTruthy();
   });
 });

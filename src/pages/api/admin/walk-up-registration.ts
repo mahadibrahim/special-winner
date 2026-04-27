@@ -13,6 +13,7 @@ import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { normalizeUsPhone, sendSms } from "@/lib/sms/send";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
 
 /**
  * POST /api/admin/walk-up-registration
@@ -38,26 +39,50 @@ import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
  *   - notes?: string
  */
 
-const walkUpSchema = z.object({
-  parent: z.object({
-    firstName: z.string().min(1).max(100),
-    lastName: z.string().min(1).max(100),
-    email: z.string().email(),
-    phone: z.string().min(7).max(20),
-  }),
-  kid: z.object({
-    firstName: z.string().min(1).max(100),
-    lastName: z.string().min(1).max(100),
-    birthDate: z.string(),
-    gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
-    medicalNotes: z.string().optional(),
-  }),
-  seasonId: z.string().uuid(),
-  paymentStatus: z.enum(["paid", "unpaid", "comped"]),
-  amountPaidCents: z.number().int().nonnegative().optional(),
-  waiverSigned: z.boolean(),
-  notes: z.string().optional(),
+const adultRegistrantSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email(),
+  phone: z.string().optional(),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  gender: z.enum(["male", "female", "other"]).optional(),
 });
+
+const walkUpSchema = z.union([
+  // Existing parent + child shape (preserved byte-for-byte)
+  z.object({
+    parent: z.object({
+      firstName: z.string().min(1).max(100),
+      lastName: z.string().min(1).max(100),
+      email: z.string().email(),
+      phone: z.string().min(7).max(20),
+    }),
+    kid: z.object({
+      firstName: z.string().min(1).max(100),
+      lastName: z.string().min(1).max(100),
+      birthDate: z.string(),
+      gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
+      medicalNotes: z.string().optional(),
+    }),
+    seasonId: z.string().uuid(),
+    paymentStatus: z.enum(["paid", "unpaid", "comped"]),
+    amountPaidCents: z.number().int().nonnegative().optional(),
+    waiverSigned: z.boolean(),
+    notes: z.string().optional(),
+  }),
+  // New adult self-registration mode
+  z.object({
+    adultMode: z.literal(true),
+    registrant: adultRegistrantSchema,
+    seasonId: z.string().uuid(),
+    registrationType: z.enum(["full", "deposit"]),
+    paymentStatus: z.enum(["paid", "unpaid", "comped"]),
+    amountPaidCents: z.number().int().nonnegative().optional(),
+    waiverSigned: z.boolean(),
+    waiverSignedBy: z.string().min(1),
+    notes: z.string().optional(),
+  }),
+]);
 
 export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
@@ -111,15 +136,179 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "Season not found" }, 404);
   }
 
-  // Use the caller's org id (which now matches the season's org by construction).
   const organizationId = orgContext.organizationId;
-  const normalizedPhone = normalizeUsPhone(input.parent.phone);
+
+  // -------------------------------------------------------------------------
+  // ADULT SELF-REGISTRATION PATH
+  // -------------------------------------------------------------------------
+  if ("adultMode" in input && input.adultMode === true) {
+    const r = input.registrant;
+    const emailNormalized = r.email.toLowerCase().trim();
+
+    // Upsert user by email, storing birthDate
+    const [existingAdultUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, emailNormalized))
+      .limit(1);
+
+    let adultUserId: string;
+
+    if (existingAdultUser) {
+      adultUserId = existingAdultUser.id;
+      // Update birthDate if missing
+      if (!existingAdultUser.birthDate) {
+        await db
+          .update(users)
+          .set({ birthDate: r.birthDate, updatedAt: new Date() })
+          .where(eq(users.id, adultUserId));
+      }
+    } else {
+      const [newAdultUser] = await db
+        .insert(users)
+        .values({
+          email: emailNormalized,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          phone: r.phone ? normalizeUsPhone(r.phone) : null,
+          birthDate: r.birthDate,
+          phoneVerified: false,
+          emailVerified: false,
+        })
+        .returning({ id: users.id });
+      adultUserId = newAdultUser.id;
+    }
+
+    // Resolve self person via shared helper
+    const selfMember = await resolvePerson(db, {
+      kind: "self",
+      user: {
+        id: adultUserId,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        birthDate: r.birthDate,
+        gender: r.gender ?? null,
+      },
+    });
+
+    // Create the registration
+    const adultRegistrationStatus: "pending" | "confirmed" =
+      input.paymentStatus === "paid" || input.paymentStatus === "comped"
+        ? "confirmed"
+        : "pending";
+
+    const adultPaymentStatus: "paid" | "unpaid" =
+      input.paymentStatus === "paid" ? "paid" : "unpaid";
+
+    const [adultRegistration] = await db
+      .insert(registrations)
+      .values({
+        seasonId: input.seasonId,
+        familyMemberId: selfMember.id,
+        registeredByUserId: adminUser.id,
+        status: adultRegistrationStatus,
+        paymentStatus: adultPaymentStatus,
+        amountPaidCents: input.amountPaidCents ?? 0,
+        amountDueCents: seasonInfo.season.priceCents,
+        waiverSigned: input.waiverSigned,
+        waiverSignedAt: input.waiverSigned ? new Date() : null,
+        waiverSignedBy: input.waiverSigned ? input.waiverSignedBy : null,
+        notes: input.notes ?? null,
+      })
+      .returning({ id: registrations.id });
+
+    // Opt-in SMS if phone was provided
+    const adultNormalizedPhone = r.phone ? normalizeUsPhone(r.phone) : null;
+    let adultSmsStatus = "skipped";
+
+    if (adultNormalizedPhone) {
+      const existingOptIn = await db
+        .select({ id: phoneOptIns.id })
+        .from(phoneOptIns)
+        .where(
+          and(
+            eq(phoneOptIns.organizationId, organizationId),
+            eq(phoneOptIns.phone, adultNormalizedPhone),
+          ),
+        )
+        .limit(1);
+
+      if (existingOptIn.length === 0) {
+        await db.insert(phoneOptIns).values({
+          organizationId,
+          userId: adultUserId,
+          phone: adultNormalizedPhone,
+          status: "pending",
+          optInSource: "admin_added",
+        });
+      } else {
+        await db
+          .update(phoneOptIns)
+          .set({ userId: adultUserId, status: "pending", updatedAt: new Date() })
+          .where(eq(phoneOptIns.id, existingOptIn[0].id));
+      }
+
+      const adultWelcomeBody = `Hi ${r.firstName} — you're registered for ${seasonInfo.program.name} (${seasonInfo.season.name}). Welcome to Aspire Sports!\n\nReply YES to opt in to schedule updates and reminders, STOP to opt out, HELP for info. Msg&data rates may apply.`;
+      const adultSmsResult = await sendSms({
+        to: adultNormalizedPhone,
+        organizationId,
+        body: adultWelcomeBody,
+        bypassOptInCheck: true,
+      });
+      adultSmsStatus = adultSmsResult.ok ? "sent" : "failed";
+    }
+
+    // Fire-and-forget confirmation email
+    sendRegistrationConfirmationEmail({
+      userId: adultUserId,
+      organizationId,
+      registrationId: adultRegistration.id,
+      parentEmail: emailNormalized,
+      parentName: r.firstName,
+      childName: `${r.firstName} ${r.lastName}`,
+      programName: seasonInfo.program.name,
+      seasonName: seasonInfo.season.name,
+      startDate: seasonInfo.season.startDate,
+      endDate: seasonInfo.season.endDate,
+      scheduleNotes: seasonInfo.season.scheduleNotes ?? undefined,
+      locationName: seasonInfo.location.name,
+      locationAddress:
+        [
+          seasonInfo.location.addressLine1,
+          seasonInfo.location.city,
+          seasonInfo.location.state,
+        ]
+          .filter(Boolean)
+          .join(", ") || undefined,
+      amountDueCents: seasonInfo.season.priceCents - (input.amountPaidCents ?? 0),
+      paymentStatus: adultPaymentStatus,
+      registrationStatus: adultRegistrationStatus,
+    }).catch((err) =>
+      console.error("[walk-up-registration] adult email send failed:", err),
+    );
+
+    return json({
+      success: true,
+      registrationId: adultRegistration.id,
+      userId: adultUserId,
+      familyMemberId: selfMember.id,
+      smsStatus: adultSmsStatus,
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // PARENT + CHILD PATH (original behavior — preserved unchanged)
+  // -------------------------------------------------------------------------
+  // TypeScript can't narrow the union across the early return above, so we
+  // assert here — the adultMode branch always returns before reaching this point.
+  const childInput = input as Extract<typeof input, { parent: object }>;
+  const normalizedPhone = normalizeUsPhone(childInput.parent.phone);
   if (!normalizedPhone) {
     return json({ error: "Invalid phone number" }, 400);
   }
 
   // Create or find the parent user
-  const emailNormalized = input.parent.email.toLowerCase().trim();
+  const emailNormalized = childInput.parent.email.toLowerCase().trim();
   const [existingUser] = await db
     .select()
     .from(users)
@@ -142,8 +331,8 @@ export const POST: APIRoute = async (context) => {
       .insert(users)
       .values({
         email: emailNormalized,
-        firstName: input.parent.firstName,
-        lastName: input.parent.lastName,
+        firstName: childInput.parent.firstName,
+        lastName: childInput.parent.lastName,
         phone: normalizedPhone,
         phoneVerified: false,
         emailVerified: false,
@@ -157,37 +346,37 @@ export const POST: APIRoute = async (context) => {
     .insert(familyMembers)
     .values({
       parentUserId,
-      firstName: input.kid.firstName,
-      lastName: input.kid.lastName,
-      birthDate: input.kid.birthDate,
-      gender: input.kid.gender ?? null,
-      medicalNotes: input.kid.medicalNotes ?? null,
+      firstName: childInput.kid.firstName,
+      lastName: childInput.kid.lastName,
+      birthDate: childInput.kid.birthDate,
+      gender: childInput.kid.gender ?? null,
+      medicalNotes: childInput.kid.medicalNotes ?? null,
     })
     .returning({ id: familyMembers.id });
 
   // Create the registration
   const registrationStatus: "pending" | "confirmed" =
-    input.paymentStatus === "paid" || input.paymentStatus === "comped"
+    childInput.paymentStatus === "paid" || childInput.paymentStatus === "comped"
       ? "confirmed"
       : "pending";
 
   const paymentStatus: "paid" | "unpaid" =
-    input.paymentStatus === "paid" ? "paid" : "unpaid";
+    childInput.paymentStatus === "paid" ? "paid" : "unpaid";
 
   const [registration] = await db
     .insert(registrations)
     .values({
-      seasonId: input.seasonId,
+      seasonId: childInput.seasonId,
       familyMemberId: familyMember.id,
       registeredByUserId: adminUser.id,
       status: registrationStatus,
       paymentStatus,
-      amountPaidCents: input.amountPaidCents ?? 0,
+      amountPaidCents: childInput.amountPaidCents ?? 0,
       amountDueCents: seasonInfo.season.priceCents,
-      waiverSigned: input.waiverSigned,
-      waiverSignedAt: input.waiverSigned ? new Date() : null,
-      waiverSignedBy: input.waiverSigned ? `${input.parent.firstName} ${input.parent.lastName}` : null,
-      notes: input.notes ?? null,
+      waiverSigned: childInput.waiverSigned,
+      waiverSignedAt: childInput.waiverSigned ? new Date() : null,
+      waiverSignedBy: childInput.waiverSigned ? `${childInput.parent.firstName} ${childInput.parent.lastName}` : null,
+      notes: childInput.notes ?? null,
     })
     .returning({ id: registrations.id });
 
@@ -223,7 +412,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   // Send opt-in welcome SMS. Use bypassOptInCheck because this IS the opt-in.
-  const welcomeBody = `Hi ${input.parent.firstName} — ${input.kid.firstName} is registered for ${seasonInfo.program.name} (${seasonInfo.season.name}). Welcome to Aspire Sports!\n\nReply YES to opt in to schedule updates and reminders, STOP to opt out, HELP for info. Msg&data rates may apply.`;
+  const welcomeBody = `Hi ${childInput.parent.firstName} — ${childInput.kid.firstName} is registered for ${seasonInfo.program.name} (${seasonInfo.season.name}). Welcome to Aspire Sports!\n\nReply YES to opt in to schedule updates and reminders, STOP to opt out, HELP for info. Msg&data rates may apply.`;
 
   const smsResult = await sendSms({
     to: normalizedPhone,
@@ -240,8 +429,8 @@ export const POST: APIRoute = async (context) => {
     organizationId,
     registrationId: registration.id,
     parentEmail: emailNormalized,
-    parentName: input.parent.firstName,
-    childName: `${input.kid.firstName} ${input.kid.lastName}`,
+    parentName: childInput.parent.firstName,
+    childName: `${childInput.kid.firstName} ${childInput.kid.lastName}`,
     programName: seasonInfo.program.name,
     seasonName: seasonInfo.season.name,
     startDate: seasonInfo.season.startDate,
@@ -256,7 +445,7 @@ export const POST: APIRoute = async (context) => {
       ]
         .filter(Boolean)
         .join(", ") || undefined,
-    amountDueCents: seasonInfo.season.priceCents - (input.amountPaidCents ?? 0),
+    amountDueCents: seasonInfo.season.priceCents - (childInput.amountPaidCents ?? 0),
     paymentStatus,
     registrationStatus,
   }).catch((err) =>
