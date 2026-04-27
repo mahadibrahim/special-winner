@@ -43,6 +43,12 @@ export const TEST_USERS = {
     firstName: "Test",
     lastName: "Admin",
   },
+  adminOrgB: {
+    email: "admin-orgb@test.aspiresports.com",
+    password: "TestAdmin123!",
+    firstName: "OrgB",
+    lastName: "Admin",
+  },
   coach: {
     email: "coach@test.aspiresports.com",
     password: "TestCoach123!",
@@ -598,6 +604,195 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Adult Season: ${adultSeason.name} (id: ${adultSeason.id})`);
 
+  // -------------------------------------------------------------------------
+  // Org B — second tenant for cross-tenant isolation tests.
+  // This org has its own admin, location, sport, program and season.
+  // It must remain status='inactive' + organizationType='franchise' so the
+  // domain-resolver does NOT pick it up as the default org on CI.
+  // Tests reach it by signing in as the adminOrgB user (location_admin scoped
+  // to orgB) and sending requests with Host: orgb.localhost, which routes
+  // the middleware to orgB via the subdomain slug match.
+  // -------------------------------------------------------------------------
+  console.log("\n3b. Setting up Org B (cross-tenant test fixture)...");
+
+  let [orgB] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.slug, "orgb"))
+    .limit(1);
+
+  if (!orgB) {
+    [orgB] = await db
+      .insert(organizations)
+      .values({
+        name: "Org B (Test Only)",
+        slug: "orgb",
+        status: "active",
+        organizationType: "franchise",
+      })
+      .returning();
+  } else if (orgB.status !== "active") {
+    [orgB] = await db
+      .update(organizations)
+      .set({ status: "active", organizationType: "franchise" })
+      .where(eq(organizations.id, orgB.id))
+      .returning();
+  }
+  console.log(`   ✓ Org B: ${orgB.name} (${orgB.id})`);
+
+  let [orgBLocation] = await db
+    .select()
+    .from(locations)
+    .where(eq(locations.organizationId, orgB.id))
+    .limit(1);
+
+  if (!orgBLocation) {
+    [orgBLocation] = await db
+      .insert(locations)
+      .values({
+        organizationId: orgB.id,
+        name: "Org B HQ",
+        slug: "orgb-hq",
+        city: "Columbus",
+        state: "OH",
+        country: "US",
+        timezone: "America/New_York",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org B Location: ${orgBLocation.name} (${orgBLocation.id})`);
+
+  // Org B sport
+  let [orgBSport] = await db
+    .select()
+    .from(sports)
+    .where(and(eq(sports.organizationId, orgB.id), eq(sports.slug, "basketball")))
+    .limit(1);
+
+  if (!orgBSport) {
+    [orgBSport] = await db
+      .insert(sports)
+      .values({
+        organizationId: orgB.id,
+        name: "Basketball",
+        slug: "basketball",
+        icon: "🏀",
+        color: "#f97316",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org B Sport: ${orgBSport.name}`);
+
+  // Org B program
+  let [orgBProgram] = await db
+    .select()
+    .from(programs)
+    .where(eq(programs.slug, "orgb-basketball-league"))
+    .limit(1);
+
+  if (!orgBProgram) {
+    [orgBProgram] = await db
+      .insert(programs)
+      .values({
+        locationId: orgBLocation.id,
+        sportId: orgBSport.id,
+        name: "Org B Basketball League",
+        slug: "orgb-basketball-league",
+        programType: "league",
+        active: true,
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org B Program: ${orgBProgram.name} (${orgBProgram.id})`);
+
+  // Org B season
+  let [orgBSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "orgb-basketball-fall-2026"))
+    .limit(1);
+
+  if (!orgBSeason) {
+    [orgBSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: orgBProgram.id,
+        name: "Org B Basketball Fall 2026",
+        slug: "orgb-basketball-fall-2026",
+        startDate: "2026-09-01",
+        endDate: "2026-12-15",
+        status: "draft",
+        priceCents: 12000,
+        allowDeposit: false,
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org B Season: ${orgBSeason.name} (${orgBSeason.id})`);
+
+  // Org B venue
+  let [orgBVenue] = await db
+    .select()
+    .from(venues)
+    .where(eq(venues.locationId, orgBLocation.id))
+    .limit(1);
+
+  if (!orgBVenue) {
+    [orgBVenue] = await db
+      .insert(venues)
+      .values({
+        locationId: orgBLocation.id,
+        name: "Org B Arena",
+        address: "456 Other St, Columbus, OH 43201",
+        fieldCount: 1,
+        indoor: true,
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org B Venue: ${orgBVenue.name} (${orgBVenue.id})`);
+
+  // Org B admin user (location_admin scoped to orgB)
+  const adminOrgBPasswordHash = await hashPassword(TEST_USERS.adminOrgB.password);
+  let [adminOrgBUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.adminOrgB.email))
+    .limit(1);
+
+  if (!adminOrgBUser) {
+    [adminOrgBUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.adminOrgB.email,
+        passwordHash: adminOrgBPasswordHash,
+        firstName: TEST_USERS.adminOrgB.firstName,
+        lastName: TEST_USERS.adminOrgB.lastName,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: adminOrgBPasswordHash, emailVerified: true })
+      .where(eq(users.id, adminOrgBUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, adminOrgBUser.id));
+  await db.insert(userRoles).values({
+    userId: adminOrgBUser.id,
+    roleId: roleMap.location_admin.id,
+    scopeType: "organization",
+    scopeId: orgB.id,
+  });
+  console.log(`   ✓ Org B Admin: ${adminOrgBUser.email}`);
+
+  // Export Org B IDs — stored in a well-known key the tests can fetch at runtime
+  // via GET /api/admin/seasons?include_test=1 (filtered by slug) or
+  // GET /api/admin/programs (filtered by slug). Tests should not hard-code
+  // UUIDs; they should look them up by slug from the appropriate endpoint.
+  console.log(`   ✓ Org B fixture summary:`);
+  console.log(`       orgId=${orgB.id}  programId=${orgBProgram.id}`);
+  console.log(`       seasonId=${orgBSeason.id}  venueId=${orgBVenue.id}`);
+  console.log(`       sportId=${orgBSport.id}  locationId=${orgBLocation.id}`);
+
   // Create teams assigned to coach — need at least two so Games tests can
   // schedule home vs away.
   console.log("\n4. Setting up teams...");
@@ -959,12 +1154,13 @@ async function seedE2ETests() {
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
   console.log("─".repeat(50));
-  console.log(`Admin:  ${TEST_USERS.admin.email} / ${TEST_USERS.admin.password}`);
-  console.log(`Coach:  ${TEST_USERS.coach.email} / ${TEST_USERS.coach.password}`);
-  console.log(`Parent: ${TEST_USERS.parent.email} / ${TEST_USERS.parent.password}`);
-  console.log(`AdultSelf: ${TEST_USERS.adultSelf.email} / ${TEST_USERS.adultSelf.password}`);
+  console.log(`Admin:      ${TEST_USERS.admin.email} / ${TEST_USERS.admin.password}`);
+  console.log(`AdminOrgB:  ${TEST_USERS.adminOrgB.email} / ${TEST_USERS.adminOrgB.password}`);
+  console.log(`Coach:      ${TEST_USERS.coach.email} / ${TEST_USERS.coach.password}`);
+  console.log(`Parent:     ${TEST_USERS.parent.email} / ${TEST_USERS.parent.password}`);
+  console.log(`AdultSelf:  ${TEST_USERS.adultSelf.email} / ${TEST_USERS.adultSelf.password}`);
   console.log(`MediaStaff: ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
-  console.log(`MediaEditor: ${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
+  console.log(`MediaEditor:${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
   console.log("─".repeat(50));
 }
 
