@@ -1,5 +1,6 @@
 ---
-export const prerender = true;
+// NOT prerendered: reads Astro.url.searchParams at request time to select the
+// error message variant (expired / already_consumed / not_found / malformed).
 import BaseLayout from '@/layouts/BaseLayout.astro';
 
 const reason = Astro.url.searchParams.get('reason') || 'expired';

@@ -103,6 +103,29 @@ Required in `.env`:
 - Toast notifications via sonner
 - All timestamps stored in UTC, displayed in organization's timezone
 
+### Prerender policy
+
+`export const prerender = true;` builds the page as static HTML at build time. Use it only for pages that meet **all** of these criteria:
+- Don't depend on `Astro.locals.user` (anonymous content)
+- Don't depend on `Astro.url.searchParams`, `Astro.cookies`, or `Astro.url.search` (request-time data)
+- Don't query the DB at request time (or the query is purely for static SEO data)
+
+**Default to SSR** (no prerender flag) for:
+- Any page protected by middleware (`/dashboard/**`, `/admin/**`, `/coach/**`, `/account/**`, `/messages/**`, `/media/**`) — they need request-time user context
+- Any page that reads `Astro.url.searchParams` or `Astro.url.search` (e.g. `?redirect=`, `?audience=`)
+- Any page that personalizes copy by user state, even if the personalization happens in a React `client:load` component that reads from middleware-set locals
+- Auth pages (`/signin`, `/signup`, `/forgot-password`) — middleware bounces already-authed users to `/dashboard` at request time
+
+**Use `prerender = true`** on:
+- Static marketing pages (`/about`, `/contact`, `/privacy`, `/terms`, `/refund-policy`)
+- Print-only guides and minibooks under `/guides/**` and `/minibooks/**`
+- Static error/info pages (`/auth/link-expired`) that don't branch on request state at the Astro layer — note: if the page reads `Astro.url.searchParams`, remove the flag
+- Any other page where the rendered HTML is identical for every visitor
+
+**Important — the Navigation component is not a reason to avoid prerendering.** `<Navigation client:load />` in `BaseLayout` fetches auth state client-side via `/api/auth/me`. It does not require Astro SSR on the enclosing page.
+
+**Build warning note:** The middleware reads `context.request.headers` on every request, including during prerender simulation at build time. This causes Astro to emit `Astro.request.headers is not available on prerendered pages` warnings for every prerendered page. These warnings are a false positive — the middleware access is unavoidable given the `output: "server"` + selective prerender architecture. Treat them as noise; only investigate if a page itself reads `Astro.request.headers` in its frontmatter.
+
 ### UI feedback primitives
 
 - **Inline state errors** (validation summary, API failures the user must address): use `<ErrorBanner message={...} />` from `@/components/ui/error-banner`. Don't roll per-form styling.

@@ -1,5 +1,7 @@
 ---
-// NOT prerendered: nav needs request-time auth state.
+// Static marketing page — no request-time state needed.
+// Navigation resolves auth client-side via /api/auth/me (client:load).
+export const prerender = true;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
