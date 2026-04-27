@@ -137,7 +137,8 @@ export const POST: APIRoute = async (context) => {
     try {
       // Create a magic link scoped to this parent and the new season
       const { token } = await createMagicLink({
-        userId: candidate.parentUserId,
+        // parentUserId is non-null: the innerJoin above guarantees a matched users row
+        userId: candidate.parentUserId!,
         organizationId: newLocation.organizationId,
         purpose: "register_for_season",
         purposeContext: {
@@ -152,7 +153,8 @@ export const POST: APIRoute = async (context) => {
       const body = `${newProgram.name} registration is open! ${candidate.kidFirstName} can re-register in ~30 seconds — we'll pre-fill everything we know.\n\n${magicUrl}\n\nExpires in 72 hours.`;
 
       const sendResult = await sendToParent({
-        parentUserId: candidate.parentUserId,
+        // parentUserId is non-null: the innerJoin above guarantees a matched users row
+        parentUserId: candidate.parentUserId!,
         organizationId: newLocation.organizationId,
         body,
         conversationId: undefined,

@@ -88,7 +88,10 @@ export const GET: APIRoute = async ({ locals, url }) => {
       )
       .where(inArray(rosters.teamId, coachTeamIds));
 
-    const allowedParentIds = parentRows.map((r) => r.parentUserId);
+    // Filter out null parentUserIds — self-registered adults have selfUserId instead
+    const allowedParentIds = parentRows
+      .map((r) => r.parentUserId)
+      .filter((id): id is string => id !== null);
 
     if (allowedParentIds.length === 0) {
       return json({ conversations: [], total: 0 });
