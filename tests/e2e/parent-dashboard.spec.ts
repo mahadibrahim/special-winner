@@ -3,7 +3,7 @@ import {
   TEST_USERS,
   signIn,
   waitForPageLoad,
-} from "./utils/test-helpers";
+} from "../utils/test-helpers";
 
 test.describe("Parent Dashboard", () => {
   test.beforeEach(async ({ page }) => {

@@ -4,7 +4,7 @@ import {
   signIn,
   waitForPageLoad,
   getTableRowCount,
-} from "./utils/test-helpers";
+} from "../utils/test-helpers";
 
 test.describe("Admin Dashboard", () => {
   test.beforeEach(async ({ page }) => {

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForHydration, signIn } from "./utils/test-helpers";
+import { waitForHydration, signIn } from "../utils/test-helpers";
 
 // The adult self-registration flow exercises the "Myself" card path through
 // the registration wizard. The adult-self seed user has a birthDate so the

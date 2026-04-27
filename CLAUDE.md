@@ -126,10 +126,22 @@ npm test                  # Run E2E tests (Playwright)
 - Test accounts: admin/coach/parent `@test.aspiresports.com` / `Test{Role}123!`; media staff/editor use `TestMedia123!`
 - E2E seed data comes from `src/lib/db/seeds/seed-e2e-tests.ts` via `npm run db:seed:e2e`
 
+### Test directory layout
+
+- `tests/api/` — Vitest API integration tests. Hit the running dev server over HTTP. Start `npm run dev` before running.
+- `tests/unit/` — Vitest unit tests. No server, no DB required. Pure functions.
+- `tests/e2e/` — Playwright end-to-end tests. Drive a real browser. Run with `npm test`.
+- `tests/utils/` — Shared helpers (e.g., `waitForHydration`, `signIn`).
+
+When adding a new test:
+- Hits HTTP endpoints? → `tests/api/`
+- Pure logic / parsers / helpers? → `tests/unit/`
+- Drives a browser flow? → `tests/e2e/`
+
 ### Playwright conventions
 
 - Pages driven by e2e tests should have their top-level `client:load` React component call `useHydrationBeacon()` from `@/lib/hooks/use-hydration-beacon`. It sets `data-hydrated="true"` on `<html>` once `useEffect` runs.
-- In the test, call `await waitForHydration(page)` from `tests/utils/test-helpers.ts` **before** any click or keypress. CI's headless Chromium hydrates slower than local headed runs — interactions that land on un-hydrated DOM silently drop (clicks don't fire, window `keydown` listeners aren't attached yet).
+- In the test, call `await waitForHydration(page)` from `tests/utils/test-helpers.ts` (imported as `../utils/test-helpers` from within `tests/e2e/`) **before** any click or keypress. CI's headless Chromium hydrates slower than local headed runs — interactions that land on un-hydrated DOM silently drop (clicks don't fire, window `keydown` listeners aren't attached yet).
 - Prefer element clicks over `page.keyboard.press(...)` for keyboard shortcuts tied to `window.addEventListener("keydown", ...)`. Element clicks go through React's synthetic event system and are reliable even mid-hydration; window-level keys need the listener to already be attached.
 - If `page.goto()` hangs on a page that has broken images (e.g. `mock-r2.local` URLs when `R2_MOCK=1`), use `waitUntil: "domcontentloaded"` instead of the default `"load"`.
 

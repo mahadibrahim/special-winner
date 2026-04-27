@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForHydration } from "./utils/test-helpers";
+import { waitForHydration } from "../utils/test-helpers";
 
 // The registration wizard's guest-mode Step 1 renders label+input pairs where
 // <Label> has no htmlFor and <Input> has no id — so getByLabel() won't match.

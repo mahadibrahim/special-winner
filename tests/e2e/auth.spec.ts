@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { TEST_USERS, signIn, signOut, expectToast } from "./utils/test-helpers";
+import { TEST_USERS, signIn, signOut, expectToast } from "../utils/test-helpers";
 
 test.describe("Authentication Flow", () => {
   test.describe("Sign In", () => {
