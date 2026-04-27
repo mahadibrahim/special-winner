@@ -1,8 +1,6 @@
 ---
 export const prerender = true;
-import '../styles/globals.css';
-import Navigation from '../components/navigation';
-import PostHog from '../components/posthog.astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import { DualCtaHero } from '../components/marketing/dual-cta-hero';
 import WhyAspire from '../components/why-aspire';
 import StatsSection from '../components/stats-section';
@@ -11,44 +9,22 @@ import ProgramsDirectory from '../components/programs-directory';
 import Testimonials from '../components/testimonials';
 import FAQSection from '../components/faq-section';
 import CTABanner from '../components/cta-banner';
-import Footer from '../components/footer';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Aspire Sports — evidence-based youth sports in Central Ohio. Development-first programs built on the Double-Goal Coach, ELM, and TDEQ-5 frameworks." />
-    <meta property="og:title" content="Aspire Sports — Youth Sports, Done with Conviction" />
-    <meta property="og:description" content="A development-first program for kids who want to fall in love with their sport — and a curriculum grounded in research." />
-    <meta property="og:type" content="website" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Aspire Sports | Youth Sports Programs in Central Ohio</title>
-    <PostHog />
-
-    <!-- Editorial typography — Newsreader (display) + IBM Plex Sans (body) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body class="bg-cream text-ink antialiased">
-    <Navigation client:load />
-    <main id="main-content">
-      <DualCtaHero client:load />
-      <WhyAspire client:visible />
-      <StatsSection client:visible />
-      <PartnersSection client:visible />
-      <section id="programs">
-        <ProgramsDirectory client:visible />
-      </section>
-      <Testimonials client:visible />
-      <FAQSection client:visible />
-      <CTABanner client:visible />
-    </main>
-    <Footer client:idle />
-  </body>
-</html>
+<BaseLayout
+  title="Aspire Sports | Youth Sports Programs in Central Ohio"
+  description="Aspire Sports — evidence-based youth sports in Central Ohio. Development-first programs built on the Double-Goal Coach, ELM, and TDEQ-5 frameworks."
+>
+  <main id="main-content">
+    <DualCtaHero client:load />
+    <WhyAspire client:visible />
+    <StatsSection client:visible />
+    <PartnersSection client:visible />
+    <section id="programs">
+      <ProgramsDirectory client:visible />
+    </section>
+    <Testimonials client:visible />
+    <FAQSection client:visible />
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>

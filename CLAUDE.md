@@ -103,6 +103,13 @@ Required in `.env`:
 - Toast notifications via sonner
 - All timestamps stored in UTC, displayed in organization's timezone
 
+### UI feedback primitives
+
+- **Inline state errors** (validation summary, API failures the user must address): use `<ErrorBanner message={...} />` from `@/components/ui/error-banner`. Don't roll per-form styling.
+- **Action errors** (transient: save failed, network blip): use `toast.error(...)` from sonner.
+- **Empty states**: use `<EmptyState title="..." description="..." />` from `@/components/ui/empty-state`.
+- **Loading shimmer**: use `<LoadingSkeleton />` for generic placeholders; build domain-specific skeletons (e.g. `ProgramCardSkeleton`) only when the placeholder needs typed shape.
+
 ### People model
 
 `family_members` rows represent **people** — either a dependent of a user (`parent_user_id` set, COPPA path) or the user themselves (`self_user_id` set, adult self path). Exactly one of the two is non-null per row, enforced by the `family_members_self_xor_parent` DB CHECK constraint. New code that creates `family_members` rows should use `resolvePerson()` in `src/lib/registrations/resolve-person.ts` rather than inserting directly — it handles dedupe (case-insensitive name+DOB for dependents, single-row-per-user for self) and avoids constraint races.
