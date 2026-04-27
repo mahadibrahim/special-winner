@@ -5,6 +5,7 @@ import {
   text,
   boolean,
   timestamp,
+  date,
   pgEnum,
   index,
 } from "drizzle-orm/pg-core";
@@ -39,6 +40,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name", { length: 100 }),
   phone: varchar("phone", { length: 20 }),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
+  birthDate: date("birth_date"),
   avatarUrl: text("avatar_url"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   messagingPrimaryChannel: varchar("messaging_primary_channel", { length: 20 }),

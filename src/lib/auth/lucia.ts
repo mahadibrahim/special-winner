@@ -18,6 +18,7 @@ let _lucia: Lucia<
     emailVerified: boolean;
     firstName: string | null;
     lastName: string | null;
+    birthDate: string | null;
     avatarUrl: string | null;
   }
 > | null = null;
@@ -37,6 +38,7 @@ function getLucia() {
           emailVerified: attributes.emailVerified,
           firstName: attributes.firstName,
           lastName: attributes.lastName,
+          birthDate: attributes.birthDate,
           avatarUrl: attributes.avatarUrl,
         };
       },
@@ -69,6 +71,7 @@ interface DatabaseUserAttributes {
   emailVerified: boolean;
   firstName: string | null;
   lastName: string | null;
+  birthDate: string | null;
   avatarUrl: string | null;
 }
 

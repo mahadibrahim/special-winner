@@ -73,7 +73,20 @@ export const TEST_USERS = {
     firstName: "Test",
     lastName: "MediaEditor",
   },
+  adultSelf: {
+    email: "adult-self@test.aspiresports.com",
+    password: "TestParent123!",
+    firstName: "Adult",
+    lastName: "Self",
+    birthDate: "1985-06-15",
+  },
 };
+
+/**
+ * Returns the adult open soccer season slug — used by self-registration tests
+ * to look up the season ID at runtime.
+ */
+export const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
 
 async function seedE2ETests() {
   console.log("🧪 Seeding E2E test data...\n");
@@ -350,6 +363,46 @@ async function seedE2ETests() {
   });
   console.log(`   ✓ Parent: ${parentUser.email}`);
 
+  // Adult self-registration test user
+  const adultSelfPasswordHash = await hashPassword(TEST_USERS.adultSelf.password);
+  let [adultSelfUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.adultSelf.email))
+    .limit(1);
+
+  if (!adultSelfUser) {
+    [adultSelfUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.adultSelf.email,
+        passwordHash: adultSelfPasswordHash,
+        firstName: TEST_USERS.adultSelf.firstName,
+        lastName: TEST_USERS.adultSelf.lastName,
+        birthDate: TEST_USERS.adultSelf.birthDate,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({
+        passwordHash: adultSelfPasswordHash,
+        birthDate: TEST_USERS.adultSelf.birthDate,
+        emailVerified: true,
+      })
+      .where(eq(users.id, adultSelfUser.id));
+  }
+  // Assign parent role (adults who self-register use the parent role)
+  await db.delete(userRoles).where(eq(userRoles.userId, adultSelfUser.id));
+  await db.insert(userRoles).values({
+    userId: adultSelfUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
+  console.log(`   ✓ AdultSelf: ${adultSelfUser.email}`);
+
   // Get or create sport
   console.log("\n3. Setting up programs...");
   let [soccer] = await db
@@ -472,6 +525,78 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Season: ${season.name} (registration open)`);
+
+  // Adult age group (18+) for self-registration tests
+  let [adultAgeGroup] = await db
+    .select()
+    .from(ageGroups)
+    .where(and(eq(ageGroups.organizationId, org.id), eq(ageGroups.name, "Adult 18+")))
+    .limit(1);
+
+  if (!adultAgeGroup) {
+    [adultAgeGroup] = await db
+      .insert(ageGroups)
+      .values({
+        organizationId: org.id,
+        name: "Adult 18+",
+        minAge: 18,
+        maxAge: 99,
+        description: "Ages 18 and up",
+      })
+      .returning();
+  }
+
+  // Adult Open Soccer program
+  let [adultProgram] = await db
+    .select()
+    .from(programs)
+    .where(eq(programs.slug, "e2e-adult-open-soccer"))
+    .limit(1);
+
+  if (!adultProgram) {
+    [adultProgram] = await db
+      .insert(programs)
+      .values({
+        locationId: location.id,
+        sportId: soccer.id,
+        name: "Adult Open Soccer",
+        slug: "e2e-adult-open-soccer",
+        description: "Adult open soccer league for E2E testing",
+        programType: "league",
+        active: true,
+      })
+      .returning();
+  }
+  console.log(`   ✓ Adult Program: ${adultProgram.name}`);
+
+  // Adult Open Soccer season (open for registration)
+  let [adultSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, ADULT_OPEN_SEASON_SLUG))
+    .limit(1);
+
+  if (!adultSeason) {
+    [adultSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: adultProgram.id,
+        ageGroupId: adultAgeGroup.id,
+        name: "Adult Open Soccer 2026",
+        slug: ADULT_OPEN_SEASON_SLUG,
+        startDate: formatDate(seasonStartDate),
+        endDate: formatDate(seasonEndDate),
+        registrationOpens: new Date(), // Open now
+        registrationCloses: registrationEnd,
+        status: "open",
+        priceCents: 10000, // $100
+        depositCents: 3000, // $30 deposit
+        allowDeposit: true,
+        maxParticipants: 30,
+      })
+      .returning();
+  }
+  console.log(`   ✓ Adult Season: ${adultSeason.name} (id: ${adultSeason.id})`);
 
   // Create teams assigned to coach — need at least two so Games tests can
   // schedule home vs away.
@@ -837,6 +962,7 @@ async function seedE2ETests() {
   console.log(`Admin:  ${TEST_USERS.admin.email} / ${TEST_USERS.admin.password}`);
   console.log(`Coach:  ${TEST_USERS.coach.email} / ${TEST_USERS.coach.password}`);
   console.log(`Parent: ${TEST_USERS.parent.email} / ${TEST_USERS.parent.password}`);
+  console.log(`AdultSelf: ${TEST_USERS.adultSelf.email} / ${TEST_USERS.adultSelf.password}`);
   console.log(`MediaStaff: ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
   console.log(`MediaEditor: ${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
   console.log("─".repeat(50));

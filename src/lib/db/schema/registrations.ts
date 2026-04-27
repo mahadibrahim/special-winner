@@ -10,7 +10,9 @@ import {
   jsonb,
   pgEnum,
   index,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { seasons } from "./programs";
@@ -87,6 +89,10 @@ export const familyMembers = pgTable(
   (table) => [
     index("family_members_parent_user_idx").on(table.parentUserId),
     index("family_members_self_user_idx").on(table.selfUserId),
+    check(
+      "family_members_self_xor_parent",
+      sql`(${table.parentUserId} IS NOT NULL AND ${table.selfUserId} IS NULL) OR (${table.parentUserId} IS NULL AND ${table.selfUserId} IS NOT NULL)`,
+    ),
   ],
 );
 

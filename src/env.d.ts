@@ -10,6 +10,7 @@ interface UserAttributes {
   emailVerified: boolean;
   firstName: string | null;
   lastName: string | null;
+  birthDate: string | null;
   avatarUrl: string | null;
   phone?: string | null;
 }
