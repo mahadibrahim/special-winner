@@ -3,13 +3,15 @@
  * were previously managed by `drizzle-kit push` (or that inherited a stale
  * tracking state from an earlier broken bootstrap).
  *
- * Algorithm per committed migration in src/lib/db/migrations:
- *   - parse every `CREATE TABLE "name"` statement from the file
- *   - check whether every one of those tables exists in the target DB
- *   - compute the expected "applied" state from that existence check
+ * Algorithm:
+ *   - parse all migrations once for raw schema effects (creates, adds, drops)
+ *   - per migration M, resolve each create/add against drops in later migrations:
+ *       · earlier create/add NOT dropped later → expectPresent: true
+ *       · earlier create/add dropped later     → expectPresent: false
+ *   - check whether each expectPresent:true target exists in the target DB
  *   - reconcile the tracking table:
  *       · missing expected rows → INSERT (hash, created_at)
- *       · rows for hashes whose tables don't all exist → DELETE (drift)
+ *       · rows for hashes whose net effects don't match DB state → DELETE (drift)
  *
  * On a truly empty DB (no `users` table) the whole bootstrap is a no-op and
  * the downstream migrator builds schema from scratch.
@@ -203,14 +205,14 @@ async function main() {
 
     // Parse raw effects for every migration in journal order.
     const entries = journal.entries;
-    const perMigrationContents: Array<{ entry: JournalEntry; content: string; hash: string }> = [];
+    const perMigrationContents: Array<{ entry: JournalEntry; hash: string }> = [];
     const allRawEffects: RawEffect[][] = [];
 
     for (const entry of entries) {
       const sqlFile = path.join(MIGRATIONS_DIR, `${entry.tag}.sql`);
       const content = fs.readFileSync(sqlFile, "utf-8");
       const hash = crypto.createHash("sha256").update(content).digest("hex");
-      perMigrationContents.push({ entry, content, hash });
+      perMigrationContents.push({ entry, hash });
       allRawEffects.push(extractSchemaEffects(content));
     }
 
@@ -234,9 +236,15 @@ async function main() {
       const resolved = resolveEffects(i, allRawEffects);
 
       // A migration with ONLY drop effects will have zero resolved entries.
-      // A pure DROP TABLE migration IS applied if the table is gone, but
-      // we handle that via the expectPresent: false check on the creating migration.
-      // If resolved is empty (e.g. pure DROP migration), treat as applied.
+      // CAVEAT: this branch unconditionally marks the migration applied. That's
+      // correct as long as a CREATEing migration appears earlier in the journal —
+      // its expectPresent:false check will refuse to mark it applied if the drop
+      // hasn't actually happened yet, blocking the bootstrap and forcing the
+      // migrator to run the drop. But a synthetic pure-DROP migration that drops
+      // a table NOT created by any earlier journal entry would be marked applied
+      // here without verifying the drop ran. No such migration exists today; if
+      // one is ever added, this branch needs to verify drops against tableSet/
+      // columnSet before marking applied.
       if (resolved.length === 0) {
         expectedApplied.set(hash, { tag: entry.tag, when: entry.when });
         continue;
