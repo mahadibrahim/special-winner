@@ -88,7 +88,11 @@ export const GET: APIRoute = async ({ locals, url }) => {
       )
       .where(inArray(rosters.teamId, coachTeamIds));
 
-    // Filter out null parentUserIds — self-registered adults have selfUserId instead
+    // Filter out null parentUserIds — self-registered adults have selfUserId instead.
+    // TODO(unified-people-model): coaches currently can't see conversations with
+    // adult self-registrants on their roster. Extend this lookup to also match
+    // family_members.self_user_id when the conversations table is updated to
+    // support user-keyed (not parent-keyed) threads.
     const allowedParentIds = parentRows
       .map((r) => r.parentUserId)
       .filter((id): id is string => id !== null);
