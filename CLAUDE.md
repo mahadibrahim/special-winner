@@ -135,7 +135,7 @@ CI has bitten us twice for the same reasons. Run this sequence locally before pu
    Mismatched `CRON_SECRET` between dev server and test runtime manifests as spurious 401 cron failures — don't chase those down, just match them.
 4. **Run Playwright:** `PLAYWRIGHT_BASE_URL=http://localhost:4321 npm test`. If new specs interact with `client:load` components, confirm they use `waitForHydration(page)` and click-driven interactions.
 5. **Build:** `npm run build`. Catches SSR-vs-prerender mistakes (e.g. `Astro.request.headers` on a prerendered page) that don't fire in `npm run dev`.
-6. **Type check:** `npx tsc --noEmit`. There's a baseline of ~5 pre-existing errors in `src/lib/db/seeds/seed-full-year.ts`, `seed-programs-catalog.ts`, `src/pages/api/public/seasons.ts`, `tests/utils/test-helpers.ts` — don't add to them.
+6. **Type check:** `npx tsc --noEmit` should report zero errors. The previous ~5-error baseline (seed scripts + seasons API + test helpers) was cleared in commit 9ff35ef — keep it that way.
 
 ### Multi-tenant query hazards
 
