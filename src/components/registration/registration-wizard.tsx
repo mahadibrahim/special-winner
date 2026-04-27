@@ -997,6 +997,24 @@ export default function RegistrationWizard({
               </div>
             </div>
 
+            {/* Branched waiver body: self vs dependent (guest path handled separately) */}
+            {!isGuest && (
+              <div className="mb-2">
+                {selectedKey === "self" ? (
+                  <p className="text-sm text-ink-muted">
+                    I, <strong className="text-ink">{selectedDisplayName}</strong>, agree to participate in this
+                    program and accept the terms of the participation waiver.
+                  </p>
+                ) : (
+                  <p className="text-sm text-ink-muted">
+                    I authorize <strong className="text-ink">{selectedDisplayName}</strong> to participate in this
+                    program on my behalf as their parent or legal guardian, and accept the
+                    terms of the participation waiver.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <Checkbox
@@ -1006,12 +1024,16 @@ export default function RegistrationWizard({
                   className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
                 <Label htmlFor="waiver" className="text-sm text-ink-2 cursor-pointer">
-                  I have read, understand, and agree to the terms of this waiver on behalf of{" "}
-                  <span className="text-ink font-medium">
-                    {isGuest
-                      ? `${guestChildFirstName} ${guestChildLastName}`.trim()
-                      : selectedDisplayName}
-                  </span>.
+                  {isGuest ? (
+                    <>
+                      I have read, understand, and agree to the terms of this waiver on behalf of{" "}
+                      <span className="text-ink font-medium">
+                        {`${guestChildFirstName} ${guestChildLastName}`.trim()}
+                      </span>.
+                    </>
+                  ) : (
+                    "I agree to the terms above."
+                  )}
                 </Label>
               </div>
 
