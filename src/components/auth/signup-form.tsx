@@ -81,7 +81,7 @@ export function SignUpForm() {
       }
 
       // Identify the new user client-side for session continuity
-      (window as any).posthog?.identify(data.user?.id, {
+      (window as any).posthog?.identify?.(data.user?.id, {
         email: data.user?.email,
         firstName: data.user?.firstName,
         lastName: data.user?.lastName,
@@ -99,7 +99,7 @@ export function SignUpForm() {
       }
     } catch (err) {
       setError("An unexpected error occurred");
-      (window as any).posthog?.captureException(err);
+      (window as any).posthog?.captureException?.(err);
     } finally {
       setIsLoading(false);
     }

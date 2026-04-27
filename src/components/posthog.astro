@@ -51,5 +51,33 @@
       ip: false,
       property_denylist: ['$ip'],
     });
+  } else {
+    // No apiKey (dev/CI without PostHog token): the official snippet only
+    // installs method stubs (capture, identify, captureException, …) inside
+    // posthog.init, so calling them on the bare `[]` value throws TypeError
+    // and breaks any handler that fires PostHog events. Install a permissive
+    // noop layer so call sites can use plain `posthog?.method(...)` safely.
+    const noop = function () { /* swallowed */ };
+    Object.assign(window.posthog, {
+      init: noop,
+      capture: noop,
+      identify: noop,
+      captureException: noop,
+      get_session_id: noop,
+      alias: noop,
+      reset: noop,
+      register: noop,
+      register_once: noop,
+      group: noop,
+      opt_in_capturing: noop,
+      opt_out_capturing: noop,
+      set_config: noop,
+      isFeatureEnabled: function () { return false; },
+      onFeatureFlags: noop,
+      getFeatureFlag: noop,
+      getFeatureFlagPayload: noop,
+      reloadFeatureFlags: noop,
+      people: { set: noop, set_once: noop },
+    });
   }
 </script>
