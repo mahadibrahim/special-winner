@@ -64,7 +64,7 @@ export function TelegramConnectBanner({
       // PostHog: parent clicked through to connect Telegram. Pair with the
       // server-side /api/telegram/webhook event that fires when they actually
       // bind to track real adoption rate.
-      ;(window as unknown as { posthog?: { capture: (e: string, p?: Record<string, unknown>) => void } }).posthog?.capture(
+      ;(window as unknown as { posthog?: { capture?: (e: string, p?: Record<string, unknown>) => void } }).posthog?.capture?.(
         "telegram_link_clicked",
         { source: "dashboard_banner" },
       )

@@ -33,12 +33,12 @@ export function SignInForm() {
 
       if (!response.ok) {
         setError(data.error || "Failed to sign in");
-        (window as any).posthog?.capture("sign_in_failed", { reason: data.error });
+        (window as any).posthog?.capture?.("sign_in_failed", { reason: data.error });
         return;
       }
 
       // Identify the user client-side for session continuity
-      (window as any).posthog?.identify(data.user?.id, {
+      (window as any).posthog?.identify?.(data.user?.id, {
         email: data.user?.email,
         firstName: data.user?.firstName,
         lastName: data.user?.lastName,
@@ -65,7 +65,7 @@ export function SignInForm() {
       }
     } catch (err) {
       setError("An unexpected error occurred");
-      (window as any).posthog?.captureException(err);
+      (window as any).posthog?.captureException?.(err);
     } finally {
       setIsLoading(false);
     }
