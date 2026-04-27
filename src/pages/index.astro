@@ -3,7 +3,7 @@ export const prerender = true;
 import '../styles/globals.css';
 import Navigation from '../components/navigation';
 import PostHog from '../components/posthog.astro';
-import HeroSection from '../components/hero-section';
+import { DualCtaHero } from '../components/marketing/dual-cta-hero';
 import WhyAspire from '../components/why-aspire';
 import StatsSection from '../components/stats-section';
 import PartnersSection from '../components/partners-section';
@@ -38,7 +38,7 @@ import Footer from '../components/footer';
   <body class="bg-cream text-ink antialiased">
     <Navigation client:load />
     <main id="main-content">
-      <HeroSection client:load />
+      <DualCtaHero client:load />
       <WhyAspire client:visible />
       <StatsSection client:visible />
       <PartnersSection client:visible />
