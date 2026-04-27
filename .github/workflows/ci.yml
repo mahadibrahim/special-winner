@@ -134,6 +134,12 @@ jobs:
           # Literal CI-only value so cron endpoints enforce auth and the
           # 401-rejection tests can assert it. Not a real secret.
           CRON_SECRET: ci-cron-test-secret
+          # Disable the new auth/OTP rate limiter for test runs. The shared
+          # IP between dozens of sign-ins per suite trips the limiter and
+          # cascades into waitForURL timeouts across the dashboard suites
+          # (signin POST returns 429, the form stays on /signin). Same fix
+          # that landed for test-api in feec5da.
+          DISABLE_RATE_LIMIT: "1"
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
