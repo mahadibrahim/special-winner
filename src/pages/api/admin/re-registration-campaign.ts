@@ -115,6 +115,12 @@ export const POST: APIRoute = async (context) => {
       ),
     );
 
+  // The innerJoin on users guarantees parent_user_id is non-null, but Drizzle's
+  // types don't model that. Narrow explicitly so the loop doesn't need !.
+  const validCandidates = candidates.filter(
+    (c): c is typeof c & { parentUserId: string } => c.parentUserId !== null,
+  );
+
   const dryRunList: Array<{
     parentName: string | null;
     parentEmail: string;
@@ -124,7 +130,7 @@ export const POST: APIRoute = async (context) => {
   let contacted = 0;
   let skipped = 0;
 
-  for (const candidate of candidates) {
+  for (const candidate of validCandidates) {
     if (parsed.data.dryRun) {
       dryRunList.push({
         parentName: candidate.parentFirstName,
@@ -137,8 +143,7 @@ export const POST: APIRoute = async (context) => {
     try {
       // Create a magic link scoped to this parent and the new season
       const { token } = await createMagicLink({
-        // parentUserId is non-null: the innerJoin above guarantees a matched users row
-        userId: candidate.parentUserId!,
+        userId: candidate.parentUserId,
         organizationId: newLocation.organizationId,
         purpose: "register_for_season",
         purposeContext: {
@@ -153,8 +158,7 @@ export const POST: APIRoute = async (context) => {
       const body = `${newProgram.name} registration is open! ${candidate.kidFirstName} can re-register in ~30 seconds — we'll pre-fill everything we know.\n\n${magicUrl}\n\nExpires in 72 hours.`;
 
       const sendResult = await sendToParent({
-        // parentUserId is non-null: the innerJoin above guarantees a matched users row
-        parentUserId: candidate.parentUserId!,
+        parentUserId: candidate.parentUserId,
         organizationId: newLocation.organizationId,
         body,
         conversationId: undefined,
