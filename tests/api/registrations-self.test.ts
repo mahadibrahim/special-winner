@@ -5,6 +5,13 @@ import { seasons } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { ADULT_OPEN_SEASON_SLUG } from "@/lib/db/seeds/seed-e2e-tests";
 
+// CI doesn't carry STRIPE_SECRET_KEY by default; the guest-checkout endpoint
+// then 503s on the Stripe-session step. Mirror the gate from
+// registrations-guest-checkout.test.ts so the Stripe-dependent case skips
+// cleanly in CI but runs locally where Stripe is configured.
+const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+const itWithStripe = stripeConfigured ? it : it.skip;
+
 let adultSeasonId: string;
 let adultCookie: string;
 
@@ -32,7 +39,7 @@ beforeAll(async () => {
 });
 
 describe("POST /api/registrations/guest-checkout — adult self path", () => {
-  it("creates user + self person + registration when registrant is an adult", async () => {
+  itWithStripe("creates user + self person + registration when registrant is an adult", async () => {
     const email = `adult-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
 
     const res = await apiFetch("/api/registrations/guest-checkout", {
