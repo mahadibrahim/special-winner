@@ -82,14 +82,13 @@ async function seedProgramsCatalog() {
       const [created] = await db
         .insert(programs)
         .values({
-          organizationId: org.id,
           locationId: location.id,
           sportId: sport.id,
           name: def.name,
           slug: def.slug,
           description: `${def.name} at ${location.name}`,
           programType: def.type,
-          status: "active",
+          active: true,
         })
         .returning();
       programIds[def.slug] = created.id;
