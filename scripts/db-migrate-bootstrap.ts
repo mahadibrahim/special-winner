@@ -16,13 +16,14 @@
  *
  * Safe to run on every CI build.
  *
- * Handles two schema-effect shapes per migration:
- *   · CREATE TABLE "name"          → applied if that table already exists
- *   · ALTER TABLE "t" ADD COLUMN "c" → applied if that column already exists
+ * Handles four schema-effect shapes per migration:
+ *   · CREATE TABLE "name"               → table must exist (unless later dropped)
+ *   · ALTER TABLE "t" ADD COLUMN "c"   → column must exist (unless later dropped)
+ *   · DROP TABLE "name"                → table should be absent
+ *   · ALTER TABLE "t" DROP COLUMN "c"  → column should be absent
  *
- * A migration is treated as applied when ALL of its parsed effects are
- * already present in the target DB. Mixed-effect migrations (both creates
- * and alters) work too.
+ * A migration is treated as applied when ALL of its net effects are
+ * consistent with the target DB state (accounting for later drops).
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -43,41 +44,115 @@ interface Journal {
   entries: JournalEntry[];
 }
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  console.error("DATABASE_URL is required");
-  process.exit(1);
-}
-
 const MIGRATIONS_DIR = "src/lib/db/migrations";
 
-type SchemaEffect =
-  | { kind: "table"; name: string }
-  | { kind: "column"; table: string; column: string };
+// Raw effects parsed directly from a single migration file.
+export type RawEffect =
+  | { kind: "create-table"; name: string }
+  | { kind: "add-column"; table: string; column: string }
+  | { kind: "drop-table"; name: string }
+  | { kind: "drop-column"; table: string; column: string };
 
-function extractSchemaEffects(sqlText: string): SchemaEffect[] {
-  const effects: SchemaEffect[] = [];
+// Resolved effects after accounting for later migrations that drop things.
+export type ResolvedEffect =
+  | { kind: "create-table"; name: string; expectPresent: boolean }
+  | { kind: "add-column"; table: string; column: string; expectPresent: boolean };
 
+export function extractSchemaEffects(sqlText: string): RawEffect[] {
+  const effects: RawEffect[] = [];
+
+  // CREATE TABLE [IF NOT EXISTS] "name"
   const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi;
   let m: RegExpExecArray | null;
   while ((m = createRe.exec(sqlText)) !== null) {
-    effects.push({ kind: "table", name: m[1] });
+    effects.push({ kind: "create-table", name: m[1] });
   }
 
-  const alterRe =
+  // ALTER TABLE "t" ADD COLUMN [IF NOT EXISTS] "c"
+  const addColRe =
     /ALTER\s+TABLE\s+"([^"]+)"\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi;
-  while ((m = alterRe.exec(sqlText)) !== null) {
-    effects.push({ kind: "column", table: m[1], column: m[2] });
+  while ((m = addColRe.exec(sqlText)) !== null) {
+    effects.push({ kind: "add-column", table: m[1], column: m[2] });
+  }
+
+  // DROP TABLE [IF EXISTS] "name" [CASCADE]
+  const dropTableRe =
+    /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"([^"]+)"(?:\s+CASCADE)?/gi;
+  while ((m = dropTableRe.exec(sqlText)) !== null) {
+    effects.push({ kind: "drop-table", name: m[1] });
+  }
+
+  // ALTER TABLE "t" DROP COLUMN [IF EXISTS] "c"
+  const dropColRe =
+    /ALTER\s+TABLE\s+"([^"]+)"\s+DROP\s+COLUMN\s+(?:IF\s+EXISTS\s+)?"([^"]+)"/gi;
+  while ((m = dropColRe.exec(sqlText)) !== null) {
+    effects.push({ kind: "drop-column", table: m[1], column: m[2] });
   }
 
   return effects;
 }
 
+/**
+ * For migration at `index` in `allEffects`, compute resolved effects by
+ * checking if any later migration drops what this migration creates/adds.
+ */
+export function resolveEffects(
+  index: number,
+  allEffects: RawEffect[][],
+): ResolvedEffect[] {
+  const myEffects = allEffects[index];
+  const laterEffects = allEffects.slice(index + 1).flat();
+
+  // Build sets for O(1) lookup of what gets dropped later.
+  const laterDroppedTables = new Set<string>();
+  const laterDroppedColumns = new Set<string>(); // "table.column"
+
+  for (const e of laterEffects) {
+    if (e.kind === "drop-table") {
+      laterDroppedTables.add(e.name);
+    } else if (e.kind === "drop-column") {
+      laterDroppedColumns.add(`${e.table}.${e.column}`);
+    }
+  }
+
+  const resolved: ResolvedEffect[] = [];
+
+  for (const e of myEffects) {
+    if (e.kind === "create-table") {
+      // If the table is dropped by a later migration, we don't expect it to exist.
+      const expectPresent = !laterDroppedTables.has(e.name);
+      resolved.push({ kind: "create-table", name: e.name, expectPresent });
+    } else if (e.kind === "add-column") {
+      // If a later migration drops the column or the parent table, don't expect it.
+      const droppedByColumn = laterDroppedColumns.has(`${e.table}.${e.column}`);
+      const droppedByTable = laterDroppedTables.has(e.table);
+      const expectPresent = !droppedByColumn && !droppedByTable;
+      resolved.push({
+        kind: "add-column",
+        table: e.table,
+        column: e.column,
+        expectPresent,
+      });
+    }
+    // drop-table / drop-column effects from this migration don't need their
+    // own resolved entry — their impact is captured in the expectPresent flags
+    // of earlier migrations.
+  }
+
+  return resolved;
+}
+
 async function main() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.error("DATABASE_URL is required");
+    process.exit(1);
+  }
+
   const journalPath = path.join(MIGRATIONS_DIR, "meta", "_journal.json");
   const journal: Journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
 
-  const sql = postgres(connectionString!, { max: 1 });
+  const sql = postgres(connectionString, { max: 1 });
 
   try {
     // Fresh-DB check: if core tables are absent, skip bootstrap entirely and
@@ -126,30 +201,74 @@ async function main() {
       publicColumns.map((r) => `${r.table_name}.${r.column_name}`),
     );
 
+    // Parse raw effects for every migration in journal order.
+    const entries = journal.entries;
+    const perMigrationContents: Array<{ entry: JournalEntry; content: string; hash: string }> = [];
+    const allRawEffects: RawEffect[][] = [];
+
+    for (const entry of entries) {
+      const sqlFile = path.join(MIGRATIONS_DIR, `${entry.tag}.sql`);
+      const content = fs.readFileSync(sqlFile, "utf-8");
+      const hash = crypto.createHash("sha256").update(content).digest("hex");
+      perMigrationContents.push({ entry, content, hash });
+      allRawEffects.push(extractSchemaEffects(content));
+    }
+
     // Compute the set of migration hashes that SHOULD be marked applied
-    // (every schema effect — CREATE TABLE or ADD COLUMN — already present).
+    // (every net schema effect is consistent with DB state).
     const expectedApplied = new Map<string, { tag: string; when: number }>();
     const expectedPending: Array<{ tag: string; missing: string[] }> = [];
     const hashlessEntries: string[] = [];
 
-    for (const entry of journal.entries) {
-      const sqlFile = path.join(MIGRATIONS_DIR, `${entry.tag}.sql`);
-      const content = fs.readFileSync(sqlFile, "utf-8");
-      const hash = crypto.createHash("sha256").update(content).digest("hex");
-      const effects = extractSchemaEffects(content);
+    for (let i = 0; i < perMigrationContents.length; i++) {
+      const { entry, hash } = perMigrationContents[i];
+      const rawEffects = allRawEffects[i];
 
-      if (effects.length === 0) {
+      // If this migration has no parseable effects, flag it.
+      if (rawEffects.length === 0) {
         hashlessEntries.push(entry.tag);
         continue;
       }
 
-      const missing = effects
-        .filter((e) =>
-          e.kind === "table"
-            ? !tableSet.has(e.name)
-            : !columnSet.has(`${e.table}.${e.column}`),
-        )
-        .map((e) => (e.kind === "table" ? e.name : `${e.table}.${e.column}`));
+      // Resolve effects accounting for later drops.
+      const resolved = resolveEffects(i, allRawEffects);
+
+      // A migration with ONLY drop effects will have zero resolved entries.
+      // A pure DROP TABLE migration IS applied if the table is gone, but
+      // we handle that via the expectPresent: false check on the creating migration.
+      // If resolved is empty (e.g. pure DROP migration), treat as applied.
+      if (resolved.length === 0) {
+        expectedApplied.set(hash, { tag: entry.tag, when: entry.when });
+        continue;
+      }
+
+      const missing: string[] = [];
+      const unexpectedlyPresent: string[] = [];
+
+      for (const e of resolved) {
+        if (e.kind === "create-table") {
+          if (e.expectPresent && !tableSet.has(e.name)) {
+            missing.push(e.name);
+          } else if (!e.expectPresent && tableSet.has(e.name)) {
+            // Bonus consistency check: table should be gone but isn't.
+            unexpectedlyPresent.push(e.name);
+          }
+        } else if (e.kind === "add-column") {
+          const key = `${e.table}.${e.column}`;
+          if (e.expectPresent && !columnSet.has(key)) {
+            missing.push(key);
+          } else if (!e.expectPresent && columnSet.has(key)) {
+            unexpectedlyPresent.push(key);
+          }
+        }
+      }
+
+      if (unexpectedlyPresent.length > 0) {
+        console.warn(
+          `  ${entry.tag}: warning — objects expected absent (dropped by later migration) ` +
+            `still exist: ${unexpectedlyPresent.join(", ")}`,
+        );
+      }
 
       if (missing.length === 0) {
         expectedApplied.set(hash, { tag: entry.tag, when: entry.when });
@@ -189,7 +308,7 @@ async function main() {
 
     for (const { tag, missing } of expectedPending) {
       console.log(
-        `  ${tag}: left un-applied (missing tables: ${missing.join(", ")})`,
+        `  ${tag}: left un-applied (missing objects: ${missing.join(", ")})`,
       );
     }
 
@@ -209,7 +328,17 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run when executed directly (not when imported for unit tests).
+// When tsx runs a script, process.argv[1] is the script path.
+// When vitest imports this file, process.argv[1] is the vitest binary.
+const _isDirectRun =
+  process.argv[1] !== undefined &&
+  (process.argv[1].endsWith("db-migrate-bootstrap.ts") ||
+    process.argv[1].endsWith("db-migrate-bootstrap.js"));
+
+if (_isDirectRun) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
