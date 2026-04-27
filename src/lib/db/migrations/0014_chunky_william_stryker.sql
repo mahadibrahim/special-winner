@@ -1,0 +1,1 @@
+ALTER TABLE "registrations" ADD COLUMN "looking_for_team" boolean DEFAULT false NOT NULL;

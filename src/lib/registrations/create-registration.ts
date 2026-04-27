@@ -22,6 +22,7 @@ export interface CreateRegistrationInput {
   // The helper does not infer this — it just records what's passed in.
   waiverSignedBy: string;
   notes?: string;
+  lookingForTeam?: boolean;
 }
 
 export type CreateRegistrationResult = {
@@ -72,11 +73,21 @@ export async function createRegistration(
     const isPendingUnpaid =
       existingReg.status === "pending" && existingReg.paymentStatus === "unpaid";
     if (isPendingUnpaid) {
+      // If the caller is now flagging themselves as looking for a team, persist it.
+      let resumedReg = existingReg;
+      if (input.lookingForTeam && !existingReg.lookingForTeam) {
+        const [updated] = await db
+          .update(registrations)
+          .set({ lookingForTeam: true, updatedAt: new Date() })
+          .where(eq(registrations.id, existingReg.id))
+          .returning();
+        resumedReg = updated;
+      }
       return {
         kind: "resumed",
-        registration: existingReg,
-        requiresPayment: existingReg.amountDueCents > 0,
-        amountDueCents: existingReg.amountDueCents,
+        registration: resumedReg,
+        requiresPayment: resumedReg.amountDueCents > 0,
+        amountDueCents: resumedReg.amountDueCents,
       };
     }
     throw new RegistrationError(
@@ -116,6 +127,7 @@ export async function createRegistration(
           waiverSignedAt: input.waiverSigned ? new Date() : null,
           waiverSignedBy: input.waiverSignedBy,
           notes: input.notes ?? null,
+          lookingForTeam: input.lookingForTeam ?? false,
         })
         .returning();
 
@@ -192,6 +204,7 @@ export async function createRegistration(
       waiverSignedAt: input.waiverSigned ? new Date() : null,
       waiverSignedBy: input.waiverSignedBy,
       notes: input.notes ?? null,
+      lookingForTeam: input.lookingForTeam ?? false,
     })
     .returning();
 

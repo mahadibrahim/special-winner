@@ -50,6 +50,7 @@ const guestCheckoutSchema = z.union([
     waiverSigned: z.boolean(),
     waiverSignedBy: z.string().min(1),
     discountCode: z.string().optional(),
+    lookingForTeam: z.boolean().optional(),
   }),
   // New adult self shape
   z.object({
@@ -59,6 +60,7 @@ const guestCheckoutSchema = z.union([
     waiverSigned: z.boolean(),
     waiverSignedBy: z.string().min(1),
     discountCode: z.string().optional(),
+    lookingForTeam: z.boolean().optional(),
   }),
 ]);
 
@@ -157,6 +159,7 @@ export const POST: APIRoute = async (context) => {
       discountCode?: string;
       wasNewUser: boolean;
       distinctIdForPosthog: string;
+      lookingForTeam?: boolean;
     }) {
       const {
         userRow,
@@ -168,6 +171,7 @@ export const POST: APIRoute = async (context) => {
         discountCode,
         wasNewUser,
         distinctIdForPosthog,
+        lookingForTeam,
       } = opts;
 
       // Step 3: create the registration via shared helper
@@ -185,6 +189,7 @@ export const POST: APIRoute = async (context) => {
           registrationType,
           waiverSigned,
           waiverSignedBy,
+          lookingForTeam: lookingForTeam ?? false,
         });
       } catch (err) {
         if (err instanceof RegistrationError) {
@@ -296,6 +301,7 @@ export const POST: APIRoute = async (context) => {
         discountCode: data.discountCode,
         wasNewUser,
         distinctIdForPosthog: userRow.email,
+        lookingForTeam: data.lookingForTeam ?? false,
       });
     }
 

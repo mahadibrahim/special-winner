@@ -16,6 +16,7 @@ const createRegistrationSchema = z
     waiverSigned: z.boolean(),
     waiverSignedBy: z.string().min(1, "Waiver signature required"),
     notes: z.string().optional(),
+    lookingForTeam: z.boolean().optional(),
   })
   .refine(
     (v) => Boolean(v.familyMemberId) !== Boolean(v.registerSelf),
@@ -187,6 +188,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         waiverSigned: data.waiverSigned,
         waiverSignedBy: data.waiverSignedBy,
         notes: data.notes,
+        lookingForTeam: data.registerSelf ? (data.lookingForTeam ?? false) : false,
       });
 
       const posthog = getPostHogServer();

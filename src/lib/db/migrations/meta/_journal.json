@@ -99,6 +99,13 @@
       "when": 1777295064172,
       "tag": "0013_white_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1777299844358,
+      "tag": "0014_chunky_william_stryker",
+      "breakpoints": true
     }
   ]
 }

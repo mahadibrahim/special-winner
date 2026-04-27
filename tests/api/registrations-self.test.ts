@@ -112,6 +112,29 @@ describe("POST /api/registrations — self registration", () => {
   });
 });
 
+describe("POST /api/registrations — lookingForTeam flag", () => {
+  it("persists lookingForTeam flag for adult self registration", async () => {
+    const res = await apiFetch("/api/registrations", {
+      method: "POST",
+      cookie: adultCookie,
+      body: JSON.stringify({
+        seasonId: adultSeasonId,
+        registerSelf: true,
+        lookingForTeam: true,
+        registrationType: "full",
+        waiverSigned: true,
+        waiverSignedBy: "Adult Self",
+      }),
+    });
+
+    // 201 Created or 200 if already exists for this user (resumed)
+    expect(res.status).toBeLessThan(300);
+    const body = await res.json();
+    expect(body.registration).toBeTruthy();
+    expect(body.registration.lookingForTeam).toBe(true);
+  });
+});
+
 describe("POST /api/admin/walk-up-registration — adult mode", () => {
   it("admin walk-up creates an adult self registration", async () => {
     const adminCookie = await getAdminCookie();

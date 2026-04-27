@@ -131,6 +131,8 @@ export const registrations = pgTable(
     waitlistPosition: integer("waitlist_position"),
     waitlistPromotedAt: timestamp("waitlist_promoted_at"),
     waitlistExpiresAt: timestamp("waitlist_expires_at"),
+    // Free-agent flag: adult self-registrants who want placement on a team
+    lookingForTeam: boolean("looking_for_team").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

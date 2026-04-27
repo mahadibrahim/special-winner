@@ -160,6 +160,9 @@ export default function RegistrationWizard({
   const [newMemberGender, setNewMemberGender] = useState("")
   const [isAddingMember, setIsAddingMember] = useState(false)
 
+  // Free-agent flag: shown only for adult self-registrants
+  const [lookingForTeam, setLookingForTeam] = useState(false)
+
   // Cancel-resume state
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
@@ -432,6 +435,7 @@ export default function RegistrationWizard({
             waiverSigned: true,
             waiverSignedBy: waiverSignature,
             discountCode: discountCode || undefined,
+            lookingForTeam,
           }
         : {
             seasonId,
@@ -1049,6 +1053,20 @@ export default function RegistrationWizard({
                   By typing your name above, you agree that this constitutes a legal signature.
                 </p>
               </div>
+
+              {selectedKey === "self" && (
+                <div className="mt-4 flex items-start gap-2">
+                  <Checkbox
+                    id="looking-for-team"
+                    checked={lookingForTeam}
+                    onCheckedChange={(v) => setLookingForTeam(v === true)}
+                    className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <Label htmlFor="looking-for-team" className="text-sm leading-tight text-ink-2 cursor-pointer">
+                    I'm not registering with a team — please place me with one.
+                  </Label>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -81,6 +81,7 @@ const walkUpSchema = z.union([
     waiverSigned: z.boolean(),
     waiverSignedBy: z.string().min(1),
     notes: z.string().optional(),
+    lookingForTeam: z.boolean().optional(),
   }),
 ]);
 
@@ -214,6 +215,7 @@ export const POST: APIRoute = async (context) => {
         waiverSignedAt: input.waiverSigned ? new Date() : null,
         waiverSignedBy: input.waiverSigned ? input.waiverSignedBy : null,
         notes: input.notes ?? null,
+        lookingForTeam: input.lookingForTeam ?? false,
       })
       .returning({ id: registrations.id });
 
