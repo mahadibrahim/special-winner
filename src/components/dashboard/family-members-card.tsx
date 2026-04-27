@@ -54,6 +54,8 @@ export default function FamilyMembersCard() {
   const [medicalNotes, setMedicalNotes] = useState("")
   const [emergencyContactName, setEmergencyContactName] = useState("")
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("")
+  const [parentalConsent, setParentalConsent] = useState(false)
+  const [photoConsent, setPhotoConsent] = useState(false)
 
   useEffect(() => {
     fetchMembers()
@@ -81,6 +83,7 @@ export default function FamilyMembersCard() {
     setMedicalNotes("")
     setEmergencyContactName("")
     setEmergencyContactPhone("")
+    setParentalConsent(false)
     setEditingMember(null)
   }
 
@@ -106,7 +109,7 @@ export default function FamilyMembersCard() {
     setIsSubmitting(true)
 
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         firstName,
         lastName,
         birthDate,
@@ -114,6 +117,9 @@ export default function FamilyMembersCard() {
         medicalNotes: medicalNotes || undefined,
         emergencyContactName: emergencyContactName || undefined,
         emergencyContactPhone: emergencyContactPhone || undefined,
+      }
+      if (!editingMember) {
+        payload.parentalConsent = parentalConsent
       }
 
       const url = editingMember
@@ -145,21 +151,28 @@ export default function FamilyMembersCard() {
   const handleDelete = async (id: string) => {
     const member = members.find((m) => m.id === id)
     const ok = await confirm({
-      title: "Remove family member?",
-      description: member
-        ? <>Remove <strong>{member.firstName} {member.lastName}</strong> from your family? This cannot be undone.</>
-        : "Are you sure you want to remove this family member?",
-      confirmLabel: "Remove",
+      title: "Delete this child's record?",
+      description: member ? (
+        <>
+          Permanently delete <strong>{member.firstName} {member.lastName}</strong> and all associated data — registrations, photos, roster entries, and assessments. This cannot be undone.
+        </>
+      ) : (
+        "Permanently delete this child's record and all associated data? This cannot be undone."
+      ),
+      confirmLabel: "Delete record",
       destructive: true,
     })
     if (!ok) return
 
     try {
       const response = await fetch(`/api/family-members/${id}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("Failed to delete")
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to delete")
+      }
       await fetchMembers()
-    } catch {
-      setError("Failed to delete family member")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete family member")
     }
   }
 
@@ -179,6 +192,7 @@ export default function FamilyMembersCard() {
     setPhotoUploadMember(member)
     setSelectedFile(null)
     setPreviewUrl(member.photoUrl)
+    setPhotoConsent(false)
     setIsPhotoDialogOpen(true)
   }
 
@@ -239,11 +253,14 @@ export default function FamilyMembersCard() {
 
       const uploadData = await uploadResponse.json()
 
-      // Save the URL to our database
+      // Save the URL to our database, with explicit consent.
       const saveResponse = await fetch(`/api/family-members/${photoUploadMember.id}/photo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoUrl: uploadData.secure_url }),
+        body: JSON.stringify({
+          photoUrl: uploadData.secure_url,
+          photoConsent: true,
+        }),
       })
 
       if (!saveResponse.ok) {
@@ -408,6 +425,27 @@ export default function FamilyMembersCard() {
                       />
                     </div>
                   </div>
+                  {!editingMember && (
+                    <div className="space-y-2 rounded-lg border border-border bg-cream-2/60 p-3">
+                      <label className="flex items-start gap-3 text-sm text-ink-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={parentalConsent}
+                          onChange={(e) => setParentalConsent(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-border accent-primary"
+                          aria-describedby="parental-consent-help"
+                          required
+                        />
+                        <span>
+                          I am the parent or legal guardian of <strong>{firstName || "this child"}{lastName ? ` ${lastName}` : ""}</strong> and I consent to Aspire Sports collecting and storing the information above for the purpose of sports program registration, safety, and communication.
+                        </span>
+                      </label>
+                      <p id="parental-consent-help" className="text-xs text-ink-faint pl-7">
+                        Required by federal law (COPPA) for participants under 13. See our{" "}
+                        <a href="/privacy" target="_blank" rel="noopener" className="text-primary underline underline-offset-2">privacy policy</a>{" "}for what we collect and how to delete it.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
@@ -418,7 +456,11 @@ export default function FamilyMembersCard() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || (!editingMember && !parentalConsent)}
+                    className="bg-primary hover:bg-primary/90"
+                  >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -574,16 +616,38 @@ export default function FamilyMembersCard() {
             />
 
             {/* Upload area */}
-            <div
+            <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="p-6 border-2 border-dashed border-border rounded-xl hover:border-primary/50 transition-colors cursor-pointer text-center group"
+              className="w-full p-6 border-2 border-dashed border-border rounded-xl hover:border-primary/50 transition-colors text-center group"
             >
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
                 <Upload className="w-6 h-6 text-primary" />
               </div>
               <p className="text-ink-2 font-medium mb-1">Click to upload photo</p>
               <p className="text-sm text-ink-muted">JPG, PNG, or WebP • Max 5MB</p>
-            </div>
+            </button>
+
+            {selectedFile && (
+              <div className="mt-4 space-y-2 rounded-lg border border-border bg-cream-2/60 p-3">
+                <label className="flex items-start gap-3 text-sm text-ink-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={photoConsent}
+                    onChange={(e) => setPhotoConsent(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-border accent-primary"
+                    aria-describedby="photo-consent-help"
+                    required
+                  />
+                  <span>
+                    I have the right to share this photo of <strong>{photoUploadMember?.firstName}</strong> and I consent to it being displayed in rosters and shared with coaches and staff.
+                  </span>
+                </label>
+                <p id="photo-consent-help" className="text-xs text-ink-faint pl-7">
+                  You can remove the photo at any time, which clears this consent.
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
@@ -617,7 +681,7 @@ export default function FamilyMembersCard() {
               <Button
                 type="button"
                 onClick={handlePhotoUpload}
-                disabled={isUploadingPhoto}
+                disabled={isUploadingPhoto || !photoConsent}
                 className="bg-primary hover:bg-primary/90"
               >
                 {isUploadingPhoto ? (

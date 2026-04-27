@@ -98,7 +98,7 @@ else if (hour >= 17) greeting = "Good evening";
   <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
-    <main class="flex-1 pt-24 pb-16 px-4 dashboard-bg">
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 dashboard-bg">
       <div class="max-w-7xl mx-auto">
         <!-- Payment Success Banner -->
         {showPaymentSuccessBanner && (

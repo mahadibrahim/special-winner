@@ -58,6 +58,22 @@ export const familyMembers = pgTable(
     emergencyContactName: varchar("emergency_contact_name", { length: 200 }),
     emergencyContactPhone: varchar("emergency_contact_phone", { length: 20 }),
     photoUrl: text("photo_url"),
+    // COPPA: verifiable parental consent audit trail. Required because a
+    // parent's account-level ToS click does not, on its own, constitute the
+    // separate affirmative consent COPPA requires for each child whose
+    // PII we collect.
+    parentalConsentGivenAt: timestamp("parental_consent_given_at"),
+    parentalConsentGivenBy: uuid("parental_consent_given_by").references(
+      () => users.id,
+    ),
+    parentalConsentIp: varchar("parental_consent_ip", { length: 64 }),
+    // Photo consent is captured separately at upload time. Replaced if a
+    // new photo is uploaded.
+    photoConsentGivenAt: timestamp("photo_consent_given_at"),
+    photoConsentGivenBy: uuid("photo_consent_given_by").references(
+      () => users.id,
+    ),
+    photoConsentIp: varchar("photo_consent_ip", { length: 64 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

@@ -70,6 +70,14 @@ export default function Navigation() {
   ]
 
   return (
+    <>
+      {/* Skip link — visible only on focus, jumps past nav to main content. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-3 focus:py-2 focus:rounded-md focus:bg-primary focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        Skip to main content
+      </a>
     <nav
       className={`fixed top-0 left-0 right-0 z-50 bg-cream/95 backdrop-blur-md transition-all duration-500 ${
         isScrolled
@@ -278,5 +286,6 @@ export default function Navigation() {
         </div>
       </div>
     </nav>
+    </>
   )
 }

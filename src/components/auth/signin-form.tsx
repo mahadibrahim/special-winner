@@ -74,7 +74,11 @@ export function SignInForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-xl flex items-center gap-2">
+        <div
+          id="signin-error"
+          role="alert"
+          className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-xl flex items-center gap-2"
+        >
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
@@ -90,6 +94,8 @@ export function SignInForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           disabled={isLoading}
+          aria-invalid={!!error}
+          aria-describedby={error ? "signin-error" : undefined}
           className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
         />
       </div>
@@ -109,6 +115,8 @@ export function SignInForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           disabled={isLoading}
+          aria-invalid={!!error}
+          aria-describedby={error ? "signin-error" : undefined}
           className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
         />
       </div>

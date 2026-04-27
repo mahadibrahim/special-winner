@@ -24,7 +24,12 @@
         dom_event_allowlist: ['click', 'submit', 'change'],
         element_allowlist: ['a', 'button', 'input', 'select', 'textarea'],
       },
-      // Session replay with masked-by-default PII.
+      // Session replay — mask EVERYTHING by default (COPPA: kids' names, DOBs,
+      // photos, medical notes routinely appear on parent dashboard, rosters,
+      // tagger, and admin pages). Replays still capture clicks, scrolls, and
+      // mouse motion — useful for UX debugging without exposing child PII.
+      // Opt back in per-element with `data-ph-no-mask` (rare; never on text
+      // that could contain a child's name, DOB, photo, or medical info).
       session_recording: {
         maskAllInputs: true,
         maskInputOptions: {
@@ -33,13 +38,12 @@
           tel: true,
           number: true,
         },
+        maskTextSelector: '*',
         // CSS selectors below are blocked from recording entirely. Add
         // `data-ph-no-capture` to any element that should never appear in
         // replays.
         blockClass: 'ph-no-capture',
-        blockSelector: '[data-ph-no-capture], iframe[src*="stripe.com"], .stripe-element',
-        maskTextClass: 'ph-mask',
-        maskTextSelector: '[data-ph-mask]',
+        blockSelector: '[data-ph-no-capture], iframe[src*="stripe.com"], .stripe-element, img[src*="cloudinary"], img[src*="mock-r2"]',
       },
       // Error tracking: capture unhandled errors + promise rejections.
       capture_exceptions: true,

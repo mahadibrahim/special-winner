@@ -7,10 +7,18 @@ import { deleteImage, extractPublicId, isStorageConfigured } from "@/lib/storage
 
 const updatePhotoSchema = z.object({
   photoUrl: z.string().url("Invalid photo URL"),
+  // COPPA: explicit consent at upload time. Distinct from the parental
+  // consent captured when the family member was created — uploading a
+  // child's likeness is a separate decision (visible to coaches/staff/
+  // potentially rostermates) and warrants a separate affirmation.
+  photoConsent: z.boolean().refine((v) => v === true, {
+    message:
+      "Photo consent is required. Please confirm you have the right to share this photo.",
+  }),
 });
 
 // POST - Save photo URL after Cloudinary upload
-export const POST: APIRoute = async ({ params, request, locals }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   try {
     const user = locals.user;
     if (!user) {
@@ -72,11 +80,14 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       }
     }
 
-    // Update family member with new photo URL
+    // Update family member with new photo URL + consent audit trail.
     const [updated] = await getDb()
       .update(familyMembers)
       .set({
         photoUrl,
+        photoConsentGivenAt: new Date(),
+        photoConsentGivenBy: user.id,
+        photoConsentIp: clientAddress ?? null,
         updatedAt: new Date(),
       })
       .where(eq(familyMembers.id, id))
@@ -137,11 +148,15 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       }
     }
 
-    // Update family member to remove photo URL
+    // Update family member to remove photo URL + clear consent audit trail
+    // (a future re-upload will require fresh consent).
     const [updated] = await getDb()
       .update(familyMembers)
       .set({
         photoUrl: null,
+        photoConsentGivenAt: null,
+        photoConsentGivenBy: null,
+        photoConsentIp: null,
         updatedAt: new Date(),
       })
       .where(eq(familyMembers.id, id))

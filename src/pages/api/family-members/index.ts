@@ -13,6 +13,12 @@ const createFamilyMemberSchema = z.object({
   medicalNotes: z.string().optional(),
   emergencyContactName: z.string().max(200).optional(),
   emergencyContactPhone: z.string().max(20).optional(),
+  // COPPA: separate, affirmative parental consent for THIS child. Account-
+  // level ToS does not satisfy verifiable parental consent.
+  parentalConsent: z.boolean().refine((v) => v === true, {
+    message:
+      "Parental consent is required to add a child. Please confirm you are the parent or legal guardian.",
+  }),
 });
 
 // GET - List family members for current user
@@ -48,7 +54,7 @@ export const GET: APIRoute = async ({ locals }) => {
 };
 
 // POST - Create new family member
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
   try {
     const user = locals.user;
     if (!user) {
@@ -89,6 +95,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         medicalNotes: data.medicalNotes || null,
         emergencyContactName: data.emergencyContactName || null,
         emergencyContactPhone: data.emergencyContactPhone || null,
+        parentalConsentGivenAt: new Date(),
+        parentalConsentGivenBy: user.id,
+        parentalConsentIp: clientAddress ?? null,
       })
       .returning();
 

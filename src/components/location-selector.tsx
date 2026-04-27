@@ -66,15 +66,22 @@ export default function LocationSelector({
     setIsLoaded(true)
   }, [])
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click or Escape (keyboard a11y).
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false)
       }
     }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false)
+    }
     document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
   }, [])
 
   const handleSelect = (id: string) => {
@@ -110,7 +117,11 @@ export default function LocationSelector({
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={`Selected location: ${selectedLocation.name}. Click to change.`}
         className={`
           group flex items-center gap-2 px-3 py-2 rounded-lg
           bg-cream-2 hover:bg-cream-3 border border-border hover:border-primary/30

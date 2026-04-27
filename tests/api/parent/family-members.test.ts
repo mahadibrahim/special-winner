@@ -35,6 +35,7 @@ describe("Parent Family Members CRUD API", () => {
           lastName: "ApiTest",
           birthDate: "2018-06-15",
           gender: "male",
+          parentalConsent: true,
         }),
       });
 
@@ -45,6 +46,9 @@ describe("Parent Family Members CRUD API", () => {
       expect(json.familyMember.birthDate).toBe("2018-06-15");
       expect(json.familyMember.gender).toBe("male");
       expect(json.familyMember.id).toBeDefined();
+      // COPPA: consent timestamp + actor must be recorded.
+      expect(json.familyMember.parentalConsentGivenAt).toBeTruthy();
+      expect(json.familyMember.parentalConsentGivenBy).toBeTruthy();
 
       createdMemberId = json.familyMember.id;
     });
@@ -55,11 +59,42 @@ describe("Parent Family Members CRUD API", () => {
         cookie: parentCookie,
         body: JSON.stringify({
           firstName: "OnlyFirst",
+          parentalConsent: true,
           // missing lastName and birthDate
         }),
       });
 
       expect(res.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it("rejects creation without parental consent (400)", async () => {
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: parentCookie,
+        body: JSON.stringify({
+          firstName: "NoConsent",
+          lastName: "Child",
+          birthDate: "2018-06-15",
+          // parentalConsent omitted — must be rejected
+        }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects creation with parentalConsent=false (400)", async () => {
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        cookie: parentCookie,
+        body: JSON.stringify({
+          firstName: "ConsentFalse",
+          lastName: "Child",
+          birthDate: "2018-06-15",
+          parentalConsent: false,
+        }),
+      });
+
+      expect(res.status).toBe(400);
     });
 
     it("rejects unauthenticated request (401)", async () => {
@@ -70,6 +105,7 @@ describe("Parent Family Members CRUD API", () => {
           firstName: "TestChild",
           lastName: "ApiTest",
           birthDate: "2018-06-15",
+          parentalConsent: true,
         }),
       });
 

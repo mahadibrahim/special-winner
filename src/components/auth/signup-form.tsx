@@ -110,7 +110,10 @@ export function SignUpForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-xl flex items-center gap-2">
+        <div
+          role="alert"
+          className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-xl flex items-center gap-2"
+        >
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
@@ -128,10 +131,12 @@ export function SignUpForm() {
             onChange={handleChange}
             required
             disabled={isLoading}
+            aria-invalid={!!fieldErrors.firstName}
+            aria-describedby={fieldErrors.firstName ? "firstName-error" : undefined}
             className={inputClassName}
           />
           {fieldErrors.firstName && (
-            <p className="text-sm text-destructive">{fieldErrors.firstName[0]}</p>
+            <p id="firstName-error" className="text-sm text-destructive">{fieldErrors.firstName[0]}</p>
           )}
         </div>
 
@@ -146,10 +151,12 @@ export function SignUpForm() {
             onChange={handleChange}
             required
             disabled={isLoading}
+            aria-invalid={!!fieldErrors.lastName}
+            aria-describedby={fieldErrors.lastName ? "lastName-error" : undefined}
             className={inputClassName}
           />
           {fieldErrors.lastName && (
-            <p className="text-sm text-destructive">{fieldErrors.lastName[0]}</p>
+            <p id="lastName-error" className="text-sm text-destructive">{fieldErrors.lastName[0]}</p>
           )}
         </div>
       </div>
@@ -165,10 +172,12 @@ export function SignUpForm() {
           onChange={handleChange}
           required
           disabled={isLoading}
+          aria-invalid={!!fieldErrors.email}
+          aria-describedby={fieldErrors.email ? "email-error" : undefined}
           className={inputClassName}
         />
         {fieldErrors.email && (
-          <p className="text-sm text-destructive">{fieldErrors.email[0]}</p>
+          <p id="email-error" className="text-sm text-destructive">{fieldErrors.email[0]}</p>
         )}
       </div>
 
@@ -197,10 +206,12 @@ export function SignUpForm() {
           onChange={handleChange}
           required
           disabled={isLoading}
+          aria-invalid={!!fieldErrors.password}
+          aria-describedby={fieldErrors.password ? "password-error" : undefined}
           className={inputClassName}
         />
         {fieldErrors.password && (
-          <p className="text-sm text-destructive">{fieldErrors.password[0]}</p>
+          <p id="password-error" className="text-sm text-destructive">{fieldErrors.password[0]}</p>
         )}
       </div>
 

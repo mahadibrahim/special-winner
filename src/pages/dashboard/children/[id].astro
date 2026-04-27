@@ -55,7 +55,7 @@ if (!id) {
   <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
-    <main class="flex-1 pt-24 pb-16 px-4 profile-bg">
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 profile-bg">
       <div class="max-w-7xl mx-auto profile-content">
         <ChildProfile client:load childId={id} />
       </div>
