@@ -38,7 +38,7 @@ export async function signIn(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto("/signin", { waitUntil: "networkidle" });
+  await page.goto("/signin", { waitUntil: "domcontentloaded" });
 
   // Wait for React hydration - ensure form is interactive
   const emailInput = page.locator('input[type="email"]').first();
@@ -50,8 +50,8 @@ export async function signIn(
   await passwordInput.waitFor({ state: "visible", timeout: 15000 });
   await submitBtn.waitFor({ state: "visible", timeout: 15000 });
 
-  // Wait for hydration - ensure the form is interactive
-  await page.waitForTimeout(1000);
+  // Wait for React hydration — ensures form event handlers are attached
+  await waitForHydration(page);
 
   // Fill in credentials
   await emailInput.fill(email);

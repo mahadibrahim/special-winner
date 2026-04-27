@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Aspire Sports is a multi-tenant sports management platform for youth sports organizations. It handles program registration, payments, team management, and scheduling. Built to replace third-party SaaS like LeagueApps.
 
+## Architectural Summary
+
+Key patterns established across the codebase — follow these when adding new pages or endpoints:
+
+- **BaseLayout**: All pages use `src/layouts/BaseLayout.astro` as the html/head/body wrapper. It injects GTM, the Navigation component (which fetches auth state client-side via `/api/auth/me`), the global stylesheet, and the skip-nav link. Never write a bare `<html>` page; always extend BaseLayout.
+- **Middleware auth gates**: Auth and role enforcement live in `src/middleware.ts` as route-prefix rules (e.g. `/admin` → requires admin role, `/dashboard` → requires any auth). Pages do not repeat redirect boilerplate — the middleware handles it.
+- **Tenant-scoped admin endpoints**: Every admin API endpoint that reads or mutates org-owned data must validate tenant ownership via the `requireSameOrg*` helpers in `src/lib/auth/require-resource-ownership.ts`. Never skip this check on admin endpoints.
+- **Decomposed registration wizard**: The registration flow is split into focused step components under `src/components/registration/` (`who-step.tsx`, `waiver-step.tsx`, `payment-step.tsx`, etc.) orchestrated by `registration-wizard.tsx`. New step logic goes into its own file.
+- **Error/loading/empty UI**: Use shared primitives (`ErrorBanner`, `EmptyState`, `LoadingSkeleton`) from `src/components/ui/` rather than rolling per-component styles. See the UI feedback primitives section below.
+
 ## Commands
 
 ```bash
