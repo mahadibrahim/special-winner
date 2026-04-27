@@ -27,6 +27,7 @@ interface FamilyMember {
   emergencyContactName: string | null
   emergencyContactPhone: string | null
   photoUrl: string | null
+  kind: "self" | "dependent"
 }
 
 export default function FamilyMembersCard() {
@@ -67,7 +68,12 @@ export default function FamilyMembersCard() {
       const response = await fetch("/api/family-members")
       if (!response.ok) throw new Error("Failed to fetch")
       const data = await response.json()
-      setMembers(data.familyMembers || [])
+      const sorted = [...(data.familyMembers || [])].sort((a: FamilyMember, b: FamilyMember) => {
+        if (a.kind === "self" && b.kind !== "self") return -1
+        if (b.kind === "self" && a.kind !== "self") return 1
+        return 0
+      })
+      setMembers(sorted)
     } catch {
       setError("Failed to load family members")
     } finally {
@@ -316,7 +322,7 @@ export default function FamilyMembersCard() {
             <div>
               <h3 className="font-semibold text-ink">Family Members</h3>
               <p className="text-sm text-ink-muted">
-                {members.length} {members.length === 1 ? "child" : "children"} registered
+                {members.length} {members.length === 1 ? "player" : "players"} registered
               </p>
             </div>
           </div>
@@ -532,8 +538,13 @@ export default function FamilyMembersCard() {
                       </button>
                     </div>
                     <div>
-                      <p className="font-medium text-ink">
+                      <p className="font-medium text-ink flex items-center gap-2">
                         {member.firstName} {member.lastName}
+                        {member.kind === "self" && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                            You
+                          </span>
+                        )}
                       </p>
                       <div className="flex items-center gap-2 text-sm text-ink-muted">
                         <Calendar className="w-3 h-3" />
@@ -550,14 +561,16 @@ export default function FamilyMembersCard() {
                     >
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(member.id)}
-                      className="text-ink-muted hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {member.kind !== "self" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(member.id)}
+                        className="text-ink-muted hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

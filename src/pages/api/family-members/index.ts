@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { familyMembers } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or, asc } from "drizzle-orm";
 import { z } from "zod";
 import { getPostHogServer } from "@/lib/posthog-server";
 
@@ -34,11 +34,21 @@ export const GET: APIRoute = async ({ locals }) => {
 
     const db = getDb();
 
-    const members = await getDb()
+    const rows = await db
       .select()
       .from(familyMembers)
-      .where(eq(familyMembers.parentUserId, user.id))
-      .orderBy(familyMembers.firstName);
+      .where(
+        or(
+          eq(familyMembers.parentUserId, user.id),
+          eq(familyMembers.selfUserId, user.id),
+        ),
+      )
+      .orderBy(asc(familyMembers.createdAt));
+
+    const members = rows.map((r) => ({
+      ...r,
+      kind: r.selfUserId ? "self" : "dependent",
+    }));
 
     return new Response(JSON.stringify({ familyMembers: members }), {
       status: 200,
