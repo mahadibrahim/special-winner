@@ -32,12 +32,6 @@ if (!isAdmin && !isCoach) {
     />
     <title>Messages — Aspire Sports</title>
     <style>
-      @keyframes fadeSlideIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .page-content { animation: fadeSlideIn 0.4s ease-out forwards; }
-
       .messages-bg {
         background-image:
           radial-gradient(ellipse 70% 40% at 50% -10%, rgba(59, 130, 246, 0.05), transparent),
@@ -49,7 +43,7 @@ if (!isAdmin && !isCoach) {
     <Navigation client:load />
 
     <main id="main-content" class="flex-1 pt-24 pb-6 px-4 messages-bg">
-      <div class="max-w-[1600px] mx-auto page-content">
+      <div class="max-w-[1600px] mx-auto fade-in">
         <header class="mb-6">
           <h1 class="text-2xl sm:text-3xl font-bold text-ink">Messages</h1>
           <p class="text-sm text-ink-faint mt-1">

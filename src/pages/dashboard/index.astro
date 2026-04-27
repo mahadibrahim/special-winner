@@ -64,41 +64,11 @@ else if (hour >= 17) greeting = "Good evening";
     />
     <title>Dashboard — Aspire Sports</title>
     <PostHog />
-    <style>
-      /* Stagger animation for dashboard sections */
-      @keyframes fadeSlideIn {
-        from {
-          opacity: 0;
-          transform: translateY(12px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .dashboard-section {
-        animation: fadeSlideIn 0.5s ease-out forwards;
-        opacity: 0;
-      }
-
-      .dashboard-section:nth-child(1) { animation-delay: 0ms; }
-      .dashboard-section:nth-child(2) { animation-delay: 100ms; }
-      .dashboard-section:nth-child(3) { animation-delay: 200ms; }
-      .dashboard-section:nth-child(4) { animation-delay: 300ms; }
-
-      /* Subtle background pattern */
-      .dashboard-bg {
-        background-image:
-          radial-gradient(ellipse 80% 50% at 50% -20%, rgba(204, 68, 44, 0.08), transparent),
-          radial-gradient(circle at 80% 80%, rgba(204, 68, 44, 0.04), transparent);
-      }
-    </style>
   </head>
   <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
     <Navigation client:load />
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 dashboard-bg">
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 editorial-bg-radial">
       <div class="max-w-7xl mx-auto">
         <!-- Payment Success Banner -->
         {showPaymentSuccessBanner && (
@@ -106,7 +76,7 @@ else if (hour >= 17) greeting = "Good evening";
         )}
 
         <!-- Header Section -->
-        <header class="mb-10 dashboard-section">
+        <header class="mb-10 fade-slide-in">
           <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div class="flex items-center gap-4">
               <!-- Avatar with gradient ring -->
@@ -190,43 +160,43 @@ else if (hour >= 17) greeting = "Good evening";
         <!-- Main Dashboard Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           <!-- Left Column - Events & Children (Primary Focus) -->
-          <div class="lg:col-span-8 space-y-8">
+          <div class="lg:col-span-8 space-y-8 fade-slide-in-stagger">
             <!-- Upcoming Events - Most Important -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <UpcomingEvents client:visible />
             </section>
 
             <!-- Children Overview -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <ChildrenOverview client:visible />
             </section>
           </div>
 
           <!-- Right Column - Announcements, Coach Notes & Payments -->
-          <div class="lg:col-span-4 space-y-8">
+          <div class="lg:col-span-4 space-y-8 fade-slide-in-stagger">
             <!-- Announcements -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <Announcements client:visible />
             </section>
 
             <!-- Team Groups -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <TeamGroupsPanel client:load />
             </section>
 
             <!-- Coach Notes - Key Differentiator -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <CoachNotes client:visible />
             </section>
 
             <!-- Payments Summary -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <PaymentsSummary client:visible />
             </section>
 
             <!-- Shop Team Gear card -->
             {externalStore && (
-              <section class="dashboard-section">
+              <section class="fade-slide-in">
                 <a
                   href={externalStore.url}
                   target="_blank"
@@ -248,7 +218,7 @@ else if (hour >= 17) greeting = "Good evening";
             )}
 
             <!-- How we teach card -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <a href="/guides" class="block p-5 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 hover:border-primary/40 transition-all group">
                 <h3 class="font-semibold text-ink mb-2 flex items-center gap-2">
                   <span class="text-lg">📘</span>
@@ -264,7 +234,7 @@ else if (hour >= 17) greeting = "Good evening";
             </section>
 
             <!-- Help & Support Card -->
-            <section class="dashboard-section">
+            <section class="fade-slide-in">
               <div class="p-5 rounded-2xl bg-cream-2 border border-border">
                 <h3 class="font-semibold text-ink mb-2 flex items-center gap-2">
                   <span class="text-lg">💬</span>

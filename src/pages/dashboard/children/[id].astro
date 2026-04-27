@@ -34,16 +34,6 @@ if (!id) {
     />
     <title>Child Profile — Aspire Sports</title>
     <style>
-      /* Page load animation */
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      .profile-content {
-        animation: fadeIn 0.4s ease-out forwards;
-      }
-
       /* Background pattern */
       .profile-bg {
         background-image:
@@ -56,7 +46,7 @@ if (!id) {
     <Navigation client:load />
 
     <main id="main-content" class="flex-1 pt-24 pb-16 px-4 profile-bg">
-      <div class="max-w-7xl mx-auto profile-content">
+      <div class="max-w-7xl mx-auto fade-in">
         <ChildProfile client:load childId={id} />
       </div>
     </main>
