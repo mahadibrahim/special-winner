@@ -1,7 +1,13 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { familyMembers } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import {
+  familyMembers,
+  registrations,
+  payments,
+  paymentPlans,
+  scheduledPayments,
+} from "@/lib/db/schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const updateFamilyMemberSchema = z.object({
@@ -140,7 +146,12 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   }
 };
 
-// DELETE - Remove family member
+// DELETE - Remove family member (COPPA: parent-initiated data deletion).
+//
+// Cascades through registrations + payment plans + scheduled payments. Blocks
+// the delete if any payment is in a `succeeded` state — those need refund
+// handling that we don't surface to parents directly. In that case the
+// response advises the parent to contact us.
 export const DELETE: APIRoute = async ({ params, locals }) => {
   try {
     const user = locals.user;
@@ -151,8 +162,6 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    const db = getDb();
-
     const { id } = params;
     if (!id) {
       return new Response(JSON.stringify({ error: "ID required" }), {
@@ -161,8 +170,10 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       });
     }
 
+    const db = getDb();
+
     // Verify ownership
-    const [existing] = await getDb()
+    const [existing] = await db
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.id, id), eq(familyMembers.parentUserId, user.id)));
@@ -174,7 +185,60 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    await getDb().delete(familyMembers).where(eq(familyMembers.id, id));
+    // Find this child's registrations.
+    const childRegistrations = await db
+      .select({ id: registrations.id })
+      .from(registrations)
+      .where(eq(registrations.familyMemberId, id));
+    const registrationIds = childRegistrations.map((r) => r.id);
+
+    if (registrationIds.length > 0) {
+      // Block if any payment has actually settled — refund flow is staff-mediated.
+      const [{ succeededCount }] = await db
+        .select({ succeededCount: sql<number>`count(*)::int` })
+        .from(payments)
+        .where(
+          and(
+            inArray(payments.registrationId, registrationIds),
+            eq(payments.status, "succeeded"),
+          ),
+        );
+
+      if (succeededCount > 0) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "This child has paid registrations on file. Please contact us at info@aspiresports.com to request a refund and full record deletion.",
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      // Cascade-delete: scheduled payments → payment plans → unpaid payments
+      // → registrations → family member (which cascades to media tags,
+      // assessments, family-member-parents, team rosters via FK).
+      const planRows = await db
+        .select({ id: paymentPlans.id })
+        .from(paymentPlans)
+        .where(inArray(paymentPlans.registrationId, registrationIds));
+      const planIds = planRows.map((p) => p.id);
+
+      if (planIds.length > 0) {
+        await db
+          .delete(scheduledPayments)
+          .where(inArray(scheduledPayments.paymentPlanId, planIds));
+        await db.delete(paymentPlans).where(inArray(paymentPlans.id, planIds));
+      }
+
+      await db
+        .delete(payments)
+        .where(inArray(payments.registrationId, registrationIds));
+      await db
+        .delete(registrations)
+        .where(inArray(registrations.id, registrationIds));
+    }
+
+    await db.delete(familyMembers).where(eq(familyMembers.id, id));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

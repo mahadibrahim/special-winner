@@ -10,7 +10,7 @@ if (!user) return Astro.redirect('/signin?returnUrl=/media/history');
 <html lang="en">
   <head><meta charset="UTF-8" /><title>History — Aspire Media</title></head>
   <body class="bg-cream text-ink">
-    <main class="mx-auto max-w-3xl p-6">
+    <main id="main-content" class="mx-auto max-w-3xl p-6">
       <h1 class="font-serif text-3xl">History</h1>
       <MediaHistory client:load />
     </main>
