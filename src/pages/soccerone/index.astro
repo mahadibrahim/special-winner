@@ -30,41 +30,20 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
     ============================================================ -->
     <section class="hero" aria-label="SoccerOne hero">
       <!-- Video background -->
-      <!-- TODO: replace with real video src — using CSS pitch animation fallback below -->
       <div class="hero-bg" aria-hidden="true">
-        <!-- Animated pitch SVG fallback (mimics camera drift over a lit indoor pitch) -->
-        <div class="pitch-anim-wrap">
-          <svg class="pitch-svg" viewBox="0 0 1200 675" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Field surface -->
-            <rect width="1200" height="675" fill="#0f1f0a"/>
-            <!-- Alternating turf stripes -->
-            <rect x="0" y="0" width="150" height="675" fill="rgba(255,255,255,0.025)"/>
-            <rect x="300" y="0" width="150" height="675" fill="rgba(255,255,255,0.025)"/>
-            <rect x="600" y="0" width="150" height="675" fill="rgba(255,255,255,0.025)"/>
-            <rect x="900" y="0" width="150" height="675" fill="rgba(255,255,255,0.025)"/>
-            <!-- Outer boundary -->
-            <rect x="60" y="50" width="1080" height="575" stroke="rgba(255,255,255,0.18)" stroke-width="3" fill="none"/>
-            <!-- Center line -->
-            <line x1="600" y1="50" x2="600" y2="625" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
-            <!-- Center circle -->
-            <circle cx="600" cy="337" r="90" stroke="rgba(255,255,255,0.18)" stroke-width="2" fill="none"/>
-            <circle cx="600" cy="337" r="4" fill="rgba(255,255,255,0.4)"/>
-            <!-- Left penalty box -->
-            <rect x="60" y="187" width="150" height="300" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" fill="none"/>
-            <!-- Right penalty box -->
-            <rect x="990" y="187" width="150" height="300" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" fill="none"/>
-            <!-- Left goal -->
-            <rect x="30" y="262" width="30" height="150" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <!-- Right goal -->
-            <rect x="1140" y="262" width="30" height="150" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <!-- Stadium lighting spots -->
-            <ellipse cx="300" cy="0" rx="120" ry="40" fill="rgba(255,255,200,0.04)"/>
-            <ellipse cx="600" cy="0" rx="140" ry="40" fill="rgba(255,255,200,0.04)"/>
-            <ellipse cx="900" cy="0" rx="120" ry="40" fill="rgba(255,255,200,0.04)"/>
-          </svg>
-        </div>
-        <!-- Dark gradient overlay -->
-        <div class="hero-overlay"></div>
+        <video
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          poster="https://images.pexels.com/videos/6078638/pictures/preview-0.jpg"
+          class="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="https://videos.pexels.com/video-files/6078638/6078638-hd_1920_1080_25fps.mp4" type="video/mp4" />
+        </video>
+        <!-- Darkening overlay so headline copy stays readable -->
+        <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black"></div>
         <!-- Lime diagonal accent bar -->
         <div class="hero-accent-stripe" aria-hidden="true"></div>
       </div>
@@ -96,7 +75,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
                 <span class="hfb-name">WORTHINGTON</span>
                 <span class="hfb-badge">3 FIELDS</span>
               </div>
-              <div class="hfb-address">6580 N High St · 7am–11pm daily</div>
+              <div class="hfb-address">535 Lakeview Plaza Blvd · 7am–11pm daily</div>
               <div class="hfb-features">Adult leagues · Youth · Pickup · Rentals</div>
             </div>
             <svg class="hfb-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -110,7 +89,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
                 <span class="hfb-name">DOWNTOWN</span>
                 <span class="hfb-badge">1 FIELD</span>
               </div>
-              <div class="hfb-address">191 W Nationwide Blvd · 7am–11pm daily</div>
+              <div class="hfb-address">980 E Starr Ave · 7am–11pm daily</div>
               <div class="hfb-features">After-work pickup · Corporate leagues · Rentals</div>
             </div>
             <svg class="hfb-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -238,7 +217,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
               </div>
               <div class="spec-row">
                 <span class="spec-label">Address</span>
-                <span class="spec-val">6580 N High St, Worthington, OH 43085</span>
+                <span class="spec-val">535 Lakeview Plaza Blvd, Worthington, OH 43085</span>
               </div>
               <div class="spec-row">
                 <span class="spec-label">Hours</span>
@@ -306,7 +285,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
               </div>
               <div class="spec-row">
                 <span class="spec-label">Address</span>
-                <span class="spec-val">191 W Nationwide Blvd, Columbus, OH 43215</span>
+                <span class="spec-val">980 E Starr Ave, Columbus, OH 43201</span>
               </div>
               <div class="spec-row">
                 <span class="spec-label">Hours</span>
@@ -537,13 +516,13 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
       <div class="contact-bar-inner">
         <div class="contact-location">
           <h3 class="contact-name">Worthington</h3>
-          <div class="contact-addr">6580 N High St · Worthington, OH 43085</div>
+          <div class="contact-addr">535 Lakeview Plaza Blvd · Worthington, OH 43085</div>
           <div class="contact-hours mono">7AM – 11PM daily</div>
         </div>
         <div class="contact-divider" aria-hidden="true"></div>
         <div class="contact-location">
           <h3 class="contact-name">Downtown Columbus</h3>
-          <div class="contact-addr">191 W Nationwide Blvd · Columbus, OH 43215</div>
+          <div class="contact-addr">980 E Starr Ave · Columbus, OH 43201</div>
           <div class="contact-hours mono">7AM – 11PM daily</div>
         </div>
         <div class="contact-divider" aria-hidden="true"></div>
@@ -594,38 +573,6 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
       position: absolute;
       inset: 0;
       z-index: 0;
-    }
-
-    .pitch-anim-wrap {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-    }
-
-    .pitch-svg {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      animation: pitchDrift 18s ease-in-out infinite alternate;
-    }
-
-    @keyframes pitchDrift {
-      0%   { transform: scale(1.08) translate(0, 0); }
-      33%  { transform: scale(1.12) translate(-1.5%, 0.5%); }
-      66%  { transform: scale(1.1)  translate(1%, -0.5%); }
-      100% { transform: scale(1.08) translate(-0.5%, 1%); }
-    }
-
-    .hero-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        180deg,
-        rgba(6,10,6,0.55) 0%,
-        rgba(6,10,6,0.4) 40%,
-        rgba(6,10,6,0.85) 75%,
-        rgba(6,10,6,0.98) 100%
-      );
     }
 
     .hero-accent-stripe {

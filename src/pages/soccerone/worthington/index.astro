@@ -6,8 +6,8 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 ---
 
 <BaseLayout
-  title="Worthington — SoccerOne | 3 Indoor Fields · 6580 N High St"
-  description="SoccerOne Worthington: 3 FIFA-approved indoor turf fields, adult leagues, youth programs, pickup, and field rentals. 6580 N High St, Worthington OH. Open 7am–11pm daily."
+  title="Worthington — SoccerOne | 3 Indoor Fields · 535 Lakeview Plaza Blvd"
+  description="SoccerOne Worthington: 3 FIFA-approved indoor turf fields, adult leagues, youth programs, pickup, and field rentals. 535 Lakeview Plaza Blvd, Worthington OH. Open 7am–11pm daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -29,58 +29,16 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
          FACILITY HERO — photo-driven, warehouse soccer aesthetic
     ============================================================ -->
     <section class="f-hero" aria-label="Worthington facility">
-      <!-- Background: animated industrial pitch -->
+      <!-- Background: real facility photo -->
       <div class="f-hero-bg" aria-hidden="true">
-        <div class="f-hero-pitch-wrap">
-          <svg class="f-hero-pitch" viewBox="0 0 1400 700" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Warehouse ceiling / dark walls -->
-            <rect width="1400" height="700" fill="#060d04"/>
-            <!-- Structural ceiling beams -->
-            <line x1="0" y1="80" x2="1400" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="12"/>
-            <line x1="200" y1="0" x2="200" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
-            <line x1="500" y1="0" x2="500" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
-            <line x1="700" y1="0" x2="700" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
-            <line x1="900" y1="0" x2="900" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
-            <line x1="1200" y1="0" x2="1200" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
-            <!-- Turf base -->
-            <rect x="0" y="80" width="1400" height="620" fill="#0d200a"/>
-            <!-- Alternating turf stripes -->
-            <rect x="0" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
-            <rect x="350" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
-            <rect x="700" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
-            <rect x="1050" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
-            <!-- Field boundary - Field 1 (left) -->
-            <rect x="40" y="120" width="400" height="520" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" fill="none"/>
-            <line x1="240" y1="120" x2="240" y2="640" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
-            <circle cx="240" cy="380" r="55" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" fill="none"/>
-            <circle cx="240" cy="380" r="3.5" fill="rgba(255,255,255,0.35)"/>
-            <rect x="20" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <rect x="420" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <!-- Field boundary - Field 2 (center) -->
-            <rect x="500" y="120" width="400" height="520" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" fill="none"/>
-            <line x1="700" y1="120" x2="700" y2="640" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
-            <circle cx="700" cy="380" r="55" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" fill="none"/>
-            <circle cx="700" cy="380" r="3.5" fill="rgba(255,255,255,0.35)"/>
-            <rect x="480" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <rect x="880" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <!-- Field boundary - Field 3 (right) -->
-            <rect x="960" y="120" width="400" height="520" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" fill="none"/>
-            <line x1="1160" y1="120" x2="1160" y2="640" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
-            <circle cx="1160" cy="380" r="55" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" fill="none"/>
-            <circle cx="1160" cy="380" r="3.5" fill="rgba(255,255,255,0.35)"/>
-            <rect x="940" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <rect x="1340" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
-            <!-- Stadium lighting bars -->
-            <rect x="0" y="78" width="1400" height="6" fill="rgba(255,255,200,0.06)"/>
-            <!-- Light cones -->
-            <polygon points="150,80 0,200 300,200" fill="rgba(255,255,200,0.025)"/>
-            <polygon points="400,80 250,280 550,280" fill="rgba(255,255,200,0.025)"/>
-            <polygon points="700,80 550,280 850,280" fill="rgba(255,255,200,0.03)"/>
-            <polygon points="1000,80 850,280 1150,280" fill="rgba(255,255,200,0.025)"/>
-            <polygon points="1250,80 1100,200 1400,200" fill="rgba(255,255,200,0.025)"/>
-          </svg>
-        </div>
-        <div class="f-hero-overlay"></div>
+        <img
+          src="https://images.unsplash.com/photo-1771909720886-a90afd1b37f5?w=2000&q=80&fm=jpg"
+          alt="Worthington facility — interior field"
+          class="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
+        <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-black/65 to-black"></div>
         <div class="f-hero-bottom-stripe" aria-hidden="true"></div>
       </div>
 
@@ -108,7 +66,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
               <span class="fc-label">INDOOR FIELDS</span>
             </div>
             <div class="f-hero-address">
-              6580 N High St, Worthington, OH 43085
+              535 Lakeview Plaza Blvd, Worthington, OH 43085
             </div>
             <div class="f-hero-hours mono">Open daily — 7:00 AM – 11:00 PM</div>
           </div>
@@ -403,7 +361,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
           </div>
           <div class="info-address-block">
             <div class="iab-name">SoccerOne Worthington</div>
-            <div class="iab-addr">6580 N High St<br />Worthington, OH 43085</div>
+            <div class="iab-addr">535 Lakeview Plaza Blvd<br />Worthington, OH 43085</div>
             <div class="iab-links">
               <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="iab-link">Get Directions →</a>
               <a href="tel:+16145551234" class="iab-link">(614) 555-1234</a>
@@ -441,13 +399,13 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
                 <circle cx="200" cy="95" r="3" fill="#0a0a0d"/>
                 <line x1="200" y1="103" x2="200" y2="110" stroke="#a3e635" stroke-width="2"/>
                 <!-- Street labels -->
-                <text x="200" y="165" text-anchor="middle" font-size="8" fill="rgba(163,230,53,0.5)" font-family="monospace">N HIGH ST</text>
+                <text x="200" y="165" text-anchor="middle" font-size="8" fill="rgba(163,230,53,0.5)" font-family="monospace">LAKEVIEW PLAZA BLVD</text>
                 <text x="15" y="148" font-size="7" fill="rgba(255,255,255,0.3)" font-family="monospace">WORTHINGTON</text>
               </svg>
             </div>
             <div class="map-overlay-label">
               <div class="mol-name">SoccerOne Worthington</div>
-              <div class="mol-addr">6580 N High St</div>
+              <div class="mol-addr">535 Lakeview Plaza Blvd</div>
             </div>
           </div>
         </div>
@@ -510,34 +468,6 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
       position: absolute;
       inset: 0;
       z-index: 0;
-    }
-
-    .f-hero-pitch-wrap {
-      position: absolute;
-      inset: 0;
-    }
-    .f-hero-pitch {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      animation: pitchDrift 20s ease-in-out infinite alternate;
-    }
-    @keyframes pitchDrift {
-      0%   { transform: scale(1.06) translate(0, 0); }
-      50%  { transform: scale(1.09) translate(-1%, 0.3%); }
-      100% { transform: scale(1.06) translate(0.8%, -0.4%); }
-    }
-
-    .f-hero-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        180deg,
-        rgba(5,13,4,0.45) 0%,
-        rgba(5,13,4,0.5) 40%,
-        rgba(5,13,4,0.88) 75%,
-        rgba(5,13,4,0.98) 100%
-      );
     }
 
     .f-hero-bottom-stripe {
