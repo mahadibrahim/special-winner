@@ -1,0 +1,493 @@
+---
+export const prerender = true;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import PickupGames from '@/components/soccerone/PickupGames';
+import { Toaster } from 'sonner';
+---
+
+<BaseLayout
+  title="Drop-In Pickup Soccer | SoccerOne Powell"
+  description="Show up and play at SoccerOne. Drop-in pickup soccer games seven days a week, multiple skill levels. No team needed — just show up."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a1929] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      *, *::before, *::after { box-sizing: border-box; }
+    </style>
+  </Fragment>
+
+  <SoccerOneHeader />
+  <Toaster client:load richColors position="bottom-right" />
+
+  <main class="pickup-main">
+
+    <!-- Page header -->
+    <div class="pickup-page-header">
+      <div class="pickup-header-inner">
+        <div class="breadcrumb">
+          <a href="/soccerone" class="breadcrumb-link">SoccerOne</a>
+          <span class="breadcrumb-sep" aria-hidden="true">/</span>
+          <span class="breadcrumb-current">Drop-In Pickup</span>
+        </div>
+        <div class="pickup-header-content">
+          <div>
+            <h1 class="page-title">Drop-In Pickup</h1>
+            <p class="page-subtitle">
+              No team. No commitment. Show up, pay at the door, and play. We run multiple skill levels every day of the week — from "I played in middle school" to competitive adult players.
+            </p>
+          </div>
+          <!-- Quick stats -->
+          <div class="pickup-quick-stats">
+            <div class="qs-item">
+              <span class="qs-number">7</span>
+              <span class="qs-label">days/week</span>
+            </div>
+            <div class="qs-divider"></div>
+            <div class="qs-item">
+              <span class="qs-number">3</span>
+              <span class="qs-label">skill levels</span>
+            </div>
+            <div class="qs-divider"></div>
+            <div class="qs-item">
+              <span class="qs-number">$12</span>
+              <span class="qs-label">per session</span>
+            </div>
+            <div class="qs-divider"></div>
+            <div class="qs-item">
+              <span class="qs-number">Free</span>
+              <span class="qs-label">for Founders</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Games listing -->
+    <PickupGames client:visible />
+
+    <!-- How it works -->
+    <div class="how-section">
+      <div class="how-inner">
+        <h2 class="how-heading">How pickup works</h2>
+        <div class="steps-row">
+          <div class="step-item">
+            <div class="step-number" aria-hidden="true">1</div>
+            <div class="step-content">
+              <h3 class="step-title">Find a game</h3>
+              <p class="step-desc">Browse today's and this week's pickup games above. Filter by skill level and time. Spot count updates in real time.</p>
+            </div>
+          </div>
+          <div class="step-arrow" aria-hidden="true">→</div>
+
+          <div class="step-item">
+            <div class="step-number" aria-hidden="true">2</div>
+            <div class="step-content">
+              <h3 class="step-title">Reserve your spot</h3>
+              <p class="step-desc">Click "Reserve a spot" and enter your name and email. You'll get a confirmation text with field assignment 30 minutes before game time.</p>
+            </div>
+          </div>
+          <div class="step-arrow" aria-hidden="true">→</div>
+
+          <div class="step-item">
+            <div class="step-number" aria-hidden="true">3</div>
+            <div class="step-content">
+              <h3 class="step-title">Show up & play</h3>
+              <p class="step-desc">Pay $12 at the front desk (or $0 if you're a Founder member). We handle teams and positions — just bring your boots.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="skill-levels">
+          <h3 class="skill-heading">Skill level guide</h3>
+          <div class="skill-grid">
+            <div class="skill-card skill-card--beg">
+              <div class="skill-label-badge">Beginner</div>
+              <p class="skill-desc">Played recreationally or haven't played in years. Casual, fun, no pressure. Great for adults returning to the game.</p>
+            </div>
+            <div class="skill-card skill-card--int">
+              <div class="skill-label-badge">Intermediate</div>
+              <p class="skill-desc">High school / college recreational. Comfortable with the ball, understands positional play. Most popular level.</p>
+            </div>
+            <div class="skill-card skill-card--comp">
+              <div class="skill-label-badge">Competitive</div>
+              <p class="skill-desc">College varsity or semi-pro background. Fast-paced, high-quality play. Referee on-field. Serious players only.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Membership upsell -->
+    <div class="upsell-section">
+      <div class="upsell-inner">
+        <div class="upsell-card">
+          <div class="upsell-badge">Founder Perk</div>
+          <h2 class="upsell-heading">Pickup is free for Founder members</h2>
+          <p class="upsell-desc">
+            Founder members ($99/mo) get unlimited free pickup sessions — no $12 door fee, ever. At 3+ sessions per month, the membership pays for itself.
+          </p>
+          <div class="upsell-ctas">
+            <a href="/soccerone/memberships" class="upsell-cta-primary">See membership plans</a>
+            <span class="upsell-math">3 sessions × $12 = $36/mo → Founder is $99 → 9 sessions/mo to break even. Regular players win.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    .pickup-main { flex: 1; }
+
+    .pickup-page-header {
+      background: linear-gradient(135deg, #0a1929 0%, #0d2035 50%, #0e3a5c 100%);
+      padding: 4rem 0 3.5rem;
+      border-bottom: 1px solid rgba(250,204,21,0.15);
+    }
+
+    .pickup-header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .breadcrumb-link {
+      color: rgba(250,204,21,0.7);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .breadcrumb-link:hover { color: #facc15; }
+    .breadcrumb-sep { color: rgba(255,255,255,0.3); }
+    .breadcrumb-current { color: rgba(255,255,255,0.5); }
+
+    .pickup-header-content {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .page-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(2.25rem, 5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+      line-height: 1;
+      margin: 0 0 1rem;
+    }
+
+    .page-subtitle {
+      font-size: 1.0625rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.65;
+      max-width: 520px;
+      margin: 0;
+    }
+
+    .pickup-quick-stats {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      flex-shrink: 0;
+      align-self: flex-start;
+    }
+
+    .qs-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 1.25rem;
+      gap: 0.2rem;
+    }
+
+    .qs-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #facc15;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .qs-label {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.45);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+
+    .qs-divider {
+      width: 1px;
+      height: 36px;
+      background: rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+
+    /* How it works */
+    .how-section {
+      padding: 5rem 0;
+      background: #0d2035;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .how-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .how-heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      margin: 0 0 3rem;
+    }
+
+    .steps-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      margin-bottom: 4rem;
+      flex-wrap: wrap;
+    }
+
+    .step-item {
+      flex: 1;
+      min-width: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .step-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3rem;
+      font-weight: 800;
+      color: rgba(250,204,21,0.25);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .step-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0 0 0.375rem;
+    }
+
+    .step-desc {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .step-arrow {
+      font-size: 1.75rem;
+      color: rgba(250,204,21,0.3);
+      padding: 2.5rem 1.5rem 0;
+      flex-shrink: 0;
+    }
+
+    .skill-heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin: 0 0 1.25rem;
+    }
+
+    .skill-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .skill-card {
+      padding: 1.375rem;
+      border-radius: 10px;
+      border: 1.5px solid;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .skill-card--beg {
+      background: rgba(74,222,128,0.06);
+      border-color: rgba(74,222,128,0.3);
+    }
+
+    .skill-card--int {
+      background: rgba(250,204,21,0.06);
+      border-color: rgba(250,204,21,0.3);
+    }
+
+    .skill-card--comp {
+      background: rgba(251,113,133,0.06);
+      border-color: rgba(251,113,133,0.3);
+    }
+
+    .skill-label-badge {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      width: fit-content;
+    }
+
+    .skill-card--beg .skill-label-badge {
+      background: rgba(74,222,128,0.2);
+      color: #86efac;
+    }
+
+    .skill-card--int .skill-label-badge {
+      background: rgba(250,204,21,0.2);
+      color: #facc15;
+    }
+
+    .skill-card--comp .skill-label-badge {
+      background: rgba(251,113,133,0.2);
+      color: #fda4af;
+    }
+
+    .skill-desc {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    /* Upsell */
+    .upsell-section {
+      padding: 4rem 0;
+      background: #0a1929;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .upsell-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .upsell-card {
+      background: linear-gradient(135deg, rgba(192,132,252,0.1) 0%, rgba(250,204,21,0.06) 100%);
+      border: 1.5px solid rgba(192,132,252,0.35);
+      border-radius: 16px;
+      padding: 3rem;
+      position: relative;
+    }
+
+    .upsell-badge {
+      display: inline-block;
+      background: rgba(192,132,252,0.2);
+      color: #c084fc;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 1rem;
+    }
+
+    .upsell-heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      margin: 0 0 1rem;
+      max-width: 560px;
+    }
+
+    .upsell-desc {
+      font-size: 1.0625rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.65;
+      max-width: 520px;
+      margin: 0 0 2rem;
+    }
+
+    .upsell-ctas {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .upsell-cta-primary {
+      display: inline-block;
+      background: #facc15;
+      color: #0a1929;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      padding: 0.875rem 2rem;
+      border-radius: 6px;
+      transition: filter 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    .upsell-cta-primary:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+
+    .upsell-math {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.35);
+      max-width: 380px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .pickup-header-content { flex-direction: column; }
+      .pickup-quick-stats { align-self: auto; width: 100%; justify-content: center; }
+      .steps-row { gap: 1.5rem; }
+      .step-arrow { display: none; }
+      .skill-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</BaseLayout>

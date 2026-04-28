@@ -1,0 +1,240 @@
+---
+// SoccerOne branded sticky header — dark navy with electric-yellow accent
+// Deliberately different from Aspire's editorial cream aesthetic
+---
+
+<header class="soccerone-header">
+  <div class="header-inner">
+    <!-- Wordmark -->
+    <a href="/soccerone" class="wordmark" aria-label="SoccerOne home">
+      <span class="wordmark-soccer">Soccer</span><span class="wordmark-one">One</span>
+      <span class="wordmark-dot"></span>
+    </a>
+
+    <!-- Nav -->
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="/soccerone#leagues" class="nav-link">Leagues</a>
+      <a href="/soccerone/pickup" class="nav-link">Pickup</a>
+      <a href="/soccerone/rent" class="nav-link">Rentals</a>
+      <a href="/soccerone/memberships" class="nav-link">Memberships</a>
+      <a href="/soccerone#about" class="nav-link">About</a>
+      <a href="/soccerone#contact" class="nav-link">Contact</a>
+    </nav>
+
+    <!-- CTA + powered-by -->
+    <div class="header-cta-group">
+      <a href="/soccerone/rent" class="header-cta">Book a Field</a>
+      <span class="powered-by">
+        Powered by <a href="/" class="powered-link">Aspire Sports</a>
+      </span>
+    </div>
+
+    <!-- Mobile hamburger -->
+    <button class="mobile-menu-btn" aria-label="Open menu" id="so-menu-btn">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Mobile drawer -->
+  <div class="mobile-drawer" id="so-mobile-drawer" aria-hidden="true">
+    <a href="/soccerone#leagues" class="mobile-nav-link">Leagues</a>
+    <a href="/soccerone/pickup" class="mobile-nav-link">Pickup</a>
+    <a href="/soccerone/rent" class="mobile-nav-link">Rentals</a>
+    <a href="/soccerone/memberships" class="mobile-nav-link">Memberships</a>
+    <a href="/soccerone#about" class="mobile-nav-link">About</a>
+    <a href="/soccerone#contact" class="mobile-nav-link">Contact</a>
+    <a href="/soccerone/rent" class="mobile-cta">Book a Field</a>
+  </div>
+</header>
+
+<style>
+  .soccerone-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: #0a1929;
+    border-bottom: 2px solid #facc15;
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+  }
+
+  .header-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    text-decoration: none;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .wordmark-soccer {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: #ffffff;
+  }
+
+  .wordmark-one {
+    font-size: 1.375rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: #facc15;
+  }
+
+  .wordmark-dot {
+    width: 6px;
+    height: 6px;
+    background: #facc15;
+    border-radius: 50%;
+    margin-left: 3px;
+    margin-bottom: 10px;
+    align-self: flex-end;
+  }
+
+  .main-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: 1;
+  }
+
+  .nav-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    text-transform: uppercase;
+  }
+
+  .nav-link:hover {
+    color: #facc15;
+    background: rgba(250,204,21,0.08);
+  }
+
+  .header-cta-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .header-cta {
+    display: inline-block;
+    background: #facc15;
+    color: #0a1929;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 4px;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .header-cta:hover {
+    background: #fde047;
+    transform: translateY(-1px);
+  }
+
+  .powered-by {
+    font-size: 0.6875rem;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.02em;
+  }
+
+  .powered-link {
+    color: rgba(250,204,21,0.6);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .powered-link:hover {
+    color: #facc15;
+  }
+
+  .mobile-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: auto;
+  }
+
+  .mobile-drawer {
+    display: none;
+    flex-direction: column;
+    padding: 1rem 1.5rem 1.5rem;
+    background: #0d2035;
+    border-top: 1px solid rgba(250,204,21,0.2);
+  }
+
+  .mobile-drawer.open {
+    display: flex;
+  }
+
+  .mobile-nav-link {
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .mobile-nav-link:hover {
+    color: #facc15;
+  }
+
+  .mobile-cta {
+    margin-top: 1rem;
+    display: block;
+    background: #facc15;
+    color: #0a1929;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.875rem;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 900px) {
+    .main-nav { display: none; }
+    .header-cta-group { display: none; }
+    .mobile-menu-btn { display: block; }
+  }
+</style>
+
+<script>
+  const btn = document.getElementById('so-menu-btn');
+  const drawer = document.getElementById('so-mobile-drawer');
+  btn?.addEventListener('click', () => {
+    drawer?.classList.toggle('open');
+    const isOpen = drawer?.classList.contains('open');
+    drawer?.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  });
+</script>

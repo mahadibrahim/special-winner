@@ -1,0 +1,424 @@
+---
+export const prerender = true;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import FieldCalendar from '@/components/soccerone/FieldCalendar';
+import { Toaster } from 'sonner';
+---
+
+<BaseLayout
+  title="Field Rentals | SoccerOne Powell"
+  description="Reserve an indoor soccer field at SoccerOne Powell. Fields 1-8 available hourly 7am–11pm. Members save $8/hr."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a1929] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      *, *::before, *::after { box-sizing: border-box; }
+    </style>
+  </Fragment>
+
+  <SoccerOneHeader />
+  <Toaster client:load richColors position="bottom-right" />
+
+  <main class="rent-main">
+    <!-- Page header -->
+    <div class="rent-page-header">
+      <div class="rent-page-header-inner">
+        <div class="page-header-content">
+          <div class="breadcrumb">
+            <a href="/soccerone" class="breadcrumb-link">SoccerOne</a>
+            <span class="breadcrumb-sep" aria-hidden="true">/</span>
+            <span class="breadcrumb-current">Field Rentals</span>
+          </div>
+          <h1 class="page-title">Field Rentals</h1>
+          <p class="page-subtitle">
+            Book any of our 8 indoor fields by the hour. All fields are full-size indoor turf with overhead lighting, scoreboards, and locker room access.
+          </p>
+        </div>
+
+        <div class="rates-row">
+          <div class="rate-card">
+            <div class="rate-amount">$80<span class="rate-unit">/hr</span></div>
+            <div class="rate-label">Standard Rate</div>
+          </div>
+          <div class="rate-divider" aria-hidden="true"></div>
+          <div class="rate-card rate-card--member">
+            <div class="rate-amount">$72<span class="rate-unit">/hr</span></div>
+            <div class="rate-label">Member Rate</div>
+            <div class="rate-badge">Save $8/hr</div>
+          </div>
+          <div class="rate-divider" aria-hidden="true"></div>
+          <div class="rate-card">
+            <div class="rate-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="9" stroke="rgba(250,204,21,0.6)" stroke-width="1.5"/>
+                <polyline points="10,5 10,10 13.5,12.5" stroke="rgba(250,204,21,0.8)" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="rate-label rate-label--muted">Open daily<br />7am – 11pm</div>
+          </div>
+          <div class="rate-divider" aria-hidden="true"></div>
+          <div class="rate-card">
+            <div class="rate-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="2" y="5" width="16" height="13" rx="2" stroke="rgba(250,204,21,0.6)" stroke-width="1.5"/>
+                <line x1="2" y1="9" x2="18" y2="9" stroke="rgba(250,204,21,0.5)" stroke-width="1"/>
+                <line x1="7" y1="2" x2="7" y2="7" stroke="rgba(250,204,21,0.6)" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="13" y1="2" x2="13" y2="7" stroke="rgba(250,204,21,0.6)" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="rate-label rate-label--muted">Book up to<br />30 days ahead</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar section -->
+    <div class="calendar-section">
+      <div class="calendar-section-inner">
+        <div class="calendar-section-header">
+          <h2 class="calendar-section-title">Select a Time Slot</h2>
+          <p class="calendar-section-desc">
+            Green slots are available. Blue = leagues, yellow = private rentals, teal = training. Click any open slot to see booking details.
+          </p>
+        </div>
+        <FieldCalendar client:visible />
+      </div>
+    </div>
+
+    <!-- What's included -->
+    <div class="includes-section">
+      <div class="includes-inner">
+        <h2 class="includes-heading">Every rental includes</h2>
+        <div class="includes-grid">
+          <div class="include-item">
+            <div class="include-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <circle cx="14" cy="14" r="12" stroke="rgba(250,204,21,0.5)" stroke-width="1.5"/>
+                <path d="M8 14l4 4 8-8" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="include-text">
+              <strong>Full-size indoor turf field</strong>
+              <span>Professional-grade synthetic turf, line-marked</span>
+            </div>
+          </div>
+          <div class="include-item">
+            <div class="include-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <circle cx="14" cy="14" r="12" stroke="rgba(250,204,21,0.5)" stroke-width="1.5"/>
+                <path d="M8 14l4 4 8-8" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="include-text">
+              <strong>Overhead LED lighting</strong>
+              <span>700+ lux, color-corrected for video</span>
+            </div>
+          </div>
+          <div class="include-item">
+            <div class="include-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <circle cx="14" cy="14" r="12" stroke="rgba(250,204,21,0.5)" stroke-width="1.5"/>
+                <path d="M8 14l4 4 8-8" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="include-text">
+              <strong>Digital scoreboard</strong>
+              <span>Per-field display with shot clock</span>
+            </div>
+          </div>
+          <div class="include-item">
+            <div class="include-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <circle cx="14" cy="14" r="12" stroke="rgba(250,204,21,0.5)" stroke-width="1.5"/>
+                <path d="M8 14l4 4 8-8" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="include-text">
+              <strong>Locker room access</strong>
+              <span>Shared locker room + restrooms</span>
+            </div>
+          </div>
+          <div class="include-item">
+            <div class="include-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <circle cx="14" cy="14" r="12" stroke="rgba(250,204,21,0.5)" stroke-width="1.5"/>
+                <path d="M8 14l4 4 8-8" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="include-text">
+              <strong>Free parking</strong>
+              <span>100+ space lot, well-lit</span>
+            </div>
+          </div>
+          <div class="include-item">
+            <div class="include-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <circle cx="14" cy="14" r="12" stroke="rgba(250,204,21,0.5)" stroke-width="1.5"/>
+                <path d="M8 14l4 4 8-8" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="include-text">
+              <strong>Concessions on-site</strong>
+              <span>Coffee bar + snack kiosk, most hours</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+
+    .rent-main {
+      flex: 1;
+    }
+
+    .rent-page-header {
+      background: linear-gradient(135deg, #0a1929 0%, #0d2035 60%, #0c3050 100%);
+      border-bottom: 1px solid rgba(250,204,21,0.2);
+      padding: 3.5rem 0 3rem;
+    }
+
+    .rent-page-header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .breadcrumb-link {
+      color: rgba(250,204,21,0.7);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .breadcrumb-link:hover { color: #facc15; }
+
+    .breadcrumb-sep { color: rgba(255,255,255,0.3); }
+    .breadcrumb-current { color: rgba(255,255,255,0.5); }
+
+    .page-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(2.25rem, 5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+      line-height: 1;
+      margin: 0.5rem 0 1rem;
+    }
+
+    .page-subtitle {
+      font-size: 1.0625rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.65;
+      max-width: 600px;
+      margin: 0;
+    }
+
+    .rates-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .rate-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .rate-card--member {
+      position: relative;
+    }
+
+    .rate-amount {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: #facc15;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .rate-unit {
+      font-size: 1rem;
+      font-weight: 600;
+      color: rgba(250,204,21,0.6);
+      margin-left: 2px;
+    }
+
+    .rate-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .rate-label--muted {
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.5;
+    }
+
+    .rate-badge {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      background: rgba(74,222,128,0.15);
+      color: #86efac;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .rate-icon {
+      margin-bottom: 0.25rem;
+    }
+
+    .rate-divider {
+      width: 1px;
+      height: 48px;
+      background: rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+
+    /* Calendar section */
+    .calendar-section {
+      padding: 3.5rem 0;
+      background: #0a1929;
+    }
+
+    .calendar-section-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .calendar-section-header {
+      margin-bottom: 2rem;
+    }
+
+    .calendar-section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.625rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.625rem;
+    }
+
+    .calendar-section-desc {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.45);
+      margin: 0;
+      max-width: 580px;
+      line-height: 1.55;
+    }
+
+    /* Includes section */
+    .includes-section {
+      padding: 4rem 0;
+      background: #0d2035;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .includes-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .includes-heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin: 0 0 2rem;
+    }
+
+    .includes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .include-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      padding: 1.25rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+    }
+
+    .include-icon {
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .include-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .include-text strong {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .include-text span {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.45);
+      line-height: 1.4;
+    }
+
+    @media (max-width: 840px) {
+      .includes-grid { grid-template-columns: repeat(2, 1fr); }
+      .rate-divider { display: none; }
+    }
+
+    @media (max-width: 560px) {
+      .includes-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</BaseLayout>

@@ -1,0 +1,1413 @@
+---
+export const prerender = true;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+---
+
+<BaseLayout
+  title="SoccerOne Powell | Indoor Soccer Leagues, Pickup & Field Rentals"
+  description="Powell's premier indoor soccer complex. Adult leagues, youth programs, drop-in pickup, and field rentals. Year-round. One facility. One account."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a1929] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --so-navy: #0a1929;
+        --so-navy-2: #0d2035;
+        --so-yellow: #facc15;
+        --so-yellow-dim: #fde04780;
+        --so-teal: #0e7490;
+        --so-blue: #0ea5e9;
+        --so-white: #ffffff;
+        --so-muted: rgba(255,255,255,0.55);
+      }
+      body { font-family: 'Inter', sans-serif; }
+      *, *::before, *::after { box-sizing: border-box; }
+    </style>
+  </Fragment>
+
+  <SoccerOneHeader />
+
+  <main>
+    <!-- ====================================================
+         HERO
+    ==================================================== -->
+    <section class="hero-section" aria-label="Hero">
+      <!-- Soccer pitch SVG motif -->
+      <div class="hero-pitch-motif" aria-hidden="true">
+        <svg viewBox="0 0 800 500" fill="none" xmlns="http://www.w3.org/2000/svg" class="pitch-svg">
+          <!-- Outer pitch boundary -->
+          <rect x="40" y="40" width="720" height="420" rx="4" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+          <!-- Center circle -->
+          <circle cx="400" cy="250" r="80" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+          <!-- Center spot -->
+          <circle cx="400" cy="250" r="4" fill="rgba(255,255,255,0.08)"/>
+          <!-- Halfway line -->
+          <line x1="400" y1="40" x2="400" y2="460" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+          <!-- Left penalty area -->
+          <rect x="40" y="150" width="120" height="200" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+          <!-- Left goal area -->
+          <rect x="40" y="200" width="50" height="100" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+          <!-- Right penalty area -->
+          <rect x="640" y="150" width="120" height="200" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+          <!-- Right goal area -->
+          <rect x="710" y="200" width="50" height="100" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+          <!-- Left penalty arc -->
+          <path d="M160,200 A50,50 0 0,1 160,300" stroke="rgba(255,255,255,0.07)" stroke-width="2" fill="none"/>
+          <!-- Right penalty arc -->
+          <path d="M640,200 A50,50 0 0,0 640,300" stroke="rgba(255,255,255,0.07)" stroke-width="2" fill="none"/>
+          <!-- Corner arcs -->
+          <path d="M40,60 A20,20 0 0,0 60,40" stroke="rgba(255,255,255,0.05)" stroke-width="1.5" fill="none"/>
+          <path d="M740,60 A20,20 0 0,1 760,40" stroke="rgba(255,255,255,0.05)" stroke-width="1.5" fill="none"/>
+          <path d="M40,440 A20,20 0 0,1 60,460" stroke="rgba(255,255,255,0.05)" stroke-width="1.5" fill="none"/>
+          <path d="M740,440 A20,20 0 0,0 760,460" stroke="rgba(255,255,255,0.05)" stroke-width="1.5" fill="none"/>
+        </svg>
+      </div>
+
+      <!-- Diagonal accent stripe -->
+      <div class="hero-diagonal" aria-hidden="true"></div>
+
+      <div class="hero-content">
+        <div class="hero-badge">Powell, Ohio</div>
+
+        <h1 class="hero-headline">
+          Indoor soccer<br />in Powell.<br />
+          <span class="headline-accent">Year-round.</span>
+        </h1>
+
+        <p class="hero-subheadline">
+          Adult leagues. Youth programs. Drop-in pickup.<br />
+          Field rentals. <strong>One facility. One schedule. One account.</strong>
+        </p>
+
+        <div class="hero-ctas">
+          <a href="/soccerone#leagues" class="cta-primary">Find a League</a>
+          <a href="/soccerone/rent" class="cta-secondary">Rent a Field</a>
+        </div>
+
+        <!-- Trust signals -->
+        <div class="trust-row">
+          <div class="trust-item">
+            <span class="trust-stars">★★★★★</span>
+            <span class="trust-text">4.8 <span class="trust-dim">(200+ reviews)</span></span>
+          </div>
+          <span class="trust-divider" aria-hidden="true">·</span>
+          <div class="trust-item">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <rect x="1" y="3" width="14" height="10" rx="2" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+              <line x1="1" y1="7" x2="15" y2="7" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+            </svg>
+            <span class="trust-text">8 fields</span>
+          </div>
+          <span class="trust-divider" aria-hidden="true">·</span>
+          <div class="trust-item">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.5" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+              <polyline points="8,4 8,8 11,10" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span class="trust-text">Open 7am – 11pm</span>
+          </div>
+          <span class="trust-divider" aria-hidden="true">·</span>
+          <div class="trust-item">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.5" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+              <path d="M5 8l2 2 4-3" stroke="rgba(74,222,128,0.8)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="trust-text">Free parking</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Soccer ball SVG decoration -->
+      <div class="hero-ball" aria-hidden="true">
+        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="55" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+          <circle cx="60" cy="60" r="14" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+          <polygon points="60,5 73,35 105,35 80,55 90,88 60,68 30,88 40,55 15,35 47,35" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         WHAT'S AT SOCCERONE — six-tile grid
+    ==================================================== -->
+    <section class="programs-section" id="leagues" aria-labelledby="programs-heading">
+      <div class="section-container">
+        <div class="section-header">
+          <span class="section-eyebrow">What's at SoccerOne</span>
+          <h2 id="programs-heading" class="section-heading">Everything you need.<br />One facility.</h2>
+        </div>
+
+        <div class="programs-grid">
+          <!-- Adult Coed League -->
+          <a href="/register?sport=soccer&audience=adult" class="program-tile program-tile--featured">
+            <div class="tile-icon">
+              <svg viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="18" stroke="#facc15" stroke-width="2"/>
+                <polygon points="20,6 23.5,14 32,15 25.5,21 27.5,30 20,25 12.5,30 14.5,21 8,15 16.5,14" fill="rgba(250,204,21,0.25)" stroke="#facc15" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="tile-content">
+              <h3 class="tile-heading">Adult Coed League</h3>
+              <p class="tile-desc">Co-ed indoor leagues for all skill levels. Spring, summer, fall and winter seasons.</p>
+              <span class="tile-cta">Register now →</span>
+            </div>
+            <div class="tile-badge">Enrolling Now</div>
+          </a>
+
+          <!-- Adult Premier League -->
+          <div class="program-tile">
+            <div class="tile-icon">
+              <svg viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="18" stroke="rgba(14,165,233,0.7)" stroke-width="2"/>
+                <path d="M12 20l5 5 11-10" stroke="rgba(14,165,233,0.9)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="tile-content">
+              <h3 class="tile-heading">Adult Premier League</h3>
+              <p class="tile-desc">Competitive division for experienced players. Higher-level refs, scoreboards, standings.</p>
+              <span class="tile-cta">Learn more →</span>
+            </div>
+          </div>
+
+          <!-- Youth Programs -->
+          <a href="/programs?audience=youth" class="program-tile">
+            <div class="tile-icon">
+              <svg viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="18" stroke="rgba(74,222,128,0.7)" stroke-width="2"/>
+                <circle cx="20" cy="14" r="4" stroke="rgba(74,222,128,0.8)" stroke-width="1.75"/>
+                <path d="M12 32c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="rgba(74,222,128,0.8)" stroke-width="1.75" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="tile-content">
+              <h3 class="tile-heading">Youth Programs</h3>
+              <p class="tile-desc">Ages 5–18. Skills camps, recreational leagues, and elite academy tracks.</p>
+              <span class="tile-cta">View programs →</span>
+            </div>
+          </a>
+
+          <!-- Drop-In Pickup -->
+          <a href="/soccerone/pickup" class="program-tile">
+            <div class="tile-icon">
+              <svg viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="18" stroke="rgba(251,191,36,0.7)" stroke-width="2"/>
+                <path d="M14 20h12M20 14l6 6-6 6" stroke="rgba(251,191,36,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="tile-content">
+              <h3 class="tile-heading">Drop-In Pickup</h3>
+              <p class="tile-desc">Show up and play. No teams, no commitment — just great soccer seven days a week.</p>
+              <span class="tile-cta">See today's games →</span>
+            </div>
+          </a>
+
+          <!-- Field Rentals -->
+          <a href="/soccerone/rent" class="program-tile">
+            <div class="tile-icon">
+              <svg viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="18" stroke="rgba(167,139,250,0.7)" stroke-width="2"/>
+                <rect x="10" y="13" width="20" height="14" rx="2" stroke="rgba(167,139,250,0.8)" stroke-width="1.75"/>
+                <line x1="20" y1="13" x2="20" y2="27" stroke="rgba(167,139,250,0.6)" stroke-width="1.25"/>
+                <line x1="10" y1="20" x2="30" y2="20" stroke="rgba(167,139,250,0.6)" stroke-width="1.25"/>
+              </svg>
+            </div>
+            <div class="tile-content">
+              <h3 class="tile-heading">Field Rentals</h3>
+              <p class="tile-desc">Hourly field reservations for private training, corporate events, and birthday parties.</p>
+              <span class="tile-cta">Book a field →</span>
+            </div>
+          </a>
+
+          <!-- Birthday Parties -->
+          <div class="program-tile" id="birthday">
+            <div class="tile-icon">
+              <svg viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="18" stroke="rgba(251,113,133,0.7)" stroke-width="2"/>
+                <path d="M12 30c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="rgba(251,113,133,0.8)" stroke-width="1.75" stroke-linecap="round"/>
+                <path d="M16 16c0-2 1.5-4 4-4s4 2 4 4" stroke="rgba(251,113,133,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="20" cy="12" r="1.5" fill="rgba(251,113,133,0.8)"/>
+              </svg>
+            </div>
+            <div class="tile-content">
+              <h3 class="tile-heading">Birthday Parties</h3>
+              <p class="tile-desc">Private field rental + party room package. Full catering options available.</p>
+              <span class="tile-cta">Inquire →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         THIS WEEK'S SCHEDULE STRIP
+    ==================================================== -->
+    <section class="schedule-section" aria-labelledby="schedule-heading">
+      <div class="section-container">
+        <div class="schedule-header">
+          <h2 id="schedule-heading" class="section-heading-sm">This Week at SoccerOne</h2>
+          <a href="/soccerone/pickup" class="view-all-link">View full schedule →</a>
+        </div>
+
+        <div class="schedule-strip">
+          <div class="schedule-card schedule-card--live">
+            <div class="schedule-card-type">LIVE NOW</div>
+            <div class="schedule-card-name">Coed Pickup</div>
+            <div class="schedule-card-time">Now – 9:00 PM · Field 3</div>
+            <div class="schedule-card-spots">
+              <span class="spots-dot spots-dot--few"></span>3 spots left
+            </div>
+          </div>
+
+          <div class="schedule-card">
+            <div class="schedule-card-type schedule-card-type--league">LEAGUE</div>
+            <div class="schedule-card-name">Adult Coed — Game Night</div>
+            <div class="schedule-card-time">Tonight 7:00 PM · Field 1 &amp; 2</div>
+            <div class="schedule-card-spots">
+              <span class="spots-dot"></span>Spectators welcome
+            </div>
+          </div>
+
+          <div class="schedule-card">
+            <div class="schedule-card-type">PICKUP</div>
+            <div class="schedule-card-name">Beginner Pickup</div>
+            <div class="schedule-card-time">Wed Apr 29 · 6:30 PM · Field 5</div>
+            <div class="schedule-card-spots">
+              <span class="spots-dot"></span>8 spots left
+            </div>
+          </div>
+
+          <div class="schedule-card">
+            <div class="schedule-card-type">PICKUP</div>
+            <div class="schedule-card-name">Competitive Pickup</div>
+            <div class="schedule-card-time">Thu Apr 30 · 7:00 PM · Field 4</div>
+            <div class="schedule-card-spots">
+              <span class="spots-dot spots-dot--few"></span>2 spots left
+            </div>
+          </div>
+
+          <div class="schedule-card">
+            <div class="schedule-card-type schedule-card-type--youth">YOUTH</div>
+            <div class="schedule-card-name">U12 Skills Clinic</div>
+            <div class="schedule-card-time">Sat May 2 · 10:00 AM · Field 6</div>
+            <div class="schedule-card-spots">
+              <span class="spots-dot"></span>6 spots left
+            </div>
+          </div>
+
+          <div class="schedule-card">
+            <div class="schedule-card-type schedule-card-type--league">LEAGUE</div>
+            <div class="schedule-card-name">Premier League — Semifinal</div>
+            <div class="schedule-card-time">Sat May 2 · 8:00 PM · Field 1</div>
+            <div class="schedule-card-spots">
+              <span class="spots-dot"></span>Spectators welcome
+            </div>
+          </div>
+
+          <div class="schedule-card">
+            <div class="schedule-card-type">PICKUP</div>
+            <div class="schedule-card-name">Sunday Morning Pickup</div>
+            <div class="schedule-card-time">Sun May 3 · 8:00 AM · Field 2</div>
+            <div class="schedule-card-spots">
+              <span class="spots-dot"></span>10 spots left
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         MEMBERSHIPS CALLOUT
+    ==================================================== -->
+    <section class="memberships-section" aria-labelledby="memberships-heading">
+      <div class="section-container">
+        <div class="memberships-header">
+          <span class="section-eyebrow">Memberships</span>
+          <h2 id="memberships-heading" class="section-heading">Play more. Pay less.</h2>
+          <p class="memberships-subhead">Members get discounted hourly rates, priority league registration, and exclusive pickup access.</p>
+        </div>
+
+        <div class="memberships-grid">
+          <!-- Day Pass -->
+          <div class="membership-card">
+            <div class="membership-card-header">
+              <h3 class="mc-name">Day Pass</h3>
+              <div class="mc-price-row">
+                <span class="mc-price">$15</span>
+                <span class="mc-period">/visit</span>
+              </div>
+            </div>
+            <ul class="mc-benefits">
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Full facility access
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Join any open pickup
+              </li>
+              <li class="mc-benefit mc-benefit--no">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(148,163,184,0.3)"/><path d="M5.5 10.5l5-5M5.5 5.5l5 5" stroke="rgba(148,163,184,0.5)" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Member rental discount
+              </li>
+              <li class="mc-benefit mc-benefit--no">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(148,163,184,0.3)"/><path d="M5.5 10.5l5-5M5.5 5.5l5 5" stroke="rgba(148,163,184,0.5)" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Priority league signup
+              </li>
+              <li class="mc-benefit mc-benefit--no">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(148,163,184,0.3)"/><path d="M5.5 10.5l5-5M5.5 5.5l5 5" stroke="rgba(148,163,184,0.5)" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Guest passes
+              </li>
+            </ul>
+            <a href="/soccerone/memberships" class="mc-cta mc-cta--outline">Buy Day Pass</a>
+          </div>
+
+          <!-- Member -->
+          <div class="membership-card membership-card--featured">
+            <div class="mc-popular-badge">Most Popular</div>
+            <div class="membership-card-header">
+              <h3 class="mc-name">Member</h3>
+              <div class="mc-price-row">
+                <span class="mc-price">$29</span>
+                <span class="mc-period">/mo</span>
+              </div>
+              <div class="mc-annual-note">or $290/yr — save 17%</div>
+            </div>
+            <ul class="mc-benefits">
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Full facility access
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Join any open pickup
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                10% off hourly rentals
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Priority league signup
+              </li>
+              <li class="mc-benefit mc-benefit--no">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(148,163,184,0.3)"/><path d="M5.5 10.5l5-5M5.5 5.5l5 5" stroke="rgba(148,163,184,0.5)" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Guest passes
+              </li>
+            </ul>
+            <a href="/soccerone/memberships" class="mc-cta mc-cta--primary">Join as Member</a>
+          </div>
+
+          <!-- Founder -->
+          <div class="membership-card membership-card--founder">
+            <div class="membership-card-header">
+              <h3 class="mc-name">Founder</h3>
+              <div class="mc-price-row">
+                <span class="mc-price">$99</span>
+                <span class="mc-period">/mo</span>
+              </div>
+              <div class="mc-annual-note">or $990/yr — save 17%</div>
+            </div>
+            <ul class="mc-benefits">
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Full facility access
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Unlimited pickup
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                20% off hourly rentals
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Priority league signup
+              </li>
+              <li class="mc-benefit mc-benefit--yes">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none"><circle cx="8" cy="8" r="7.5" stroke="rgba(250,204,21,0.5)"/><path d="M5 8l2 2 4-3.5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/></svg>
+                2 guest passes/month
+              </li>
+            </ul>
+            <a href="/soccerone/memberships" class="mc-cta mc-cta--outline">Become a Founder</a>
+          </div>
+        </div>
+
+        <div class="memberships-compare-row">
+          <a href="/soccerone/memberships" class="compare-link">Compare all membership benefits →</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         LOCATION & HOURS
+    ==================================================== -->
+    <section class="location-section" id="contact" aria-labelledby="location-heading">
+      <div class="section-container">
+        <div class="location-grid">
+          <!-- Map placeholder -->
+          <div class="map-placeholder" aria-label="SoccerOne location map placeholder">
+            <!-- CSS-rendered indoor arena gradient -->
+            <div class="map-gradient">
+              <div class="map-pin" aria-hidden="true">
+                <svg width="36" height="48" viewBox="0 0 36 48" fill="none">
+                  <path d="M18 0C8.1 0 0 8.1 0 18c0 13.5 18 30 18 30s18-16.5 18-30c0-9.9-8.1-18-18-18z" fill="#facc15"/>
+                  <circle cx="18" cy="18" r="7" fill="#0a1929"/>
+                </svg>
+              </div>
+              <div class="map-field-lines" aria-hidden="true">
+                <svg viewBox="0 0 400 280" fill="none" class="map-field-svg">
+                  <rect x="20" y="20" width="360" height="240" rx="6" fill="rgba(14,116,144,0.25)" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+                  <line x1="200" y1="20" x2="200" y2="260" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+                  <circle cx="200" cy="140" r="55" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+                  <rect x="20" y="95" width="75" height="90" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+                  <rect x="305" y="95" width="75" height="90" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+                </svg>
+              </div>
+              <span class="map-label">8960 Commerce Loop Dr, Powell OH 43065</span>
+            </div>
+          </div>
+
+          <!-- Hours & contact -->
+          <div class="hours-panel">
+            <h2 id="location-heading" class="hours-heading">Find Us</h2>
+
+            <div class="contact-details">
+              <div class="contact-item">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M9 1a6 6 0 0 1 6 6c0 4.5-6 10-6 10S3 11.5 3 7a6 6 0 0 1 6-6z" stroke="#facc15" stroke-width="1.5"/>
+                  <circle cx="9" cy="7" r="2" stroke="#facc15" stroke-width="1.5"/>
+                </svg>
+                <span>8960 Commerce Loop Dr, Powell, OH 43065</span>
+              </div>
+              <div class="contact-item">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M3 3h3l1.5 4-2 1.2c1 2.2 2.8 4 5 5l1.2-2L16 12.5V15.5a1.5 1.5 0 0 1-1.5 1.5C6.5 17 1 11.5 1 4.5A1.5 1.5 0 0 1 2.5 3H3z" stroke="#facc15" stroke-width="1.5"/>
+                </svg>
+                <a href="tel:6145550181" class="contact-link">(614) 555-0181</a>
+              </div>
+              <div class="contact-item">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <rect x="1" y="4" width="16" height="11" rx="2" stroke="#facc15" stroke-width="1.5"/>
+                  <path d="M1 7l8 5 8-5" stroke="#facc15" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <a href="mailto:info@socceronepowell.com" class="contact-link">info@socceronepowell.com</a>
+              </div>
+            </div>
+
+            <table class="hours-table" aria-label="Weekly hours">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="hours-row hours-row--today">
+                  <td class="hours-day">Mon – Thu</td>
+                  <td class="hours-time">7:00 AM – 11:00 PM</td>
+                </tr>
+                <tr class="hours-row">
+                  <td class="hours-day">Friday</td>
+                  <td class="hours-time">7:00 AM – 11:00 PM</td>
+                </tr>
+                <tr class="hours-row">
+                  <td class="hours-day">Saturday</td>
+                  <td class="hours-time">7:00 AM – 11:00 PM</td>
+                </tr>
+                <tr class="hours-row">
+                  <td class="hours-day">Sunday</td>
+                  <td class="hours-time">8:00 AM – 10:00 PM</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <a href="/soccerone/rent" class="location-cta">Book a Field Today →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         STATS BAR
+    ==================================================== -->
+    <section class="stats-section" aria-label="SoccerOne by the numbers">
+      <div class="stats-inner">
+        <div class="stat-item">
+          <span class="stat-number">8</span>
+          <span class="stat-label">Indoor Fields</span>
+        </div>
+        <div class="stat-divider" aria-hidden="true"></div>
+        <div class="stat-item">
+          <span class="stat-number">400+</span>
+          <span class="stat-label">Active Players</span>
+        </div>
+        <div class="stat-divider" aria-hidden="true"></div>
+        <div class="stat-item">
+          <span class="stat-number">12</span>
+          <span class="stat-label">Weekly Leagues</span>
+        </div>
+        <div class="stat-divider" aria-hidden="true"></div>
+        <div class="stat-item">
+          <span class="stat-number">52</span>
+          <span class="stat-label">Weeks/Year</span>
+        </div>
+        <div class="stat-divider" aria-hidden="true"></div>
+        <div class="stat-item">
+          <span class="stat-number">4.8★</span>
+          <span class="stat-label">Avg Rating</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    /* ——— Global page ——— */
+    .section-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* ——— Hero ——— */
+    .hero-section {
+      position: relative;
+      background: linear-gradient(135deg, #0a1929 0%, #0c2340 45%, #0e3a5c 70%, #0e7490 100%);
+      min-height: 680px;
+      display: flex;
+      align-items: center;
+      padding: 6rem 1.5rem 5rem;
+      overflow: hidden;
+    }
+
+    .hero-pitch-motif {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pitch-svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .hero-diagonal {
+      position: absolute;
+      bottom: -2px;
+      right: 0;
+      width: 55%;
+      height: 100%;
+      background: linear-gradient(150deg, transparent 40%, rgba(250,204,21,0.04) 100%);
+      clip-path: polygon(25% 0%, 100% 0%, 100% 100%, 0% 100%);
+      z-index: 0;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin: 0 auto 0 0;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(250,204,21,0.15);
+      border: 1px solid rgba(250,204,21,0.4);
+      color: #facc15;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-headline {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(3rem, 7vw, 5.5rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+      margin: 0 0 1.25rem;
+    }
+
+    .headline-accent {
+      color: #facc15;
+      position: relative;
+    }
+
+    .hero-subheadline {
+      font-size: clamp(1rem, 2.2vw, 1.25rem);
+      color: rgba(255,255,255,0.7);
+      line-height: 1.65;
+      margin: 0 0 2.5rem;
+      max-width: 540px;
+    }
+
+    .hero-subheadline strong {
+      color: rgba(255,255,255,0.9);
+    }
+
+    .hero-ctas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.875rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .cta-primary {
+      display: inline-flex;
+      align-items: center;
+      background: #facc15;
+      color: #0a1929;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.875rem 2rem;
+      border-radius: 6px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .cta-primary:hover {
+      background: #fde047;
+      transform: translateY(-2px);
+    }
+
+    .cta-secondary {
+      display: inline-flex;
+      align-items: center;
+      background: transparent;
+      color: #ffffff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.875rem 2rem;
+      border-radius: 6px;
+      border: 1.5px solid rgba(255,255,255,0.4);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .cta-secondary:hover {
+      border-color: white;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .trust-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.75);
+    }
+
+    .trust-stars {
+      color: #facc15;
+      letter-spacing: -0.05em;
+      font-size: 0.875rem;
+    }
+
+    .trust-dim {
+      opacity: 0.55;
+    }
+
+    .trust-divider {
+      color: rgba(255,255,255,0.25);
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .hero-ball {
+      position: absolute;
+      right: 6%;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 300px;
+      height: 300px;
+      opacity: 0.4;
+      z-index: 0;
+    }
+
+    /* ——— Programs grid ——— */
+    .programs-section {
+      padding: 6rem 0;
+      background: #0d2035;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .section-eyebrow {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #facc15;
+      margin-bottom: 0.625rem;
+    }
+
+    .section-heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      line-height: 1.1;
+      margin: 0;
+    }
+
+    .programs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .program-tile {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 1.75rem;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+      transition: border-color 0.2s, transform 0.2s, background 0.2s;
+      cursor: default;
+    }
+
+    a.program-tile {
+      cursor: pointer;
+    }
+
+    a.program-tile:hover, .program-tile:hover {
+      border-color: rgba(250,204,21,0.35);
+      background: rgba(255,255,255,0.06);
+      transform: translateY(-3px);
+    }
+
+    .program-tile--featured {
+      border-color: rgba(250,204,21,0.4);
+      background: rgba(250,204,21,0.05);
+    }
+
+    .program-tile--featured:hover {
+      border-color: #facc15;
+      background: rgba(250,204,21,0.08);
+    }
+
+    .tile-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .tile-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .tile-heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .tile-desc {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.55;
+      margin: 0;
+      flex: 1;
+    }
+
+    .tile-cta {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #facc15;
+      display: block;
+    }
+
+    .tile-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .tile-badge {
+      position: absolute;
+      top: -12px;
+      right: 1rem;
+      background: #facc15;
+      color: #0a1929;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    /* ——— Schedule strip ——— */
+    .schedule-section {
+      padding: 4rem 0;
+      background: #0a1929;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .schedule-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.75rem;
+    }
+
+    .section-heading-sm {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+
+    .view-all-link {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #facc15;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .view-all-link:hover { opacity: 0.75; }
+
+    .schedule-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .schedule-card {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 1.125rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      transition: border-color 0.15s;
+    }
+
+    .schedule-card:hover {
+      border-color: rgba(250,204,21,0.3);
+    }
+
+    .schedule-card--live {
+      border-color: rgba(74,222,128,0.5);
+      background: rgba(74,222,128,0.05);
+    }
+
+    .schedule-card-type {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+    }
+
+    .schedule-card--live .schedule-card-type {
+      color: #4ade80;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .schedule-card--live .schedule-card-type::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .schedule-card-type--league { color: #7dd3fc; }
+    .schedule-card-type--youth  { color: #86efac; }
+
+    .schedule-card-name {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: #ffffff;
+      line-height: 1.3;
+    }
+
+    .schedule-card-time {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .schedule-card-spots {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.45);
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .spots-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      flex-shrink: 0;
+    }
+
+    .spots-dot--few {
+      background: #f97316;
+    }
+
+    /* ——— Memberships callout ——— */
+    .memberships-section {
+      padding: 6rem 0;
+      background: #0d2035;
+    }
+
+    .memberships-header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .memberships-subhead {
+      font-size: 1.0625rem;
+      color: rgba(255,255,255,0.55);
+      max-width: 500px;
+      margin: 0.875rem auto 0;
+      line-height: 1.6;
+    }
+
+    .memberships-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      align-items: stretch;
+    }
+
+    .membership-card {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      position: relative;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .membership-card:hover {
+      border-color: rgba(250,204,21,0.3);
+      transform: translateY(-2px);
+    }
+
+    .membership-card--featured {
+      border-color: #facc15;
+      background: rgba(250,204,21,0.05);
+      box-shadow: 0 0 0 1px rgba(250,204,21,0.2), 0 8px 32px rgba(250,204,21,0.08);
+    }
+
+    .membership-card--founder {
+      border-color: rgba(167,139,250,0.4);
+    }
+
+    .membership-card--founder:hover {
+      border-color: rgba(167,139,250,0.7);
+    }
+
+    .mc-popular-badge {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #facc15;
+      color: #0a1929;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .membership-card-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .mc-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .mc-price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .mc-price {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: #facc15;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .mc-period {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.45);
+    }
+
+    .mc-annual-note {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.35);
+    }
+
+    .mc-benefits {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+      flex: 1;
+    }
+
+    .mc-benefit {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      font-size: 0.9375rem;
+      line-height: 1.3;
+    }
+
+    .mc-benefit--yes { color: rgba(255,255,255,0.85); }
+    .mc-benefit--no  { color: rgba(255,255,255,0.3); }
+
+    .mc-cta {
+      display: block;
+      text-align: center;
+      text-decoration: none;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      padding: 0.875rem;
+      border-radius: 6px;
+      transition: filter 0.15s, transform 0.1s;
+      margin-top: auto;
+    }
+
+    .mc-cta--primary {
+      background: #facc15;
+      color: #0a1929;
+    }
+    .mc-cta--primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+    .mc-cta--outline {
+      background: transparent;
+      color: rgba(255,255,255,0.8);
+      border: 1.5px solid rgba(255,255,255,0.25);
+    }
+    .mc-cta--outline:hover {
+      border-color: rgba(255,255,255,0.6);
+      color: white;
+    }
+
+    .memberships-compare-row {
+      text-align: center;
+      margin-top: 2rem;
+    }
+
+    .compare-link {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: rgba(250,204,21,0.8);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .compare-link:hover { color: #facc15; }
+
+    /* ——— Location ——— */
+    .location-section {
+      padding: 5rem 0;
+      background: #0a1929;
+    }
+
+    .location-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: start;
+    }
+
+    .map-placeholder {
+      border-radius: 16px;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      position: relative;
+    }
+
+    .map-gradient {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0a1929 0%, #0c2a44 40%, #0e7490 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .map-field-lines {
+      position: absolute;
+      inset: 0;
+    }
+
+    .map-field-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .map-pin {
+      position: relative;
+      z-index: 1;
+      filter: drop-shadow(0 4px 12px rgba(250,204,21,0.4));
+      animation: pin-bounce 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pin-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .map-label {
+      position: absolute;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      background: rgba(10,25,41,0.85);
+      color: rgba(255,255,255,0.75);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      padding: 0.375rem 0.875rem;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+    }
+
+    .hours-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .hours-heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      margin: 0;
+    }
+
+    .contact-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .contact-link {
+      color: rgba(255,255,255,0.7);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .contact-link:hover { color: #facc15; }
+
+    .hours-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .hours-table th {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(250,204,21,0.7);
+      padding: 0 0 0.625rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .hours-row td {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.9375rem;
+    }
+
+    .hours-day { color: rgba(255,255,255,0.75); }
+    .hours-time {
+      color: rgba(255,255,255,0.55);
+      text-align: right;
+    }
+
+    .hours-row--today .hours-day { color: #facc15; font-weight: 600; }
+    .hours-row--today .hours-time { color: rgba(250,204,21,0.75); }
+
+    .location-cta {
+      display: inline-block;
+      background: #facc15;
+      color: #0a1929;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      padding: 0.875rem 2rem;
+      border-radius: 6px;
+      transition: filter 0.15s, transform 0.1s;
+      margin-top: 0.5rem;
+    }
+    .location-cta:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+
+    /* ——— Stats bar ——— */
+    .stats-section {
+      background: #facc15;
+      padding: 0;
+    }
+
+    .stats-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .stat-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      color: #0a1929;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(10,25,41,0.6);
+    }
+
+    .stat-divider {
+      width: 1px;
+      height: 40px;
+      background: rgba(10,25,41,0.2);
+      flex-shrink: 0;
+    }
+
+    /* ——— Responsive ——— */
+    @media (max-width: 900px) {
+      .programs-grid { grid-template-columns: repeat(2, 1fr); }
+      .memberships-grid { grid-template-columns: 1fr; }
+      .location-grid { grid-template-columns: 1fr; }
+      .stat-divider { display: none; }
+      .stats-inner { gap: 2rem; justify-content: center; }
+    }
+
+    @media (max-width: 600px) {
+      .programs-grid { grid-template-columns: 1fr; }
+      .hero-ball { display: none; }
+      .schedule-strip { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+    }
+  </style>
+</BaseLayout>
