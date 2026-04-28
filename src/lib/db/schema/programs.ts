@@ -45,6 +45,12 @@ export const programs = pgTable(
     sportId: uuid("sport_id")
       .notNull()
       .references(() => sports.id, { onDelete: "restrict" }),
+    // venueId is nullable — cross-org references are intentionally allowed
+    // (e.g. Aspire Sports program at a SoccerOne facility). No same-org
+    // constraint here; gating is enforced in the admin API layer.
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 100 }).notNull(),
     description: text("description"),
@@ -114,6 +120,10 @@ export const programsRelations = relations(programs, ({ one, many }) => ({
   sport: one(sports, {
     fields: [programs.sportId],
     references: [sports.id],
+  }),
+  venue: one(venues, {
+    fields: [programs.venueId],
+    references: [venues.id],
   }),
   seasons: many(seasons),
 }));

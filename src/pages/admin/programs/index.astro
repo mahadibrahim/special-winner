@@ -5,6 +5,7 @@ import { ProgramsList } from '../../../components/admin/programs-list';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
+const isSuperAdmin = (Astro.locals.userRoles ?? []).some((r) => r.name === "super_admin");
 ---
 
 <BaseLayout title="Programs — Admin — Aspire Sports" navigation={false} footer={false}>
@@ -13,6 +14,6 @@ const user = Astro.locals.user!;
     currentPath="/admin/programs"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <ProgramsList client:load />
+    <ProgramsList client:load isSuperAdmin={isSuperAdmin} />
   </AdminLayout>
 </BaseLayout>
