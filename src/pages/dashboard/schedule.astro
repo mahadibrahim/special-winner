@@ -1,42 +1,14 @@
 ---
-import '../../styles/globals.css';
-import Navigation from '../../components/navigation';
-import Footer from '../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import FullSchedule from '../../components/dashboard/full-schedule';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-// TEMPORARILY DISABLED FOR TESTING
-// if (!user) {
-//   return Astro.redirect('/signin?redirect=/dashboard/schedule');
-// }
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Schedule — Aspire Sports</title>
+<BaseLayout title="Schedule — Aspire Sports">
+  <Fragment slot="head">
     <style>
-      /* Page load animation */
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      .schedule-content {
-        animation: fadeIn 0.4s ease-out forwards;
-      }
-
       /* Background pattern */
       .schedule-bg {
         background-image:
@@ -44,23 +16,18 @@ const user = Astro.locals.user;
           radial-gradient(circle at 90% 80%, rgba(147, 51, 234, 0.04), transparent);
       }
     </style>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+  </Fragment>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 schedule-bg">
-      <div class="max-w-6xl mx-auto schedule-content">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
-          <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
-          <span>/</span>
-          <span class="text-ink">Schedule</span>
-        </nav>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 schedule-bg">
+    <div class="max-w-6xl mx-auto fade-in">
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
+        <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
+        <span>/</span>
+        <span class="text-ink">Schedule</span>
+      </nav>
 
-        <FullSchedule client:load />
-      </div>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+      <FullSchedule client:load />
+    </div>
+  </main>
+</BaseLayout>

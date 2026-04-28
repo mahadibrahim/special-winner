@@ -1,7 +1,5 @@
 ---
-import '../../styles/globals.css';
-import Navigation from '../../components/navigation';
-import Footer from '../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import { db } from '@/lib/db';
 import { users, emailVerificationTokens } from '@/lib/db/schema';
 import { eq, gt, and } from 'drizzle-orm';
@@ -45,72 +43,54 @@ if (token && db) {
 }
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>{verified ? 'Email Verified' : 'Verification Failed'} — Aspire Sports</title>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
-
-    <main id="main-content" class="flex-1 flex items-center justify-center py-12 px-4 pt-24">
-      <div class="w-full max-w-md">
-        <!-- Card -->
-        <div class="bg-cream-2 border border-border rounded-2xl p-8">
-          {verified ? (
-            <div class="text-center">
-              <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 class="text-2xl font-bold text-ink mb-2">Email Verified!</h1>
-              <p class="text-ink-muted mb-6">
-                Your email has been successfully verified. You can now access all features of your account.
-              </p>
+<BaseLayout title={`${verified ? 'Email Verified' : 'Verification Failed'} — Aspire Sports`}>
+  <main id="main-content" class="flex-1 flex items-center justify-center py-12 px-4 pt-24">
+    <div class="w-full max-w-md">
+      <!-- Card -->
+      <div class="bg-cream-2 border border-border rounded-2xl p-8">
+        {verified ? (
+          <div class="text-center">
+            <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-ink mb-2">Email Verified!</h1>
+            <p class="text-ink-muted mb-6">
+              Your email has been successfully verified. You can now access all features of your account.
+            </p>
+            <a
+              href="/dashboard"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8"
+            >
+              Go to Dashboard
+            </a>
+          </div>
+        ) : (
+          <div class="text-center">
+            <div class="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-ink mb-2">Verification Failed</h1>
+            <p class="text-ink-muted mb-6">
+              {error}
+            </p>
+            <div class="space-y-3">
               <a
                 href="/dashboard"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
               >
                 Go to Dashboard
               </a>
-            </div>
-          ) : (
-            <div class="text-center">
-              <div class="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <h1 class="text-2xl font-bold text-ink mb-2">Verification Failed</h1>
-              <p class="text-ink-muted mb-6">
-                {error}
+              <p class="text-ink-faint text-sm">
+                You can request a new verification email from your dashboard settings.
               </p>
-              <div class="space-y-3">
-                <a
-                  href="/dashboard"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
-                >
-                  Go to Dashboard
-                </a>
-                <p class="text-ink-faint text-sm">
-                  You can request a new verification email from your dashboard settings.
-                </p>
-              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+    </div>
+  </main>
+</BaseLayout>

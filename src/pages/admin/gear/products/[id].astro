@@ -1,15 +1,13 @@
 ---
-import '../../../../styles/globals.css';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../../components/admin/admin-layout';
 import { ProductVariantsManager } from '../../../../components/admin/product-variants-manager';
 import { getDb } from '../../../../lib/db';
 import { products } from '../../../../lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/gear/products');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 
 const organization = Astro.locals.organization;
 const { id } = Astro.params;
@@ -28,51 +26,37 @@ if (!product) {
 }
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>{product.name} — Products — Admin — Aspire Sports</title>
-  </head>
-  <body class="bg-cream text-ink antialiased">
-    <AdminLayout
-      client:load
-      currentPath="/admin/gear/products"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-    >
-      <div class="max-w-4xl space-y-6">
-        <div>
-          <a
-            href="/admin/gear/products"
-            class="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Back to products
-          </a>
-          <h1 class="text-3xl font-bold text-gray-900 mt-2">{product.name}</h1>
-          {product.description && (
-            <p class="text-gray-600 mt-1">{product.description}</p>
-          )}
-          <p class="text-sm text-muted-foreground mt-2">
-            Base price: ${(product.basePriceCents / 100).toFixed(2)}
-          </p>
-        </div>
-
-        <section>
-          <h2 class="text-xl font-semibold mb-4">Variants</h2>
-          <ProductVariantsManager
-            client:load
-            productId={product.id}
-            basePriceCents={product.basePriceCents}
-          />
-        </section>
+<BaseLayout title={`${product.name} — Products — Admin — Aspire Sports`} navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/gear/products"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="max-w-4xl space-y-6">
+      <div>
+        <a
+          href="/admin/gear/products"
+          class="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Back to products
+        </a>
+        <h1 class="text-3xl font-bold text-gray-900 mt-2">{product.name}</h1>
+        {product.description && (
+          <p class="text-gray-600 mt-1">{product.description}</p>
+        )}
+        <p class="text-sm text-muted-foreground mt-2">
+          Base price: ${(product.basePriceCents / 100).toFixed(2)}
+        </p>
       </div>
-    </AdminLayout>
-  </body>
-</html>
+
+      <section>
+        <h2 class="text-xl font-semibold mb-4">Variants</h2>
+        <ProductVariantsManager
+          client:load
+          productId={product.id}
+          basePriceCents={product.basePriceCents}
+        />
+      </section>
+    </div>
+  </AdminLayout>
+</BaseLayout>

@@ -8,24 +8,20 @@ import {
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
-  Plus,
   Calendar,
   MapPin,
   Users,
   Loader2,
   AlertCircle,
-  Shield,
-  Tag,
-  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TelegramConnectStep } from "./telegram-connect-step"
 import { WhoStep } from "./who-step"
+import { GuestInfoStep } from "./guest-info-step"
+import { WaiverStep } from "./waiver-step"
+import { PaymentStep } from "./payment-step"
+import { ConfirmationStep } from "./confirmation-step"
+import { AddDependentForm } from "./add-dependent-form"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 interface Season {
@@ -112,23 +108,30 @@ export default function RegistrationWizard({
 }: RegistrationWizardProps) {
   const isGuest = user === null
   useHydrationBeacon()
+
+  // ── Step / flow state ────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(1)
   const [showTelegramStep, setShowTelegramStep] = useState(false)
+
+  // ── Remote data ──────────────────────────────────────────────────────────
   const [season, setSeason] = useState<Season | null>(null)
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Submission state ─────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [registrationComplete, setRegistrationComplete] = useState(false)
 
-  // Form state
+  // ── Selection / waiver / payment state ──────────────────────────────────
   // selectedKey: "self" | <dependentId> | null
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignature, setWaiverSignature] = useState("")
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full")
+  const [lookingForTeam, setLookingForTeam] = useState(false)
 
-  // Guest-mode parent + child fields (only used when isGuest === true)
+  // ── Guest-mode fields ────────────────────────────────────────────────────
   const [guestParentFirstName, setGuestParentFirstName] = useState("")
   const [guestParentLastName, setGuestParentLastName] = useState("")
   const [guestParentEmail, setGuestParentEmail] = useState("")
@@ -140,7 +143,7 @@ export default function RegistrationWizard({
   const [guestEmailCollision, setGuestEmailCollision] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
-  // Discount code state
+  // ── Discount code state ──────────────────────────────────────────────────
   const [discountCode, setDiscountCode] = useState("")
   const [discountCodeInput, setDiscountCodeInput] = useState("")
   const [isValidatingDiscount, setIsValidatingDiscount] = useState(false)
@@ -152,7 +155,7 @@ export default function RegistrationWizard({
     discountAmountCents: number
   } | null>(null)
 
-  // New member form
+  // ── Add-dependent form state ─────────────────────────────────────────────
   const [showAddMember, setShowAddMember] = useState(false)
   const [newMemberFirstName, setNewMemberFirstName] = useState("")
   const [newMemberLastName, setNewMemberLastName] = useState("")
@@ -160,17 +163,17 @@ export default function RegistrationWizard({
   const [newMemberGender, setNewMemberGender] = useState("")
   const [isAddingMember, setIsAddingMember] = useState(false)
 
-  // Free-agent flag: shown only for adult self-registrants
-  const [lookingForTeam, setLookingForTeam] = useState(false)
-
-  // Cancel-resume state
+  // ── Cancel-resume state ──────────────────────────────────────────────────
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
+
+  // ── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetchData()
   }, [seasonId])
 
+  // Check for cancelled-payment resumable registration
   useEffect(() => {
     if (!wasCancelled || isGuest) return
     let cancelled = false
@@ -197,12 +200,12 @@ export default function RegistrationWizard({
     }
   }, [wasCancelled, seasonId, isGuest])
 
+  // Debounced guest email collision check
   useEffect(() => {
     if (!isGuest || !guestParentEmail) {
       setGuestEmailCollision(false)
       return
     }
-    // Quick client-side validity check before pinging the server
     const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail)
     if (!looksLikeEmail) {
       setGuestEmailCollision(false)
@@ -232,6 +235,8 @@ export default function RegistrationWizard({
     }
   }, [isGuest, guestParentEmail])
 
+  // ── Data fetching ─────────────────────────────────────────────────────────
+
   const fetchData = async () => {
     try {
       setIsLoading(true)
@@ -254,6 +259,8 @@ export default function RegistrationWizard({
       setIsLoading(false)
     }
   }
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleAddMember = async () => {
     if (!newMemberFirstName || !newMemberLastName || !newMemberBirthDate) return
@@ -327,7 +334,7 @@ export default function RegistrationWizard({
         discountAmountCents: data.calculatedDiscount?.discountAmountCents || 0,
       })
       setDiscountCodeInput("")
-    } catch (err) {
+    } catch {
       setDiscountError("Failed to validate discount code")
     } finally {
       setIsValidatingDiscount(false)
@@ -510,6 +517,8 @@ export default function RegistrationWizard({
     }
   }
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
@@ -568,7 +577,7 @@ export default function RegistrationWizard({
     return age >= currentSeason.ageGroup.minAge && age <= currentSeason.ageGroup.maxAge
   }
 
-  // Resolve the display name for the selected registrant (used in waiver label + order summary)
+  // Resolve the display name for the selected registrant
   const selectedDisplayName =
     selectedKey === "self"
       ? `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim()
@@ -579,10 +588,7 @@ export default function RegistrationWizard({
         })()
       : ""
 
-  // Keep selectedMember for backward-compat references (waiver, order summary)
-  const selectedMember = selectedKey && selectedKey !== "self"
-    ? familyMembers.find((m) => m.id === selectedKey)
-    : undefined
+  // ── Loading / error states ─────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -603,6 +609,8 @@ export default function RegistrationWizard({
   }
 
   if (!season) return null
+
+  // ── Resume-payment early return ────────────────────────────────────────────
 
   if (resumableRegistrationId) {
     return (
@@ -641,6 +649,8 @@ export default function RegistrationWizard({
       </div>
     )
   }
+
+  // ── Main wizard render ─────────────────────────────────────────────────────
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -771,452 +781,91 @@ export default function RegistrationWizard({
 
         {/* Add dependent inline form (authenticated path, step 1) */}
         {currentStep === 1 && !isGuest && showAddMember && (
-          <div className="space-y-4 p-4 rounded-xl border border-border bg-paper">
-            <h4 className="font-medium text-ink">Add New Player</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-ink-muted">First Name *</Label>
-                <Input
-                  value={newMemberFirstName}
-                  onChange={(e) => setNewMemberFirstName(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-ink-muted">Last Name *</Label>
-                <Input
-                  value={newMemberLastName}
-                  onChange={(e) => setNewMemberLastName(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-ink-muted">Birth Date *</Label>
-                <Input
-                  type="date"
-                  value={newMemberBirthDate}
-                  onChange={(e) => setNewMemberBirthDate(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-ink-muted">Gender</Label>
-                <Select value={newMemberGender} onValueChange={setNewMemberGender}>
-                  <SelectTrigger className="bg-cream-2 border-border text-ink">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-cream border-border">
-                    <SelectItem value="male" className="text-ink-2">Male</SelectItem>
-                    <SelectItem value="female" className="text-ink-2">Female</SelectItem>
-                    <SelectItem value="other" className="text-ink-2">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowAddMember(false)}
-                className="border-border text-ink-muted"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAddMember}
-                disabled={!newMemberFirstName || !newMemberLastName || !newMemberBirthDate || isAddingMember}
-                className="bg-primary hover:bg-primary/90"
-              >
-                {isAddingMember ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Add & Select
-              </Button>
-            </div>
-          </div>
+          <AddDependentForm
+            firstName={newMemberFirstName}
+            lastName={newMemberLastName}
+            birthDate={newMemberBirthDate}
+            gender={newMemberGender}
+            isSubmitting={isAddingMember}
+            onFirstNameChange={setNewMemberFirstName}
+            onLastNameChange={setNewMemberLastName}
+            onBirthDateChange={setNewMemberBirthDate}
+            onGenderChange={setNewMemberGender}
+            onSubmit={handleAddMember}
+            onCancel={() => setShowAddMember(false)}
+          />
         )}
 
         {/* Step 1 (guest): About you + player */}
         {currentStep === 1 && isGuest && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-ink mb-2">Your info & player</h3>
-              <p className="text-ink-muted text-sm">
-                We'll create an account for you and email a one-tap sign-in link after
-                payment. No password needed.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="font-medium text-ink">About you</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-ink-muted">First name *</Label>
-                  <Input
-                    value={guestParentFirstName}
-                    onChange={(e) => setGuestParentFirstName(e.target.value)}
-                    className="bg-cream-2 border-border text-ink focus:border-primary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-ink-muted">Last name *</Label>
-                  <Input
-                    value={guestParentLastName}
-                    onChange={(e) => setGuestParentLastName(e.target.value)}
-                    className="bg-cream-2 border-border text-ink focus:border-primary"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-ink-muted">Email *</Label>
-                <Input
-                  type="email"
-                  value={guestParentEmail}
-                  onChange={(e) => setGuestParentEmail(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
-                />
-                {guestEmailCollision && (
-                  <p className="text-xs text-ink-muted">
-                    We already have an account with this email. After payment we'll
-                    send a sign-in link to{" "}
-                    <span className="font-medium">{guestParentEmail}</span>.
-                  </p>
-                )}
-                {isCheckingEmail && !guestEmailCollision && (
-                  <p className="text-xs text-ink-faint">Checking…</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label className="text-ink-muted">Phone (optional)</Label>
-                <Input
-                  type="tel"
-                  value={guestParentPhone}
-                  onChange={(e) => setGuestParentPhone(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-4 border-t border-border">
-              <h4 className="font-medium text-ink">Player</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-ink-muted">First name *</Label>
-                  <Input
-                    value={guestChildFirstName}
-                    onChange={(e) => setGuestChildFirstName(e.target.value)}
-                    className="bg-cream-2 border-border text-ink focus:border-primary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-ink-muted">Last name *</Label>
-                  <Input
-                    value={guestChildLastName}
-                    onChange={(e) => setGuestChildLastName(e.target.value)}
-                    className="bg-cream-2 border-border text-ink focus:border-primary"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-ink-muted">Birth date *</Label>
-                  <Input
-                    type="date"
-                    value={guestChildBirthDate}
-                    onChange={(e) => setGuestChildBirthDate(e.target.value)}
-                    className="bg-cream-2 border-border text-ink focus:border-primary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-ink-muted">Gender</Label>
-                  <Select value={guestChildGender} onValueChange={setGuestChildGender}>
-                    <SelectTrigger className="bg-cream-2 border-border text-ink">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-cream border-border">
-                      <SelectItem value="male" className="text-ink-2">Male</SelectItem>
-                      <SelectItem value="female" className="text-ink-2">Female</SelectItem>
-                      <SelectItem value="other" className="text-ink-2">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-xs text-ink-muted">
-              Already have an account?{" "}
-              <a
-                href={`/signin?redirect=/register/${seasonId}`}
-                className="text-primary hover:text-primary/80 font-medium"
-              >
-                Sign in
-              </a>
-            </p>
-          </div>
+          <GuestInfoStep
+            seasonId={seasonId}
+            parentFirstName={guestParentFirstName}
+            parentLastName={guestParentLastName}
+            parentEmail={guestParentEmail}
+            parentPhone={guestParentPhone}
+            childFirstName={guestChildFirstName}
+            childLastName={guestChildLastName}
+            childBirthDate={guestChildBirthDate}
+            childGender={guestChildGender}
+            emailCollision={guestEmailCollision}
+            isCheckingEmail={isCheckingEmail}
+            onParentFirstNameChange={setGuestParentFirstName}
+            onParentLastNameChange={setGuestParentLastName}
+            onParentEmailChange={setGuestParentEmail}
+            onParentPhoneChange={setGuestParentPhone}
+            onChildFirstNameChange={setGuestChildFirstName}
+            onChildLastNameChange={setGuestChildLastName}
+            onChildBirthDateChange={setGuestChildBirthDate}
+            onChildGenderChange={setGuestChildGender}
+          />
         )}
 
         {/* Step 2: Waiver */}
         {currentStep === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-ink mb-2">Participant Waiver</h3>
-              <p className="text-ink-muted text-sm">
-                Please read and sign the waiver to continue with registration.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-cream-2 border border-border max-h-64 overflow-y-auto">
-              <h4 className="font-medium text-ink mb-3 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-primary" />
-                Aspire Sports Participation Waiver
-              </h4>
-              <div className="text-sm text-ink-muted space-y-3">
-                <p>
-                  By signing this waiver, I acknowledge and agree to the following terms and conditions
-                  for participation in Aspire Sports programs:
-                </p>
-                <p>
-                  <strong className="text-ink">1. Assumption of Risk:</strong> I understand that participation in
-                  sports activities involves inherent risks, including but not limited to physical
-                  injury, illness, and exposure to communicable diseases. I voluntarily assume all
-                  such risks.
-                </p>
-                <p>
-                  <strong className="text-ink">2. Medical Authorization:</strong> In the event of an emergency, I
-                  authorize Aspire Sports staff to seek and consent to medical treatment for the
-                  participant if I cannot be reached.
-                </p>
-                <p>
-                  <strong className="text-ink">3. Photo/Video Release:</strong> I grant permission for Aspire Sports
-                  to use photographs and video recordings of the participant for promotional purposes.
-                </p>
-                <p>
-                  <strong className="text-ink">4. Release of Liability:</strong> I release and hold harmless Aspire
-                  Sports, its coaches, volunteers, and facilities from any claims arising from
-                  participation in the program.
-                </p>
-                <p>
-                  <strong className="text-ink">5. Code of Conduct:</strong> I agree that the participant will adhere
-                  to all program rules and demonstrate good sportsmanship at all times.
-                </p>
-              </div>
-            </div>
-
-            {/* Branched waiver body: self vs dependent (guest path handled separately) */}
-            {!isGuest && (
-              <div className="mb-2">
-                {selectedKey === "self" ? (
-                  <p className="text-sm text-ink-muted">
-                    I, <strong className="text-ink">{selectedDisplayName}</strong>, agree to participate in this
-                    program and accept the terms of the participation waiver.
-                  </p>
-                ) : (
-                  <p className="text-sm text-ink-muted">
-                    I authorize <strong className="text-ink">{selectedDisplayName}</strong> to participate in this
-                    program on my behalf as their parent or legal guardian, and accept the
-                    terms of the participation waiver.
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="waiver"
-                  checked={waiverAccepted}
-                  onCheckedChange={(checked) => setWaiverAccepted(checked === true)}
-                  className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                />
-                <Label htmlFor="waiver" className="text-sm text-ink-2 cursor-pointer">
-                  {isGuest ? (
-                    <>
-                      I have read, understand, and agree to the terms of this waiver on behalf of{" "}
-                      <span className="text-ink font-medium">
-                        {`${guestChildFirstName} ${guestChildLastName}`.trim()}
-                      </span>.
-                    </>
-                  ) : (
-                    "I agree to the terms above."
-                  )}
-                </Label>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-ink-muted">Digital Signature *</Label>
-                <Input
-                  value={waiverSignature}
-                  onChange={(e) => setWaiverSignature(e.target.value)}
-                  placeholder="Type your full legal name"
-                  className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
-                />
-                <p className="text-xs text-ink-muted">
-                  By typing your name above, you agree that this constitutes a legal signature.
-                </p>
-              </div>
-
-              {selectedKey === "self" && (
-                <div className="mt-4 flex items-start gap-2">
-                  <Checkbox
-                    id="looking-for-team"
-                    checked={lookingForTeam}
-                    onCheckedChange={(v) => setLookingForTeam(v === true)}
-                    className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                  />
-                  <Label htmlFor="looking-for-team" className="text-sm leading-tight text-ink-2 cursor-pointer">
-                    I'm not registering with a team — please place me with one.
-                  </Label>
-                </div>
-              )}
-            </div>
-          </div>
+          <WaiverStep
+            isSelf={selectedKey === "self"}
+            isGuest={isGuest}
+            registrantName={selectedDisplayName}
+            guestChildFullName={
+              isGuest
+                ? `${guestChildFirstName} ${guestChildLastName}`.trim()
+                : undefined
+            }
+            waiverAccepted={waiverAccepted}
+            waiverSignature={waiverSignature}
+            lookingForTeam={lookingForTeam}
+            onWaiverAcceptedChange={setWaiverAccepted}
+            onWaiverSignatureChange={setWaiverSignature}
+            onLookingForTeamChange={setLookingForTeam}
+          />
         )}
 
         {/* Step 3: Payment */}
         {currentStep === 3 && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-ink mb-2">Payment Option</h3>
-              <p className="text-ink-muted text-sm">
-                Choose how you'd like to pay for this registration.
-              </p>
-            </div>
-
-            <RadioGroup value={paymentOption} onValueChange={(v) => setPaymentOption(v as "full" | "deposit")}>
-              <div className="space-y-3">
-                <Label
-                  htmlFor="pay-full"
-                  className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
-                    paymentOption === "full"
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:border-ink-faint bg-paper"
-                  }`}
-                >
-                  <RadioGroupItem value="full" id="pay-full" className="mr-4" />
-                  <div className="flex-1">
-                    <p className="font-medium text-ink">Pay in Full</p>
-                    <p className="text-sm text-ink-muted">Complete payment now</p>
-                  </div>
-                  <div className="text-xl font-bold text-ink">${season.price}</div>
-                </Label>
-
-                {season.allowDeposit && season.deposit && (
-                  <Label
-                    htmlFor="pay-deposit"
-                    className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
-                      paymentOption === "deposit"
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-ink-faint bg-paper"
-                    }`}
-                  >
-                    <RadioGroupItem value="deposit" id="pay-deposit" className="mr-4" />
-                    <div className="flex-1">
-                      <p className="font-medium text-ink">Pay Deposit</p>
-                      <p className="text-sm text-ink-muted">
-                        Remaining ${(season.price - season.deposit).toFixed(2)} due before season starts
-                      </p>
-                    </div>
-                    <div className="text-xl font-bold text-ink">${season.deposit}</div>
-                  </Label>
-                )}
-              </div>
-            </RadioGroup>
-
-            {/* Discount Code */}
-            <div className="space-y-3">
-              <Label className="text-ink-muted flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                Discount Code
-              </Label>
-              {appliedDiscount ? (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    <span className="text-green-400 font-medium">{appliedDiscount.code}</span>
-                    <span className="text-green-400/70 text-sm">
-                      (-${(appliedDiscount.discountAmountCents / 100).toFixed(2)})
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveDiscount}
-                    className="text-ink-muted hover:text-ink p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Input
-                    value={discountCodeInput}
-                    onChange={(e) => {
-                      setDiscountCodeInput(e.target.value.toUpperCase())
-                      setDiscountError(null)
-                    }}
-                    placeholder="Enter code"
-                    className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint uppercase"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleApplyDiscount}
-                    disabled={!discountCodeInput.trim() || isValidatingDiscount}
-                    className="border-border text-ink-2 hover:text-ink hover:bg-cream-2 px-6"
-                  >
-                    {isValidatingDiscount ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      "Apply"
-                    )}
-                  </Button>
-                </div>
-              )}
-              {discountError && (
-                <p className="text-sm text-red-400 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {discountError}
-                </p>
-              )}
-            </div>
-
-            {/* Order Summary */}
-            <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-ink-2">Registration for</span>
-                <span className="text-ink font-medium">
-                  {isGuest
-                    ? `${guestChildFirstName} ${guestChildLastName}`.trim()
-                    : selectedDisplayName}
-                </span>
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-ink-2">Program</span>
-                <span className="text-ink font-medium">{season.name}</span>
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-ink-2">
-                  {paymentOption === "deposit" ? "Deposit" : "Subtotal"}
-                </span>
-                <span className="text-ink">
-                  ${paymentOption === "deposit" && season.deposit ? season.deposit : season.price}
-                </span>
-              </div>
-              {appliedDiscount && (
-                <div className="flex items-center justify-between mb-2 text-green-400">
-                  <span>Discount ({appliedDiscount.code})</span>
-                  <span>-${(appliedDiscount.discountAmountCents / 100).toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between pt-2 border-t border-primary/20">
-                <span className="text-ink font-semibold">Total Due Today</span>
-                <span className="text-ink font-bold text-xl">
-                  ${(
-                    (paymentOption === "deposit" && season.deposit ? season.deposit : season.price) -
-                    (appliedDiscount ? appliedDiscount.discountAmountCents / 100 : 0)
-                  ).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
+          <PaymentStep
+            seasonName={season.name}
+            seasonPrice={season.price}
+            seasonDeposit={season.deposit}
+            allowDeposit={season.allowDeposit}
+            paymentOption={paymentOption}
+            registrantName={
+              isGuest
+                ? `${guestChildFirstName} ${guestChildLastName}`.trim()
+                : selectedDisplayName
+            }
+            discountCodeInput={discountCodeInput}
+            isValidatingDiscount={isValidatingDiscount}
+            discountError={discountError}
+            appliedDiscount={appliedDiscount}
+            onPaymentOptionChange={setPaymentOption}
+            onDiscountCodeInputChange={(v) => {
+              setDiscountCodeInput(v)
+              setDiscountError(null)
+            }}
+            onApplyDiscount={handleApplyDiscount}
+            onRemoveDiscount={handleRemoveDiscount}
+          />
         )}
 
         {/* Telegram Connect Step (between payment and confirmation) */}
@@ -1235,24 +884,10 @@ export default function RegistrationWizard({
 
         {/* Step 4: Confirmation */}
         {currentStep === 4 && !showTelegramStep && registrationComplete && (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
-            </div>
-            <h3 className="text-xl font-semibold text-ink mb-2">Registration Submitted!</h3>
-            <p className="text-ink-muted mb-6">
-              {selectedDisplayName || "You"} has been registered for {season.name}.
-              You'll receive a confirmation email shortly.
-            </p>
-            <div className="flex justify-center gap-3">
-              <Button asChild variant="outline" className="border-border text-ink hover:bg-cream-2">
-                <a href="/dashboard">Go to Dashboard</a>
-              </Button>
-              <Button asChild className="bg-primary hover:bg-primary/90">
-                <a href="/programs">Register Another</a>
-              </Button>
-            </div>
-          </div>
+          <ConfirmationStep
+            seasonName={season.name}
+            registrantDisplayName={selectedDisplayName}
+          />
         )}
       </div>
 

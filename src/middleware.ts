@@ -9,17 +9,53 @@ import { ensureEnvValidated } from "./lib/env";
 // builds run without the full prod env set (CI builds without Stripe keys,
 // for example).
 
-// Routes that require authentication
-const protectedRoutes = ["/dashboard", "/coach", "/admin"];
+// ---------------------------------------------------------------------------
+// Route-rule based auth enforcement
+//
+// First matching rule wins. API routes (/api/**) are excluded from all rules
+// — they return 401 JSON and manage their own auth.
+//
+// kind: "authed"  — must be signed in; unauthenticated → /signin?redirect=…
+// kind: "role"    — must be signed in AND have one of the listed roles;
+//                   no user → /signin?redirect=…
+//                   wrong role → /dashboard?error=unauthorized
+// ---------------------------------------------------------------------------
 
-// Routes that require admin role
-const adminRoutes = ["/admin"];
+type RouteRule =
+  | { kind: "authed"; pattern: RegExp }
+  | {
+      kind: "role";
+      pattern: RegExp;
+      roles: Array<
+        | "admin"
+        | "super_admin"
+        | "location_admin"
+        | "coach"
+        | "parent"
+        | "media_staff"
+        | "media_editor"
+      >;
+    };
 
-// Routes that require coach role
-const coachRoutes = ["/coach"];
+const ROUTE_RULES: RouteRule[] = [
+  // Admin dashboard — requires admin or super_admin role.
+  // location_admin maps to "admin" semantics; both are covered by isAdmin flag.
+  { kind: "role", pattern: /^\/admin(\/|$)/, roles: ["admin", "super_admin", "location_admin"] },
+  // Coach portal — coaches AND admins may access.
+  { kind: "role", pattern: /^\/coach(\/|$)/, roles: ["coach", "admin", "super_admin", "location_admin"] },
+  // Authenticated-only areas.
+  { kind: "authed", pattern: /^\/dashboard(\/|$)/ },
+  { kind: "authed", pattern: /^\/account(\/|$)/ },
+  { kind: "authed", pattern: /^\/messages(\/|$)/ },
+  { kind: "authed", pattern: /^\/media(\/|$)/ },
+];
 
-// Routes that should redirect to dashboard if already authenticated
-const authRoutes = ["/signin", "/signup"];
+// Authenticated users visiting these paths are bounced to /dashboard.
+const REDIRECT_IF_AUTHED: RegExp[] = [
+  /^\/signin(\/|$)/,
+  /^\/signup(\/|$)/,
+  /^\/forgot-password(\/|$)/,
+];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   // Validate env on first request; cached afterwards. In PROD this throws
@@ -103,37 +139,53 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   const pathname = context.url.pathname;
+  const user = context.locals.user;
 
-  // Check if route requires authentication
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
+  // API routes manage their own auth — skip all redirect logic.
+  if (!pathname.startsWith("/api/")) {
+    // Build the redirect param from the full path + query string so that
+    // after sign-in the user lands back on the exact page they wanted.
+    const redirectParam = encodeURIComponent(
+      context.url.pathname + context.url.search
+    );
 
-  if (isProtectedRoute && !context.locals.user) {
-    // Redirect to signin with return URL
-    const returnUrl = encodeURIComponent(pathname);
-    return context.redirect(`/signin?returnUrl=${returnUrl}`);
-  }
+    // Evaluate route rules (first match wins).
+    for (const rule of ROUTE_RULES) {
+      if (!rule.pattern.test(pathname)) continue;
 
-  // Check admin role for admin routes
-  const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
-  if (isAdminRoute && context.locals.user && !context.locals.isAdmin) {
-    // User is authenticated but not an admin - redirect to dashboard with error
-    return context.redirect("/dashboard?error=unauthorized");
-  }
+      if (rule.kind === "authed") {
+        if (!user) {
+          return context.redirect(`/signin?redirect=${redirectParam}`);
+        }
+        // User is present — fall through to next().
+        break;
+      }
 
-  // Check coach role for coach routes
-  const isCoachRoute = coachRoutes.some((route) => pathname.startsWith(route));
-  if (isCoachRoute && context.locals.user && !context.locals.isCoach && !context.locals.isAdmin) {
-    // User is authenticated but not a coach or admin - redirect to dashboard
-    return context.redirect("/dashboard?error=unauthorized");
-  }
+      if (rule.kind === "role") {
+        if (!user) {
+          return context.redirect(`/signin?redirect=${redirectParam}`);
+        }
+        // Check whether the user holds any of the required roles.
+        // "admin" in the rule list means location_admin OR super_admin
+        // (both of which set isAdmin=true). "coach" means isCoach=true.
+        const userRoleNames = context.locals.userRoles.map((r) => r.name);
+        const hasRequiredRole = rule.roles.some((required) => {
+          if (required === "admin") return context.locals.isAdmin;
+          if (required === "coach") return context.locals.isCoach;
+          return userRoleNames.includes(required as never);
+        });
+        if (!hasRequiredRole) {
+          return context.redirect("/dashboard?error=unauthorized");
+        }
+        // Role satisfied — fall through to next().
+        break;
+      }
+    }
 
-  // Redirect authenticated users away from auth routes
-  const isAuthRoute = authRoutes.some((route) => pathname === route);
-
-  if (isAuthRoute && context.locals.user) {
-    return context.redirect("/dashboard");
+    // Bounce already-authenticated users away from sign-in / sign-up pages.
+    if (user && REDIRECT_IF_AUTHED.some((rx) => rx.test(pathname))) {
+      return context.redirect("/dashboard");
+    }
   }
 
   return next();

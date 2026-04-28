@@ -3,17 +3,7 @@
 
 import type { Organization, Location, OrganizationSettings, OrganizationFeatures } from "./lib/db/schema/organizations";
 import type { UserRole } from "./lib/auth/roles";
-
-interface UserAttributes {
-  id: string;
-  email: string;
-  emailVerified: boolean;
-  firstName: string | null;
-  lastName: string | null;
-  birthDate: string | null;
-  avatarUrl: string | null;
-  phone?: string | null;
-}
+import type { UserAttributes } from "./lib/auth/types";
 
 interface SessionAttributes {
   id: string;

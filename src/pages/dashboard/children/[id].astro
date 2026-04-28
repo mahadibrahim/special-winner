@@ -1,17 +1,9 @@
 ---
-import '../../../styles/globals.css';
-import Navigation from '../../../components/navigation';
-import Footer from '../../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import ChildProfile from '../../../components/dashboard/child-profile';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-// TEMPORARILY DISABLED FOR TESTING
-// if (!user) {
-//   return Astro.redirect('/signin?redirect=/dashboard');
-// }
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 
 // Get child ID from URL
 const { id } = Astro.params;
@@ -21,29 +13,9 @@ if (!id) {
 }
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Child Profile — Aspire Sports</title>
+<BaseLayout title="Child Profile — Aspire Sports">
+  <Fragment slot="head">
     <style>
-      /* Page load animation */
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      .profile-content {
-        animation: fadeIn 0.4s ease-out forwards;
-      }
-
       /* Background pattern */
       .profile-bg {
         background-image:
@@ -51,16 +23,11 @@ if (!id) {
           radial-gradient(circle at 90% 90%, rgba(34, 197, 94, 0.04), transparent);
       }
     </style>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+  </Fragment>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 profile-bg">
-      <div class="max-w-7xl mx-auto profile-content">
-        <ChildProfile client:load childId={id} />
-      </div>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 profile-bg">
+    <div class="max-w-7xl mx-auto fade-in">
+      <ChildProfile client:load childId={id} />
+    </div>
+  </main>
+</BaseLayout>

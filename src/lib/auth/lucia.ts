@@ -8,20 +8,11 @@ import { DrizzlePostgreSQLAdapter } from "@lucia-auth/adapter-drizzle";
 import { getDb } from "../db";
 import { sessions, users } from "../db/schema";
 import type { User } from "../db/schema/users";
+import type { UserAttributes as DatabaseUserAttributes } from "./types";
 
 // Lazy-load the adapter to avoid throwing at module initialization
 // when DATABASE_URL is not set (e.g., in CI environments)
-let _lucia: Lucia<
-  Record<never, never>,
-  {
-    email: string;
-    emailVerified: boolean;
-    firstName: string | null;
-    lastName: string | null;
-    birthDate: string | null;
-    avatarUrl: string | null;
-  }
-> | null = null;
+let _lucia: Lucia<Record<never, never>, DatabaseUserAttributes> | null = null;
 
 function getLucia() {
   if (!_lucia) {
@@ -64,15 +55,6 @@ declare module "lucia" {
     Lucia: typeof lucia;
     DatabaseUserAttributes: DatabaseUserAttributes;
   }
-}
-
-interface DatabaseUserAttributes {
-  email: string;
-  emailVerified: boolean;
-  firstName: string | null;
-  lastName: string | null;
-  birthDate: string | null;
-  avatarUrl: string | null;
 }
 
 export type Auth = typeof lucia;

@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Aspire Sports is a multi-tenant sports management platform for youth sports organizations. It handles program registration, payments, team management, and scheduling. Built to replace third-party SaaS like LeagueApps.
 
+## Architectural Summary
+
+Key patterns established across the codebase — follow these when adding new pages or endpoints:
+
+- **BaseLayout**: All pages use `src/layouts/BaseLayout.astro` as the html/head/body wrapper. It injects GTM, the Navigation component (which fetches auth state client-side via `/api/auth/me`), the global stylesheet, and the skip-nav link. Never write a bare `<html>` page; always extend BaseLayout.
+- **Middleware auth gates**: Auth and role enforcement live in `src/middleware.ts` as route-prefix rules (e.g. `/admin` → requires admin role, `/dashboard` → requires any auth). Pages do not repeat redirect boilerplate — the middleware handles it.
+- **Tenant-scoped admin endpoints**: Every admin API endpoint that reads or mutates org-owned data must validate tenant ownership via the `requireSameOrg*` helpers in `src/lib/auth/require-resource-ownership.ts`. Never skip this check on admin endpoints.
+- **Decomposed registration wizard**: The registration flow is split into focused step components under `src/components/registration/` (`who-step.tsx`, `waiver-step.tsx`, `payment-step.tsx`, etc.) orchestrated by `registration-wizard.tsx`. New step logic goes into its own file.
+- **Error/loading/empty UI**: Use shared primitives (`ErrorBanner`, `EmptyState`, `LoadingSkeleton`) from `src/components/ui/` rather than rolling per-component styles. See the UI feedback primitives section below.
+
 ## Commands
 
 ```bash
@@ -103,6 +113,36 @@ Required in `.env`:
 - Toast notifications via sonner
 - All timestamps stored in UTC, displayed in organization's timezone
 
+### Prerender policy
+
+`export const prerender = true;` builds the page as static HTML at build time. Use it only for pages that meet **all** of these criteria:
+- Don't depend on `Astro.locals.user` (anonymous content)
+- Don't depend on `Astro.url.searchParams`, `Astro.cookies`, or `Astro.url.search` (request-time data)
+- Don't query the DB at request time (or the query is purely for static SEO data)
+
+**Default to SSR** (no prerender flag) for:
+- Any page protected by middleware (`/dashboard/**`, `/admin/**`, `/coach/**`, `/account/**`, `/messages/**`, `/media/**`) — they need request-time user context
+- Any page that reads `Astro.url.searchParams` or `Astro.url.search` (e.g. `?redirect=`, `?audience=`)
+- Any page that personalizes copy by user state, even if the personalization happens in a React `client:load` component that reads from middleware-set locals
+- Auth pages (`/signin`, `/signup`, `/forgot-password`) — middleware bounces already-authed users to `/dashboard` at request time
+
+**Use `prerender = true`** on:
+- Static marketing pages (`/about`, `/contact`, `/privacy`, `/terms`, `/refund-policy`)
+- Print-only guides and minibooks under `/guides/**` and `/minibooks/**`
+- Static error/info pages (`/auth/link-expired`) that don't branch on request state at the Astro layer — note: if the page reads `Astro.url.searchParams`, remove the flag
+- Any other page where the rendered HTML is identical for every visitor
+
+**Important — the Navigation component is not a reason to avoid prerendering.** `<Navigation client:load />` in `BaseLayout` fetches auth state client-side via `/api/auth/me`. It does not require Astro SSR on the enclosing page.
+
+**Build warning note:** The middleware reads `context.request.headers` on every request, including during prerender simulation at build time. This causes Astro to emit `Astro.request.headers is not available on prerendered pages` warnings for every prerendered page. These warnings are a false positive — the middleware access is unavoidable given the `output: "server"` + selective prerender architecture. Treat them as noise; only investigate if a page itself reads `Astro.request.headers` in its frontmatter.
+
+### UI feedback primitives
+
+- **Inline state errors** (validation summary, API failures the user must address): use `<ErrorBanner message={...} />` from `@/components/ui/error-banner`. Don't roll per-form styling.
+- **Action errors** (transient: save failed, network blip): use `toast.error(...)` from sonner.
+- **Empty states**: use `<EmptyState title="..." description="..." />` from `@/components/ui/empty-state`.
+- **Loading shimmer**: use `<LoadingSkeleton />` for generic placeholders; build domain-specific skeletons (e.g. `ProgramCardSkeleton`) only when the placeholder needs typed shape.
+
 ### People model
 
 `family_members` rows represent **people** — either a dependent of a user (`parent_user_id` set, COPPA path) or the user themselves (`self_user_id` set, adult self path). Exactly one of the two is non-null per row, enforced by the `family_members_self_xor_parent` DB CHECK constraint. New code that creates `family_members` rows should use `resolvePerson()` in `src/lib/registrations/resolve-person.ts` rather than inserting directly — it handles dedupe (case-insensitive name+DOB for dependents, single-row-per-user for self) and avoids constraint races.
@@ -119,10 +159,22 @@ npm test                  # Run E2E tests (Playwright)
 - Test accounts: admin/coach/parent `@test.aspiresports.com` / `Test{Role}123!`; media staff/editor use `TestMedia123!`
 - E2E seed data comes from `src/lib/db/seeds/seed-e2e-tests.ts` via `npm run db:seed:e2e`
 
+### Test directory layout
+
+- `tests/api/` — Vitest API integration tests. Hit the running dev server over HTTP. Start `npm run dev` before running.
+- `tests/unit/` — Vitest unit tests. No server, no DB required. Pure functions.
+- `tests/e2e/` — Playwright end-to-end tests. Drive a real browser. Run with `npm test`.
+- `tests/utils/` — Shared helpers (e.g., `waitForHydration`, `signIn`).
+
+When adding a new test:
+- Hits HTTP endpoints? → `tests/api/`
+- Pure logic / parsers / helpers? → `tests/unit/`
+- Drives a browser flow? → `tests/e2e/`
+
 ### Playwright conventions
 
 - Pages driven by e2e tests should have their top-level `client:load` React component call `useHydrationBeacon()` from `@/lib/hooks/use-hydration-beacon`. It sets `data-hydrated="true"` on `<html>` once `useEffect` runs.
-- In the test, call `await waitForHydration(page)` from `tests/utils/test-helpers.ts` **before** any click or keypress. CI's headless Chromium hydrates slower than local headed runs — interactions that land on un-hydrated DOM silently drop (clicks don't fire, window `keydown` listeners aren't attached yet).
+- In the test, call `await waitForHydration(page)` from `tests/utils/test-helpers.ts` (imported as `../utils/test-helpers` from within `tests/e2e/`) **before** any click or keypress. CI's headless Chromium hydrates slower than local headed runs — interactions that land on un-hydrated DOM silently drop (clicks don't fire, window `keydown` listeners aren't attached yet).
 - Prefer element clicks over `page.keyboard.press(...)` for keyboard shortcuts tied to `window.addEventListener("keydown", ...)`. Element clicks go through React's synthetic event system and are reliable even mid-hydration; window-level keys need the listener to already be attached.
 - If `page.goto()` hangs on a page that has broken images (e.g. `mock-r2.local` URLs when `R2_MOCK=1`), use `waitUntil: "domcontentloaded"` instead of the default `"load"`.
 

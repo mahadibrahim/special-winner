@@ -1,19 +1,15 @@
 ---
-import '../../../../styles/globals.css';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../../components/admin/admin-layout';
 import { StaffDirectory } from '../../../../components/media/staff-directory';
 
-const user = Astro.locals.user;
-if (!user) return Astro.redirect('/signin?returnUrl=/admin/media/staff');
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>Media Staff — Admin</title></head>
-  <body class="bg-cream text-ink">
-    <AdminLayout client:load currentPath="/admin/media/staff"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
-      <StaffDirectory client:load />
-    </AdminLayout>
-  </body>
-</html>
+<BaseLayout title="Media Staff — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout client:load currentPath="/admin/media/staff"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
+    <StaffDirectory client:load />
+  </AdminLayout>
+</BaseLayout>

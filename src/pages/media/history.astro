@@ -1,18 +1,14 @@
 ---
-import '../../styles/globals.css';
+import BaseLayout from '../../layouts/BaseLayout.astro';
 import { MediaHistory } from '../../components/media/media-history';
 
-const user = Astro.locals.user;
-if (!user) return Astro.redirect('/signin?returnUrl=/media/history');
+// Middleware guarantees user is authenticated for /media routes.
+const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>History — Aspire Media</title></head>
-  <body class="bg-cream text-ink">
-    <main id="main-content" class="mx-auto max-w-3xl p-6">
-      <h1 class="font-serif text-3xl">History</h1>
-      <MediaHistory client:load />
-    </main>
-  </body>
-</html>
+<BaseLayout title="History — Aspire Media">
+  <main id="main-content" class="mx-auto max-w-3xl p-6">
+    <h1 class="font-serif text-3xl">History</h1>
+    <MediaHistory client:load />
+  </main>
+</BaseLayout>

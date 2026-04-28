@@ -1,17 +1,10 @@
 ---
-import '../../../../styles/globals.css';
-import Navigation from '../../../../components/navigation';
-import Footer from '../../../../components/footer';
+import BaseLayout from '@/layouts/BaseLayout.astro';
 import DevelopmentReport from '../../../../components/dashboard/development-report';
 import AchievementsDisplay from '../../../../components/dashboard/achievements-display';
 
-// Get user from middleware locals
-const user = Astro.locals.user;
-
-// Redirect if not logged in
-if (!user) {
-  return Astro.redirect('/signin?redirect=/dashboard');
-}
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
 
 // Get child ID from params
 const { id } = Astro.params;
@@ -21,35 +14,9 @@ if (!id) {
 }
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Development Progress — Aspire Sports</title>
+<BaseLayout title="Development Progress — Aspire Sports">
+  <Fragment slot="head">
     <style>
-      /* Page load animation */
-      @keyframes fadeSlideIn {
-        from {
-          opacity: 0;
-          transform: translateY(12px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .page-content {
-        animation: fadeSlideIn 0.5s ease-out forwards;
-      }
-
       /* Background pattern */
       .development-bg {
         background-image:
@@ -57,94 +24,89 @@ if (!id) {
           radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.04), transparent);
       }
     </style>
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+  </Fragment>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4 development-bg">
-      <div class="max-w-7xl mx-auto page-content">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
-          <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
-          <span>/</span>
-          <a href={`/dashboard/children/${id}`} class="hover:text-ink transition-colors">Child Profile</a>
-          <span>/</span>
-          <span class="text-ink">Development Progress</span>
-        </nav>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 development-bg">
+    <div class="max-w-7xl mx-auto fade-slide-in">
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
+        <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
+        <span>/</span>
+        <a href={`/dashboard/children/${id}`} class="hover:text-ink transition-colors">Child Profile</a>
+        <span>/</span>
+        <span class="text-ink">Development Progress</span>
+      </nav>
 
-        <!-- Header -->
-        <header class="mb-8">
-          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <h1 class="text-2xl sm:text-3xl font-bold text-ink mb-2">
-                Development Progress
-              </h1>
-              <p class="text-ink-faint">
-                Track skill development across technical, tactical, physical, and psychological domains.
-              </p>
-            </div>
-
-            <div class="flex gap-2">
-              <a href={`/dashboard/children/${id}`} class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Profile
-              </a>
-            </div>
-          </div>
-        </header>
-
-        <!-- Main Content -->
-        <div class="grid gap-8 lg:grid-cols-3">
-          <!-- Left Column - Development Report -->
-          <div class="lg:col-span-2">
-            <DevelopmentReport client:load familyMemberId={id} />
+      <!-- Header -->
+      <header class="mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-ink mb-2">
+              Development Progress
+            </h1>
+            <p class="text-ink-faint">
+              Track skill development across technical, tactical, physical, and psychological domains.
+            </p>
           </div>
 
-          <!-- Right Column - Achievements -->
-          <div class="space-y-6">
-            <div class="p-6 rounded-2xl bg-cream-2 border border-border">
-              <h2 class="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-                Achievements
-              </h2>
-              <AchievementsDisplay client:load familyMemberId={id} compact limit={5} showLocked={false} />
-            </div>
+          <div class="flex gap-2">
+            <a href={`/dashboard/children/${id}`} class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Profile
+            </a>
+          </div>
+        </div>
+      </header>
 
-            <!-- Quick Tips -->
-            <div class="p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-orange-500/10 border border-primary/20">
-              <h3 class="font-semibold text-ink mb-3">Understanding Levels</h3>
-              <div class="space-y-2 text-sm">
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-full bg-gray-500/20 flex items-center justify-center text-xs text-gray-500">1</span>
-                  <span class="text-ink-muted">Beginner - Just starting</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs text-blue-600">2</span>
-                  <span class="text-ink-muted">Developing - Building basics</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs text-emerald-600">3</span>
-                  <span class="text-ink-muted">Competent - Solid foundation</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-600">4</span>
-                  <span class="text-ink-muted">Proficient - Strong skills</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs text-primary">5</span>
-                  <span class="text-ink-muted">Advanced - Exceptional</span>
-                </div>
+      <!-- Main Content -->
+      <div class="grid gap-8 lg:grid-cols-3">
+        <!-- Left Column - Development Report -->
+        <div class="lg:col-span-2">
+          <DevelopmentReport client:load familyMemberId={id} />
+        </div>
+
+        <!-- Right Column - Achievements -->
+        <div class="space-y-6">
+          <div class="p-6 rounded-2xl bg-cream-2 border border-border">
+            <h2 class="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              Achievements
+            </h2>
+            <AchievementsDisplay client:load familyMemberId={id} compact limit={5} showLocked={false} />
+          </div>
+
+          <!-- Quick Tips -->
+          <div class="p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-orange-500/10 border border-primary/20">
+            <h3 class="font-semibold text-ink mb-3">Understanding Levels</h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-gray-500/20 flex items-center justify-center text-xs text-gray-500">1</span>
+                <span class="text-ink-muted">Beginner - Just starting</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs text-blue-600">2</span>
+                <span class="text-ink-muted">Developing - Building basics</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs text-emerald-600">3</span>
+                <span class="text-ink-muted">Competent - Solid foundation</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs text-amber-600">4</span>
+                <span class="text-ink-muted">Proficient - Strong skills</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs text-primary">5</span>
+                <span class="text-ink-muted">Advanced - Exceptional</span>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+    </div>
+  </main>
+</BaseLayout>

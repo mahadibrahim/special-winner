@@ -1,15 +1,13 @@
 ---
-import '../../../styles/globals.css';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../components/admin/admin-layout';
 import { ProgramGearBinding } from '../../../components/admin/program-gear-binding';
 import { getDb } from '../../../lib/db';
 import { seasons, programs, locations } from '../../../lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/seasons');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 
 const organization = Astro.locals.organization;
 const { id } = Astro.params;
@@ -37,46 +35,32 @@ if (!row) {
 const { season, program } = row;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>{season.name} — Seasons — Admin — Aspire Sports</title>
-  </head>
-  <body class="bg-cream text-ink antialiased">
-    <AdminLayout
-      client:load
-      currentPath="/admin/seasons"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-    >
-      <div class="max-w-4xl space-y-8">
-        <div>
-          <a
-            href="/admin/seasons"
-            class="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Back to seasons
-          </a>
-          <h1 class="text-3xl font-bold text-gray-900 mt-2">{season.name}</h1>
-          <p class="text-sm text-muted-foreground mt-1">
-            Program: <span class="font-medium">{program.name}</span> ·{' '}
-            {season.startDate} – {season.endDate} · Status:{' '}
-            <span class="font-medium">{season.status}</span>
-          </p>
-        </div>
-
-        <section>
-          <h2 class="text-xl font-semibold mb-4">Gear</h2>
-          <ProgramGearBinding client:load seasonId={season.id} />
-        </section>
+<BaseLayout title={`${season.name} — Seasons — Admin — Aspire Sports`} navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/seasons"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="max-w-4xl space-y-8">
+      <div>
+        <a
+          href="/admin/seasons"
+          class="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Back to seasons
+        </a>
+        <h1 class="text-3xl font-bold text-gray-900 mt-2">{season.name}</h1>
+        <p class="text-sm text-muted-foreground mt-1">
+          Program: <span class="font-medium">{program.name}</span> ·{' '}
+          {season.startDate} – {season.endDate} · Status:{' '}
+          <span class="font-medium">{season.status}</span>
+        </p>
       </div>
-    </AdminLayout>
-  </body>
-</html>
+
+      <section>
+        <h2 class="text-xl font-semibold mb-4">Gear</h2>
+        <ProgramGearBinding client:load seasonId={season.id} />
+      </section>
+    </div>
+  </AdminLayout>
+</BaseLayout>

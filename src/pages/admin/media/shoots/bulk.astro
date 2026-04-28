@@ -1,19 +1,15 @@
 ---
-import '../../../../styles/globals.css';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../../components/admin/admin-layout';
 import { ShootBulkGrid } from '../../../../components/media/shoot-bulk-grid';
 
-const user = Astro.locals.user;
-if (!user) return Astro.redirect('/signin?returnUrl=/admin/media/shoots/bulk');
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>Bulk Weekend — Admin</title></head>
-  <body class="bg-cream text-ink">
-    <AdminLayout client:load currentPath="/admin/media/shoots/bulk"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
-      <ShootBulkGrid client:load />
-    </AdminLayout>
-  </body>
-</html>
+<BaseLayout title="Bulk Weekend — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout client:load currentPath="/admin/media/shoots/bulk"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
+    <ShootBulkGrid client:load />
+  </AdminLayout>
+</BaseLayout>

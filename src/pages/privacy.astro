@@ -1,125 +1,109 @@
 ---
-// NOT prerendered: nav needs request-time auth state.
-import '../styles/globals.css';
-import Navigation from '../components/navigation';
-import Footer from '../components/footer';
+// Static marketing page — no request-time state needed.
+// Navigation resolves auth client-side via /api/auth/me (client:load).
+export const prerender = true;
+import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Privacy Policy — Aspire Sports</title>
-    <meta name="description" content="Aspire Sports privacy policy." />
-  </head>
-  <body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <Navigation client:load />
+<BaseLayout
+  title="Privacy Policy — Aspire Sports"
+  description="Aspire Sports privacy policy."
+>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <article class="max-w-3xl mx-auto prose prose-ink">
+      <h1 class="text-3xl sm:text-4xl font-display font-bold text-ink mb-2">Privacy Policy</h1>
+      <p class="text-ink-muted mb-8">Last updated: April 26, 2026</p>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <article class="max-w-3xl mx-auto prose prose-ink">
-        <h1 class="text-3xl sm:text-4xl font-display font-bold text-ink mb-2">Privacy Policy</h1>
-        <p class="text-ink-muted mb-8">Last updated: April 26, 2026</p>
+      <section class="space-y-4 text-ink-2 leading-relaxed">
+        <p>
+          Aspire Sports collects only the information we need to run youth sports programs. This
+          page explains what we collect, why, who we share it with, and the choices you have. If
+          you have any questions, write to us at
+          <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
+        </p>
 
-        <section class="space-y-4 text-ink-2 leading-relaxed">
-          <p>
-            Aspire Sports collects only the information we need to run youth sports programs. This
-            page explains what we collect, why, who we share it with, and the choices you have. If
-            you have any questions, write to us at
-            <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Information we collect</h2>
+        <ul class="list-disc pl-6 space-y-1">
+          <li><strong>Parent/guardian:</strong> name, email, phone (optional), hashed password.</li>
+          <li><strong>Child participant:</strong> first/last name, birth date, gender (optional), medical notes (optional), emergency contact, and an optional profile photo. We collect this only after you confirm — separately, per child — that you are the parent or legal guardian and consent to its collection.</li>
+          <li><strong>Registration &amp; payment history:</strong> programs registered, amounts owed, and payments made. Card details are handled by our payment processor and are not stored on our servers.</li>
+          <li><strong>Usage and device data:</strong> pages visited, clicks, approximate region, browser, and timing. Used to keep the site reliable, debug issues, and improve usability.</li>
+          <li><strong>Communications:</strong> messages sent through the platform (announcements, coach replies, broadcast notifications).</li>
+        </ul>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Information we collect</h2>
-          <ul class="list-disc pl-6 space-y-1">
-            <li><strong>Parent/guardian:</strong> name, email, phone (optional), hashed password.</li>
-            <li><strong>Child participant:</strong> first/last name, birth date, gender (optional), medical notes (optional), emergency contact, and an optional profile photo. We collect this only after you confirm — separately, per child — that you are the parent or legal guardian and consent to its collection.</li>
-            <li><strong>Registration &amp; payment history:</strong> programs registered, amounts owed, and payments made. Card details are handled by our payment processor and are not stored on our servers.</li>
-            <li><strong>Usage and device data:</strong> pages visited, clicks, approximate region, browser, and timing. Used to keep the site reliable, debug issues, and improve usability.</li>
-            <li><strong>Communications:</strong> messages sent through the platform (announcements, coach replies, broadcast notifications).</li>
-          </ul>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">How we use it</h2>
+        <ul class="list-disc pl-6 space-y-1">
+          <li>Registering and placing children in appropriate programs, teams, and age groups.</li>
+          <li>Communicating schedule changes, coach messages, receipts, and reminders.</li>
+          <li>Ensuring participant safety, including emergency contact during a session.</li>
+          <li>Improving the platform and our programs (in aggregate, not individualized profiling).</li>
+        </ul>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">How we use it</h2>
-          <ul class="list-disc pl-6 space-y-1">
-            <li>Registering and placing children in appropriate programs, teams, and age groups.</li>
-            <li>Communicating schedule changes, coach messages, receipts, and reminders.</li>
-            <li>Ensuring participant safety, including emergency contact during a session.</li>
-            <li>Improving the platform and our programs (in aggregate, not individualized profiling).</li>
-          </ul>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Children's privacy (COPPA)</h2>
+        <p>
+          Aspire Sports is intended for parents and guardians, not for children. We collect
+          information about children only through their parent's or guardian's account, and only
+          after the parent has provided affirmative consent for that specific child. We do not
+          knowingly let children under 13 create their own accounts or contact us directly.
+        </p>
+        <p class="font-semibold text-ink mt-3">As a parent or guardian, you have the right to:</p>
+        <ul class="list-disc pl-6 space-y-1">
+          <li><strong>Review</strong> what we have collected about your child — visible from your dashboard.</li>
+          <li><strong>Correct</strong> any information by editing your child's record from the dashboard.</li>
+          <li><strong>Delete</strong> your child's record at any time using the "Delete record" button on the family-members card. Deletion removes their profile, photos, registrations (where unpaid), team rosters, and assessment history. If your child has paid registrations on file, contact us — we will process the refund and complete the deletion.</li>
+          <li><strong>Refuse</strong> further collection or use by deleting the record and closing your account.</li>
+          <li><strong>Withdraw photo consent</strong> by removing the photo from your child's profile, which clears the consent record.</li>
+        </ul>
+        <p class="mt-3">
+          For COPPA-related questions or to make any of the requests above:
+          <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Children's privacy (COPPA)</h2>
-          <p>
-            Aspire Sports is intended for parents and guardians, not for children. We collect
-            information about children only through their parent's or guardian's account, and only
-            after the parent has provided affirmative consent for that specific child. We do not
-            knowingly let children under 13 create their own accounts or contact us directly.
-          </p>
-          <p class="font-semibold text-ink mt-3">As a parent or guardian, you have the right to:</p>
-          <ul class="list-disc pl-6 space-y-1">
-            <li><strong>Review</strong> what we have collected about your child — visible from your dashboard.</li>
-            <li><strong>Correct</strong> any information by editing your child's record from the dashboard.</li>
-            <li><strong>Delete</strong> your child's record at any time using the "Delete record" button on the family-members card. Deletion removes their profile, photos, registrations (where unpaid), team rosters, and assessment history. If your child has paid registrations on file, contact us — we will process the refund and complete the deletion.</li>
-            <li><strong>Refuse</strong> further collection or use by deleting the record and closing your account.</li>
-            <li><strong>Withdraw photo consent</strong> by removing the photo from your child's profile, which clears the consent record.</li>
-          </ul>
-          <p class="mt-3">
-            For COPPA-related questions or to make any of the requests above:
-            <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Third-party services</h2>
+        <p>
+          We do not sell personal information. We share information only with vendors needed to
+          deliver the service, and only the minimum required:
+        </p>
+        <ul class="list-disc pl-6 space-y-1">
+          <li><strong>Stripe</strong> — payment processing. Card data flows directly from your browser to Stripe; we never see or store it.</li>
+          <li><strong>Resend</strong> — transactional email (receipts, schedule updates, password resets) sent to parent/guardian addresses only.</li>
+          <li><strong>Cloudinary</strong> — secure hosting for profile photos.</li>
+          <li><strong>Telegram</strong> — optional channel for coach-to-parent team messaging. Only parents/guardians who opt in see these messages.</li>
+          <li><strong>PostHog</strong> — product analytics, error tracking, and session replay (described below).</li>
+          <li><strong>Netlify &amp; Railway</strong> — application hosting and database hosting.</li>
+        </ul>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Third-party services</h2>
-          <p>
-            We do not sell personal information. We share information only with vendors needed to
-            deliver the service, and only the minimum required:
-          </p>
-          <ul class="list-disc pl-6 space-y-1">
-            <li><strong>Stripe</strong> — payment processing. Card data flows directly from your browser to Stripe; we never see or store it.</li>
-            <li><strong>Resend</strong> — transactional email (receipts, schedule updates, password resets) sent to parent/guardian addresses only.</li>
-            <li><strong>Cloudinary</strong> — secure hosting for profile photos.</li>
-            <li><strong>Telegram</strong> — optional channel for coach-to-parent team messaging. Only parents/guardians who opt in see these messages.</li>
-            <li><strong>PostHog</strong> — product analytics, error tracking, and session replay (described below).</li>
-            <li><strong>Netlify &amp; Railway</strong> — application hosting and database hosting.</li>
-          </ul>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Analytics &amp; session replay</h2>
+        <p>
+          We use PostHog to record anonymous usage events (page views, clicks, scroll depth) and
+          to capture session replays so we can debug usability problems. <strong>All text and
+          form inputs are masked by default in replays</strong>, so children's names, dates of
+          birth, photos, medical notes, and contact details are not captured in the recording —
+          only the layout, mouse motion, and click targets. We do not use this data for ad
+          targeting or sell it to third parties. If you would prefer to opt out of analytics
+          entirely, contact us and we will exclude your account.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Analytics &amp; session replay</h2>
-          <p>
-            We use PostHog to record anonymous usage events (page views, clicks, scroll depth) and
-            to capture session replays so we can debug usability problems. <strong>All text and
-            form inputs are masked by default in replays</strong>, so children's names, dates of
-            birth, photos, medical notes, and contact details are not captured in the recording —
-            only the layout, mouse motion, and click targets. We do not use this data for ad
-            targeting or sell it to third parties. If you would prefer to opt out of analytics
-            entirely, contact us and we will exclude your account.
-          </p>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Your choices</h2>
+        <ul class="list-disc pl-6 space-y-1">
+          <li>Update your profile or family members from your dashboard.</li>
+          <li>Opt out of marketing email at any time — operational messages (schedule, safety, receipts) continue while you have an active registration.</li>
+          <li>Request deletion of your data; we retain payment records for the period required by tax and accounting law (typically 7 years), with personal identifiers removed where possible.</li>
+        </ul>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Your choices</h2>
-          <ul class="list-disc pl-6 space-y-1">
-            <li>Update your profile or family members from your dashboard.</li>
-            <li>Opt out of marketing email at any time — operational messages (schedule, safety, receipts) continue while you have an active registration.</li>
-            <li>Request deletion of your data; we retain payment records for the period required by tax and accounting law (typically 7 years), with personal identifiers removed where possible.</li>
-          </ul>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Security</h2>
+        <p>
+          We use industry-standard encryption in transit and at rest, and we limit internal access
+          to a need-to-know basis. No system is perfectly secure; if we discover a material
+          incident affecting your data, we will notify you.
+        </p>
 
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Security</h2>
-          <p>
-            We use industry-standard encryption in transit and at rest, and we limit internal access
-            to a need-to-know basis. No system is perfectly secure; if we discover a material
-            incident affecting your data, we will notify you.
-          </p>
-
-          <h2 class="text-xl font-display font-semibold text-ink mt-8">Contact</h2>
-          <p>
-            Privacy questions or requests:
-            <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
-          </p>
-        </section>
-      </article>
-    </main>
-
-    <Footer client:idle />
-  </body>
-</html>
+        <h2 class="text-xl font-display font-semibold text-ink mt-8">Contact</h2>
+        <p>
+          Privacy questions or requests:
+          <a class="text-primary" href="mailto:info@aspiresports.com">info@aspiresports.com</a>.
+        </p>
+      </section>
+    </article>
+  </main>
+</BaseLayout>

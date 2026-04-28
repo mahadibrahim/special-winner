@@ -1,44 +1,28 @@
 ---
-import '../../styles/globals.css';
+import BaseLayout from '../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { WalkUpRegistrationForm } from '../../components/admin/walk-up-registration-form';
 
-const user = Astro.locals.user;
-if (!user) {
-  return Astro.redirect('/signin?returnUrl=/admin/walk-up-registration');
-}
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>Walk-Up Registration — Admin — Aspire Sports</title>
-  </head>
-  <body class="bg-cream text-ink antialiased">
-    <AdminLayout
-      client:load
-      currentPath="/admin/walk-up-registration"
-      user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-    >
-      <div class="space-y-6 max-w-3xl">
-        <div>
-          <h1 class="text-3xl font-bold text-ink">Walk-Up Registration</h1>
-          <p class="text-ink-muted mt-1">
-            Create a registration for a parent who came in to sign up in person. Sends an
-            opt-in welcome text after saving — the parent replies YES to activate messaging.
-          </p>
-        </div>
-
-        <WalkUpRegistrationForm client:load />
+<BaseLayout title="Walk-Up Registration — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/walk-up-registration"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-6 max-w-3xl">
+      <div>
+        <h1 class="text-3xl font-bold text-ink">Walk-Up Registration</h1>
+        <p class="text-ink-muted mt-1">
+          Create a registration for a parent who came in to sign up in person. Sends an
+          opt-in welcome text after saving — the parent replies YES to activate messaging.
+        </p>
       </div>
-    </AdminLayout>
-  </body>
-</html>
+
+      <WalkUpRegistrationForm client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForHydration } from "./utils/test-helpers";
+import { waitForHydration } from "../utils/test-helpers";
 
 test.describe("Media tagger — golden path", () => {
   test("admin claims queue item, tags assets with mixed shortcuts, completes session", async ({

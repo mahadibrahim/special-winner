@@ -3,7 +3,7 @@ import {
   TEST_USERS,
   signIn,
   waitForHydration,
-} from "./utils/test-helpers"
+} from "../utils/test-helpers"
 
 test.describe("Season scaffolding — clone-from-prior flow", () => {
   test.setTimeout(60_000)
