@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { TelegramConnectStep } from "./telegram-connect-step"
 import { WhoStep } from "./who-step"
-import { GuestInfoStep } from "./guest-info-step"
+import { GuestInfoStep, type GuestRegistrationMode } from "./guest-info-step"
 import { WaiverStep } from "./waiver-step"
 import { PaymentStep } from "./payment-step"
 import { ConfirmationStep } from "./confirmation-step"
@@ -91,6 +91,8 @@ interface RegistrationWizardProps {
   hasLinkedTelegram?: boolean
   wasCancelled?: boolean
   user: AuthedUser | null
+  /** URL ?audience= param forwarded from the Astro page ("adult" | "child" | null) */
+  audienceHint?: string | null
 }
 
 const STEPS = [
@@ -105,6 +107,7 @@ export default function RegistrationWizard({
   hasLinkedTelegram = false,
   wasCancelled = false,
   user,
+  audienceHint,
 }: RegistrationWizardProps) {
   const isGuest = user === null
   useHydrationBeacon()
@@ -142,6 +145,16 @@ export default function RegistrationWizard({
   const [guestChildGender, setGuestChildGender] = useState("")
   const [guestEmailCollision, setGuestEmailCollision] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+
+  // ── Guest registration mode (child vs adult) ─────────────────────────────
+  // Default is determined after season data loads (see effect below).
+  // audienceHint="adult" or minAge>=18 → "adult", otherwise "child".
+  const [guestMode, setGuestMode] = useState<GuestRegistrationMode>("child")
+
+  // Adult-self extra fields (birth date + gender stored separately so the
+  // child fields remain intact if the user toggles back and forth).
+  const [guestAdultBirthDate, setGuestAdultBirthDate] = useState("")
+  const [guestAdultGender, setGuestAdultGender] = useState("")
 
   // ── Discount code state ──────────────────────────────────────────────────
   const [discountCode, setDiscountCode] = useState("")
@@ -199,6 +212,18 @@ export default function RegistrationWizard({
       cancelled = true
     }
   }, [wasCancelled, seasonId, isGuest])
+
+  // Auto-detect guest mode once season loads
+  useEffect(() => {
+    if (!isGuest || !season) return
+    const urlForced = audienceHint === "adult" || audienceHint === "child"
+    if (urlForced) {
+      setGuestMode(audienceHint as GuestRegistrationMode)
+    } else if (season.ageGroup && season.ageGroup.minAge >= 18) {
+      setGuestMode("adult")
+    }
+    // If no signal, leave at the "child" default
+  }, [isGuest, season, audienceHint])
 
   // Debounced guest email collision check
   useEffect(() => {
@@ -380,28 +405,48 @@ export default function RegistrationWizard({
     setIsSubmitting(true)
     setError(null)
     try {
+      const payload =
+        guestMode === "adult"
+          ? {
+              seasonId,
+              registrant: {
+                firstName: guestParentFirstName,
+                lastName: guestParentLastName,
+                email: guestParentEmail,
+                phone: guestParentPhone || undefined,
+                birthDate: guestAdultBirthDate,
+                isSelf: true as const,
+                gender: guestAdultGender || undefined,
+              },
+              registrationType: paymentOption,
+              waiverSigned: true,
+              waiverSignedBy: waiverSignature,
+              discountCode: discountCode || undefined,
+            }
+          : {
+              seasonId,
+              parent: {
+                firstName: guestParentFirstName,
+                lastName: guestParentLastName,
+                email: guestParentEmail,
+                phone: guestParentPhone || undefined,
+              },
+              child: {
+                firstName: guestChildFirstName,
+                lastName: guestChildLastName,
+                birthDate: guestChildBirthDate,
+                gender: guestChildGender || undefined,
+              },
+              registrationType: paymentOption,
+              waiverSigned: true,
+              waiverSignedBy: waiverSignature,
+              discountCode: discountCode || undefined,
+            }
+
       const res = await fetch("/api/registrations/guest-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          seasonId,
-          parent: {
-            firstName: guestParentFirstName,
-            lastName: guestParentLastName,
-            email: guestParentEmail,
-            phone: guestParentPhone || undefined,
-          },
-          child: {
-            firstName: guestChildFirstName,
-            lastName: guestChildLastName,
-            birthDate: guestChildBirthDate,
-            gender: guestChildGender || undefined,
-          },
-          registrationType: paymentOption,
-          waiverSigned: true,
-          waiverSignedBy: waiverSignature,
-          discountCode: discountCode || undefined,
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -523,10 +568,15 @@ export default function RegistrationWizard({
     switch (currentStep) {
       case 1:
         if (isGuest) {
-          return (
+          const baseValid =
             guestParentFirstName.trim().length > 0 &&
             guestParentLastName.trim().length > 0 &&
-            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail) &&
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail)
+          if (guestMode === "adult") {
+            return baseValid && /^\d{4}-\d{2}-\d{2}$/.test(guestAdultBirthDate)
+          }
+          return (
+            baseValid &&
             guestChildFirstName.trim().length > 0 &&
             guestChildLastName.trim().length > 0 &&
             /^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate)
@@ -800,6 +850,8 @@ export default function RegistrationWizard({
         {currentStep === 1 && isGuest && (
           <GuestInfoStep
             seasonId={seasonId}
+            mode={guestMode}
+            onModeChange={setGuestMode}
             parentFirstName={guestParentFirstName}
             parentLastName={guestParentLastName}
             parentEmail={guestParentEmail}
@@ -818,6 +870,10 @@ export default function RegistrationWizard({
             onChildLastNameChange={setGuestChildLastName}
             onChildBirthDateChange={setGuestChildBirthDate}
             onChildGenderChange={setGuestChildGender}
+            adultBirthDate={guestAdultBirthDate}
+            adultGender={guestAdultGender}
+            onAdultBirthDateChange={setGuestAdultBirthDate}
+            onAdultGenderChange={setGuestAdultGender}
           />
         )}
 
@@ -826,9 +882,16 @@ export default function RegistrationWizard({
           <WaiverStep
             isSelf={selectedKey === "self"}
             isGuest={isGuest}
-            registrantName={selectedDisplayName}
-            guestChildFullName={
+            guestMode={guestMode}
+            registrantName={
               isGuest
+                ? guestMode === "adult"
+                  ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+                  : selectedDisplayName
+                : selectedDisplayName
+            }
+            guestChildFullName={
+              isGuest && guestMode === "child"
                 ? `${guestChildFirstName} ${guestChildLastName}`.trim()
                 : undefined
             }
@@ -851,7 +914,9 @@ export default function RegistrationWizard({
             paymentOption={paymentOption}
             registrantName={
               isGuest
-                ? `${guestChildFirstName} ${guestChildLastName}`.trim()
+                ? guestMode === "adult"
+                  ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+                  : `${guestChildFirstName} ${guestChildLastName}`.trim()
                 : selectedDisplayName
             }
             discountCodeInput={discountCodeInput}

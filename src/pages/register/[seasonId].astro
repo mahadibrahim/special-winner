@@ -5,6 +5,7 @@ import RegistrationWizard from '../../components/registration/registration-wizar
 const { seasonId } = Astro.params;
 const user = Astro.locals.user;
 const wasCancelled = Astro.url.searchParams.get('payment') === 'cancelled';
+const audienceHint = Astro.url.searchParams.get('audience');
 
 const userProp = user
   ? {
@@ -20,7 +21,7 @@ const userProp = user
 <BaseLayout title="Register — Aspire Sports">
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
     <div class="container mx-auto">
-      <RegistrationWizard seasonId={seasonId!} wasCancelled={wasCancelled} user={userProp} client:load />
+      <RegistrationWizard seasonId={seasonId!} wasCancelled={wasCancelled} user={userProp} audienceHint={audienceHint} client:load />
     </div>
   </main>
 </BaseLayout>
