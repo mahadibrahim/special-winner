@@ -1,239 +1,377 @@
 ---
-// SoccerOne footer — dark navy, three-column, powered-by strip
+// SoccerOne footer — dark anthracite, lime accent, two-facility chain
 ---
 
 <footer class="so-footer">
-  <!-- Main columns -->
-  <div class="footer-grid">
-    <!-- Brand column -->
+  <!-- Diagonal accent bar -->
+  <div class="footer-accent-bar" aria-hidden="true">
+    <div class="accent-diagonal"></div>
+    <div class="accent-stat">
+      <span class="as-num">4</span>
+      <span class="as-label">FIELDS ACROSS COLUMBUS</span>
+    </div>
+    <div class="accent-stat">
+      <span class="as-num">2</span>
+      <span class="as-label">LOCATIONS OPEN NOW</span>
+    </div>
+    <div class="accent-stat">
+      <span class="as-num">7AM–11PM</span>
+      <span class="as-label">DAILY</span>
+    </div>
+    <div class="accent-cta">
+      <a href="/soccerone/rent" class="accent-btn">Book a Field</a>
+    </div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="footer-main">
+
+    <!-- Brand -->
     <div class="footer-brand">
-      <div class="footer-wordmark">
-        <span class="fw-soccer">Soccer</span><span class="fw-one">One</span>
+      <div class="brand-wordmark">
+        <span class="bw-soccer">SOCCER</span><span class="bw-one">ONE</span>
       </div>
-      <p class="footer-tagline">Powell's premier indoor soccer complex. Year-round leagues, pickup, rentals, and youth programs for every level.</p>
+      <p class="brand-sub">Indoor soccer in Columbus, OH.<br />Worthington · Downtown · Expanding.</p>
+
+      <!-- Location chips -->
+      <div class="location-chips">
+        <a href="/soccerone/worthington" class="loc-chip loc-chip--live">
+          <span class="loc-dot"></span>
+          Worthington — 3 Fields
+        </a>
+        <a href="/soccerone/downtown" class="loc-chip loc-chip--live">
+          <span class="loc-dot"></span>
+          Downtown — 1 Field
+        </a>
+        <span class="loc-chip loc-chip--soon">
+          + Future locations
+        </span>
+      </div>
+
+      <!-- Social -->
       <div class="social-row">
-        <!-- Instagram -->
         <a href="#" class="social-icon" aria-label="Instagram">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
             <circle cx="12" cy="12" r="3.5"/>
             <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor"/>
           </svg>
         </a>
-        <!-- Facebook -->
         <a href="#" class="social-icon" aria-label="Facebook">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
             <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
           </svg>
         </a>
-        <!-- X/Twitter -->
         <a href="#" class="social-icon" aria-label="X (Twitter)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-          </svg>
-        </a>
-        <!-- YouTube -->
-        <a href="#" class="social-icon" aria-label="YouTube">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-            <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/>
-            <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" stroke="none" fill="currentColor"/>
           </svg>
         </a>
       </div>
     </div>
 
-    <!-- Play column -->
+    <!-- Play -->
     <div class="footer-col">
-      <h3 class="footer-col-heading">Play</h3>
-      <ul class="footer-links">
-        <li><a href="/soccerone#leagues">Adult Coed League</a></li>
-        <li><a href="/soccerone#leagues">Adult Premier League</a></li>
+      <h3 class="fcol-heading">Play</h3>
+      <ul class="fcol-links">
+        <li><a href="/soccerone/leagues">Adult Coed League</a></li>
+        <li><a href="/soccerone/leagues">Adult Premier League</a></li>
         <li><a href="/soccerone/pickup">Drop-In Pickup</a></li>
         <li><a href="/soccerone#programs">Youth Programs</a></li>
         <li><a href="/soccerone/rent">Field Rentals</a></li>
-        <li><a href="/soccerone#birthday">Birthday Parties</a></li>
         <li><a href="/soccerone/memberships">Memberships</a></li>
       </ul>
     </div>
 
-    <!-- About column -->
+    <!-- Locations -->
     <div class="footer-col">
-      <h3 class="footer-col-heading">About</h3>
-      <ul class="footer-links">
-        <li><a href="/soccerone#about">Our Story</a></li>
-        <li><a href="/soccerone#fields">The Fields</a></li>
-        <li><a href="/soccerone#contact">Contact Us</a></li>
-        <li><a href="/soccerone#coaches">Coaching Staff</a></li>
-        <li><a href="/soccerone#careers">Work With Us</a></li>
+      <h3 class="fcol-heading">Locations</h3>
+      <ul class="fcol-links">
+        <li><a href="/soccerone/worthington">Worthington — 3 Fields</a></li>
+        <li><a href="/soccerone/downtown">Downtown Columbus</a></li>
+        <li class="future-loc">Coming: West Side</li>
+        <li class="future-loc">Coming: Dublin</li>
       </ul>
+      <div class="fcol-address">
+        <strong>Worthington</strong>
+        6580 N High St, OH 43085
+      </div>
+      <div class="fcol-address">
+        <strong>Downtown</strong>
+        191 W Nationwide Blvd, OH 43215
+      </div>
     </div>
 
-    <!-- Help column -->
+    <!-- Help -->
     <div class="footer-col">
-      <h3 class="footer-col-heading">Help</h3>
-      <ul class="footer-links">
+      <h3 class="fcol-heading">Help</h3>
+      <ul class="fcol-links">
         <li><a href="/soccerone#faq">FAQ</a></li>
         <li><a href="/refund-policy">Refund Policy</a></li>
-        <li><a href="/privacy">Privacy Policy</a></li>
-        <li><a href="/terms">Terms of Service</a></li>
+        <li><a href="/privacy">Privacy</a></li>
+        <li><a href="/terms">Terms</a></li>
         <li><a href="/dashboard">My Account</a></li>
         <li><a href="/signin">Sign In</a></li>
       </ul>
     </div>
+
   </div>
 
-  <!-- Powered-by strip -->
+  <!-- Bottom strip -->
   <div class="footer-strip">
     <span class="footer-copy">&copy; 2026 SoccerOne LLC. All rights reserved.</span>
     <span class="footer-powered">
-      Powered by&nbsp;
-      <a href="/" class="aspire-link">Aspire Sports</a>
-      &nbsp;&mdash; the multi-tenant sports platform built for facilities like yours.&nbsp;
-      <a href="/soccerone" class="aspire-link">Partner with us &rarr;</a>
+      Powered by <a href="/">Aspire Sports</a> &mdash; the platform built for facilities like yours.
+      <a href="/soccerone">Become a partner &rarr;</a>
     </span>
   </div>
 </footer>
 
 <style>
   .so-footer {
-    background: #061220;
-    border-top: 2px solid #facc15;
-    font-family: 'Inter', 'Space Grotesk', sans-serif;
-    margin-top: 0;
+    background: #060608;
+    border-top: 1px solid rgba(163,230,53,0.15);
+    font-family: 'DM Sans', sans-serif;
   }
 
-  .footer-grid {
-    max-width: 1280px;
+  /* Accent bar */
+  .footer-accent-bar {
+    background: #a3e635;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    padding: 1.25rem 2rem;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 4rem 1.5rem 3rem;
+  }
+
+  .accent-diagonal {
+    position: absolute;
+    right: 380px;
+    top: 0;
+    bottom: 0;
+    width: 60px;
+    background: rgba(0,0,0,0.07);
+    transform: skewX(-12deg);
+    pointer-events: none;
+  }
+
+  .accent-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .as-num {
+    font-family: 'Anton', sans-serif;
+    font-size: 1.875rem;
+    color: #0a0a0d;
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+
+  .as-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: rgba(10,10,13,0.6);
+  }
+
+  .accent-cta {
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .accent-btn {
+    display: inline-block;
+    background: #0a0a0d;
+    color: #a3e635;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.625rem 1.5rem;
+    border-radius: 4px;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .accent-btn:hover { background: #1a1a1e; }
+
+  /* Main grid */
+  .footer-main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 3.5rem 2rem 2.5rem;
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1.5fr 1fr;
     gap: 3rem;
   }
 
-  .footer-wordmark {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.75rem;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    margin-bottom: 0.875rem;
+  /* Brand column */
+  .brand-wordmark {
+    font-family: 'Anton', sans-serif;
+    font-size: 2.25rem;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.75rem;
+    line-height: 1;
+  }
+  .bw-soccer { color: #ffffff; }
+  .bw-one { color: #a3e635; }
+
+  .brand-sub {
+    font-size: 0.9375rem;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.55;
+    margin: 0 0 1.5rem;
   }
 
-  .fw-soccer { color: #ffffff; }
-  .fw-one { color: #facc15; }
-
-  .footer-tagline {
-    font-size: 0.9375rem;
-    color: rgba(255,255,255,0.5);
-    line-height: 1.6;
+  .location-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-bottom: 1.5rem;
-    max-width: 280px;
+  }
+
+  .loc-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background 0.15s;
+    width: fit-content;
+  }
+  .loc-chip--live {
+    background: rgba(163,230,53,0.08);
+    color: rgba(163,230,53,0.8);
+    border: 1px solid rgba(163,230,53,0.2);
+  }
+  .loc-chip--live:hover { background: rgba(163,230,53,0.14); color: #a3e635; }
+  .loc-chip--soon {
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.25);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    cursor: default;
+  }
+
+  .loc-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #a3e635;
+    box-shadow: 0 0 6px #a3e635;
+    flex-shrink: 0;
   }
 
   .social-row {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.625rem;
   }
-
   .social-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.15);
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.12);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.4);
     text-decoration: none;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    transition: border-color 0.15s, color 0.15s;
   }
+  .social-icon:hover { border-color: #a3e635; color: #a3e635; }
 
-  .social-icon:hover {
-    border-color: #facc15;
-    color: #facc15;
-    background: rgba(250,204,21,0.06);
-  }
+  /* Columns */
+  .footer-col { display: flex; flex-direction: column; }
 
-  .footer-col-heading {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+  .fcol-heading {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #facc15;
-    margin-bottom: 1rem;
+    color: #a3e635;
+    margin: 0 0 1rem;
   }
 
-  .footer-links {
+  .fcol-links {
     list-style: none;
     padding: 0;
-    margin: 0;
+    margin: 0 0 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
   }
-
-  .footer-links a {
+  .fcol-links a {
     font-size: 0.9375rem;
-    color: rgba(255,255,255,0.55);
+    color: rgba(255,255,255,0.5);
     text-decoration: none;
     transition: color 0.15s;
   }
+  .fcol-links a:hover { color: #ffffff; }
 
-  .footer-links a:hover {
-    color: #ffffff;
+  .future-loc {
+    font-size: 0.875rem;
+    color: rgba(255,255,255,0.2);
+    font-style: italic;
+    letter-spacing: 0.02em;
   }
 
+  .fcol-address {
+    font-size: 0.8125rem;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.5;
+    margin-bottom: 0.875rem;
+  }
+  .fcol-address strong {
+    color: rgba(255,255,255,0.5);
+    display: block;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 1px;
+  }
+
+  /* Bottom strip */
   .footer-strip {
-    border-top: 1px solid rgba(255,255,255,0.1);
-    max-width: 1280px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 1.25rem 1.5rem;
+    padding: 1.25rem 2rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
     flex-wrap: wrap;
   }
+  .footer-copy { font-size: 0.8125rem; color: rgba(255,255,255,0.25); }
+  .footer-powered { font-size: 0.8125rem; color: rgba(255,255,255,0.25); }
+  .footer-powered a { color: rgba(163,230,53,0.5); text-decoration: none; transition: color 0.15s; }
+  .footer-powered a:hover { color: #a3e635; }
 
-  .footer-copy {
-    font-size: 0.8125rem;
-    color: rgba(255,255,255,0.35);
+  @media (max-width: 1100px) {
+    .footer-main { grid-template-columns: 1.5fr 1fr 1fr; gap: 2rem; }
+    .footer-brand { grid-column: 1 / -1; }
+    .footer-accent-bar { padding: 1rem 1.5rem; gap: 1.5rem; }
+    .accent-diagonal { display: none; }
   }
 
-  .footer-powered {
-    font-size: 0.8125rem;
-    color: rgba(255,255,255,0.35);
-  }
-
-  .aspire-link {
-    color: rgba(250,204,21,0.7);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-
-  .aspire-link:hover {
-    color: #facc15;
-  }
-
-  @media (max-width: 900px) {
-    .footer-grid {
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-    }
-    .footer-brand {
-      grid-column: 1 / -1;
-    }
-  }
-
-  @media (max-width: 560px) {
-    .footer-grid {
-      grid-template-columns: 1fr;
-    }
-    .footer-strip {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
+  @media (max-width: 700px) {
+    .footer-main { grid-template-columns: 1fr 1fr; padding: 2.5rem 1.5rem 2rem; }
+    .footer-strip { flex-direction: column; align-items: flex-start; padding: 1rem 1.5rem; }
+    .footer-accent-bar { flex-wrap: wrap; gap: 1rem; }
+    .accent-stat { min-width: 80px; }
   }
 </style>

@@ -1,0 +1,724 @@
+---
+export const prerender = false;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import { Toaster } from 'sonner';
+
+const facility = Astro.url.searchParams.get('facility') || 'all';
+const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 'downtown' ? 'Downtown' : 'All Locations';
+---
+
+<BaseLayout
+  title={`Leagues — SoccerOne | ${facilityLabel}`}
+  description="Adult coed, premier, and corporate indoor soccer leagues at SoccerOne Columbus. Worthington (3 fields) and Downtown (1 field). Register now for Spring 2026."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <SoccerOneHeader />
+  <Toaster client:load richColors position="bottom-right" />
+
+  <main class="leagues-main">
+
+    <!-- Page header -->
+    <div class="leagues-header">
+      <div class="lh-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/soccerone" class="bc-link">SoccerOne</a>
+          <span class="bc-sep" aria-hidden="true">—</span>
+          <span class="bc-current">Leagues</span>
+        </nav>
+
+        <div class="lh-top">
+          <div class="lh-text">
+            <h1 class="lh-title">LEAGUES</h1>
+            <p class="lh-desc">
+              Competitive indoor soccer, season by season. Adult Coed, Premier, Women's, and Corporate divisions across both locations.
+            </p>
+          </div>
+          <div class="lh-stats">
+            <div class="lhs-item">
+              <span class="lhs-num">16</span>
+              <span class="lhs-label">Active leagues</span>
+            </div>
+            <div class="lhs-div" aria-hidden="true"></div>
+            <div class="lhs-item">
+              <span class="lhs-num">8</span>
+              <span class="lhs-label">Week seasons</span>
+            </div>
+            <div class="lhs-div" aria-hidden="true"></div>
+            <div class="lhs-item">
+              <span class="lhs-num">2</span>
+              <span class="lhs-label">Locations</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Facility filter tabs -->
+        <div class="facility-filter-row" role="group" aria-label="Filter by facility">
+          <a
+            href="/soccerone/leagues"
+            class={`ff-tab ${facility === 'all' ? 'ff-tab--active' : ''}`}
+          >
+            ALL LOCATIONS
+          </a>
+          <a
+            href="/soccerone/leagues?facility=worthington"
+            class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}
+          >
+            WORTHINGTON · 3 FIELDS
+          </a>
+          <a
+            href="/soccerone/leagues?facility=downtown"
+            class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}
+          >
+            DOWNTOWN · 1 FIELD
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leagues listing -->
+    <div class="leagues-section">
+      <div class="leagues-inner">
+
+        <!-- REGISTRATION CTA - featured row -->
+        <div class="leagues-featured-cta">
+          <div class="lfcta-left">
+            <span class="lfcta-eyebrow">NOW REGISTERING</span>
+            <h2 class="lfcta-title">Adult Open Soccer 2026</h2>
+            <div class="lfcta-meta">
+              <span class="lm-item">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/><path d="M7 4v3l2 2" stroke="rgba(163,230,53,0.7)" stroke-width="1.2" stroke-linecap="round"/></svg>
+                Starts June 2, 2026
+              </span>
+              <span class="lm-item">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="10" rx="1.5" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/><line x1="1" y1="6" x2="13" y2="6" stroke="rgba(163,230,53,0.3)" stroke-width="1"/></svg>
+                8-week season + playoffs
+              </span>
+              <span class="lm-item">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.5 5H13L9.5 7.5 11 12 7 9.5 3 12 4.5 7.5 1 5H5.5z" stroke="rgba(163,230,53,0.5)" stroke-width="1.1" fill="none"/></svg>
+                Worthington · Field 1
+              </span>
+              <span class="lm-item">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7h6M7 4l3 3-3 3" stroke="rgba(163,230,53,0.5)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                $180/player · $1,200/team
+              </span>
+            </div>
+          </div>
+          <div class="lfcta-right">
+            <a href="/register/season-adult-open-2026" class="lfcta-btn">
+              Register &amp; Pay Now
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <span class="lfcta-note">Secure checkout via Aspire Sports</span>
+          </div>
+        </div>
+
+        <!-- League cards grid -->
+        <div class="leagues-grid">
+
+          <!-- Adult Coed League -->
+          {(facility === 'all' || facility === 'worthington') && (
+            <div class="league-card league-card--active">
+              <div class="lc-location-badge">WORTHINGTON</div>
+              <div class="lc-top">
+                <div class="lc-division">
+                  <span class="lc-div-label">DIVISION</span>
+                  <span class="lc-div-name">Adult Coed</span>
+                </div>
+                <span class="lc-status lc-status--open">OPEN</span>
+              </div>
+
+              <h3 class="lc-name">Adult Coed League</h3>
+              <p class="lc-desc">Mixed men &amp; women, competitive but beginner-friendly. Most popular league across both facilities.</p>
+
+              <div class="lc-details">
+                <div class="lc-detail-row">
+                  <span class="lcd-label">DAYS</span>
+                  <span class="lcd-val">Mon, Wed, Fri evenings</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">TIMES</span>
+                  <span class="lcd-val mono">7:00 PM – 10:00 PM</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">SEASON</span>
+                  <span class="lcd-val">June 2 – Aug 1, 2026</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">ROSTER</span>
+                  <span class="lcd-val">8–14 players per team</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">PRICE</span>
+                  <span class="lcd-val mono accent">$180/player · $1,200/team</span>
+                </div>
+              </div>
+
+              <a href="/register/season-adult-open-2026" class="lc-cta">
+                Register Now →
+              </a>
+            </div>
+          )}
+
+          <!-- Adult Premier League -->
+          {(facility === 'all' || facility === 'worthington') && (
+            <div class="league-card league-card--active">
+              <div class="lc-location-badge">WORTHINGTON</div>
+              <div class="lc-top">
+                <div class="lc-division">
+                  <span class="lc-div-label">DIVISION</span>
+                  <span class="lc-div-name">Adult Premier</span>
+                </div>
+                <span class="lc-status lc-status--open">OPEN</span>
+              </div>
+
+              <h3 class="lc-name">Adult Premier League</h3>
+              <p class="lc-desc">High-level competitive play. Skilled players, fast tempo, refereed matches with official standings.</p>
+
+              <div class="lc-details">
+                <div class="lc-detail-row">
+                  <span class="lcd-label">DAYS</span>
+                  <span class="lcd-val">Tue, Thu evenings</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">TIMES</span>
+                  <span class="lcd-val mono">8:00 PM – 10:00 PM</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">SEASON</span>
+                  <span class="lcd-val">June 3 – Aug 2, 2026</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">ROSTER</span>
+                  <span class="lcd-val">8–12 players per team</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">PRICE</span>
+                  <span class="lcd-val mono accent">$220/player · $1,500/team</span>
+                </div>
+              </div>
+
+              <a href="/register/season-adult-open-2026" class="lc-cta">
+                Register Now →
+              </a>
+            </div>
+          )}
+
+          <!-- Women's Coed -->
+          {(facility === 'all' || facility === 'worthington') && (
+            <div class="league-card">
+              <div class="lc-location-badge">WORTHINGTON</div>
+              <div class="lc-top">
+                <div class="lc-division">
+                  <span class="lc-div-label">DIVISION</span>
+                  <span class="lc-div-name">Women's</span>
+                </div>
+                <span class="lc-status lc-status--filling">FILLING</span>
+              </div>
+
+              <h3 class="lc-name">Women's League</h3>
+              <p class="lc-desc">Women-only competitive division. All skill levels from recreational to premier. Season includes playoffs.</p>
+
+              <div class="lc-details">
+                <div class="lc-detail-row">
+                  <span class="lcd-label">DAYS</span>
+                  <span class="lcd-val">Saturday mornings</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">TIMES</span>
+                  <span class="lcd-val mono">9:00 AM – 12:00 PM</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">SEASON</span>
+                  <span class="lcd-val">June 7 – Aug 9, 2026</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">PRICE</span>
+                  <span class="lcd-val mono accent">$160/player</span>
+                </div>
+              </div>
+
+              <a href="/register/season-adult-open-2026" class="lc-cta">
+                Register Now →
+              </a>
+            </div>
+          )}
+
+          <!-- Corporate League — Downtown -->
+          {(facility === 'all' || facility === 'downtown') && (
+            <div class="league-card league-card--downtown">
+              <div class="lc-location-badge lc-location-badge--downtown">DOWNTOWN</div>
+              <div class="lc-top">
+                <div class="lc-division">
+                  <span class="lc-div-label">DIVISION</span>
+                  <span class="lc-div-name">Corporate Coed</span>
+                </div>
+                <span class="lc-status lc-status--open">OPEN</span>
+              </div>
+
+              <h3 class="lc-name">Corporate Coed League</h3>
+              <p class="lc-desc">Company vs company. Tuesday and Thursday evenings in the heart of downtown. Jerseys, referees, and trophies included.</p>
+
+              <div class="lc-details">
+                <div class="lc-detail-row">
+                  <span class="lcd-label">DAYS</span>
+                  <span class="lcd-val">Tue &amp; Thu evenings</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">TIMES</span>
+                  <span class="lcd-val mono">7:00 PM – 10:00 PM</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">SEASON</span>
+                  <span class="lcd-val">June 3 – Aug 7, 2026</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">TEAM SIZE</span>
+                  <span class="lcd-val">8–12 players</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">PRICE</span>
+                  <span class="lcd-val mono accent">$1,200/team (includes jerseys)</span>
+                </div>
+              </div>
+
+              <a href="/register/season-adult-open-2026" class="lc-cta">
+                Register Your Company →
+              </a>
+            </div>
+          )}
+
+          <!-- Downtown Pickup League -->
+          {(facility === 'all' || facility === 'downtown') && (
+            <div class="league-card league-card--downtown">
+              <div class="lc-location-badge lc-location-badge--downtown">DOWNTOWN</div>
+              <div class="lc-top">
+                <div class="lc-division">
+                  <span class="lc-div-label">DIVISION</span>
+                  <span class="lc-div-name">Weekday Coed</span>
+                </div>
+                <span class="lc-status lc-status--open">OPEN</span>
+              </div>
+
+              <h3 class="lc-name">Downtown Coed League</h3>
+              <p class="lc-desc">After-work league for downtown players. No commute. Competitive but social atmosphere. Monday evenings.</p>
+
+              <div class="lc-details">
+                <div class="lc-detail-row">
+                  <span class="lcd-label">DAYS</span>
+                  <span class="lcd-val">Monday evenings</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">TIMES</span>
+                  <span class="lcd-val mono">6:30 PM – 9:30 PM</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">SEASON</span>
+                  <span class="lcd-val">June 1 – Aug 3, 2026</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">PRICE</span>
+                  <span class="lcd-val mono accent">$175/player</span>
+                </div>
+              </div>
+
+              <a href="/register/season-adult-open-2026" class="lc-cta">
+                Register Now →
+              </a>
+            </div>
+          )}
+
+          <!-- Youth Academy -->
+          {(facility === 'all' || facility === 'worthington') && (
+            <div class="league-card league-card--youth">
+              <div class="lc-location-badge">WORTHINGTON</div>
+              <div class="lc-top">
+                <div class="lc-division">
+                  <span class="lc-div-label">DIVISION</span>
+                  <span class="lc-div-name">Youth U10–U18</span>
+                </div>
+                <span class="lc-status lc-status--coming">FALL 2026</span>
+              </div>
+
+              <h3 class="lc-name">Youth Indoor Academy</h3>
+              <p class="lc-desc">Age-grouped youth league with certified coaching. U10, U12, U14, U16, U18 divisions. Saturdays and Sundays.</p>
+
+              <div class="lc-details">
+                <div class="lc-detail-row">
+                  <span class="lcd-label">AGES</span>
+                  <span class="lcd-val">U10 · U12 · U14 · U16 · U18</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">DAYS</span>
+                  <span class="lcd-val">Saturdays &amp; Sundays</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">SEASON</span>
+                  <span class="lcd-val">Sept – Nov 2026</span>
+                </div>
+                <div class="lc-detail-row">
+                  <span class="lcd-label">PRICE</span>
+                  <span class="lcd-val mono accent">$140/player</span>
+                </div>
+              </div>
+
+              <button class="lc-cta lc-cta--notify" data-league="youth-2026">
+                Notify Me When Open
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom CTA -->
+    <div class="leagues-bottom-cta">
+      <div class="lbc-inner">
+        <div class="lbc-text">
+          <span class="lbc-label">HAVE A TEAM?</span>
+          <h2 class="lbc-title">Register your team directly. No middleman.</h2>
+        </div>
+        <div class="lbc-buttons">
+          <a href="/register/season-adult-open-2026" class="lbc-btn-primary">Register a Team</a>
+          <a href="/register/season-adult-open-2026" class="lbc-btn-secondary">Register as Individual</a>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #a3e635;
+      --bg: #0a0a0d;
+      --bg-2: #0e0e10;
+      --muted: rgba(255,255,255,0.45);
+      --border: rgba(255,255,255,0.08);
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .accent { color: #a3e635; }
+
+    .leagues-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+
+    /* ---- HEADER ---- */
+    .leagues-header {
+      background: #0a0a0d;
+      border-bottom: 1px solid rgba(163,230,53,0.1);
+      padding: 4rem 0 0;
+    }
+    .lh-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+
+    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
+    .bc-link { font-size: 0.8125rem; color: rgba(163,230,53,0.6); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+    .bc-link:hover { color: #a3e635; }
+    .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
+    .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
+
+    .lh-top {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+    }
+
+    .lh-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(4rem, 10vw, 9rem);
+      color: #ffffff;
+      line-height: 0.9;
+      letter-spacing: 0.01em;
+      margin-bottom: 1rem;
+    }
+
+    .lh-desc {
+      font-size: 1.0625rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 500px;
+    }
+
+    .lh-stats {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      background: rgba(163,230,53,0.04);
+      border: 1px solid rgba(163,230,53,0.15);
+      border-radius: 6px;
+      padding: 1.25rem 1.75rem;
+      flex-shrink: 0;
+    }
+    .lhs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
+    .lhs-num { font-family: 'Anton', sans-serif; font-size: 2.25rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
+    .lhs-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .lhs-div { width: 1px; height: 40px; background: rgba(255,255,255,0.08); }
+
+    /* Facility filter tabs */
+    .facility-filter-row {
+      display: flex;
+      gap: 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .ff-tab {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      padding: 1rem 1.5rem;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .ff-tab:hover { color: rgba(255,255,255,0.7); }
+    .ff-tab--active { color: #a3e635; border-bottom-color: #a3e635; }
+
+    /* ---- LEAGUES SECTION ---- */
+    .leagues-section { background: var(--bg); padding: 4rem 0; }
+    .leagues-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+
+    /* Featured CTA */
+    .leagues-featured-cta {
+      background: rgba(163,230,53,0.06);
+      border: 1px solid rgba(163,230,53,0.25);
+      border-radius: 8px;
+      padding: 1.75rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      margin-bottom: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .lfcta-eyebrow {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: #a3e635;
+      margin-bottom: 0.5rem;
+    }
+
+    .lfcta-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.875rem;
+    }
+
+    .lfcta-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+    }
+    .lm-item {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .lfcta-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .lfcta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      background: #a3e635;
+      color: #0a0a0d;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      padding: 0.875rem 1.75rem;
+      border-radius: 4px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .lfcta-btn:hover { background: #bef264; }
+    .lfcta-note { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
+
+    /* League cards */
+    .leagues-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .league-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .league-card:hover { border-color: rgba(163,230,53,0.25); transform: translateY(-4px); }
+    .league-card--active { border-color: rgba(163,230,53,0.15); }
+    .league-card--downtown { border-color: rgba(100,160,255,0.12); }
+    .league-card--downtown:hover { border-color: rgba(100,160,255,0.3); }
+    .league-card--youth { border-color: rgba(192,132,252,0.1); }
+
+    .lc-location-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      background: rgba(163,230,53,0.08);
+      color: rgba(163,230,53,0.6);
+      border: 1px solid rgba(163,230,53,0.15);
+      padding: 2px 7px;
+      border-radius: 3px;
+      display: inline-block;
+      width: fit-content;
+    }
+    .lc-location-badge--downtown {
+      background: rgba(100,160,255,0.08);
+      color: rgba(147,197,253,0.7);
+      border-color: rgba(100,160,255,0.15);
+    }
+
+    .lc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+
+    .lc-division { display: flex; flex-direction: column; gap: 2px; }
+    .lc-div-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); }
+    .lc-div-name { font-size: 0.875rem; font-weight: 600; color: rgba(255,255,255,0.7); }
+
+    .lc-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      padding: 3px 8px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .lc-status--open { background: rgba(163,230,53,0.12); color: #a3e635; border: 1px solid rgba(163,230,53,0.2); }
+    .lc-status--filling { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
+    .lc-status--coming { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
+
+    .lc-name {
+      font-family: 'Anton', sans-serif;
+      font-size: 1.75rem;
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      line-height: 1;
+    }
+
+    .lc-desc {
+      font-size: 0.9375rem;
+      color: var(--muted);
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .lc-details { display: flex; flex-direction: column; gap: 0.5rem; }
+    .lc-detail-row {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: 0.625rem;
+      align-items: start;
+    }
+    .lcd-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(163,230,53,0.5); padding-top: 2px; }
+    .lcd-val { font-size: 0.875rem; color: rgba(255,255,255,0.65); line-height: 1.4; }
+    .lcd-val.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; }
+    .lcd-val.accent { color: #a3e635; }
+
+    .lc-cta {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.875rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #a3e635;
+      text-decoration: none;
+      padding: 0.625rem 0;
+      border-bottom: 1px solid rgba(163,230,53,0.25);
+      transition: border-color 0.15s;
+      width: fit-content;
+      cursor: pointer;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+    }
+    .lc-cta:hover { border-bottom-color: #a3e635; }
+    .lc-cta--notify { color: rgba(255,255,255,0.5); border-bottom-color: rgba(255,255,255,0.15); }
+    .lc-cta--notify:hover { color: rgba(255,255,255,0.7); border-bottom-color: rgba(255,255,255,0.3); }
+
+    /* ---- BOTTOM CTA ---- */
+    .leagues-bottom-cta {
+      background: #a3e635;
+      padding: 3rem 0;
+    }
+    .lbc-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .lbc-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(10,10,13,0.5); display: block; margin-bottom: 0.375rem; }
+    .lbc-title { font-family: 'Anton', sans-serif; font-size: clamp(1.5rem, 3vw, 2.25rem); color: #0a0a0d; letter-spacing: 0.01em; }
+    .lbc-buttons { display: flex; gap: 0.875rem; flex-wrap: wrap; flex-shrink: 0; }
+    .lbc-btn-primary { display: inline-block; background: #0a0a0d; color: #a3e635; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; transition: background 0.15s; white-space: nowrap; }
+    .lbc-btn-primary:hover { background: #1a1a1e; }
+    .lbc-btn-secondary { display: inline-block; background: rgba(10,10,13,0.1); color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; border: 1px solid rgba(10,10,13,0.25); transition: background 0.15s; white-space: nowrap; }
+    .lbc-btn-secondary:hover { background: rgba(10,10,13,0.18); }
+
+    @media (max-width: 1100px) { .leagues-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) {
+      .leagues-grid { grid-template-columns: 1fr; }
+      .lh-top { flex-direction: column; align-items: flex-start; }
+      .leagues-featured-cta { flex-direction: column; align-items: flex-start; }
+      .lfcta-right { align-items: flex-start; }
+      .lbc-inner { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+
+  <script>
+    // Notify me buttons
+    document.querySelectorAll('.lc-cta--notify').forEach(btn => {
+      btn.addEventListener('click', () => {
+        (btn as HTMLElement).textContent = '✓ We\'ll notify you';
+        (btn as HTMLElement).style.color = '#a3e635';
+      });
+    });
+  </script>
+</BaseLayout>

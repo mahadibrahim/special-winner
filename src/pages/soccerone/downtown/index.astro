@@ -1,0 +1,954 @@
+---
+export const prerender = true;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+---
+
+<BaseLayout
+  title="Downtown Columbus — SoccerOne | Indoor Soccer · 191 W Nationwide Blvd"
+  description="SoccerOne Downtown Columbus: 1 FIFA-approved indoor turf field in the heart of the city. After-work pickup, corporate leagues, and field rentals. 191 W Nationwide Blvd. Open 7am–11pm."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <SoccerOneHeader currentFacility="downtown" />
+
+  <main class="facility-main">
+
+    <!-- ============================================================
+         FACILITY HERO — urban downtown aesthetic, late-night energy
+    ============================================================ -->
+    <section class="f-hero f-hero--downtown" aria-label="Downtown Columbus facility">
+      <div class="f-hero-bg" aria-hidden="true">
+        <div class="f-hero-vis-wrap">
+          <!-- Urban downtown + indoor field visualization -->
+          <svg class="f-hero-vis" viewBox="0 0 1400 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Night sky / building backdrop -->
+            <rect width="1400" height="700" fill="#060812"/>
+            <!-- Downtown skyline silhouette -->
+            <rect x="0" y="0" width="120" height="300" fill="rgba(15,20,35,0.9)"/>
+            <rect x="60" y="0" width="80" height="350" fill="rgba(18,25,45,0.9)"/>
+            <rect x="160" y="80" width="100" height="270" fill="rgba(15,20,35,0.9)"/>
+            <rect x="200" y="40" width="60" height="310" fill="rgba(18,25,45,0.9)"/>
+            <rect x="270" y="100" width="140" height="250" fill="rgba(15,22,38,0.9)"/>
+            <rect x="320" y="30" width="80" height="320" fill="rgba(18,25,45,0.9)"/>
+            <rect x="420" y="120" width="120" height="230" fill="rgba(15,20,35,0.9)"/>
+            <rect x="900" y="60" width="180" height="290" fill="rgba(15,20,35,0.9)"/>
+            <rect x="980" y="0" width="100" height="340" fill="rgba(18,25,45,0.9)"/>
+            <rect x="1080" y="100" width="150" height="250" fill="rgba(15,22,38,0.9)"/>
+            <rect x="1150" y="40" width="100" height="310" fill="rgba(18,25,45,0.9)"/>
+            <rect x="1260" y="80" width="140" height="270" fill="rgba(15,20,35,0.9)"/>
+            <!-- Building windows lit up -->
+            {/* Scattered window squares */}
+            <rect x="70" y="30" width="8" height="10" fill="rgba(255,220,100,0.6)"/>
+            <rect x="90" y="50" width="8" height="10" fill="rgba(255,220,100,0.4)"/>
+            <rect x="70" y="80" width="8" height="10" fill="rgba(100,180,255,0.4)"/>
+            <rect x="90" y="100" width="8" height="10" fill="rgba(255,220,100,0.5)"/>
+            <rect x="220" y="60" width="8" height="10" fill="rgba(255,220,100,0.4)"/>
+            <rect x="240" y="80" width="8" height="10" fill="rgba(100,180,255,0.5)"/>
+            <rect x="330" y="50" width="8" height="10" fill="rgba(255,220,100,0.6)"/>
+            <rect x="350" y="70" width="8" height="10" fill="rgba(255,220,100,0.3)"/>
+            <rect x="920" y="80" width="8" height="10" fill="rgba(255,220,100,0.5)"/>
+            <rect x="940" y="60" width="8" height="10" fill="rgba(100,180,255,0.4)"/>
+            <rect x="1000" y="30" width="8" height="10" fill="rgba(255,220,100,0.6)"/>
+            <rect x="1020" y="50" width="8" height="10" fill="rgba(255,220,100,0.3)"/>
+            <rect x="1160" y="70" width="8" height="10" fill="rgba(100,180,255,0.5)"/>
+            <rect x="1180" y="90" width="8" height="10" fill="rgba(255,220,100,0.4)"/>
+            <!-- Large panoramic window divider line -->
+            <rect x="0" y="350" width="1400" height="10" fill="rgba(100,130,200,0.15)"/>
+            <!-- Indoor field below window line -->
+            <rect x="0" y="360" width="1400" height="340" fill="#0a1a06"/>
+            <!-- Field alternating stripes -->
+            <rect x="0" y="360" width="175" height="340" fill="rgba(12,25,8,0.8)"/>
+            <rect x="350" y="360" width="175" height="340" fill="rgba(12,25,8,0.8)"/>
+            <rect x="700" y="360" width="175" height="340" fill="rgba(12,25,8,0.8)"/>
+            <rect x="1050" y="360" width="175" height="340" fill="rgba(12,25,8,0.8)"/>
+            <!-- Single field boundary -->
+            <rect x="80" y="390" width="1240" height="280" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" fill="none"/>
+            <line x1="700" y1="390" x2="700" y2="670" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+            <circle cx="700" cy="530" r="70" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" fill="none"/>
+            <circle cx="700" cy="530" r="4" fill="rgba(255,255,255,0.35)"/>
+            <!-- Goals -->
+            <rect x="50" y="476" width="30" height="108" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <rect x="1320" y="476" width="30" height="108" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <!-- LED stadium lights from ceiling -->
+            <line x1="0" y1="358" x2="1400" y2="358" stroke="rgba(163,230,53,0.12)" stroke-width="4"/>
+            <!-- Light cones from top -->
+            <polygon points="350,358 200,500 500,500" fill="rgba(255,255,180,0.03)"/>
+            <polygon points="700,358 550,530 850,530" fill="rgba(255,255,180,0.04)"/>
+            <polygon points="1050,358 900,500 1200,500" fill="rgba(255,255,180,0.03)"/>
+          </svg>
+        </div>
+        <div class="f-hero-overlay"></div>
+        <div class="f-hero-bottom-stripe"></div>
+      </div>
+
+      <div class="f-hero-content">
+        <!-- Breadcrumb -->
+        <nav class="f-breadcrumb" aria-label="Breadcrumb">
+          <a href="/soccerone" class="fbc-link">SoccerOne</a>
+          <span class="fbc-sep" aria-hidden="true">—</span>
+          <span class="fbc-current">Downtown Columbus</span>
+        </nav>
+
+        <div class="f-hero-block">
+          <div class="f-hero-left">
+            <div class="f-hero-tag-row">
+              <span class="f-tag f-tag--urban">URBAN</span>
+              <span class="f-tag f-tag--live">
+                <span class="live-dot"></span>
+                OPEN NOW
+              </span>
+            </div>
+            <h1 class="f-hero-title">
+              <span class="fht-sub">DOWNTOWN</span>
+              COLUMBUS
+            </h1>
+            <div class="f-field-count">
+              <span class="fc-num">1</span>
+              <span class="fc-label">INDOOR FIELD</span>
+            </div>
+            <div class="f-hero-address">
+              191 W Nationwide Blvd, Columbus, OH 43215
+            </div>
+            <div class="f-hero-hours mono">Open daily — 7:00 AM – 11:00 PM</div>
+
+            <!-- Downtown differentiators -->
+            <div class="dt-chips">
+              <span class="dt-chip">After-work pickup</span>
+              <span class="dt-chip">Corporate leagues</span>
+              <span class="dt-chip">Downtown location</span>
+            </div>
+          </div>
+
+          <div class="f-hero-right">
+            <div class="f-hero-stats">
+              <div class="fhs-item">
+                <span class="fhs-num">FIFA</span>
+                <span class="fhs-label">Approved turf</span>
+              </div>
+              <div class="fhs-div" aria-hidden="true"></div>
+              <div class="fhs-item">
+                <span class="fhs-num">7PM+</span>
+                <span class="fhs-label">Peak pickups</span>
+              </div>
+              <div class="fhs-div" aria-hidden="true"></div>
+              <div class="fhs-item">
+                <span class="fhs-num">2 min</span>
+                <span class="fhs-label">From I-670</span>
+              </div>
+            </div>
+            <div class="f-hero-ctas">
+              <a href="/soccerone/rent?facility=downtown" class="f-cta-primary">Book the Field</a>
+              <a href="/soccerone/pickup?facility=downtown" class="f-cta-secondary">View Pickup</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DOWNTOWN STORY — asymmetric layout
+    ============================================================ -->
+    <section class="dt-story" aria-label="About Downtown location">
+      <div class="dt-story-inner">
+        <div class="dt-story-text">
+          <span class="section-num-sm">01.</span>
+          <h2 class="dt-story-title">After-work.<br />On lunch.<br />Late-night.</h2>
+          <p class="dt-story-body">
+            Downtown Columbus runs on momentum. Our Nationwide Blvd location was built for players who want to get on the field without a 30-minute drive to the suburbs.
+          </p>
+          <p class="dt-story-body">
+            One field. Full turf. Stadium lighting. Book it in under two minutes and walk here from your office.
+          </p>
+
+          <div class="dt-callout">
+            <div class="dtc-icon" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <circle cx="14" cy="14" r="12" stroke="#a3e635" stroke-width="1.5" fill="none"/>
+                <path d="M14 8v6l4 4" stroke="#a3e635" stroke-width="1.75" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="dtc-text">
+              <strong>Book at 5:00 PM, play at 6:00 PM.</strong>
+              Same-day bookings open at 7am. After-work time slots typically available Monday–Friday.
+            </div>
+          </div>
+        </div>
+
+        <!-- Big number visual -->
+        <div class="dt-story-visual" aria-hidden="true">
+          <div class="dt-big-num">1</div>
+          <div class="dt-big-label">FIELD IN THE HEART OF COLUMBUS</div>
+          <div class="dt-feature-list">
+            <div class="dtf-item">
+              <span class="dtf-num mono">200 × 85</span>
+              <span class="dtf-label">Full-size indoor field (ft)</span>
+            </div>
+            <div class="dtf-item">
+              <span class="dtf-num mono">700+</span>
+              <span class="dtf-label">Lux LED lighting</span>
+            </div>
+            <div class="dtf-item">
+              <span class="dtf-num mono">$80</span>
+              <span class="dtf-label">Per hour standard rate</span>
+            </div>
+            <div class="dtf-item">
+              <span class="dtf-num mono">$64</span>
+              <span class="dtf-label">Per hour — Founder members</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         THIS WEEK'S SCHEDULE
+    ============================================================ -->
+    <section class="schedule-section" aria-label="Downtown schedule">
+      <div class="schedule-inner">
+        <div class="schedule-header">
+          <div class="sh-left">
+            <span class="section-num-sm">02.</span>
+            <h2 class="schedule-title">This Week</h2>
+          </div>
+          <div class="sh-right">
+            <span class="schedule-date mono">Week of April 28, 2026</span>
+            <a href="/soccerone/pickup?facility=downtown" class="view-all-link">All pickup games →</a>
+          </div>
+        </div>
+
+        <div class="schedule-board">
+          <div class="sb-header-row">
+            <div class="sbh-time">TIME</div>
+            <div class="sbh-col">THE FIELD</div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">7:00 AM</div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available for rental</span>
+              <a href="/soccerone/rent?facility=downtown" class="sb-book-link">Book →</a>
+            </div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">12:00 PM</div>
+            <div class="sb-cell sb-cell--pickup">
+              <span class="sbc-type">PICKUP</span>
+              <span class="sbc-name">Lunch Pickup — Open to all levels</span>
+            </div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">3:00 PM</div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available for rental</span>
+              <a href="/soccerone/rent?facility=downtown" class="sb-book-link">Book →</a>
+            </div>
+          </div>
+
+          <div class="sb-row sb-row--prime">
+            <div class="sb-time mono">6:00 PM</div>
+            <div class="sb-cell sb-cell--pickup">
+              <span class="sbc-type">PICKUP</span>
+              <span class="sbc-name">After-Work Pickup (Competitive)</span>
+            </div>
+          </div>
+
+          <div class="sb-row sb-row--prime">
+            <div class="sb-time mono">7:30 PM</div>
+            <div class="sb-cell sb-cell--league">
+              <span class="sbc-type">LEAGUE</span>
+              <span class="sbc-name">Corporate Coed League — Match Night</span>
+            </div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">9:00 PM</div>
+            <div class="sb-cell sb-cell--pickup">
+              <span class="sbc-type">PICKUP</span>
+              <span class="sbc-name">Late-Night Open Pickup</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         FIELD SPECS
+    ============================================================ -->
+    <section class="specs-section" aria-label="Field specs">
+      <div class="specs-inner">
+        <div class="specs-header-row">
+          <div class="specs-left">
+            <span class="section-num-sm">03.</span>
+            <h2 class="specs-title">Field Specs</h2>
+          </div>
+          <a href="/soccerone/rent?facility=downtown" class="specs-book-btn">Book the Field</a>
+        </div>
+
+        <div class="dt-specs-grid">
+          <div class="dt-spec-block">
+            <span class="dsb-label">SURFACE</span>
+            <span class="dsb-val">FieldTurf® Revolution 360</span>
+            <span class="dsb-sub">FIFA Quality Pro certified</span>
+          </div>
+          <div class="dt-spec-block">
+            <span class="dsb-label">SIZE</span>
+            <span class="dsb-val mono">200 × 85 ft</span>
+            <span class="dsb-sub">Full-size indoor</span>
+          </div>
+          <div class="dt-spec-block">
+            <span class="dsb-label">LIGHTING</span>
+            <span class="dsb-val">700+ lux LED</span>
+            <span class="dsb-sub">Color-corrected for video</span>
+          </div>
+          <div class="dt-spec-block">
+            <span class="dsb-label">SCOREBOARD</span>
+            <span class="dsb-val">Digital + shot clock</span>
+            <span class="dsb-sub">Per-match display</span>
+          </div>
+          <div class="dt-spec-block">
+            <span class="dsb-label">STANDARD RATE</span>
+            <span class="dsb-val accent mono">$80/hr</span>
+            <span class="dsb-sub">Member rates from $64/hr</span>
+          </div>
+          <div class="dt-spec-block">
+            <span class="dsb-label">BOOKING WINDOW</span>
+            <span class="dsb-val mono">7 days ahead</span>
+            <span class="dsb-sub">30 days for Founder members</span>
+          </div>
+        </div>
+
+        <!-- Included amenities -->
+        <div class="dt-amenities">
+          <div class="dta-heading">Every rental includes:</div>
+          <div class="dta-list">
+            <span class="dta-item"><span class="dta-check">✓</span> Locker room access</span>
+            <span class="dta-item"><span class="dta-check">✓</span> Free street parking validated</span>
+            <span class="dta-item"><span class="dta-check">✓</span> Scoreboard + shot clock</span>
+            <span class="dta-item"><span class="dta-check">✓</span> Field equipment (cones, vests)</span>
+            <span class="dta-item"><span class="dta-check">✓</span> Referee available upon request (+$40)</span>
+            <span class="dta-item"><span class="dta-check">✓</span> Concierge scheduling support</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CORPORATE LEAGUE CTA
+    ============================================================ -->
+    <section class="corp-league" aria-label="Corporate leagues">
+      <div class="corp-inner">
+        <div class="corp-text">
+          <span class="corp-eyebrow">CORPORATE LEAGUES</span>
+          <h2 class="corp-title">Team bonding<br />that actually works.</h2>
+          <p class="corp-desc">
+            Columbus's top companies already play here. Our corporate coed league runs Tuesday and Thursday evenings — 7–10pm. Teams of 8–12 players. Season includes jerseys, referees, and end-of-season awards.
+          </p>
+          <div class="corp-stats">
+            <div class="corp-stat">
+              <span class="cs-num mono">12</span>
+              <span class="cs-label">Corporate teams active</span>
+            </div>
+            <div class="corp-stat">
+              <span class="cs-num mono">8</span>
+              <span class="cs-label">Week seasons</span>
+            </div>
+            <div class="corp-stat">
+              <span class="cs-num mono">$1,200</span>
+              <span class="cs-label">Team entry fee</span>
+            </div>
+          </div>
+          <a href="/soccerone/leagues?facility=downtown" class="corp-cta">View Corporate League</a>
+        </div>
+        <div class="corp-visual" aria-hidden="true">
+          <!-- Diagonal accent with text -->
+          <div class="corp-visual-bg">
+            <div class="cv-big-text">CORP.</div>
+            <div class="cv-sub-text">COLUMBUS</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         HOURS & DIRECTIONS
+    ============================================================ -->
+    <section class="info-section" aria-label="Hours and directions">
+      <div class="info-inner">
+        <div class="info-hours">
+          <span class="section-num-sm">04.</span>
+          <h2 class="info-title">Hours &amp; Directions</h2>
+          <div class="hours-grid">
+            <div class="hours-row">
+              <span class="hours-day">Monday – Friday</span>
+              <span class="hours-time mono">7:00 AM – 11:00 PM</span>
+            </div>
+            <div class="hours-row">
+              <span class="hours-day">Saturday</span>
+              <span class="hours-time mono">7:00 AM – 11:00 PM</span>
+            </div>
+            <div class="hours-row">
+              <span class="hours-day">Sunday</span>
+              <span class="hours-time mono">7:00 AM – 11:00 PM</span>
+            </div>
+            <div class="hours-note">Peak hours Mon–Fri 5pm–10pm. Recommended to book in advance.</div>
+          </div>
+          <div class="info-address-block">
+            <div class="iab-name">SoccerOne Downtown Columbus</div>
+            <div class="iab-addr">191 W Nationwide Blvd<br />Columbus, OH 43215</div>
+            <div class="iab-parking">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:2px">
+                <rect x="1" y="1" width="12" height="12" rx="2" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/>
+                <path d="M5 10V4h3a2 2 0 0 1 0 4H5" stroke="rgba(163,230,53,0.7)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Validated parking at North Bank Garage (2 hrs with purchase)
+            </div>
+            <div class="iab-links">
+              <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="iab-link">Get Directions →</a>
+              <a href="tel:+16145555678" class="iab-link">(614) 555-5678</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map placeholder for downtown -->
+        <div class="info-map">
+          <div class="map-placeholder">
+            <svg viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="map-svg">
+              <rect width="400" height="300" fill="#080c18"/>
+              <!-- Streets - downtown grid -->
+              <line x1="0" y1="150" x2="400" y2="150" stroke="rgba(163,230,53,0.15)" stroke-width="4"/>
+              <line x1="200" y1="0" x2="200" y2="300" stroke="rgba(163,230,53,0.15)" stroke-width="4"/>
+              <line x1="0" y1="100" x2="400" y2="100" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+              <line x1="0" y1="200" x2="400" y2="200" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+              <line x1="100" y1="0" x2="100" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+              <line x1="300" y1="0" x2="300" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+              <!-- Dense downtown blocks -->
+              <rect x="5" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.06)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
+              <rect x="105" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
+              <rect x="205" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.07)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
+              <rect x="305" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
+              <rect x="5" y="105" width="90" height="40" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
+              <rect x="305" y="105" width="90" height="40" rx="2" fill="rgba(100,130,200,0.06)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
+              <rect x="5" y="205" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
+              <rect x="105" y="205" width="90" height="90" rx="2" fill="rgba(100,130,200,0.06)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
+              <rect x="305" y="205" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
+              <!-- SoccerOne marker -->
+              <rect x="155" y="115" width="90" height="55" rx="4" fill="#a3e635"/>
+              <text x="200" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#0a0a0d" font-family="monospace">SOCCERONE</text>
+              <text x="200" y="158" text-anchor="middle" font-size="7" fill="#0a0a0d" font-family="monospace">DOWNTOWN</text>
+              <!-- Location pin -->
+              <circle cx="200" cy="108" r="8" fill="#a3e635"/>
+              <circle cx="200" cy="108" r="3" fill="#0a0a0d"/>
+              <!-- Street labels -->
+              <text x="200" y="170" text-anchor="middle" font-size="7" fill="rgba(163,230,53,0.5)" font-family="monospace">W NATIONWIDE BLVD</text>
+              <text x="15" y="148" font-size="6" fill="rgba(255,255,255,0.3)" font-family="monospace">DOWNTOWN CBus</text>
+            </svg>
+            <div class="map-overlay-label">
+              <div class="mol-name">SoccerOne Downtown</div>
+              <div class="mol-addr">191 W Nationwide Blvd</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CTA STRIP
+    ============================================================ -->
+    <section class="facility-cta-strip" aria-label="Get started">
+      <div class="fcs-inner">
+        <div class="fcs-text">
+          <h2 class="fcs-title">Book the Downtown field.</h2>
+          <p class="fcs-sub">Available today. Walk here from anywhere downtown.</p>
+        </div>
+        <div class="fcs-buttons">
+          <a href="/soccerone/rent?facility=downtown" class="fcs-btn-primary">
+            Book a Field Now
+          </a>
+          <a href="/soccerone/pickup?facility=downtown" class="fcs-btn-secondary">
+            See Pickup Games
+          </a>
+          <a href="/soccerone/memberships" class="fcs-btn-ghost">
+            Memberships
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #a3e635;
+      --bg: #0a0a0d;
+      --bg-2: #0e0e10;
+      --white: #ffffff;
+      --muted: rgba(255,255,255,0.45);
+      --border: rgba(255,255,255,0.08);
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    .facility-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+
+    /* ---- HERO ---- */
+    .f-hero {
+      position: relative;
+      min-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      background: #060812;
+    }
+
+    .f-hero-bg { position: absolute; inset: 0; z-index: 0; }
+
+    .f-hero-vis-wrap { position: absolute; inset: 0; }
+    .f-hero-vis {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      animation: urbanDrift 22s ease-in-out infinite alternate;
+    }
+    @keyframes urbanDrift {
+      0%   { transform: scale(1.05) translate(0, 0); }
+      50%  { transform: scale(1.07) translate(-0.8%, 0.3%); }
+      100% { transform: scale(1.05) translate(0.6%, -0.3%); }
+    }
+
+    .f-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(6,8,18,0.5) 0%,
+        rgba(6,8,18,0.45) 35%,
+        rgba(6,8,18,0.85) 70%,
+        rgba(6,8,18,0.98) 100%
+      );
+    }
+
+    .f-hero-bottom-stripe {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #a3e635 0%, rgba(163,230,53,0.3) 40%, transparent 80%);
+    }
+
+    .f-hero-content {
+      position: relative;
+      z-index: 10;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 2.5rem 2rem 4rem;
+    }
+
+    .f-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.8s ease-out 0.1s both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fbc-link { font-size: 0.8125rem; font-weight: 500; color: rgba(163,230,53,0.6); text-decoration: none; transition: color 0.15s; }
+    .fbc-link:hover { color: #a3e635; }
+    .fbc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
+    .fbc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
+
+    .f-hero-block {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .f-hero-left { animation: fadeUp 0.8s ease-out 0.2s both; }
+    .f-hero-right { animation: fadeUp 0.8s ease-out 0.4s both; }
+
+    .f-hero-tag-row {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .f-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+    .f-tag--urban {
+      background: rgba(100,160,255,0.1);
+      color: #93c5fd;
+      border: 1px solid rgba(100,160,255,0.2);
+    }
+    .f-tag--live {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(74,222,128,0.1);
+      color: #86efac;
+      border: 1px solid rgba(74,222,128,0.2);
+    }
+    .live-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #86efac;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .f-hero-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(3.5rem, 8vw, 7.5rem);
+      color: #ffffff;
+      line-height: 0.92;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .fht-sub {
+      font-size: 0.4em;
+      color: rgba(163,230,53,0.8);
+      letter-spacing: 0.08em;
+      line-height: 2;
+    }
+
+    .f-field-count {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .fc-num { font-family: 'Anton', sans-serif; font-size: 3.5rem; color: #a3e635; line-height: 1; }
+    .fc-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(163,230,53,0.6); align-self: center; }
+
+    .f-hero-address { font-size: 1rem; color: rgba(255,255,255,0.55); margin-bottom: 0.375rem; }
+    .f-hero-hours { font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; color: rgba(163,230,53,0.6); letter-spacing: 0.04em; margin-bottom: 1rem; }
+
+    .dt-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .dt-chip {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: rgba(147,197,253,0.8);
+      background: rgba(100,160,255,0.08);
+      border: 1px solid rgba(100,160,255,0.15);
+      border-radius: 3px;
+      padding: 3px 10px;
+      letter-spacing: 0.02em;
+    }
+
+    .f-hero-stats {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      background: rgba(10,10,13,0.6);
+      border: 1px solid rgba(163,230,53,0.15);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      backdrop-filter: blur(8px);
+      margin-bottom: 1.25rem;
+    }
+    .fhs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
+    .fhs-num { font-family: 'Anton', sans-serif; font-size: 1.5rem; color: #a3e635; letter-spacing: 0.02em; }
+    .fhs-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .fhs-div { width: 1px; height: 36px; background: rgba(255,255,255,0.08); }
+
+    .f-hero-ctas { display: flex; gap: 0.875rem; flex-wrap: wrap; }
+    .f-cta-primary {
+      display: inline-block;
+      background: #a3e635;
+      color: #0a0a0d;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .f-cta-primary:hover { background: #bef264; }
+    .f-cta-secondary {
+      display: inline-block;
+      background: rgba(255,255,255,0.06);
+      color: #ffffff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.12);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .f-cta-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+
+    /* ---- DT STORY ---- */
+    .dt-story {
+      background: var(--bg);
+      padding: 5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dt-story-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5rem;
+      align-items: center;
+    }
+
+    .dt-story-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      color: #ffffff;
+      line-height: 1.02;
+      letter-spacing: 0.01em;
+      margin: 0.75rem 0 1.5rem;
+    }
+
+    .dt-story-body {
+      font-size: 1.0625rem;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
+    }
+
+    .dt-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      background: rgba(163,230,53,0.05);
+      border: 1px solid rgba(163,230,53,0.15);
+      border-radius: 6px;
+      padding: 1.25rem;
+      margin-top: 1rem;
+    }
+    .dtc-icon { flex-shrink: 0; margin-top: 1px; }
+    .dtc-text {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.55;
+    }
+    .dtc-text strong { color: #ffffff; font-weight: 600; }
+
+    /* Visual column */
+    .dt-story-visual {}
+
+    .dt-big-num {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(10rem, 20vw, 18rem);
+      color: rgba(163,230,53,0.07);
+      line-height: 0.9;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.5rem;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .dt-big-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: rgba(163,230,53,0.35);
+      margin-bottom: 2.5rem;
+    }
+
+    .dt-feature-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .dtf-item { display: flex; flex-direction: column; gap: 2px; }
+    .dtf-num {
+      font-family: 'Anton', sans-serif;
+      font-size: 2rem;
+      color: #a3e635;
+      letter-spacing: 0.02em;
+      line-height: 1;
+    }
+    .dtf-label {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+      line-height: 1.4;
+    }
+
+    /* ---- SCHEDULE ---- */
+    .schedule-section { background: var(--bg-2); padding: 5rem 0; border-bottom: 1px solid var(--border); }
+    .schedule-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .schedule-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+    .sh-left { display: flex; align-items: baseline; gap: 1rem; }
+    .sh-right { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+    .section-num-sm { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: rgba(163,230,53,0.15); line-height: 1; }
+    .schedule-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .schedule-date { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: rgba(255,255,255,0.35); letter-spacing: 0.04em; }
+    .view-all-link { font-size: 0.875rem; font-weight: 500; color: rgba(163,230,53,0.7); text-decoration: none; transition: color 0.15s; }
+    .view-all-link:hover { color: #a3e635; }
+
+    .schedule-board { border-radius: 8px; border: 1px solid var(--border); overflow: hidden; overflow-x: auto; }
+    .sb-header-row { display: grid; grid-template-columns: 100px 1fr; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); }
+    .sbh-time, .sbh-col { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: rgba(163,230,53,0.5); padding: 0.75rem 1rem; }
+    .sbh-col { border-left: 1px solid var(--border); }
+    .sb-row { display: grid; grid-template-columns: 100px 1fr; border-bottom: 1px solid rgba(255,255,255,0.04); min-width: 400px; }
+    .sb-row:last-child { border-bottom: none; }
+    .sb-row--prime { background: rgba(163,230,53,0.02); }
+    .sb-time { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.4); padding: 1rem; display: flex; align-items: center; letter-spacing: 0.04em; }
+    .sb-cell { padding: 0.875rem 1rem; border-left: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 3px; }
+    .sbc-type { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; }
+    .sbc-name { font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.75); }
+    .sb-book-link { font-size: 0.6875rem; font-weight: 600; color: rgba(163,230,53,0.6); text-decoration: none; transition: color 0.15s; }
+    .sb-book-link:hover { color: #a3e635; }
+    .sb-cell--league .sbc-type { color: #a3e635; }
+    .sb-cell--pickup .sbc-type { color: #67e8f9; }
+    .sb-cell--open { background: rgba(163,230,53,0.02); }
+    .sb-cell--open .sbc-type { color: rgba(163,230,53,0.4); }
+    .sb-cell--open .sbc-name { color: rgba(255,255,255,0.3); font-style: italic; }
+
+    /* ---- SPECS ---- */
+    .specs-section { background: var(--bg); padding: 5rem 0; border-bottom: 1px solid var(--border); }
+    .specs-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .specs-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+    .specs-left { display: flex; align-items: baseline; gap: 1rem; }
+    .specs-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .specs-book-btn { display: inline-block; background: #a3e635; color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.625rem 1.375rem; border-radius: 4px; transition: background 0.15s; }
+    .specs-book-btn:hover { background: #bef264; }
+
+    .dt-specs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2.5rem; }
+    .dt-spec-block { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem; display: flex; flex-direction: column; gap: 4px; }
+    .dsb-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(163,230,53,0.5); }
+    .dsb-val { font-size: 1.125rem; font-weight: 600; color: #ffffff; line-height: 1.2; }
+    .dsb-val.mono { font-family: 'JetBrains Mono', monospace; font-size: 1rem; }
+    .dsb-val.accent { color: #a3e635; }
+    .dsb-sub { font-size: 0.8125rem; color: var(--muted); }
+
+    .dt-amenities { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem 2rem; }
+    .dta-heading { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: rgba(163,230,53,0.5); margin-bottom: 1rem; }
+    .dta-list { display: flex; flex-wrap: wrap; gap: 0.625rem 2rem; }
+    .dta-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; color: rgba(255,255,255,0.6); }
+    .dta-check { color: #a3e635; font-weight: 700; }
+
+    /* ---- CORPORATE LEAGUE ---- */
+    .corp-league { background: #0a0a0d; padding: 5rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .corp-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+    .corp-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(163,230,53,0.6); display: block; margin-bottom: 1rem; }
+    .corp-title { font-family: 'Anton', sans-serif; font-size: clamp(2rem, 4vw, 3.5rem); color: #ffffff; line-height: 1.02; letter-spacing: 0.01em; margin-bottom: 1.25rem; }
+    .corp-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.65; margin-bottom: 2rem; max-width: 480px; }
+    .corp-stats { display: flex; gap: 2.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .corp-stat { display: flex; flex-direction: column; gap: 3px; }
+    .cs-num { font-family: 'Anton', sans-serif; font-size: 2rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
+    .cs-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .corp-cta { display: inline-block; background: #a3e635; color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: 4px; transition: background 0.15s; }
+    .corp-cta:hover { background: #bef264; }
+
+    .corp-visual { position: relative; display: flex; align-items: center; justify-content: center; }
+    .corp-visual-bg { background: rgba(163,230,53,0.04); border: 1px solid rgba(163,230,53,0.12); border-radius: 8px; padding: 3rem 2rem; text-align: center; width: 100%; position: relative; overflow: hidden; }
+    .corp-visual-bg::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: -20px;
+      bottom: 0;
+      width: 60px;
+      background: rgba(163,230,53,0.04);
+      transform: skewX(-8deg);
+    }
+    .cv-big-text { font-family: 'Anton', sans-serif; font-size: clamp(4rem, 10vw, 8rem); color: rgba(163,230,53,0.12); letter-spacing: 0.02em; line-height: 1; }
+    .cv-sub-text { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(163,230,53,0.3); margin-top: 0.5rem; }
+
+    /* ---- INFO SECTION ---- */
+    .info-section { background: var(--bg-2); padding: 5rem 0; border-bottom: 1px solid var(--border); }
+    .info-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+    .info-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; margin: 0.5rem 0 2rem; }
+    .hours-grid { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 2rem; }
+    .hours-row { display: flex; justify-content: space-between; align-items: center; padding: 0.875rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.9375rem; }
+    .hours-row:last-child { border-bottom: none; }
+    .hours-day { color: rgba(255,255,255,0.7); font-weight: 500; }
+    .hours-time { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: #a3e635; }
+    .hours-note { font-size: 0.8125rem; color: rgba(255,255,255,0.3); padding: 0.75rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.04); font-style: italic; }
+    .info-address-block { display: flex; flex-direction: column; gap: 0.375rem; }
+    .iab-name { font-weight: 700; font-size: 1rem; color: #ffffff; }
+    .iab-addr { font-size: 0.9375rem; color: var(--muted); line-height: 1.5; }
+    .iab-parking { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8125rem; color: rgba(163,230,53,0.6); margin-top: 0.375rem; line-height: 1.5; }
+    .iab-links { display: flex; gap: 1.25rem; margin-top: 0.75rem; flex-wrap: wrap; }
+    .iab-link { font-size: 0.875rem; color: rgba(163,230,53,0.7); text-decoration: none; transition: color 0.15s; }
+    .iab-link:hover { color: #a3e635; }
+
+    .info-map {}
+    .map-placeholder { border-radius: 8px; overflow: hidden; border: 1px solid var(--border); position: relative; aspect-ratio: 4/3; background: #080c18; }
+    .map-svg { width: 100%; height: 100%; }
+    .map-overlay-label { position: absolute; bottom: 1rem; left: 1rem; background: rgba(10,10,13,0.85); border: 1px solid rgba(163,230,53,0.2); border-radius: 4px; padding: 0.625rem 1rem; backdrop-filter: blur(4px); }
+    .mol-name { font-family: 'DM Sans', sans-serif; font-size: 0.8125rem; font-weight: 700; color: #ffffff; margin-bottom: 1px; }
+    .mol-addr { font-family: 'JetBrains Mono', monospace; font-size: 0.625rem; color: rgba(163,230,53,0.6); letter-spacing: 0.04em; }
+
+    /* ---- CTA STRIP ---- */
+    .facility-cta-strip { background: #0e0e10; padding: 4rem 0; border-top: 1px solid rgba(163,230,53,0.1); }
+    .fcs-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 3rem; flex-wrap: wrap; }
+    .fcs-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 0.5rem; }
+    .fcs-sub { font-size: 1rem; color: var(--muted); line-height: 1.5; }
+    .fcs-buttons { display: flex; gap: 0.875rem; flex-wrap: wrap; flex-shrink: 0; }
+    .fcs-btn-primary { display: inline-block; background: #a3e635; color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; transition: background 0.15s; white-space: nowrap; }
+    .fcs-btn-primary:hover { background: #bef264; }
+    .fcs-btn-secondary { display: inline-block; background: rgba(163,230,53,0.08); color: #a3e635; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; border: 1px solid rgba(163,230,53,0.2); transition: background 0.15s; white-space: nowrap; }
+    .fcs-btn-secondary:hover { background: rgba(163,230,53,0.14); }
+    .fcs-btn-ghost { display: inline-block; background: transparent; color: rgba(255,255,255,0.5); font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); transition: border-color 0.15s, color 0.15s; white-space: nowrap; }
+    .fcs-btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.75); }
+
+    /* ---- RESPONSIVE ---- */
+    @media (max-width: 1100px) {
+      .dt-story-inner { grid-template-columns: 1fr; gap: 3rem; }
+      .corp-inner { grid-template-columns: 1fr; }
+      .info-inner { grid-template-columns: 1fr; }
+      .dt-specs-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .f-hero-block { flex-direction: column; align-items: flex-start; }
+      .dt-specs-grid { grid-template-columns: 1fr; }
+      .fcs-inner { flex-direction: column; align-items: flex-start; }
+      .f-hero-stats { flex-wrap: wrap; }
+      .dt-feature-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</BaseLayout>

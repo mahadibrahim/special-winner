@@ -1,30 +1,28 @@
 ---
-export const prerender = true;
+export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import PickupGames from '@/components/soccerone/PickupGames';
 import { Toaster } from 'sonner';
+
+const facility = Astro.url.searchParams.get('facility') || 'all';
 ---
 
 <BaseLayout
-  title="Drop-In Pickup Soccer | SoccerOne Powell"
-  description="Show up and play at SoccerOne. Drop-in pickup soccer games seven days a week, multiple skill levels. No team needed — just show up."
+  title="Drop-In Pickup Soccer | SoccerOne Columbus"
+  description="Show up and play at SoccerOne. Drop-in pickup soccer at Worthington and Downtown. No team needed. 7 days a week. Multiple skill levels. $12/session."
   navigation={false}
   footer={false}
-  bodyClass="min-h-screen flex flex-col bg-[#0a1929] text-white antialiased"
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
 >
   <Fragment slot="head">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <style>
-      body { font-family: 'Inter', sans-serif; }
-      *, *::before, *::after { box-sizing: border-box; }
-    </style>
   </Fragment>
 
   <SoccerOneHeader />
@@ -33,113 +31,120 @@ import { Toaster } from 'sonner';
   <main class="pickup-main">
 
     <!-- Page header -->
-    <div class="pickup-page-header">
-      <div class="pickup-header-inner">
-        <div class="breadcrumb">
-          <a href="/soccerone" class="breadcrumb-link">SoccerOne</a>
-          <span class="breadcrumb-sep" aria-hidden="true">/</span>
-          <span class="breadcrumb-current">Drop-In Pickup</span>
-        </div>
-        <div class="pickup-header-content">
-          <div>
-            <h1 class="page-title">Drop-In Pickup</h1>
-            <p class="page-subtitle">
-              No team. No commitment. Show up, pay at the door, and play. We run multiple skill levels every day of the week — from "I played in middle school" to competitive adult players.
+    <div class="pickup-header">
+      <div class="ph-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/soccerone" class="bc-link">SoccerOne</a>
+          <span class="bc-sep">—</span>
+          <span class="bc-current">Drop-In Pickup</span>
+        </nav>
+
+        <div class="ph-top">
+          <div class="ph-text">
+            <h1 class="ph-title">PICKUP</h1>
+            <p class="ph-desc">
+              No team. No commitment. Show up, pay at the door, and play. Seven days a week across both locations. Multiple skill levels every day.
             </p>
           </div>
-          <!-- Quick stats -->
-          <div class="pickup-quick-stats">
-            <div class="qs-item">
-              <span class="qs-number">7</span>
-              <span class="qs-label">days/week</span>
+          <div class="ph-quickstats">
+            <div class="pqs-item">
+              <span class="pqs-num">7</span>
+              <span class="pqs-label">days/week</span>
             </div>
-            <div class="qs-divider"></div>
-            <div class="qs-item">
-              <span class="qs-number">3</span>
-              <span class="qs-label">skill levels</span>
+            <div class="pqs-div" aria-hidden="true"></div>
+            <div class="pqs-item">
+              <span class="pqs-num">3</span>
+              <span class="pqs-label">skill levels</span>
             </div>
-            <div class="qs-divider"></div>
-            <div class="qs-item">
-              <span class="qs-number">$12</span>
-              <span class="qs-label">per session</span>
+            <div class="pqs-div" aria-hidden="true"></div>
+            <div class="pqs-item">
+              <span class="pqs-num mono">$12</span>
+              <span class="pqs-label">per session</span>
             </div>
-            <div class="qs-divider"></div>
-            <div class="qs-item">
-              <span class="qs-number">Free</span>
-              <span class="qs-label">for Founders</span>
+            <div class="pqs-div" aria-hidden="true"></div>
+            <div class="pqs-item">
+              <span class="pqs-num">Free</span>
+              <span class="pqs-label">Founder members</span>
             </div>
           </div>
+        </div>
+
+        <!-- Facility filter tabs -->
+        <div class="facility-filter-row" role="group" aria-label="Filter by facility">
+          <a href="/soccerone/pickup" class={`ff-tab ${facility === 'all' ? 'ff-tab--active' : ''}`}>ALL LOCATIONS</a>
+          <a href="/soccerone/pickup?facility=worthington" class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}>WORTHINGTON · 3 FIELDS</a>
+          <a href="/soccerone/pickup?facility=downtown" class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}>DOWNTOWN · 1 FIELD</a>
         </div>
       </div>
     </div>
 
-    <!-- Games listing -->
-    <PickupGames client:visible />
-
-    <!-- How it works -->
-    <div class="how-section">
-      <div class="how-inner">
-        <h2 class="how-heading">How pickup works</h2>
-        <div class="steps-row">
-          <div class="step-item">
-            <div class="step-number" aria-hidden="true">1</div>
-            <div class="step-content">
-              <h3 class="step-title">Find a game</h3>
-              <p class="step-desc">Browse today's and this week's pickup games above. Filter by skill level and time. Spot count updates in real time.</p>
-            </div>
-          </div>
-          <div class="step-arrow" aria-hidden="true">→</div>
-
-          <div class="step-item">
-            <div class="step-number" aria-hidden="true">2</div>
-            <div class="step-content">
-              <h3 class="step-title">Reserve your spot</h3>
-              <p class="step-desc">Click "Reserve a spot" and enter your name and email. You'll get a confirmation text with field assignment 30 minutes before game time.</p>
-            </div>
-          </div>
-          <div class="step-arrow" aria-hidden="true">→</div>
-
-          <div class="step-item">
-            <div class="step-number" aria-hidden="true">3</div>
-            <div class="step-content">
-              <h3 class="step-title">Show up & play</h3>
-              <p class="step-desc">Pay $12 at the front desk (or $0 if you're a Founder member). We handle teams and positions — just bring your boots.</p>
-            </div>
-          </div>
+    <!-- How it works strip -->
+    <div class="how-strip">
+      <div class="hs-inner">
+        <div class="hs-step">
+          <span class="hss-num mono">01</span>
+          <span class="hss-text">Pick a session below based on skill level and time</span>
         </div>
-
-        <div class="skill-levels">
-          <h3 class="skill-heading">Skill level guide</h3>
-          <div class="skill-grid">
-            <div class="skill-card skill-card--beg">
-              <div class="skill-label-badge">Beginner</div>
-              <p class="skill-desc">Played recreationally or haven't played in years. Casual, fun, no pressure. Great for adults returning to the game.</p>
-            </div>
-            <div class="skill-card skill-card--int">
-              <div class="skill-label-badge">Intermediate</div>
-              <p class="skill-desc">High school / college recreational. Comfortable with the ball, understands positional play. Most popular level.</p>
-            </div>
-            <div class="skill-card skill-card--comp">
-              <div class="skill-label-badge">Competitive</div>
-              <p class="skill-desc">College varsity or semi-pro background. Fast-paced, high-quality play. Referee on-field. Serious players only.</p>
-            </div>
-          </div>
+        <div class="hs-arrow" aria-hidden="true">→</div>
+        <div class="hs-step">
+          <span class="hss-num mono">02</span>
+          <span class="hss-text">Show up at the facility 10 min early with cleats &amp; shinguards</span>
+        </div>
+        <div class="hs-arrow" aria-hidden="true">→</div>
+        <div class="hs-step">
+          <span class="hss-num mono">03</span>
+          <span class="hss-text">Pay at the front desk ($12) or use your Founder membership (free)</span>
+        </div>
+        <div class="hs-arrow" aria-hidden="true">→</div>
+        <div class="hs-step">
+          <span class="hss-num mono">04</span>
+          <span class="hss-text">We assign balanced teams and kick off on time</span>
         </div>
       </div>
     </div>
 
-    <!-- Membership upsell -->
-    <div class="upsell-section">
-      <div class="upsell-inner">
-        <div class="upsell-card">
-          <div class="upsell-badge">Founder Perk</div>
-          <h2 class="upsell-heading">Pickup is free for Founder members</h2>
-          <p class="upsell-desc">
-            Founder members ($99/mo) get unlimited free pickup sessions — no $12 door fee, ever. At 3+ sessions per month, the membership pays for itself.
-          </p>
-          <div class="upsell-ctas">
-            <a href="/soccerone/memberships" class="upsell-cta-primary">See membership plans</a>
-            <span class="upsell-math">3 sessions × $12 = $36/mo → Founder is $99 → 9 sessions/mo to break even. Regular players win.</span>
+    <!-- Games listing component -->
+    <div class="pickup-games-wrap">
+      <PickupGames client:visible />
+    </div>
+
+    <!-- Skill levels guide -->
+    <div class="skill-guide">
+      <div class="sg-inner">
+        <h2 class="sg-title">
+          <span class="section-num-sm">02.</span>
+          Skill Levels
+        </h2>
+        <div class="sg-grid">
+          <div class="sg-card">
+            <div class="sg-level sg-level--beginner">BEGINNER</div>
+            <h3 class="sg-name">Recreational</h3>
+            <p class="sg-desc">Haven't played in years? Never played indoors? This is your game. Emphasis on fun, no pressure.</p>
+            <div class="sg-tag-row">
+              <span class="sg-tag">Any fitness level</span>
+              <span class="sg-tag">No experience needed</span>
+              <span class="sg-tag">Friendly atmosphere</span>
+            </div>
+          </div>
+          <div class="sg-card sg-card--featured">
+            <div class="sg-level sg-level--intermediate">INTERMEDIATE</div>
+            <h3 class="sg-name">Competitive</h3>
+            <p class="sg-desc">Regular players who want a real run. Tactical awareness expected. Most sessions are this level.</p>
+            <div class="sg-tag-row">
+              <span class="sg-tag">League-level play</span>
+              <span class="sg-tag">High-tempo</span>
+              <span class="sg-tag">Mixed ages</span>
+            </div>
+          </div>
+          <div class="sg-card">
+            <div class="sg-level sg-level--competitive">COMPETITIVE</div>
+            <h3 class="sg-name">Premier</h3>
+            <p class="sg-desc">High-level play, serious players. Former collegiate, semi-pro, and elite adult league players. Fast and physical.</p>
+            <div class="sg-tag-row">
+              <span class="sg-tag">Elite level</span>
+              <span class="sg-tag">Limited spots</span>
+              <span class="sg-tag">Late-night sessions</span>
+            </div>
           </div>
         </div>
       </div>
@@ -150,344 +155,75 @@ import { Toaster } from 'sonner';
   <SoccerOneFooter />
 
   <style>
-    .pickup-main { flex: 1; }
-
-    .pickup-page-header {
-      background: linear-gradient(135deg, #0a1929 0%, #0d2035 50%, #0e3a5c 100%);
-      padding: 4rem 0 3.5rem;
-      border-bottom: 1px solid rgba(250,204,21,0.15);
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #a3e635;
+      --bg: #0a0a0d;
+      --bg-2: #0e0e10;
+      --muted: rgba(255,255,255,0.45);
+      --border: rgba(255,255,255,0.08);
     }
+    .mono { font-family: 'JetBrains Mono', monospace; }
 
-    .pickup-header-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
-    }
+    .pickup-main { flex: 1; font-family: 'DM Sans', sans-serif; }
 
-    .breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      margin-bottom: 1.25rem;
-    }
+    .pickup-header { background: #0a0a0d; border-bottom: 1px solid rgba(163,230,53,0.1); padding: 4rem 0 0; }
+    .ph-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 
-    .breadcrumb-link {
-      color: rgba(250,204,21,0.7);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.15s;
-    }
-    .breadcrumb-link:hover { color: #facc15; }
-    .breadcrumb-sep { color: rgba(255,255,255,0.3); }
-    .breadcrumb-current { color: rgba(255,255,255,0.5); }
+    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
+    .bc-link { font-size: 0.8125rem; color: rgba(163,230,53,0.6); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+    .bc-link:hover { color: #a3e635; }
+    .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
+    .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
 
-    .pickup-header-content {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 3rem;
-      flex-wrap: wrap;
-    }
+    .ph-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
 
-    .page-title {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: clamp(2.25rem, 5vw, 4rem);
-      font-weight: 800;
-      letter-spacing: -0.04em;
-      color: #ffffff;
-      line-height: 1;
-      margin: 0 0 1rem;
-    }
+    .ph-title { font-family: 'Anton', sans-serif; font-size: clamp(4rem, 10vw, 9rem); color: #ffffff; line-height: 0.9; letter-spacing: 0.01em; margin-bottom: 1rem; }
+    .ph-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 500px; }
 
-    .page-subtitle {
-      font-size: 1.0625rem;
-      color: rgba(255,255,255,0.6);
-      line-height: 1.65;
-      max-width: 520px;
-      margin: 0;
-    }
+    .ph-quickstats { display: flex; align-items: center; gap: 1.5rem; background: rgba(163,230,53,0.04); border: 1px solid rgba(163,230,53,0.15); border-radius: 6px; padding: 1.25rem 1.75rem; flex-shrink: 0; }
+    .pqs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
+    .pqs-num { font-family: 'Anton', sans-serif; font-size: 2rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
+    .pqs-num.mono { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; }
+    .pqs-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .pqs-div { width: 1px; height: 36px; background: rgba(255,255,255,0.08); }
 
-    .pickup-quick-stats {
-      display: flex;
-      align-items: center;
-      gap: 0;
-      background: rgba(255,255,255,0.04);
-      border: 1.5px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
-      flex-shrink: 0;
-      align-self: flex-start;
-    }
+    .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); }
+    .ff-tab { font-family: 'DM Sans', sans-serif; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .ff-tab:hover { color: rgba(255,255,255,0.7); }
+    .ff-tab--active { color: #a3e635; border-bottom-color: #a3e635; }
 
-    .qs-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 1.25rem;
-      gap: 0.2rem;
-    }
+    .how-strip { background: #0e0e10; border-bottom: 1px solid var(--border); padding: 1.5rem 0; }
+    .hs-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+    .hs-step { display: flex; align-items: flex-start; gap: 0.625rem; flex: 1; min-width: 180px; }
+    .hss-num { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; font-weight: 600; color: #a3e635; flex-shrink: 0; margin-top: 1px; }
+    .hss-text { font-size: 0.875rem; color: rgba(255,255,255,0.5); line-height: 1.4; }
+    .hs-arrow { font-size: 1.25rem; color: rgba(163,230,53,0.25); flex-shrink: 0; }
 
-    .qs-number {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 1.75rem;
-      font-weight: 800;
-      color: #facc15;
-      letter-spacing: -0.04em;
-      line-height: 1;
-    }
+    .pickup-games-wrap { background: var(--bg); padding: 2rem 0 3rem; }
 
-    .qs-label {
-      font-size: 0.75rem;
-      color: rgba(255,255,255,0.45);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      white-space: nowrap;
-    }
+    .skill-guide { background: var(--bg-2); border-top: 1px solid var(--border); padding: 5rem 0; }
+    .sg-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .sg-title { font-family: 'Anton', sans-serif; font-size: clamp(2rem, 4vw, 3rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 2.5rem; display: flex; align-items: baseline; gap: 1rem; }
+    .section-num-sm { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: rgba(163,230,53,0.15); line-height: 1; }
+    .sg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+    .sg-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 1.75rem; display: flex; flex-direction: column; gap: 0.875rem; transition: border-color 0.2s; }
+    .sg-card:hover { border-color: rgba(163,230,53,0.2); }
+    .sg-card--featured { border-color: rgba(163,230,53,0.2); background: rgba(163,230,53,0.03); }
+    .sg-level { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; padding: 3px 8px; border-radius: 3px; display: inline-block; width: fit-content; }
+    .sg-level--beginner { background: rgba(100,200,100,0.1); color: #86efac; border: 1px solid rgba(100,200,100,0.2); }
+    .sg-level--intermediate { background: rgba(163,230,53,0.12); color: #a3e635; border: 1px solid rgba(163,230,53,0.2); }
+    .sg-level--competitive { background: rgba(251,146,60,0.1); color: #fb923c; border: 1px solid rgba(251,146,60,0.2); }
+    .sg-name { font-family: 'Anton', sans-serif; font-size: 1.75rem; color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .sg-desc { font-size: 0.9375rem; color: var(--muted); line-height: 1.55; flex: 1; }
+    .sg-tag-row { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+    .sg-tag { font-size: 0.75rem; color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 3px; padding: 2px 8px; }
 
-    .qs-divider {
-      width: 1px;
-      height: 36px;
-      background: rgba(255,255,255,0.1);
-      flex-shrink: 0;
-    }
-
-    /* How it works */
-    .how-section {
-      padding: 5rem 0;
-      background: #0d2035;
-      border-top: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .how-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
-    }
-
-    .how-heading {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 2rem;
-      font-weight: 700;
-      color: #ffffff;
-      letter-spacing: -0.03em;
-      margin: 0 0 3rem;
-    }
-
-    .steps-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 0;
-      margin-bottom: 4rem;
-      flex-wrap: wrap;
-    }
-
-    .step-item {
-      flex: 1;
-      min-width: 220px;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .step-number {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 3rem;
-      font-weight: 800;
-      color: rgba(250,204,21,0.25);
-      line-height: 1;
-      letter-spacing: -0.04em;
-    }
-
-    .step-title {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: #ffffff;
-      margin: 0 0 0.375rem;
-    }
-
-    .step-desc {
-      font-size: 0.9375rem;
-      color: rgba(255,255,255,0.55);
-      line-height: 1.6;
-      margin: 0;
-    }
-
-    .step-arrow {
-      font-size: 1.75rem;
-      color: rgba(250,204,21,0.3);
-      padding: 2.5rem 1.5rem 0;
-      flex-shrink: 0;
-    }
-
-    .skill-heading {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #ffffff;
-      letter-spacing: -0.02em;
-      margin: 0 0 1.25rem;
-    }
-
-    .skill-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-    }
-
-    .skill-card {
-      padding: 1.375rem;
-      border-radius: 10px;
-      border: 1.5px solid;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .skill-card--beg {
-      background: rgba(74,222,128,0.06);
-      border-color: rgba(74,222,128,0.3);
-    }
-
-    .skill-card--int {
-      background: rgba(250,204,21,0.06);
-      border-color: rgba(250,204,21,0.3);
-    }
-
-    .skill-card--comp {
-      background: rgba(251,113,133,0.06);
-      border-color: rgba(251,113,133,0.3);
-    }
-
-    .skill-label-badge {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 20px;
-      width: fit-content;
-    }
-
-    .skill-card--beg .skill-label-badge {
-      background: rgba(74,222,128,0.2);
-      color: #86efac;
-    }
-
-    .skill-card--int .skill-label-badge {
-      background: rgba(250,204,21,0.2);
-      color: #facc15;
-    }
-
-    .skill-card--comp .skill-label-badge {
-      background: rgba(251,113,133,0.2);
-      color: #fda4af;
-    }
-
-    .skill-desc {
-      font-size: 0.875rem;
-      color: rgba(255,255,255,0.6);
-      line-height: 1.55;
-      margin: 0;
-    }
-
-    /* Upsell */
-    .upsell-section {
-      padding: 4rem 0;
-      background: #0a1929;
-      border-top: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .upsell-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
-    }
-
-    .upsell-card {
-      background: linear-gradient(135deg, rgba(192,132,252,0.1) 0%, rgba(250,204,21,0.06) 100%);
-      border: 1.5px solid rgba(192,132,252,0.35);
-      border-radius: 16px;
-      padding: 3rem;
-      position: relative;
-    }
-
-    .upsell-badge {
-      display: inline-block;
-      background: rgba(192,132,252,0.2);
-      color: #c084fc;
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 4px 12px;
-      border-radius: 20px;
-      margin-bottom: 1rem;
-    }
-
-    .upsell-heading {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: clamp(1.5rem, 3vw, 2.25rem);
-      font-weight: 800;
-      color: #ffffff;
-      letter-spacing: -0.03em;
-      margin: 0 0 1rem;
-      max-width: 560px;
-    }
-
-    .upsell-desc {
-      font-size: 1.0625rem;
-      color: rgba(255,255,255,0.6);
-      line-height: 1.65;
-      max-width: 520px;
-      margin: 0 0 2rem;
-    }
-
-    .upsell-ctas {
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-    }
-
-    .upsell-cta-primary {
-      display: inline-block;
-      background: #facc15;
-      color: #0a1929;
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.9375rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-      text-decoration: none;
-      padding: 0.875rem 2rem;
-      border-radius: 6px;
-      transition: filter 0.15s, transform 0.1s;
-      flex-shrink: 0;
-    }
-    .upsell-cta-primary:hover {
-      filter: brightness(1.08);
-      transform: translateY(-1px);
-    }
-
-    .upsell-math {
-      font-size: 0.8125rem;
-      color: rgba(255,255,255,0.35);
-      max-width: 380px;
-      line-height: 1.5;
-    }
-
-    @media (max-width: 900px) {
-      .pickup-header-content { flex-direction: column; }
-      .pickup-quick-stats { align-self: auto; width: 100%; justify-content: center; }
-      .steps-row { gap: 1.5rem; }
-      .step-arrow { display: none; }
-      .skill-grid { grid-template-columns: 1fr; }
+    @media (max-width: 1000px) { .sg-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) {
+      .ph-top { flex-direction: column; align-items: flex-start; }
+      .hs-arrow { display: none; }
+      .hs-inner { flex-direction: column; gap: 0.875rem; }
     }
   </style>
 </BaseLayout>

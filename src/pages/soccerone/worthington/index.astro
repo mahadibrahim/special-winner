@@ -1,0 +1,1222 @@
+---
+export const prerender = true;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+---
+
+<BaseLayout
+  title="Worthington — SoccerOne | 3 Indoor Fields · 6580 N High St"
+  description="SoccerOne Worthington: 3 FIFA-approved indoor turf fields, adult leagues, youth programs, pickup, and field rentals. 6580 N High St, Worthington OH. Open 7am–11pm daily."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <SoccerOneHeader currentFacility="worthington" />
+
+  <main class="facility-main">
+
+    <!-- ============================================================
+         FACILITY HERO — photo-driven, warehouse soccer aesthetic
+    ============================================================ -->
+    <section class="f-hero" aria-label="Worthington facility">
+      <!-- Background: animated industrial pitch -->
+      <div class="f-hero-bg" aria-hidden="true">
+        <div class="f-hero-pitch-wrap">
+          <svg class="f-hero-pitch" viewBox="0 0 1400 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Warehouse ceiling / dark walls -->
+            <rect width="1400" height="700" fill="#060d04"/>
+            <!-- Structural ceiling beams -->
+            <line x1="0" y1="80" x2="1400" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="12"/>
+            <line x1="200" y1="0" x2="200" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
+            <line x1="500" y1="0" x2="500" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
+            <line x1="700" y1="0" x2="700" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
+            <line x1="900" y1="0" x2="900" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
+            <line x1="1200" y1="0" x2="1200" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
+            <!-- Turf base -->
+            <rect x="0" y="80" width="1400" height="620" fill="#0d200a"/>
+            <!-- Alternating turf stripes -->
+            <rect x="0" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
+            <rect x="350" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
+            <rect x="700" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
+            <rect x="1050" y="80" width="175" height="620" fill="rgba(15,30,8,0.8)"/>
+            <!-- Field boundary - Field 1 (left) -->
+            <rect x="40" y="120" width="400" height="520" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" fill="none"/>
+            <line x1="240" y1="120" x2="240" y2="640" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+            <circle cx="240" cy="380" r="55" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" fill="none"/>
+            <circle cx="240" cy="380" r="3.5" fill="rgba(255,255,255,0.35)"/>
+            <rect x="20" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <rect x="420" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <!-- Field boundary - Field 2 (center) -->
+            <rect x="500" y="120" width="400" height="520" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" fill="none"/>
+            <line x1="700" y1="120" x2="700" y2="640" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+            <circle cx="700" cy="380" r="55" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" fill="none"/>
+            <circle cx="700" cy="380" r="3.5" fill="rgba(255,255,255,0.35)"/>
+            <rect x="480" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <rect x="880" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <!-- Field boundary - Field 3 (right) -->
+            <rect x="960" y="120" width="400" height="520" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" fill="none"/>
+            <line x1="1160" y1="120" x2="1160" y2="640" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+            <circle cx="1160" cy="380" r="55" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" fill="none"/>
+            <circle cx="1160" cy="380" r="3.5" fill="rgba(255,255,255,0.35)"/>
+            <rect x="940" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <rect x="1340" y="308" width="20" height="144" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="rgba(255,255,255,0.04)"/>
+            <!-- Stadium lighting bars -->
+            <rect x="0" y="78" width="1400" height="6" fill="rgba(255,255,200,0.06)"/>
+            <!-- Light cones -->
+            <polygon points="150,80 0,200 300,200" fill="rgba(255,255,200,0.025)"/>
+            <polygon points="400,80 250,280 550,280" fill="rgba(255,255,200,0.025)"/>
+            <polygon points="700,80 550,280 850,280" fill="rgba(255,255,200,0.03)"/>
+            <polygon points="1000,80 850,280 1150,280" fill="rgba(255,255,200,0.025)"/>
+            <polygon points="1250,80 1100,200 1400,200" fill="rgba(255,255,200,0.025)"/>
+          </svg>
+        </div>
+        <div class="f-hero-overlay"></div>
+        <div class="f-hero-bottom-stripe" aria-hidden="true"></div>
+      </div>
+
+      <div class="f-hero-content">
+        <!-- Breadcrumb -->
+        <nav class="f-breadcrumb" aria-label="Breadcrumb">
+          <a href="/soccerone" class="fbc-link">SoccerOne</a>
+          <span class="fbc-sep" aria-hidden="true">—</span>
+          <span class="fbc-current">Worthington</span>
+        </nav>
+
+        <!-- Header block -->
+        <div class="f-hero-block">
+          <div class="f-hero-left">
+            <div class="f-hero-tag-row">
+              <span class="f-tag f-tag--flagship">FLAGSHIP</span>
+              <span class="f-tag f-tag--live">
+                <span class="live-dot"></span>
+                OPEN NOW
+              </span>
+            </div>
+            <h1 class="f-hero-title">WORTHINGTON</h1>
+            <div class="f-field-count">
+              <span class="fc-num">3</span>
+              <span class="fc-label">INDOOR FIELDS</span>
+            </div>
+            <div class="f-hero-address">
+              6580 N High St, Worthington, OH 43085
+            </div>
+            <div class="f-hero-hours mono">Open daily — 7:00 AM – 11:00 PM</div>
+          </div>
+
+          <div class="f-hero-right">
+            <div class="f-hero-stats">
+              <div class="fhs-item">
+                <span class="fhs-num">FIFA</span>
+                <span class="fhs-label">Approved turf</span>
+              </div>
+              <div class="fhs-div" aria-hidden="true"></div>
+              <div class="fhs-item">
+                <span class="fhs-num">700+</span>
+                <span class="fhs-label">Lux lighting</span>
+              </div>
+              <div class="fhs-div" aria-hidden="true"></div>
+              <div class="fhs-item">
+                <span class="fhs-num">400+</span>
+                <span class="fhs-label">Active members</span>
+              </div>
+            </div>
+            <div class="f-hero-ctas">
+              <a href="/soccerone/rent?facility=worthington" class="f-cta-primary">Book a Field</a>
+              <a href="/soccerone/leagues?facility=worthington" class="f-cta-secondary">View Leagues</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         THIS WEEK'S SCHEDULE — scoreboard style
+    ============================================================ -->
+    <section class="schedule-section" aria-label="This week's schedule">
+      <div class="schedule-inner">
+        <div class="schedule-header">
+          <div class="sh-left">
+            <span class="section-num-sm">01.</span>
+            <h2 class="schedule-title">This Week's Schedule</h2>
+          </div>
+          <div class="sh-right">
+            <span class="schedule-date mono">Week of April 28, 2026</span>
+            <a href="/soccerone/leagues?facility=worthington" class="view-all-link">View all leagues →</a>
+          </div>
+        </div>
+
+        <!-- Schedule grid — scoreboard style -->
+        <div class="schedule-board">
+          <div class="sb-header-row">
+            <div class="sbh-time">TIME</div>
+            <div class="sbh-col">FIELD 1</div>
+            <div class="sbh-col">FIELD 2</div>
+            <div class="sbh-col">FIELD 3</div>
+          </div>
+
+          <div class="sb-row sb-row--event">
+            <div class="sb-time mono">7:00 AM</div>
+            <div class="sb-cell sb-cell--practice">
+              <span class="sbc-type">YOUTH</span>
+              <span class="sbc-name">Academy Training</span>
+            </div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available</span>
+              <a href="/soccerone/rent?facility=worthington" class="sb-book-link">Book →</a>
+            </div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available</span>
+              <a href="/soccerone/rent?facility=worthington" class="sb-book-link">Book →</a>
+            </div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">10:00 AM</div>
+            <div class="sb-cell sb-cell--league">
+              <span class="sbc-type">LEAGUE</span>
+              <span class="sbc-name">Women's Coed</span>
+            </div>
+            <div class="sb-cell sb-cell--practice">
+              <span class="sbc-type">TRAINING</span>
+              <span class="sbc-name">Youth Skills Camp</span>
+            </div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available</span>
+              <a href="/soccerone/rent?facility=worthington" class="sb-book-link">Book →</a>
+            </div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">12:00 PM</div>
+            <div class="sb-cell sb-cell--rental">
+              <span class="sbc-type">RENTAL</span>
+              <span class="sbc-name">Private — Martinez</span>
+            </div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available</span>
+              <a href="/soccerone/rent?facility=worthington" class="sb-book-link">Book →</a>
+            </div>
+            <div class="sb-cell sb-cell--pickup">
+              <span class="sbc-type">PICKUP</span>
+              <span class="sbc-name">Lunch Pickup</span>
+            </div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">5:00 PM</div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available</span>
+              <a href="/soccerone/rent?facility=worthington" class="sb-book-link">Book →</a>
+            </div>
+            <div class="sb-cell sb-cell--rental">
+              <span class="sbc-type">RENTAL</span>
+              <span class="sbc-name">Corporate — Acme Co.</span>
+            </div>
+            <div class="sb-cell sb-cell--youth">
+              <span class="sbc-type">YOUTH</span>
+              <span class="sbc-name">U14 Practice</span>
+            </div>
+          </div>
+
+          <div class="sb-row sb-row--prime">
+            <div class="sb-time mono">7:00 PM</div>
+            <div class="sb-cell sb-cell--league">
+              <span class="sbc-type">LEAGUE</span>
+              <span class="sbc-name">Adult Coed League</span>
+            </div>
+            <div class="sb-cell sb-cell--league">
+              <span class="sbc-type">LEAGUE</span>
+              <span class="sbc-name">Adult Premier League</span>
+            </div>
+            <div class="sb-cell sb-cell--pickup">
+              <span class="sbc-type">PICKUP</span>
+              <span class="sbc-name">Evening Pickup (Open)</span>
+            </div>
+          </div>
+
+          <div class="sb-row">
+            <div class="sb-time mono">9:00 PM</div>
+            <div class="sb-cell sb-cell--league">
+              <span class="sbc-type">LEAGUE</span>
+              <span class="sbc-name">Adult Coed League</span>
+            </div>
+            <div class="sb-cell sb-cell--open">
+              <span class="sbc-type">OPEN</span>
+              <span class="sbc-name">Available</span>
+              <a href="/soccerone/rent?facility=worthington" class="sb-book-link">Book →</a>
+            </div>
+            <div class="sb-cell sb-cell--pickup">
+              <span class="sbc-type">PICKUP</span>
+              <span class="sbc-name">Late Pickup</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="schedule-legend">
+          <div class="sl-item"><span class="sl-dot sl-league"></span>League</div>
+          <div class="sl-item"><span class="sl-dot sl-pickup"></span>Pickup</div>
+          <div class="sl-item"><span class="sl-dot sl-rental"></span>Private Rental</div>
+          <div class="sl-item"><span class="sl-dot sl-practice"></span>Training</div>
+          <div class="sl-item"><span class="sl-dot sl-open"></span>Available to Book</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         FIELD SPECS — technical grid
+    ============================================================ -->
+    <section class="specs-section" aria-label="Field specifications">
+      <div class="specs-inner">
+        <div class="specs-header">
+          <span class="section-num-sm">02.</span>
+          <h2 class="specs-title">What's Here</h2>
+          <p class="specs-desc">All fields are FIFA-approved, professionally maintained. Industrial warehouse conversion with stadium lighting.</p>
+        </div>
+
+        <div class="specs-grid">
+          <!-- Field 1 card -->
+          <div class="spec-card spec-card--primary">
+            <div class="spec-card-num">FIELD 01</div>
+            <div class="spec-card-details">
+              <div class="scd-row">
+                <span class="scd-label">SURFACE</span>
+                <span class="scd-val">FieldTurf® Revolution 360<br />FIFA Quality Pro certified</span>
+              </div>
+              <div class="scd-row">
+                <span class="scd-label">SIZE</span>
+                <span class="scd-val mono">200 × 85 ft (full-size)</span>
+              </div>
+              <div class="scd-row">
+                <span class="scd-label">LIGHTING</span>
+                <span class="scd-val">700+ lux LED, color-corrected for video</span>
+              </div>
+              <div class="scd-row">
+                <span class="scd-label">USES</span>
+                <span class="scd-val">Adult leagues · Youth programs · Rentals</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fields 2+3 combined card -->
+          <div class="spec-card">
+            <div class="spec-card-num">FIELDS 02–03</div>
+            <div class="spec-card-details">
+              <div class="scd-row">
+                <span class="scd-label">SURFACE</span>
+                <span class="scd-val">FieldTurf® Revolution 360<br />FIFA Quality Pro certified</span>
+              </div>
+              <div class="scd-row">
+                <span class="scd-label">SIZE</span>
+                <span class="scd-val mono">180 × 80 ft each</span>
+              </div>
+              <div class="scd-row">
+                <span class="scd-label">LIGHTING</span>
+                <span class="scd-val">600+ lux LED, scoreboard per field</span>
+              </div>
+              <div class="scd-row">
+                <span class="scd-label">USES</span>
+                <span class="scd-val">Pickup · Youth clinics · Rentals</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Facility amenities -->
+          <div class="spec-card spec-card--amenities">
+            <div class="spec-card-num">FACILITY</div>
+            <div class="amenities-list">
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">Locker rooms with showers</span>
+              </div>
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">100+ space free parking</span>
+              </div>
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">Concessions + coffee bar</span>
+              </div>
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">Team benches & spectator seating</span>
+              </div>
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">Pro Shop (balls, shinguards, jerseys)</span>
+              </div>
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">Birthday party room</span>
+              </div>
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">High-speed WiFi throughout</span>
+              </div>
+              <div class="amenity">
+                <span class="amenity-check">✓</span>
+                <span class="amenity-text">Video replay screens at bench areas</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         HOURS & DIRECTIONS
+    ============================================================ -->
+    <section class="info-section" aria-label="Hours and directions">
+      <div class="info-inner">
+        <div class="info-hours">
+          <span class="section-num-sm">03.</span>
+          <h2 class="info-title">Hours &amp; Directions</h2>
+          <div class="hours-grid">
+            <div class="hours-row">
+              <span class="hours-day">Monday – Friday</span>
+              <span class="hours-time mono">7:00 AM – 11:00 PM</span>
+            </div>
+            <div class="hours-row">
+              <span class="hours-day">Saturday</span>
+              <span class="hours-time mono">7:00 AM – 11:00 PM</span>
+            </div>
+            <div class="hours-row">
+              <span class="hours-day">Sunday</span>
+              <span class="hours-time mono">7:00 AM – 11:00 PM</span>
+            </div>
+            <div class="hours-note">Closed Thanksgiving &amp; Christmas Day</div>
+          </div>
+          <div class="info-address-block">
+            <div class="iab-name">SoccerOne Worthington</div>
+            <div class="iab-addr">6580 N High St<br />Worthington, OH 43085</div>
+            <div class="iab-links">
+              <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="iab-link">Get Directions →</a>
+              <a href="tel:+16145551234" class="iab-link">(614) 555-1234</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map placeholder -->
+        <div class="info-map" aria-label="Map location placeholder">
+          <div class="map-placeholder">
+            <div class="map-grid">
+              <!-- Stylized map grid -->
+              <svg viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="map-svg">
+                <rect width="400" height="300" fill="#0e1a0e"/>
+                <!-- Streets -->
+                <line x1="0" y1="150" x2="400" y2="150" stroke="rgba(163,230,53,0.15)" stroke-width="3"/>
+                <line x1="200" y1="0" x2="200" y2="300" stroke="rgba(163,230,53,0.15)" stroke-width="3"/>
+                <line x1="0" y1="80" x2="400" y2="80" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+                <line x1="0" y1="220" x2="400" y2="220" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+                <line x1="100" y1="0" x2="100" y2="300" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+                <line x1="300" y1="0" x2="300" y2="300" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+                <!-- City blocks -->
+                <rect x="10" y="10" width="80" height="60" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <rect x="110" y="10" width="80" height="60" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <rect x="210" y="10" width="80" height="60" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <rect x="310" y="10" width="80" height="60" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <rect x="10" y="90" width="80" height="50" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <rect x="110" y="90" width="80" height="50" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <rect x="310" y="90" width="80" height="50" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                <!-- SoccerOne marker -->
+                <rect x="175" y="105" width="50" height="35" rx="4" fill="#a3e635"/>
+                <text x="200" y="124" text-anchor="middle" font-size="8" font-weight="bold" fill="#0a0a0d" font-family="monospace">S1</text>
+                <!-- Location pin -->
+                <circle cx="200" cy="95" r="8" fill="#a3e635"/>
+                <circle cx="200" cy="95" r="3" fill="#0a0a0d"/>
+                <line x1="200" y1="103" x2="200" y2="110" stroke="#a3e635" stroke-width="2"/>
+                <!-- Street labels -->
+                <text x="200" y="165" text-anchor="middle" font-size="8" fill="rgba(163,230,53,0.5)" font-family="monospace">N HIGH ST</text>
+                <text x="15" y="148" font-size="7" fill="rgba(255,255,255,0.3)" font-family="monospace">WORTHINGTON</text>
+              </svg>
+            </div>
+            <div class="map-overlay-label">
+              <div class="mol-name">SoccerOne Worthington</div>
+              <div class="mol-addr">6580 N High St</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CTA STRIP
+    ============================================================ -->
+    <section class="facility-cta-strip" aria-label="Get started">
+      <div class="fcs-inner">
+        <div class="fcs-text">
+          <h2 class="fcs-title">Ready to play at Worthington?</h2>
+          <p class="fcs-sub">Join a league, book a field, or just show up for pickup — all from one account.</p>
+        </div>
+        <div class="fcs-buttons">
+          <a href="/register/season-adult-open-2026" class="fcs-btn-primary">
+            Register for Adult Coed League
+          </a>
+          <a href="/soccerone/rent?facility=worthington" class="fcs-btn-secondary">
+            Book a Field
+          </a>
+          <a href="/soccerone/memberships" class="fcs-btn-ghost">
+            View Memberships
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #a3e635;
+      --bg: #0a0a0d;
+      --bg-2: #0e0e10;
+      --white: #ffffff;
+      --muted: rgba(255,255,255,0.45);
+      --border: rgba(255,255,255,0.08);
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    .facility-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+
+    /* ---- FACILITY HERO ---- */
+    .f-hero {
+      position: relative;
+      min-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      background: #050d04;
+    }
+
+    .f-hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+
+    .f-hero-pitch-wrap {
+      position: absolute;
+      inset: 0;
+    }
+    .f-hero-pitch {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      animation: pitchDrift 20s ease-in-out infinite alternate;
+    }
+    @keyframes pitchDrift {
+      0%   { transform: scale(1.06) translate(0, 0); }
+      50%  { transform: scale(1.09) translate(-1%, 0.3%); }
+      100% { transform: scale(1.06) translate(0.8%, -0.4%); }
+    }
+
+    .f-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(5,13,4,0.45) 0%,
+        rgba(5,13,4,0.5) 40%,
+        rgba(5,13,4,0.88) 75%,
+        rgba(5,13,4,0.98) 100%
+      );
+    }
+
+    .f-hero-bottom-stripe {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #a3e635 0%, rgba(163,230,53,0.3) 50%, transparent 100%);
+    }
+
+    .f-hero-content {
+      position: relative;
+      z-index: 10;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 2.5rem 2rem 4rem;
+    }
+
+    /* Breadcrumb */
+    .f-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.8s ease-out 0.1s both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fbc-link {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: rgba(163,230,53,0.6);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .fbc-link:hover { color: #a3e635; }
+    .fbc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
+    .fbc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
+
+    .f-hero-block {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .f-hero-left { animation: fadeUp 0.8s ease-out 0.2s both; }
+    .f-hero-right { animation: fadeUp 0.8s ease-out 0.4s both; }
+
+    .f-hero-tag-row {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .f-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+    .f-tag--flagship {
+      background: rgba(163,230,53,0.12);
+      color: #a3e635;
+      border: 1px solid rgba(163,230,53,0.25);
+    }
+    .f-tag--live {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(74,222,128,0.1);
+      color: #86efac;
+      border: 1px solid rgba(74,222,128,0.2);
+    }
+
+    .live-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #86efac;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .f-hero-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(4rem, 10vw, 9rem);
+      color: #ffffff;
+      line-height: 0.9;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.75rem;
+    }
+
+    .f-field-count {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .fc-num {
+      font-family: 'Anton', sans-serif;
+      font-size: 3.5rem;
+      color: #a3e635;
+      line-height: 1;
+    }
+    .fc-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: rgba(163,230,53,0.6);
+      align-self: center;
+    }
+
+    .f-hero-address {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 0.375rem;
+    }
+    .f-hero-hours {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      color: rgba(163,230,53,0.6);
+      letter-spacing: 0.04em;
+    }
+
+    .f-hero-stats {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      background: rgba(10,10,13,0.6);
+      border: 1px solid rgba(163,230,53,0.15);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      backdrop-filter: blur(8px);
+      margin-bottom: 1.25rem;
+    }
+
+    .fhs-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      text-align: center;
+    }
+    .fhs-num {
+      font-family: 'Anton', sans-serif;
+      font-size: 1.5rem;
+      color: #a3e635;
+      letter-spacing: 0.02em;
+    }
+    .fhs-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.4);
+    }
+    .fhs-div {
+      width: 1px;
+      height: 36px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .f-hero-ctas {
+      display: flex;
+      gap: 0.875rem;
+      flex-wrap: wrap;
+    }
+
+    .f-cta-primary {
+      display: inline-block;
+      background: #a3e635;
+      color: #0a0a0d;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .f-cta-primary:hover { background: #bef264; }
+
+    .f-cta-secondary {
+      display: inline-block;
+      background: rgba(255,255,255,0.06);
+      color: #ffffff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.12);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .f-cta-secondary:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    /* ---- SCHEDULE ---- */
+    .schedule-section {
+      background: var(--bg);
+      padding: 5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .schedule-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .schedule-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+    }
+
+    .sh-left { display: flex; align-items: baseline; gap: 1rem; }
+    .sh-right { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+
+    .section-num-sm {
+      font-family: 'Anton', sans-serif;
+      font-size: 2.5rem;
+      color: rgba(163,230,53,0.15);
+      line-height: 1;
+    }
+
+    .schedule-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      line-height: 1;
+    }
+
+    .schedule-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.04em;
+    }
+    .view-all-link {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: rgba(163,230,53,0.7);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .view-all-link:hover { color: #a3e635; }
+
+    /* Schedule board */
+    .schedule-board {
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      overflow-x: auto;
+    }
+
+    .sb-header-row {
+      display: grid;
+      grid-template-columns: 100px 1fr 1fr 1fr;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sbh-time, .sbh-col {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: rgba(163,230,53,0.5);
+      padding: 0.75rem 1rem;
+    }
+    .sbh-col { border-left: 1px solid var(--border); text-align: center; }
+
+    .sb-row {
+      display: grid;
+      grid-template-columns: 100px 1fr 1fr 1fr;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      min-width: 600px;
+    }
+    .sb-row:last-child { border-bottom: none; }
+    .sb-row--prime { background: rgba(163,230,53,0.02); }
+
+    .sb-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.4);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      letter-spacing: 0.04em;
+    }
+
+    .sb-cell {
+      padding: 0.875rem 1rem;
+      border-left: 1px solid rgba(255,255,255,0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .sbc-type {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+    }
+    .sbc-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.75);
+    }
+    .sb-book-link {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: rgba(163,230,53,0.6);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .sb-book-link:hover { color: #a3e635; }
+
+    .sb-cell--league .sbc-type { color: #a3e635; }
+    .sb-cell--pickup .sbc-type { color: #67e8f9; }
+    .sb-cell--rental .sbc-type { color: #fbbf24; }
+    .sb-cell--practice .sbc-type, .sb-cell--youth .sbc-type { color: #c4b5fd; }
+    .sb-cell--open { background: rgba(163,230,53,0.03); }
+    .sb-cell--open .sbc-type { color: rgba(163,230,53,0.4); }
+    .sb-cell--open .sbc-name { color: rgba(255,255,255,0.3); font-style: italic; }
+
+    /* Legend */
+    .schedule-legend {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .sl-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+    .sl-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sl-league { background: #a3e635; }
+    .sl-pickup { background: #67e8f9; }
+    .sl-rental { background: #fbbf24; }
+    .sl-practice { background: #c4b5fd; }
+    .sl-open { background: rgba(163,230,53,0.25); border: 1px solid rgba(163,230,53,0.3); }
+
+    /* ---- SPECS ---- */
+    .specs-section {
+      background: var(--bg-2);
+      padding: 5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .specs-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .specs-header {
+      margin-bottom: 3rem;
+    }
+
+    .specs-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      line-height: 1;
+      margin: 0.5rem 0 0.875rem;
+    }
+
+    .specs-desc {
+      font-size: 1.0625rem;
+      color: var(--muted);
+      max-width: 560px;
+      line-height: 1.55;
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .spec-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2rem;
+    }
+    .spec-card--primary { border-color: rgba(163,230,53,0.2); }
+
+    .spec-card-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5625rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: rgba(163,230,53,0.6);
+      margin-bottom: 1.5rem;
+    }
+
+    .spec-card-details { display: flex; flex-direction: column; gap: 1rem; }
+
+    .scd-row {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .scd-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: rgba(163,230,53,0.5);
+      padding-top: 2px;
+      text-transform: uppercase;
+    }
+
+    .scd-val {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.4;
+    }
+    .scd-val.mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+    }
+
+    /* Amenities */
+    .spec-card--amenities {}
+    .amenities-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+    .amenity {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+    }
+    .amenity-check {
+      color: #a3e635;
+      font-weight: 700;
+      font-size: 0.875rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .amenity-text {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.65);
+    }
+
+    /* ---- INFO SECTION ---- */
+    .info-section {
+      background: var(--bg);
+      padding: 5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .info-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: start;
+    }
+
+    .info-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      margin: 0.5rem 0 2rem;
+    }
+
+    .hours-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .hours-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.875rem 1.25rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 0.9375rem;
+    }
+    .hours-row:last-child { border-bottom: none; }
+    .hours-day { color: rgba(255,255,255,0.7); font-weight: 500; }
+    .hours-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      color: #a3e635;
+    }
+    .hours-note {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.3);
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      font-style: italic;
+    }
+
+    .info-address-block { display: flex; flex-direction: column; gap: 0.375rem; }
+    .iab-name { font-weight: 700; font-size: 1rem; color: #ffffff; }
+    .iab-addr { font-size: 0.9375rem; color: var(--muted); line-height: 1.5; }
+    .iab-links { display: flex; gap: 1.25rem; margin-top: 0.75rem; flex-wrap: wrap; }
+    .iab-link { font-size: 0.875rem; color: rgba(163,230,53,0.7); text-decoration: none; transition: color 0.15s; }
+    .iab-link:hover { color: #a3e635; }
+
+    /* Map */
+    .info-map { position: relative; }
+    .map-placeholder {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+      aspect-ratio: 4/3;
+      background: #0e1a0e;
+    }
+    .map-grid { position: absolute; inset: 0; }
+    .map-svg { width: 100%; height: 100%; }
+
+    .map-overlay-label {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      background: rgba(10,10,13,0.85);
+      border: 1px solid rgba(163,230,53,0.2);
+      border-radius: 4px;
+      padding: 0.625rem 1rem;
+      backdrop-filter: blur(4px);
+    }
+    .mol-name {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 1px;
+    }
+    .mol-addr {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.625rem;
+      color: rgba(163,230,53,0.6);
+      letter-spacing: 0.04em;
+    }
+
+    /* ---- CTA STRIP ---- */
+    .facility-cta-strip {
+      background: #0e0e10;
+      padding: 4rem 0;
+      border-top: 1px solid rgba(163,230,53,0.1);
+    }
+
+    .fcs-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .fcs-title {
+      font-family: 'Anton', sans-serif;
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.5rem;
+    }
+    .fcs-sub { font-size: 1rem; color: var(--muted); line-height: 1.5; }
+
+    .fcs-buttons {
+      display: flex;
+      gap: 0.875rem;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .fcs-btn-primary {
+      display: inline-block;
+      background: #a3e635;
+      color: #0a0a0d;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      padding: 0.875rem 1.5rem;
+      border-radius: 4px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .fcs-btn-primary:hover { background: #bef264; }
+
+    .fcs-btn-secondary {
+      display: inline-block;
+      background: rgba(163,230,53,0.08);
+      color: #a3e635;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      padding: 0.875rem 1.5rem;
+      border-radius: 4px;
+      border: 1px solid rgba(163,230,53,0.2);
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .fcs-btn-secondary:hover { background: rgba(163,230,53,0.14); }
+
+    .fcs-btn-ghost {
+      display: inline-block;
+      background: transparent;
+      color: rgba(255,255,255,0.5);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      padding: 0.875rem 1.5rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .fcs-btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.75); }
+
+    /* ---- RESPONSIVE ---- */
+    @media (max-width: 1100px) {
+      .specs-grid { grid-template-columns: 1fr 1fr; }
+      .info-inner { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .f-hero-block { flex-direction: column; align-items: flex-start; }
+      .specs-grid { grid-template-columns: 1fr; }
+      .fcs-inner { flex-direction: column; align-items: flex-start; }
+      .schedule-header { flex-direction: column; align-items: flex-start; }
+      .f-hero-stats { flex-wrap: wrap; gap: 1rem; }
+    }
+  </style>
+</BaseLayout>
