@@ -27,8 +27,10 @@ interface Program {
   description: string | null
   programType: string
   active: boolean
+  venueId: string | null
   location: { id: string; name: string; slug: string }
   sport: { id: string; name: string; slug: string; icon: string | null; color: string | null }
+  venue: { id: string; name: string } | null
 }
 
 interface Sport {
@@ -45,6 +47,15 @@ interface Location {
   slug: string
 }
 
+interface VenueOption {
+  id: string
+  name: string
+  locationId: string
+  location: { id: string; name: string }
+  organizationName?: string
+  organizationSlug?: string
+}
+
 const programTypes = [
   { value: "league", label: "League" },
   { value: "camp", label: "Camp" },
@@ -53,11 +64,12 @@ const programTypes = [
   { value: "training", label: "Training" },
 ]
 
-export function ProgramsList() {
+export function ProgramsList({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [programs, setPrograms] = useState<Program[]>([])
   const [sports, setSports] = useState<Sport[]>([])
   const [locations, setLocations] = useState<Location[]>([])
+  const [venueOptions, setVenueOptions] = useState<VenueOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -66,6 +78,7 @@ export function ProgramsList() {
   const [formData, setFormData] = useState({
     locationId: "",
     sportId: "",
+    venueId: "" as string,
     name: "",
     slug: "",
     description: "",
@@ -79,25 +92,29 @@ export function ProgramsList() {
 
   async function fetchData() {
     try {
-      const [programsRes, sportsRes, locationsRes] = await Promise.all([
+      const venueScope = isSuperAdmin ? "?scope=all" : ""
+      const [programsRes, sportsRes, locationsRes, venuesRes] = await Promise.all([
         fetch("/api/admin/programs"),
         fetch("/api/admin/sports"),
         fetch("/api/admin/locations"),
+        fetch(`/api/admin/venues${venueScope}`),
       ])
 
       if (!programsRes.ok || !sportsRes.ok || !locationsRes.ok) {
         throw new Error("Failed to fetch data")
       }
 
-      const [programsData, sportsData, locationsData] = await Promise.all([
+      const [programsData, sportsData, locationsData, venuesData] = await Promise.all([
         programsRes.json(),
         sportsRes.json(),
         locationsRes.json(),
+        venuesRes.ok ? venuesRes.json() : { venues: [] },
       ])
 
       setPrograms(programsData.programs)
       setSports(sportsData.sports)
       setLocations(locationsData.locations)
+      setVenueOptions(venuesData.venues ?? [])
     } catch (err) {
       setError("Failed to load data")
       console.error(err)
@@ -111,6 +128,7 @@ export function ProgramsList() {
     setFormData({
       locationId: locations[0]?.id || "",
       sportId: sports[0]?.id || "",
+      venueId: "",
       name: "",
       slug: "",
       description: "",
@@ -125,6 +143,7 @@ export function ProgramsList() {
     setFormData({
       locationId: program.location.id,
       sportId: program.sport.id,
+      venueId: program.venueId || "",
       name: program.name,
       slug: program.slug,
       description: program.description || "",
@@ -149,7 +168,12 @@ export function ProgramsList() {
 
     try {
       const method = editingProgram ? "PUT" : "POST"
-      const body = editingProgram ? { id: editingProgram.id, ...formData } : formData
+      const payload = {
+        ...formData,
+        // Send null when no venue selected, so backend clears it on PUT
+        venueId: formData.venueId || null,
+      }
+      const body = editingProgram ? { id: editingProgram.id, ...payload } : payload
 
       const response = await fetch("/api/admin/programs", {
         method,
@@ -271,6 +295,15 @@ export function ProgramsList() {
                   <Badge variant="secondary">{program.sport.name}</Badge>
                   <Badge variant="outline">{programTypes.find(t => t.value === program.programType)?.label}</Badge>
                 </div>
+                {program.venue && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {(() => {
+                      const v = venueOptions.find(o => o.id === program.venue!.id)
+                      const orgLabel = v?.organizationName ? `${v.organizationName} — ` : ""
+                      return `${orgLabel}${program.venue!.name}`
+                    })()}
+                  </p>
+                )}
                 <div className="flex items-center justify-between">
                   <span className={`text-sm ${program.active ? "text-green-600" : "text-gray-500"}`}>
                     {program.active ? "Active" : "Inactive"}
@@ -393,6 +426,46 @@ export function ProgramsList() {
                   placeholder="A brief description of the program"
                 />
               </div>
+
+              {venueOptions.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Venue (optional)</Label>
+                  <Select
+                    value={formData.venueId || "__none__"}
+                    onValueChange={(v) => setFormData((prev) => ({ ...prev, venueId: v === "__none__" ? "" : v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="No venue assigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No venue assigned</SelectItem>
+                      {isSuperAdmin ? (
+                        // Group by organization for super_admin cross-org view
+                        (() => {
+                          const byOrg: Record<string, VenueOption[]> = {}
+                          for (const v of venueOptions) {
+                            const key = v.organizationName ?? "My Organization"
+                            if (!byOrg[key]) byOrg[key] = []
+                            byOrg[key].push(v)
+                          }
+                          return Object.entries(byOrg).map(([orgName, orgVenues]) => (
+                            <div key={orgName}>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{orgName}</div>
+                              {orgVenues.map((v) => (
+                                <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                              ))}
+                            </div>
+                          ))
+                        })()
+                      ) : (
+                        venueOptions.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="flex items-center space-x-2">
                 <Checkbox

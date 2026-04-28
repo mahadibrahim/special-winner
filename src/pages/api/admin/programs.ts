@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { programs, sports, locations } from "@/lib/db/schema";
+import { programs, sports, locations, venues } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -8,12 +8,15 @@ import {
   requireSameOrgLocation,
   requireSameOrgSport,
   requireSameOrgProgram,
+  requireSameOrgVenue,
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 
 const programSchema = z.object({
   locationId: z.string().uuid("Invalid location"),
   sportId: z.string().uuid("Invalid sport"),
+  // venueId is optional; cross-org references allowed (super_admin gated in UI)
+  venueId: z.string().uuid("Invalid venue").nullable().optional(),
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
@@ -38,6 +41,7 @@ export const GET: APIRoute = async (context) => {
         description: programs.description,
         programType: programs.programType,
         active: programs.active,
+        venueId: programs.venueId,
         createdAt: programs.createdAt,
         location: {
           id: locations.id,
@@ -51,14 +55,25 @@ export const GET: APIRoute = async (context) => {
           icon: sports.icon,
           color: sports.color,
         },
+        venue: {
+          id: venues.id,
+          name: venues.name,
+        },
       })
       .from(programs)
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
+      .leftJoin(venues, eq(programs.venueId, venues.id))
       .where(eq(locations.organizationId, orgContext.organizationId))
       .orderBy(asc(programs.name));
 
-    return new Response(JSON.stringify({ programs: allPrograms }), {
+    // Normalize: when no venue is joined, venue fields come back as nulls
+    const normalized = allPrograms.map(({ venue, ...rest }) => ({
+      ...rest,
+      venue: venue?.id ? venue : null,
+    }));
+
+    return new Response(JSON.stringify({ programs: normalized }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -92,11 +107,25 @@ export const POST: APIRoute = async (context) => {
     const sportCheck = await requireSameOrgSport(orgContext.organizationId, result.data.sportId);
     if (!sportCheck.ok) return ownershipDeniedResponse();
 
+    // venueId is cross-org allowed for admins; non-super_admins are restricted
+    // to same-org venues only.
+    const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+    const venueId = result.data.venueId ?? null;
+    if (venueId) {
+      if (!isSuperAdmin) {
+        // location_admin: venue must belong to their own org
+        const venueCheck = await requireSameOrgVenue(orgContext.organizationId, venueId);
+        if (!venueCheck.ok) return ownershipDeniedResponse();
+      }
+      // super_admin: any venue is allowed — no ownership check needed
+    }
+
     const [newProgram] = await getDb()
       .insert(programs)
       .values({
         locationId: result.data.locationId,
         sportId: result.data.sportId,
+        venueId,
         name: result.data.name,
         slug: result.data.slug,
         description: result.data.description || null,
@@ -149,11 +178,22 @@ export const PUT: APIRoute = async (context) => {
     const sportCheck = await requireSameOrgSport(orgContext.organizationId, result.data.sportId);
     if (!sportCheck.ok) return ownershipDeniedResponse();
 
+    // venueId: super_admin may cross-org; location_admin limited to same org
+    const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+    const venueId = result.data.venueId ?? null;
+    if (venueId) {
+      if (!isSuperAdmin) {
+        const venueCheck = await requireSameOrgVenue(orgContext.organizationId, venueId);
+        if (!venueCheck.ok) return ownershipDeniedResponse();
+      }
+    }
+
     const [updatedProgram] = await getDb()
       .update(programs)
       .set({
         locationId: result.data.locationId,
         sportId: result.data.sportId,
+        venueId,
         name: result.data.name,
         slug: result.data.slug,
         description: result.data.description || null,

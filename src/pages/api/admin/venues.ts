@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { venues, locations } from "@/lib/db/schema";
+import { venues, locations, organizations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -20,11 +20,63 @@ const venueSchema = z.object({
   active: z.boolean().default(true),
 });
 
-// GET - List all venues
+// GET - List venues
+// ?scope=all  (super_admin only) — returns venues across all orgs with
+//             organizationName + organizationSlug for cross-org dropdowns.
+// Default (no param / scope=org) — returns only venues in the caller's org.
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const url = new URL(context.request.url);
+  const scope = url.searchParams.get("scope");
+  const wantsAll = scope === "all";
+
+  // Only super_admin may list venues cross-org
+  if (wantsAll) {
+    const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+    if (!isSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: super_admin required for scope=all" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    try {
+      const allVenues = await getDb()
+        .select({
+          id: venues.id,
+          locationId: venues.locationId,
+          name: venues.name,
+          address: venues.address,
+          fieldCount: venues.fieldCount,
+          indoor: venues.indoor,
+          notes: venues.notes,
+          active: venues.active,
+          createdAt: venues.createdAt,
+          location: {
+            id: locations.id,
+            name: locations.name,
+          },
+          organizationName: organizations.name,
+          organizationSlug: organizations.slug,
+        })
+        .from(venues)
+        .innerJoin(locations, eq(venues.locationId, locations.id))
+        .innerJoin(organizations, eq(locations.organizationId, organizations.id))
+        .orderBy(asc(organizations.name), asc(venues.name));
+
+      return new Response(JSON.stringify({ venues: allVenues }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Error fetching all venues:", error);
+      return new Response(JSON.stringify({ error: "Failed to fetch venues" }), { status: 500 });
+    }
+  }
+
+  // Default: same-org only
   const orgContext = await requireOrganizationContext(context);
   if (!orgContext.hasOrganization) return orgContext.response;
 
