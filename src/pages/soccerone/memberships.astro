@@ -1,0 +1,494 @@
+---
+export const prerender = true;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import { MembershipTier } from '@/components/soccerone/MembershipTier';
+import { Toaster } from 'sonner';
+---
+
+<BaseLayout
+  title="Memberships | SoccerOne Columbus"
+  description="One SoccerOne membership works at every location — Worthington, Downtown, and all future facilities. Day Pass, Member ($29/mo), or Founder ($99/mo). All-access, chain-wide."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <SoccerOneHeader />
+  <Toaster client:load richColors position="bottom-right" />
+
+  <main class="mem-main">
+
+    <!-- Page header -->
+    <div class="mem-header">
+      <div class="mh-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/soccerone" class="bc-link">SoccerOne</a>
+          <span class="bc-sep">—</span>
+          <span class="bc-current">Memberships</span>
+        </nav>
+
+        <div class="mh-top">
+          <div class="mh-text">
+            <h1 class="mh-title">MEMBERSHIPS</h1>
+            <p class="mh-desc">
+              One membership. Both locations. All future SoccerOne facilities included when they open.
+            </p>
+          </div>
+
+          <div class="chain-callout">
+            <div class="cc-icon" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <rect x="2" y="2" width="24" height="24" rx="4" stroke="#a3e635" stroke-width="1.5" fill="none"/>
+                <circle cx="10" cy="14" r="3.5" stroke="rgba(163,230,53,0.6)" stroke-width="1.25"/>
+                <circle cx="18" cy="14" r="3.5" stroke="rgba(163,230,53,0.6)" stroke-width="1.25"/>
+                <line x1="13.5" y1="14" x2="14.5" y2="14" stroke="#a3e635" stroke-width="1.5"/>
+              </svg>
+            </div>
+            <div class="cc-text">
+              <strong>Chain-wide access</strong>
+              <span>Worthington · Downtown · All future locations</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chain access bar -->
+        <div class="chain-access-bar">
+          <div class="cab-item cab-item--live">
+            <span class="cab-dot"></span>
+            <span class="cab-name">Worthington</span>
+            <span class="cab-sub">3 fields — open now</span>
+          </div>
+          <div class="cab-div" aria-hidden="true"></div>
+          <div class="cab-item cab-item--live">
+            <span class="cab-dot"></span>
+            <span class="cab-name">Downtown Columbus</span>
+            <span class="cab-sub">1 field — open now</span>
+          </div>
+          <div class="cab-div" aria-hidden="true"></div>
+          <div class="cab-item cab-item--coming">
+            <span class="cab-name">West Side</span>
+            <span class="cab-sub">Coming 2026</span>
+          </div>
+          <div class="cab-div" aria-hidden="true"></div>
+          <div class="cab-item cab-item--coming">
+            <span class="cab-name">Dublin</span>
+            <span class="cab-sub">Coming 2027</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key differentiator headline -->
+    <div class="mem-headline-section">
+      <div class="mhs-inner">
+        <h2 class="mhs-title">
+          <span class="mhs-line-1">ONE MEMBERSHIP.</span>
+          <span class="mhs-line-2">ALL FACILITIES.</span>
+          <span class="mhs-line-3">FUTURE LOCATIONS INCLUDED.</span>
+        </h2>
+        <p class="mhs-sub">
+          Your membership auto-extends to every new SoccerOne location when it opens. No plan changes, no upgrade fees. Sign up once.
+        </p>
+      </div>
+    </div>
+
+    <!-- Tier grid -->
+    <div class="tiers-section">
+      <div class="tiers-inner">
+
+        <!-- Stats above tiers -->
+        <div class="tier-stats-row">
+          <div class="ts-item">
+            <span class="ts-num">400+</span>
+            <span class="ts-label">Active members</span>
+          </div>
+          <div class="ts-div" aria-hidden="true"></div>
+          <div class="ts-item">
+            <span class="ts-num mono">$8–$16</span>
+            <span class="ts-label">Saved per rental hour</span>
+          </div>
+          <div class="ts-div" aria-hidden="true"></div>
+          <div class="ts-item">
+            <span class="ts-num">2</span>
+            <span class="ts-label">Locations included now</span>
+          </div>
+          <div class="ts-div" aria-hidden="true"></div>
+          <div class="ts-item">
+            <span class="ts-num">24h</span>
+            <span class="ts-label">Cancel anytime</span>
+          </div>
+        </div>
+
+        <div class="tiers-grid">
+          <MembershipTier
+            client:visible
+            name="Day Pass"
+            monthlyPrice="$15"
+            annualPrice="$15"
+            ctaLabel="Buy a Day Pass"
+            highlighted={false}
+            accentColor="#67e8f9"
+            benefits={[
+              { text: "Full facility access for the day", included: true },
+              { text: "Join any open pickup game", included: true },
+              { text: "Works at any SoccerOne location", included: true },
+              { text: "Locker room + amenities", included: true },
+              { text: "10% off hourly field rental", included: false },
+              { text: "Priority league registration", included: false },
+              { text: "Guest passes (per month)", included: false },
+              { text: "Members-only pickup events", included: false },
+            ]}
+            testimonial={{
+              quote: "Perfect for when I'm in town visiting. Walk in, play, done.",
+              author: "Derek T.",
+              since: "Day Pass regular"
+            }}
+          />
+
+          <MembershipTier
+            client:visible
+            name="Member"
+            monthlyPrice="$29"
+            annualPrice="$290"
+            annualSaving="17%"
+            ctaLabel="Start Member Plan"
+            highlighted={true}
+            accentColor="#a3e635"
+            benefits={[
+              { text: "All facilities — Worthington + Downtown + future", included: true },
+              { text: "Unlimited facility access", included: true },
+              { text: "Priority league registration (48h early)", included: true },
+              { text: "10% off hourly field rentals ($72/hr)", included: true },
+              { text: "Members-only pickup events", included: true },
+              { text: "Locker room + amenities", included: true },
+              { text: "1 guest pass per month", included: false },
+              { text: "Free pickup games included monthly", included: false },
+            ]}
+            testimonial={{
+              quote: "Pays for itself in two field rentals. The early league signup is clutch.",
+              author: "Maria C.",
+              since: "2025"
+            }}
+          />
+
+          <MembershipTier
+            client:visible
+            name="Founder"
+            monthlyPrice="$99"
+            annualPrice="$990"
+            annualSaving="17%"
+            ctaLabel="Join as a Founder"
+            highlighted={false}
+            accentColor="#fbbf24"
+            benefits={[
+              { text: "All facilities — chain-wide, forever", included: true },
+              { text: "Unlimited pickup games (free)", included: true },
+              { text: "First access to league registration (72h early)", included: true },
+              { text: "20% off hourly field rentals ($64/hr)", included: true },
+              { text: "Founder-only pickup events", included: true },
+              { text: "2 guest passes per month", included: true },
+              { text: "Name on the Founder wall (lobby)", included: true },
+              { text: "30-day advance booking window", included: true },
+            ]}
+            testimonial={{
+              quote: "I train here three times a week. Founder membership made this my second home.",
+              author: "James R.",
+              since: "2024 — Original Founder"
+            }}
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Full comparison table -->
+    <div class="comparison-section">
+      <div class="comp-inner">
+        <div class="comp-header">
+          <span class="section-num-sm">02.</span>
+          <h2 class="comp-title">Full Benefit Comparison</h2>
+        </div>
+
+        <div class="comp-table-wrap">
+          <table class="comp-table" aria-label="Membership benefit comparison">
+            <thead>
+              <tr>
+                <th class="ct-feature-col">Feature</th>
+                <th class="ct-tier-col">Day Pass</th>
+                <th class="ct-tier-col ct-tier-featured">Member</th>
+                <th class="ct-tier-col">Founder</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="ct-row">
+                <td class="ct-feature">Monthly price</td>
+                <td class="ct-val">$15/visit</td>
+                <td class="ct-val ct-featured">$29/mo</td>
+                <td class="ct-val">$99/mo</td>
+              </tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Annual option</td>
+                <td class="ct-val ct-na">—</td>
+                <td class="ct-val ct-featured">$290/yr</td>
+                <td class="ct-val">$990/yr</td>
+              </tr>
+              <tr class="ct-section-header"><td colspan="4">Access</td></tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Facilities included</td>
+                <td class="ct-val">Day of visit only</td>
+                <td class="ct-val ct-featured ct-good">All SoccerOne locations</td>
+                <td class="ct-val ct-good">All SoccerOne locations</td>
+              </tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Facility access</td>
+                <td class="ct-val">Per visit</td>
+                <td class="ct-val ct-featured ct-good">Unlimited</td>
+                <td class="ct-val ct-good">Unlimited</td>
+              </tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Open pickup games</td>
+                <td class="ct-val">Pay per game</td>
+                <td class="ct-val ct-featured ct-good">Unlimited</td>
+                <td class="ct-val ct-good">Unlimited (free)</td>
+              </tr>
+              <tr class="ct-section-header"><td colspan="4">Rentals</td></tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Hourly rental rate</td>
+                <td class="ct-val">$80/hr</td>
+                <td class="ct-val ct-featured ct-good">$72/hr (−10%)</td>
+                <td class="ct-val ct-good">$64/hr (−20%)</td>
+              </tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Advance booking window</td>
+                <td class="ct-val">7 days</td>
+                <td class="ct-val ct-featured">14 days</td>
+                <td class="ct-val ct-good">30 days</td>
+              </tr>
+              <tr class="ct-section-header"><td colspan="4">Leagues</td></tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Priority league signup</td>
+                <td class="ct-val ct-none">None</td>
+                <td class="ct-val ct-featured ct-good">48h early access</td>
+                <td class="ct-val ct-good">72h early access</td>
+              </tr>
+              <tr class="ct-section-header"><td colspan="4">Perks</td></tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Guest passes/month</td>
+                <td class="ct-val ct-none">None</td>
+                <td class="ct-val ct-featured ct-none">None</td>
+                <td class="ct-val ct-good">2 passes</td>
+              </tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Founder wall recognition</td>
+                <td class="ct-val ct-none">Not included</td>
+                <td class="ct-val ct-featured ct-none">Not included</td>
+                <td class="ct-val ct-good">Lobby recognition</td>
+              </tr>
+              <tr class="ct-row">
+                <td class="ct-feature">Cancel anytime</td>
+                <td class="ct-val ct-na">N/A</td>
+                <td class="ct-val ct-featured ct-good">Yes</td>
+                <td class="ct-val ct-good">Yes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="faq-section">
+      <div class="faq-inner">
+        <div class="faq-header">
+          <span class="section-num-sm">03.</span>
+          <h2 class="faq-title">Common Questions</h2>
+        </div>
+        <div class="faq-grid">
+          <div class="faq-item">
+            <h3 class="fq">Does my membership really work at all locations?</h3>
+            <p class="fa">Yes. One account, all SoccerOne locations — Worthington and Downtown now, plus every future location as they open. No separate plan needed.</p>
+          </div>
+          <div class="faq-item">
+            <h3 class="fq">When does my membership start?</h3>
+            <p class="fa">Immediately after your first payment. You'll get a confirmation email and your account will show member pricing right away.</p>
+          </div>
+          <div class="faq-item">
+            <h3 class="fq">Can I pause my membership?</h3>
+            <p class="fa">Yes — you can pause for up to 60 days per year. Great for seasonal travel. Reach out to the front desk or manage from your dashboard.</p>
+          </div>
+          <div class="faq-item">
+            <h3 class="fq">Can I upgrade from Member to Founder?</h3>
+            <p class="fa">Absolutely. You'll only pay the prorated difference for the current billing period. Upgrade directly in your dashboard.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #a3e635;
+      --bg: #0a0a0d;
+      --bg-2: #0e0e10;
+      --muted: rgba(255,255,255,0.45);
+      --border: rgba(255,255,255,0.08);
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    .mem-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+
+    /* ---- HEADER ---- */
+    .mem-header { background: #0a0a0d; border-bottom: 1px solid rgba(163,230,53,0.1); padding: 4rem 0 0; }
+    .mh-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+
+    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
+    .bc-link { font-size: 0.8125rem; color: rgba(163,230,53,0.6); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+    .bc-link:hover { color: #a3e635; }
+    .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
+    .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
+
+    .mh-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap; }
+
+    .mh-title { font-family: 'Anton', sans-serif; font-size: clamp(4rem, 10vw, 9rem); color: #ffffff; line-height: 0.9; letter-spacing: 0.01em; margin-bottom: 1rem; }
+    .mh-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 500px; }
+
+    .chain-callout { display: flex; align-items: flex-start; gap: 1rem; background: rgba(163,230,53,0.06); border: 1px solid rgba(163,230,53,0.2); border-radius: 6px; padding: 1.25rem; flex-shrink: 0; max-width: 300px; }
+    .cc-text { display: flex; flex-direction: column; gap: 2px; }
+    .cc-text strong { font-size: 0.9375rem; font-weight: 700; color: #ffffff; }
+    .cc-text span { font-size: 0.8125rem; color: rgba(255,255,255,0.5); }
+
+    /* Chain access bar */
+    .chain-access-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 1.25rem 0 2rem;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      border-top: 1px solid var(--border);
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+    }
+    .cab-item { display: flex; flex-direction: column; gap: 3px; }
+    .cab-item--live .cab-name { color: #ffffff; }
+    .cab-item--coming .cab-name { color: rgba(255,255,255,0.3); }
+    .cab-name { font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.375rem; }
+    .cab-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.08em; }
+    .cab-item--live .cab-sub { color: rgba(163,230,53,0.6); }
+    .cab-item--coming .cab-sub { color: rgba(255,255,255,0.2); }
+    .cab-dot { width: 6px; height: 6px; border-radius: 50%; background: #a3e635; box-shadow: 0 0 6px #a3e635; display: inline-block; }
+    .cab-div { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+
+    /* ---- KEY HEADLINE ---- */
+    .mem-headline-section { background: #0e0e10; border-bottom: 1px solid var(--border); padding: 4rem 0; overflow: hidden; position: relative; }
+    .mem-headline-section::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 5px; background: #a3e635; }
+
+    .mhs-inner { max-width: 1400px; margin: 0 auto; padding: 0 3rem; }
+    .mhs-title { display: flex; flex-direction: column; gap: 0; margin-bottom: 1.5rem; }
+    .mhs-line-1, .mhs-line-2, .mhs-line-3 {
+      font-family: 'Anton', sans-serif;
+      line-height: 0.95;
+      letter-spacing: 0.01em;
+      display: block;
+    }
+    .mhs-line-1 { font-size: clamp(2.5rem, 6vw, 5.5rem); color: rgba(255,255,255,0.5); }
+    .mhs-line-2 { font-size: clamp(3rem, 7vw, 6.5rem); color: #ffffff; }
+    .mhs-line-3 { font-size: clamp(1.75rem, 4vw, 3.5rem); color: #a3e635; }
+    .mhs-sub { font-size: 1.0625rem; color: var(--muted); max-width: 560px; line-height: 1.6; }
+
+    /* ---- TIERS ---- */
+    .tiers-section { background: var(--bg); padding: 5rem 0; }
+    .tiers-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+
+    .tier-stats-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 4rem; flex-wrap: wrap; }
+    .ts-item { display: flex; flex-direction: column; gap: 2px; }
+    .ts-num { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
+    .ts-num.mono { font-family: 'JetBrains Mono', monospace; font-size: 2rem; }
+    .ts-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); }
+    .ts-div { width: 1px; height: 48px; background: var(--border); flex-shrink: 0; }
+
+    .tiers-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+
+    /* ---- COMPARISON ---- */
+    .comparison-section { background: var(--bg-2); border-top: 1px solid var(--border); padding: 5rem 0; }
+    .comp-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .comp-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
+    .section-num-sm { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: rgba(163,230,53,0.15); line-height: 1; }
+    .comp-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+
+    .comp-table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    .comp-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+
+    .comp-table thead th {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      font-size: 0.5625rem;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.45);
+      padding: 1rem 1.25rem;
+      text-align: left;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+    }
+    .ct-tier-featured {
+      background: rgba(163,230,53,0.06) !important;
+      color: #a3e635 !important;
+      border-left: 1px solid rgba(163,230,53,0.15);
+      border-right: 1px solid rgba(163,230,53,0.15);
+    }
+    .ct-feature-col { width: 35%; }
+    .ct-tier-col { text-align: center; }
+
+    .ct-section-header td {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(163,230,53,0.5);
+      padding: 0.75rem 1.25rem 0.25rem;
+      background: rgba(163,230,53,0.03);
+      border-top: 1px solid rgba(163,230,53,0.08);
+    }
+
+    .ct-row td { padding: 0.875rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    .ct-row:last-child td { border-bottom: none; }
+    .ct-feature { color: rgba(255,255,255,0.65); }
+    .ct-val { text-align: center; color: rgba(255,255,255,0.55); }
+    .ct-featured { background: rgba(163,230,53,0.04); color: rgba(255,255,255,0.75); border-left: 1px solid rgba(163,230,53,0.08); border-right: 1px solid rgba(163,230,53,0.08); }
+    .ct-good { color: #86efac; font-weight: 600; }
+    .ct-none { color: rgba(255,255,255,0.2); }
+    .ct-na { color: rgba(255,255,255,0.2); }
+
+    /* ---- FAQ ---- */
+    .faq-section { background: var(--bg); border-top: 1px solid var(--border); padding: 5rem 0; }
+    .faq-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .faq-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
+    .faq-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .faq-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+    .faq-item { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem; }
+    .fq { font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 700; color: #ffffff; margin-bottom: 0.625rem; }
+    .fa { font-size: 0.9375rem; color: var(--muted); line-height: 1.6; }
+
+    @media (max-width: 1100px) { .tiers-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) {
+      .mh-top { flex-direction: column; align-items: flex-start; }
+      .chain-callout { max-width: 100%; }
+      .faq-grid { grid-template-columns: 1fr; }
+      .mhs-inner { padding: 0 1.5rem; }
+    }
+  </style>
+</BaseLayout>

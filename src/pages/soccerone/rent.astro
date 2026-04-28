@@ -1,0 +1,353 @@
+---
+export const prerender = false;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import FieldCalendar from '@/components/soccerone/FieldCalendar';
+import { Toaster } from 'sonner';
+
+const facility = Astro.url.searchParams.get('facility') || 'worthington';
+const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
+const fieldCount = facility === 'downtown' ? '1 field' : '3 fields';
+---
+
+<BaseLayout
+  title={`Field Rentals — SoccerOne | ${facilityLabel}`}
+  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). $80/hr standard, members from $64/hr. Open 7am–11pm daily."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <SoccerOneHeader />
+  <Toaster client:load richColors position="bottom-right" />
+
+  <main class="rent-main">
+
+    <!-- Page header -->
+    <div class="rent-header">
+      <div class="rh-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/soccerone" class="bc-link">SoccerOne</a>
+          <span class="bc-sep">—</span>
+          <span class="bc-current">Field Rentals</span>
+        </nav>
+
+        <div class="rh-top">
+          <div class="rh-text">
+            <h1 class="rh-title">BOOK A<br />FIELD</h1>
+            <p class="rh-desc">
+              Hourly rentals on all 4 indoor fields across both locations. Training, parties, team practice, tournaments. Book 30 days ahead with Founder membership.
+            </p>
+          </div>
+
+          <!-- Rates block -->
+          <div class="rates-block">
+            <div class="rate-item">
+              <span class="ri-amount mono">$80</span>
+              <span class="ri-unit">/hr</span>
+              <span class="ri-label">Standard Rate</span>
+            </div>
+            <div class="rate-div" aria-hidden="true"></div>
+            <div class="rate-item">
+              <span class="ri-amount mono">$72</span>
+              <span class="ri-unit">/hr</span>
+              <span class="ri-label">Member Rate</span>
+              <span class="ri-save">−$8/hr</span>
+            </div>
+            <div class="rate-div" aria-hidden="true"></div>
+            <div class="rate-item">
+              <span class="ri-amount mono">$64</span>
+              <span class="ri-unit">/hr</span>
+              <span class="ri-label">Founder Rate</span>
+              <span class="ri-save">−$16/hr</span>
+            </div>
+            <div class="rate-div" aria-hidden="true"></div>
+            <div class="rate-item">
+              <span class="ri-amount mono">7AM</span>
+              <span class="ri-label">Open daily</span>
+              <span class="ri-sub">Through 11PM</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Facility selector tabs -->
+        <div class="facility-filter-row" role="group" aria-label="Select facility">
+          <a
+            href="/soccerone/rent?facility=worthington"
+            class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}
+          >
+            WORTHINGTON · 3 FIELDS
+          </a>
+          <a
+            href="/soccerone/rent?facility=downtown"
+            class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}
+          >
+            DOWNTOWN · 1 FIELD
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current facility context -->
+    <div class="facility-context-bar">
+      <div class="fcb-inner">
+        <div class="fcb-left">
+          <span class="fcb-label">BOOKING AT</span>
+          <span class="fcb-name">{facilityLabel}</span>
+          <span class="fcb-fields mono">— {fieldCount}</span>
+        </div>
+        <div class="fcb-right">
+          {facility === 'worthington' ? (
+            <span class="fcb-addr">535 Lakeview Plaza Blvd, Worthington, OH 43085</span>
+          ) : (
+            <span class="fcb-addr">980 E Starr Ave, Columbus, OH 43201</span>
+          )}
+          <span class="fcb-hours mono">7AM – 11PM daily</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="calendar-section">
+      <div class="cal-inner">
+        <div class="cal-header">
+          <div class="cal-header-left">
+            <span class="section-num-sm">01.</span>
+            <h2 class="cal-title">Select a Time Slot</h2>
+          </div>
+          <div class="cal-legend">
+            <span class="cl-item"><span class="cl-dot cl-open"></span>Available</span>
+            <span class="cl-item"><span class="cl-dot cl-league"></span>League</span>
+            <span class="cl-item"><span class="cl-dot cl-rental"></span>Rental</span>
+            <span class="cl-item"><span class="cl-dot cl-practice"></span>Training</span>
+          </div>
+        </div>
+
+        <div class="cal-desc">
+          Green = available to book. Blue = league. Yellow = private rental. Purple = training. Click any open slot to book.
+        </div>
+
+        <FieldCalendar client:visible />
+      </div>
+    </div>
+
+    <!-- What's included -->
+    <div class="includes-section">
+      <div class="includes-inner">
+        <div class="inc-header">
+          <span class="section-num-sm">02.</span>
+          <h2 class="inc-title">Every rental includes</h2>
+        </div>
+        <div class="includes-grid">
+          <div class="inc-item">
+            <span class="inc-check">✓</span>
+            <div class="inc-text">
+              <strong>Full-size indoor turf field</strong>
+              <span>Professional-grade synthetic turf, line-marked</span>
+            </div>
+          </div>
+          <div class="inc-item">
+            <span class="inc-check">✓</span>
+            <div class="inc-text">
+              <strong>LED stadium lighting</strong>
+              <span>700+ lux, color-corrected for video</span>
+            </div>
+          </div>
+          <div class="inc-item">
+            <span class="inc-check">✓</span>
+            <div class="inc-text">
+              <strong>Digital scoreboard + shot clock</strong>
+              <span>Per-field display</span>
+            </div>
+          </div>
+          <div class="inc-item">
+            <span class="inc-check">✓</span>
+            <div class="inc-text">
+              <strong>Locker room access</strong>
+              <span>Shared locker room + restrooms</span>
+            </div>
+          </div>
+          <div class="inc-item">
+            <span class="inc-check">✓</span>
+            <div class="inc-text">
+              <strong>Free parking</strong>
+              <span>100+ spaces at Worthington; validated downtown</span>
+            </div>
+          </div>
+          <div class="inc-item">
+            <span class="inc-check">✓</span>
+            <div class="inc-text">
+              <strong>Concessions on-site</strong>
+              <span>Coffee bar + snack kiosk, most hours</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add-ons -->
+        <div class="addons-section">
+          <div class="addons-label">Available add-ons:</div>
+          <div class="addons-list">
+            <div class="addon-item">
+              <span class="addon-name">Certified Referee</span>
+              <span class="addon-price mono">+$40/hr</span>
+            </div>
+            <div class="addon-item">
+              <span class="addon-name">Ball &amp; vest set</span>
+              <span class="addon-price mono">+$10</span>
+            </div>
+            <div class="addon-item">
+              <span class="addon-name">Photography (1099 partner)</span>
+              <span class="addon-price mono">From $120</span>
+            </div>
+            <div class="addon-item">
+              <span class="addon-name">Birthday party package</span>
+              <span class="addon-price mono">From $250</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memberships CTA -->
+    <div class="rent-mem-cta">
+      <div class="rmc-inner">
+        <div class="rmc-text">
+          <span class="rmc-eyebrow">SAVE EVERY VISIT</span>
+          <h2 class="rmc-title">Member and Founder rates apply automatically.</h2>
+          <p class="rmc-sub">One membership. Both facilities. Save $8–$16 per hour on every rental. Pays for itself in two bookings.</p>
+        </div>
+        <a href="/soccerone/memberships" class="rmc-btn">View Membership Plans →</a>
+      </div>
+    </div>
+
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #a3e635;
+      --bg: #0a0a0d;
+      --bg-2: #0e0e10;
+      --muted: rgba(255,255,255,0.45);
+      --border: rgba(255,255,255,0.08);
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    .rent-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+
+    .rent-header { background: #0a0a0d; border-bottom: 1px solid rgba(163,230,53,0.1); padding: 4rem 0 0; }
+    .rh-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+
+    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
+    .bc-link { font-size: 0.8125rem; color: rgba(163,230,53,0.6); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+    .bc-link:hover { color: #a3e635; }
+    .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
+    .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
+
+    .rh-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+
+    .rh-title { font-family: 'Anton', sans-serif; font-size: clamp(3.5rem, 8vw, 7.5rem); color: #ffffff; line-height: 0.92; letter-spacing: 0.01em; margin-bottom: 1rem; }
+    .rh-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 440px; }
+
+    .rates-block {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      background: rgba(163,230,53,0.04);
+      border: 1px solid rgba(163,230,53,0.15);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .rate-item { display: flex; flex-direction: column; gap: 2px; min-width: 70px; }
+    .ri-amount { font-family: 'Anton', sans-serif; font-size: 2.25rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
+    .ri-unit { font-family: 'JetBrains Mono', monospace; font-size: 0.625rem; color: rgba(163,230,53,0.6); letter-spacing: 0.06em; }
+    .ri-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .ri-save { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; color: #86efac; letter-spacing: 0.06em; }
+    .ri-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; color: rgba(255,255,255,0.3); letter-spacing: 0.04em; }
+    .rate-div { width: 1px; height: 48px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+
+    .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); }
+    .ff-tab { font-family: 'DM Sans', sans-serif; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .ff-tab:hover { color: rgba(255,255,255,0.7); }
+    .ff-tab--active { color: #a3e635; border-bottom-color: #a3e635; }
+
+    /* Facility context bar */
+    .facility-context-bar { background: rgba(163,230,53,0.05); border-bottom: 1px solid rgba(163,230,53,0.1); padding: 0.875rem 0; }
+    .fcb-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .fcb-left { display: flex; align-items: center; gap: 0.75rem; }
+    .fcb-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(163,230,53,0.5); }
+    .fcb-name { font-family: 'Anton', sans-serif; font-size: 1.25rem; color: #ffffff; letter-spacing: 0.02em; line-height: 1; }
+    .fcb-fields { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: rgba(163,230,53,0.6); }
+    .fcb-right { display: flex; align-items: center; gap: 1.5rem; }
+    .fcb-addr { font-size: 0.875rem; color: rgba(255,255,255,0.5); }
+    .fcb-hours { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: rgba(163,230,53,0.6); }
+
+    /* Calendar */
+    .calendar-section { background: var(--bg); padding: 4rem 0; }
+    .cal-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .cal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .cal-header-left { display: flex; align-items: baseline; gap: 1rem; }
+    .section-num-sm { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: rgba(163,230,53,0.15); line-height: 1; }
+    .cal-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .cal-legend { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+    .cl-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+    .cl-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .cl-open { background: #a3e635; }
+    .cl-league { background: #67e8f9; }
+    .cl-rental { background: #fbbf24; }
+    .cl-practice { background: #c4b5fd; }
+    .cal-desc { font-size: 0.875rem; color: rgba(255,255,255,0.35); margin-bottom: 2rem; }
+
+    /* Includes */
+    .includes-section { background: var(--bg-2); border-top: 1px solid var(--border); padding: 4rem 0; }
+    .includes-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .inc-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
+    .inc-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .includes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2.5rem; }
+    .inc-item { display: flex; align-items: flex-start; gap: 0.875rem; padding: 1.25rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; }
+    .inc-check { font-size: 1rem; color: #a3e635; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+    .inc-text { display: flex; flex-direction: column; gap: 3px; }
+    .inc-text strong { font-size: 0.9375rem; font-weight: 600; color: rgba(255,255,255,0.85); }
+    .inc-text span { font-size: 0.8125rem; color: rgba(255,255,255,0.4); line-height: 1.4; }
+
+    .addons-section { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem; }
+    .addons-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: rgba(163,230,53,0.5); margin-bottom: 1rem; }
+    .addons-list { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; }
+    .addon-item { display: flex; align-items: center; gap: 0.75rem; }
+    .addon-name { font-size: 0.9375rem; color: rgba(255,255,255,0.6); }
+    .addon-price { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: rgba(163,230,53,0.7); }
+
+    /* Memberships CTA */
+    .rent-mem-cta { background: var(--bg); border-top: 1px solid var(--border); padding: 3.5rem 0; }
+    .rmc-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
+    .rmc-eyebrow { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(163,230,53,0.6); margin-bottom: 0.5rem; }
+    .rmc-title { font-family: 'Anton', sans-serif; font-size: clamp(1.25rem, 3vw, 2rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 0.5rem; }
+    .rmc-sub { font-size: 0.9375rem; color: var(--muted); max-width: 480px; line-height: 1.55; }
+    .rmc-btn { display: inline-block; background: #a3e635; color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: 4px; transition: background 0.15s; flex-shrink: 0; white-space: nowrap; }
+    .rmc-btn:hover { background: #bef264; }
+
+    @media (max-width: 1100px) { .includes-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) {
+      .rh-top { flex-direction: column; align-items: flex-start; }
+      .includes-grid { grid-template-columns: 1fr; }
+      .rmc-inner { flex-direction: column; align-items: flex-start; }
+      .fcb-inner { flex-direction: column; align-items: flex-start; }
+      .rates-block { flex-direction: column; gap: 1rem; }
+      .rate-div { display: none; }
+    }
+  </style>
+</BaseLayout>
