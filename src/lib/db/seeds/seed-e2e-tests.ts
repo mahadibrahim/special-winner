@@ -409,7 +409,7 @@ async function seedE2ETests() {
   });
   console.log(`   ✓ AdultSelf: ${adultSelfUser.email}`);
 
-  // Get or create sport
+  // Get or create sport — upsert so re-seeding resets name if a test mutated it
   console.log("\n3. Setting up programs...");
   let [soccer] = await db
     .select()
@@ -427,6 +427,14 @@ async function seedE2ETests() {
         icon: "⚽",
         color: "#22c55e",
       })
+      .returning();
+  } else if (soccer.name !== "Soccer") {
+    // A test may have mutated the name (e.g. cross-org PUT that slipped through).
+    // Reset it so the dashboard never shows stale/hacked names.
+    [soccer] = await db
+      .update(sports)
+      .set({ name: "Soccer" })
+      .where(eq(sports.id, soccer.id))
       .returning();
   }
 
@@ -575,7 +583,9 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Adult Program: ${adultProgram.name}`);
 
-  // Adult Open Soccer season (open for registration)
+  // Adult Open Soccer season (open for registration).
+  // Always reset status and maxParticipants on re-seed so the dashboard shows
+  // "Register Now" rather than "Join Waitlist" after partial-fill test runs.
   let [adultSeason] = await db
     .select()
     .from(seasons)
@@ -601,8 +611,15 @@ async function seedE2ETests() {
         maxParticipants: 30,
       })
       .returning();
+  } else {
+    // Reset status and capacity so the season always shows "Register Now".
+    [adultSeason] = await db
+      .update(seasons)
+      .set({ status: "open", maxParticipants: 30 })
+      .where(eq(seasons.id, adultSeason.id))
+      .returning();
   }
-  console.log(`   ✓ Adult Season: ${adultSeason.name} (id: ${adultSeason.id})`);
+  console.log(`   ✓ Adult Season: ${adultSeason.name} (id: ${adultSeason.id}) status=${adultSeason.status}`);
 
   // -------------------------------------------------------------------------
   // Org B — second tenant for cross-tenant isolation tests.
@@ -662,7 +679,7 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Org B Location: ${orgBLocation.name} (${orgBLocation.id})`);
 
-  // Org B sport
+  // Org B sport — upsert so re-seeding resets name if a test mutated it
   let [orgBSport] = await db
     .select()
     .from(sports)
@@ -679,6 +696,14 @@ async function seedE2ETests() {
         icon: "🏀",
         color: "#f97316",
       })
+      .returning();
+  } else if (orgBSport.name !== "Basketball") {
+    // A cross-org test may have mutated this name before scoping was enforced.
+    // Reset it to avoid stale names surfacing in the UI.
+    [orgBSport] = await db
+      .update(sports)
+      .set({ name: "Basketball" })
+      .where(eq(sports.id, orgBSport.id))
       .returning();
   }
   console.log(`   ✓ Org B Sport: ${orgBSport.name}`);

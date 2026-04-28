@@ -48,14 +48,6 @@ export default function Navigation() {
     }
   }, [])
 
-  const handleSignOut = async () => {
-    try {
-      await fetch("/api/auth/signout", { method: "POST", credentials: "same-origin" })
-    } finally {
-      window.location.href = "/"
-    }
-  }
-
   const initials = user
     ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
       user.email[0]?.toUpperCase() ||
@@ -127,14 +119,15 @@ export default function Navigation() {
                   <LayoutDashboard className="w-4 h-4" />
                   Dashboard
                 </a>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign out
-                </button>
+                <form action="/api/auth/signout" method="POST">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign out
+                  </button>
+                </form>
                 <a
                   href="/dashboard"
                   className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-cream text-sm font-semibold shadow-sm shadow-primary/15 hover:bg-primary/90 transition-all"
@@ -241,17 +234,16 @@ export default function Navigation() {
                           Dashboard
                         </a>
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full border-border text-ink hover:bg-cream-2"
-                        onClick={() => {
-                          setMobileMenuOpen(false)
-                          handleSignOut()
-                        }}
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Sign out
-                      </Button>
+                      <form action="/api/auth/signout" method="POST" className="w-full">
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          className="w-full border-border text-ink hover:bg-cream-2"
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Sign out
+                        </Button>
+                      </form>
                     </>
                   ) : (
                     <>

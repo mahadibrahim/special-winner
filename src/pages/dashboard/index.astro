@@ -22,6 +22,14 @@ const paymentStatus = Astro.url.searchParams.get('payment');
 const registrationIdParam = Astro.url.searchParams.get('registration');
 const showPaymentSuccessBanner = paymentStatus === 'success' && !!registrationIdParam;
 
+// Surface redirect error from middleware (e.g. ?error=unauthorized when a
+// user was bounced from /admin or /coach because they lack the required role).
+const errorParam = Astro.url.searchParams.get('error');
+const errorMessage =
+  errorParam === 'unauthorized' ? "You don't have permission to access that page." :
+  errorParam ? `An error occurred: ${errorParam}` :
+  null;
+
 const organization = Astro.locals.organization;
 const externalStore = resolveExternalStore(null, organization as any);
 
@@ -49,6 +57,26 @@ else if (hour >= 17) greeting = "Good evening";
       <!-- Payment Success Banner -->
       {showPaymentSuccessBanner && (
         <PaymentSuccessBanner registrationId={registrationIdParam!} client:load />
+      )}
+
+      <!-- Unauthorized / redirect error banner -->
+      {errorMessage && (
+        <div
+          role="alert"
+          class="mb-6 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p class="flex-1">{errorMessage}</p>
+          <a
+            href="/dashboard"
+            class="shrink-0 text-xs font-medium uppercase tracking-wider hover:underline"
+            aria-label="Dismiss error"
+          >
+            Dismiss
+          </a>
+        </div>
       )}
 
       <!-- Header Section -->
