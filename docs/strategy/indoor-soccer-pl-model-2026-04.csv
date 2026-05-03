@@ -1,0 +1,249 @@
+Aspire Indoor Soccer Partnership P&L Model,,,,
+Drafted 2026-04-27. Three scenarios: Conservative / Base / Aggressive.,,,,
+Open in Excel or Google Sheets. To make formulas live: replace static numbers in the Calculation rows with cell references to the Inputs above.,,,,
+,,,,
+SECTION,LINE ITEM,UNIT,CONSERVATIVE,BASE,AGGRESSIVE
+,,,,,
+=== INPUTS — FACILITY ===,,,,,
+,Facility blended rate (negotiated),$/hr,150,130,110
+,Facility off-peak rate (M-F 9am-3pm),$/hr,90,80,70
+,Facility prime-time rate,$/hr,170,150,130
+,Year 1 minimum revenue commitment to facility,$,40000,40000,40000
+,,,,,
+=== INPUTS — ADULT STANDARD LEAGUE (per team) ===,,,,,
+,Team registration price,$,1095,1095,1095
+,Roster size,players,10,10,10
+,Season length,games,8,8,8
+,Field cost per game (= rate / 2 teams),$,75,65,55
+,Refs per game,refs,1,1,1
+,Ref pay per game,$,35,35,35
+,Insurance per player,$,5,5,5
+,Equipment amortized per team,$,25,25,25
+,Admin/marketing per team,$,75,50,40
+,,,,,
+=== ADULT STANDARD LEAGUE — PER TEAM ECONOMICS ===,,,,,
+,Field cost per team (8 games),$,600,520,440
+,Ref cost per team (8 games / 2 teams),$,140,140,140
+,Insurance per team,$,50,50,50
+,Equipment per team,$,25,25,25
+,Admin per team,$,75,50,40
+,Total cost per team,$,890,785,695
+,Gross profit per team,$,205,310,400
+,Gross margin %,%,19%,28%,37%
+,,,,,
+=== INPUTS — ADULT EXPRESS LEAGUE (per team) ===,,,,,
+,Team registration price,$,895,895,895
+,Roster size,players,10,10,10
+,Season length,games,8,8,8
+,Field cost per game (= rate / 4 teams sharing field-hour),$,38,33,28
+,Refs per game,refs,1,1,1
+,Ref pay per game (shorter game = lower),$,25,25,25
+,Insurance per player,$,5,5,5
+,Equipment per team,$,25,25,25
+,Admin/marketing per team,$,75,50,40
+,,,,,
+=== ADULT EXPRESS — PER TEAM ECONOMICS ===,,,,,
+,Field cost per team (8 games),$,300,260,220
+,Ref cost per team,$,100,100,100
+,Insurance per team,$,50,50,50
+,Equipment per team,$,25,25,25
+,Admin per team,$,75,50,40
+,Total cost per team,$,550,485,435
+,Gross profit per team,$,345,410,460
+,Gross margin %,%,39%,46%,51%
+,,,,,
+=== INPUTS — YOUTH PER-PLAYER (no kit) ===,,,,,
+,Per-player price,$,149,149,149
+,Players per team,players,9,9,9
+,Season length,games,8,8,8
+,Field cost per game (= rate / 2 teams),$,75,65,55
+,Ref pay per game,$,25,25,25
+,Insurance per player,$,10,10,10
+,Equipment per team,$,30,30,30
+,Admin per team,$,75,50,40
+,,,,,
+=== YOUTH PER-PLAYER — PER PLAYER ECONOMICS ===,,,,,
+,Revenue per team (9 players),$,1341,1341,1341
+,Field cost per team,$,600,520,440
+,Ref cost per team,$,100,100,100
+,Insurance per team,$,90,90,90
+,Equipment per team,$,30,30,30
+,Admin per team,$,75,50,40
+,Total cost per team,$,895,790,700
+,Gross profit per team,$,446,551,641
+,Gross profit per player,$,49,61,71
+,Gross margin %,%,33%,41%,48%
+,,,,,
+=== INPUTS — YOUTH TEAM REGISTRATION ===,,,,,
+,Team price,$,1195,1195,1195
+,Players per team,players,9,9,9
+,(All other costs same as per-player above),,,,,
+,,,,,
+=== YOUTH TEAM REGISTRATION — PER TEAM ECONOMICS ===,,,,,
+,Revenue per team,$,1195,1195,1195
+,Total cost per team (same as above),$,895,790,700
+,Gross profit per team,$,300,405,495
+,Gross margin %,%,25%,34%,41%
+,,,,,
+=== INPUTS — YOUTH KIT ADD-ON ===,,,,,
+,Kit (slim) sale price,$,130,130,130
+,Kit (slim) cost (Momentec/Code Four estimate),$,90,80,70
+,Kit margin per unit,$,40,50,60
+,Kit add-on take rate,%,40%,50%,60%
+,,,,,
+=== INPUTS — DROP-IN PICKUP (Downtown) ===,,,,,
+,Monthly membership price,$,40,40,40
+,Drop-in single session,$,15,15,15
+,Active members,members,40,60,90
+,Drop-in sessions per month,sessions,80,100,150
+,Field hours per month for pickup,hours,60,80,120
+,Cost per pickup field-hour (off-peak),$,90,80,70
+,,,,,
+=== DROP-IN PICKUP — MONTHLY ECONOMICS ===,,,,,
+,Monthly membership revenue,$,1600,2400,3600
+,Monthly drop-in revenue,$,1200,1500,2250
+,Total monthly revenue,$,2800,3900,5850
+,Monthly field cost,$,5400,6400,8400
+,Monthly contribution from pickup,$,-2600,-2500,-2550
+,(Pickup is loss-leader for downtown — fills off-peak; see annual roll-up where it adds value via cross-sell),,,,,
+,,,,,
+=== INPUTS — SUMMER CAMPS (Worthington) ===,,,,,
+,Weekly camp price per kid,$,295,325,375
+,Kids per week,kids,20,30,40
+,Weeks of camp,weeks,8,9,10
+,Counselors per week,staff,3,3,4
+,Counselor pay per week,$,750,750,800
+,Camp facility hours/week,hours,40,40,40
+,Camp facility rate (off-peak),$/hr,90,80,70
+,,,,,
+=== SUMMER CAMPS — SEASONAL ECONOMICS ===,,,,,
+,Camp revenue per week,$,5900,9750,15000
+,Counselor cost per week,$,2250,2250,3200
+,Facility cost per week,$,3600,3200,2800
+,Supplies/snacks per week,$,400,400,500
+,Net per week,$,-350,3900,8500
+,Total summer net,$,-2800,35100,85000
+,,,,,
+=== INPUTS — TOURNAMENTS ===,,,,,
+,Tournaments per year,events,18,24,32
+,Average net contribution per tournament,$,4500,5500,6500
+,Annual sponsorship packages,$,18000,30000,55000
+,,,,,
+=== TOURNAMENTS — ANNUAL ECONOMICS ===,,,,,
+,Tournament gross profit (events),$,81000,132000,208000
+,Sponsorship revenue,$,18000,30000,55000
+,Total tournament + sponsor contribution,$,99000,162000,263000
+,,,,,
+=== ANNUAL VOLUME ASSUMPTIONS ===,,,,,
+,Adult Standard team-seasons (3 seasons/year),teams,40,72,108
+,Adult Express team-seasons,teams,40,108,180
+,Youth per-player season-registrations,players,90,180,300
+,Youth team-season registrations,teams,30,60,100
+,Youth kit add-ons sold,units,60,150,300
+,Adult free-agent player registrations,players,60,120,200
+,Adult free-agent price,$,129,129,129
+,Adult free-agent margin %,%,30%,32%,34%
+,Skills clinic player-cycles (Worthington),players,80,180,300
+,Skills clinic price,$,149,149,149
+,Skills clinic margin %,%,40%,45%,50%
+,Birthday parties / open play (Worthington),events,15,25,40
+,Birthday party revenue per event,$,300,300,350
+,Birthday party margin %,%,55%,60%,65%
+,Lunch league registrations (Downtown),players,30,60,120
+,Lunch league avg revenue per player,$,89,89,89
+,Lunch league margin %,%,40%,45%,50%
+,OSU/corporate league teams,teams,8,16,28
+,OSU/corporate avg price per team,$,1295,1395,1495
+,OSU/corporate margin %,%,30%,35%,40%
+,Walking soccer 50+ players (Worthington),players,15,30,60
+,Walking soccer revenue per player per session,$,99,99,99
+,Walking soccer margin %,%,50%,55%,60%
+,Mom & Tot players (Worthington),players,20,40,80
+,Mom & Tot revenue per player per cycle,$,99,99,99
+,Mom & Tot margin %,%,55%,60%,65%
+,,,,,
+=== ANNUAL ROLL-UP — REVENUE ===,,,,,
+,Adult Standard leagues,$,43800,78840,118260
+,Adult Express leagues,$,35800,96660,161100
+,Youth per-player,$,13410,26820,44700
+,Youth team registrations,$,35850,71700,119500
+,Youth kit add-ons,$,7800,19500,39000
+,Adult free agents,$,7740,15480,25800
+,Skills clinics,$,11920,26820,44700
+,Birthday parties,$,4500,7500,14000
+,Lunch leagues,$,2670,5340,10680
+,OSU/corporate leagues,$,10360,22320,41860
+,Walking soccer,$,1485,2970,5940
+,Mom & Tot,$,1980,3960,7920
+,Drop-in pickup (annual = monthly × 12),$,33600,46800,70200
+,Summer camps,$,47200,87750,150000
+,Tournaments + sponsorships,$,99000,162000,263000
+,TOTAL ANNUAL REVENUE,$,357115,674460,1116660
+,,,,,
+=== ANNUAL ROLL-UP — GROSS PROFIT ===,,,,,
+,Adult Standard leagues,$,8200,22320,43200
+,Adult Express leagues,$,13800,44280,82800
+,Youth per-player,$,4410,10980,21300
+,Youth team registrations,$,9000,24300,49500
+,Youth kit add-ons,$,2400,7500,18000
+,Adult free agents,$,2322,4954,8772
+,Skills clinics,$,4768,12069,22350
+,Birthday parties,$,2475,4500,9100
+,Lunch leagues,$,1068,2403,5340
+,OSU/corporate leagues,$,3108,7812,16744
+,Walking soccer,$,743,1634,3564
+,Mom & Tot,$,1089,2376,5148
+,Drop-in pickup (annual; loss in conservative),$,-31200,-30000,-30600
+,Summer camps,$,-2800,35100,85000
+,Tournaments + sponsorships,$,99000,162000,263000
+,TOTAL ANNUAL GROSS PROFIT,$,118383,312228,603218
+,Blended gross margin %,%,33%,46%,54%
+,,,,,
+=== ASPIRE OVERHEAD (Year 1) ===,,,,,
+,Operator base salary (per OA Year 1 tier),$,60000,60000,60000
+,Platform/admin shared cost allocation,$,30000,30000,30000
+,Insurance (general + SAM),$,12000,12000,12000
+,Tournament one-time equipment buildout (Year 1 only),$,6900,6900,6900
+,Marketing budget,$,15000,20000,30000
+,Misc operations,$,5000,8000,12000
+,Total Year 1 overhead,$,128900,136900,150900
+,,,,,
+=== YEAR 1 NET CONTRIBUTION TO ASPIRE HOLDINGS ===,,,,,
+,Total gross profit,$,118383,312228,603218
+,Less Year 1 overhead,$,128900,136900,150900
+,YEAR 1 NET CONTRIBUTION,$,-10517,175328,452318
+,,,,,
+=== YEAR 2 PROJECTION (overhead lower; volume higher; tournament series mature) ===,,,,,
+,(Roughly: revenue +40%, gross margin +3pts, overhead +OA salary tier-up to $75K),,,,,
+,Year 2 revenue estimate,$,500000,945000,1565000
+,Year 2 gross profit (49% blended),$,180000,490000,860000
+,Year 2 overhead (with operator tier-up + scaled marketing),$,140000,165000,200000
+,YEAR 2 NET CONTRIBUTION,$,40000,325000,660000
+,,,,,
+=== KEY SCENARIO TAKEAWAYS ===,,,,,
+,"Conservative: Year 1 is roughly break-even after operator salary; Year 2 turns profitable. Tournaments and Express format are the load-bearing products.",,,,,
+,"Base: Year 1 contributes ~$175K above operator salary. Validates partnership at projected fill rates. Realistic for execution.",,,,,
+,"Aggressive: Year 1 contributes $450K+. Requires 70% utilization in Year 1 (above industry standard). Possible with strong marketing + tournament-driven brand momentum + downtown demand exceeding expectations.",,,,,
+,,,,,
+=== FACILITY OWNER REVENUE (their take) ===,,,,,
+,Aspire field rental paid to facility (Year 1 estimate),$,42000,55000,72000
+,Bar/concession share to facility (downtown only),$,8000,15000,28000
+,Food truck access fees retained by facility (if applicable),$,0,0,0
+,Total facility owner revenue from Aspire (Year 1),$,50000,70000,100000
+,,,,,
+=== KEY LEVERS TO FLEX (sensitivity testing) ===,,,,,
+,1. Facility blended rate ($/hr) — biggest single lever for league margins,,,,,
+,2. Adult Express team count — biggest single lever for downtown contribution,,,,,
+,3. Tournament count and average net contribution — biggest single lever for blended margin,,,,,
+,4. Summer camp fill — turns dead season into a major contributor,,,,,
+,5. Youth kit attach rate — small revenue lever but pure margin (no incremental cost),,,,,
+,6. OSU/corporate league count — premium pricing but requires sales effort,,,,,
+,,,,,
+=== ASSUMPTIONS / NOTES ===,,,,,
+,All player counts assume teams fill to roster. Half-empty teams kill per-player economics. Set minimum-team-size policy at registration close.,,,,,
+,Three league seasons per year: Fall (Sep-Nov)/ Winter (Dec-Mar) / Spring (Apr-Jun). Summer is camps + tournaments + reduced league play.,,,,,
+,Drop-in pickup runs at a loss in this model because it consumes off-peak hours and is priced low for membership volume. It is justified by cross-sell to leagues and tournaments — every member is a warm lead.,,,,,
+,Tournament numbers assume execution per indoor-soccer-tournament-strategy-2026-04.md (food trucks atmosphere sponsorship infrastructure all in place).,,,,,
+,Insurance numbers reflect SAM coverage required by OA section 9.5(d). Confirm actual quotes early.,,,,,
+,Kit cost ($70-90 for slim bundle) per procurement strategy memo (jersey + shorts only); full kit ($250) is separate add-on at break-even per existing strategy.,,,,,
+,Year 2 projection assumes tournament series matures (better fill, better sponsors), Express format proves out, and downtown demand validates. Adjust downward if any assumption fails.,,,,,

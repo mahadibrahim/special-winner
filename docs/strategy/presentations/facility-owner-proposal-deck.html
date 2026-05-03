@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aspire Sports — Programming Partnership Proposal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --paper: oklch(0.99 0.003 80);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --ink-faint: oklch(0.50 0.008 260);
+    --navy: oklch(0.24 0.06 260);
+    --navy-deep: oklch(0.18 0.07 262);
+    --primary: oklch(0.58 0.19 35);
+    --primary-bright: oklch(0.66 0.21 35);
+    --primary-soft: oklch(0.92 0.035 50);
+    --ochre: oklch(0.75 0.12 75);
+    --ochre-soft: oklch(0.92 0.045 80);
+    --sage: oklch(0.52 0.08 155);
+    --rule: oklch(0.85 0.012 78);
+    --rule-soft: oklch(0.90 0.010 78);
+  }
+  @page { size: Letter landscape; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .slide {
+    width: 11in;
+    height: 8.5in;
+    page-break-after: always;
+    page-break-inside: avoid;
+    overflow: hidden;
+    position: relative;
+    padding: 0.55in 0.65in;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+
+  .slide-chrome {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 6pt;
+    margin-bottom: 22pt;
+    flex-shrink: 0;
+    gap: 14pt;
+  }
+  .slide-chrome .brand { color: var(--ink); font-weight: 600; display: flex; align-items: center; gap: 10pt; }
+  .slide-chrome .brand .accent { color: var(--primary); }
+  .aspire-logo {
+    display: block;
+    height: 30pt;
+    width: auto;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  .cover .aspire-logo,
+  .close .aspire-logo { color: var(--cream); }
+  .cover .aspire-logo,
+  .close .aspire-logo { height: 38pt; }
+  .aspire-logo-hero {
+    display: block;
+    height: 56pt;
+    width: auto;
+    color: var(--cream);
+    margin-bottom: 30pt;
+  }
+  .slide-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--rule);
+    padding-top: 8pt;
+  }
+  .thesis-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .slide-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 8pt;
+  }
+  .slide h2.slide-title {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 36pt;
+    line-height: 1.0;
+    color: var(--navy);
+    margin: 0 0 6pt 0;
+    letter-spacing: -0.005em;
+    max-width: 9in;
+  }
+  .slide h2.slide-title::after {
+    content: "";
+    display: block;
+    width: 44pt;
+    height: 3px;
+    background: var(--primary);
+    margin: 14pt 0 22pt 0;
+  }
+
+  /* COVER (navy) */
+  .cover {
+    background: var(--navy-deep);
+    color: var(--cream);
+    padding: 0.7in 0.8in;
+  }
+  .cover .slide-chrome {
+    border-bottom-color: oklch(0.40 0.06 260);
+    color: oklch(0.78 0.025 80);
+  }
+  .cover .slide-chrome .brand { color: var(--cream); }
+  .cover-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--primary-bright);
+    margin: 60pt 0 18pt 0;
+  }
+  .cover h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 80pt;
+    line-height: 0.95;
+    color: var(--cream);
+    margin: 0;
+    letter-spacing: -0.015em;
+    max-width: 9.2in;
+  }
+  .cover h1 em { color: var(--primary-bright); font-style: italic; }
+  .cover-sub {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 19pt;
+    color: oklch(0.85 0.025 80);
+    margin-top: 30pt;
+    max-width: 7.5in;
+    line-height: 1.4;
+  }
+  .cover-meta {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: oklch(0.78 0.025 80);
+  }
+  .cover-meta .label { display: block; color: oklch(0.62 0.02 80); margin-bottom: 4pt; }
+  .cover-meta .val { color: var(--cream); font-size: 9pt; }
+
+  /* THESIS slide */
+  .thesis {
+    justify-content: center;
+    text-align: left;
+  }
+  .thesis .pull {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 56pt;
+    line-height: 1.05;
+    color: var(--navy);
+    max-width: 9.5in;
+    letter-spacing: -0.01em;
+    position: relative;
+  }
+  .thesis .pull::before {
+    content: "“";
+    position: absolute;
+    top: -0.5in;
+    left: -0.45in;
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 200pt;
+    line-height: 1;
+    color: var(--primary);
+    font-style: italic;
+  }
+  .thesis .pull em { color: var(--primary); font-style: italic; }
+  .thesis .attrib {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-top: 32pt;
+  }
+
+  /* Two markets layout */
+  .two-markets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24pt;
+    flex: 1;
+  }
+  .market-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 22pt 26pt;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .market-card.suburban { border-top: 4px solid var(--ochre); }
+  .market-card.urban { border-top: 4px solid var(--primary); }
+  .market-card .place {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 6pt;
+  }
+  .market-card .place .loc { color: var(--ink); font-weight: 600; }
+  .market-card h3 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 26pt;
+    line-height: 1.05;
+    color: var(--navy);
+    margin: 0 0 14pt 0;
+  }
+  .market-card .who {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 12pt;
+    font-style: italic;
+    color: var(--ink-2);
+    margin-bottom: 16pt;
+    line-height: 1.45;
+  }
+  .market-card .what {
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 12pt;
+    flex: 1;
+  }
+  .market-card .what h4 {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 6pt 0;
+  }
+  .market-card .what ul {
+    margin: 0;
+    padding-left: 14pt;
+    font-size: 10pt;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .market-card .what li { margin: 4pt 0; }
+  .market-card .gap {
+    margin-top: 14pt;
+    padding-top: 12pt;
+    border-top: 1px solid var(--rule-soft);
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 11pt;
+    color: var(--navy);
+    line-height: 1.4;
+  }
+
+  /* 4-quadrant grid */
+  .quad-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 16pt;
+    flex: 1;
+  }
+  .quad {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 18pt 22pt;
+    display: flex;
+    flex-direction: column;
+  }
+  .quad .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.22em;
+    color: var(--primary);
+    margin-bottom: 6pt;
+  }
+  .quad h3 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 20pt;
+    line-height: 1.1;
+    color: var(--navy);
+    margin: 0 0 8pt 0;
+  }
+  .quad p {
+    font-size: 10pt;
+    line-height: 1.5;
+    color: var(--ink-2);
+    margin: 0;
+  }
+
+  /* Revenue streams (slide 5) */
+  .streams-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 18pt;
+    flex: 1;
+  }
+  .stream {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--primary);
+    padding: 22pt 26pt;
+    display: flex;
+    flex-direction: column;
+  }
+  .stream-num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.22em;
+    color: var(--primary);
+    margin-bottom: 4pt;
+  }
+  .stream-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 10pt;
+  }
+  .stream h3 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22pt;
+    line-height: 1.1;
+    color: var(--navy);
+    margin: 0 0 10pt 0;
+  }
+  .stream p {
+    font-size: 10pt;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin: 0;
+  }
+
+  /* Big stats slide */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18pt;
+    flex: 1;
+  }
+  .stat-block {
+    background: var(--cream-2);
+    padding: 30pt 24pt;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-left: 4px solid var(--primary);
+  }
+  .stat-block.dark {
+    background: var(--navy);
+    color: var(--cream);
+    border-left-color: var(--primary-bright);
+  }
+  .stat-block .stat-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 12pt;
+  }
+  .stat-block.dark .stat-label { color: oklch(0.78 0.025 80); }
+  .stat-block .stat-num {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 76pt;
+    line-height: 0.9;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+  }
+  .stat-block.dark .stat-num { color: var(--cream); }
+  .stat-block .stat-detail {
+    font-size: 10pt;
+    line-height: 1.45;
+    color: var(--ink-2);
+    margin-top: 12pt;
+  }
+  .stat-block.dark .stat-detail { color: oklch(0.85 0.025 80); }
+  .stat-block .stat-detail strong { color: var(--navy); }
+  .stat-block.dark .stat-detail strong { color: var(--cream); }
+
+  /* Programming product list */
+  .prog-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 24pt;
+    flex: 1;
+  }
+  .prog-intro {
+    padding-right: 12pt;
+  }
+  .prog-intro .place-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8.5pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 10pt;
+  }
+  .prog-intro h3 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 30pt;
+    line-height: 1.05;
+    color: var(--navy);
+    margin: 0 0 14pt 0;
+  }
+  .prog-intro p {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 13pt;
+    font-style: italic;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+  }
+  .prog-intro .density-row {
+    margin-top: 24pt;
+    padding-top: 16pt;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    gap: 18pt;
+  }
+  .prog-intro .density {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+  }
+  .prog-intro .density .num {
+    display: block;
+    font-size: 38pt;
+    line-height: 1;
+    color: var(--navy);
+  }
+  .prog-intro .density .label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-style: normal;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-top: 4pt;
+  }
+  .prog-list {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 16pt 20pt;
+  }
+  .prog-list h4 {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 12pt 0 6pt 0;
+  }
+  .prog-list h4:first-child { margin-top: 0; }
+  .prog-list table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 6pt 0;
+    font-size: 9.5pt;
+  }
+  .prog-list table td {
+    padding: 4pt 6pt 4pt 0;
+    border-bottom: 1px dotted var(--rule);
+    vertical-align: baseline;
+    color: var(--ink);
+    line-height: 1.35;
+  }
+  .prog-list table td.price {
+    text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--navy);
+    white-space: nowrap;
+    padding-left: 16pt;
+  }
+
+  /* Tournament showcase */
+  .tourney-showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28pt;
+    flex: 1;
+  }
+  .tourney-pull {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .tourney-pull .big {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 110pt;
+    line-height: 0.85;
+    color: var(--navy);
+    letter-spacing: -0.02em;
+  }
+  .tourney-pull .big-sub {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-top: 12pt;
+  }
+  .tourney-pull .blurb {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 14pt;
+    line-height: 1.5;
+    color: var(--ink-2);
+    margin-top: 22pt;
+    max-width: 4.4in;
+  }
+  .tourney-pull .blurb em { color: var(--navy); font-weight: 500; }
+  .tourney-features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12pt;
+  }
+  .tourney-feat {
+    background: var(--cream-2);
+    padding: 14pt 16pt;
+    border-left: 3px solid var(--primary);
+  }
+  .tourney-feat .icon {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 22pt;
+    color: var(--primary);
+    line-height: 1;
+    margin-bottom: 4pt;
+  }
+  .tourney-feat .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 4pt;
+  }
+  .tourney-feat .head {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4pt;
+  }
+  .tourney-feat .desc {
+    font-size: 9pt;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+
+  /* Term sheet */
+  .term-sheet {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    flex: 1;
+    overflow: hidden;
+  }
+  .term-sheet table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .term-sheet th {
+    background: var(--navy);
+    color: var(--cream);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 10pt 16pt;
+    text-align: left;
+    font-weight: 500;
+  }
+  .term-sheet td {
+    padding: 10pt 16pt;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  .term-sheet td.term {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    color: var(--navy);
+    width: 32%;
+  }
+  .term-sheet td.detail {
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  .term-sheet td.detail strong { color: var(--ink); }
+  .term-sheet tr:nth-child(even) td { background: var(--cream-2); }
+
+  /* Why this works for you */
+  .why-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14pt;
+    flex: 1;
+  }
+  .why-item {
+    background: var(--cream-2);
+    padding: 14pt 18pt;
+    border-left: 3px solid var(--primary);
+  }
+  .why-item .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.22em;
+    color: var(--primary);
+    margin-bottom: 4pt;
+  }
+  .why-item h4 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 16pt;
+    color: var(--navy);
+    margin: 0 0 4pt 0;
+    line-height: 1.15;
+  }
+  .why-item p {
+    font-size: 9.5pt;
+    color: var(--ink-2);
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  /* Timeline */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    flex: 1;
+    align-content: start;
+    padding: 90pt 0 40pt 0;
+    position: relative;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    top: 104pt;
+    left: 8%;
+    right: 8%;
+    height: 2px;
+    background: var(--primary);
+    z-index: 0;
+  }
+  .tl-step {
+    text-align: center;
+    padding: 0 22pt;
+    position: relative;
+    z-index: 1;
+  }
+  .tl-step .dot {
+    width: 28pt;
+    height: 28pt;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 3px solid var(--primary);
+    margin: 0 auto 22pt auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 12pt;
+  }
+  .tl-step .when {
+    margin-bottom: 8pt;
+  }
+  .tl-step h4 {
+    margin-bottom: 12pt;
+  }
+  .tl-step.done .dot { background: var(--primary); color: var(--cream); }
+  .tl-step .when {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 4pt;
+  }
+  .tl-step h4 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 17pt;
+    color: var(--navy);
+    margin: 0 0 6pt 0;
+    line-height: 1.15;
+  }
+  .tl-step p {
+    font-size: 9pt;
+    color: var(--ink-2);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  /* Closing slide (navy) */
+  .close {
+    background: var(--navy-deep);
+    color: var(--cream);
+    padding: 0.7in 0.8in;
+    justify-content: center;
+  }
+  .close .slide-chrome {
+    border-bottom-color: oklch(0.40 0.06 260);
+    color: oklch(0.78 0.025 80);
+  }
+  .close .slide-chrome .brand { color: var(--cream); }
+  .close .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--primary-bright);
+    margin: auto 0 16pt 0;
+  }
+  .close h2 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 64pt;
+    line-height: 1;
+    color: var(--cream);
+    margin: 0 0 28pt 0;
+    letter-spacing: -0.01em;
+    max-width: 9in;
+  }
+  .close h2 em { color: var(--primary-bright); font-style: italic; }
+  .close .contact {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24pt;
+    padding-top: 24pt;
+    border-top: 1px solid oklch(0.40 0.06 260);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: oklch(0.78 0.025 80);
+  }
+  .close .contact .label { display: block; font-size: 7.5pt; color: oklch(0.60 0.02 80); margin-bottom: 6pt; }
+  .close .contact .val { display: block; font-size: 11pt; color: var(--cream); letter-spacing: 0.05em; text-transform: none; font-family: "Newsreader", Georgia, serif; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- ========== Aspire Sports logo · shared symbol ========== -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+  <symbol id="aspire-logo" viewBox="0 0 400 180.8">
+    <path fill="#2015B4" d="M271.8,40.7c4.8,0,8-3.1,8.2-7.6c0-4.5-3.5-7.8-8.1-7.8c-4.8,0-8.4,3.1-8.4,7.5C263.4,37.3,267.1,40.7,271.8,40.7z"/>
+    <path fill="currentColor" d="M396.6,115.4c-2-5.5-11.3-11.5-18.1-9.3c-2.9,0.9-17.7,0.8-21-0.5c-0.1,0-0.1-0.1-0.2-0.1c-0.2,0-5.7-3.3-5.8-5.4c-0.4-3.3,0.4-7.3,1.6-11.4c8.1-3.8,15.9-8.5,24-12.5c0.9-0.5,2.4-1.4,2.7-2.8l4.9-11.8V61c0.2-0.3,0.2-0.5,0.2-0.7c0-0.5-0.2-0.9-0.4-1.2l-0.2,0.2c-0.2-0.2-0.6-0.5-0.7-0.7l-10.6-5.9c-1.1-0.7-2.4-1-3.5-1c-2.2,0-4.2,1-6.4,2.1c-10,5.5-21.3,18.8-26.9,32c-4.8,4.6-5,3.5-8,4.7c-3,1.2-4.7,0.8-5.6,0.3c-0.9-0.5-0.9-1.6-0.1-2.7L336,61.4c0.7-1.6,0.6-2.4-1.1-3.5l-9.7-5.4c-1.6-0.9-2.7-0.5-4.2,0.5l-20.9,20.3c2.6-6.1,5.3-12.1,8.2-18c0.6-1,0.7-2.4-1.5-2.4h-13.2c-1.3,0-2,0.3-2.4,1.6c-3.9,10.3-8.4,21.1-12.9,31.6c-7.9,5.9-17.7,12.6-21.5,15.4c-1.8,1.2-3.3,1.6-2.2-1.4l17.7-44.7c0.7-1.6,0.7-2.4-1.6-2.4h-12.3c-1.6,0-2.6,0.3-3.1,1.9l-12.2,30.9c-8.1,6.4-15.1,10.5-22.8,13.1c4.2-6.9,10.8-20.3,13.2-26.7c3.3-9,1.8-12.5-5.7-18.7c-1.1-0.9-2-1.4-3.1-1.4c-0.7,0-1.6,0.3-2.6,0.9c-9.9,6.6-19.4,15.3-28.7,22.7c3.1-7.1,6.2-13.9,9.5-20.3c0.9-1.9,0.4-2.4-1.6-2.4h-12.4c-1.8,0-2.9,0.3-3.7,2.3c-3.6,9.9-7.3,20.1-11.1,30.4c-7.9,5.9-18.3,13-22.6,16.2l3.7-24.1c0.9-6.2,2-7.8,8.6-12.5c1.6-1.2,1.8-2.4,0.9-4l-4.2-8c-0.6-1.2-0.9-1.6-2.2-1l-12.3,5.2c-1.1,0.3-1.8,1.4-2,2.6l-2.6,15.6c-4.3,3.4-8.3,6.6-11.5,9.2c-9.5,7.3-23.5,17.4-26.4,19.7c5.5-24.3,17.2-61.9,29.6-87.4c0.6-0.9,0.9-1.6-0.4-2.3c-6-3.6-11.9-8.3-17.7-12.7c-0.5-0.3-0.9-0.3-1.3,0.2c-7.7,14.2-28.2,41.4-47.8,64.5c-26.9,7.8-53.8,22.9-64,37.3c-1.5,2.1-1.8,3.5,0.4,5.2c4.2,3.1,7.5,6.1,11.9,9.2c2,1.4,4,2.1,6.2,2.1c1.5,0,2.9-0.3,4.6-0.9c12.4-4.3,35.9-33.6,44.1-43.7c8.1-1.6,16.3-2.3,24.9-2.6c-5.3,13.9-10.6,26.9-14.5,34.8c-0.4,0.9-0.6,1.4,0.2,2.3c4,4.3,8.1,8.3,12.4,12.5c0.6,0.5,1.1,0.9,1.6,0.9c0.9,0,2-0.9,2.9-1.6c7.1-5.9,27.5-23.2,38.5-32.7c1.4-1,2.8-2.1,4.3-3.2l-2.6,15.4c-0.2,1.9-1.1,3.1-2.9,4.2l-12.4,7.5c-1.6,1-1.8,2.1-0.7,3.5l9.1,10.1c0.9,1.2,1.6,0.5,2.6,0l13.7-8.5c2.2-1.4,4.8-2.4,5.1-5.7c5.1-4.1,11.6-9.2,17.5-14c-8,20.8-16.6,41.7-25.9,61c-0.7,1.7-0.2,1.9,1.5,1.9h14.3c3.3,0,3.5-3.3,4.8-6.6c7-18.2,14.1-39.2,21.8-59.6c11.3-10.2,33.3-29.8,34.6-28.6c1.8,1.7-16.1,30-20.7,35.9c-5.9,0.3-9.3,2.3-12.3,6.4c-0.9,1.4-0.9,2.3,0.4,3.5l9.7,7.3c1.5,1,2.7,0.7,4.4,0c4.4-1.9,7-4.2,10.1-7.1c1.8-1.9,3.8-3.5,6.4-4.5c8.3-3.2,14.4-6.3,20.3-10.3l-3.8,9.8c-0.6,1-0.6,1.9,0.4,2.8l8.4,8.8c0.9,0.7,1.6,1.2,2.6,1.2c0.7,0,1.5-0.5,2.4-1.2c4.7-3.8,14.5-11.6,23.7-18.9c-2.7,6-5.3,11.8-7.8,17.4c-0.7,1.7,0,2.8,1.8,2.8h13.4c2,0.2,2.9-0.7,3.3-2.4c3.8-9.5,7.5-19.4,11.2-29.3c8-7.6,13.9-14.4,22.5-21.8c0.4-0.5,1.3-0.3,0.7,0.7l-9.5,18.6c-0.5,1.4-0.9,2.6,0.7,3.8c4.4,2.9,11.5,7.2,15.9,10.5c1.1,0.9,2,1,3.1,0.7c5.1-3.7,0.7-0.6,5.6-4.2c-0.2,1.4-0.3,2.8-0.3,4.1c0,1.7,0,4,1.8,5.4c0,0,15.7,13.2,15.7,13.2c1.5,1.4,3.6,0.9,5.5,0.7c1.8-0.2,3.5-0.4,5.3-0.4c1.3-0.3,2.7-0.5,4-0.5c2.3-0.1,6.6-0.6,8.8-1.2c6.3-1.9,11.3-1.7,12.1-1c2.8,2.5,6.1,7.7-7,11.6c-5.1,1.5-191.8,1.2-191.8,1.2c-0.6,0-0.7,0.2-0.4,0.5c10.2,10.9,16.1,16.5,26,27.4c1.8,2.1,3.5,2.3,5.7,1.7c46-11.1,118.4-14.8,153.9-18c0,0,0,0,0.1,0c3.8-0.6,7.6-1.1,11.4-2c2.8-0.6,6-1.1,8.6-2.4c3.6-1.8,5.4-5.4,5.9-9.2C398.7,122.6,398.4,120.3,396.6,115.4z M375.5,60.7c1.1,0,2.2,0.2,3.1,0.7c0.5,0.2,0.7,0.9,0.4,1.4l-3.7,5.5c-0.6,1-2,1.7-2.7,2.1c-4.8,2.1-9.9,4.7-14.6,6.9C360.7,72.5,368.6,60.7,375.5,60.7z M31.6,103.1c-4.8,3.6-10.2,5.5-16.6,4.9c-1.1-0.3-1.8-0.9-0.4-2.4c11.5-13.5,25.6-21.7,41-26.3C46.2,90,37.6,98.6,31.6,103.1z M79.1,63.8c13.2-16.8,25.2-33.1,32.4-41.6c-2.7,9.7-7.5,24.4-13,39.4C92.5,61.7,85.9,62.4,79.1,63.8z"/>
+    <path fill="#F12524" d="M260.1,176.1l1.9-1.6c0.5,1,1,1.6,1.5,2.1c0.5,0.4,1.2,0.6,1.9,0.6c0.9,0,1.7-0.3,2.2-0.8c0.6-0.5,0.9-1.2,0.9-2.1c0-0.6-0.2-1.1-0.5-1.6c-0.3-0.4-0.8-0.9-1.6-1.3c-0.2-0.1-0.4-0.2-0.7-0.4c-1.3-0.7-2.2-1.3-2.6-1.8c-0.3-0.4-0.6-0.8-0.7-1.2s-0.2-1-0.2-1.5c0-1.5,0.5-2.8,1.5-3.7s2.3-1.4,3.9-1.4c1.1,0,2,0.2,2.8,0.7c0.8,0.4,1.5,1.1,2,2l-1.7,1.5c-0.4-0.6-0.8-1.1-1.3-1.4s-1-0.5-1.6-0.5c-0.9,0-1.6,0.2-2.1,0.8c-0.5,0.5-0.8,1.1-0.8,1.9c0,1,0.8,1.8,2.3,2.7c0.4,0.2,0.7,0.4,0.9,0.5c1.2,0.7,2,1.4,2.5,2.1c0.5,0.7,0.7,1.6,0.7,2.7c0,1.7-0.5,3-1.6,3.9c-1.1,1-2.5,1.5-4.3,1.5c-1.2,0-2.3-0.3-3.2-0.9C261.3,178.1,260.6,177.2,260.1,176.1z"/>
+    <path fill="#F12524" d="M286.3,179.1h-2.7l2.3-17.4h3.6c1.4,0,2.4,0.1,3,0.2c0.6,0.2,1.2,0.4,1.6,0.8c0.5,0.4,0.9,0.9,1.2,1.5c0.3,0.6,0.4,1.3,0.4,2.1c0,0.9-0.2,1.7-0.5,2.4c-0.3,0.7-0.8,1.3-1.4,1.8c-0.5,0.4-1.1,0.7-1.8,0.9s-1.8,0.3-3.3,0.3h-0.8h-0.7L286.3,179.1z M287.6,169.2h0.9c1.7,0,2.9-0.2,3.5-0.6s0.9-1.1,0.9-2.1c0-0.8-0.3-1.4-0.8-1.8s-1.5-0.5-3-0.5h-0.9L287.6,169.2z"/>
+    <path fill="#F12524" d="M316.8,161.2c2.6,0,4.8,0.8,6.3,2.3c1.6,1.5,2.4,3.6,2.4,6.2c0,1.4-0.3,2.7-0.8,3.9s-1.2,2.3-2.2,3.2c-0.9,0.9-2,1.5-3.2,2c-1.2,0.5-2.5,0.7-3.8,0.7c-2.5,0-4.6-0.8-6.1-2.3c-1.6-1.6-2.3-3.6-2.3-6.1c0-1.4,0.2-2.7,0.8-4c0.5-1.2,1.2-2.3,2.2-3.2c0.9-0.8,1.9-1.5,3.1-2C314.2,161.5,315.5,161.2,316.8,161.2z M322.7,169.8c0-1.8-0.6-3.3-1.7-4.4c-1.1-1.1-2.6-1.7-4.4-1.7c-0.9,0-1.8,0.2-2.6,0.5c-0.8,0.3-1.5,0.8-2.1,1.5c-0.7,0.7-1.2,1.5-1.6,2.4c-0.4,0.9-0.5,1.9-0.5,2.9c0,1.8,0.5,3.3,1.6,4.4c1.1,1.1,2.5,1.7,4.3,1.7c2,0,3.7-0.7,5-2.1C322,173.6,322.7,171.9,322.7,169.8z"/>
+    <path fill="#F12524" d="M339.9,179.1h-2.7l2.3-17.4h3.1c1.4,0,2.4,0.1,3,0.2s1.2,0.4,1.6,0.8c0.5,0.4,0.9,0.9,1.2,1.5c0.3,0.6,0.4,1.3,0.4,2.1c0,1.4-0.4,2.6-1.2,3.5s-1.9,1.5-3.3,1.7l4.8,7.6h-3.1l-4.6-7.5h-0.6L339.9,179.1z M341.2,169.4h0.5c1.7,0,2.9-0.2,3.5-0.6c0.6-0.4,0.9-1.2,0.9-2.2c0-0.9-0.3-1.5-0.8-1.9c-0.5-0.4-1.5-0.5-3-0.5h-0.4L341.2,169.4z"/>
+    <path fill="#F12524" d="M362.9,179.1l2-14.9h-4.7l0.3-2.5h11.9l-0.3,2.5h-4.4l-2,14.9H362.9z"/>
+    <path fill="#F12524" d="M381.2,176.1l1.9-1.6c0.5,1,1,1.6,1.5,2.1c0.5,0.4,1.2,0.6,1.9,0.6c0.9,0,1.7-0.3,2.2-0.8c0.6-0.5,0.9-1.2,0.9-2.1c0-0.6-0.2-1.1-0.5-1.6c-0.3-0.4-0.8-0.9-1.6-1.3c-0.2-0.1-0.4-0.2-0.7-0.4c-1.3-0.7-2.2-1.3-2.6-1.8c-0.3-0.4-0.6-0.8-0.7-1.2c-0.2-0.5-0.2-1-0.2-1.5c0-1.5,0.5-2.8,1.5-3.7s2.3-1.4,3.9-1.4c1.1,0,2,0.2,2.8,0.7s1.5,1.1,2,2l-1.7,1.5c-0.4-0.6-0.8-1.1-1.3-1.4c-0.5-0.3-1-0.5-1.6-0.5c-0.9,0-1.6,0.2-2.1,0.8c-0.5,0.5-0.8,1.1-0.8,1.9c0,1,0.8,1.8,2.3,2.7c0.4,0.2,0.7,0.4,0.9,0.5c1.2,0.7,2,1.4,2.5,2.1c0.5,0.7,0.7,1.6,0.7,2.7c0,1.7-0.5,3-1.6,3.9s-2.5,1.5-4.3,1.5c-1.2,0-2.3-0.3-3.2-0.9C382.5,178.1,381.8,177.2,381.2,176.1z"/>
+  </symbol>
+</svg>
+
+<!-- ========== SLIDE 1: COVER ========== -->
+<section class="slide cover">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Programming Partnership Proposal</span>
+    <span>For Soccer One Columbus</span>
+  </div>
+  <div class="cover-eyebrow">Proposal · April 2026</div>
+  <h1>Two facilities.<br>Two markets.<br><em>One partner.</em></h1>
+  <div class="cover-sub">
+    A multi-year programming partnership between Aspire Sports and Soccer One Columbus —
+    youth and adult leagues, tournaments, drop-in pickup, summer camps, and signature events
+    across both your locations.
+  </div>
+  <div class="cover-meta">
+    <div>
+      <span class="label">Prepared for</span>
+      <span class="val">Soccer One Columbus</span>
+    </div>
+    <div>
+      <span class="label">Locations</span>
+      <span class="val">Worthington · Downtown / OSU</span>
+    </div>
+    <div>
+      <span class="label">Prepared by</span>
+      <span class="val">Aspire Sports</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SLIDE 2: THESIS ========== -->
+<section class="slide thesis">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>01 / The thesis</span>
+  </div>
+  <div class="thesis-body">
+    <div class="pull">
+      Most programming operators only know how to run <em>one</em> playbook.<br>You have <em>two</em> markets — and we're built to run both.
+    </div>
+    <div class="attrib">— The opportunity, in one sentence</div>
+  </div>
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>02 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 3: TWO MARKETS ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>02 / The two markets</span>
+  </div>
+  <div class="slide-eyebrow">§ THE TWO MARKETS</div>
+  <h2 class="slide-title">Different demand. Different playbook.</h2>
+
+  <div class="two-markets">
+    <div class="market-card suburban">
+      <div class="place"><span class="loc">Worthington</span> · near Powell &amp; Lewis Center</div>
+      <h3>Suburban family destination.</h3>
+      <div class="who">
+        Youth-heavy demand. Premium adult coed evenings. After-school skills clinics.
+        Saturday mornings packed with U6–HS games. Summer day camps when competitors go dark.
+      </div>
+      <div class="what">
+        <h4>What runs here</h4>
+        <ul>
+          <li>Youth leagues — U6 through HS, Sat AM + weekday eve</li>
+          <li>Skills clinics + academy — afterschool 3–6pm</li>
+          <li>Adult coed Sunday + late-week leagues</li>
+          <li>Walking soccer 50+ · Mom & Tot · Birthday parties</li>
+          <li>Summer day camps Jun–Aug, 9am–4pm</li>
+        </ul>
+      </div>
+      <div class="gap">Nearest direct competitor — Stars Indoor (5 min away). Geographic capture from Powell/Lewis Center families is the moat.</div>
+    </div>
+
+    <div class="market-card urban">
+      <div class="place"><span class="loc">Downtown</span> · OSU corridor</div>
+      <h3>Urban adult social hub.</h3>
+      <div class="who">
+        Students, young professionals, downtown employers.
+        Express format weeknights. Drop-in pickup memberships. OSU + Wexner partnerships.
+        Tournament + bar atmosphere.
+      </div>
+      <div class="what">
+        <h4>What runs here</h4>
+        <ul>
+          <li>Adult Standard leagues weeknight 7–10pm</li>
+          <li>Adult Express (25-min × 4 teams/hr) M–F 5–10pm</li>
+          <li>Drop-in pickup membership ($40/mo unlimited)</li>
+          <li>OSU faculty / Wexner Med staff weekday morning</li>
+          <li>Greek IM cups + downtown corporate leagues</li>
+        </ul>
+      </div>
+      <div class="gap">Zero major indoor soccer operator in the OSU corridor. Genuine market whitespace — pricing flexibility AND market creation.</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>03 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 4: WHAT ASPIRE BRINGS ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>03 / What we bring</span>
+  </div>
+  <div class="slide-eyebrow">§ WHAT ASPIRE BRINGS</div>
+  <h2 class="slide-title">Four capabilities your facility can't hire one at a time.</h2>
+
+  <div class="quad-grid">
+    <div class="quad">
+      <div class="num">01</div>
+      <h3>A modern league platform.</h3>
+      <p>Registration, payments, scheduling, and Telegram team chat in one place. No more email threads or fragmented tools. Built specifically for multi-tenant sports operations.</p>
+    </div>
+    <div class="quad">
+      <div class="num">02</div>
+      <h3>A complete programming catalog.</h3>
+      <p>Youth + adult leagues in multiple formats. Drop-in pickup. Skills clinics. Summer camps. Birthday parties. Corporate league sales. All tested products, all ready to launch.</p>
+    </div>
+    <div class="quad">
+      <div class="num">03</div>
+      <h3>A signature tournament series.</h3>
+      <p>24 events per year with food trucks, sponsors, atmosphere. Brand-defining weekend experiences your competitors don't offer. The cross-sell engine for everything else.</p>
+    </div>
+    <div class="quad">
+      <div class="num">04</div>
+      <h3>Operational lift removed.</h3>
+      <p>We handle registration, scheduling, ref management, customer service, marketing, kit procurement, tournament ops. You stay focused on the rental side and the building.</p>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>04 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 5: REVENUE STREAMS ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>04 / Revenue streams</span>
+  </div>
+  <div class="slide-eyebrow">§ HOW WE MAKE MONEY TOGETHER</div>
+  <h2 class="slide-title">Four streams of revenue. All shared.</h2>
+
+  <div class="streams-grid">
+    <div class="stream">
+      <div class="stream-num">01</div>
+      <div class="stream-label">Field Rental</div>
+      <h3>Programming hours.</h3>
+      <p>Aspire commits to league hours, off-peak hours, and tournament weekends across both facilities. Volume-priced. Year-round. The foundation of the partnership.</p>
+    </div>
+    <div class="stream">
+      <div class="stream-num">02</div>
+      <div class="stream-label">Tournaments</div>
+      <h3>Event-day revenue.</h3>
+      <p>Aspire-operated tournament series. Revenue share or fixed daily rate — your choice each event. Plus tournament sponsorships we source and share with you.</p>
+    </div>
+    <div class="stream">
+      <div class="stream-num">03</div>
+      <div class="stream-label">F&amp;B + Vending</div>
+      <h3>Concession uplift.</h3>
+      <p>Aspire programming drives traffic to your concessions. Tournament and signature league days become your highest revenue days. A modest share back to Aspire keeps both sides aligned on event-day F&amp;B.</p>
+    </div>
+    <div class="stream">
+      <div class="stream-num">04</div>
+      <div class="stream-label">Ancillary + Brand</div>
+      <h3>Brand value.</h3>
+      <p>Birthday parties, summer camps, merch — Aspire-driven traffic that pays you field rental. Plus the brand identity that drives retail rental demand you capture directly.</p>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>05 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 6: WORTHINGTON PROGRAMMING ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>05 / Worthington</span>
+  </div>
+  <div class="slide-eyebrow">§ FACILITY ONE</div>
+  <h2 class="slide-title">Worthington — what runs and what it costs families.</h2>
+
+  <div class="prog-grid">
+    <div class="prog-intro">
+      <div class="place-tag">Suburban Family Programming</div>
+      <h3>Saturday mornings packed. Sunday evenings filled. Summer kept alive.</h3>
+      <p>Youth leagues are the anchor. Skills clinics fill the after-school window. Adult coed runs Sunday afternoons and weeknight late slots. Walking soccer, Mom &amp; Tot, and birthday parties capture demand competitors leave on the floor.</p>
+      <div class="density-row">
+        <div class="density">
+          <span class="num">115</span>
+          <span class="label">Field-hours / week<br>programmed by Aspire</span>
+        </div>
+      </div>
+    </div>
+    <div class="prog-list">
+      <h4>Youth — the anchor</h4>
+      <table>
+        <tr><td>Youth team registration · 8 games</td><td class="price">$1,195</td></tr>
+        <tr><td>Youth per-player · 8 games (no kit)</td><td class="price">$149</td></tr>
+        <tr><td>Optional kit add-on (slim · jersey + shorts)</td><td class="price">$130</td></tr>
+        <tr><td>Optional kit add-on (full bundle)</td><td class="price">$250</td></tr>
+        <tr><td>U6/U8 mini-league · 4v4</td><td class="price">$249</td></tr>
+      </table>
+      <h4>Adult — Sunday + late-week</h4>
+      <table>
+        <tr><td>Adult coed Standard · 8 games</td><td class="price">$1,095</td></tr>
+        <tr><td>Adult free agent</td><td class="price">$129</td></tr>
+      </table>
+      <h4>Skills, camps + family</h4>
+      <table>
+        <tr><td>After-school clinics · 4-week cycle</td><td class="price">$149</td></tr>
+        <tr><td>Summer day camp · per week</td><td class="price">$325</td></tr>
+        <tr><td>Birthday parties · 2-hr field package</td><td class="price">$300</td></tr>
+        <tr><td>Walking Soccer 50+ · 8 weeks</td><td class="price">$99</td></tr>
+        <tr><td>Mom &amp; Tot · 6 weeks</td><td class="price">$99</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>06 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 7: DOWNTOWN PROGRAMMING ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>06 / Downtown</span>
+  </div>
+  <div class="slide-eyebrow">§ FACILITY TWO</div>
+  <h2 class="slide-title">Downtown — adult social hub. Market we're creating.</h2>
+
+  <div class="prog-grid">
+    <div class="prog-intro">
+      <div class="place-tag">Urban Adult Programming</div>
+      <h3>Express format leads. Drop-in fills. OSU + corporate underwrite weekday hours.</h3>
+      <p>Standard adult coed runs weeknights. Express format (4 teams per field-hour, 25-min games) runs alongside — perfect for the after-work and late-night downtown crowd. Drop-in pickup membership creates recurring revenue. OSU partnerships fill weekday daytime that would otherwise sit empty.</p>
+      <div class="density-row">
+        <div class="density">
+          <span class="num">131</span>
+          <span class="label">Field-hours / week<br>programmed by Aspire</span>
+        </div>
+      </div>
+    </div>
+    <div class="prog-list">
+      <h4>Adult leagues</h4>
+      <table>
+        <tr><td>Adult Standard · 8 games (50-min)</td><td class="price">$1,095</td></tr>
+        <tr><td>Adult Express · 8 games (25-min, 4 teams/hr)</td><td class="price">$895</td></tr>
+        <tr><td>Adult free agent</td><td class="price">$129</td></tr>
+        <tr><td>Student Express · OSU ID required</td><td class="price">$99</td></tr>
+        <tr><td>Corporate league entry</td><td class="price">$1,495</td></tr>
+        <tr><td>Greek / IM team package</td><td class="price">$795</td></tr>
+      </table>
+      <h4>Drop-in + pickup</h4>
+      <table>
+        <tr><td>All-Access membership · per month</td><td class="price">$40</td></tr>
+        <tr><td>Drop-in single session</td><td class="price">$15</td></tr>
+        <tr><td>Lunch league · 4-week pass</td><td class="price">$89</td></tr>
+      </table>
+      <h4>Off-peak partnerships</h4>
+      <table>
+        <tr><td>Wexner Medical staff league · M–F 9am</td><td class="price">Custom</td></tr>
+        <tr><td>OSU Faculty Wellness · M–F 10am</td><td class="price">Custom</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>07 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 8: TOURNAMENTS ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>07 / Tournaments</span>
+  </div>
+  <div class="slide-eyebrow">§ THE TOURNAMENT SERIES</div>
+  <h2 class="slide-title">The brand-event engine.</h2>
+
+  <div class="tourney-showcase">
+    <div class="tourney-pull">
+      <div class="big">12</div>
+      <div class="big-sub">Tournament weekends · Year One</div>
+      <div class="blurb">
+        One per month average to start. Youth at Worthington with food trucks, inflatables, and photo packages.
+        Adult at Downtown with food trucks and event-night atmosphere.
+        <em>Each one a brand event your competitors aren't building.</em>
+        Series scales over Year Two as products prove out.
+      </div>
+    </div>
+    <div class="tourney-features">
+      <div class="tourney-feat">
+        <div class="icon">✦</div>
+        <div class="label">Food</div>
+        <div class="head">Food trucks every event</div>
+        <div class="desc">2–3 trucks per weekend, vendor village, branded photo backdrops, Aspire merch table.</div>
+      </div>
+      <div class="tourney-feat">
+        <div class="icon">♪</div>
+        <div class="label">Atmosphere</div>
+        <div class="head">DJ + live brackets</div>
+        <div class="desc">Live bracket monitors, DJ set, awards podium, banners. Tournament day feels like a tournament.</div>
+      </div>
+      <div class="tourney-feat">
+        <div class="icon">⌘</div>
+        <div class="label">Sponsors</div>
+        <div class="head">Local + national sponsors</div>
+        <div class="desc">Title, field, and award tiers we sell on the series. Sponsorship revenue shared with the facility on activations at your venues.</div>
+      </div>
+      <div class="tourney-feat">
+        <div class="icon">⊕</div>
+        <div class="label">F&amp;B</div>
+        <div class="head">F&amp;B revenue uplift</div>
+        <div class="desc">Tournament days are your highest concession revenue days of the month. Modest share back to Aspire keeps both sides aligned.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>08 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 9: TERM SHEET ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>08 / The deal</span>
+  </div>
+  <div class="slide-eyebrow">§ THE DEAL · REVENUE-SHARING FRAMEWORK</div>
+  <h2 class="slide-title">Streams of revenue. How we share them.</h2>
+
+  <div class="term-sheet">
+    <table>
+      <thead>
+        <tr><th style="width: 30%;">Stream</th><th>Proposed framework</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="term">Programming field rental</td>
+          <td class="detail">Partner-rate pricing across prime-time leagues, off-peak hours, and tournament weekends. Multi-tier structure with <strong>specifics worked out together</strong> based on what fits your operations. Aspire commits to volume; rates reflect that commitment.</td>
+        </tr>
+        <tr>
+          <td class="term">Tournament weekends</td>
+          <td class="detail"><strong>Revenue share on tournament gross</strong> <em>or</em> <strong>fixed daily rate</strong> per event — your choice each event. Plus tournament <strong>sponsorships we source and share</strong> with you (proposed: 15–20% of net sponsorship revenue tied to your venues).</td>
+        </tr>
+        <tr>
+          <td class="term">F&amp;B + vending revenue</td>
+          <td class="detail">You own all base concession revenue. On Aspire event days (tournaments + signature league nights), <strong>Aspire receives a modest share (proposed: 10–15%)</strong> of incremental F&amp;B — reflecting our atmosphere and event-programming investment, and aligning both sides on driving event-day revenue.</td>
+        </tr>
+        <tr>
+          <td class="term">Ancillary, branding + ops</td>
+          <td class="detail">Birthday parties + summer camps run by Aspire pay you standard field rental. Aspire installs branding (we cover production cost) and gets free dedicated storage at each location. <strong>All operations — registration, scheduling, customer service, marketing — handled by Aspire.</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 11pt; color: var(--ink-muted); margin: 14pt 0 0 0; line-height: 1.5;">
+    All percentages and minimums proposed for discussion — final terms shaped together during walk-through and term sheet finalization.
+  </p>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>09 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 10: WHY THIS WORKS FOR YOU ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>09 / Why this works for you</span>
+  </div>
+  <div class="slide-eyebrow">§ THE FACILITY OWNER CASE</div>
+  <h2 class="slide-title">Why this works for you.</h2>
+
+  <div class="why-grid">
+    <div class="why-item">
+      <div class="num">01</div>
+      <h4>Idle capacity becomes committed revenue</h4>
+      <p>Year 1 minimum field rental from Aspire ($40K) is more than you'd net filling those same hours via retail — because retail won't actually fill them all. We pay for utilization you're not capturing today.</p>
+    </div>
+    <div class="why-item">
+      <div class="num">02</div>
+      <h4>Increased retail demand from awareness</h4>
+      <p>Tournament weekends bring 200+ families through your facility. Many become retail rental customers afterward. Aspire programming is your highest-volume marketing channel.</p>
+    </div>
+    <div class="why-item">
+      <div class="num">03</div>
+      <h4>Operational lift removed</h4>
+      <p>League customers complain to Aspire, not to you. Refunds, scheduling conflicts, payment issues, ref no-shows — all our problem. You stay focused on the building.</p>
+    </div>
+    <div class="why-item">
+      <div class="num">04</div>
+      <h4>Concessions revenue uplift</h4>
+      <p>If you have concessions at either facility, tournament days will be your highest revenue days of the month. Aspire's atmosphere programming drives traffic that buys.</p>
+    </div>
+    <div class="why-item">
+      <div class="num">05</div>
+      <h4>Year-round revenue smoothing</h4>
+      <p>Most indoor facilities die in summer. We anchor summer with day camps, tournaments, and Express leagues that fill during months your competitors go dark. Real money in the dead season.</p>
+    </div>
+    <div class="why-item">
+      <div class="num">06</div>
+      <h4>Brand identity for your facilities</h4>
+      <p>Aspire-branded banners, scoreboards, photo walls. Your facilities become <em>destinations</em> for indoor soccer in Columbus, not interchangeable rental space.</p>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>10 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 11: PILOT TIMELINE ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>10 / Next steps</span>
+  </div>
+  <div class="slide-eyebrow">§ FROM PROPOSAL TO LAUNCH</div>
+  <h2 class="slide-title">Pilot first. Full launch after proof.</h2>
+
+  <div class="timeline">
+    <div class="tl-step done">
+      <div class="dot">1</div>
+      <div class="when">May 2026</div>
+      <h4>Joint walk-through</h4>
+      <p>Site visit at both facilities. Confirm operational fit, storage, branding, AV setup, scheduling.</p>
+    </div>
+    <div class="tl-step">
+      <div class="dot">2</div>
+      <div class="when">May–June 2026</div>
+      <h4>Term sheet refinement</h4>
+      <p>Adjust rate structure, revenue minimums, and shared-revenue based on facility specifics. Sign pilot agreement.</p>
+    </div>
+    <div class="tl-step">
+      <div class="dot">3</div>
+      <div class="when">Sep–Nov 2026</div>
+      <h4>Pilot season — Fall 2026</h4>
+      <p>12-week pilot covering September through November. Lower-risk validation. Real registration, real teams, real revenue to underwrite Year 1 commit.</p>
+    </div>
+    <div class="tl-step">
+      <div class="dot">4</div>
+      <div class="when">Winter 2027 →</div>
+      <h4>Full launch · 2-year term</h4>
+      <p>Full programming catalog + tournament series live across both facilities. Year-end performance true-up sets Year 2 minimums.</p>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Partnership Proposal</span>
+    <span>11 / 12</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 12: CLOSE ========== -->
+<section class="slide close">
+  <div class="slide-chrome">
+    <span class="brand"><svg class="aspire-logo" viewBox="0 0 400 180.8"><use href="#aspire-logo"/></svg><span class="accent">//</span> Partnership Proposal</span>
+    <span>For Soccer One Columbus</span>
+  </div>
+  <div class="eyebrow">Let's run this together.</div>
+  <h2>One <em>partner.</em><br>Two facilities.<br>A real <em>year</em> of programming.</h2>
+  <div class="contact">
+    <div>
+      <span class="label">Contact</span>
+      <span class="val">Bashir Awl</span>
+    </div>
+    <div>
+      <span class="label">Email</span>
+      <span class="val">bashir@aspiresportsohio.com</span>
+    </div>
+    <div>
+      <span class="label">Aspire Sports</span>
+      <span class="val">Columbus, Ohio</span>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

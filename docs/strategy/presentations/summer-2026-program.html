@@ -1,0 +1,2133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Summer 2026 Programming — Aspire Sports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --paper: oklch(0.99 0.003 80);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --ink-faint: oklch(0.50 0.008 260);
+    --navy: oklch(0.24 0.06 260);
+    --navy-deep: oklch(0.18 0.07 262);
+    --navy-soft: oklch(0.90 0.025 260);
+    --primary: oklch(0.58 0.19 35);
+    --primary-bright: oklch(0.66 0.21 35);
+    --primary-soft: oklch(0.92 0.035 50);
+    --ochre: oklch(0.75 0.12 75);
+    --ochre-soft: oklch(0.92 0.045 80);
+    --sage: oklch(0.52 0.08 155);
+    --sage-soft: oklch(0.93 0.025 155);
+    --rule: oklch(0.85 0.012 78);
+    --rule-soft: oklch(0.90 0.010 78);
+    --liga: oklch(0.62 0.17 30);
+    --liga-soft: oklch(0.94 0.04 35);
+    --africa: oklch(0.60 0.14 110);
+    --africa-soft: oklch(0.94 0.05 105);
+    --asia: oklch(0.50 0.10 220);
+    --asia-soft: oklch(0.93 0.025 230);
+    /* Brand logo specifics */
+    --logo-blue: #2015B4;
+    --logo-red: #F12524;
+  }
+  @page { size: Letter landscape; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-feature-settings: "ss01", "kern", "liga";
+  }
+  .slide {
+    width: 11in;
+    height: 8.5in;
+    page-break-after: always;
+    page-break-inside: avoid;
+    overflow: hidden;
+    position: relative;
+    padding: 0.5in 0.6in 0.55in 0.6in;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+
+  /* ---------- LOGO ---------- */
+  .logo-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+  .brand-logo {
+    display: inline-block;
+    height: 14pt;
+    width: auto;
+    aspect-ratio: 400 / 180.8;
+    vertical-align: middle;
+    /* the wordmark fill picks up currentColor — see SVG below */
+    color: var(--ink);
+  }
+  .brand-logo.on-dark { color: var(--cream); }
+  .brand-logo.lg { height: 60pt; }
+
+  .slide-chrome {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 6pt;
+    margin-bottom: 14pt;
+    flex-shrink: 0;
+  }
+  .slide-chrome .brand-bar {
+    display: flex;
+    align-items: center;
+    gap: 9pt;
+  }
+  .slide-chrome .sep {
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .slide-footer {
+    position: absolute;
+    bottom: 0.32in;
+    left: 0.6in;
+    right: 0.6in;
+    display: flex;
+    justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--rule);
+    padding-top: 6pt;
+  }
+
+  /* ------- Cover ------- */
+  .cover {
+    background: var(--navy-deep);
+    color: var(--cream);
+    padding: 0.7in 0.8in;
+  }
+  .cover .slide-chrome {
+    border-bottom-color: oklch(0.40 0.06 260);
+    color: oklch(0.78 0.025 80);
+  }
+  .cover-logo-wrap {
+    margin-top: 8pt;
+    margin-bottom: 28pt;
+  }
+  .cover-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--primary-bright);
+    margin-bottom: 16pt;
+    margin-top: 32pt;
+  }
+  .cover h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 76pt;
+    line-height: 0.95;
+    color: var(--cream);
+    margin: 0;
+    letter-spacing: -0.015em;
+    max-width: 9.5in;
+  }
+  .cover h1 em { color: var(--primary-bright); font-style: italic; }
+  .cover-sub {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 18pt;
+    color: oklch(0.85 0.025 80);
+    margin-top: 24pt;
+    max-width: 8in;
+    line-height: 1.4;
+  }
+  .cover-meta {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: oklch(0.78 0.025 80);
+  }
+  .cover-meta .label { display: block; color: oklch(0.62 0.02 80); margin-bottom: 4pt; }
+  .cover-meta .val { color: var(--cream); font-size: 9.5pt; }
+
+  /* ------- Standard slide titles ------- */
+  .slide-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 4pt;
+  }
+  .slide-title {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 30pt;
+    line-height: 1.05;
+    color: var(--navy);
+    margin: 0 0 4pt 0;
+    letter-spacing: -0.005em;
+  }
+  .slide-title::after {
+    content: "";
+    display: block;
+    width: 38pt;
+    height: 2.5px;
+    background: var(--primary);
+    margin: 9pt 0 12pt 0;
+  }
+  .slide-lede {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 13pt;
+    color: var(--ink-2);
+    line-height: 1.4;
+    margin: 0 0 14pt 0;
+    max-width: 8.5in;
+  }
+
+  /* ------- At-a-glance stats ------- */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14pt;
+    margin-top: 14pt;
+  }
+  .stat {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--primary);
+    padding: 14pt 14pt 12pt 14pt;
+    border-radius: 2px;
+  }
+  .stat .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 6pt;
+  }
+  .stat .value {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 36pt;
+    line-height: 1;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+  }
+  .stat .value .unit { font-family: "IBM Plex Mono", monospace; font-style: normal; font-weight: 500; font-size: 11pt; color: var(--ink-muted); margin-left: 3pt; letter-spacing: 0.05em; }
+  .stat .sub {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 8pt;
+    color: var(--ink-2);
+    margin-top: 8pt;
+    line-height: 1.4;
+  }
+
+  /* ------- Pillars columns ------- */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18pt;
+    flex: 1;
+  }
+  .pillar {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 18pt;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+  }
+  .pillar.matched { border-top: 4px solid var(--navy); }
+  .pillar.community { border-top: 4px solid var(--primary); }
+  .pillar.late { border-top: 4px solid var(--ochre); }
+  .pillar .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.22em;
+    color: var(--ink-muted);
+    margin-bottom: 10pt;
+  }
+  .pillar h3 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 22pt;
+    line-height: 1.1;
+    color: var(--navy);
+    margin: 0 0 8pt 0;
+    letter-spacing: -0.005em;
+  }
+  .pillar p {
+    font-size: 9.5pt;
+    line-height: 1.5;
+    color: var(--ink-2);
+    margin: 0 0 10pt 0;
+  }
+  .pillar ul { margin: 8pt 0 0 0; padding: 0; list-style: none; }
+  .pillar li {
+    font-size: 8.5pt;
+    color: var(--ink-2);
+    padding: 4pt 0;
+    border-top: 1px dotted var(--rule);
+    display: flex;
+    justify-content: space-between;
+    gap: 8pt;
+  }
+  .pillar li:first-child { border-top: 1px solid var(--ink); padding-top: 6pt; }
+  .pillar li .lbl { font-family: "IBM Plex Mono", monospace; font-size: 7pt; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+  .pillar li .val { font-weight: 600; color: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 8pt; }
+
+  /* ------- Tables ------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 8.5pt;
+    font-variant-numeric: tabular-nums;
+  }
+  thead { background: var(--navy); }
+  th {
+    padding: 5pt 8pt;
+    text-align: left;
+    color: var(--cream);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  tbody tr { border-bottom: 1px solid var(--rule-soft); }
+  tbody tr:nth-child(even) { background: var(--cream-2); }
+  td { padding: 4pt 8pt; color: var(--ink); vertical-align: top; }
+  td.num, th.num { text-align: right; font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+  td strong { color: var(--navy); }
+
+  /* ------- Adult lineup grid ------- */
+  .match-grid {
+    display: grid;
+    grid-template-columns: 0.7in repeat(6, 1fr);
+    gap: 0;
+    flex: 1;
+    margin-top: 6pt;
+    border-top: 1.5px solid var(--ink);
+  }
+  .mg-day-head, .mg-row-head {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding: 8pt 6pt;
+    border-bottom: 1px solid var(--ink);
+  }
+  .mg-day-head { text-align: center; border-right: 1px solid var(--rule-soft); }
+  .mg-row-head {
+    border-right: 1px solid var(--ink);
+    color: var(--ink-muted);
+  }
+  .mg-cell {
+    padding: 6pt 6pt 8pt 6pt;
+    border-right: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 8pt;
+    color: var(--ink);
+    line-height: 1.4;
+    background: var(--paper);
+    min-height: 0.7in;
+  }
+  .mg-cell.empty { background: var(--cream-3); color: var(--ink-faint); font-style: italic; font-size: 7.5pt; }
+  .mg-cell strong { display: block; font-size: 8pt; color: var(--navy); font-weight: 600; }
+  .mg-cell .price {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    color: var(--primary);
+    margin-top: 2pt;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .tier-c { background: var(--paper); border-left: 2px solid var(--navy); }
+  .tier-d { background: var(--cream-2); border-left: 2px solid var(--ink-faint); }
+  .tier-special { background: var(--ochre-soft); border-left: 2px solid var(--ochre); }
+
+  /* ------- Continental cup cards ------- */
+  .cup-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14pt; flex: 1; }
+  .cup {
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 14pt 14pt 12pt 14pt;
+    display: flex;
+    flex-direction: column;
+    border-radius: 2px;
+  }
+  .cup.liga { border-top: 5px solid var(--liga); background: linear-gradient(180deg, var(--liga-soft) 0%, var(--paper) 24%); }
+  .cup.africa { border-top: 5px solid var(--africa); background: linear-gradient(180deg, var(--africa-soft) 0%, var(--paper) 24%); }
+  .cup.asia { border-top: 5px solid var(--asia); background: linear-gradient(180deg, var(--asia-soft) 0%, var(--paper) 24%); }
+  .cup .cup-name {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22pt;
+    line-height: 1.05;
+    color: var(--navy);
+    margin: 0 0 4pt 0;
+    letter-spacing: -0.01em;
+  }
+  .cup .cup-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 12pt;
+  }
+  .cup .cup-pitch {
+    font-size: 8.5pt;
+    line-height: 1.45;
+    color: var(--ink-2);
+    margin-bottom: 12pt;
+  }
+  .cup .slot-list { margin: 0; padding: 0; list-style: none; flex: 1; }
+  .cup .slot-list li {
+    padding: 5pt 0;
+    border-top: 1px dotted var(--rule);
+    font-size: 8pt;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 1pt;
+  }
+  .cup .slot-list li:first-child { border-top: 1px solid var(--ink); padding-top: 6pt; }
+  .cup .slot-list li .when {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .cup .slot-list li .what { color: var(--ink); }
+  .cup .footnote {
+    border-top: 1.5px solid var(--ink);
+    margin-top: 8pt;
+    padding-top: 8pt;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+    display: flex;
+    justify-content: space-between;
+  }
+  .cup .footnote strong { color: var(--navy); font-weight: 600; }
+
+  /* ------- Weekly schedule grid ------- */
+  .week-grid {
+    display: grid;
+    grid-template-columns: 0.65in repeat(7, 1fr);
+    gap: 0;
+    flex: 1;
+    border-top: 1.5px solid var(--ink);
+    border-left: 1px solid var(--rule);
+  }
+  .wg-day {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--ink);
+    padding: 5pt 0;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--ink);
+    background: var(--cream-2);
+  }
+  .wg-time {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.5pt;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+    padding: 3pt 4pt;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule-soft);
+    text-align: right;
+    line-height: 1;
+  }
+  .wg-cell {
+    padding: 2pt 3pt;
+    border-right: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 6.5pt;
+    line-height: 1.15;
+    color: var(--ink);
+    min-height: 16pt;
+    font-family: "IBM Plex Sans", sans-serif;
+  }
+  .wg-cell.empty { background: var(--cream-3); }
+  .wg-cell .field-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 5.5pt;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    display: block;
+    margin-top: 1pt;
+  }
+  .wg-c-camp { background: var(--ochre-soft); }
+  .wg-c-skills { background: var(--cream-2); }
+  .wg-c-adult { background: oklch(0.92 0.025 260); border-left: 2px solid var(--navy); }
+  .wg-c-liga { background: var(--liga-soft); border-left: 2px solid var(--liga); }
+  .wg-c-africa { background: var(--africa-soft); border-left: 2px solid var(--africa); }
+  .wg-c-asia { background: var(--asia-soft); border-left: 2px solid var(--asia); }
+  .wg-c-express { background: var(--primary-soft); border-left: 2px solid var(--primary); }
+  .wg-c-pickup { background: var(--sage-soft); border-left: 1px solid var(--sage); }
+  .wg-c-tournament { background: oklch(0.95 0.04 50); border-left: 2px dotted var(--primary); font-style: italic; }
+  .wg-c-walking { background: var(--cream-2); }
+  .wg-c-late { background: oklch(0.30 0.04 260); color: var(--cream); border-left: 2px solid var(--ochre); }
+  .wg-c-late .field-tag { color: oklch(0.7 0.025 80); }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8pt 14pt;
+    margin-top: 8pt;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.5pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .legend .swatch {
+    display: inline-block;
+    width: 10pt;
+    height: 10pt;
+    border-radius: 1px;
+    margin-right: 4pt;
+    vertical-align: middle;
+  }
+  .legend .it { display: inline-flex; align-items: center; }
+
+  /* ------- Camp + tournament cards ------- */
+  .week-strip { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8pt; flex: 1; }
+  .week-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--ochre);
+    padding: 10pt 8pt 8pt 8pt;
+    display: flex;
+    flex-direction: column;
+    border-radius: 2px;
+  }
+  .week-card .wno {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.18em;
+    color: var(--primary);
+    text-transform: uppercase;
+  }
+  .week-card .wtitle {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 13pt;
+    line-height: 1.05;
+    color: var(--navy);
+    margin: 6pt 0 4pt 0;
+  }
+  .week-card .wdates {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.5pt;
+    color: var(--ink-muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 6pt;
+  }
+  .week-card .wblurb {
+    font-size: 7.5pt;
+    color: var(--ink-2);
+    line-height: 1.35;
+    flex: 1;
+  }
+  .week-card.special { border-top-color: var(--primary); background: var(--primary-soft); }
+
+  .tour-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12pt; flex: 1; }
+  .tour {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 12pt 14pt 10pt 14pt;
+    display: flex;
+    flex-direction: column;
+    border-radius: 2px;
+    position: relative;
+  }
+  .tour .date-pill {
+    position: absolute;
+    top: 12pt;
+    right: 14pt;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.12em;
+    background: var(--navy);
+    color: var(--cream);
+    padding: 3pt 7pt;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .tour h4 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 16pt;
+    line-height: 1.05;
+    color: var(--navy);
+    margin: 0 60pt 4pt 0;
+  }
+  .tour .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 8pt;
+  }
+  .tour p { font-size: 8.5pt; line-height: 1.4; color: var(--ink-2); margin: 0 0 6pt 0; flex: 1; }
+  .tour .dots { font-family: "IBM Plex Mono", monospace; font-size: 7pt; letter-spacing: 0.08em; color: var(--ink-muted); display: flex; gap: 12pt; }
+  .tour .dots span strong { color: var(--ink); }
+  .tour.crown { border: 2px solid var(--primary); background: linear-gradient(180deg, var(--primary-soft) 0%, var(--paper) 30%); }
+  .tour.crown h4 { color: var(--primary); }
+
+  /* ------- Compliance bars ------- */
+  .util-row {
+    display: grid;
+    grid-template-columns: 1.4in 1fr 0.8in;
+    gap: 12pt;
+    align-items: center;
+    margin: 8pt 0;
+  }
+  .util-row .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8.5pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .util-row .label small { display: block; font-weight: 400; color: var(--ink-muted); font-size: 7pt; letter-spacing: 0.06em; margin-top: 1pt; }
+  .util-bar {
+    height: 16pt;
+    background: var(--cream-3);
+    position: relative;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .util-fill {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    background: var(--navy);
+  }
+  .util-fill.over { background: var(--primary); }
+  .util-bar .ticks { position: absolute; inset: 0; pointer-events: none; }
+  .util-bar .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: oklch(1 0 0 / 0.3); }
+  .util-row .pct {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--navy);
+    text-align: right;
+    letter-spacing: 0.05em;
+  }
+  .util-row .pct small { display: block; font-size: 6.5pt; color: var(--ink-muted); font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* ------- P&L slide ------- */
+  .pnl-table { font-size: 7.5pt; }
+  .pnl-table thead th { font-size: 6.5pt; padding: 4pt 6pt; }
+  .pnl-table td { padding: 2.5pt 6pt; line-height: 1.25; }
+  .pnl-table .activity { font-weight: 500; color: var(--ink); }
+  .pnl-table .activity small {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6pt;
+    color: var(--ink-muted);
+    letter-spacing: 0.04em;
+    margin-top: 1pt;
+    text-transform: uppercase;
+  }
+  .pnl-table tr.subtotal {
+    background: var(--cream-3);
+    border-top: 1.5px solid var(--ink);
+    font-weight: 600;
+  }
+  .pnl-table tr.subtotal td { color: var(--navy); padding: 4pt 6pt; }
+  .pnl-table tr.pnl-liga td:first-child { border-left: 3px solid var(--liga); }
+  .pnl-table tr.pnl-africa td:first-child { border-left: 3px solid var(--africa); }
+  .pnl-table tr.pnl-asia td:first-child { border-left: 3px solid var(--asia); }
+  .pnl-table tr.pnl-adult td:first-child { border-left: 3px solid var(--navy); }
+  .pnl-table tr.pnl-express td:first-child { border-left: 3px solid var(--primary); }
+  .pnl-table tr.pnl-late td:first-child { border-left: 3px solid var(--ochre); }
+  .pnl-table tr.pnl-camp td:first-child { border-left: 3px solid var(--ochre); }
+  .pnl-table tr.pnl-tour td:first-child { border-left: 3px solid var(--primary); }
+  .pnl-table tr.pnl-misc td:first-child { border-left: 3px solid var(--sage); }
+  .pnl-summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10pt;
+    margin-top: 8pt;
+  }
+  .pnl-tile {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 8pt 10pt;
+    border-radius: 2px;
+  }
+  .pnl-tile.net { border-top: 3px solid var(--primary); }
+  .pnl-tile .lbl {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.5pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .pnl-tile .v {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 18pt;
+    line-height: 1;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+    margin-top: 3pt;
+  }
+  .pnl-tile.net .v { color: var(--primary); }
+  .pnl-tile .ann { font-size: 6.5pt; color: var(--ink-2); margin-top: 3pt; line-height: 1.3; }
+
+  /* ------- Financial summary ------- */
+  .fin-grid {
+    display: grid;
+    grid-template-columns: 1.7fr 1fr;
+    gap: 18pt;
+    flex: 1;
+  }
+  .fin-table-wrap { display: flex; flex-direction: column; }
+  .fin-table-wrap table { font-size: 8pt; }
+  .fin-summary { display: flex; flex-direction: column; gap: 10pt; }
+  .fin-row {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 12pt;
+    border-radius: 2px;
+  }
+  .fin-row.net { border-top: 4px solid var(--primary); background: linear-gradient(180deg, var(--primary-soft) 0%, var(--paper) 60%); }
+  .fin-row .lbl {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 4pt;
+  }
+  .fin-row .v {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 26pt;
+    line-height: 1;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+  }
+  .fin-row.net .v { color: var(--primary); }
+  .fin-row .ann { font-size: 7.5pt; color: var(--ink-2); margin-top: 4pt; line-height: 1.4; }
+
+  /* ------- Closing ------- */
+  .closing-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: step;
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12pt 24pt;
+  }
+  .closing-list li {
+    counter-increment: step;
+    padding-left: 36pt;
+    position: relative;
+    font-size: 9pt;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+  .closing-list li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: -2pt;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 14pt;
+    color: var(--primary);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .closing-list li strong { color: var(--ink); display: block; font-size: 9.5pt; margin-bottom: 2pt; }
+
+  /* ------- Generic two-col ------- */
+  .two-col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18pt; flex: 1; }
+  .two-col h4 {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 8pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 6pt 0;
+  }
+  .two-col p { font-size: 9pt; line-height: 1.5; color: var(--ink-2); margin: 0 0 8pt 0; }
+  .callout {
+    background: var(--navy);
+    color: var(--cream);
+    padding: 14pt 16pt;
+    border-radius: 2px;
+    font-size: 9pt;
+    line-height: 1.45;
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--primary-bright);
+    margin-bottom: 6pt;
+  }
+  .callout strong { color: var(--cream); }
+</style>
+</head>
+<body>
+
+<!-- Logo SVG defined once. The "Aspire" wordmark uses currentColor — controlled via .brand-logo color. -->
+<svg class="logo-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="aspire-logo" viewBox="0 0 400 180.8">
+    <!-- The "i" dot -->
+    <path fill="var(--logo-blue)" d="M271.8,40.7c4.8,0,8-3.1,8.2-7.6c0-4.5-3.5-7.8-8.1-7.8c-4.8,0-8.4,3.1-8.4,7.5C263.4,37.3,267.1,40.7,271.8,40.7z"/>
+    <!-- The "Aspire" wordmark — fill picks up currentColor so the logo adapts to background -->
+    <path fill="currentColor" d="M396.6,115.4c-2-5.5-11.3-11.5-18.1-9.3c-2.9,0.9-17.7,0.8-21-0.5c-0.1,0-0.1-0.1-0.2-0.1c-0.2,0-5.7-3.3-5.8-5.4c-0.4-3.3,0.4-7.3,1.6-11.4c8.1-3.8,15.9-8.5,24-12.5c0.9-0.5,2.4-1.4,2.7-2.8l4.9-11.8V61c0.2-0.3,0.2-0.5,0.2-0.7c0-0.5-0.2-0.9-0.4-1.2l-0.2,0.2c-0.2-0.2-0.6-0.5-0.7-0.7l-10.6-5.9c-1.1-0.7-2.4-1-3.5-1c-2.2,0-4.2,1-6.4,2.1c-10,5.5-21.3,18.8-26.9,32c-4.8,4.6-5,3.5-8,4.7c-3,1.2-4.7,0.8-5.6,0.3c-0.9-0.5-0.9-1.6-0.1-2.7L336,61.4c0.7-1.6,0.6-2.4-1.1-3.5l-9.7-5.4c-1.6-0.9-2.7-0.5-4.2,0.5l-20.9,20.3c2.6-6.1,5.3-12.1,8.2-18c0.6-1,0.7-2.4-1.5-2.4h-13.2c-1.3,0-2,0.3-2.4,1.6c-3.9,10.3-8.4,21.1-12.9,31.6c-7.9,5.9-17.7,12.6-21.5,15.4c-1.8,1.2-3.3,1.6-2.2-1.4l17.7-44.7c0.7-1.6,0.7-2.4-1.6-2.4h-12.3c-1.6,0-2.6,0.3-3.1,1.9l-12.2,30.9c-8.1,6.4-15.1,10.5-22.8,13.1c4.2-6.9,10.8-20.3,13.2-26.7c3.3-9,1.8-12.5-5.7-18.7c-1.1-0.9-2-1.4-3.1-1.4c-0.7,0-1.6,0.3-2.6,0.9c-9.9,6.6-19.4,15.3-28.7,22.7c3.1-7.1,6.2-13.9,9.5-20.3c0.9-1.9,0.4-2.4-1.6-2.4h-12.4c-1.8,0-2.9,0.3-3.7,2.3c-3.6,9.9-7.3,20.1-11.1,30.4c-7.9,5.9-18.3,13-22.6,16.2l3.7-24.1c0.9-6.2,2-7.8,8.6-12.5c1.6-1.2,1.8-2.4,0.9-4l-4.2-8c-0.6-1.2-0.9-1.6-2.2-1l-12.3,5.2c-1.1,0.3-1.8,1.4-2,2.6l-2.6,15.6c-4.3,3.4-8.3,6.6-11.5,9.2c-9.5,7.3-23.5,17.4-26.4,19.7c5.5-24.3,17.2-61.9,29.6-87.4c0.6-0.9,0.9-1.6-0.4-2.3c-6-3.6-11.9-8.3-17.7-12.7c-0.5-0.3-0.9-0.3-1.3,0.2c-7.7,14.2-28.2,41.4-47.8,64.5c-26.9,7.8-53.8,22.9-64,37.3c-1.5,2.1-1.8,3.5,0.4,5.2c4.2,3.1,7.5,6.1,11.9,9.2c2,1.4,4,2.1,6.2,2.1c1.5,0,2.9-0.3,4.6-0.9c12.4-4.3,35.9-33.6,44.1-43.7c8.1-1.6,16.3-2.3,24.9-2.6c-5.3,13.9-10.6,26.9-14.5,34.8c-0.4,0.9-0.6,1.4,0.2,2.3c4,4.3,8.1,8.3,12.4,12.5c0.6,0.5,1.1,0.9,1.6,0.9c0.9,0,2-0.9,2.9-1.6c7.1-5.9,27.5-23.2,38.5-32.7c1.4-1,2.8-2.1,4.3-3.2l-2.6,15.4c-0.2,1.9-1.1,3.1-2.9,4.2l-12.4,7.5c-1.6,1-1.8,2.1-0.7,3.5l9.1,10.1c0.9,1.2,1.6,0.5,2.6,0l13.7-8.5c2.2-1.4,4.8-2.4,5.1-5.7c5.1-4.1,11.6-9.2,17.5-14c-8,20.8-16.6,41.7-25.9,61c-0.7,1.7-0.2,1.9,1.5,1.9h14.3c3.3,0,3.5-3.3,4.8-6.6c7-18.2,14.1-39.2,21.8-59.6c11.3-10.2,33.3-29.8,34.6-28.6c1.8,1.7-16.1,30-20.7,35.9c-5.9,0.3-9.3,2.3-12.3,6.4c-0.9,1.4-0.9,2.3,0.4,3.5l9.7,7.3c1.5,1,2.7,0.7,4.4,0c4.4-1.9,7-4.2,10.1-7.1c1.8-1.9,3.8-3.5,6.4-4.5c8.3-3.2,14.4-6.3,20.3-10.3l-3.8,9.8c-0.6,1-0.6,1.9,0.4,2.8l8.4,8.8c0.9,0.7,1.6,1.2,2.6,1.2c0.7,0,1.5-0.5,2.4-1.2c4.7-3.8,14.5-11.6,23.7-18.9c-2.7,6-5.3,11.8-7.8,17.4c-0.7,1.7,0,2.8,1.8,2.8h13.4c2,0.2,2.9-0.7,3.3-2.4c3.8-9.5,7.5-19.4,11.2-29.3c8-7.6,13.9-14.4,22.5-21.8c0.4-0.5,1.3-0.3,0.7,0.7l-9.5,18.6c-0.5,1.4-0.9,2.6,0.7,3.8c4.4,2.9,11.5,7.2,15.9,10.5c1.1,0.9,2,1,3.1,0.7c5.1-3.7,0.7-0.6,5.6-4.2c-0.2,1.4-0.3,2.8-0.3,4.1c0,1.7,0,4,1.8,5.4c0,0,15.7,13.2,15.7,13.2c1.5,1.4,3.6,0.9,5.5,0.7c1.8-0.2,3.5-0.4,5.3-0.4c1.3-0.3,2.7-0.5,4-0.5c2.3-0.1,6.6-0.6,8.8-1.2c6.3-1.9,11.3-1.7,12.1-1c2.8,2.5,6.1,7.7-7,11.6c-5.1,1.5-191.8,1.2-191.8,1.2c-0.6,0-0.7,0.2-0.4,0.5c10.2,10.9,16.1,16.5,26,27.4c1.8,2.1,3.5,2.3,5.7,1.7c46-11.1,118.4-14.8,153.9-18c0,0,0,0,0.1,0c3.8-0.6,7.6-1.1,11.4-2c2.8-0.6,6-1.1,8.6-2.4c3.6-1.8,5.4-5.4,5.9-9.2C398.7,122.6,398.4,120.3,396.6,115.4z M375.5,60.7c1.1,0,2.2,0.2,3.1,0.7c0.5,0.2,0.7,0.9,0.4,1.4l-3.7,5.5c-0.6,1-2,1.7-2.7,2.1c-4.8,2.1-9.9,4.7-14.6,6.9C360.7,72.5,368.6,60.7,375.5,60.7z M31.6,103.1c-4.8,3.6-10.2,5.5-16.6,4.9c-1.1-0.3-1.8-0.9-0.4-2.4c11.5-13.5,25.6-21.7,41-26.3C46.2,90,37.6,98.6,31.6,103.1z M79.1,63.8c13.2-16.8,25.2-33.1,32.4-41.6c-2.7,9.7-7.5,24.4-13,39.4C92.5,61.7,85.9,62.4,79.1,63.8z"/>
+    <!-- "SPORTS" letters in red -->
+    <path fill="var(--logo-red)" d="M260.1,176.1l1.9-1.6c0.5,1,1,1.6,1.5,2.1c0.5,0.4,1.2,0.6,1.9,0.6c0.9,0,1.7-0.3,2.2-0.8c0.6-0.5,0.9-1.2,0.9-2.1c0-0.6-0.2-1.1-0.5-1.6c-0.3-0.4-0.8-0.9-1.6-1.3c-0.2-0.1-0.4-0.2-0.7-0.4c-1.3-0.7-2.2-1.3-2.6-1.8c-0.3-0.4-0.6-0.8-0.7-1.2s-0.2-1-0.2-1.5c0-1.5,0.5-2.8,1.5-3.7s2.3-1.4,3.9-1.4c1.1,0,2,0.2,2.8,0.7c0.8,0.4,1.5,1.1,2,2l-1.7,1.5c-0.4-0.6-0.8-1.1-1.3-1.4s-1-0.5-1.6-0.5c-0.9,0-1.6,0.2-2.1,0.8c-0.5,0.5-0.8,1.1-0.8,1.9c0,1,0.8,1.8,2.3,2.7c0.4,0.2,0.7,0.4,0.9,0.5c1.2,0.7,2,1.4,2.5,2.1c0.5,0.7,0.7,1.6,0.7,2.7c0,1.7-0.5,3-1.6,3.9c-1.1,1-2.5,1.5-4.3,1.5c-1.2,0-2.3-0.3-3.2-0.9C261.3,178.1,260.6,177.2,260.1,176.1z"/>
+    <path fill="var(--logo-red)" d="M286.3,179.1h-2.7l2.3-17.4h3.6c1.4,0,2.4,0.1,3,0.2c0.6,0.2,1.2,0.4,1.6,0.8c0.5,0.4,0.9,0.9,1.2,1.5c0.3,0.6,0.4,1.3,0.4,2.1c0,0.9-0.2,1.7-0.5,2.4c-0.3,0.7-0.8,1.3-1.4,1.8c-0.5,0.4-1.1,0.7-1.8,0.9s-1.8,0.3-3.3,0.3h-0.8h-0.7L286.3,179.1z M287.6,169.2h0.9c1.7,0,2.9-0.2,3.5-0.6s0.9-1.1,0.9-2.1c0-0.8-0.3-1.4-0.8-1.8s-1.5-0.5-3-0.5h-0.9L287.6,169.2z"/>
+    <path fill="var(--logo-red)" d="M316.8,161.2c2.6,0,4.8,0.8,6.3,2.3c1.6,1.5,2.4,3.6,2.4,6.2c0,1.4-0.3,2.7-0.8,3.9s-1.2,2.3-2.2,3.2c-0.9,0.9-2,1.5-3.2,2c-1.2,0.5-2.5,0.7-3.8,0.7c-2.5,0-4.6-0.8-6.1-2.3c-1.6-1.6-2.3-3.6-2.3-6.1c0-1.4,0.2-2.7,0.8-4c0.5-1.2,1.2-2.3,2.2-3.2c0.9-0.8,1.9-1.5,3.1-2C314.2,161.5,315.5,161.2,316.8,161.2z M322.7,169.8c0-1.8-0.6-3.3-1.7-4.4c-1.1-1.1-2.6-1.7-4.4-1.7c-0.9,0-1.8,0.2-2.6,0.5c-0.8,0.3-1.5,0.8-2.1,1.5c-0.7,0.7-1.2,1.5-1.6,2.4c-0.4,0.9-0.5,1.9-0.5,2.9c0,1.8,0.5,3.3,1.6,4.4c1.1,1.1,2.5,1.7,4.3,1.7c2,0,3.7-0.7,5-2.1C322,173.6,322.7,171.9,322.7,169.8z"/>
+    <path fill="var(--logo-red)" d="M339.9,179.1h-2.7l2.3-17.4h3.1c1.4,0,2.4,0.1,3,0.2s1.2,0.4,1.6,0.8c0.5,0.4,0.9,0.9,1.2,1.5c0.3,0.6,0.4,1.3,0.4,2.1c0,1.4-0.4,2.6-1.2,3.5s-1.9,1.5-3.3,1.7l4.8,7.6h-3.1l-4.6-7.5h-0.6L339.9,179.1z M341.2,169.4h0.5c1.7,0,2.9-0.2,3.5-0.6c0.6-0.4,0.9-1.2,0.9-2.2c0-0.9-0.3-1.5-0.8-1.9c-0.5-0.4-1.5-0.5-3-0.5h-0.4L341.2,169.4z"/>
+    <path fill="var(--logo-red)" d="M362.9,179.1l2-14.9h-4.7l0.3-2.5h11.9l-0.3,2.5h-4.4l-2,14.9H362.9z"/>
+    <path fill="var(--logo-red)" d="M381.2,176.1l1.9-1.6c0.5,1,1,1.6,1.5,2.1c0.5,0.4,1.2,0.6,1.9,0.6c0.9,0,1.7-0.3,2.2-0.8c0.6-0.5,0.9-1.2,0.9-2.1c0-0.6-0.2-1.1-0.5-1.6c-0.3-0.4-0.8-0.9-1.6-1.3c-0.2-0.1-0.4-0.2-0.7-0.4c-1.3-0.7-2.2-1.3-2.6-1.8c-0.3-0.4-0.6-0.8-0.7-1.2c-0.2-0.5-0.2-1-0.2-1.5c0-1.5,0.5-2.8,1.5-3.7s2.3-1.4,3.9-1.4c1.1,0,2,0.2,2.8,0.7s1.5,1.1,2,2l-1.7,1.5c-0.4-0.6-0.8-1.1-1.3-1.4c-0.5-0.3-1-0.5-1.6-0.5c-0.9,0-1.6,0.2-2.1,0.8c-0.5,0.5-0.8,1.1-0.8,1.9c0,1,0.8,1.8,2.3,2.7c0.4,0.2,0.7,0.4,0.9,0.5c1.2,0.7,2,1.4,2.5,2.1c0.5,0.7,0.7,1.6,0.7,2.7c0,1.7-0.5,3-1.6,3.9s-2.5,1.5-4.3,1.5c-1.2,0-2.3-0.3-3.2-0.9C382.5,178.1,381.8,177.2,381.2,176.1z"/>
+  </symbol>
+</svg>
+
+<!-- ================================================================ -->
+<!-- COVER -->
+<!-- ================================================================ -->
+<section class="slide cover">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo on-dark"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Programming</span></span>
+    <span>Internal · Summer 2026</span>
+  </div>
+
+  <div class="cover-logo-wrap">
+    <svg class="brand-logo on-dark lg" style="height: 88pt;"><use href="#aspire-logo"/></svg>
+  </div>
+
+  <div class="cover-eyebrow">§ JUNE — SEPTEMBER 2026</div>
+  <h1>The summer<br>nobody else <em>can</em> sell.</h1>
+  <p class="cover-sub">Indoor air conditioning when it's 95° outside. Three community leagues for the diasporas that already love the game. Late nights when the rest of Columbus is closed. A full lineup at Worthington and a packed single-field schedule downtown.</p>
+  <div class="cover-meta">
+    <div>
+      <span class="label">Worthington</span>
+      <span class="val">3 fields</span>
+    </div>
+    <div>
+      <span class="label">Downtown</span>
+      <span class="val">1 field</span>
+    </div>
+    <div>
+      <span class="label">Season</span>
+      <span class="val">Jun 3 — Sep 7</span>
+    </div>
+    <div>
+      <span class="label">Registration opens</span>
+      <span class="val">Mon May 4</span>
+    </div>
+    <div>
+      <span class="label">Drafted</span>
+      <span class="val">2026·05·02</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- AT A GLANCE -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>At a glance</span>
+  </div>
+  <div class="slide-eyebrow">§ AT A GLANCE</div>
+  <h2 class="slide-title">A summer of programming, on inventory the rest of the market leaves empty.</h2>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="label">Adult Leagues</div>
+      <div class="value">34<span class="unit">leagues</span></div>
+      <div class="sub">20 weeknight adult leagues at Worthington + 8 league products downtown + 6 community-cup slots across both facilities.</div>
+    </div>
+    <div class="stat">
+      <div class="label">Communities</div>
+      <div class="value">3<span class="unit">cups</span></div>
+      <div class="sub">Liga Latina, Aspire Africa Cup, Aspire Asia Cup — feeding one Continental Cup Final.</div>
+    </div>
+    <div class="stat">
+      <div class="label">Day-Camp Weeks</div>
+      <div class="value">8<span class="unit">weeks</span></div>
+      <div class="sub">Jun 9 – Aug 1, themed weeks including a World Cup Week and a Heritage Week.</div>
+    </div>
+    <div class="stat">
+      <div class="label">Tournaments</div>
+      <div class="value">6<span class="unit">events</span></div>
+      <div class="sub">Memorial Day · Eid al-Adha · Liga Latina Kickoff · 4th of July · Africa Cup Showcase · Continental Cup Final.</div>
+    </div>
+  </div>
+
+  <div class="stat-row" style="margin-top: 18pt;">
+    <div class="stat" style="border-top-color: var(--navy);">
+      <div class="label">Projected Revenue</div>
+      <div class="value">$451<span class="unit">k</span></div>
+      <div class="sub">Conservative Year 1 modeling with measured Year-1 fill at the new facilities.</div>
+    </div>
+    <div class="stat" style="border-top-color: var(--navy);">
+      <div class="label">Net Contribution</div>
+      <div class="value">$161<span class="unit">k</span></div>
+      <div class="sub">~36% margin. Roughly half of full Year 1 contribution lands in this single quarter.</div>
+    </div>
+    <div class="stat" style="border-top-color: var(--ochre);">
+      <div class="label">Field Utilization</div>
+      <div class="value">66<span class="unit">%</span></div>
+      <div class="sub">Worthington 63%, Downtown 73%. Industry average is 35–45%.</div>
+    </div>
+    <div class="stat" style="border-top-color: var(--sage);">
+      <div class="label">Late-Night Hours</div>
+      <div class="value">11<span class="unit">/wk</span></div>
+      <div class="sub">10pm–1am inventory captured for community-league cultural slots and after-bar play.</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>02 / 14</span>
+    <span>Summer 2026 — At a glance</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- THE THREE PILLARS -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Three pillars</span>
+  </div>
+  <div class="slide-eyebrow">§ STRATEGY</div>
+  <h2 class="slide-title">Three independent revenue legs.</h2>
+  <p class="slide-lede">No single product carries the summer. A full weeknight adult lineup at Worthington, a community franchise nobody else has, and late-night inventory the rest of the market leaves on the table. Three facilities of demand, only two locations needed.</p>
+
+  <div class="pillars">
+    <div class="pillar matched">
+      <div class="num">01</div>
+      <h3>Adult league core.</h3>
+      <p>A full six-night weeknight adult lineup at Worthington. Tiered C/D divisions, age variants (Over 30, Over 40), free-agent placement, every standard format Columbus indoor adult expects. Six nights of league play, $1,050 per team, seven-game season.</p>
+      <ul>
+        <li><span class="lbl">Leagues</span><span class="val">20 + free agent</span></li>
+        <li><span class="lbl">Venue</span><span class="val">Worthington</span></li>
+        <li><span class="lbl">Nights / week</span><span class="val">6 (Sat open)</span></li>
+        <li><span class="lbl">Deadline</span><span class="val">May 22</span></li>
+        <li><span class="lbl">Format</span><span class="val">6v6 · 7 games</span></li>
+        <li><span class="lbl">Revenue</span><span class="val">~$70K</span></li>
+      </ul>
+    </div>
+
+    <div class="pillar community">
+      <div class="num">02</div>
+      <h3>Continental Cup Series.</h3>
+      <p>Liga Latina, Aspire Africa Cup, Aspire Asia Cup — three concurrent community leagues feeding one championship final on August 22–23. Not branding-by-translation. A program built for the calendars these communities already keep.</p>
+      <ul>
+        <li><span class="lbl">Leagues</span><span class="val">6 (3 cups × 2 venues)</span></li>
+        <li><span class="lbl">Format</span><span class="val">7v7 / 5v5 Express</span></li>
+        <li><span class="lbl">Price</span><span class="val">$795 / $695 team</span></li>
+        <li><span class="lbl">Trophy event</span><span class="val">Aug 22–23</span></li>
+        <li><span class="lbl">Year-1 teams</span><span class="val">~85 across 3 cups</span></li>
+        <li><span class="lbl">Revenue</span><span class="val">~$80K</span></li>
+      </ul>
+    </div>
+
+    <div class="pillar late">
+      <div class="num">03</div>
+      <h3>Late-night moat.</h3>
+      <p>Aspire stays open until 11pm Worthington / 12am Downtown standard, with select programming until 1am. Maghrib in Columbus summer is 9:15pm. Restaurant industry shifts end at 11pm. The cultural slot is late-night — and it's empty inventory most operators close.</p>
+      <ul>
+        <li><span class="lbl">New leagues</span><span class="val">Liga Latina Late, Africa Cup Late, Friday After-Bar</span></li>
+        <li><span class="lbl">Late hours / wk</span><span class="val">~11 field-hrs</span></li>
+        <li><span class="lbl">Off-peak field rate</span><span class="val">≤$80/hr (negotiate)</span></li>
+        <li><span class="lbl">Ref premium</span><span class="val">+$5/game</span></li>
+        <li><span class="lbl">Revenue</span><span class="val">~$27K incremental</span></li>
+        <li><span class="lbl">Strategic value</span><span class="val">moat &gt; line-item</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>03 / 14</span>
+    <span>The three pillars</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- WORTHINGTON ADULT LINEUP -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Pillar 1 · Worthington adult lineup</span>
+  </div>
+  <div class="slide-eyebrow">§ PILLAR 1 · WORTHINGTON ADULT LINEUP</div>
+  <h2 class="slide-title">Twenty leagues. Six nights. One season.</h2>
+  <p class="slide-lede">Coed, men's, and women's flights with C/D division splits and age-tiered Over 30 and Over 40 variants. Free Agent house-team placement for individuals. <strong>$1,050 per team · 7 games + playoffs · season opens Wed June 3.</strong></p>
+
+  <div class="match-grid">
+    <div></div>
+    <div class="mg-day-head">Mon</div>
+    <div class="mg-day-head">Tue</div>
+    <div class="mg-day-head">Wed</div>
+    <div class="mg-day-head">Thu</div>
+    <div class="mg-day-head">Fri</div>
+    <div class="mg-day-head">Sun</div>
+
+    <div class="mg-row-head">C-tier 6–8pm</div>
+    <div class="mg-cell tier-c"><strong>Coed Open C</strong><br>Men's Open C<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell tier-c"><strong>Coed Open C</strong><br>Men's Over 30 C<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell tier-c"><strong>Women's Open</strong><br>Men's Open C<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell tier-c"><strong>Coed Open C</strong><br>Coed Open D<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell tier-c"><strong>Coed Open C</strong><br>Coed Over 30 C<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell empty">— Sat reserved for community + tournaments —<br>(see schedule grid)</div>
+
+    <div class="mg-row-head">D-tier 8–10pm</div>
+    <div class="mg-cell tier-d"><strong>Coed Open D</strong><br>Men's Open D<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell tier-d"><strong>Coed Open D</strong><br>Men's Over 30 D<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell tier-d"><strong>Women's Over 40</strong><br>Men's Open D<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell empty">— Thu light night —<br>(2 leagues only)</div>
+    <div class="mg-cell tier-d"><strong>Coed Open D</strong><br>Coed Over 30 D<div class="price">$1,050 / team</div></div>
+    <div class="mg-cell tier-c"><strong>Sun Coed Open C</strong><br>Sun Coed Open D<div class="price">$1,050 / team</div></div>
+
+    <div class="mg-row-head">Free Agent</div>
+    <div class="mg-cell tier-special" style="grid-column: span 6;"><strong>Free Agent house-team placement</strong> — register as an individual ($129/player), Aspire builds the team and assigns to one of the leagues above. Single intake; placements communicated by registration deadline.<div class="price">$129 / player</div></div>
+  </div>
+
+  <div class="slide-footer">
+    <span>04 / 14</span>
+    <span>Worthington adult lineup</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- CONTINENTAL CUP SERIES -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Pillar 2 · Continental Cup Series</span>
+  </div>
+  <div class="slide-eyebrow">§ PILLAR 2 · COMMUNITY LEAGUES</div>
+  <h2 class="slide-title">Three cups, one final.</h2>
+  <p class="slide-lede">Names mirror the real continental tournaments these diasporas grew up watching — Copa América, AFCON, the AFC Asian Cup. Eight regular-season weeks. Champions meet in the Aspire Continental Cup Final on Aug 22–23.</p>
+
+  <div class="cup-row">
+    <div class="cup liga">
+      <div class="cup-tag">§ HISPANIC / LATINO</div>
+      <div class="cup-name">Liga Latina</div>
+      <p class="cup-pitch">The largest community target — Mexican, Salvadoran, Guatemalan, Puerto Rican, Honduran. Sundays are Latino soccer days, family-attended; Friday Happy Hour serves the downtown professional crowd; Saturday Late captures restaurant-industry shift workers.</p>
+      <ul class="slot-list">
+        <li><span class="when">Sun 1–9pm · Worthington</span><span class="what">Hombres + Mixta — 16 teams each</span></li>
+        <li><span class="when">Fri 6–10pm · Downtown</span><span class="what">Friday Happy Hour Express — 8 teams</span></li>
+        <li><span class="when">Fri 10pm–12am · Downtown</span><span class="what">Friday Late Express — 4 teams</span></li>
+        <li><span class="when">Sat 10pm–12am · Worthington</span><span class="what">Liga Latina Late — 6 teams (NEW)</span></li>
+      </ul>
+      <div class="footnote">
+        <span><strong>$795</strong> / team standard</span>
+        <span><strong>$95</strong> / player free agent</span>
+      </div>
+    </div>
+
+    <div class="cup africa">
+      <div class="cup-tag">§ EAST + WEST AFRICAN</div>
+      <div class="cup-name">Aspire Africa&nbsp;Cup</div>
+      <p class="cup-pitch">Somali, Ghanaian, Nigerian, Eritrean, Ethiopian. Saturday at Worthington is the cultural sports day — and Worthington's location places it 10–15 min from the heaviest East African neighborhoods. Wednesday Express picks up downtown professionals + OSU students.</p>
+      <ul class="slot-list">
+        <li><span class="when">Sat 5–9pm · Worthington</span><span class="what">Africa Cup Men's — 16 teams</span></li>
+        <li><span class="when">Sat 9–11pm · Worthington</span><span class="what">Africa Cup Coed — 8 teams</span></li>
+        <li><span class="when">Wed 8pm–12am · Downtown</span><span class="what">Africa Cup Express (extended) — 8 teams</span></li>
+        <li><span class="when">Sat 11pm–1am · Worthington</span><span class="what">Africa Cup Late — 6 teams (NEW)</span></li>
+      </ul>
+      <div class="footnote">
+        <span><strong>$795</strong> / team standard</span>
+        <span><strong>$95</strong> / player free agent</span>
+      </div>
+    </div>
+
+    <div class="cup asia">
+      <div class="cup-tag">§ MENA + SOUTH ASIAN</div>
+      <div class="cup-name">Aspire Asia&nbsp;Cup</div>
+      <p class="cup-pitch">Iraqi, Syrian, Lebanese, Yemeni, Palestinian, Iranian, Pakistani, Afghan. Schedule respects the observant Muslim Friday rhythm: avoid Jumu'ah afternoon, use Friday post-Maghrib (after ~9:15pm in summer) and Sunday morning. Both slots are first-of-evening for these players, not last.</p>
+      <ul class="slot-list">
+        <li><span class="when">Sun 9am–1pm · Worthington</span><span class="what">Asia Cup Men's — 16 teams</span></li>
+        <li><span class="when">Fri 9pm–1am · Downtown (extended)</span><span class="what">Asia Cup Late Express — 8 teams</span></li>
+      </ul>
+      <div class="footnote">
+        <span><strong>$795</strong> / team standard</span>
+        <span><strong>$95</strong> / player free agent</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>05 / 14</span>
+    <span>The Continental Cup Series</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- WORTHINGTON WEEKLY GRID -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Worthington · 3 fields</span>
+  </div>
+  <div class="slide-eyebrow">§ WORTHINGTON · WEEKLY GRID · 3 FIELDS</div>
+  <h2 class="slide-title">The three-field engine.</h2>
+
+  <div class="week-grid" style="grid-template-rows: 14pt repeat(15, 1fr);">
+    <div></div>
+    <div class="wg-day">Mon</div>
+    <div class="wg-day">Tue</div>
+    <div class="wg-day">Wed</div>
+    <div class="wg-day">Thu</div>
+    <div class="wg-day">Fri</div>
+    <div class="wg-day">Sat</div>
+    <div class="wg-day">Sun</div>
+
+    <div class="wg-time">8a</div>
+    <div class="wg-cell wg-c-walking">Walking 50+<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-walking">Mom &amp; Tot<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-walking">Walking 50+<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-walking">Mom &amp; Tot<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-walking">Walking 50+<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Heritage Youth<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-asia">Asia Cup warm-up<span class="field-tag">A·B·C</span></div>
+
+    <div class="wg-time">9a</div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Heritage Youth<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-asia">Asia Cup men's<span class="field-tag">A·B·C</span></div>
+
+    <div class="wg-time">10a</div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Heritage Youth<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-asia">Asia Cup men's<span class="field-tag">A·B·C</span></div>
+
+    <div class="wg-time">11a</div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Heritage Youth<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-skills">GK Academy<span class="field-tag">B</span></div>
+
+    <div class="wg-time">12p</div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell empty">open rental</div>
+    <div class="wg-cell wg-c-liga">Liga Latina hombres<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">1p</div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-tournament">Tournament window<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-liga">Liga Latina hombres<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">2p</div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-tournament">Tournament window<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-liga">Liga Latina hombres<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">3p</div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-camp">Day camp<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-tournament">Tournament window<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-liga">Liga Latina hombres<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">4p</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-skills">Skills 6–9 / 10–12<span class="field-tag">A·B</span></div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-skills">Skills 6–9 / 10–12<span class="field-tag">A·B</span></div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-tournament">Tournament window<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-liga">Liga Latina mixta<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">5p</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-skills">Youth 4v4<span class="field-tag">A·B</span></div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-skills">Youth 4v4<span class="field-tag">A·B</span></div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-africa">Africa Cup men's<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-liga">Liga Latina mixta<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">6p</div>
+    <div class="wg-cell wg-c-adult">Coed C / Men's C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Coed C / Men's O30 C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Women's Open / Men's C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Coed C / Coed D<span class="field-tag">A·B</span></div>
+    <div class="wg-cell wg-c-adult">Coed C / Coed O30 C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-africa">Africa Cup men's<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-liga">Liga Latina mixta<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">7p</div>
+    <div class="wg-cell wg-c-adult">Coed C / Men's C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Coed C / Men's O30 C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Women's Open / Men's C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Coed C / Coed D<span class="field-tag">A·B</span></div>
+    <div class="wg-cell wg-c-adult">Coed C / Coed O30 C<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-africa">Africa Cup men's<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-liga">Liga Latina mixta<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">8p</div>
+    <div class="wg-cell wg-c-adult">Coed D / Men's D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Coed D / Men's O30 D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Women's O40 / Men's D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-adult">Coed D / Coed O30 D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-africa">Africa Cup men's<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Sun Coed C / D<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">9p</div>
+    <div class="wg-cell wg-c-adult">Coed D / Men's D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Coed D / Men's O30 D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-adult">Women's O40 / Men's D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-adult">Coed D / Coed O30 D<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell wg-c-africa">Africa Cup coed<span class="field-tag">A·B</span></div>
+    <div class="wg-cell wg-c-adult">Sun Coed C / D<span class="field-tag">A·B</span></div>
+
+    <div class="wg-time">10p</div>
+    <div class="wg-cell wg-c-pickup">Late pickup<span class="field-tag">A</span></div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-pickup">Late pickup<span class="field-tag">A</span></div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-pickup">Late pickup<span class="field-tag">A</span></div>
+    <div class="wg-cell wg-c-africa">Africa Cup coed<span class="field-tag">A·B</span></div>
+    <div class="wg-cell empty">closed</div>
+
+    <div class="wg-time">11p</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-late">Liga Latina Late<span class="field-tag">A·B</span></div>
+    <div class="wg-cell empty">closed</div>
+
+    <div class="wg-time">12a</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-late">Africa Cup Late<span class="field-tag">A·B·C</span></div>
+    <div class="wg-cell empty">closed</div>
+  </div>
+
+  <div class="legend">
+    <span class="it"><span class="swatch" style="background: oklch(0.92 0.025 260); border-left: 2px solid var(--navy);"></span>Adult league</span>
+    <span class="it"><span class="swatch" style="background: var(--liga-soft); border-left: 2px solid var(--liga);"></span>Liga Latina</span>
+    <span class="it"><span class="swatch" style="background: var(--africa-soft); border-left: 2px solid var(--africa);"></span>Africa Cup</span>
+    <span class="it"><span class="swatch" style="background: var(--asia-soft); border-left: 2px solid var(--asia);"></span>Asia Cup</span>
+    <span class="it"><span class="swatch" style="background: var(--ochre-soft);"></span>Camp / Heritage</span>
+    <span class="it"><span class="swatch" style="background: oklch(0.30 0.04 260);"></span>Late-night</span>
+    <span class="it"><span class="swatch" style="background: var(--cream-2);"></span>Walking / Mom &amp; Tot / Skills</span>
+    <span class="it"><span class="swatch" style="background: var(--sage-soft); border-left: 1px solid var(--sage);"></span>Pickup</span>
+  </div>
+
+  <div class="slide-footer">
+    <span>06 / 14</span>
+    <span>Worthington · 3 fields · A · B · C</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- DOWNTOWN WEEKLY GRID — BEEFED UP -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Downtown · 1 field · packed</span>
+  </div>
+  <div class="slide-eyebrow">§ DOWNTOWN · WEEKLY GRID · 1 FIELD · MORE HOURS</div>
+  <h2 class="slide-title">One field, more hours, eight league products.</h2>
+  <p class="slide-lede">A single field forces sequential programming — but extending hours from 9am to 1am gives 16 daily field-hours to fill. Eight league products run across the week, plus drop-in pickup, lunch league, corporate partnerships, and weekend tournaments. Downtown finishes summer at 73% utilization.</p>
+
+  <div class="week-grid" style="grid-template-rows: 14pt repeat(15, 1fr);">
+    <div></div>
+    <div class="wg-day">Mon</div>
+    <div class="wg-day">Tue</div>
+    <div class="wg-day">Wed</div>
+    <div class="wg-day">Thu</div>
+    <div class="wg-day">Fri</div>
+    <div class="wg-day">Sat</div>
+    <div class="wg-day">Sun</div>
+
+    <div class="wg-time">9a</div>
+    <div class="wg-cell wg-c-skills">Wexner Med staff</div>
+    <div class="wg-cell wg-c-skills">Wexner Med staff</div>
+    <div class="wg-cell wg-c-skills">Wexner Med staff</div>
+    <div class="wg-cell wg-c-skills">Wexner Med staff</div>
+    <div class="wg-cell wg-c-skills">Wexner Med staff</div>
+    <div class="wg-cell wg-c-pickup">Drop-in pickup</div>
+    <div class="wg-cell wg-c-pickup">Drop-in pickup</div>
+
+    <div class="wg-time">10a</div>
+    <div class="wg-cell wg-c-skills">OSU faculty wellness</div>
+    <div class="wg-cell wg-c-skills">OSU faculty wellness</div>
+    <div class="wg-cell wg-c-skills">OSU faculty wellness</div>
+    <div class="wg-cell wg-c-skills">OSU faculty wellness</div>
+    <div class="wg-cell wg-c-skills">OSU faculty wellness</div>
+    <div class="wg-cell wg-c-pickup">Drop-in pickup</div>
+    <div class="wg-cell wg-c-pickup">OSU Club practice</div>
+
+    <div class="wg-time">11a</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-express">Sat Coed Express</div>
+    <div class="wg-cell wg-c-pickup">OSU Club practice</div>
+
+    <div class="wg-time">12p</div>
+    <div class="wg-cell wg-c-skills">Lunch league</div>
+    <div class="wg-cell wg-c-skills">Lunch league</div>
+    <div class="wg-cell wg-c-skills">Lunch league</div>
+    <div class="wg-cell wg-c-skills">Lunch league</div>
+    <div class="wg-cell wg-c-skills">Lunch league</div>
+    <div class="wg-cell wg-c-express">Sat Coed Express</div>
+    <div class="wg-cell wg-c-adult">Sun Coed Standard</div>
+
+    <div class="wg-time">1p</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-express">Sat Coed Express</div>
+    <div class="wg-cell wg-c-adult">Sun Coed Standard</div>
+
+    <div class="wg-time">2p</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-tournament">Tournament window</div>
+    <div class="wg-cell wg-c-adult">Sun Coed Standard</div>
+
+    <div class="wg-time">3p</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-tournament">Tournament window</div>
+    <div class="wg-cell wg-c-pickup">OSU Sunday pickup</div>
+
+    <div class="wg-time">4p</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell empty">open</div>
+    <div class="wg-cell wg-c-skills">Greek/IM</div>
+    <div class="wg-cell wg-c-tournament">Tournament window</div>
+    <div class="wg-cell wg-c-pickup">OSU Sunday pickup</div>
+
+    <div class="wg-time">5p</div>
+    <div class="wg-cell wg-c-express">Happy Hour Coed</div>
+    <div class="wg-cell wg-c-express">Tue Coed Express</div>
+    <div class="wg-cell wg-c-express">Happy Hour Coed</div>
+    <div class="wg-cell wg-c-express">Thu Coed Express</div>
+    <div class="wg-cell wg-c-skills">Greek/IM</div>
+    <div class="wg-cell wg-c-express">Sat Men's Express</div>
+    <div class="wg-cell wg-c-pickup">OSU Sunday pickup</div>
+
+    <div class="wg-time">6p</div>
+    <div class="wg-cell wg-c-express">Happy Hour Coed</div>
+    <div class="wg-cell wg-c-express">Tue Coed Express</div>
+    <div class="wg-cell wg-c-express">Happy Hour Coed</div>
+    <div class="wg-cell wg-c-express">Thu Coed Express</div>
+    <div class="wg-cell wg-c-liga">Liga Latina Friday</div>
+    <div class="wg-cell wg-c-express">Sat Men's Express</div>
+    <div class="wg-cell wg-c-pickup">OSU Sunday pickup</div>
+
+    <div class="wg-time">7p</div>
+    <div class="wg-cell wg-c-express">Mon Men's Express</div>
+    <div class="wg-cell wg-c-express">Tue Men's O30 Express</div>
+    <div class="wg-cell wg-c-express">Wed Mixed Express</div>
+    <div class="wg-cell wg-c-express">Thu Women's Express</div>
+    <div class="wg-cell wg-c-liga">Liga Latina Friday</div>
+    <div class="wg-cell wg-c-express">Sat Men's Express</div>
+    <div class="wg-cell wg-c-express">Sun Coed Express</div>
+
+    <div class="wg-time">8p</div>
+    <div class="wg-cell wg-c-express">Mon Men's Express</div>
+    <div class="wg-cell wg-c-express">Tue Men's O30 Express</div>
+    <div class="wg-cell wg-c-africa">Africa Cup Express</div>
+    <div class="wg-cell wg-c-express">Thu Women's Express</div>
+    <div class="wg-cell wg-c-liga">Liga Latina Friday</div>
+    <div class="wg-cell wg-c-express">Sat Men's Express</div>
+    <div class="wg-cell wg-c-express">Sun Coed Express</div>
+
+    <div class="wg-time">9p</div>
+    <div class="wg-cell wg-c-express">Late Coed Express</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-africa">Africa Cup Express</div>
+    <div class="wg-cell wg-c-express">Late Coed Express</div>
+    <div class="wg-cell wg-c-asia">Asia Cup Late</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+
+    <div class="wg-time">10p</div>
+    <div class="wg-cell wg-c-express">Late Coed Express</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-africa">Africa Cup Express</div>
+    <div class="wg-cell wg-c-express">Late Coed Express</div>
+    <div class="wg-cell wg-c-asia">Asia Cup Late</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+
+    <div class="wg-time">11p</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-late">Africa Cup Express</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-late">Liga Latina Late + After-Bar</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+
+    <div class="wg-time">12a</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell wg-c-late">Asia Cup + After-Bar</div>
+    <div class="wg-cell empty">closed</div>
+    <div class="wg-cell empty">closed</div>
+  </div>
+
+  <div class="legend">
+    <span class="it"><span class="swatch" style="background: var(--primary-soft); border-left: 2px solid var(--primary);"></span>Express format</span>
+    <span class="it"><span class="swatch" style="background: var(--liga-soft); border-left: 2px solid var(--liga);"></span>Liga Latina</span>
+    <span class="it"><span class="swatch" style="background: var(--africa-soft); border-left: 2px solid var(--africa);"></span>Africa Cup</span>
+    <span class="it"><span class="swatch" style="background: var(--asia-soft); border-left: 2px solid var(--asia);"></span>Asia Cup</span>
+    <span class="it"><span class="swatch" style="background: oklch(0.92 0.025 260); border-left: 2px solid var(--navy);"></span>Sun Coed Standard</span>
+    <span class="it"><span class="swatch" style="background: oklch(0.30 0.04 260);"></span>Late-night</span>
+    <span class="it"><span class="swatch" style="background: var(--sage-soft); border-left: 1px solid var(--sage);"></span>Pickup / OSU</span>
+  </div>
+
+  <div class="slide-footer">
+    <span>07 / 14</span>
+    <span>Downtown · 1 field · 8 league products</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- FIELD UTILIZATION COMPLIANCE -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Field utilization · compliance check</span>
+  </div>
+  <div class="slide-eyebrow">§ FIELD MATH · DOES IT FIT</div>
+  <h2 class="slide-title">Four fields, balanced.</h2>
+  <p class="slide-lede">Worthington's three fields run parallel programming on weeknights — exactly the right size for the four-leagues-per-night adult lineup. Downtown's one field runs sequentially for sixteen hours each weekday. Both finish in healthy utilization range with deliberate buffer.</p>
+
+  <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 24pt; flex: 1;">
+    <div>
+      <h4 style="font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 9pt; letter-spacing: 0.16em; text-transform: uppercase; color: var(--primary); margin: 0 0 10pt 0;">Capacity by facility</h4>
+
+      <div class="util-row">
+        <div class="label">Worthington<small>3 fields × 105 hr/wk + Sat extension</small></div>
+        <div class="util-bar"><div class="util-fill" style="width: 62.7%;"></div><div class="ticks"><div class="tick" style="left:25%"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:75%"></div></div></div>
+        <div class="pct">63%<small>202 / 322 hrs</small></div>
+      </div>
+
+      <div class="util-row">
+        <div class="label">Downtown<small>1 field, 16hr/day open + Fri to 1am</small></div>
+        <div class="util-bar"><div class="util-fill" style="width: 73.5%;"></div><div class="ticks"><div class="tick" style="left:25%"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:75%"></div></div></div>
+        <div class="pct">73%<small>83 / 113 hrs</small></div>
+      </div>
+
+      <div class="util-row" style="border-top: 1.5px solid var(--ink); padding-top: 8pt; margin-top: 12pt;">
+        <div class="label">Combined<small>4 fields total</small></div>
+        <div class="util-bar"><div class="util-fill" style="width: 65.5%;"></div><div class="ticks"><div class="tick" style="left:25%"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:75%"></div></div></div>
+        <div class="pct">66%<small>285 / 435 hrs</small></div>
+      </div>
+
+      <p style="margin-top: 14pt; font-size: 8pt; line-height: 1.5; color: var(--ink-2);">Industry average for indoor soccer facilities is <strong>35–45%</strong> paid utilization. Aspire's projected summer utilization sits well above that, driven by the Worthington adult lineup, the community-cup late-night extensions, and a packed single-field downtown schedule. The 37% headroom at Worthington and 27% headroom at Downtown absorb weather makeups, fill overflow, and facility-direct rentals.</p>
+    </div>
+
+    <div>
+      <h4 style="font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 9pt; letter-spacing: 0.16em; text-transform: uppercase; color: var(--primary); margin: 0 0 8pt 0;">Worthington league-night fit · 3 fields</h4>
+
+      <table style="font-size: 7.5pt;">
+        <thead>
+          <tr><th>Night</th><th class="num">Leagues</th><th class="num">Games</th><th class="num">Slots</th><th class="num">Fit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Mon</td><td class="num">4</td><td class="num">12</td><td class="num">12</td><td class="num">✓</td></tr>
+          <tr><td>Tue</td><td class="num">4</td><td class="num">12</td><td class="num">12</td><td class="num">✓</td></tr>
+          <tr><td>Wed</td><td class="num">4</td><td class="num">12</td><td class="num">12</td><td class="num">✓</td></tr>
+          <tr><td>Thu</td><td class="num">2</td><td class="num">6</td><td class="num">12</td><td class="num">✓</td></tr>
+          <tr><td>Fri</td><td class="num">4</td><td class="num">12</td><td class="num">12</td><td class="num">✓</td></tr>
+          <tr><td>Sun</td><td class="num">2</td><td class="num">6</td><td class="num">6</td><td class="num">✓</td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin-top: 12pt; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 9pt; letter-spacing: 0.16em; text-transform: uppercase; color: var(--primary);">Downtown daily fit · 1 field</h4>
+
+      <table style="font-size: 7.5pt;">
+        <thead>
+          <tr><th>Day</th><th class="num">Programmed hrs</th><th class="num">Open hrs</th><th class="num">Fit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Mon</td><td class="num">8</td><td class="num">14</td><td class="num">✓</td></tr>
+          <tr><td>Tue</td><td class="num">6</td><td class="num">14</td><td class="num">✓</td></tr>
+          <tr><td>Wed</td><td class="num">9</td><td class="num">14</td><td class="num">✓</td></tr>
+          <tr><td>Thu</td><td class="num">7</td><td class="num">14</td><td class="num">✓</td></tr>
+          <tr><td>Fri</td><td class="num">11</td><td class="num">17</td><td class="num">✓</td></tr>
+          <tr><td>Sat</td><td class="num">7</td><td class="num">14</td><td class="num">✓</td></tr>
+          <tr><td>Sun</td><td class="num">9</td><td class="num">12</td><td class="num">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>08 / 14</span>
+    <span>Field utilization · compliant</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- DAY CAMPS -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Day camps</span>
+  </div>
+  <div class="slide-eyebrow">§ SUMMER DAY CAMPS · WORTHINGTON · 8 WEEKS</div>
+  <h2 class="slide-title">Eight weeks. One million minutes of soccer.</h2>
+  <p class="slide-lede">Themed-week structure runs Mon Jun 9 – Fri Aug 1, 9am–4pm. Half-day option, sibling discount, scholarship slots reserved on Heritage Week. <strong>$325/wk full-day · $195/wk half-day.</strong> Field A used during camp hours; B and C remain open for rental.</p>
+
+  <div class="week-strip">
+    <div class="week-card">
+      <div class="wno">Week 01</div>
+      <div class="wtitle">Skills Week</div>
+      <div class="wdates">Jun 9–13</div>
+      <div class="wblurb">Foundation — passing, dribbling, shooting. Sets the technical base for the whole summer.</div>
+    </div>
+    <div class="week-card special">
+      <div class="wno">Week 02</div>
+      <div class="wtitle">World Cup Week</div>
+      <div class="wdates">Jun 16–20</div>
+      <div class="wblurb">Each kid drafted to a country. Friday World Cup mini-tournament. Tied directly to Continental Cup theme.</div>
+    </div>
+    <div class="week-card">
+      <div class="wno">Week 03</div>
+      <div class="wtitle">Goalkeeper Week</div>
+      <div class="wdates">Jun 22–26</div>
+      <div class="wblurb">Specialty week, premium pricing. Position-specific training daily, dedicated GK coach.</div>
+    </div>
+    <div class="week-card">
+      <div class="wno">Week 04</div>
+      <div class="wtitle">Star Player Week</div>
+      <div class="wdates">Jun 29–Jul 3</div>
+      <div class="wblurb">Four days (skip July 4). Each day spotlights an international star — Messi, Salah, Mbappé, Vinícius.</div>
+    </div>
+    <div class="week-card">
+      <div class="wno">Week 05</div>
+      <div class="wtitle">Speed &amp; Agility</div>
+      <div class="wdates">Jul 7–11</div>
+      <div class="wblurb">Athletic development — sprint mechanics, cutting, change-of-direction. Conditioning paired with ball work.</div>
+    </div>
+    <div class="week-card">
+      <div class="wno">Week 06</div>
+      <div class="wtitle">Tournament Prep</div>
+      <div class="wdates">Jul 14–18</div>
+      <div class="wblurb">Friday Night Lights mini-tournament caps the week. Parents invited; medals all around.</div>
+    </div>
+    <div class="week-card special">
+      <div class="wno">Week 07</div>
+      <div class="wtitle">Heritage Week</div>
+      <div class="wdates">Jul 21–25</div>
+      <div class="wblurb">Latino · African · MENA · European · USA. Cultural food, music, mini-history. Kids share their family's soccer culture.</div>
+    </div>
+    <div class="week-card">
+      <div class="wno">Week 08</div>
+      <div class="wtitle">Showcase</div>
+      <div class="wdates">Jul 28–Aug 1</div>
+      <div class="wblurb">Final week. College coaches invited Friday for HS-aged showcase. Demo games, individual highlights.</div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top: 16pt;">
+    <div class="label">Why summer camp here works</div>
+    <strong>Day camps convert dead daytime field-hours into ~$106K of revenue and ~$67K of net contribution</strong> in a season the rest of the indoor industry treats as overhead-only. Worthington has the family demographic. Field A handles 30+ kids/day comfortably while B and C remain available for facility-direct rentals.
+  </div>
+
+  <div class="slide-footer">
+    <span>09 / 14</span>
+    <span>Eight themed weeks of camp</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- TOURNAMENTS -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Tournaments · 6 events</span>
+  </div>
+  <div class="slide-eyebrow">§ TOURNAMENT CADENCE</div>
+  <h2 class="slide-title">Six tournaments, three months, one trophy that matters.</h2>
+
+  <div class="tour-row" style="margin-bottom: 14pt;">
+    <div class="tour">
+      <span class="date-pill">May 23–25</span>
+      <div class="tag">§ OPENING</div>
+      <h4>Memorial Day Premier</h4>
+      <p>Youth Saturday + adult coed 4v4 + adult premier. Worthington + Downtown. Brand-recognizable opener.</p>
+      <div class="dots"><span><strong>52</strong> teams</span><span><strong>Net</strong> ~$5K</span></div>
+    </div>
+    <div class="tour">
+      <span class="date-pill">May 27–30</span>
+      <div class="tag">§ COMMUNITY TRUST</div>
+      <h4>Aspire Eid al-Adha Cup</h4>
+      <p>Halal-only food trucks. No alcohol Worthington venue. MENA + East African community first impression.</p>
+      <div class="dots"><span><strong>24</strong> teams</span><span><strong>Net</strong> ~$5K</span></div>
+    </div>
+    <div class="tour">
+      <span class="date-pill">May 30</span>
+      <div class="tag">§ LIGA LATINA KICKOFF</div>
+      <h4>Cinco-Themed Cup</h4>
+      <p>Date moved from May 5 (too early to register). Latino DJ, birria + pupusa trucks, beer garden, Spanish anthem.</p>
+      <div class="dots"><span><strong>28</strong> teams</span><span><strong>Net</strong> ~$5K</span></div>
+    </div>
+  </div>
+
+  <div class="tour-row">
+    <div class="tour">
+      <span class="date-pill">Jul 3</span>
+      <div class="tag">§ MID-SUMMER</div>
+      <h4>4th of July Express</h4>
+      <p>Adult coed 5v5 Express, single Friday night. Patriotic theming + late DJ + beer garden.</p>
+      <div class="dots"><span><strong>12</strong> teams</span><span><strong>Net</strong> ~$3K</span></div>
+    </div>
+    <div class="tour">
+      <span class="date-pill">Jul 18–19</span>
+      <div class="tag">§ AFRICA CUP SHOWCASE</div>
+      <h4>Mid-Summer Africa Cup</h4>
+      <p>Mid-season showcase. Open to invited outside teams. AFCON-styled trophy, jollof + sambusa trucks, Afrobeats DJ.</p>
+      <div class="dots"><span><strong>24</strong> teams</span><span><strong>Net</strong> ~$5K</span></div>
+    </div>
+    <div class="tour crown">
+      <span class="date-pill">Aug 22–23</span>
+      <div class="tag">§ THE FINAL</div>
+      <h4>Continental Cup Final</h4>
+      <p>Liga Latina · Africa Cup · Asia Cup champions meet. Saturday Worthington round-robin → Sunday Downtown final under lights. 6 trucks, 3 DJs, anthems, live-stream.</p>
+      <div class="dots"><span><strong>3</strong> champion teams</span><span><strong>Net</strong> ~$10K</span></div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>10 / 14</span>
+    <span>Six tournaments build to one final</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- P&L SLIDE 1 — LEAGUES -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>P&amp;L · Leagues</span>
+  </div>
+  <div class="slide-eyebrow">§ ACTIVITY P&amp;L · LEAGUES + COMMUNITY CUPS + LATE-NIGHT</div>
+  <h2 class="slide-title" style="font-size: 26pt; margin-bottom: 0;">League P&amp;L by activity.</h2>
+  <p class="slide-lede" style="font-size: 10pt; margin: 0 0 8pt 0; max-width: 9.5in;">Direct contribution per activity — revenue minus field, refs, insurance, equipment, admin per team. Shared overhead reconciles on the financial roll-up.</p>
+
+  <table class="pnl-table">
+    <thead>
+      <tr>
+        <th>Activity</th>
+        <th class="num">Volume</th>
+        <th class="num">Price</th>
+        <th class="num">Revenue</th>
+        <th class="num">Direct cost</th>
+        <th class="num">Net</th>
+        <th class="num">Margin</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="pnl-adult">
+        <td class="activity">Worthington Adult Standard<small>14 leagues, 5 teams avg, 7-game season, 6v6</small></td>
+        <td class="num">65 teams</td>
+        <td class="num">$1,050</td>
+        <td class="num">$68,250</td>
+        <td class="num">$43,550</td>
+        <td class="num">$24,700</td>
+        <td class="num">36%</td>
+      </tr>
+      <tr class="pnl-adult">
+        <td class="activity">Worthington Free Agent placement<small>House-team intake, distributed across leagues</small></td>
+        <td class="num">15 players</td>
+        <td class="num">$129</td>
+        <td class="num">$1,935</td>
+        <td class="num">$1,000</td>
+        <td class="num">$935</td>
+        <td class="num">48%</td>
+      </tr>
+      <tr class="pnl-adult">
+        <td class="activity">Downtown Sun Coed Standard<small>1 league, 6v6 50-min games</small></td>
+        <td class="num">12 teams</td>
+        <td class="num">$1,050</td>
+        <td class="num">$12,600</td>
+        <td class="num">$8,500</td>
+        <td class="num">$4,100</td>
+        <td class="num">33%</td>
+      </tr>
+      <tr class="pnl-liga">
+        <td class="activity">Liga Latina (Worthington Sun + Downtown Fri)<small>Hombres + Mixta + Friday Happy Hour</small></td>
+        <td class="num">38 teams</td>
+        <td class="num">$795 / $695</td>
+        <td class="num">$28,810</td>
+        <td class="num">$18,000</td>
+        <td class="num">$10,810</td>
+        <td class="num">38%</td>
+      </tr>
+      <tr class="pnl-africa">
+        <td class="activity">Aspire Africa Cup (Sat Worthington + Wed Downtown)<small>Men's + Coed + Wed Express</small></td>
+        <td class="num">30 teams</td>
+        <td class="num">$795 / $695</td>
+        <td class="num">$22,850</td>
+        <td class="num">$13,800</td>
+        <td class="num">$9,050</td>
+        <td class="num">40%</td>
+      </tr>
+      <tr class="pnl-asia">
+        <td class="activity">Aspire Asia Cup (Sun Worthington + Fri Downtown)<small>Sun men's + Fri post-Maghrib Express</small></td>
+        <td class="num">24 teams</td>
+        <td class="num">$795 / $695</td>
+        <td class="num">$18,080</td>
+        <td class="num">$11,200</td>
+        <td class="num">$6,880</td>
+        <td class="num">38%</td>
+      </tr>
+      <tr class="pnl-express">
+        <td class="activity">Downtown Express — Happy Hour + Late Coed<small>Mon/Wed 5–7pm + Mon/Thu 9–11pm</small></td>
+        <td class="num">26 teams</td>
+        <td class="num">$695</td>
+        <td class="num">$18,070</td>
+        <td class="num">$11,300</td>
+        <td class="num">$6,770</td>
+        <td class="num">37%</td>
+      </tr>
+      <tr class="pnl-express">
+        <td class="activity">Downtown Express — additional weeknight + weekend<small>6 NEW: Mon Men's, Tue Coed, Tue Men's O30, Thu Women's, Sat Coed, Sat Men's, Sun Coed</small></td>
+        <td class="num">36 teams</td>
+        <td class="num">$695</td>
+        <td class="num">$25,020</td>
+        <td class="num">$15,660</td>
+        <td class="num">$9,360</td>
+        <td class="num">37%</td>
+      </tr>
+      <tr class="pnl-misc">
+        <td class="activity">Heritage Youth Saturday<small>5v5 mixed, U10/U12/U14 age bands</small></td>
+        <td class="num">60 players</td>
+        <td class="num">$149</td>
+        <td class="num">$8,940</td>
+        <td class="num">$5,000</td>
+        <td class="num">$3,940</td>
+        <td class="num">44%</td>
+      </tr>
+      <tr class="pnl-misc">
+        <td class="activity">Greek/IM + Lunch League + skills clinics + GK academy<small>Downtown lunch, Worthington daytime/afterschool</small></td>
+        <td class="num">mixed</td>
+        <td class="num">varies</td>
+        <td class="num">$15,766</td>
+        <td class="num">$9,000</td>
+        <td class="num">$6,766</td>
+        <td class="num">43%</td>
+      </tr>
+      <tr class="pnl-late">
+        <td class="activity">Late-night incremental layer<small>Liga Latina Late, Africa Cup Late, After-Bar Express, late pickup</small></td>
+        <td class="num">~22 teams + pickup</td>
+        <td class="num">$695–$795</td>
+        <td class="num">$27,000</td>
+        <td class="num">$14,200</td>
+        <td class="num">$12,800</td>
+        <td class="num">47%</td>
+      </tr>
+      <tr class="subtotal">
+        <td>Total — Leagues + Cups + Late-night</td>
+        <td class="num">~340 entries</td>
+        <td class="num">—</td>
+        <td class="num">$247,321</td>
+        <td class="num">$151,210</td>
+        <td class="num">$96,111</td>
+        <td class="num">39%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="slide-footer">
+    <span>11 / 14</span>
+    <span>P&amp;L · Leagues</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- P&L SLIDE 2 — CAMPS, TOURNAMENTS, ANCILLARY -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>P&amp;L · Camps + Tournaments + Ancillary</span>
+  </div>
+  <div class="slide-eyebrow">§ ACTIVITY P&amp;L · CAMPS + TOURNAMENTS + ANCILLARY</div>
+  <h2 class="slide-title" style="font-size: 26pt; margin-bottom: 0;">Camps, tournaments &amp; ancillary P&amp;L.</h2>
+  <p class="slide-lede" style="font-size: 10pt; margin: 0 0 8pt 0; max-width: 9.5in;">Day-camp economics carry the season's daytime revenue. Tournaments are the highest-margin product — atmosphere events with sponsorships and food-truck commission. Sponsorships, pickup, kit margins are 65%+ lines.</p>
+
+  <table class="pnl-table">
+    <thead>
+      <tr>
+        <th>Activity</th>
+        <th class="num">Volume</th>
+        <th class="num">Avg price</th>
+        <th class="num">Revenue</th>
+        <th class="num">Direct cost</th>
+        <th class="num">Net</th>
+        <th class="num">Margin</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="pnl-camp">
+        <td class="activity">Day camps — Worthington full-day<small>8 weeks × 28 kids avg, $325/wk</small></td>
+        <td class="num">224 wk-slots</td>
+        <td class="num">$325</td>
+        <td class="num">$72,800</td>
+        <td class="num">$39,200</td>
+        <td class="num">$33,600</td>
+        <td class="num">46%</td>
+      </tr>
+      <tr class="pnl-camp">
+        <td class="activity">Day camps — Worthington half-day<small>8 weeks × 12 kids, $195/wk</small></td>
+        <td class="num">96 wk-slots</td>
+        <td class="num">$195</td>
+        <td class="num">$18,720</td>
+        <td class="num">$8,500</td>
+        <td class="num">$10,220</td>
+        <td class="num">55%</td>
+      </tr>
+      <tr class="pnl-camp">
+        <td class="activity">Day camp extended care<small>Before/after care add-on</small></td>
+        <td class="num">120 add-ons</td>
+        <td class="num">$25</td>
+        <td class="num">$3,000</td>
+        <td class="num">$1,000</td>
+        <td class="num">$2,000</td>
+        <td class="num">67%</td>
+      </tr>
+      <tr class="pnl-camp">
+        <td class="activity">Day camps — Downtown urban pilot<small>2 weeks × 18 kids, $325/wk</small></td>
+        <td class="num">36 wk-slots</td>
+        <td class="num">$325</td>
+        <td class="num">$11,700</td>
+        <td class="num">$7,200</td>
+        <td class="num">$4,500</td>
+        <td class="num">38%</td>
+      </tr>
+      <tr class="pnl-tour">
+        <td class="activity">Memorial Day Premier<small>Youth Sat + adult Sun + adult Mon premier</small></td>
+        <td class="num">52 teams</td>
+        <td class="num">$295–395</td>
+        <td class="num">$14,540</td>
+        <td class="num">$9,210</td>
+        <td class="num">$5,330</td>
+        <td class="num">37%</td>
+      </tr>
+      <tr class="pnl-tour">
+        <td class="activity">Aspire Eid al-Adha Cup<small>Halal food trucks, no alcohol Worthington</small></td>
+        <td class="num">24 teams</td>
+        <td class="num">$345</td>
+        <td class="num">$10,400</td>
+        <td class="num">$5,600</td>
+        <td class="num">$4,800</td>
+        <td class="num">46%</td>
+      </tr>
+      <tr class="pnl-tour">
+        <td class="activity">Liga Latina Kickoff (Cinco-themed)<small>Latino DJ, birria/pupusa, beer garden</small></td>
+        <td class="num">28 teams</td>
+        <td class="num">$295–345</td>
+        <td class="num">$11,500</td>
+        <td class="num">$6,300</td>
+        <td class="num">$5,200</td>
+        <td class="num">45%</td>
+      </tr>
+      <tr class="pnl-tour">
+        <td class="activity">4th of July Express<small>Friday-night single-evening Express</small></td>
+        <td class="num">12 teams</td>
+        <td class="num">$195</td>
+        <td class="num">$5,500</td>
+        <td class="num">$2,700</td>
+        <td class="num">$2,800</td>
+        <td class="num">51%</td>
+      </tr>
+      <tr class="pnl-tour">
+        <td class="activity">Mid-Summer Africa Cup Showcase<small>Open to invited outside teams</small></td>
+        <td class="num">24 teams</td>
+        <td class="num">$345</td>
+        <td class="num">$11,500</td>
+        <td class="num">$6,100</td>
+        <td class="num">$5,400</td>
+        <td class="num">47%</td>
+      </tr>
+      <tr class="pnl-tour">
+        <td class="activity">Continental Cup Final (Aug 22–23)<small>3 champions, full atmosphere kit, live-stream</small></td>
+        <td class="num">3 champions + spectators</td>
+        <td class="num">free + sponsorship</td>
+        <td class="num">$14,500</td>
+        <td class="num">$5,000</td>
+        <td class="num">$9,500</td>
+        <td class="num">66%</td>
+      </tr>
+      <tr class="pnl-misc">
+        <td class="activity">Pickup memberships ($40/mo unlimited)<small>Downtown professional + OSU crowd</small></td>
+        <td class="num">80 members × 4mo</td>
+        <td class="num">$40/mo</td>
+        <td class="num">$12,800</td>
+        <td class="num">$4,500</td>
+        <td class="num">$8,300</td>
+        <td class="num">65%</td>
+      </tr>
+      <tr class="pnl-misc">
+        <td class="activity">Pickup drop-ins ($15 / session)<small>Walk-up at both facilities</small></td>
+        <td class="num">400 sessions</td>
+        <td class="num">$15</td>
+        <td class="num">$6,400</td>
+        <td class="num">$2,000</td>
+        <td class="num">$4,400</td>
+        <td class="num">69%</td>
+      </tr>
+      <tr class="pnl-misc">
+        <td class="activity">Sponsorships<small>Continental Cup title + 6 field/award sponsors</small></td>
+        <td class="num">7+ sponsors</td>
+        <td class="num">$500–$8K</td>
+        <td class="num">$15,000</td>
+        <td class="num">$1,500</td>
+        <td class="num">$13,500</td>
+        <td class="num">90%</td>
+      </tr>
+      <tr class="pnl-misc">
+        <td class="activity">Kit pre-orders<small>50% take rate, $50 margin per kit</small></td>
+        <td class="num">~80 kits</td>
+        <td class="num">$130</td>
+        <td class="num">$4,000</td>
+        <td class="num">$0</td>
+        <td class="num">$4,000</td>
+        <td class="num">100%</td>
+      </tr>
+      <tr class="subtotal">
+        <td>Total — Camps + Tournaments + Ancillary</td>
+        <td class="num">—</td>
+        <td class="num">—</td>
+        <td class="num">$212,360</td>
+        <td class="num">$98,810</td>
+        <td class="num">$113,550</td>
+        <td class="num">53%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="slide-footer">
+    <span>12 / 14</span>
+    <span>P&amp;L · Camps + Tournaments + Ancillary</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- FINANCIAL ROLL-UP -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>Financial roll-up</span>
+  </div>
+  <div class="slide-eyebrow">§ SUMMER 2026 · FINANCIAL ROLL-UP</div>
+  <h2 class="slide-title">$451K revenue. $161K net. ~half of Year 1 in one quarter.</h2>
+
+  <div class="fin-grid">
+    <div class="fin-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Category</th><th class="num">Revenue</th><th class="num">Direct cost</th><th class="num">Direct net</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Worthington adult lineup (20 leagues + free agent)</td><td class="num">$70,185</td><td class="num">$44,550</td><td class="num">$25,635</td></tr>
+          <tr><td>Continental Cup community leagues (3 cups)</td><td class="num">$69,740</td><td class="num">$43,000</td><td class="num">$26,740</td></tr>
+          <tr><td>Downtown Express + Sun Standard + Greek/IM + Lunch + ancillary</td><td class="num">$71,456</td><td class="num">$44,460</td><td class="num">$26,996</td></tr>
+          <tr><td>Late-night incremental</td><td class="num">$27,000</td><td class="num">$14,200</td><td class="num">$12,800</td></tr>
+          <tr><td>Heritage Youth + skills clinics + GK academy</td><td class="num">$8,940</td><td class="num">$5,000</td><td class="num">$3,940</td></tr>
+          <tr style="background: var(--cream-3); border-top: 1.5px solid var(--ink);"><td><strong>League subtotal</strong></td><td class="num"><strong>$247,321</strong></td><td class="num"><strong>$151,210</strong></td><td class="num"><strong>$96,111</strong></td></tr>
+          <tr><td>Day camps (full + half + extended + Downtown pilot)</td><td class="num">$106,220</td><td class="num">$55,900</td><td class="num">$50,320</td></tr>
+          <tr><td>Tournaments (6 events)</td><td class="num">$67,940</td><td class="num">$34,910</td><td class="num">$33,030</td></tr>
+          <tr><td>Pickup memberships + drop-ins</td><td class="num">$19,200</td><td class="num">$6,500</td><td class="num">$12,700</td></tr>
+          <tr><td>Sponsorships + kit pre-orders</td><td class="num">$19,000</td><td class="num">$1,500</td><td class="num">$17,500</td></tr>
+          <tr style="background: var(--cream-3); border-top: 1.5px solid var(--ink);"><td><strong>Camp + Tournament + Ancillary subtotal</strong></td><td class="num"><strong>$212,360</strong></td><td class="num"><strong>$98,810</strong></td><td class="num"><strong>$113,550</strong></td></tr>
+          <tr style="background: var(--navy); color: var(--cream); border-top: 1.5px solid var(--ink);"><td style="color: var(--cream);"><strong>Total summer revenue / direct contribution</strong></td><td class="num" style="color: var(--cream);"><strong>$459,681</strong></td><td class="num" style="color: var(--cream);"><strong>$250,020</strong></td><td class="num" style="color: var(--cream);"><strong>$209,661</strong></td></tr>
+          <tr><td>Less: shared overhead (coordinators, marketing, insurance, software, admin)</td><td class="num">—</td><td class="num">$48,500</td><td class="num">($48,500)</td></tr>
+          <tr style="background: var(--primary-soft); border-top: 1.5px solid var(--primary);"><td><strong>Net contribution after shared overhead</strong></td><td class="num"><strong>$459,681</strong></td><td class="num"><strong>$298,520</strong></td><td class="num" style="color: var(--primary);"><strong>$161,161</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="fin-summary">
+      <div class="fin-row">
+        <div class="lbl">Total Revenue</div>
+        <div class="v">$460K</div>
+        <div class="ann">~$8K above budget assumption — driven by additional Downtown Express leagues.</div>
+      </div>
+
+      <div class="fin-row">
+        <div class="lbl">Direct Cost</div>
+        <div class="v">$250K</div>
+        <div class="ann">Field cost ~$148K, refs ~$36K, insurance ~$10K, equipment ~$5K, admin/per-team ~$51K.</div>
+      </div>
+
+      <div class="fin-row">
+        <div class="lbl">Shared Overhead</div>
+        <div class="v" style="font-size: 22pt;">$48K</div>
+        <div class="ann">Coordinators ($15.5K), marketing ($9K), software/admin ($14K), insurance fixed ($10K).</div>
+      </div>
+
+      <div class="fin-row net">
+        <div class="lbl">Net Contribution</div>
+        <div class="v">$161K</div>
+        <div class="ann"><strong>~36% margin.</strong> Roughly half of full Year 1 contribution lands in this single quarter.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>13 / 14</span>
+    <span>$460K revenue · $161K net</span>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- THE NEXT 21 DAYS -->
+<!-- ================================================================ -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand-bar"><svg class="brand-logo"><use href="#aspire-logo"/></svg><span class="sep">//</span><span>Summer 2026</span></span>
+    <span>The next 21 days</span>
+  </div>
+  <div class="slide-eyebrow">§ EXECUTION · MAY 4 → MAY 25</div>
+  <h2 class="slide-title">Twenty-one days to opening weekend.</h2>
+  <p class="slide-lede">Today is Saturday May 2. Memorial Day weekend tournaments open the season. Everything between now and then sits on a deliberate critical path; each step has a dependency.</p>
+
+  <ol class="closing-list">
+    <li><strong>Mon May 4 · Sign venue LOI</strong> Anchors everything. Confirm 3 + 1 field count, late-night close authorization, off-peak rate.</li>
+    <li><strong>Mon May 4 · Open registration</strong> Platform schema work: league series grouping, division tier field, free-agent house-team workflow.</li>
+    <li><strong>Mon May 4 · Launch paid social</strong> Spanish, English, Arabic, Somali, Amharic creative. Geo-targeted by community concentration.</li>
+    <li><strong>Tue May 5 · Cinco kickoff post</strong> Leverage the date for organic Latino reach before the Liga Latina Kickoff Cup on May 30.</li>
+    <li><strong>Wed May 6 · Begin community-org outreach</strong> In-person visits to mosques, consulates, cultural orgs. Six in week one. Not email.</li>
+    <li><strong>Fri May 8 · La Mega 103.1 ad live</strong> Spanish-language radio anchor for Liga Latina launch.</li>
+    <li><strong>Mon May 11 · Distribute flyers</strong> Mosques, halal grocers, Latino markets, restaurants, community centers — by language.</li>
+    <li><strong>Wed May 13 · Open-house pickup nights</strong> Free entry at both facilities. Players taste-test the product.</li>
+    <li><strong>Fri May 15 · Early-bird closes</strong> Community-league $50/team discount window ends; pricing increases.</li>
+    <li><strong>Fri May 22 · Registration locks</strong> Final deadline for opening tournaments.</li>
+    <li><strong>Sat May 23 · Opening weekend</strong> Memorial Day Premier begins. The summer is live.</li>
+    <li><strong>Wed Jun 3 · Regular season opens</strong> The full Worthington adult lineup is on the field. Downtown's eight Express leagues launch the same week.</li>
+  </ol>
+
+  <div class="slide-footer">
+    <span>14 / 14</span>
+    <span>Critical path · 21 days</span>
+  </div>
+</section>
+
+</body>
+</html>

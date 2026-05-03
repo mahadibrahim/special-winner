@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A Year at [Facility] — Powered by Aspire Sports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --paper: oklch(0.99 0.003 80);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --ink-faint: oklch(0.50 0.008 260);
+    --navy: oklch(0.24 0.06 260);
+    --navy-deep: oklch(0.18 0.07 262);
+    --primary: oklch(0.58 0.19 35);
+    --primary-bright: oklch(0.66 0.21 35);
+    --primary-soft: oklch(0.92 0.035 50);
+    --ochre: oklch(0.75 0.12 75);
+    --ochre-soft: oklch(0.92 0.045 80);
+    --sage: oklch(0.52 0.08 155);
+    --sage-soft: oklch(0.93 0.025 155);
+    --rule: oklch(0.85 0.012 78);
+    --rule-soft: oklch(0.90 0.010 78);
+    --navy-soft: oklch(0.90 0.025 260);
+  }
+  @page { size: Letter landscape; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .slide {
+    width: 11in;
+    height: 8.5in;
+    page-break-after: always;
+    page-break-inside: avoid;
+    overflow: hidden;
+    position: relative;
+    padding: 0.55in 0.6in;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-chrome {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 6pt;
+    margin-bottom: 18pt;
+    flex-shrink: 0;
+  }
+  .slide-chrome .brand { color: var(--ink); font-weight: 600; }
+  .slide-chrome .brand .accent { color: var(--primary); }
+  .slide-footer {
+    position: absolute;
+    bottom: 0.4in;
+    left: 0.6in;
+    right: 0.6in;
+    display: flex;
+    justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--rule);
+    padding-top: 8pt;
+  }
+
+  /* ------- Cover ------- */
+  .cover {
+    background: var(--navy-deep);
+    color: var(--cream);
+    padding: 0.7in 0.8in;
+  }
+  .cover .slide-chrome {
+    border-bottom-color: oklch(0.40 0.06 260);
+    color: oklch(0.78 0.025 80);
+  }
+  .cover .slide-chrome .brand { color: var(--cream); }
+  .cover-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9pt;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--primary-bright);
+    margin-bottom: 16pt;
+    margin-top: 60pt;
+  }
+  .cover h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 76pt;
+    line-height: 0.95;
+    color: var(--cream);
+    margin: 0;
+    letter-spacing: -0.015em;
+    max-width: 9in;
+  }
+  .cover h1 .nope { font-style: normal; font-weight: 400; }
+  .cover h1 em { color: var(--primary-bright); font-style: italic; }
+  .cover-sub {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 18pt;
+    color: oklch(0.85 0.025 80);
+    margin-top: 28pt;
+    max-width: 7in;
+    line-height: 1.4;
+  }
+  .cover-meta {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: oklch(0.78 0.025 80);
+  }
+  .cover-meta .label { display: block; color: oklch(0.62 0.02 80); margin-bottom: 4pt; }
+  .cover-meta .val { color: var(--cream); font-size: 9pt; }
+
+  /* ------- Section title slide ------- */
+  .section-title {
+    background: var(--cream-2);
+    padding: 0;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0.55in 0.8in;
+  }
+  .section-title .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11pt;
+    letter-spacing: 0.25em;
+    color: var(--primary);
+    margin-bottom: 14pt;
+  }
+  .section-title h2 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 60pt;
+    line-height: 1.0;
+    color: var(--navy);
+    margin: 0;
+    letter-spacing: -0.01em;
+    max-width: 9in;
+  }
+  .section-title .sub {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 17pt;
+    color: var(--ink-2);
+    margin-top: 18pt;
+    max-width: 7.5in;
+    line-height: 1.4;
+  }
+
+  /* ------- Standard content slide ------- */
+  .slide h2.slide-title {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 32pt;
+    line-height: 1.05;
+    color: var(--navy);
+    margin: 0 0 6pt 0;
+    letter-spacing: -0.005em;
+  }
+  .slide h2.slide-title::after {
+    content: "";
+    display: block;
+    width: 40pt;
+    height: 2.5px;
+    background: var(--primary);
+    margin: 10pt 0 16pt 0;
+  }
+  .slide-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 6pt;
+  }
+
+  /* ------- Year-at-a-glance calendar ------- */
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: 1.4in repeat(12, 1fr);
+    gap: 0;
+    flex: 1;
+    align-content: start;
+  }
+  .cal-month-head {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--ink);
+    padding: 4pt 2pt;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .cal-month-head.year-edge {
+    border-left: 1px dashed var(--ink-muted);
+  }
+  .cal-month-head .yr {
+    display: block;
+    font-size: 6.5pt;
+    font-weight: 400;
+    color: var(--ink-muted);
+    letter-spacing: 0.10em;
+  }
+  .cal-row-label {
+    grid-column: 1;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    padding: 8pt 8pt 8pt 0;
+    border-bottom: 1px solid var(--rule-soft);
+    display: flex;
+    align-items: center;
+  }
+  .cal-row-label .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6pt;
+    border-radius: 2px;
+  }
+  .cal-row-label .audience {
+    display: block;
+    font-size: 6pt;
+    font-weight: 400;
+    color: var(--ink-faint);
+    margin-top: 2pt;
+    letter-spacing: 0.08em;
+  }
+  .cal-cell {
+    height: 38pt;
+    border-bottom: 1px solid var(--rule-soft);
+    border-right: 1px dotted var(--rule);
+    position: relative;
+    padding: 4pt 2pt;
+  }
+  .cal-cell.month-1 { border-left: 1px dashed var(--ink-muted); }
+  .cal-cell.season-fall { background: oklch(0.96 0.022 80); }
+  .cal-cell.season-winter { background: oklch(0.96 0.012 260); }
+  .cal-cell.season-spring { background: oklch(0.96 0.018 155); }
+  .cal-cell.season-summer { background: oklch(0.96 0.030 50); }
+  .cal-bar {
+    position: absolute;
+    top: 8pt;
+    bottom: 8pt;
+    background: var(--ochre);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7pt;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border-radius: 2px;
+    padding: 0 4pt;
+    text-transform: uppercase;
+    box-shadow: 0 1px 0 oklch(0 0 0 / 0.06);
+  }
+  .cal-bar.youth { background: oklch(0.78 0.12 75); color: var(--ink); }
+  .cal-bar.adult { background: var(--primary); color: var(--cream); }
+  .cal-bar.express { background: oklch(0.55 0.16 30); color: var(--cream); }
+  .cal-bar.partnership { background: var(--navy); color: var(--cream); }
+  .cal-bar.pickup { background: oklch(0.85 0.04 78); color: var(--ink); border: 1px solid var(--ink-faint); }
+  .cal-bar.camp { background: var(--primary-bright); color: var(--cream); }
+  .cal-bar.offpeak { background: oklch(0.83 0.04 155); color: var(--ink); }
+  .cal-marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 14px;
+    height: 14px;
+    background: var(--primary);
+    transform: translate(-50%, -50%) rotate(45deg);
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.15);
+  }
+  .cal-marker-label {
+    position: absolute;
+    bottom: -2pt;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6pt;
+    font-weight: 600;
+    color: var(--primary);
+    text-transform: uppercase;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+
+  /* Season band header */
+  .season-band-row { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(12, 1fr); }
+  .season-band {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 4pt 0;
+    color: var(--ink);
+    font-weight: 600;
+    border-bottom: 1px solid var(--ink-muted);
+  }
+  .season-band.fall { background: var(--ochre-soft); grid-column: 1 / 4; }
+  .season-band.winter { background: var(--navy-soft); grid-column: 4 / 8; }
+  .season-band.spring { background: var(--sage-soft); grid-column: 8 / 11; }
+  .season-band.summer { background: var(--primary-soft); grid-column: 11 / 13; }
+
+  /* Bottom revenue stats */
+  .quarter-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12pt;
+    margin-top: 20pt;
+    padding-top: 16pt;
+    border-top: 1.5px solid var(--ink);
+  }
+  .qstat {
+    background: var(--cream-2);
+    padding: 12pt 14pt;
+    border-left: 3px solid var(--primary);
+  }
+  .qstat .qlabel {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 4pt;
+  }
+  .qstat .qval {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 26pt;
+    line-height: 1;
+    color: var(--navy);
+  }
+  .qstat .qsub {
+    font-size: 8pt;
+    color: var(--ink-2);
+    margin-top: 4pt;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16pt;
+    flex-wrap: wrap;
+    margin: 12pt 0 0 0;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 8pt;
+    color: var(--ink-2);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5pt; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Season detail slides */
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16pt;
+    flex: 1;
+  }
+  .month-grid.summer { grid-template-columns: repeat(2, 1fr); max-width: 8in; }
+  .month-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--primary);
+    padding: 14pt 16pt;
+    page-break-inside: avoid;
+  }
+  .month-card .month-name {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22pt;
+    color: var(--navy);
+    margin: 0 0 2pt 0;
+    line-height: 1;
+  }
+  .month-card .month-year {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 12pt;
+  }
+  .month-card h4 {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 10pt 0 4pt 0;
+  }
+  .month-card ul {
+    margin: 0;
+    padding-left: 14pt;
+    font-size: 9pt;
+    color: var(--ink);
+  }
+  .month-card li { margin: 2pt 0; line-height: 1.35; }
+  .month-card .marquee {
+    background: var(--primary-soft);
+    border-left: 2px solid var(--primary);
+    padding: 6pt 8pt;
+    margin: 10pt 0 0 0;
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 11pt;
+    color: var(--navy);
+    line-height: 1.3;
+  }
+  .month-card .marquee::before {
+    content: "MARQUEE EVENT";
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.5pt;
+    letter-spacing: 0.18em;
+    color: var(--primary);
+    font-style: normal;
+    margin-bottom: 3pt;
+  }
+
+  /* Tournament map */
+  .tourney-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14pt;
+    flex: 1;
+  }
+  .tourney-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 12pt;
+    position: relative;
+    page-break-inside: avoid;
+  }
+  .tourney-card.youth { border-top: 3px solid var(--ochre); }
+  .tourney-card.adult { border-top: 3px solid var(--primary); }
+  .tourney-card .month {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 4pt;
+  }
+  .tourney-card .name {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 14pt;
+    color: var(--navy);
+    line-height: 1.15;
+    margin-bottom: 6pt;
+  }
+  .tourney-card .meta {
+    font-size: 8pt;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+  .tourney-card .meta strong { color: var(--ink); }
+  .tourney-card .pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.5pt;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: var(--cream-2);
+    padding: 2pt 6pt;
+    border-radius: 8pt;
+    color: var(--ink);
+    margin-top: 6pt;
+  }
+
+  /* Quarterly summary slide */
+  .qsummary {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24pt;
+    flex: 1;
+  }
+  .qbig {
+    background: var(--cream-2);
+    padding: 24pt 28pt;
+    border-left: 4px solid var(--primary);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .qbig .qbig-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .qbig .qbig-num {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 64pt;
+    line-height: 1;
+    color: var(--navy);
+    margin: 14pt 0 8pt 0;
+  }
+  .qbig .qbig-detail {
+    font-size: 10pt;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .qbig .qbig-detail strong { color: var(--navy); }
+</style>
+</head>
+<body>
+
+<!-- ========== SLIDE 1: COVER ========== -->
+<section class="slide cover">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Programming Partner Calendar</span>
+    <span>Prepared for [Facility Name]</span>
+  </div>
+  <div class="cover-eyebrow">A Year of Programming · Prepared April 2026</div>
+  <h1>A year at <em>your facility</em>,<br>powered by Aspire.</h1>
+  <div class="cover-sub">
+    Month by month. Season by season. Every product, every partnership,
+    every tournament — what's running, who's playing, and what it means for the building.
+  </div>
+  <div class="cover-meta">
+    <div>
+      <span class="label">Period</span>
+      <span class="val">September 2026 — August 2027</span>
+    </div>
+    <div>
+      <span class="label">Coverage</span>
+      <span class="val">Worthington · Downtown / OSU</span>
+    </div>
+    <div>
+      <span class="label">Prepared by</span>
+      <span class="val">Aspire Sports Holdings</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SLIDE 2: SECTION TITLE ========== -->
+<section class="slide section-title">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Programming Partner Calendar</span>
+    <span>01 / The Year</span>
+  </div>
+  <div class="num">01 // OVERVIEW</div>
+  <h2>The full year, in one view.</h2>
+  <div class="sub">A single page showing every product line across all twelve months — programming you have today, programming you don't, and the season-by-season rhythm that fills the calendar.</div>
+  <div class="slide-footer">
+    <span>Aspire Sports — Year-at-a-Glance</span>
+    <span>02 / 09</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 3: YEAR OVERVIEW (THE CENTERPIECE) ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Year at a Glance</span>
+    <span>Sep 2026 — Aug 2027</span>
+  </div>
+
+  <div class="slide-eyebrow">§ FULL CALENDAR YEAR</div>
+  <h2 class="slide-title">A year of programming, both facilities.</h2>
+
+  <div class="calendar-grid">
+    <!-- Header row -->
+    <div></div>
+    <div class="cal-month-head"><span class="yr">2026</span>Sep</div>
+    <div class="cal-month-head"><span class="yr">2026</span>Oct</div>
+    <div class="cal-month-head"><span class="yr">2026</span>Nov</div>
+    <div class="cal-month-head"><span class="yr">2026</span>Dec</div>
+    <div class="cal-month-head year-edge"><span class="yr">2027</span>Jan</div>
+    <div class="cal-month-head"><span class="yr">&nbsp;</span>Feb</div>
+    <div class="cal-month-head"><span class="yr">&nbsp;</span>Mar</div>
+    <div class="cal-month-head"><span class="yr">&nbsp;</span>Apr</div>
+    <div class="cal-month-head"><span class="yr">&nbsp;</span>May</div>
+    <div class="cal-month-head"><span class="yr">&nbsp;</span>Jun</div>
+    <div class="cal-month-head"><span class="yr">&nbsp;</span>Jul</div>
+    <div class="cal-month-head"><span class="yr">&nbsp;</span>Aug</div>
+
+    <!-- Season band -->
+    <div></div>
+    <div class="season-band-row">
+      <div class="season-band fall">Fall</div>
+      <div class="season-band winter">Winter</div>
+      <div class="season-band spring">Spring</div>
+      <div class="season-band summer">Summer</div>
+    </div>
+
+    <!-- ========== ROW: YOUTH LEAGUES ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: oklch(0.78 0.12 75)"></span>
+        Youth Leagues
+        <span class="audience">Worthington</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-bar youth" style="left: 15%; right: -8%;">Fall League · 8 wks</div>
+    </div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter">
+      <div class="cal-bar youth" style="left: 30%; right: -8%;">Winter League · 12 wks</div>
+    </div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring">
+      <div class="cal-bar youth" style="left: 5%; right: -8%;">Spring League · 8 wks</div>
+    </div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-summer"></div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: SKILLS / CLINICS ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: oklch(0.85 0.10 80)"></span>
+        Skills + Academy
+        <span class="audience">Worthington</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-bar youth" style="background: oklch(0.85 0.10 80); left: 15%; right: -8%;">Afterschool Clinics M–F · 4-week cycles</div>
+    </div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring">
+      <div class="cal-bar youth" style="background: oklch(0.85 0.10 80); right: 35%; left: -870%;">&nbsp;</div>
+    </div>
+    <div class="cal-cell season-summer"></div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: SUMMER CAMPS ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: var(--primary-bright)"></span>
+        Summer Day Camps
+        <span class="audience">Worthington · 9am–4pm</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-summer">
+      <div class="cal-bar camp" style="left: 4%; right: -8%;">8 weeks of full-day camp · ~$87K</div>
+    </div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: ADULT STANDARD ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: var(--primary)"></span>
+        Adult Standard
+        <span class="audience">Both facilities</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-bar adult" style="left: 15%; right: -8%;">Fall League · 8 wks</div>
+    </div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter">
+      <div class="cal-bar adult" style="left: 30%; right: -8%;">Winter League · 12 wks</div>
+    </div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring">
+      <div class="cal-bar adult" style="left: 5%; right: -8%;">Spring League · 8 wks</div>
+    </div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-summer">
+      <div class="cal-bar adult" style="left: 5%; right: 50%;">Sum League</div>
+    </div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: ADULT EXPRESS ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: oklch(0.55 0.16 30)"></span>
+        Adult Express
+        <span class="audience">Downtown · 4 teams/hr</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-bar express" style="left: 5%; right: -100%;">Year-round · M–F evenings + late-night</div>
+    </div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-summer"></div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: PARTNERSHIPS ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: var(--navy)"></span>
+        OSU + Corporate
+        <span class="audience">Downtown · Wexner / Faculty</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-bar partnership" style="left: 5%; right: -100%;">Wexner Med · OSU Faculty Wellness · Greek Cups · Corporate Leagues</div>
+    </div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-summer">
+      <div class="cal-bar partnership" style="left: 5%; right: 50%;">Reduced</div>
+    </div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: PICKUP MEMBERSHIP ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: oklch(0.85 0.04 78); border: 1px solid var(--ink-faint);"></span>
+        Drop-In Pickup
+        <span class="audience">Downtown · $40/mo membership</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-bar pickup" style="left: 5%; right: -100%;">Continuous year-round · membership + drop-in</div>
+    </div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-summer"></div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: OFF-PEAK FILLERS ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: oklch(0.83 0.04 155)"></span>
+        Off-Peak Programs
+        <span class="audience">Walking Soccer · Mom & Tot · Lunch</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-bar offpeak" style="left: 5%; right: -100%;">Walking 50+ · Mom & Tot · Lunch Express · all weekday daytime</div>
+    </div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-fall"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-winter"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-spring"></div>
+    <div class="cal-cell season-summer"></div>
+    <div class="cal-cell season-summer"></div>
+
+    <!-- ========== ROW: TOURNAMENTS ========== -->
+    <div class="cal-row-label">
+      <div>
+        <span class="dot" style="background: var(--primary); transform: rotate(45deg);"></span>
+        Tournaments
+        <span class="audience">24 events / yr · food trucks + atmosphere</span>
+      </div>
+    </div>
+    <div class="cal-cell month-1 season-fall">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Welcome</div>
+    </div>
+    <div class="cal-cell season-fall">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Halloween</div>
+    </div>
+    <div class="cal-cell season-fall">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Turkey Bowl</div>
+    </div>
+    <div class="cal-cell season-winter">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Holiday</div>
+    </div>
+    <div class="cal-cell season-winter">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">MLK</div>
+    </div>
+    <div class="cal-cell season-winter">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Pres Day</div>
+    </div>
+    <div class="cal-cell season-winter">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">March Mad</div>
+    </div>
+    <div class="cal-cell season-spring">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Spring Slam</div>
+    </div>
+    <div class="cal-cell season-spring">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Memorial</div>
+    </div>
+    <div class="cal-cell season-spring">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Father's</div>
+    </div>
+    <div class="cal-cell season-summer">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Summer Jam</div>
+    </div>
+    <div class="cal-cell season-summer">
+      <div class="cal-marker"></div>
+      <div class="cal-marker-label">Back-to-School</div>
+    </div>
+  </div>
+
+  <!-- Quarterly stats -->
+  <div class="quarter-stats">
+    <div class="qstat">
+      <div class="qlabel">Q1 · Sep–Nov</div>
+      <div class="qval">$182K</div>
+      <div class="qsub">League launch + 3 tournaments</div>
+    </div>
+    <div class="qstat">
+      <div class="qlabel">Q2 · Dec–Feb</div>
+      <div class="qval">$214K</div>
+      <div class="qsub">Peak indoor season + 4 holiday events</div>
+    </div>
+    <div class="qstat">
+      <div class="qlabel">Q3 · Mar–May</div>
+      <div class="qval">$196K</div>
+      <div class="qsub">Spring league + 3 tournaments</div>
+    </div>
+    <div class="qstat">
+      <div class="qlabel">Q4 · Jun–Aug</div>
+      <div class="qval">$198K</div>
+      <div class="qsub">Camps + Summer Express + 3 tournaments</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Year at a Glance</span>
+    <span>03 / 09</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 4: FALL DETAIL ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Year at a Glance</span>
+    <span>02 / Fall</span>
+  </div>
+  <div class="slide-eyebrow">§ FALL · SEPTEMBER — NOVEMBER 2026</div>
+  <h2 class="slide-title">Launching the partnership.</h2>
+
+  <div class="month-grid">
+    <div class="month-card">
+      <div class="month-name">September</div>
+      <div class="month-year">Week 1 — 30 · Launch</div>
+      <h4>Worthington</h4>
+      <ul>
+        <li>Fall Youth League opens (U6–HS)</li>
+        <li>After-school Skills Clinics begin</li>
+        <li>Walking Soccer 50+ Tu/Th 8am</li>
+        <li>Adult Sunday Coed launches</li>
+      </ul>
+      <h4>Downtown</h4>
+      <ul>
+        <li>Adult Standard + Express open</li>
+        <li>OSU Greek IM league registration</li>
+        <li>Wexner Med staff slots fill</li>
+        <li>Drop-in pickup membership launches</li>
+      </ul>
+      <div class="marquee">Aspire Welcome Cup — adult 4v4, 16 teams · Downtown</div>
+    </div>
+
+    <div class="month-card">
+      <div class="month-name">October</div>
+      <div class="month-year">Week 5 — 9 · Building</div>
+      <h4>Worthington</h4>
+      <ul>
+        <li>Youth league mid-season; tournaments scout for HS</li>
+        <li>Birthday parties Sat afternoons (Halloween-themed)</li>
+        <li>Photographer captures fall season for media library</li>
+      </ul>
+      <h4>Downtown</h4>
+      <ul>
+        <li>Corporate league outreach to downtown employers</li>
+        <li>Buckeye football Saturdays — pre-game pickup brunch</li>
+      </ul>
+      <div class="marquee">Halloween Hat Trick — costume tournaments at both facilities</div>
+    </div>
+
+    <div class="month-card">
+      <div class="month-name">November</div>
+      <div class="month-year">Week 10 — 13 · Closing fall</div>
+      <h4>Worthington</h4>
+      <ul>
+        <li>Fall youth playoffs + championships</li>
+        <li>Winter league registration opens (kits ordered)</li>
+        <li>Skills clinics roll into Cycle 3</li>
+      </ul>
+      <h4>Downtown</h4>
+      <ul>
+        <li>Fall adult playoffs</li>
+        <li>Winter league registration opens</li>
+        <li>Friendsgiving social pickup event</li>
+      </ul>
+      <div class="marquee">Turkey Bowl — youth Sat at Worthington · adult coed Sun at Downtown</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Year at a Glance</span>
+    <span>04 / 09</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 5: WINTER DETAIL ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Year at a Glance</span>
+    <span>03 / Winter</span>
+  </div>
+  <div class="slide-eyebrow">§ WINTER · DECEMBER 2026 — MARCH 2027</div>
+  <h2 class="slide-title">Peak season. Peak revenue.</h2>
+
+  <div class="month-grid" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="month-card">
+      <div class="month-name">Dec</div>
+      <div class="month-year">Holidays · reduced</div>
+      <h4>Both</h4>
+      <ul>
+        <li>Holiday clinics & no-school camps (Worthington)</li>
+        <li>1-day social tournaments only</li>
+        <li>Winter league pre-season practices</li>
+      </ul>
+      <div class="marquee">Holiday Cup · 1-day, family-friendly</div>
+    </div>
+    <div class="month-card">
+      <div class="month-name">Jan</div>
+      <div class="month-year">12-week winter opens</div>
+      <h4>Both</h4>
+      <ul>
+        <li>Winter league launches — 12-week season</li>
+        <li>Adult Express weeknights at full capacity</li>
+        <li>OSU spring semester partnerships</li>
+        <li>Corporate winter league for downtown employers</li>
+      </ul>
+      <div class="marquee">MLK Weekend Showcase · 24-team premier youth tournament</div>
+    </div>
+    <div class="month-card">
+      <div class="month-name">Feb</div>
+      <div class="month-year">Mid-season pulse</div>
+      <h4>Both</h4>
+      <ul>
+        <li>Tournament-driven attendance peak</li>
+        <li>Sponsorship sales active for Spring Slam</li>
+        <li>Photo & media coverage at every event</li>
+      </ul>
+      <div class="marquee">Presidents Day Premier · 24 teams · Galentine's Cup women's tournament</div>
+    </div>
+    <div class="month-card">
+      <div class="month-name">Mar</div>
+      <div class="month-year">Closing winter</div>
+      <h4>Both</h4>
+      <ul>
+        <li>Winter playoffs + championships</li>
+        <li>Spring league registration opens</li>
+        <li>Outdoor crossover marketing begins</li>
+      </ul>
+      <div class="marquee">March Madness 4v4 · St. Paddy's Express · "April Slam" promo</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Year at a Glance</span>
+    <span>05 / 09</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 6: SPRING DETAIL ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Year at a Glance</span>
+    <span>04 / Spring</span>
+  </div>
+  <div class="slide-eyebrow">§ SPRING · APRIL — JUNE 2027</div>
+  <h2 class="slide-title">Indoor / outdoor crossover.</h2>
+
+  <div class="month-grid">
+    <div class="month-card">
+      <div class="month-name">April</div>
+      <div class="month-year">Spring opens</div>
+      <h4>Worthington</h4>
+      <ul>
+        <li>Spring Youth League launches</li>
+        <li>Skills Clinics Cycle 6 (final pre-summer)</li>
+        <li>Easter Egg Cup family event</li>
+      </ul>
+      <h4>Downtown</h4>
+      <ul>
+        <li>Spring Adult Standard + Express</li>
+        <li>OSU final-exam-period pickup spike</li>
+        <li>Earth Day Charity Cup (community brand event)</li>
+      </ul>
+      <div class="marquee">Spring Slam · adult 24-team weekend · Spring Slam Youth Showdown</div>
+    </div>
+
+    <div class="month-card">
+      <div class="month-name">May</div>
+      <div class="month-year">Memorial Day weekend</div>
+      <h4>Worthington</h4>
+      <ul>
+        <li>Spring league mid-season</li>
+        <li>Summer camp registration peak</li>
+      </ul>
+      <h4>Downtown</h4>
+      <ul>
+        <li>OSU finals → graduation pickup events</li>
+        <li>Cinco de Mayo themed adult tournament</li>
+      </ul>
+      <div class="marquee">Memorial Day Classic · 3-day youth + adult premier weekend</div>
+    </div>
+
+    <div class="month-card">
+      <div class="month-name">June</div>
+      <div class="month-year">Closing spring · summer launch</div>
+      <h4>Worthington</h4>
+      <ul>
+        <li>Spring playoffs + championships</li>
+        <li>Summer Day Camps begin late June</li>
+        <li>Father's Day Cup family event</li>
+      </ul>
+      <h4>Downtown</h4>
+      <ul>
+        <li>Spring playoffs</li>
+        <li>Summer Express continues</li>
+        <li>Pride Cup community event</li>
+      </ul>
+      <div class="marquee">Father's Day 4v4 · Pride Cup · Summer Camp Week 1</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Year at a Glance</span>
+    <span>06 / 09</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 7: SUMMER DETAIL ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Year at a Glance</span>
+    <span>05 / Summer</span>
+  </div>
+  <div class="slide-eyebrow">§ SUMMER · JULY — AUGUST 2027 · THE DEAD SEASON, REVIVED</div>
+  <h2 class="slide-title">What used to be empty.</h2>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24pt; flex: 1;">
+    <div>
+      <p style="font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 16pt; color: var(--ink); line-height: 1.45; margin: 0 0 18pt 0;">
+        Most indoor facilities in Columbus go dark in summer. Open rentals shrink, leagues go outdoor,
+        and the building sits idle through the heat.
+      </p>
+      <p style="font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 16pt; color: var(--navy); font-weight: 500; line-height: 1.45;">
+        We don't.
+      </p>
+      <div style="margin-top: 32pt; padding: 18pt 22pt; background: var(--cream-2); border-left: 4px solid var(--primary);">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 8pt; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 6pt;">Summer Programming Revenue</div>
+        <div style="font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 56pt; line-height: 1; color: var(--navy);">~$198K</div>
+        <div style="font-size: 10pt; color: var(--ink-2); margin-top: 8pt; line-height: 1.45;">In a season your competitors call <em>off-season.</em></div>
+      </div>
+    </div>
+
+    <div class="month-grid summer">
+      <div class="month-card">
+        <div class="month-name">July</div>
+        <div class="month-year">Camps + tournaments</div>
+        <h4>Worthington</h4>
+        <ul>
+          <li>Day Camps M–F 9am–4pm (~30 kids/wk)</li>
+          <li>Summer Jam Tournament series</li>
+          <li>Skills clinics (eve sessions)</li>
+        </ul>
+        <h4>Downtown</h4>
+        <ul>
+          <li>Summer Adult Express continues</li>
+          <li>Pickup membership at peak</li>
+          <li>4th of July Express tournament</li>
+        </ul>
+        <div class="marquee">4th of July Express · Summer Jam Adult</div>
+      </div>
+      <div class="month-card">
+        <div class="month-name">August</div>
+        <div class="month-year">Closing summer + back-to-school</div>
+        <h4>Worthington</h4>
+        <ul>
+          <li>Final 3 weeks of camps</li>
+          <li>Fall registration opens</li>
+          <li>Back-to-School Cup (free clinic Friday)</li>
+        </ul>
+        <h4>Downtown</h4>
+        <ul>
+          <li>OSU move-in week marketing push</li>
+          <li>Fall league registration opens</li>
+          <li>Greek rush week Aspire visibility</li>
+        </ul>
+        <div class="marquee">Back-to-School Cup · Aspire Welcome Pickup Night for OSU students</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Year at a Glance</span>
+    <span>07 / 09</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 8: TOURNAMENT MARQUEE MAP ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Year at a Glance</span>
+    <span>06 / Tournaments</span>
+  </div>
+  <div class="slide-eyebrow">§ THE 24-TOURNAMENT YEAR</div>
+  <h2 class="slide-title">Marquee events, season by season.</h2>
+
+  <div class="tourney-grid" style="grid-template-columns: repeat(4, 1fr); gap: 12pt;">
+    <div class="tourney-card adult"><div class="month">Sep · Wk 2</div><div class="name">Aspire Welcome Cup</div><div class="meta"><strong>Adult 4v4</strong> · 16 teams · Downtown</div><span class="pill">Adult</span></div>
+    <div class="tourney-card youth"><div class="month">Sep · Wk 4</div><div class="name">Welcome Back Cup</div><div class="meta"><strong>Youth 4v4</strong> · 24 teams · Worthington</div><span class="pill">Youth</span></div>
+    <div class="tourney-card adult"><div class="month">Oct · Wk 2</div><div class="name">Halloween Hat Trick</div><div class="meta"><strong>Adult costume night</strong> · Friday · Downtown</div><span class="pill">Adult</span></div>
+    <div class="tourney-card youth"><div class="month">Oct · Wk 4</div><div class="name">Halloween Hat Trick (Y)</div><div class="meta"><strong>Youth costume tournament</strong> · 24 teams · Worthington</div><span class="pill">Youth</span></div>
+    <div class="tourney-card youth"><div class="month">Nov</div><div class="name">Turkey Bowl Youth Classic</div><div class="meta"><strong>Sat–Sun</strong> · 20 teams · Worthington</div><span class="pill">Youth</span></div>
+    <div class="tourney-card adult"><div class="month">Nov</div><div class="name">Turkey Cup + Friendsgiving 4v4</div><div class="meta"><strong>Adult social</strong> · 24 + 16 teams · Downtown</div><span class="pill">Adult</span></div>
+    <div class="tourney-card adult"><div class="month">Dec</div><div class="name">Holiday Express</div><div class="meta"><strong>Friday night 12 teams</strong> · Downtown</div><span class="pill">Adult</span></div>
+    <div class="tourney-card youth"><div class="month">Dec</div><div class="name">Youth Holiday Cup</div><div class="meta"><strong>1-day · 16 teams</strong> · Worthington</div><span class="pill">Youth</span></div>
+
+    <div class="tourney-card youth"><div class="month">Jan</div><div class="name">MLK Weekend Showcase</div><div class="meta"><strong>3-day premier · 24 teams</strong> · Worthington</div><span class="pill">Youth · Premier</span></div>
+    <div class="tourney-card adult"><div class="month">Jan</div><div class="name">MLK Weekend Premier (A)</div><div class="meta"><strong>Adult 24-team weekend</strong> · Downtown</div><span class="pill">Adult · Premier</span></div>
+    <div class="tourney-card youth"><div class="month">Feb</div><div class="name">Presidents Day Premier</div><div class="meta"><strong>3-day · 24 teams</strong> · Worthington</div><span class="pill">Youth · Premier</span></div>
+    <div class="tourney-card adult"><div class="month">Feb</div><div class="name">Galentine's Cup</div><div class="meta"><strong>Women's 16 teams</strong> · Downtown</div><span class="pill">Adult · Women's</span></div>
+    <div class="tourney-card adult"><div class="month">Mar</div><div class="name">March Madness 4v4</div><div class="meta"><strong>24 teams</strong> · Downtown</div><span class="pill">Adult</span></div>
+    <div class="tourney-card adult"><div class="month">Mar</div><div class="name">St. Paddy's Express</div><div class="meta"><strong>16 teams · Friday late</strong> · Downtown</div><span class="pill">Adult</span></div>
+
+    <div class="tourney-card youth"><div class="month">Apr</div><div class="name">Spring Slam Youth</div><div class="meta"><strong>Sat–Sun · 28 teams</strong> · Worthington</div><span class="pill">Youth</span></div>
+    <div class="tourney-card adult"><div class="month">Apr</div><div class="name">Earth Day Charity Cup</div><div class="meta"><strong>16 teams · proceeds shared</strong> · Downtown</div><span class="pill">Adult · Charity</span></div>
+    <div class="tourney-card youth"><div class="month">May</div><div class="name">Memorial Day Classic (Y)</div><div class="meta"><strong>3-day · 24 teams</strong> · Worthington</div><span class="pill">Youth · Premier</span></div>
+    <div class="tourney-card adult"><div class="month">May</div><div class="name">Memorial Day Premier (A)</div><div class="meta"><strong>3-day · 24 teams</strong> · Downtown</div><span class="pill">Adult · Premier</span></div>
+    <div class="tourney-card youth"><div class="month">Jun</div><div class="name">Father's Day Cup</div><div class="meta"><strong>Family event</strong> · Worthington</div><span class="pill">Youth</span></div>
+    <div class="tourney-card adult"><div class="month">Jun</div><div class="name">Pride Cup + Summer Pride</div><div class="meta"><strong>16 + 16 teams</strong> · Downtown</div><span class="pill">Adult · Community</span></div>
+    <div class="tourney-card youth"><div class="month">Jul</div><div class="name">Summer Jam Round 1</div><div class="meta"><strong>20 teams</strong> · Worthington</div><span class="pill">Youth</span></div>
+    <div class="tourney-card adult"><div class="month">Jul</div><div class="name">Summer Jam Adult + 4th of July</div><div class="meta"><strong>24 + 12 teams</strong> · Downtown</div><span class="pill">Adult</span></div>
+    <div class="tourney-card youth"><div class="month">Aug</div><div class="name">Back to School Cup</div><div class="meta"><strong>24 teams + free Fri clinic</strong> · Worthington</div><span class="pill">Youth</span></div>
+    <div class="tourney-card adult"><div class="month">Aug</div><div class="name">End of Summer Bash</div><div class="meta"><strong>16 teams</strong> · Downtown</div><span class="pill">Adult</span></div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Year at a Glance</span>
+    <span>08 / 09</span>
+  </div>
+</section>
+
+<!-- ========== SLIDE 9: REVENUE SUMMARY ========== -->
+<section class="slide">
+  <div class="slide-chrome">
+    <span class="brand">Aspire Sports <span class="accent">//</span> Year at a Glance</span>
+    <span>07 / The Numbers</span>
+  </div>
+  <div class="slide-eyebrow">§ YEAR-ONE PROJECTION · BASE SCENARIO</div>
+  <h2 class="slide-title">What the year delivers.</h2>
+
+  <div class="qsummary" style="grid-template-columns: 1fr 1fr; gap: 20pt;">
+    <div class="qbig" style="background: var(--navy); color: var(--cream); border-left-color: var(--primary-bright);">
+      <div class="qbig-label" style="color: oklch(0.78 0.025 80);">Programming Revenue · Year 1</div>
+      <div class="qbig-num" style="color: var(--cream);">$790K</div>
+      <div class="qbig-detail" style="color: oklch(0.85 0.025 80);">
+        Across leagues, tournaments, drop-in, camps, clinics, and partnerships at both facilities.<br>
+        <strong style="color: var(--cream);">Year 2 projection: ~$945K</strong> as fill rates mature.
+      </div>
+    </div>
+
+    <div class="qbig">
+      <div class="qbig-label">Facility Owner Revenue · Year 1</div>
+      <div class="qbig-num">$70K</div>
+      <div class="qbig-detail">
+        Field rental + bar/concession share from Aspire programming.<br>
+        <strong>Year 2: ~$110K</strong> minimum, with upside as tournament series and Express format mature.
+      </div>
+    </div>
+
+    <div class="qbig" style="background: var(--cream-3);">
+      <div class="qbig-label">Paid Field-Hours / Week</div>
+      <div class="qbig-num">246</div>
+      <div class="qbig-detail">
+        58% of capacity, vs. industry average of 35–45%.<br>
+        <strong>20+ percentage points above your competitive set.</strong>
+      </div>
+    </div>
+
+    <div class="qbig" style="background: oklch(0.97 0.030 80);">
+      <div class="qbig-label">Tournaments / Year</div>
+      <div class="qbig-num">24</div>
+      <div class="qbig-detail">
+        Two per month average — youth at Worthington, adult at Downtown.<br>
+        <strong>Each one a brand event</strong> with food trucks and atmosphere.
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>Aspire Sports — Year at a Glance</span>
+    <span>09 / 09</span>
+  </div>
+</section>
+
+</body>
+</html>
