@@ -129,6 +129,13 @@ export const shootSessions = pgTable(
       .default("unearned")
       .notNull(),
     stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
+    // The media-auth scope this session's output is intended for. Used at
+    // publish time to filter out tagged participants who haven't consented
+    // to that scope. Defaults to 'internal' (most-restrictive).
+    intendedScope: varchar("intended_scope", { length: 32 })
+      .default("internal")
+      .notNull()
+      .$type<"internal" | "promotional" | "public">(),
     notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

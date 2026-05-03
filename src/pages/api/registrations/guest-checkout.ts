@@ -7,6 +7,9 @@ import {
   userRoles,
   roles,
   familyMembers as familyMembersTable,
+  seasons,
+  programs,
+  locations,
 } from "@/lib/db/schema";
 import {
   createRegistration,
@@ -19,6 +22,11 @@ import {
 import { createSession } from "@/lib/auth";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
+import {
+  recordConsent,
+  recordDefaultMediaAuth,
+  hasActiveConsent,
+} from "@/lib/consents/record";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -29,6 +37,10 @@ const guestRegistrantSchema = z.object({
   isSelf: z.literal(true),
   gender: z.enum(["male", "female", "other"]).optional(),
 });
+
+const mediaAuthOptOutsSchema = z
+  .array(z.enum(["internal", "promotional", "public"]))
+  .optional();
 
 const guestCheckoutSchema = z.union([
   // Legacy parent + child shape (preserved unchanged)
@@ -51,6 +63,7 @@ const guestCheckoutSchema = z.union([
     waiverSignedBy: z.string().min(1),
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
+    mediaAuthOptOuts: mediaAuthOptOutsSchema,
   }),
   // New adult self shape
   z.object({
@@ -61,13 +74,15 @@ const guestCheckoutSchema = z.union([
     waiverSignedBy: z.string().min(1),
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
+    mediaAuthOptOuts: mediaAuthOptOutsSchema,
   }),
 ]);
 
 export const POST: APIRoute = async (context) => {
-  const { request, url } = context;
+  const { request, url, clientAddress } = context;
   const posthog = getPostHogServer();
   const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
+  const userAgent = request.headers.get("user-agent");
   try {
     const body = await request.json();
     const parsed = guestCheckoutSchema.safeParse(body);
@@ -152,6 +167,7 @@ export const POST: APIRoute = async (context) => {
     async function runCheckout(opts: {
       userRow: typeof users.$inferSelect;
       familyMemberRow: (typeof familyMembersTable.$inferSelect);
+      personKind: "self" | "dependent";
       seasonId: string;
       registrationType: "full" | "deposit";
       waiverSigned: boolean;
@@ -160,10 +176,12 @@ export const POST: APIRoute = async (context) => {
       wasNewUser: boolean;
       distinctIdForPosthog: string;
       lookingForTeam?: boolean;
+      mediaAuthOptOuts?: ReadonlyArray<"internal" | "promotional" | "public">;
     }) {
       const {
         userRow,
         familyMemberRow,
+        personKind,
         seasonId,
         registrationType,
         waiverSigned,
@@ -172,6 +190,7 @@ export const POST: APIRoute = async (context) => {
         wasNewUser,
         distinctIdForPosthog,
         lookingForTeam,
+        mediaAuthOptOuts,
       } = opts;
 
       // Step 3: create the registration via shared helper
@@ -199,6 +218,36 @@ export const POST: APIRoute = async (context) => {
           });
         }
         throw err;
+      }
+
+      if (regResult.kind !== "resumed" && waiverSigned) {
+        const [orgRow] = await db
+          .select({ organizationId: locations.organizationId })
+          .from(seasons)
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(eq(seasons.id, seasonId));
+        const organizationId = orgRow?.organizationId ?? null;
+        const baseConsent = {
+          db,
+          familyMemberId: familyMemberRow.id,
+          registrationId: regResult.registration.id,
+          organizationId,
+          signedByUserId: userRow.id,
+          signedByName: waiverSignedBy,
+          ipAddress: clientAddress ?? null,
+          userAgent: userAgent ?? null,
+        };
+        const personalConsentType =
+          personKind === "self" ? "age_confirmation" : "parental";
+        if (!(await hasActiveConsent(db, familyMemberRow.id, personalConsentType))) {
+          await recordConsent({ ...baseConsent, type: personalConsentType });
+        }
+        await recordConsent({ ...baseConsent, type: "liability" });
+        await recordDefaultMediaAuth({
+          ...baseConsent,
+          optOutScopes: mediaAuthOptOuts ?? [],
+        });
       }
 
       // Step 4: if waitlisted (no payment), set session cookie for new users and return
@@ -294,6 +343,7 @@ export const POST: APIRoute = async (context) => {
       return runCheckout({
         userRow,
         familyMemberRow,
+        personKind: "self",
         seasonId: data.seasonId,
         registrationType: data.registrationType,
         waiverSigned: data.waiverSigned,
@@ -302,6 +352,7 @@ export const POST: APIRoute = async (context) => {
         wasNewUser,
         distinctIdForPosthog: userRow.email,
         lookingForTeam: data.lookingForTeam ?? false,
+        mediaAuthOptOuts: data.mediaAuthOptOuts,
       });
     }
 
@@ -352,6 +403,7 @@ export const POST: APIRoute = async (context) => {
     return runCheckout({
       userRow,
       familyMemberRow,
+      personKind: "dependent",
       seasonId: data.seasonId,
       registrationType: data.registrationType,
       waiverSigned: data.waiverSigned,
@@ -359,6 +411,7 @@ export const POST: APIRoute = async (context) => {
       discountCode: data.discountCode,
       wasNewUser,
       distinctIdForPosthog: userRow.email,
+      mediaAuthOptOuts: data.mediaAuthOptOuts,
     });
   } catch (error) {
     console.error("Error in guest-checkout:", error);

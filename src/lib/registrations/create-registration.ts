@@ -124,8 +124,6 @@ export async function createRegistration(
           amountDueCents: amountDue,
           registrationType: input.registrationType,
           waiverSigned: input.waiverSigned,
-          waiverSignedAt: input.waiverSigned ? new Date() : null,
-          waiverSignedBy: input.waiverSignedBy,
           notes: input.notes ?? null,
           lookingForTeam: input.lookingForTeam ?? false,
         })
@@ -201,8 +199,6 @@ export async function createRegistration(
       amountDueCents: amountDue,
       registrationType: input.registrationType,
       waiverSigned: input.waiverSigned,
-      waiverSignedAt: input.waiverSigned ? new Date() : null,
-      waiverSignedBy: input.waiverSignedBy,
       notes: input.notes ?? null,
       lookingForTeam: input.lookingForTeam ?? false,
     })

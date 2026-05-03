@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { getPostHogServer } from "@/lib/posthog-server";
+import { recordConsent, recordDefaultMediaAuth } from "@/lib/consents/record";
 
 const createRegistrationSchema = z
   .object({
@@ -17,6 +18,9 @@ const createRegistrationSchema = z
     waiverSignedBy: z.string().min(1, "Waiver signature required"),
     notes: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
+    mediaAuthOptOuts: z
+      .array(z.enum(["internal", "promotional", "public"]))
+      .optional(),
   })
   .refine(
     (v) => Boolean(v.familyMemberId) !== Boolean(v.registerSelf),
@@ -118,7 +122,7 @@ export const GET: APIRoute = async ({ locals }) => {
 };
 
 // POST - Create new registration
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
   try {
     const user = locals.user;
     if (!user) {
@@ -129,6 +133,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const db = getDb();
+    const userAgent = request.headers.get("user-agent");
     const body = await request.json();
     const validation = createRegistrationSchema.safeParse(body);
     if (!validation.success) {
@@ -190,6 +195,34 @@ export const POST: APIRoute = async ({ request, locals }) => {
         notes: data.notes,
         lookingForTeam: data.registerSelf ? (data.lookingForTeam ?? false) : false,
       });
+
+      if (result.kind !== "resumed" && data.waiverSigned) {
+        const [orgRow] = await db
+          .select({ organizationId: locations.organizationId })
+          .from(seasons)
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(eq(seasons.id, data.seasonId));
+        const organizationId = orgRow?.organizationId ?? null;
+        const baseConsent = {
+          db,
+          familyMemberId: familyMember.id,
+          registrationId: result.registration.id,
+          organizationId,
+          signedByUserId: user.id,
+          signedByName: data.waiverSignedBy,
+          ipAddress: clientAddress ?? null,
+          userAgent: userAgent ?? null,
+        };
+        await recordConsent({ ...baseConsent, type: "liability" });
+        await recordDefaultMediaAuth({
+          ...baseConsent,
+          optOutScopes: data.mediaAuthOptOuts ?? [],
+        });
+        if (data.registerSelf) {
+          await recordConsent({ ...baseConsent, type: "age_confirmation" });
+        }
+      }
 
       const posthog = getPostHogServer();
       const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;

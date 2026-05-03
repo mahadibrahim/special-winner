@@ -178,7 +178,31 @@ When adding a new test:
 - Prefer element clicks over `page.keyboard.press(...)` for keyboard shortcuts tied to `window.addEventListener("keydown", ...)`. Element clicks go through React's synthetic event system and are reliable even mid-hydration; window-level keys need the listener to already be attached.
 - If `page.goto()` hangs on a page that has broken images (e.g. `mock-r2.local` URLs when `R2_MOCK=1`), use `waitUntil: "domcontentloaded"` instead of the default `"load"`.
 
+## Working style
+
+Auto Mode is on by default — execute immediately on low-risk routine work (single-file edits, obvious bug fixes, doc tweaks, refactors confined to one component, anything reversible).
+
+For non-trivial changes, state the plan in 1-2 sentences and wait for "go" before writing code:
+
+- Multi-file refactors (>2 files affected)
+- Schema changes or new Drizzle migrations
+- New API routes / endpoints / pages
+- Changes to shared infrastructure: middleware, auth, multi-tenancy, billing, Stripe Connect
+- Multi-step planning docs, business strategy, or legal/agreement drafts
+
+The pattern is a brief "here's what I'm about to do, confirm?" — not a full brainstorm, just enough framing to catch wrong-direction starts before they become rework.
+
+## Branch hygiene
+
+- **Confirm the branch before editing.** Run `git branch --show-current` at the start of any edit session — there have been incidents where the main repo got switched off an active feature branch mid-work, mixing edits across branches.
+- **Use a worktree for ≥3-task plans or any subagent-driven implementation.** Branch drift during long multi-task sessions has required destructive cherry-pick recovery more than once. Create the worktree before the first edit, not after a problem surfaces. The `superpowers:using-git-worktrees` skill handles setup.
+- **Never switch the main checkout off the user's active feature branch** to do unrelated work — open a worktree instead.
+
 ## Pre-push checklist (major work — schema changes, new endpoints, new E2E flows)
+
+For routine pushes, invoke the `/ship` skill — it automates steps 1, 5, and 6 below plus env-var-drift and E2E-filter scans. Use this full checklist for major work that warrants the API + Playwright runs (steps 2–4 require a running dev server).
+
+A push isn't "done" until CI is green on the resulting commit on origin. Don't declare a task complete on the merit of a green local run; wait for the CI workflow to finish.
 
 CI has bitten us twice for the same reasons. Run this sequence locally before pushing anything that touches schema, admin endpoints, or Playwright flows. All steps are fast (under ~5 min combined):
 

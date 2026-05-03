@@ -4,6 +4,7 @@ import { familyMembers } from "@/lib/db/schema";
 import { eq, or, asc } from "drizzle-orm";
 import { z } from "zod";
 import { getPostHogServer } from "@/lib/posthog-server";
+import { recordConsent } from "@/lib/consents/record";
 
 const createFamilyMemberSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -93,8 +94,9 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
     }
 
     const data = validation.data;
+    const userAgent = request.headers.get("user-agent");
 
-    const [newMember] = await getDb()
+    const [newMember] = await db
       .insert(familyMembers)
       .values({
         parentUserId: user.id,
@@ -105,11 +107,19 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         medicalNotes: data.medicalNotes || null,
         emergencyContactName: data.emergencyContactName || null,
         emergencyContactPhone: data.emergencyContactPhone || null,
-        parentalConsentGivenAt: new Date(),
-        parentalConsentGivenBy: user.id,
-        parentalConsentIp: clientAddress ?? null,
       })
       .returning();
+
+    const signerName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+    await recordConsent({
+      db,
+      familyMemberId: newMember.id,
+      type: "parental",
+      signedByUserId: user.id,
+      signedByName: signerName || user.email,
+      ipAddress: clientAddress ?? null,
+      userAgent: userAgent ?? null,
+    });
 
     const posthog = getPostHogServer();
     posthog.capture({ distinctId: user.id, event: "family_member_added", properties: { family_member_id: newMember.id, has_gender: !!data.gender, has_medical_notes: !!data.medicalNotes, has_emergency_contact: !!data.emergencyContactName } });

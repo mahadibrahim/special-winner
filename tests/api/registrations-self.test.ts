@@ -3,7 +3,11 @@ import { getAuthCookie, apiFetch, getAdminCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { seasons } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { ADULT_OPEN_SEASON_SLUG } from "@/lib/db/seeds/seed-e2e-tests";
+
+// Was imported from src/lib/db/seeds/seed-e2e-tests.ts; that seed catalog was
+// removed pre-launch (2026-05-02). Slug retained for when a dedicated test DB
+// is stood up later.
+const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
 
 // CI doesn't carry STRIPE_SECRET_KEY by default; the guest-checkout endpoint
 // then 503s on the Stripe-session step. Mirror the gate from

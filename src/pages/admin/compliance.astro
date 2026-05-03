@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { ComplianceList } from '../../components/admin/compliance-list';
+
+// Auth check handled by middleware
+const user = Astro.locals.user!;
+---
+
+<BaseLayout title="Compliance — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/compliance"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <ComplianceList client:load />
+  </AdminLayout>
+</BaseLayout>

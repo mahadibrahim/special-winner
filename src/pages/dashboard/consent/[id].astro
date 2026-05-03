@@ -1,0 +1,19 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { ManageConsent } from '../../../components/dashboard/manage-consent';
+
+// Middleware guarantees user is authenticated for /dashboard routes.
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/dashboard');
+}
+---
+
+<BaseLayout title="Manage Consent — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-3xl mx-auto fade-in">
+      <ManageConsent client:load familyMemberId={id} />
+    </div>
+  </main>
+</BaseLayout>

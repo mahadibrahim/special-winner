@@ -74,17 +74,16 @@ export function WaiverStep({
             participant if I cannot be reached.
           </p>
           <p>
-            <strong className="text-ink">3. Photo/Video Release:</strong> I grant permission for Aspire Sports
-            to use photographs and video recordings of the participant for promotional purposes.
-          </p>
-          <p>
-            <strong className="text-ink">4. Release of Liability:</strong> I release and hold harmless Aspire
+            <strong className="text-ink">3. Release of Liability:</strong> I release and hold harmless Aspire
             Sports, its coaches, volunteers, and facilities from any claims arising from
             participation in the program.
           </p>
           <p>
-            <strong className="text-ink">5. Code of Conduct:</strong> I agree that the participant will adhere
+            <strong className="text-ink">4. Code of Conduct:</strong> I agree that the participant will adhere
             to all program rules and demonstrate good sportsmanship at all times.
+          </p>
+          <p className="text-xs text-ink-faint">
+            Photo and video use is handled separately on the next step.
           </p>
         </div>
       </div>

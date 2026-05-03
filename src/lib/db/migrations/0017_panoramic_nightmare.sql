@@ -1,0 +1,1 @@
+ALTER TABLE "shoot_sessions" ADD COLUMN "intended_scope" varchar(32) DEFAULT 'internal' NOT NULL;

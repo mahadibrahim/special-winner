@@ -14,6 +14,11 @@ import { normalizeUsPhone, sendSms } from "@/lib/sms/send";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
+import {
+  recordConsent,
+  recordDefaultMediaAuth,
+  hasActiveConsent,
+} from "@/lib/consents/record";
 
 /**
  * POST /api/admin/walk-up-registration
@@ -68,6 +73,10 @@ const walkUpSchema = z.union([
     paymentStatus: z.enum(["paid", "unpaid", "comped"]),
     amountPaidCents: z.number().int().nonnegative().optional(),
     waiverSigned: z.boolean(),
+    // Optional in this transitional phase. When the admin form is updated
+    // to capture the parent's typed signature explicitly (Phase 3), this
+    // becomes required. For now we fall back to the parent's full name.
+    waiverSignedBy: z.string().min(1).optional(),
     notes: z.string().optional(),
   }),
   // New adult self-registration mode
@@ -138,6 +147,8 @@ export const POST: APIRoute = async (context) => {
   }
 
   const organizationId = orgContext.organizationId;
+  const clientAddress = context.clientAddress;
+  const userAgent = context.request.headers.get("user-agent");
 
   // -------------------------------------------------------------------------
   // ADULT SELF-REGISTRATION PATH
@@ -212,12 +223,29 @@ export const POST: APIRoute = async (context) => {
         amountPaidCents: input.amountPaidCents ?? 0,
         amountDueCents: seasonInfo.season.priceCents,
         waiverSigned: input.waiverSigned,
-        waiverSignedAt: input.waiverSigned ? new Date() : null,
-        waiverSignedBy: input.waiverSigned ? input.waiverSignedBy : null,
         notes: input.notes ?? null,
         lookingForTeam: input.lookingForTeam ?? false,
       })
       .returning({ id: registrations.id });
+
+    if (input.waiverSigned) {
+      const baseConsent = {
+        db,
+        familyMemberId: selfMember.id,
+        registrationId: adultRegistration.id,
+        organizationId,
+        signedByUserId: adultUserId,
+        signedByName: input.waiverSignedBy,
+        ipAddress: clientAddress ?? null,
+        userAgent: userAgent ?? null,
+        notes: `walk-up: admin=${adminUser.id}`,
+      };
+      if (!(await hasActiveConsent(db, selfMember.id, "age_confirmation"))) {
+        await recordConsent({ ...baseConsent, type: "age_confirmation" });
+      }
+      await recordConsent({ ...baseConsent, type: "liability" });
+      await recordDefaultMediaAuth(baseConsent);
+    }
 
     // Opt-in SMS if phone was provided
     const adultNormalizedPhone = r.phone ? normalizeUsPhone(r.phone) : null;
@@ -365,6 +393,9 @@ export const POST: APIRoute = async (context) => {
   const paymentStatus: "paid" | "unpaid" =
     childInput.paymentStatus === "paid" ? "paid" : "unpaid";
 
+  const childWaiverSignedBy =
+    childInput.waiverSignedBy ??
+    `${childInput.parent.firstName} ${childInput.parent.lastName}`.trim();
   const [registration] = await db
     .insert(registrations)
     .values({
@@ -376,11 +407,28 @@ export const POST: APIRoute = async (context) => {
       amountPaidCents: childInput.amountPaidCents ?? 0,
       amountDueCents: seasonInfo.season.priceCents,
       waiverSigned: childInput.waiverSigned,
-      waiverSignedAt: childInput.waiverSigned ? new Date() : null,
-      waiverSignedBy: childInput.waiverSigned ? `${childInput.parent.firstName} ${childInput.parent.lastName}` : null,
       notes: childInput.notes ?? null,
     })
     .returning({ id: registrations.id });
+
+  if (childInput.waiverSigned) {
+    const baseConsent = {
+      db,
+      familyMemberId: familyMember.id,
+      registrationId: registration.id,
+      organizationId,
+      signedByUserId: parentUserId,
+      signedByName: childWaiverSignedBy,
+      ipAddress: clientAddress ?? null,
+      userAgent: userAgent ?? null,
+      notes: `walk-up: admin=${adminUser.id}`,
+    };
+    if (!(await hasActiveConsent(db, familyMember.id, "parental"))) {
+      await recordConsent({ ...baseConsent, type: "parental" });
+    }
+    await recordConsent({ ...baseConsent, type: "liability" });
+    await recordDefaultMediaAuth(baseConsent);
+  }
 
   // Upsert phone opt-in as pending
   const existingOptIn = await db

@@ -13,12 +13,14 @@ import {
   Users,
   Loader2,
   AlertCircle,
+  Camera,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TelegramConnectStep } from "./telegram-connect-step"
 import { WhoStep } from "./who-step"
 import { GuestInfoStep, type GuestRegistrationMode } from "./guest-info-step"
 import { WaiverStep } from "./waiver-step"
+import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { PaymentStep } from "./payment-step"
 import { ConfirmationStep } from "./confirmation-step"
 import { AddDependentForm } from "./add-dependent-form"
@@ -98,8 +100,9 @@ interface RegistrationWizardProps {
 const STEPS = [
   { id: 1, name: "Select Player", icon: User },
   { id: 2, name: "Sign Waiver", icon: FileCheck },
-  { id: 3, name: "Payment", icon: CreditCard },
-  { id: 4, name: "Confirm", icon: CheckCircle2 },
+  { id: 3, name: "Media", icon: Camera },
+  { id: 4, name: "Payment", icon: CreditCard },
+  { id: 5, name: "Confirm", icon: CheckCircle2 },
 ]
 
 export default function RegistrationWizard({
@@ -133,6 +136,10 @@ export default function RegistrationWizard({
   const [waiverSignature, setWaiverSignature] = useState("")
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full")
   const [lookingForTeam, setLookingForTeam] = useState(false)
+  // Media-auth opt-outs: empty Set = all 3 scopes granted (the default).
+  const [mediaAuthOptOuts, setMediaAuthOptOuts] = useState<ReadonlySet<MediaAuthScope>>(
+    new Set(),
+  )
 
   // ── Guest-mode fields ────────────────────────────────────────────────────
   const [guestParentFirstName, setGuestParentFirstName] = useState("")
@@ -392,7 +399,7 @@ export default function RegistrationWizard({
       }
       // No URL + ok → discount zeroed the bill; treat as complete.
       setRegistrationComplete(true)
-      setCurrentStep(4)
+      setCurrentStep(5)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start payment")
     } finally {
@@ -405,6 +412,7 @@ export default function RegistrationWizard({
     setIsSubmitting(true)
     setError(null)
     try {
+      const mediaAuthOptOutsArr = Array.from(mediaAuthOptOuts)
       const payload =
         guestMode === "adult"
           ? {
@@ -422,6 +430,7 @@ export default function RegistrationWizard({
               waiverSigned: true,
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
+              mediaAuthOptOuts: mediaAuthOptOutsArr,
             }
           : {
               seasonId,
@@ -441,6 +450,7 @@ export default function RegistrationWizard({
               waiverSigned: true,
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
+              mediaAuthOptOuts: mediaAuthOptOutsArr,
             }
 
       const res = await fetch("/api/registrations/guest-checkout", {
@@ -478,6 +488,7 @@ export default function RegistrationWizard({
     setIsSubmitting(true)
     setError(null)
 
+    const mediaAuthOptOutsArr = Array.from(mediaAuthOptOuts)
     const registrationBody =
       selectedKey === "self"
         ? {
@@ -488,6 +499,7 @@ export default function RegistrationWizard({
             waiverSignedBy: waiverSignature,
             discountCode: discountCode || undefined,
             lookingForTeam,
+            mediaAuthOptOuts: mediaAuthOptOutsArr,
           }
         : {
             seasonId,
@@ -496,6 +508,7 @@ export default function RegistrationWizard({
             waiverSigned: true,
             waiverSignedBy: waiverSignature,
             discountCode: discountCode || undefined,
+            mediaAuthOptOuts: mediaAuthOptOutsArr,
           }
 
     try {
@@ -532,7 +545,7 @@ export default function RegistrationWizard({
             if (!hasLinkedTelegram) {
               setShowTelegramStep(true)
             } else {
-              setCurrentStep(4)
+              setCurrentStep(5)
             }
             return
           }
@@ -553,7 +566,7 @@ export default function RegistrationWizard({
       if (!hasLinkedTelegram) {
         setShowTelegramStep(true)
       } else {
-        setCurrentStep(4)
+        setCurrentStep(5)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to complete registration")
@@ -586,6 +599,8 @@ export default function RegistrationWizard({
       case 2:
         return waiverAccepted && waiverSignature.length >= 2
       case 3:
+        return true
+      case 4:
         return true
       default:
         return false
@@ -904,8 +919,28 @@ export default function RegistrationWizard({
           />
         )}
 
-        {/* Step 3: Payment */}
+        {/* Step 3: Media Authorization */}
         {currentStep === 3 && (
+          <MediaAuthStep
+            isSelf={
+              isGuest
+                ? guestMode === "adult"
+                : selectedKey === "self"
+            }
+            participantName={
+              isGuest
+                ? guestMode === "adult"
+                  ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+                  : `${guestChildFirstName} ${guestChildLastName}`.trim()
+                : selectedDisplayName
+            }
+            optOutScopes={mediaAuthOptOuts}
+            onOptOutScopesChange={setMediaAuthOptOuts}
+          />
+        )}
+
+        {/* Step 4: Payment */}
+        {currentStep === 4 && (
           <PaymentStep
             seasonName={season.name}
             seasonPrice={season.price}
@@ -938,17 +973,17 @@ export default function RegistrationWizard({
           <TelegramConnectStep
             onComplete={() => {
               setShowTelegramStep(false)
-              setCurrentStep(4)
+              setCurrentStep(5)
             }}
             onSkip={() => {
               setShowTelegramStep(false)
-              setCurrentStep(4)
+              setCurrentStep(5)
             }}
           />
         )}
 
-        {/* Step 4: Confirmation */}
-        {currentStep === 4 && !showTelegramStep && registrationComplete && (
+        {/* Step 5: Confirmation */}
+        {currentStep === 5 && !showTelegramStep && registrationComplete && (
           <ConfirmationStep
             seasonName={season.name}
             registrantDisplayName={selectedDisplayName}
@@ -957,7 +992,7 @@ export default function RegistrationWizard({
       </div>
 
       {/* Navigation */}
-      {currentStep < 4 && !showTelegramStep && (
+      {currentStep < 5 && !showTelegramStep && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"
@@ -969,7 +1004,7 @@ export default function RegistrationWizard({
             Back
           </Button>
 
-          {currentStep < 3 ? (
+          {currentStep < 4 ? (
             <Button
               onClick={() => setCurrentStep(currentStep + 1)}
               disabled={!canProceed()}

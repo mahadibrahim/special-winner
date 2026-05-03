@@ -48,3 +48,6 @@ export * from "./media";
 
 // Stripe webhook idempotency ledger
 export * from "./stripe-events";
+
+// Consent + waiver audit log (parental, age confirmation, liability, media auth)
+export * from "./consents";

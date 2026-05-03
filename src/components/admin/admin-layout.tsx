@@ -27,6 +27,7 @@ import {
   ListOrdered,
   BarChart3,
   ShoppingBag,
+  ShieldCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -65,6 +66,7 @@ const navigation = [
   { name: "Messages", href: "/messages", icon: MessageSquare },
   { name: "Announcements", href: "/admin/announcements", icon: Megaphone },
   { name: "Reports", href: "/admin/reports", icon: BarChart3 },
+  { name: "Compliance", href: "/admin/compliance", icon: ShieldCheck },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
 
