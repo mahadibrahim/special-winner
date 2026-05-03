@@ -9,7 +9,7 @@ import { waitForHydration } from "../utils/test-helpers";
 test.describe("Anonymous registration (guest checkout)", () => {
   test.setTimeout(120_000);
 
-  test("anonymous visitor can fill the wizard and reach Stripe checkout", async ({ page, request }) => {
+  test("anonymous visitor can fill the wizard and reach Stripe embedded checkout", async ({ page, request }) => {
     // Find an open season with capacity
     const seasonsRes = await request.get("/api/public/seasons?status=open");
     expect(seasonsRes.ok()).toBe(true);
@@ -102,16 +102,12 @@ test.describe("Anonymous registration (guest checkout)", () => {
     // Step 3 — keep "Pay in Full" default; submit
     await page.getByRole("button", { name: /complete registration/i }).click();
 
-    // Outcome: either we get redirected to Stripe Checkout (if Stripe keys are configured),
-    // or the wizard surfaces a Stripe-config error banner. Both are acceptable for this
-    // smoke test — the contract we care about is that the guest-checkout endpoint accepted
-    // the submission and returned either a checkoutUrl or a typed error.
+    // Outcome: with embedded checkout, the contract is "Stripe Elements iframe mounted
+    // inline" instead of "navigated to checkout.stripe.com". Other valid outcomes:
+    // - Navigation to /dashboard (zero-amount discount path)
+    // - Error banner (Stripe not configured in this env)
     //
     // Strategy: wait up to 30s for any of the concrete outcome signals to appear.
-    // We cannot use waitForLoadState("domcontentloaded") because the page is
-    // already loaded; it would resolve instantly before the fetch completes.
-    //
-    // Instead we give the submission 30s and then assert one of the outcomes.
     // We first wait for the submit button to go into "Processing..." state so
     // we know the click registered, then wait for resolution.
     const processingButtonLocator = page.getByRole("button", { name: /processing/i });
@@ -123,8 +119,11 @@ test.describe("Anonymous registration (guest checkout)", () => {
       // Proceed anyway — might have already navigated.
     });
 
-    // Now wait for the outcome: navigation away from this page OR error banner
+    const stripeIframeLocator = page.locator('iframe[name^="__privateStripeFrame"]').first();
+
     await Promise.race([
+      stripeIframeLocator.waitFor({ state: "visible", timeout: 30_000 })
+        .catch(() => { /* iframe didn't mount within 30s */ }),
       page.waitForURL((u) => !u.href.includes(`/register/${season.id}`), { timeout: 30_000 })
         .catch(() => { /* navigation didn't happen within 30s */ }),
       errorBannerLocator.waitFor({ state: "visible", timeout: 30_000 })
@@ -135,8 +134,8 @@ test.describe("Anonymous registration (guest checkout)", () => {
     await page.waitForLoadState("domcontentloaded", { timeout: 5_000 }).catch(() => {});
 
     const url = page.url();
-    const onStripe = /checkout\.stripe\.com/.test(url);
-    const onCancelOrDashboard = /(register\/.*payment=cancelled|dashboard)/.test(url);
+    const stripeIframeMounted = (await stripeIframeLocator.count()) > 0;
+    const onDashboard = /\/dashboard/.test(url);
     const hasErrorBanner =
       (await page.getByText(/Payment processing is not configured/i).count()) > 0 ||
       (await page.getByText(/couldn't start your payment/i).count()) > 0 ||
@@ -144,8 +143,8 @@ test.describe("Anonymous registration (guest checkout)", () => {
       (await errorBannerLocator.count()) > 0;
 
     expect(
-      onStripe || onCancelOrDashboard || hasErrorBanner,
-      `expected to land on Stripe, /dashboard, payment=cancelled, or see a Stripe-config error banner; got url=${url}`,
+      stripeIframeMounted || onDashboard || hasErrorBanner,
+      `expected Stripe Elements iframe to mount inline, navigation to /dashboard, or a Stripe-config error banner; got url=${url}, iframeCount=${await stripeIframeLocator.count()}`,
     ).toBe(true);
   });
 
