@@ -106,10 +106,13 @@ test.describe("Adult self registration", () => {
       .locator('input');
     await sigField.fill("Adult Self");
 
-    // Advance to Step 3 (payment)
+    // Advance to Step 3 (Media authorization — defaults grant all 3 scopes)
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // 5. Step 3: Payment — verify order summary shows the registrant's name
+    // Advance to Step 4 (Payment)
+    await page.getByRole("button", { name: /continue/i }).click();
+
+    // 5. Step 4: Payment — verify order summary shows the registrant's name
     // "Registration for" row contains the registrant display name
     await expect(page.getByText(/Payment Option/i)).toBeVisible({ timeout: 10_000 });
 

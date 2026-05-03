@@ -36,9 +36,10 @@ export class CheckoutError extends Error {
 // ---------------------------------------------------------------------------
 
 export type CheckoutResult =
-  | { kind: "stripe_session"; checkoutUrl: string; sessionId: string }
+  | { kind: "stripe_session"; clientSecret: string; sessionId: string }
   | { kind: "paid_zero"; registrationId: string };
 
+// baseUrl currently unused in Phase 1 (no redirect URLs); retained for Phase 2 magic-link emails
 export interface CreateCheckoutForRegistrationInput {
   db: ReturnType<typeof getDb>;
   registrationId: string;
@@ -226,11 +227,7 @@ export async function createCheckoutForRegistration(
   }
   const customerEmail = userRow.email;
 
-  // 9. Build URLs
-  const successUrl = `${baseUrl}/dashboard?payment=success&registration=${registrationId}`;
-  const cancelUrl = `${baseUrl}/register/${season.id}?payment=cancelled`;
-
-  // 10. Decide platform-direct vs Stripe Connect based on the org config.
+  // 9. Decide platform-direct vs Stripe Connect based on the org config.
   //     Connect is used when the org has a connected account and onboarding
   //     is complete; otherwise the payment goes to the platform account
   //     (HQ direct or franchise-not-yet-onboarded).
@@ -242,6 +239,7 @@ export async function createCheckoutForRegistration(
   const merged = {
     registrationId,
     type: "registration_payment",
+    ...(appliedDiscountCode ? { discount_code: appliedDiscountCode.code } : {}),
     ...(extraMetadata ?? {}),
   };
 
@@ -254,17 +252,15 @@ export async function createCheckoutForRegistration(
       destinationAccountId: paymentConfig.destinationAccountId,
       applicationFeePercent: paymentConfig.applicationFeePercent,
       customerEmail,
-      successUrl,
-      cancelUrl,
       productName: `${program.name} - ${season.name}`,
       productDescription: `Registration for ${familyMember.firstName} ${familyMember.lastName}`,
       metadata: merged,
     });
 
-    if (!session || !session.url) {
+    if (!session) {
       throw new CheckoutError(500, "Failed to create Connect checkout session");
     }
-    return { kind: "stripe_session", checkoutUrl: session.url, sessionId: session.id };
+    return { kind: "stripe_session", clientSecret: session.clientSecret, sessionId: session.id };
   }
 
   // Platform-direct (HQ, or franchise without a connected account yet)
@@ -274,14 +270,12 @@ export async function createCheckoutForRegistration(
     playerName: `${familyMember.firstName} ${familyMember.lastName}`,
     amountCents: amountDue,
     customerEmail,
-    successUrl,
-    cancelUrl,
     extraMetadata,
   });
 
-  if (!session || !session.url) {
+  if (!session) {
     throw new CheckoutError(500, "Failed to create checkout session");
   }
 
-  return { kind: "stripe_session", checkoutUrl: session.url, sessionId: session.id };
+  return { kind: "stripe_session", clientSecret: session.clientSecret, sessionId: session.id };
 }

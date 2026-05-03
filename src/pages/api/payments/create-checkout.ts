@@ -6,6 +6,7 @@ import {
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
 import { getPostHogServer } from "@/lib/posthog-server";
+import { parseGaClientId, readQueryOrCookie } from "@/lib/analytics/parse-cookies";
 
 const checkoutSchema = z.object({
   registrationId: z.string().uuid("Invalid registration ID"),
@@ -31,15 +32,25 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           error: "Validation failed",
           details: validation.error.flatten().fieldErrors,
         }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
     const { registrationId, discountCode } = validation.data;
     const db = getDb();
+
+    // Capture GA4 client_id + ad-platform IDs to pass through Stripe session
+    // metadata so the webhook (handle-checkout-complete.ts) can fire a
+    // server-side GA4 Measurement Protocol purchase event.
+    const cookieHeader = request.headers.get("cookie");
+    const gaClientId = parseGaClientId(cookieHeader);
+    const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
+    const fbclid = readQueryOrCookie(url, cookieHeader, "fbclid");
+
+    const extraMetadata: Record<string, string> = {};
+    if (gaClientId) extraMetadata.ga_client_id = gaClientId;
+    if (gclid) extraMetadata.gclid = gclid;
+    if (fbclid) extraMetadata.fbclid = fbclid;
 
     const result = await createCheckoutForRegistration({
       db,
@@ -47,57 +58,60 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       userId: user.id,
       baseUrl: url.origin,
       discountCode,
+      extraMetadata,
     });
 
     const posthog = getPostHogServer();
     const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
 
     if (result.kind === "paid_zero") {
-      posthog.capture({ distinctId: user.id, event: "checkout_zero_amount", properties: { $session_id: phSessionId, registration_id: registrationId, discount_code: discountCode } });
+      posthog.capture({
+        distinctId: user.id,
+        event: "checkout_zero_amount",
+        properties: { $session_id: phSessionId, registration_id: registrationId, discount_code: discountCode },
+      });
       return new Response(
         JSON.stringify({
           success: true,
           message: "Registration complete - no payment required after discount",
           discountApplied: true,
         }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        },
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // kind === "stripe_session"
-    posthog.capture({ distinctId: user.id, event: "checkout_initiated", properties: { $session_id: phSessionId, registration_id: registrationId, stripe_session_id: result.sessionId, discount_code: discountCode } });
+    posthog.capture({
+      distinctId: user.id,
+      event: "checkout_initiated",
+      properties: {
+        $session_id: phSessionId,
+        registration_id: registrationId,
+        stripe_session_id: result.sessionId,
+        discount_code: discountCode,
+      },
+    });
     return new Response(
       JSON.stringify({
-        checkoutUrl: result.checkoutUrl,
+        clientSecret: result.clientSecret,
         sessionId: result.sessionId,
+        publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
       }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error) {
-    // CheckoutError maps directly to its status
     if (error instanceof CheckoutError) {
       return new Response(
         JSON.stringify({
           error: error.message,
           ...(error.code ? { code: error.code } : {}),
         }),
-        {
-          status: error.status,
-          headers: { "Content-Type": "application/json" },
-        },
+        { status: error.status, headers: { "Content-Type": "application/json" } },
       );
     }
 
     console.error("Error creating checkout session:", error);
 
-    // Distinguish Stripe configuration problems from generic server errors so
-    // the wizard can show parents something actionable instead of a naked 500.
     const e = error as { type?: string; message?: string };
     const stripeType =
       typeof e?.type === "string" && e.type.startsWith("Stripe") ? e.type : null;
@@ -133,4 +147,3 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     );
   }
 };
-

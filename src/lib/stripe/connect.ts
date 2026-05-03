@@ -176,29 +176,14 @@ export async function updateOrganizationStripeStatus(
 // ============================================
 
 interface PaymentWithConnectOptions {
-  // Amount in cents
   amountCents: number;
   currency?: string;
-
-  // The franchise receiving the payment
   destinationAccountId: string;
-
-  // Platform fee (goes to HQ)
   applicationFeePercent?: number;
   applicationFeeAmountCents?: number;
-
-  // Customer info
   customerEmail: string;
   customerId?: string;
-
-  // Metadata
   metadata?: Record<string, string>;
-
-  // URLs
-  successUrl: string;
-  cancelUrl: string;
-
-  // Line item info
   productName: string;
   productDescription?: string;
 }
@@ -208,7 +193,7 @@ interface PaymentWithConnectOptions {
  */
 export async function createConnectCheckoutSession(
   options: PaymentWithConnectOptions
-): Promise<Stripe.Checkout.Session | null> {
+): Promise<{ id: string; clientSecret: string } | null> {
   if (!stripe) return null;
 
   const {
@@ -220,8 +205,6 @@ export async function createConnectCheckoutSession(
     customerEmail,
     customerId,
     metadata = {},
-    successUrl,
-    cancelUrl,
     productName,
     productDescription,
   } = options;
@@ -234,7 +217,7 @@ export async function createConnectCheckoutSession(
 
   try {
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
-      payment_method_types: ["card"],
+      ui_mode: "custom",
       line_items: [
         {
           price_data: {
@@ -249,8 +232,6 @@ export async function createConnectCheckoutSession(
         },
       ],
       mode: "payment",
-      success_url: successUrl,
-      cancel_url: cancelUrl,
       customer_email: customerId ? undefined : customerEmail,
       customer: customerId,
       metadata,
@@ -263,9 +244,6 @@ export async function createConnectCheckoutSession(
       },
     };
 
-    // Idempotency: prefer the caller-supplied registrationId in metadata —
-    // see top of client.ts for the convention. Fall back to destination +
-    // amount when the caller didn't pass one (rare; preserves correctness).
     const registrationId = metadata.registrationId;
     const idempotencyKey = registrationId
       ? `${registrationId}:connect-checkout:${amountCents}`
@@ -274,7 +252,13 @@ export async function createConnectCheckoutSession(
     const session = await stripe.checkout.sessions.create(sessionConfig, {
       idempotencyKey,
     });
-    return session;
+
+    if (!session.client_secret) {
+      console.error("Stripe Connect session returned without client_secret");
+      return null;
+    }
+
+    return { id: session.id, clientSecret: session.client_secret };
   } catch (error) {
     console.error("Error creating Connect checkout session:", error);
     throw error;
@@ -286,7 +270,7 @@ export async function createConnectCheckoutSession(
  * (For custom payment forms)
  */
 export async function createConnectPaymentIntent(
-  options: Omit<PaymentWithConnectOptions, "successUrl" | "cancelUrl" | "productName" | "productDescription">
+  options: Omit<PaymentWithConnectOptions, "productName" | "productDescription">
 ): Promise<Stripe.PaymentIntent | null> {
   if (!stripe) return null;
 

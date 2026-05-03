@@ -187,6 +187,18 @@ export default function RegistrationWizard({
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
 
+  // ── Embedded payment state ───────────────────────────────────────────────
+  const [paymentClientSecret, setPaymentClientSecret] = useState<string | null>(null)
+  const [paymentPublishableKey, setPaymentPublishableKey] = useState<string | null>(null)
+  const [paymentValueCents, setPaymentValueCents] = useState(0)
+  // CheckoutPaymentType is "deposit" | "balance" | "full". The wizard only
+  // sets "deposit" or "full" — balance pay UI ships in Phase 2 (separate
+  // dashboard surface). Type is widened for forward-compat with the analytics
+  // module's exported type.
+  const [paymentTypeForTracking, setPaymentTypeForTracking] = useState<
+    "deposit" | "balance" | "full"
+  >("full")
+
   // ── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -231,6 +243,21 @@ export default function RegistrationWizard({
     }
     // If no signal, leave at the "child" default
   }, [isGuest, season, audienceHint])
+
+  // Fire view_item once when entering step 4 (the payment step)
+  useEffect(() => {
+    if (currentStep === 4 && season) {
+      import("@/lib/analytics/datalayer").then(({ trackViewItem }) => {
+        trackViewItem({
+          id: season.id,
+          name: `${season.program.name} - ${season.name}`,
+          category: season.sport.name,
+          category2: season.location.name,
+          priceCents: season.priceCents,
+        })
+      })
+    }
+  }, [currentStep, season])
 
   // Debounced guest email collision check
   useEffect(() => {
@@ -379,6 +406,24 @@ export default function RegistrationWizard({
     setDiscountError(null)
   }
 
+  const handlePaymentSuccess = (_paymentIntentId: string) => {
+    setRegistrationComplete(true)
+    setPaymentClientSecret(null)
+    if (!hasLinkedTelegram) {
+      setShowTelegramStep(true)
+    } else {
+      setCurrentStep(5)
+    }
+  }
+
+  const handlePaymentCancel = () => {
+    // Discard the in-flight Stripe session — the next Continue-to-Payment
+    // creates a fresh one. Orphaned sessions self-expire on Stripe's side.
+    setPaymentClientSecret(null)
+    setPaymentPublishableKey(null)
+    setPaymentValueCents(0)
+  }
+
   const handleResumePayment = async () => {
     if (!resumableRegistrationId) return
     setIsResumingPayment(true)
@@ -393,11 +438,35 @@ export default function RegistrationWizard({
       if (!res.ok) {
         throw new Error(data.error || "Failed to create checkout session")
       }
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
+      if (data.clientSecret) {
+        const valueCents =
+          paymentOption === "deposit" && season!.depositCents
+            ? season!.depositCents
+            : season!.priceCents
+        const finalValueCents = appliedDiscount
+          ? valueCents - appliedDiscount.discountAmountCents
+          : valueCents
+
+        setPaymentValueCents(finalValueCents)
+        setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+        setPaymentPublishableKey(data.publishableKey)
+        setPaymentClientSecret(data.clientSecret)
+
+        const { trackBeginCheckout } = await import("@/lib/analytics/datalayer")
+        trackBeginCheckout(
+          {
+            id: season!.id,
+            name: `${season!.program.name} - ${season!.name}`,
+            category: season!.sport.name,
+            category2: season!.location.name,
+            priceCents: season!.priceCents,
+          },
+          finalValueCents,
+          appliedDiscount?.code,
+        )
         return
       }
-      // No URL + ok → discount zeroed the bill; treat as complete.
+      // No clientSecret + ok → discount zeroed the bill; treat as complete.
       setRegistrationComplete(true)
       setCurrentStep(5)
     } catch (err) {
@@ -462,8 +531,32 @@ export default function RegistrationWizard({
       if (!res.ok) {
         throw new Error(data.error || "Failed to complete registration")
       }
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
+      if (data.clientSecret) {
+        const valueCents =
+          paymentOption === "deposit" && season!.depositCents
+            ? season!.depositCents
+            : season!.priceCents
+        const finalValueCents = appliedDiscount
+          ? valueCents - appliedDiscount.discountAmountCents
+          : valueCents
+
+        setPaymentValueCents(finalValueCents)
+        setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+        setPaymentPublishableKey(data.publishableKey)
+        setPaymentClientSecret(data.clientSecret)
+
+        const { trackBeginCheckout } = await import("@/lib/analytics/datalayer")
+        trackBeginCheckout(
+          {
+            id: season!.id,
+            name: `${season!.program.name} - ${season!.name}`,
+            category: season!.sport.name,
+            category2: season!.location.name,
+            priceCents: season!.priceCents,
+          },
+          finalValueCents,
+          appliedDiscount?.code,
+        )
         return
       }
       if (data.paid) {
@@ -554,9 +647,33 @@ export default function RegistrationWizard({
 
         const checkoutData = await checkoutResponse.json()
 
-        // Redirect to Stripe checkout
-        if (checkoutData.checkoutUrl) {
-          window.location.href = checkoutData.checkoutUrl
+        // Hand off to embedded form rendered inside step 4
+        if (checkoutData.clientSecret) {
+          const valueCents =
+            paymentOption === "deposit" && season!.depositCents
+              ? season!.depositCents
+              : season!.priceCents
+          const finalValueCents = appliedDiscount
+            ? valueCents - appliedDiscount.discountAmountCents
+            : valueCents
+
+          setPaymentValueCents(finalValueCents)
+          setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+          setPaymentPublishableKey(checkoutData.publishableKey)
+          setPaymentClientSecret(checkoutData.clientSecret)
+
+          const { trackBeginCheckout } = await import("@/lib/analytics/datalayer")
+          trackBeginCheckout(
+            {
+              id: season!.id,
+              name: `${season!.program.name} - ${season!.name}`,
+              category: season!.sport.name,
+              category2: season!.location.name,
+              priceCents: season!.priceCents,
+            },
+            finalValueCents,
+            appliedDiscount?.code,
+          )
           return
         }
       }
@@ -965,6 +1082,24 @@ export default function RegistrationWizard({
             }}
             onApplyDiscount={handleApplyDiscount}
             onRemoveDiscount={handleRemoveDiscount}
+            clientSecret={paymentClientSecret}
+            publishableKey={paymentPublishableKey}
+            seasonItem={
+              season
+                ? {
+                    id: season.id,
+                    name: `${season.program.name} - ${season.name}`,
+                    category: season.sport.name,
+                    category2: season.location.name,
+                    priceCents: season.priceCents,
+                  }
+                : null
+            }
+            paymentValueCents={paymentValueCents}
+            checkoutPaymentType={paymentTypeForTracking}
+            paymentReturnUrl={`${window.location.origin}/payment/return`}
+            onPaymentSuccess={handlePaymentSuccess}
+            onPaymentCancel={handlePaymentCancel}
           />
         )}
 
@@ -992,7 +1127,7 @@ export default function RegistrationWizard({
       </div>
 
       {/* Navigation */}
-      {currentStep < 5 && !showTelegramStep && (
+      {currentStep < 5 && !showTelegramStep && !paymentClientSecret && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"

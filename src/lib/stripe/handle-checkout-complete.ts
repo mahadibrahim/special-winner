@@ -9,6 +9,7 @@ import {
   locations,
   familyMembers,
   users,
+  sports,
 } from "@/lib/db/schema";
 import {
   sendRegistrationConfirmationEmail,
@@ -16,6 +17,7 @@ import {
   sendPaymentReceiptEmail,
 } from "@/lib/email/send";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
+import { sendPurchaseEvent } from "@/lib/analytics/ga4-measurement-protocol";
 
 export async function handleCheckoutComplete(
   session: Stripe.Checkout.Session
@@ -61,8 +63,18 @@ export async function handleCheckoutComplete(
   const newAmountPaid = registration.amountPaidCents + amountPaid;
   const isFullyPaid = newAmountPaid >= registration.amountDueCents;
   const newAmountDue = Math.max(0, registration.amountDueCents - amountPaid);
-  const paymentTypeValue =
-    registration.registrationType === "deposit" ? "deposit" : "full";
+  // Three-way derivation matches the GA4 fire below.
+  //   - prior amountPaidCents > 0  → balance (this is the second+ payment)
+  //   - else if registrationType === 'deposit' → deposit
+  //   - else → full
+  let paymentTypeValue: "deposit" | "balance" | "full";
+  if (registration.amountPaidCents > 0) {
+    paymentTypeValue = "balance";
+  } else if (registration.registrationType === "deposit") {
+    paymentTypeValue = "deposit";
+  } else {
+    paymentTypeValue = "full";
+  }
 
   await db
     .update(registrations)
@@ -183,6 +195,64 @@ export async function handleCheckoutComplete(
     }
   } catch (err) {
     console.error("[stripe webhook] email payload build failed:", err);
+  }
+
+  // Server-side GA4 Measurement Protocol purchase — backup attribution
+  // for ad-blocked / ITP-blocked client-side fires. Same transaction_id
+  // as the client-side dataLayer push so GA4 dedupes.
+  const gaClientId = session.metadata?.ga_client_id;
+  if (gaClientId) {
+    try {
+      const [itemRow] = await db
+        .select({
+          seasonId: seasons.id,
+          seasonName: seasons.name,
+          programName: programs.name,
+          sportName: sports.name,
+          seasonPriceCents: seasons.priceCents,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .where(eq(registrations.id, registrationId));
+
+      if (itemRow) {
+        // Derive payment_type:
+        //   - prior amountPaidCents > 0  → balance (this is the second+ payment)
+        //   - else if registrationType === 'deposit' → deposit
+        //   - else → full
+        // Note: registration.amountPaidCents is the PRE-update value fetched
+        // earlier in this function — the DB update does not mutate the local var.
+        let paymentTypeForTracking: "deposit" | "balance" | "full";
+        if (registration.amountPaidCents > 0) {
+          paymentTypeForTracking = "balance";
+        } else if (registration.registrationType === "deposit") {
+          paymentTypeForTracking = "deposit";
+        } else {
+          paymentTypeForTracking = "full";
+        }
+
+        sendPurchaseEvent({
+          clientId: gaClientId,
+          transactionId: session.payment_intent as string,
+          valueCents: amountPaid,
+          currency: "USD",
+          paymentType: paymentTypeForTracking,
+          coupon: session.metadata?.discount_code,
+          items: [
+            {
+              id: itemRow.seasonId,
+              name: `${itemRow.programName} - ${itemRow.seasonName}`,
+              category: itemRow.sportName,
+              priceCents: itemRow.seasonPriceCents,
+            },
+          ],
+        }).catch((err) => console.error("[stripe webhook] GA4 MP send failed:", err));
+      }
+    } catch (err) {
+      console.error("[stripe webhook] GA4 item-context JOIN failed:", err);
+    }
   }
 
   return { status: "processed", registrationId, paidCents: amountPaid };

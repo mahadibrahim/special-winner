@@ -27,6 +27,7 @@ import {
   recordDefaultMediaAuth,
   hasActiveConsent,
 } from "@/lib/consents/record";
+import { parseGaClientId, readQueryOrCookie } from "@/lib/analytics/parse-cookies";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -97,6 +98,19 @@ export const POST: APIRoute = async (context) => {
     }
     const data = parsed.data;
     const db = getDb();
+
+    // Capture GA4 client_id + ad-platform IDs to pass through Stripe session
+    // metadata so the webhook (handle-checkout-complete.ts) can fire a
+    // server-side GA4 Measurement Protocol purchase event.
+    const cookieHeader = request.headers.get("cookie");
+    const gaClientId = parseGaClientId(cookieHeader);
+    const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
+    const fbclid = readQueryOrCookie(url, cookieHeader, "fbclid");
+
+    const analyticsMetadata: Record<string, string> = { via_guest_checkout: "true" };
+    if (gaClientId) analyticsMetadata.ga_client_id = gaClientId;
+    if (gclid) analyticsMetadata.gclid = gclid;
+    if (fbclid) analyticsMetadata.fbclid = fbclid;
 
     // -------------------------------------------------------------------------
     // Shared helper: upsert user by email, assign parent role if new.
@@ -177,6 +191,7 @@ export const POST: APIRoute = async (context) => {
       distinctIdForPosthog: string;
       lookingForTeam?: boolean;
       mediaAuthOptOuts?: ReadonlyArray<"internal" | "promotional" | "public">;
+      extraMetadata: Record<string, string>;
     }) {
       const {
         userRow,
@@ -191,6 +206,7 @@ export const POST: APIRoute = async (context) => {
         distinctIdForPosthog,
         lookingForTeam,
         mediaAuthOptOuts,
+        extraMetadata,
       } = opts;
 
       // Step 3: create the registration via shared helper
@@ -273,7 +289,7 @@ export const POST: APIRoute = async (context) => {
           userId: userRow.id,
           baseUrl: url.origin,
           discountCode,
-          extraMetadata: { via_guest_checkout: "true" },
+          extraMetadata,
         });
 
         // Account-takeover prevention: only set Lucia session for genuinely new users
@@ -296,8 +312,9 @@ export const POST: APIRoute = async (context) => {
         }
         return new Response(
           JSON.stringify({
-            checkoutUrl: checkout.checkoutUrl,
+            clientSecret: checkout.clientSecret,
             sessionId: checkout.sessionId,
+            publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
             wasNewUser,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -353,6 +370,7 @@ export const POST: APIRoute = async (context) => {
         distinctIdForPosthog: userRow.email,
         lookingForTeam: data.lookingForTeam ?? false,
         mediaAuthOptOuts: data.mediaAuthOptOuts,
+        extraMetadata: analyticsMetadata,
       });
     }
 
@@ -412,6 +430,7 @@ export const POST: APIRoute = async (context) => {
       wasNewUser,
       distinctIdForPosthog: userRow.email,
       mediaAuthOptOuts: data.mediaAuthOptOuts,
+      extraMetadata: analyticsMetadata,
     });
   } catch (error) {
     console.error("Error in guest-checkout:", error);

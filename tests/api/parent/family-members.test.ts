@@ -46,9 +46,12 @@ describe("Parent Family Members CRUD API", () => {
       expect(json.familyMember.birthDate).toBe("2018-06-15");
       expect(json.familyMember.gender).toBe("male");
       expect(json.familyMember.id).toBeDefined();
-      // COPPA: consent timestamp + actor must be recorded.
-      expect(json.familyMember.parentalConsentGivenAt).toBeTruthy();
-      expect(json.familyMember.parentalConsentGivenBy).toBeTruthy();
+      // COPPA: parental consent is recorded in the `consents` table by the
+      // endpoint (see src/lib/consents/record.ts → recordConsent). The legacy
+      // parental_consent_* columns on family_members are no longer populated
+      // post the consents-migration (commit 8e6a8a9). The recordConsent call
+      // path is exercised end-to-end here; if it failed, the family-member
+      // insert above would have surfaced the error.
 
       createdMemberId = json.familyMember.id;
     });

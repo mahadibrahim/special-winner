@@ -1,0 +1,177 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { stripe } from "@/lib/stripe/client";
+import { getDb } from "@/lib/db";
+import { registrations, seasons, programs, sports, locations } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+
+// SSR — never prerender (depends on query params + Stripe lookup)
+
+const paymentIntentId = Astro.url.searchParams.get("payment_intent");
+const redirectStatus = Astro.url.searchParams.get("redirect_status");
+
+let status: "succeeded" | "processing" | "failed" | "missing" = "missing";
+let amountCents = 0;
+let registrationId: string | null = null;
+let seasonItem: {
+  id: string;
+  name: string;
+  category: string;
+  category2: string;
+  priceCents: number;
+} | null = null;
+let paymentTypeForTracking: "deposit" | "balance" | "full" = "full";
+
+if (paymentIntentId && stripe) {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    amountCents = pi.amount;
+    registrationId = (pi.metadata?.registrationId as string) ?? null;
+
+    if (pi.status === "succeeded") status = "succeeded";
+    else if (pi.status === "processing") status = "processing";
+    else if (pi.status === "requires_payment_method") status = "failed";
+    else status = "failed";
+
+    if (registrationId) {
+      const db = getDb();
+      const [row] = await db
+        .select({
+          regAmountPaidBeforeThis: registrations.amountPaidCents,
+          regType: registrations.registrationType,
+          seasonId: seasons.id,
+          seasonName: seasons.name,
+          programName: programs.name,
+          sportName: sports.name,
+          locationName: locations.name,
+          seasonPriceCents: seasons.priceCents,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(eq(registrations.id, registrationId))
+        .orderBy(registrations.createdAt)
+        .limit(1);
+
+      if (row) {
+        seasonItem = {
+          id: row.seasonId,
+          name: `${row.programName} - ${row.seasonName}`,
+          category: row.sportName,
+          category2: row.locationName,
+          priceCents: row.seasonPriceCents,
+        };
+        // Derive payment_type from registration state at time of THIS payment.
+        // The webhook may already have updated amountPaidCents; we treat
+        // amountPaidCents > pi.amount as "this is a balance" since the prior
+        // deposit is already recorded.
+        const paidBefore = (row.regAmountPaidBeforeThis ?? 0) - pi.amount;
+        if (paidBefore > 0) paymentTypeForTracking = "balance";
+        else if (row.regType === "deposit") paymentTypeForTracking = "deposit";
+        else paymentTypeForTracking = "full";
+      }
+    }
+  } catch (err) {
+    console.error("[/payment/return] retrieve failed:", err);
+    status = "failed";
+  }
+}
+
+// `redirect_status` from Stripe is informational; we trust the PI status above.
+const _ = redirectStatus;
+
+const dashboardHref = registrationId
+  ? `/dashboard?registered=${registrationId}`
+  : "/dashboard";
+---
+
+<BaseLayout title="Payment status">
+  <main class="mx-auto max-w-xl px-6 py-12">
+    {status === "succeeded" && (
+      <div class="rounded-xl border border-green-300 bg-green-50 px-6 py-8 text-center">
+        <h1 class="text-2xl font-semibold text-ink mb-2">Payment confirmed</h1>
+        <p class="text-ink-muted mb-6">
+          We've received ${(amountCents / 100).toFixed(2)} for your registration.
+        </p>
+        <a
+          href={dashboardHref}
+          class="inline-block rounded-md bg-primary px-4 py-2 text-primary-foreground"
+        >
+          Continue to dashboard
+        </a>
+      </div>
+    )}
+
+    {status === "processing" && (
+      <div class="rounded-xl border border-amber-300 bg-amber-50 px-6 py-8 text-center">
+        <h1 class="text-2xl font-semibold text-ink mb-2">Processing your payment</h1>
+        <p class="text-ink-muted mb-6">
+          Your bank is confirming the charge. We'll email you when it's complete.
+        </p>
+        <a
+          href={dashboardHref}
+          class="inline-block rounded-md bg-primary px-4 py-2 text-primary-foreground"
+        >
+          Continue to dashboard
+        </a>
+      </div>
+    )}
+
+    {(status === "failed" || status === "missing") && (
+      <div class="rounded-xl border border-red-300 bg-red-50 px-6 py-8 text-center">
+        <h1 class="text-2xl font-semibold text-ink mb-2">Payment didn't complete</h1>
+        <p class="text-ink-muted mb-6">
+          Your registration is still saved. Try again from your dashboard.
+        </p>
+        <a
+          href={dashboardHref}
+          class="inline-block rounded-md bg-primary px-4 py-2 text-primary-foreground"
+        >
+          Back to dashboard
+        </a>
+      </div>
+    )}
+  </main>
+
+  {/* Fire client-side purchase event ONLY when the SCA-redirect path lands here.
+      The non-redirect synchronous-success path fires in EmbeddedPayment directly. */}
+  {status === "succeeded" && seasonItem && paymentIntentId && (
+    <script
+      is:inline
+      define:vars={{
+        transactionId: paymentIntentId,
+        seasonItem,
+        valueCents: amountCents,
+        paymentType: paymentTypeForTracking,
+      }}
+    >
+      try {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ ecommerce: null });
+        window.dataLayer.push({
+          event: "purchase",
+          ecommerce: {
+            transaction_id: transactionId,
+            currency: "USD",
+            value: valueCents / 100,
+            payment_type: paymentType,
+            items: [
+              {
+                item_id: seasonItem.id,
+                item_name: seasonItem.name,
+                item_category: seasonItem.category,
+                item_category2: seasonItem.category2,
+                price: seasonItem.priceCents / 100,
+                quantity: 1,
+              },
+            ],
+          },
+        });
+      } catch (e) {
+        // soft-fail
+      }
+    </script>
+  )}
+</BaseLayout>

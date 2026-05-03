@@ -130,30 +130,14 @@ export default function RegistrationsCard() {
   // Resume-payment state
   const [resumingRegistrationId, setResumingRegistrationId] = useState<string | null>(null)
 
-  const handleResumePayment = async (registrationId: string) => {
+  const handleResumePayment = (registrationId: string) => {
+    // Send the parent into the registration wizard's resume-payment UI,
+    // which renders the embedded Stripe form. Phase 2 will replace this with
+    // a dedicated /dashboard/registrations/[id]/pay-balance page.
+    const reg = registrations.find((r) => r.id === registrationId)
+    if (!reg) return
     setResumingRegistrationId(registrationId)
-    setError(null)
-    try {
-      const response = await fetch("/api/payments/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationId }),
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to start payment")
-      }
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
-        return
-      }
-      // paid_zero: registration already complete; just refresh
-      await fetchRegistrations()
-      setResumingRegistrationId(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start payment")
-      setResumingRegistrationId(null)
-    }
+    window.location.href = `/register/${reg.season.id}?payment=cancelled`
   }
 
   useEffect(() => {
@@ -424,11 +408,15 @@ export default function RegistrationsCard() {
                       </div>
 
                       {/* Actions section */}
-                      {(reg.status === "pending" && reg.paymentStatus === "unpaid") || canCancel(reg.status) || canEdit(reg.status) ? (
+                      {(reg.status === "pending" && reg.paymentStatus === "unpaid") || reg.paymentStatus === "deposit_paid" || canCancel(reg.status) || canEdit(reg.status) ? (
                         <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                           {reg.status === "pending" && reg.paymentStatus === "unpaid" ? (
                             <span className="text-sm text-ink-muted">
                               Amount due: <span className="text-ink font-medium">${(reg.amountDueCents / 100).toFixed(2)}</span>
+                            </span>
+                          ) : reg.paymentStatus === "deposit_paid" ? (
+                            <span className="text-sm text-ink-muted">
+                              Balance due: <span className="text-ink font-medium">${((reg.amountDueCents - reg.amountPaidCents) / 100).toFixed(2)}</span>
                             </span>
                           ) : (
                             <span />
@@ -471,6 +459,17 @@ export default function RegistrationsCard() {
                                 ) : (
                                   "Complete Payment"
                                 )}
+                              </Button>
+                            )}
+                            {reg.paymentStatus === "deposit_paid" && (
+                              <Button
+                                asChild
+                                size="sm"
+                                className="bg-primary hover:bg-primary/90"
+                              >
+                                <a href={`/dashboard/registrations/${reg.id}/pay-balance`}>
+                                  Pay Balance
+                                </a>
                               </Button>
                             )}
                           </div>

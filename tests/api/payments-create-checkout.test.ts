@@ -1,0 +1,137 @@
+import { describe, it, expect } from "vitest";
+
+const BASE = process.env.TEST_BASE_URL || "http://localhost:4321";
+
+// Gate Stripe-dependent tests the same way other test files do.
+const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+const itWithStripe = stripeConfigured ? it : it.skip;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function fetchOpenSeasonId(): Promise<string> {
+  const res = await fetch(`${BASE}/api/public/seasons?status=open`);
+  if (!res.ok) throw new Error(`Failed to fetch seasons: ${res.status}`);
+  const data = await res.json();
+  const seasons: Array<{
+    id: string;
+    maxParticipants?: number;
+    registeredCount?: number;
+  }> = data.seasons ?? [];
+  if (seasons.length === 0) {
+    throw new Error("No open seasons in test DB — re-seed e2e data");
+  }
+  // Prefer a season that still has capacity (avoids waitlist path).
+  for (const s of seasons) {
+    if (!s.maxParticipants || (s.registeredCount ?? 0) < s.maxParticipants) {
+      return s.id;
+    }
+  }
+  return seasons[0].id;
+}
+
+// Build a unique guest-checkout body for each test run so we don't pollute
+// across runs (parent email is unique, child name is unique).
+function guestBody(seasonId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    seasonId,
+    parent: {
+      firstName: "CheckoutTest",
+      lastName: "Parent",
+      email: `checkout-test-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
+      phone: "+15555550100",
+    },
+    child: {
+      firstName: `Kid${Date.now()}`,
+      lastName: "TestCheckout",
+      birthDate: "2018-04-01",
+      gender: "male" as const,
+    },
+    registrationType: "full" as const,
+    waiverSigned: true,
+    waiverSignedBy: "CheckoutTest Parent",
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("POST /api/payments/create-checkout — embedded checkout shape", () => {
+  // Test 1: assert that the endpoint returns the embedded-checkout shape
+  // (clientSecret, publishableKey, sessionId) and NOT the old redirect shape
+  // (checkoutUrl). We drive this via guest-checkout because it exercises the
+  // same createCheckoutForRegistration helper as the authenticated endpoint.
+  itWithStripe(
+    "returns clientSecret, publishableKey, and sessionId — not checkoutUrl",
+    async () => {
+      const seasonId = await fetchOpenSeasonId();
+      const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(guestBody(seasonId)),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      // New embedded-checkout fields must be present.
+      expect(typeof body.clientSecret).toBe("string");
+      expect(body.clientSecret).toMatch(/^cs_(test|live)_.+_secret_/);
+
+      expect(typeof body.publishableKey).toBe("string");
+      expect(body.publishableKey).toMatch(/^pk_(test|live)_/);
+
+      expect(typeof body.sessionId).toBe("string");
+      expect(body.sessionId).toMatch(/^cs_(test|live)_/);
+
+      // Old redirect field must NOT be present.
+      expect(body.checkoutUrl).toBeUndefined();
+    },
+  );
+
+  // Test 2: assert that a _ga cookie in the request is parsed and forwarded
+  // as ga_client_id in Stripe session metadata.
+  itWithStripe(
+    "_ga cookie round-trips as ga_client_id in Stripe session metadata",
+    async () => {
+      const seasonId = await fetchOpenSeasonId();
+
+      // Use a recognisable client_id so we can assert the exact value later.
+      const gaClientId = "1234567890.0987654321";
+      const gaCookieValue = `GA1.1.${gaClientId}`;
+
+      const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Send the _ga cookie alongside the request (no auth cookie needed
+          // for guest-checkout).
+          Cookie: `_ga=${gaCookieValue}`,
+        },
+        body: JSON.stringify(guestBody(seasonId)),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      const sessionId: string = body.sessionId;
+      expect(typeof sessionId).toBe("string");
+
+      // Retrieve the Stripe session directly to inspect server-side metadata.
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY!;
+      const stripeRes = await fetch(
+        `https://api.stripe.com/v1/checkout/sessions/${sessionId}`,
+        {
+          headers: { Authorization: `Bearer ${stripeSecretKey}` },
+        },
+      );
+      expect(stripeRes.status).toBe(200);
+      const session = await stripeRes.json();
+
+      // The parsed client_id (everything after GA1.1.) should be in metadata.
+      expect(session.metadata?.ga_client_id).toBe(gaClientId);
+    },
+  );
+});
