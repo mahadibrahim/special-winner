@@ -40,8 +40,6 @@ export async function createCheckoutSession({
   playerName,
   amountCents,
   customerEmail,
-  successUrl,
-  cancelUrl,
   extraMetadata,
 }: {
   registrationId: string;
@@ -49,10 +47,8 @@ export async function createCheckoutSession({
   playerName: string;
   amountCents: number;
   customerEmail: string;
-  successUrl: string;
-  cancelUrl: string;
   extraMetadata?: Record<string, string>;
-}): Promise<Stripe.Checkout.Session | null> {
+}): Promise<{ id: string; clientSecret: string } | null> {
   if (!stripe) {
     console.error("Stripe is not configured");
     return null;
@@ -61,7 +57,7 @@ export async function createCheckoutSession({
   try {
     const session = await stripe.checkout.sessions.create(
       {
-        payment_method_types: ["card"],
+        ui_mode: "custom",
         line_items: [
           {
             price_data: {
@@ -76,8 +72,6 @@ export async function createCheckoutSession({
           },
         ],
         mode: "payment",
-        success_url: successUrl,
-        cancel_url: cancelUrl,
         customer_email: customerEmail,
         metadata: {
           registrationId,
@@ -90,7 +84,12 @@ export async function createCheckoutSession({
       },
     );
 
-    return session;
+    if (!session.client_secret) {
+      console.error("Stripe session returned without client_secret");
+      return null;
+    }
+
+    return { id: session.id, clientSecret: session.client_secret };
   } catch (error) {
     console.error("Error creating Stripe checkout session:", error);
     throw error;
