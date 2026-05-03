@@ -74,6 +74,12 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+
+  // GA4 Measurement Protocol — server-side purchase event backup.
+  // Optional everywhere; missing values disable the server-side fire
+  // but don't crash the site.
+  GA4_MEASUREMENT_ID: z.string().optional(),
+  GA4_API_SECRET: z.string().optional(),
 });
 
 // Vars that must be set when running in production.
@@ -98,6 +104,8 @@ const SOFT_REQUIRED_IN_PROD = [
   "STRIPE_CONNECT_WEBHOOK_SECRET",
   "RESEND_INBOUND_WEBHOOK_SECRET",
   "CRON_SECRET",
+  "GA4_MEASUREMENT_ID",
+  "GA4_API_SECRET",
 ] as const;
 
 type ValidatedEnv = z.infer<typeof envSchema> & {
