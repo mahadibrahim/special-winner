@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { OrderSummary } from "./order-summary"
+import { EmbeddedPayment } from "./embedded-payment"
+import type { SeasonItem, CheckoutPaymentType } from "@/lib/analytics/datalayer"
 
 interface AppliedDiscount {
   code: string
@@ -32,6 +34,18 @@ export interface PaymentStepProps {
   onDiscountCodeInputChange: (v: string) => void
   onApplyDiscount: () => void
   onRemoveDiscount: () => void
+
+  // Embedded-payment props — when clientSecret is set, renders the
+  // payment form below the order summary. When null, only the order
+  // configuration UI shows (4a state).
+  clientSecret: string | null
+  publishableKey: string | null
+  seasonItem: SeasonItem | null
+  paymentValueCents: number
+  checkoutPaymentType: CheckoutPaymentType
+  paymentReturnUrl: string
+  onPaymentSuccess: (paymentIntentId: string) => void
+  onPaymentCancel: () => void
 }
 
 export function PaymentStep({
@@ -49,6 +63,14 @@ export function PaymentStep({
   onDiscountCodeInputChange,
   onApplyDiscount,
   onRemoveDiscount,
+  clientSecret,
+  publishableKey,
+  seasonItem,
+  paymentValueCents,
+  checkoutPaymentType,
+  paymentReturnUrl,
+  onPaymentSuccess,
+  onPaymentCancel,
 }: PaymentStepProps) {
   return (
     <div className="space-y-6">
@@ -165,6 +187,24 @@ export function PaymentStep({
         registrantName={registrantName}
         appliedDiscount={appliedDiscount}
       />
+
+      {/* Step 4b: Embedded payment (rendered once Continue-to-Payment fires) */}
+      {clientSecret && publishableKey && seasonItem && (
+        <div className="mt-6 pt-6 border-t border-border">
+          <h3 className="text-lg font-semibold text-ink mb-4">Payment Details</h3>
+          <EmbeddedPayment
+            clientSecret={clientSecret}
+            publishableKey={publishableKey}
+            seasonItem={seasonItem}
+            valueCents={paymentValueCents}
+            paymentType={checkoutPaymentType}
+            coupon={appliedDiscount?.code}
+            returnUrl={paymentReturnUrl}
+            onSuccess={onPaymentSuccess}
+            onCancel={onPaymentCancel}
+          />
+        </div>
+      )}
     </div>
   )
 }
