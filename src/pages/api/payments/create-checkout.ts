@@ -6,26 +6,7 @@ import {
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
 import { getPostHogServer } from "@/lib/posthog-server";
-
-/**
- * Parse the GA4 client_id from the `_ga` cookie. Format is `GA1.1.<client>.<timestamp>`
- * where the client_id GA4 expects is `<client>.<timestamp>`. Returns null if absent
- * or malformed.
- */
-function parseGaClientId(cookieHeader: string | null): string | null {
-  if (!cookieHeader) return null;
-  const match = cookieHeader.match(/(?:^|;\s*)_ga=GA\d\.\d\.([^;]+)/);
-  return match?.[1] ?? null;
-}
-
-function readQueryOrCookie(url: URL, cookieHeader: string | null, name: string): string | null {
-  const fromQuery = url.searchParams.get(name);
-  if (fromQuery) return fromQuery;
-  if (!cookieHeader) return null;
-  const re = new RegExp(`(?:^|;\\s*)${name}=([^;]+)`);
-  const m = cookieHeader.match(re);
-  return m?.[1] ?? null;
-}
+import { parseGaClientId, readQueryOrCookie } from "@/lib/analytics/parse-cookies";
 
 const checkoutSchema = z.object({
   registrationId: z.string().uuid("Invalid registration ID"),
