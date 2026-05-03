@@ -239,6 +239,7 @@ export async function createCheckoutForRegistration(
   const merged = {
     registrationId,
     type: "registration_payment",
+    ...(appliedDiscountCode ? { discount_code: appliedDiscountCode.code } : {}),
     ...(extraMetadata ?? {}),
   };
 

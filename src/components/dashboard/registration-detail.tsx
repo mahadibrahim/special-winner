@@ -180,29 +180,13 @@ export default function RegistrationDetail({ registrationId }: { registrationId:
     }
   }, [registrationId])
 
-  const handleCompletePayment = async () => {
+  const handleCompletePayment = () => {
     if (!registration) return
+    // Send the parent into the registration wizard's resume-payment UI,
+    // which renders the embedded Stripe form. Phase 2 will replace this with
+    // a dedicated /dashboard/registrations/[id]/pay-balance page.
     setIsStartingCheckout(true)
-    try {
-      const res = await fetch("/api/payments/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationId: registration.id }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to start payment")
-      }
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
-        return
-      }
-      // No URL → bill resolved (e.g. discount zeroed it). Refresh.
-      window.location.reload()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start payment")
-      setIsStartingCheckout(false)
-    }
+    window.location.href = `/register/${registration.season.id}?payment=cancelled`
   }
 
   if (isLoading) {

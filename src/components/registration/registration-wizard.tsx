@@ -191,7 +191,13 @@ export default function RegistrationWizard({
   const [paymentClientSecret, setPaymentClientSecret] = useState<string | null>(null)
   const [paymentPublishableKey, setPaymentPublishableKey] = useState<string | null>(null)
   const [paymentValueCents, setPaymentValueCents] = useState(0)
-  const [paymentTypeForTracking, setPaymentTypeForTracking] = useState<"deposit" | "full">("full")
+  // CheckoutPaymentType is "deposit" | "balance" | "full". The wizard only
+  // sets "deposit" or "full" — balance pay UI ships in Phase 2 (separate
+  // dashboard surface). Type is widened for forward-compat with the analytics
+  // module's exported type.
+  const [paymentTypeForTracking, setPaymentTypeForTracking] = useState<
+    "deposit" | "balance" | "full"
+  >("full")
 
   // ── Effects ──────────────────────────────────────────────────────────────
 

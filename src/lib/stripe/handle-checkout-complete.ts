@@ -63,8 +63,18 @@ export async function handleCheckoutComplete(
   const newAmountPaid = registration.amountPaidCents + amountPaid;
   const isFullyPaid = newAmountPaid >= registration.amountDueCents;
   const newAmountDue = Math.max(0, registration.amountDueCents - amountPaid);
-  const paymentTypeValue =
-    registration.registrationType === "deposit" ? "deposit" : "full";
+  // Three-way derivation matches the GA4 fire below.
+  //   - prior amountPaidCents > 0  → balance (this is the second+ payment)
+  //   - else if registrationType === 'deposit' → deposit
+  //   - else → full
+  let paymentTypeValue: "deposit" | "balance" | "full";
+  if (registration.amountPaidCents > 0) {
+    paymentTypeValue = "balance";
+  } else if (registration.registrationType === "deposit") {
+    paymentTypeValue = "deposit";
+  } else {
+    paymentTypeValue = "full";
+  }
 
   await db
     .update(registrations)

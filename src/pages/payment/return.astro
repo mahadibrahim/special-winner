@@ -52,6 +52,7 @@ if (paymentIntentId && stripe) {
         .innerJoin(sports, eq(programs.sportId, sports.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .where(eq(registrations.id, registrationId))
+        .orderBy(registrations.createdAt)
         .limit(1);
 
       if (row) {
