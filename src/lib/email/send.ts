@@ -7,6 +7,10 @@ import { RefundNotificationEmail } from "./templates/refund-notification";
 import { MagicLinkLoginEmail } from "./templates/magic-link-login";
 import { PaymentFailedEmail } from "./templates/payment-failed";
 import { AnnouncementEmail } from "./templates/announcement";
+import {
+  PaymentBalanceReminderEmail,
+  type BalanceReminderType,
+} from "./templates/payment-balance-reminder";
 import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
@@ -570,6 +574,70 @@ export async function sendAnnouncementEmail(params: SendAnnouncementParams) {
     userId: params.userId,
     emailType: "announcement",
     recipientEmail: params.recipientEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// Balance reminder email — fired by /api/cron/send-balance-reminders
+// at T-21, T-7, T-1 days before the season starts.
+export interface SendBalanceReminderParams {
+  userId: string;
+  organizationId?: string;
+  registrationId: string;
+  parentEmail: string;
+  parentName: string;
+  childName: string;
+  programName: string;
+  seasonName: string;
+  balanceCents: number;
+  seasonStartDate: Date | string;
+  payBalanceUrl: string;
+  reminderType: BalanceReminderType;
+}
+
+export async function sendBalanceReminderEmail(
+  params: SendBalanceReminderParams,
+) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping balance reminder email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const html = await render(
+    PaymentBalanceReminderEmail({
+      parentName: params.parentName,
+      childName: params.childName,
+      programName: params.programName,
+      seasonName: params.seasonName,
+      balanceAmount: formatCurrency(params.balanceCents),
+      seasonStartDate: formatDate(params.seasonStartDate),
+      payBalanceUrl: params.payBalanceUrl,
+      reminderType: params.reminderType,
+    }),
+  );
+
+  const subject = `Balance due: ${formatCurrency(params.balanceCents)} — ${params.programName} ${params.seasonName}`;
+
+  const smsBody = `Reminder: ${formatCurrency(params.balanceCents)} balance due for ${params.childName} (${params.programName}). Pay: ${params.payBalanceUrl}`;
+
+  const result = await sendViaGatewayOrDirect({
+    userId: params.userId,
+    organizationId: params.organizationId,
+    to: params.parentEmail,
+    subject,
+    html,
+    smsBody,
+  });
+
+  await logEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: `balance_reminder_${params.reminderType}`,
+    recipientEmail: params.parentEmail,
     subject,
     resendMessageId: result.messageId,
     status: result.success ? "sent" : "failed",
