@@ -77,15 +77,25 @@ const envSchema = z.object({
 });
 
 // Vars that must be set when running in production.
+// Strictly required at boot. Missing any of these throws and 500s every
+// SSR request, so only include vars whose absence is genuinely fatal.
 const REQUIRED_IN_PROD = [
   "DATABASE_URL",
   "STRIPE_SECRET_KEY",
   "STRIPE_PUBLISHABLE_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_CONNECT_WEBHOOK_SECRET",
   "PUBLIC_APP_URL",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
+] as const;
+
+// Soft-required: warn on missing, don't throw. The endpoints that consume
+// these (Stripe Connect webhook, Resend inbound webhook, cron callers)
+// fail loudly on their own when invoked without the secret. Keeping them
+// out of REQUIRED_IN_PROD lets the rest of the site boot even when those
+// optional integrations haven't been configured yet.
+const SOFT_REQUIRED_IN_PROD = [
+  "STRIPE_CONNECT_WEBHOOK_SECRET",
   "RESEND_INBOUND_WEBHOOK_SECRET",
   "CRON_SECRET",
 ] as const;
@@ -110,7 +120,7 @@ function validate(): ValidatedEnv {
 
   const data = (parsed.success ? parsed.data : (source as ValidatedEnv));
 
-  // Enforce production-required vars.
+  // Enforce production-required vars (hard fail).
   const missing: string[] = [];
   for (const key of REQUIRED_IN_PROD) {
     if (!data[key]) missing.push(key);
@@ -123,6 +133,20 @@ function validate(): ValidatedEnv {
     }
     // Dev / build-phase: warn but don't throw.
     console.warn(`[env] ${msg} (using fallbacks)`);
+  }
+
+  // Soft-required: log warning, never throw. Endpoints that need these
+  // will surface the missing-config error themselves when invoked.
+  const softMissing: string[] = [];
+  for (const key of SOFT_REQUIRED_IN_PROD) {
+    if (!data[key]) softMissing.push(key);
+  }
+  if (softMissing.length > 0) {
+    console.warn(
+      `[env] missing optional integration secrets (won't 500 the site, ` +
+        `but the affected endpoints will fail when invoked): ` +
+        softMissing.join(", "),
+    );
   }
 
   // Provide a safe fallback for PUBLIC_APP_URL in dev. In prod we already
