@@ -1,0 +1,30 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PayBalanceForm from '@/components/dashboard/pay-balance-form';
+
+// Middleware guarantees user is authenticated for /dashboard routes.
+// PayBalanceForm validates ownership + balance-due state via the
+// existing /api/registrations/[id] + /api/payments/create-checkout
+// endpoints, which both enforce userId scoping.
+const _user = Astro.locals.user!;
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/dashboard');
+}
+---
+
+<BaseLayout title="Pay balance — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 editorial-bg-radial">
+    <div class="mx-auto max-w-2xl">
+      <div class="mb-6">
+        <a href="/dashboard" class="text-sm text-ink-muted underline">
+          ← Back to dashboard
+        </a>
+      </div>
+      <h1 class="mb-6 text-3xl font-semibold text-ink">Complete your payment</h1>
+      <PayBalanceForm registrationId={id} client:load />
+    </div>
+  </main>
+</BaseLayout>
