@@ -35,3 +35,18 @@ test-results/
 
 # Git worktrees (isolated workspaces for parallel development)
 .worktrees/
+
+# Claude Code local state (skills, settings, lock files)
+.claude/scheduled_tasks.lock
+.claude/settings.json
+.claude/skills/
+
+# Local agent / skill tooling
+.agents/
+skills-lock.json
+
+# Netlify CLI local cache (functions emulator etc.)
+netlify/
+
+# Generated strategy PDFs
+pdfs/strategy/

@@ -3,8 +3,19 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -51,7 +62,12 @@ jobs:
   # Single-runner DB setup shared by both test jobs. Running db:push in parallel
   # from `test` and `test-api` deadlocks on pg_catalog DDL locks, so we do it
   # once here and have the test jobs `needs:` this.
+  #
+  # Pre-launch policy: heavy test jobs only run on PRs and manual dispatch
+  # (workflow_dispatch). Direct pushes to main run build-only to conserve
+  # Actions minutes. Trigger full CI on demand with: gh workflow run CI
   db-setup:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,13 +97,14 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Seed E2E Test Data
-        run: npm run db:seed:e2e || echo "Seeding skipped or failed - continuing with existing data"
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # NOTE: E2E test seeding has been removed (2026-05-02). Seed scripts were
+      # the source of accumulated test pollution in the production-bound DB.
+      # If E2E coverage is restored later, route it to a dedicated test database,
+      # not the live one.
 
   test:
     needs: db-setup
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -101,8 +118,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Cache the ~150MB Chromium download keyed on package-lock.json. System
+      # apt deps can't be cached and are installed via `install-deps` below.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Run Playwright tests
         run: npm test
@@ -151,6 +182,7 @@ jobs:
 
   test-api:
     needs: db-setup
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
