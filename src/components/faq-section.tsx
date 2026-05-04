@@ -5,28 +5,28 @@ import { Plus, Minus } from "lucide-react"
 
 const faqs = [
   {
-    question: "What age groups do you offer programs for?",
-    answer: "We offer programs for children ages 3-18, organized into age-appropriate groups like U6, U8, U10, U12, U14, and high school divisions. We also have adult leagues for ages 18+.",
+    question: "Who can register?",
+    answer: "Programs run for ages 3 through 18 (organized as U6, U8, U10, U12, U14, and high school divisions) and for adults 18+ in our community leagues.",
   },
   {
-    question: "How do I register my child for a program?",
-    answer: "Simply browse our programs, select the one that fits your child, and complete the online registration. You can pay in full or put down a deposit to secure your spot.",
+    question: "How does registration work?",
+    answer: "Browse the catalog, pick a program, and complete the online checkout. Pay in full or put down a deposit to lock your spot — same flow whether you're enrolling a kid or signing up yourself.",
   },
   {
-    question: "What if my child has never played before?",
-    answer: "Perfect! Many of our programs are designed for beginners. Our coaches focus on fundamentals and making sports fun, so every child can learn and grow at their own pace.",
+    question: "What if I (or my kid) am new to the game?",
+    answer: "Most programs include a beginner pathway. Our coaches focus on fundamentals first — you don't need prior experience to join.",
   },
   {
     question: "What is your refund policy?",
-    answer: "We offer full refunds up to 14 days before the season starts. After that, we provide prorated refunds or credits toward future programs on a case-by-case basis.",
+    answer: "Full refunds up to 14 days before the season starts. After that, prorated refunds or credits toward future programs on a case-by-case basis.",
   },
   {
     question: "Do you provide equipment?",
-    answer: "Basic equipment is provided for most programs. Players should bring appropriate athletic shoes and clothing. Specific requirements are listed on each program page.",
+    answer: "Basic equipment is provided for most programs. Players bring their own athletic shoes and apparel. Per-program specifics are listed on each program page.",
   },
   {
     question: "How are teams formed?",
-    answer: "Teams are balanced based on age, skill level, and friend requests when possible. We aim to create competitive and fun experiences for all players.",
+    answer: "Balanced by age, skill level, and friend requests where possible. Adult leagues also support free-agent signups if you don't have a team yet.",
   },
 ]
 
