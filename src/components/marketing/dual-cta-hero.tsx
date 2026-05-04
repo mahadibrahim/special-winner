@@ -65,7 +65,7 @@ export function DualCtaHero() {
               }`}
             >
               <span className="inline-block w-8 h-px bg-primary-orange" />
-              Volume 11 · Spring 2026
+              Now enrolling · Summer 2026
             </p>
 
             <h1
