@@ -19,7 +19,7 @@ const resourceLinks = [
 ]
 
 const supportLinks = [
-  { label: "Contact us", href: "/contact" },
+  { label: "Email us", href: "mailto:hello@aspiresportsohio.com" },
   { label: "Refund policy", href: "/refund-policy" },
   { label: "Terms of service", href: "/terms" },
   { label: "Privacy policy", href: "/privacy" },

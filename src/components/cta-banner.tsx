@@ -194,10 +194,10 @@ export default function CTABanner() {
             </Button>
 
             <a
-              href="/contact"
+              href="mailto:hello@aspiresportsohio.com"
               className="group flex items-center gap-2 text-cream font-medium px-6 py-3 rounded-xl hover:bg-cream/10 transition-all duration-300"
             >
-              Contact Us
+              Email Us
               <span className="w-6 h-6 rounded-full border border-cream/30 flex items-center justify-center group-hover:bg-cream/10 transition-colors">
                 <ArrowRight className="w-3 h-3 transition-transform duration-300 group-hover:translate-x-0.5" />
               </span>

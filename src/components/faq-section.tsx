@@ -147,10 +147,10 @@ export default function FAQSection() {
             <p className="text-ink-muted">
               Still have questions?{" "}
               <a
-                href="/contact"
+                href="mailto:hello@aspiresportsohio.com"
                 className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 decoration-primary/30 hover:decoration-primary/60 transition-colors"
               >
-                Contact us
+                Email us
               </a>
             </p>
           </div>
