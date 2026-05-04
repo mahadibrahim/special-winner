@@ -1,3 +1,8 @@
+# This workflow EXCLUSIVELY deploys to PRODUCTION. It runs only on
+# v* tags and writes to DATABASE_URL (prod) + the live Netlify site.
+# Staging is auto-deployed from main by a separate Netlify site
+# connected directly to Git (see netlify.toml header).
+
 name: Deploy to Netlify
 
 on:
