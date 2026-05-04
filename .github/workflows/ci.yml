@@ -17,6 +17,13 @@ on:
       - 'LICENSE'
   workflow_dispatch:
 
+# Serialize all CI runs through the staging DB so the schema-reset step
+# in db-setup doesn't race when two PRs run concurrently. Newer queued
+# runs wait; in-flight runs are NOT cancelled (cancel-in-progress: false).
+concurrency:
+  group: ci-staging-db
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,7 +42,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -81,26 +88,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Bootstrap drizzle.__drizzle_migrations on DBs that were previously
-      # managed via `drizzle-kit push` (no migration tracking). Idempotent and
-      # safe to run every build — it only seeds hashes when the table is empty
-      # AND the core schema already exists. See scripts/db-migrate-bootstrap.ts.
-      - name: Bootstrap migration tracking
-        run: npm run db:migrate:bootstrap
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      # Apply any un-applied committed migrations. Non-interactive, idempotent,
-      # and tracks state in drizzle.__drizzle_migrations.
-      - name: Apply migrations
-        run: npm run db:migrate
+      # Drop + recreate the public schema, then run bootstrap + migrate.
+      # The script refuses to run against any URL not containing "staging".
+      - name: Reset staging schema and apply migrations
+        run: ./scripts/reset-staging-schema.sh
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      # NOTE: E2E test seeding has been removed (2026-05-02). Seed scripts were
-      # the source of accumulated test pollution in the production-bound DB.
-      # If E2E coverage is restored later, route it to a dedicated test database,
-      # not the live one.
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          ALLOW_DESTRUCTIVE_RESET: "yes"
 
   test:
     needs: db-setup
@@ -140,7 +137,7 @@ jobs:
         env:
           CI: true
           R2_MOCK: "1"
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -203,7 +200,7 @@ jobs:
         env:
           CI: true
           R2_MOCK: "1"
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -241,7 +238,7 @@ jobs:
         env:
           CI: true
           TEST_BASE_URL: http://localhost:4321
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           # Must match the dev server's CRON_SECRET so the "runs job with
           # correct secret" cron tests can hit the endpoints successfully.
           CRON_SECRET: ci-cron-test-secret
