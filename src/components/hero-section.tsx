@@ -48,7 +48,7 @@ export default function HeroSection() {
               }`}
             >
               <span className="inline-block w-8 h-px bg-primary-orange" />
-              Volume 12 · Summer 2026
+              Now enrolling · Summer 2026
             </p>
 
             <h1
