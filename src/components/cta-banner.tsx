@@ -129,7 +129,7 @@ export default function CTABanner() {
             }`}
           >
             <Sparkles className="w-4 h-4 text-cream" />
-            <span className="text-cream/90 text-sm font-medium">Registration Open for Spring 2026</span>
+            <span className="text-cream/90 text-sm font-medium">Registration Open for Summer 2026</span>
           </div>
 
           {/* Headline */}
