@@ -12,30 +12,25 @@ interface Location {
   pattern: "topo-hills" | "topo-valley" | "topo-plains"
 }
 
+// IDs match the `slug` of the corresponding `locations` row in the DB so
+// the global `selectedLocation` value can be used directly as a filter
+// against /api/public/seasons?location=<slug>.
 const locations: Location[] = [
   {
-    id: "powell",
-    name: "Powell",
+    id: "worthington",
+    name: "Worthington",
     area: "North Columbus",
-    tagline: "Where champions train",
-    coordinates: "40.1578° N",
+    tagline: "Family + community soccer, year-round",
+    coordinates: "40.0931° N",
     pattern: "topo-hills",
   },
   {
-    id: "dublin",
-    name: "Dublin",
-    area: "Northwest Columbus",
-    tagline: "Excellence in motion",
-    coordinates: "40.0992° N",
+    id: "downtown",
+    name: "Downtown",
+    area: "OSU corridor",
+    tagline: "Adult Express + late-night community leagues",
+    coordinates: "39.9612° N",
     pattern: "topo-valley",
-  },
-  {
-    id: "delaware",
-    name: "Delaware",
-    area: "Delaware County",
-    tagline: "Rise to greatness",
-    coordinates: "40.2987° N",
-    pattern: "topo-plains",
   },
 ]
 
@@ -52,7 +47,7 @@ export default function LocationSelector({
   onLocationChange,
   className = "",
 }: LocationSelectorProps) {
-  const [selectedId, setSelectedId] = useState<string>("powell")
+  const [selectedId, setSelectedId] = useState<string>("worthington")
   const [isOpen, setIsOpen] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -399,7 +394,7 @@ function TopoPattern({ pattern, fullSize = false }: TopoPatternProps) {
 
 // Hook to use selected location in other components
 export function useSelectedLocation() {
-  const [locationId, setLocationId] = useState<string>("powell")
+  const [locationId, setLocationId] = useState<string>("worthington")
 
   useEffect(() => {
     // Initial load

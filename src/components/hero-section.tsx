@@ -26,7 +26,7 @@ export default function HeroSection() {
       <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
         <div className="flex items-center justify-between py-6 border-b border-ink/15">
           <span className="label-sm text-ink-muted">
-            Powell, Ohio
+            Columbus, Ohio
           </span>
           <span className="label-sm text-ink-muted hidden sm:inline">
             Evidence-Based Youth Development

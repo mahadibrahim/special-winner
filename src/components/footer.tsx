@@ -39,7 +39,7 @@ export default function Footer() {
             § The Colophon
           </p>
           <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/40">
-            Aspire Sports · Powell, Ohio
+            Aspire Sports · Columbus, Ohio
           </p>
         </div>
       </div>
