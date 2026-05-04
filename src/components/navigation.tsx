@@ -58,7 +58,6 @@ export default function Navigation() {
     { href: "/programs", label: "Programs" },
     { href: "/guides", label: "Guides" },
     { href: "/about", label: "About" },
-    { href: "/contact", label: "Contact" },
   ]
 
   return (

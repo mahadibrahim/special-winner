@@ -286,7 +286,7 @@ function ExpandedPartners({ className = "" }: { className?: string }) {
             Join our community of partners and help shape the future of youth sports in Central Ohio.
           </p>
           <a
-            href="/contact?subject=partnership"
+            href="mailto:hello@aspiresportsohio.com?subject=Partnership%20inquiry"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-cream font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105"
           >
             Become a Partner
