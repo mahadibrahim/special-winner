@@ -104,6 +104,14 @@ jobs:
           ALLOW_DESTRUCTIVE_RESET: "yes"
           STAGING_DB_CONFIRMED: "yes"
 
+      # Seed test fixtures (test users, baseline org, sports, sample
+      # seasons, etc.) — required by virtually every API/E2E test. Safe
+      # against staging now that staging has its own dedicated DB.
+      - name: Seed E2E test fixtures
+        run: npm run db:seed:e2e
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
   test:
     needs: db-setup
     if: github.event_name != 'push'

@@ -45,9 +45,13 @@ if [[ "${ALLOW_DESTRUCTIVE_RESET:-}" != "yes" ]]; then
   exit 3
 fi
 
-echo "[reset-staging-schema] dropping + recreating public schema..."
+echo "[reset-staging-schema] dropping + recreating public + drizzle schemas..."
+# Drop BOTH the application schema AND drizzle's migration-tracking schema.
+# Drizzle stores its `__drizzle_migrations` table in a separate `drizzle`
+# schema; if we don't wipe it, db:migrate sees "all 17 migrations applied"
+# and skips creating any tables, leaving public empty.
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;"
+  -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public; DROP SCHEMA IF EXISTS drizzle CASCADE;"
 
 echo "[reset-staging-schema] bootstrapping drizzle migration tracking..."
 npm run db:migrate:bootstrap

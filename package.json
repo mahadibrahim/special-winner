@@ -14,6 +14,7 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:migrate:bootstrap": "tsx scripts/db-migrate-bootstrap.ts",
+    "db:seed:e2e": "tsx src/lib/db/seeds/seed-e2e-tests.ts",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
