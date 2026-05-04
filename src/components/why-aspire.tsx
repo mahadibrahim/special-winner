@@ -1,34 +1,34 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Heart, Award, Users, Sparkles } from "lucide-react"
+import { BookOpen, Award, Users, TrendingUp } from "lucide-react"
 
 const benefits = [
   {
-    icon: Heart,
-    title: "Character Building",
-    description: "Sports teach discipline, teamwork, and resilience. We develop leaders on and off the field.",
+    icon: BookOpen,
+    title: "Built on real frameworks",
+    description: "Programs grounded in published development research — Double-Goal Coach, ELM, TDEQ-5. Real methodology, not vibes.",
     accent: "from-rose-500/10 to-orange-500/10",
     iconBg: "from-rose-500 to-orange-500",
   },
   {
     icon: Award,
-    title: "Expert Coaching",
-    description: "Certified coaches focused on development, not just winning. Every child gets the attention they deserve.",
+    title: "Coaches who played the game",
+    description: "Not parent volunteers filling a clipboard. Coaches with playing résumés who've earned the right to teach it.",
     accent: "from-amber-500/10 to-yellow-500/10",
     iconBg: "from-amber-500 to-yellow-500",
   },
   {
     icon: Users,
-    title: "Inclusive Community",
-    description: "Programs for all skill levels. Here, everyone belongs and every player matters.",
+    title: "Kids and adults, one home",
+    description: "Same community, same standards. Sports don't end at 18 — your league and your kid's program live on the same platform.",
     accent: "from-emerald-500/10 to-teal-500/10",
     iconBg: "from-emerald-500 to-teal-500",
   },
   {
-    icon: Sparkles,
-    title: "Fun First",
-    description: "We make sports enjoyable so kids want to come back. Happy athletes become lifelong athletes.",
+    icon: TrendingUp,
+    title: "Programs that progress",
+    description: "From first touches to adult competitive — designed as a pathway, not isolated classes. Players grow with us.",
     accent: "from-violet-500/10 to-purple-500/10",
     iconBg: "from-violet-500 to-purple-500",
   },
@@ -92,7 +92,7 @@ export default function WhyAspire() {
           >
             <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-primary" />
             <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
-              Why Choose Us
+              Why Aspire
             </span>
             <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-primary" />
           </div>
@@ -102,7 +102,7 @@ export default function WhyAspire() {
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
-            More Than Just{" "}
+            Different by{" "}
             <span
               className="relative inline-block"
               style={{
@@ -112,7 +112,7 @@ export default function WhyAspire() {
                 backgroundClip: 'text'
               }}
             >
-              Sports
+              design
               <svg
                 className="absolute -bottom-2 left-0 w-full"
                 height="8"
@@ -143,8 +143,8 @@ export default function WhyAspire() {
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
-            We're building the next generation of confident, capable young people through
-            the power of athletics.
+            We treat sports as a craft — for the U6 learning to dribble and the
+            adult chasing a Saturday league title. The standards stay the same.
           </p>
         </div>
 

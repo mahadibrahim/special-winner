@@ -171,8 +171,8 @@ export default function CTABanner() {
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
-            Give your child the gift of sports. Build confidence, make friends,
-            and create memories that last a lifetime.
+            Real programs, real coaches, real community — for the kid learning
+            the game and the adult who never stopped playing.
           </p>
 
           {/* CTA buttons */}
