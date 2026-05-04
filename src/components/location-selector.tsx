@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { MapPin, ChevronDown, Check, Compass } from "lucide-react"
 
 interface Location {
-  id: string
+  id: string         // matches the DB `slug` so it can be passed straight into ?location=
   name: string
   area: string
   tagline: string
@@ -12,29 +12,72 @@ interface Location {
   pattern: "topo-hills" | "topo-valley" | "topo-plains"
 }
 
-// IDs match the `slug` of the corresponding `locations` row in the DB so
-// the global `selectedLocation` value can be used directly as a filter
-// against /api/public/seasons?location=<slug>.
-const locations: Location[] = [
-  {
-    id: "worthington",
-    name: "Worthington",
-    area: "North Columbus",
-    tagline: "Family + community soccer, year-round",
-    coordinates: "40.0931° N",
-    pattern: "topo-hills",
-  },
-  {
-    id: "downtown",
-    name: "Downtown",
-    area: "OSU corridor",
-    tagline: "Adult Express + late-night community leagues",
-    coordinates: "39.9612° N",
-    pattern: "topo-valley",
-  },
-]
+interface DbLocation {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  city: string | null
+  state: string | null
+  latitude: string | null
+  longitude: string | null
+  sortOrder: number | null
+}
 
 const STORAGE_KEY = "aspire-selected-location"
+const PATTERNS: Location["pattern"][] = ["topo-hills", "topo-valley", "topo-plains"]
+
+// Map a DB row to the display Location shape. Area, tagline, coordinates,
+// and pattern are derived deterministically — they are display-layer
+// concerns, not catalog data, but they're computed from real DB values
+// (city/state, description, latitude, sortOrder) so a new Soccer One
+// venue inserted via admin shows up automatically with sensible defaults.
+function mapDbLocation(row: DbLocation, index: number): Location {
+  const cityState = [row.city, row.state].filter(Boolean).join(", ")
+  const lat = row.latitude ? Number(row.latitude) : null
+  const coordinates =
+    lat !== null && Number.isFinite(lat)
+      ? `${lat.toFixed(4)}° ${lat >= 0 ? "N" : "S"}`
+      : ""
+  // Strip a leading "Soccer One " prefix if present so the dropdown
+  // shows e.g. "Worthington" not "Soccer One Worthington".
+  const displayName = row.name.replace(/^Soccer One\s+/i, "")
+  return {
+    id: row.slug,
+    name: displayName,
+    area: cityState || displayName,
+    tagline: row.description ?? "",
+    coordinates,
+    pattern: PATTERNS[index % PATTERNS.length],
+  }
+}
+
+// In-module cache so a single page load only fetches once even when the
+// selector and the useSelectedLocation hook both mount.
+let cachedLocations: Location[] | null = null
+let inFlight: Promise<Location[]> | null = null
+
+async function fetchLocations(): Promise<Location[]> {
+  if (cachedLocations) return cachedLocations
+  if (inFlight) return inFlight
+  inFlight = (async () => {
+    try {
+      const res = await fetch("/api/public/filters")
+      if (!res.ok) throw new Error(`filters HTTP ${res.status}`)
+      const json = (await res.json()) as { locations: DbLocation[] }
+      const mapped = (json.locations ?? []).map(mapDbLocation)
+      cachedLocations = mapped
+      return mapped
+    } catch (err) {
+      console.error("LocationSelector: failed to fetch locations", err)
+      cachedLocations = []
+      return []
+    } finally {
+      inFlight = null
+    }
+  })()
+  return inFlight
+}
 
 interface LocationSelectorProps {
   mode?: "dropdown" | "cards"
@@ -47,18 +90,31 @@ export default function LocationSelector({
   onLocationChange,
   className = "",
 }: LocationSelectorProps) {
-  const [selectedId, setSelectedId] = useState<string>("worthington")
+  const [locations, setLocations] = useState<Location[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Load from localStorage on mount
+  // Fetch locations + restore persisted selection on mount.
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored && locations.find((l) => l.id === stored)) {
-      setSelectedId(stored)
+    let cancelled = false
+    fetchLocations().then((fetched) => {
+      if (cancelled) return
+      setLocations(fetched)
+      if (fetched.length === 0) {
+        setIsLoaded(true)
+        return
+      }
+      const stored = localStorage.getItem(STORAGE_KEY)
+      const initial =
+        stored && fetched.some((l) => l.id === stored) ? stored : fetched[0].id
+      setSelectedId(initial)
+      setIsLoaded(true)
+    })
+    return () => {
+      cancelled = true
     }
-    setIsLoaded(true)
   }, [])
 
   // Close dropdown on outside click or Escape (keyboard a11y).
@@ -84,12 +140,29 @@ export default function LocationSelector({
     localStorage.setItem(STORAGE_KEY, id)
     setIsOpen(false)
     onLocationChange?.(id)
-
-    // Dispatch custom event for other components to listen
     window.dispatchEvent(new CustomEvent("location-change", { detail: { locationId: id } }))
   }
 
-  const selectedLocation = locations.find((l) => l.id === selectedId)!
+  // Pre-load placeholder while fetching, and graceful empty state when
+  // the API has nothing to show (no orgs seeded yet, or DB unreachable).
+  if (!isLoaded) {
+    return (
+      <div className={`relative ${className}`} aria-busy="true">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cream-2 border border-border opacity-50">
+          <MapPin className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-ink-muted">Loading…</span>
+          <ChevronDown className="w-4 h-4 text-ink-muted" />
+        </div>
+      </div>
+    )
+  }
+
+  if (locations.length === 0 || !selectedId) {
+    // No data → render nothing rather than fall back to stale hardcoded values.
+    return null
+  }
+
+  const selectedLocation = locations.find((l) => l.id === selectedId) ?? locations[0]
 
   if (mode === "cards") {
     return (
@@ -199,9 +272,11 @@ export default function LocationSelector({
                     >
                       {location.name}
                     </span>
-                    <span className="text-[10px] text-ink-faint font-mono">
-                      {location.coordinates}
-                    </span>
+                    {location.coordinates && (
+                      <span className="text-[10px] text-ink-faint font-mono">
+                        {location.coordinates}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-ink-muted">{location.area}</div>
                 </div>
@@ -310,19 +385,23 @@ function LocationCard({ location, isSelected, onSelect, delay, isLoaded }: Locat
         <p className="text-sm text-ink-muted mb-3">{location.area}</p>
 
         {/* Tagline */}
-        <p
-          className={`text-sm font-medium transition-colors ${
-            isSelected ? "text-primary" : "text-ink-muted group-hover:text-ink-2"
-          }`}
-        >
-          "{location.tagline}"
-        </p>
+        {location.tagline && (
+          <p
+            className={`text-sm font-medium transition-colors ${
+              isSelected ? "text-primary" : "text-ink-muted group-hover:text-ink-2"
+            }`}
+          >
+            "{location.tagline}"
+          </p>
+        )}
 
         {/* Coordinates badge */}
-        <div className="mt-4 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-cream-3 border border-border">
-          <Compass className="w-3 h-3 text-ink-faint" />
-          <span className="text-[10px] font-mono text-ink-faint">{location.coordinates}</span>
-        </div>
+        {location.coordinates && (
+          <div className="mt-4 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-cream-3 border border-border">
+            <Compass className="w-3 h-3 text-ink-faint" />
+            <span className="text-[10px] font-mono text-ink-faint">{location.coordinates}</span>
+          </div>
+        )}
       </div>
 
       {/* Hover shine effect */}
@@ -392,27 +471,38 @@ function TopoPattern({ pattern, fullSize = false }: TopoPatternProps) {
   )
 }
 
-// Hook to use selected location in other components
+// Hook to use selected location in other components.
+// Fetches the same /api/public/filters endpoint (cached via the in-module
+// cache shared with the selector component) so the value stays in sync.
 export function useSelectedLocation() {
-  const [locationId, setLocationId] = useState<string>("worthington")
+  const [locations, setLocations] = useState<Location[]>([])
+  const [locationId, setLocationId] = useState<string | null>(null)
 
   useEffect(() => {
-    // Initial load
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) setLocationId(stored)
+    let cancelled = false
+    fetchLocations().then((fetched) => {
+      if (cancelled) return
+      setLocations(fetched)
+      if (fetched.length === 0) return
+      const stored = localStorage.getItem(STORAGE_KEY)
+      const initial =
+        stored && fetched.some((l) => l.id === stored) ? stored : fetched[0].id
+      setLocationId(initial)
+    })
 
-    // Listen for changes
     const handleChange = (e: CustomEvent<{ locationId: string }>) => {
       setLocationId(e.detail.locationId)
     }
-
     window.addEventListener("location-change", handleChange as EventListener)
-    return () => window.removeEventListener("location-change", handleChange as EventListener)
+    return () => {
+      cancelled = true
+      window.removeEventListener("location-change", handleChange as EventListener)
+    }
   }, [])
 
   return {
     locationId,
-    location: locations.find((l) => l.id === locationId) || locations[0],
+    location: locationId ? locations.find((l) => l.id === locationId) ?? null : null,
     locations,
   }
 }

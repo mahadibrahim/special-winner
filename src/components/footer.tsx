@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import { Mail, MapPin } from "lucide-react"
 
@@ -24,12 +25,34 @@ const supportLinks = [
   { label: "Privacy policy", href: "/privacy" },
 ]
 
-const locations = ["Powell", "Dublin", "Delaware"]
-
 // Add social links with real URLs once company accounts are set up.
 const socialLinks: Array<{ icon: LucideIcon; href: string; label: string }> = []
 
 export default function Footer() {
+  // Locations are fetched from /api/public/filters so the footer reflects
+  // real venues without needing a code change when one is added.
+  const [locations, setLocations] = useState<string[]>([])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/public/filters")
+        if (!res.ok) return
+        const json = (await res.json()) as { locations?: { name: string }[] }
+        if (cancelled) return
+        const names = (json.locations ?? [])
+          .map((l) => l.name.replace(/^Soccer One\s+/i, ""))
+          .filter(Boolean)
+        setLocations(names)
+      } catch {
+        // Silent — footer simply won't show the location strip.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <footer className="relative bg-navy-deep text-cream/80">
       {/* Editorial section break */}
@@ -142,10 +165,12 @@ export default function Footer() {
                 <Mail className="w-4 h-4 flex-shrink-0" />
                 info@aspiresports.com
               </a>
-              <div className="flex items-center gap-3 text-cream/40 text-sm">
-                <MapPin className="w-4 h-4 flex-shrink-0" />
-                {locations.join(" · ")}
-              </div>
+              {locations.length > 0 && (
+                <div className="flex items-center gap-3 text-cream/40 text-sm">
+                  <MapPin className="w-4 h-4 flex-shrink-0" />
+                  {locations.join(" · ")}
+                </div>
+              )}
             </div>
 
             {/* Social links */}
