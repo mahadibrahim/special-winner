@@ -26,6 +26,8 @@ concurrency:
 
 jobs:
   build:
+    needs: db-setup
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,12 +94,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       # Drop + recreate the public schema, then run bootstrap + migrate.
-      # The script refuses to run against any URL not containing "staging".
+      # The script requires either a URL containing "staging" or the
+      # explicit STAGING_DB_CONFIRMED=yes flag (Railway's public-proxy
+      # hostnames don't contain "staging", so CI opts in via the flag).
       - name: Reset staging schema and apply migrations
         run: ./scripts/reset-staging-schema.sh
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           ALLOW_DESTRUCTIVE_RESET: "yes"
+          STAGING_DB_CONFIRMED: "yes"
 
   test:
     needs: db-setup

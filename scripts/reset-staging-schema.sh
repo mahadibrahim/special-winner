@@ -5,8 +5,11 @@
 # runs the standard Drizzle migration sequence.
 #
 # Hard guards (both must pass or the script aborts):
-#   1. $DATABASE_URL must contain the substring "staging" — this prevents
-#      ever running against the production DB even if env vars get crossed.
+#   1. EITHER $DATABASE_URL contains the substring "staging" (lean local
+#      use case where the user named their DB sensibly), OR
+#      $STAGING_DB_CONFIRMED=yes is set (CI use case — Railway's public-
+#      proxy hostnames like viaduct.proxy.rlwy.net don't contain
+#      "staging" so the workflow opts in via this env flag instead).
 #   2. $ALLOW_DESTRUCTIVE_RESET must equal "yes" — the CI workflow sets
 #      this explicitly; humans running the script must opt in too.
 #
@@ -26,10 +29,12 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
-if [[ "$DATABASE_URL" != *staging* ]]; then
-  echo "ERROR: DATABASE_URL does not contain the substring 'staging'." >&2
-  echo "       Refusing to drop the schema. This script will only run" >&2
-  echo "       against a connection string that names a staging DB." >&2
+if [[ "$DATABASE_URL" != *staging* && "${STAGING_DB_CONFIRMED:-}" != "yes" ]]; then
+  echo "ERROR: DATABASE_URL does not contain 'staging' AND" >&2
+  echo "       STAGING_DB_CONFIRMED is not set to 'yes'." >&2
+  echo "       At least one must be true. If you're running this against a" >&2
+  echo "       Railway-hosted staging DB whose public-proxy hostname does" >&2
+  echo "       not contain 'staging', set STAGING_DB_CONFIRMED=yes to opt in." >&2
   exit 2
 fi
 
