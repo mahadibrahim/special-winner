@@ -28,10 +28,10 @@ fi
 cd /tmp
 
 echo "[provision-staging-db] creating Railway project 'aspire-sports-staging'..."
-railway init aspire-sports-staging
+railway init --name aspire-sports-staging
 
-echo "[provision-staging-db] adding Postgres plugin..."
-railway add --plugin postgresql
+echo "[provision-staging-db] adding Postgres database..."
+railway add --database postgres
 
 echo "[provision-staging-db] done."
 echo
