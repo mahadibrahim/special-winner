@@ -107,10 +107,14 @@ jobs:
       # Seed test fixtures (test users, baseline org, sports, sample
       # seasons, etc.) — required by virtually every API/E2E test. Safe
       # against staging now that staging has its own dedicated DB.
+      # ALLOW_E2E_SEED=yes is the explicit opt-in: the seed refuses to
+      # run unless either DATABASE_URL contains "staging" (Railway proxy
+      # hostnames don't) or this flag is set.
       - name: Seed E2E test fixtures
         run: npm run db:seed:e2e
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          ALLOW_E2E_SEED: "yes"
 
   test:
     needs: db-setup

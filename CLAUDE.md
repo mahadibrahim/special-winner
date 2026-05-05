@@ -214,11 +214,15 @@ Every merge to `main` automatically tags + deploys to prod. No manual `git tag` 
 
 **Rollback:** check out the previous green tag and re-tag patch+1 from it, or use Netlify's "instant rollback" UI on the prod site.
 
-## Catalog cleanup (prod DB)
+## Database write surface
 
-Cleanup scripts (`scripts/cleanup-prod-strict.ts`, `scripts/cleanup-prod-pollution.ts`) **never run automatically** — they're destructive and the allow-list assumptions can drift as the catalog expands.
+After the launch transition, the only DB-writing scripts in this repo are:
 
-Trigger via the **Cleanup prod catalog** workflow (Actions tab → workflow_dispatch). Defaults to `dry_run=true` and `strict=true`; the dry-run output appears in the workflow log so you can review what would be deleted before re-running with `dry_run=false`.
+- `scripts/db-migrate.ts` / `db-migrate-bootstrap.ts` — schema migrations, runs every deploy
+- `src/lib/db/seeds/seed-e2e-tests.ts` — staging-only fixture seed; refuses to run unless `DATABASE_URL` contains "staging" or `ALLOW_E2E_SEED=yes` (CI sets the flag against the staging Railway proxy)
+- `scripts/provision-staging-db.sh` / `reset-staging-schema.sh` — staging provisioning, hard-guarded against prod
+
+One-time job scripts (launch catalog seed, season-opener, prod cleanup) were deleted post-launch — leaving destructive bulk scripts in the repo with prod credentials available is a footgun once the catalog expands beyond their allow-lists. If a real one-off ever comes up, write it as a new branch-specific script and delete it after the merge.
 
 ## Pre-push checklist (major work — schema changes, new endpoints, new E2E flows)
 
