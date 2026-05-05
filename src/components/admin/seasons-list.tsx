@@ -30,6 +30,8 @@ interface Season {
   endDate: string
   maxParticipants: number | null
   priceCents: number
+  teamPriceCents: number | null
+  signupModes: string[]
   depositCents: number | null
   allowDeposit: boolean
   status: string
@@ -93,6 +95,9 @@ export function SeasonsList() {
     endDate: "",
     maxParticipants: "",
     priceCents: "",
+    teamPriceCents: "",
+    allowIndividual: true,
+    allowTeam: false,
     depositCents: "",
     allowDeposit: true,
     status: "draft",
@@ -151,6 +156,9 @@ export function SeasonsList() {
       endDate: today,
       maxParticipants: "",
       priceCents: "",
+      teamPriceCents: "",
+      allowIndividual: true,
+      allowTeam: false,
       depositCents: "",
       allowDeposit: true,
       status: "draft",
@@ -162,6 +170,7 @@ export function SeasonsList() {
 
   function openEditDialog(season: Season) {
     setEditingSeason(season)
+    const modes = season.signupModes ?? ["individual"]
     setFormData({
       programId: season.program.id,
       ageGroupId: season.ageGroup?.id || "",
@@ -172,6 +181,9 @@ export function SeasonsList() {
       endDate: season.endDate,
       maxParticipants: season.maxParticipants?.toString() || "",
       priceCents: (season.priceCents / 100).toString(),
+      teamPriceCents: season.teamPriceCents != null ? (season.teamPriceCents / 100).toString() : "",
+      allowIndividual: modes.includes("individual"),
+      allowTeam: modes.includes("team"),
       depositCents: season.depositCents ? (season.depositCents / 100).toString() : "",
       allowDeposit: season.allowDeposit,
       status: season.status,
@@ -192,12 +204,16 @@ export function SeasonsList() {
   function handleCloneSourceSelected(sourceSeasonId: string) {
     const source = seasons.find((s) => s.id === sourceSeasonId)
     if (!source) return
+    const modes = source.signupModes ?? ["individual"]
     setFormData((prev) => ({
       ...prev,
       ageGroupId: source.ageGroup?.id || "",
       venueId: source.venueId || "",
       maxParticipants: source.maxParticipants?.toString() || "",
       priceCents: (source.priceCents / 100).toString(),
+      teamPriceCents: source.teamPriceCents != null ? (source.teamPriceCents / 100).toString() : "",
+      allowIndividual: modes.includes("individual"),
+      allowTeam: modes.includes("team"),
       depositCents: source.depositCents ? (source.depositCents / 100).toString() : "",
       allowDeposit: source.allowDeposit,
       scheduleNotes: source.scheduleNotes || "",
@@ -208,6 +224,16 @@ export function SeasonsList() {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
+
+    // Build signup_modes array from the two checkboxes; require at least one.
+    const signupModes: string[] = []
+    if (formData.allowIndividual) signupModes.push("individual")
+    if (formData.allowTeam) signupModes.push("team")
+    if (signupModes.length === 0) {
+      setError("At least one signup mode (individual or team) must be enabled.")
+      setIsSubmitting(false)
+      return
+    }
 
     try {
       const method = editingSeason ? "PUT" : "POST"
@@ -222,6 +248,10 @@ export function SeasonsList() {
         endDate: formData.endDate,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
         priceCents: Math.round(parseFloat(formData.priceCents || "0") * 100),
+        teamPriceCents: formData.allowTeam && formData.teamPriceCents
+          ? Math.round(parseFloat(formData.teamPriceCents) * 100)
+          : null,
+        signupModes,
         depositCents: formData.depositCents ? Math.round(parseFloat(formData.depositCents) * 100) : null,
         allowDeposit: formData.allowDeposit,
         status: formData.status,
@@ -514,9 +544,45 @@ export function SeasonsList() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              {/* Signup modes — drives which signup paths the season accepts */}
+              <div className="space-y-2 rounded-lg border border-border p-4 bg-cream-2/50">
+                <Label className="font-semibold">Signup modes</Label>
+                <p className="text-xs text-ink-muted">
+                  Which paths can a registrant take? At least one is required.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="allowIndividual"
+                      checked={formData.allowIndividual}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, allowIndividual: checked === true }))
+                      }
+                    />
+                    <Label htmlFor="allowIndividual" className="font-normal">
+                      Individual / free agent (per-player)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="allowTeam"
+                      checked={formData.allowTeam}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, allowTeam: checked === true }))
+                      }
+                    />
+                    <Label htmlFor="allowTeam" className="font-normal">
+                      Team (captain registers a roster)
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="priceCents">Price ($) *</Label>
+                  <Label htmlFor="priceCents">
+                    Individual price ($) {formData.allowIndividual && "*"}
+                  </Label>
                   <Input
                     id="priceCents"
                     type="number"
@@ -524,10 +590,36 @@ export function SeasonsList() {
                     min="0"
                     value={formData.priceCents}
                     onChange={(e) => setFormData((prev) => ({ ...prev, priceCents: e.target.value }))}
-                    placeholder="150.00"
-                    required
+                    placeholder="90.00"
+                    required={formData.allowIndividual}
+                    disabled={!formData.allowIndividual && !formData.allowTeam}
                   />
+                  <p className="text-xs text-ink-muted">
+                    What one free agent pays. Required for individual signups; for team-only seasons we keep this equal to the team price.
+                  </p>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="teamPriceCents">
+                    Team price ($) {formData.allowTeam && "*"}
+                  </Label>
+                  <Input
+                    id="teamPriceCents"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.teamPriceCents}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, teamPriceCents: e.target.value }))}
+                    placeholder="720.00"
+                    disabled={!formData.allowTeam}
+                    required={formData.allowTeam}
+                  />
+                  <p className="text-xs text-ink-muted">
+                    What a captain pays for a full roster. Leave blank if team signup isn't offered.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="depositCents">Deposit ($)</Label>
                   <Input

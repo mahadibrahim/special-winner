@@ -41,12 +41,17 @@ const seasonSchema = z.object({
   registrationCloses: z.string().optional().nullable(),
   maxParticipants: z.number().int().positive().optional().nullable(),
   priceCents: z.number().int().min(0, "Price must be positive"),
+  teamPriceCents: z.number().int().min(0).optional().nullable(),
+  signupModes: z.array(z.enum(["individual", "team"])).min(1, "At least one signup mode is required").default(["individual"]),
   depositCents: z.number().int().min(0).optional().nullable(),
   allowDeposit: z.boolean().default(true),
   status: z.enum(["draft", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
   scheduleNotes: z.string().optional().nullable(),
   scaffold: scaffoldSchema.optional(),
-});
+}).refine(
+  (data) => !data.signupModes.includes("team") || (data.teamPriceCents != null && data.teamPriceCents > 0),
+  { message: "Team price is required when team signup is enabled", path: ["teamPriceCents"] },
+);
 
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
@@ -77,6 +82,8 @@ export const GET: APIRoute = async (context) => {
         registrationCloses: seasons.registrationCloses,
         maxParticipants: seasons.maxParticipants,
         priceCents: seasons.priceCents,
+        teamPriceCents: seasons.teamPriceCents,
+        signupModes: seasons.signupModes,
         depositCents: seasons.depositCents,
         allowDeposit: seasons.allowDeposit,
         status: seasons.status,
@@ -194,6 +201,14 @@ export const POST: APIRoute = async (context) => {
           registrationCloses: data.registrationCloses ? new Date(data.registrationCloses) : null,
           maxParticipants: data.maxParticipants || null,
           priceCents: data.priceCents,
+          teamPriceCents: data.teamPriceCents ?? null,
+          signupModes: data.signupModes,
+          // Keep legacy pricing_mode synced with signupModes for any caller
+          // still reading it; remove once all callsites use signupModes.
+          pricingMode:
+            data.signupModes.includes("team") && !data.signupModes.includes("individual")
+              ? "per_team"
+              : "per_individual",
           depositCents: data.depositCents || null,
           allowDeposit: data.allowDeposit,
           status: data.status,
@@ -321,6 +336,13 @@ export const PUT: APIRoute = async (context) => {
         registrationCloses: validData.registrationCloses ? new Date(validData.registrationCloses) : null,
         maxParticipants: validData.maxParticipants || null,
         priceCents: validData.priceCents,
+        teamPriceCents: validData.teamPriceCents ?? null,
+        signupModes: validData.signupModes,
+        // Keep legacy pricing_mode synced with signupModes
+        pricingMode:
+          validData.signupModes.includes("team") && !validData.signupModes.includes("individual")
+            ? "per_team"
+            : "per_individual",
         depositCents: validData.depositCents || null,
         allowDeposit: validData.allowDeposit,
         status: validData.status,

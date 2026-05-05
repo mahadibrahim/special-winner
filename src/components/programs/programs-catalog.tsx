@@ -14,6 +14,8 @@ interface ApiSeason {
   startDate: string
   endDate: string
   price: number
+  teamPrice: number | null
+  signupModes: string[]
   deposit: number | null
   allowDeposit: boolean
   pricingMode: string
@@ -87,10 +89,15 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
     }
   }, [])
 
-  // Step 1: filter by audience segment.
+  // Step 1: filter by audience segment. Team segment includes both
+  // team-only and dual-mode adult leagues (anything that accepts a team).
   const segmentSeasons = useMemo(() => {
     if (audience === "team") {
-      return seasons.filter((s) => deriveAudience(s as SeasonForDerive) === "adult" && s.pricingMode === "per_team")
+      return seasons.filter(
+        (s) =>
+          deriveAudience(s as SeasonForDerive) === "adult" &&
+          (s.signupModes ?? []).includes("team"),
+      )
     }
     return seasons.filter((s) => deriveAudience(s as SeasonForDerive) === audience)
   }, [seasons, audience])
@@ -217,7 +224,11 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
             const meta = SEGMENT_LABELS[seg]
             const count =
               seg === "team"
-                ? seasons.filter((s) => deriveAudience(s as SeasonForDerive) === "adult" && s.pricingMode === "per_team").length
+                ? seasons.filter(
+                    (s) =>
+                      deriveAudience(s as SeasonForDerive) === "adult" &&
+                      (s.signupModes ?? []).includes("team"),
+                  ).length
                 : seasons.filter((s) => deriveAudience(s as SeasonForDerive) === seg).length
             const active = audience === seg
             return (

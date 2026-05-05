@@ -122,6 +122,8 @@ export const GET: APIRoute = async ({ url }) => {
         startDate: r.season.startDate,
         endDate: r.season.endDate,
         price: r.season.priceCents / 100,
+        teamPrice: r.season.teamPriceCents != null ? r.season.teamPriceCents / 100 : null,
+        signupModes: r.season.signupModes,
         deposit: r.season.depositCents ? r.season.depositCents / 100 : null,
         allowDeposit: r.season.allowDeposit,
         pricingMode: r.season.pricingMode,
