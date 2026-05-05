@@ -1,0 +1,201 @@
+---
+// SSR — sponsor bars come from the DB so adds/removes don't require
+// a code deploy.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { db } from "@/lib/db";
+import { sponsorBars, locations } from "@/lib/db/schema";
+import { eq, and, asc } from "drizzle-orm";
+
+interface SponsorRow {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  addressLine1: string | null;
+  url: string | null;
+  description: string | null;
+  perk: string | null;
+  featured: boolean;
+  locationName: string | null;
+}
+
+let bars: SponsorRow[] = [];
+
+try {
+  if (db) {
+    bars = await db
+      .select({
+        id: sponsorBars.id,
+        name: sponsorBars.name,
+        city: sponsorBars.city,
+        state: sponsorBars.state,
+        addressLine1: sponsorBars.addressLine1,
+        url: sponsorBars.url,
+        description: sponsorBars.description,
+        perk: sponsorBars.perk,
+        featured: sponsorBars.featured,
+        locationName: locations.name,
+      })
+      .from(sponsorBars)
+      .leftJoin(locations, eq(sponsorBars.locationId, locations.id))
+      .where(eq(sponsorBars.active, true))
+      .orderBy(asc(sponsorBars.name));
+  }
+} catch (err) {
+  console.error("[sponsors] db error", err);
+}
+---
+
+<BaseLayout
+  title="Sponsor Bars — Aspire Sports"
+  description="Aspire Sports partner bars across central Ohio. Show your Aspire roster after the game and get a perk."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Central Ohio
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            Sponsor Bars
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          After the game
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          The post-game <span class="italic text-primary-orange">network.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
+          Aspire-friendly bars across central Ohio. Show your roster on game night and get a
+          perk on us — pint discounts, app specials, or whatever the bar's running that week.
+          Half of league night happens off the field; we made it easier.
+        </p>
+      </div>
+    </section>
+
+    {/* Bars */}
+    <section class="py-16 lg:py-24">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        {bars.length === 0 ? (
+          <div class="bg-cream-2 border border-ink/10 rounded-2xl p-12 text-center">
+            <h2 class="font-display text-2xl text-ink mb-3">Network's still being built.</h2>
+            <p class="text-ink-muted mb-6 max-w-md mx-auto">
+              We're signing up partner bars in Worthington, Powell, downtown, and OSU campus area.
+              Check back soon, or if you own or know a bar near our venues — read on.
+            </p>
+            <a
+              href="#become-a-sponsor"
+              class="inline-flex items-center gap-2 text-primary-orange hover:underline font-medium"
+            >
+              Become a sponsor →
+            </a>
+          </div>
+        ) : (
+          <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {bars.map((bar) => (
+              <li class="bg-paper border border-ink/10 rounded-2xl p-6 lg:p-8 hover:border-primary-orange/40 transition-colors flex flex-col">
+                <div class="flex items-start justify-between gap-4 mb-3">
+                  <h3 class="font-display text-2xl text-ink leading-tight">{bar.name}</h3>
+                  {bar.featured && (
+                    <span class="text-[10px] font-semibold tracking-wide uppercase bg-primary-orange/10 text-primary-orange px-2 py-1 rounded">
+                      Featured
+                    </span>
+                  )}
+                </div>
+                {(bar.city || bar.addressLine1) && (
+                  <p class="text-sm text-ink-muted mb-3">
+                    {bar.addressLine1 ? bar.addressLine1 + ", " : ""}
+                    {bar.city}{bar.state ? `, ${bar.state}` : ""}
+                  </p>
+                )}
+                {bar.description && (
+                  <p class="text-ink-2 leading-relaxed mb-3">{bar.description}</p>
+                )}
+                {bar.perk && (
+                  <p class="text-sm text-ink-2 mb-4 italic">
+                    Perk: {bar.perk}
+                  </p>
+                )}
+                {bar.locationName && (
+                  <p class="text-[11px] tracking-wide uppercase text-ink-muted mb-4">
+                    Near {bar.locationName.replace(/^Soccer One\s+/i, "")}
+                  </p>
+                )}
+                {bar.url && (
+                  <a
+                    href={bar.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="mt-auto inline-flex items-center gap-2 text-primary-orange hover:underline font-medium text-sm"
+                  >
+                    Visit →
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+
+    {/* Become a sponsor */}
+    <section id="become-a-sponsor" class="bg-cream-2 py-16 lg:py-24">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+          For bar owners
+        </p>
+        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-6 leading-tight max-w-2xl">
+          Get listed. Get league traffic.
+        </h2>
+        <p class="text-ink-2 leading-relaxed text-lg mb-8 max-w-3xl">
+          If your bar is within walking or short drive of one of our venues, partner with us. We
+          send our players your way for post-game; you offer them something — a pint discount, an
+          app special, a reserved table. We promote you here, in our team newsletters, and on our
+          team channels.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+          <div>
+            <h3 class="font-display text-lg text-ink mb-2">Mid-week traffic</h3>
+            <p class="text-ink-muted text-sm leading-relaxed">
+              Our adult leagues run Tuesday–Friday. Captive audience of 60–200 players per
+              league night looking for a place to grab food and beers afterward.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-lg text-ink mb-2">Listed everywhere we publish</h3>
+            <p class="text-ink-muted text-sm leading-relaxed">
+              Sponsor bars appear on this page, on the relevant venue page, in season-kickoff
+              emails, and pinned in our team Telegram channels for the whole season.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-lg text-ink mb-2">No upfront fee</h3>
+            <p class="text-ink-muted text-sm leading-relaxed">
+              Standard partnership is your perk + one staff member's contact. We handle the
+              promotion. Optional sponsorship tiers exist for higher-visibility placement.
+            </p>
+          </div>
+        </div>
+
+        <a
+          href="mailto:hello@aspiresportsohio.com?subject=Sponsor%20bar%20partnership"
+          class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
+          style="letter-spacing: 0.08em;"
+        >
+          Email us about a partnership →
+        </a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
