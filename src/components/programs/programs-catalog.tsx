@@ -58,12 +58,24 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
   const [activeDayBucket, setActiveDayBucket] = useState<string | null>(null)
   const [sort, setSort] = useState<"start" | "deadline" | "filling">("start")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  // Pagination — full catalog. Initial page size of 12 (3 grid rows on
+  // desktop, 12 stacked on mobile = ~6 viewports of scroll). "Show more"
+  // adds another PAGE_SIZE chunk per click.
+  const [visibleCount, setVisibleCount] = useState(12)
 
   // Sync URL ?audience= → state
   useEffect(() => {
     if (initialAudience === "adult") setAudience("adult")
     else if (initialAudience === "team") setAudience("team")
   }, [initialAudience])
+
+  // Reset pagination whenever the user changes audience or any filter chip.
+  // Without this, switching from "Youth" (66 results) to "Adult" (151) keeps
+  // the visibleCount and feels broken when the user doesn't see the new
+  // first row.
+  useEffect(() => {
+    setVisibleCount(12)
+  }, [audience, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, sort])
 
   useEffect(() => {
     let cancelled = false
@@ -371,14 +383,16 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
         </section>
       ))}
 
-      {/* Step 4: Full filtered catalog */}
+      {/* Step 4: Full filtered catalog (paginated). */}
       <section className="border-t border-border pt-10 mt-4">
         <div className="flex items-end justify-between mb-6">
           <h2 className="font-display text-2xl text-ink">
             {audience === "youth" ? "All youth programs" : audience === "adult" ? "All adult leagues" : "All team-only leagues"}
           </h2>
           <span className="text-xs text-ink-muted">
-            {sorted.length} program{sorted.length === 1 ? "" : "s"}
+            {sorted.length === 0
+              ? "0 programs"
+              : `Showing ${Math.min(visibleCount, sorted.length)} of ${sorted.length}`}
           </span>
         </div>
         {sorted.length === 0 ? (
@@ -399,11 +413,28 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sorted.map((s) => (
-              <ProgramCardV2 key={s.id} season={s} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sorted.slice(0, visibleCount).map((s) => (
+                <ProgramCardV2 key={s.id} season={s} />
+              ))}
+            </div>
+            {visibleCount < sorted.length && (
+              <div className="mt-8 text-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((n) => Math.min(n + 12, sorted.length))}
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors w-full sm:w-auto"
+                  style={{ letterSpacing: "0.08em" }}
+                >
+                  Show {Math.min(12, sorted.length - visibleCount)} more
+                  <span className="text-cream/60 ml-1">
+                    ({sorted.length - visibleCount} remaining)
+                  </span>
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>
