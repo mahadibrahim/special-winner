@@ -134,6 +134,13 @@
       "when": 1777942934798,
       "tag": "0018_bizarre_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1777943366165,
+      "tag": "0019_spooky_celestials",
+      "breakpoints": true
     }
   ]
 }

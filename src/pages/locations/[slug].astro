@@ -1,0 +1,222 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { db } from "@/lib/db";
+import { locations, programs, seasons } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+
+// SSR — request-time queries against the catalog. Each location's open
+// programs change as seasons open and close.
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect("/programs");
+}
+
+interface LocationRow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  city: string | null;
+  state: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  postalCode: string | null;
+}
+
+let location: LocationRow | null = null;
+let openSeasonCount = 0;
+
+try {
+  if (db) {
+    const rows = await db
+      .select({
+        id: locations.id,
+        name: locations.name,
+        slug: locations.slug,
+        description: locations.description,
+        city: locations.city,
+        state: locations.state,
+        addressLine1: locations.addressLine1,
+        addressLine2: locations.addressLine2,
+        postalCode: locations.postalCode,
+      })
+      .from(locations)
+      .where(eq(locations.slug, slug))
+      .limit(1);
+    location = rows[0] ?? null;
+
+    if (location) {
+      const counted = await db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .where(
+          and(
+            eq(programs.locationId, location.id),
+            eq(seasons.status, "open"),
+            eq(seasons.isTest, false),
+            eq(programs.isTest, false),
+          ),
+        );
+      openSeasonCount = counted.length;
+    }
+  }
+} catch (err) {
+  console.error("[locations/[slug]] db error", err);
+}
+
+if (!location) {
+  return Astro.redirect("/programs");
+}
+
+// Strip "Soccer One " prefix at the display layer — the DB names the venue
+// formally, but the marketing copy refers to the city/area for SEO clarity.
+const venueLabel = location.name.replace(/^Soccer One\s+/i, "").trim();
+const displayLocationName = venueLabel || location.name;
+const cityState = [location.city, location.state].filter(Boolean).join(", ");
+const fullAddress = [
+  location.addressLine1,
+  location.addressLine2,
+  cityState,
+  location.postalCode,
+]
+  .filter(Boolean)
+  .join(", ");
+---
+
+<BaseLayout
+  title={`Sports programs in ${displayLocationName} — Aspire Sports`}
+  description={`Aspire Sports youth and adult programs in ${displayLocationName}${cityState ? `, ${cityState}` : ""}. ${openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open for registration.` : "Browse the catalog for upcoming seasons."}`}
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports {cityState && `· ${cityState}`}
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            {displayLocationName}
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          {openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open` : "Aspire Location"}
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          Aspire in <span class="italic text-primary-orange">{displayLocationName}.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed mb-10">
+          {location.description ??
+            `Aspire Sports programs for kids and adults at ${displayLocationName}. Same coaches, same standards, same Aspire Promise — at your local venue.`}
+        </p>
+
+        <div class="flex flex-wrap items-center gap-4">
+          <a
+            href={`/programs?location=${slug}&audience=youth`}
+            class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Youth programs at {displayLocationName} →
+          </a>
+          <a
+            href={`/programs?location=${slug}&audience=adult`}
+            class="inline-flex items-center gap-3 border border-ink text-ink px-7 py-4 text-sm font-medium tracking-wide uppercase hover:border-primary-orange hover:text-primary-orange transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Adult leagues at {displayLocationName} →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {/* Venue facts */}
+    <section class="bg-cream-2 border-y border-ink/10">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {fullAddress && (
+            <div>
+              <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
+                Address
+              </p>
+              <p class="text-ink leading-snug">{fullAddress}</p>
+            </div>
+          )}
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
+              Open programs
+            </p>
+            <p class="text-ink leading-snug">
+              {openSeasonCount > 0
+                ? `${openSeasonCount} season${openSeasonCount === 1 ? "" : "s"} accepting registrations`
+                : "Catalog updates regularly — check back soon"}
+            </p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
+              Audiences
+            </p>
+            <p class="text-ink leading-snug">Kids ages 4 to 18 · Adults 18+</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Why play here */}
+    <section class="py-20 lg:py-28">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-10 max-w-2xl leading-tight">
+          What you get at {displayLocationName}.
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+          <div>
+            <h3 class="font-display text-lg text-ink mb-3">Local coaches</h3>
+            <p class="text-ink-muted leading-relaxed">
+              Coaches who live in or near {displayLocationName}, who know the players, families,
+              and the rhythm of your week.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-lg text-ink mb-3">Real schedules</h3>
+            <p class="text-ink-muted leading-relaxed">
+              Sessions you can plan around — same time, same place, every week. We publish the
+              schedule before you pay, not after.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-lg text-ink mb-3">One Aspire account</h3>
+            <p class="text-ink-muted leading-relaxed">
+              Your registration, your kid's history, your adult-league rosters — all on one
+              account. Sign up once; we remember you.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section class="py-20 lg:py-24 bg-ink text-cream">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
+        <h2 class="font-display text-3xl lg:text-5xl mb-6">
+          See what's open at {displayLocationName}.
+        </h2>
+        <a
+          href={`/programs?location=${slug}`}
+          class="inline-flex items-center gap-3 bg-cream text-ink px-8 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange hover:text-cream transition-colors"
+          style="letter-spacing: 0.08em;"
+        >
+          Browse {displayLocationName} programs →
+        </a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

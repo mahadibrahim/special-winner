@@ -1,0 +1,188 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { db } from "@/lib/db";
+import { events, locations } from "@/lib/db/schema";
+import { eq, and, gte, asc } from "drizzle-orm";
+
+// SSR — events come from the DB and are time-sensitive.
+
+interface EventRow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  category: string | null;
+  startsAt: Date;
+  endsAt: Date | null;
+  venueLabel: string | null;
+  registrationUrl: string | null;
+  priceCents: number | null;
+  featured: boolean;
+  imageUrl: string | null;
+  locationName: string | null;
+  locationCity: string | null;
+}
+
+let upcomingEvents: EventRow[] = [];
+
+try {
+  if (db) {
+    upcomingEvents = await db
+      .select({
+        id: events.id,
+        name: events.name,
+        slug: events.slug,
+        description: events.description,
+        category: events.category,
+        startsAt: events.startsAt,
+        endsAt: events.endsAt,
+        venueLabel: events.venueLabel,
+        registrationUrl: events.registrationUrl,
+        priceCents: events.priceCents,
+        featured: events.featured,
+        imageUrl: events.imageUrl,
+        locationName: locations.name,
+        locationCity: locations.city,
+      })
+      .from(events)
+      .leftJoin(locations, eq(events.locationId, locations.id))
+      .where(and(eq(events.active, true), gte(events.startsAt, new Date())))
+      .orderBy(asc(events.startsAt));
+  }
+} catch (err) {
+  console.error("[events page] db error", err);
+}
+
+function formatEventDate(d: Date): string {
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatEventTime(d: Date): string {
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+---
+
+<BaseLayout
+  title="Events — Aspire Sports"
+  description="Tournaments, watch parties, clinics, and open houses from Aspire Sports in central Ohio."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Central Ohio
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            Events
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          What's coming up
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          Aspire <span class="italic text-primary-orange">events.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
+          Tournaments, watch parties, clinics, and open houses. One-time happenings to come
+          play, watch, learn, or meet the team.
+        </p>
+      </div>
+    </section>
+
+    {/* Events list */}
+    <section class="pb-20 lg:pb-32">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        {upcomingEvents.length === 0 ? (
+          <div class="bg-cream-2 border border-ink/10 rounded-2xl p-12 text-center">
+            <h2 class="font-display text-2xl text-ink mb-3">Nothing on the calendar yet.</h2>
+            <p class="text-ink-muted mb-6 max-w-md mx-auto">
+              Events get posted as they're scheduled. In the meantime, our regular
+              programs and leagues are open for registration.
+            </p>
+            <a
+              href="/programs"
+              class="inline-flex items-center gap-2 text-primary-orange hover:underline font-medium"
+            >
+              Browse programs →
+            </a>
+          </div>
+        ) : (
+          <ul class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+            {upcomingEvents.map((ev) => (
+              <li class="bg-paper border border-ink/10 rounded-2xl p-6 lg:p-8 hover:border-primary-orange/40 transition-colors">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-2">
+                      {ev.category ?? "Event"}
+                    </p>
+                    <h3 class="font-display text-2xl text-ink leading-tight">{ev.name}</h3>
+                  </div>
+                  {ev.featured && (
+                    <span class="text-[10px] font-semibold tracking-wide uppercase bg-primary-orange/10 text-primary-orange px-2 py-1 rounded">
+                      Featured
+                    </span>
+                  )}
+                </div>
+
+                {ev.description && (
+                  <p class="text-ink-muted leading-relaxed mb-5">{ev.description}</p>
+                )}
+
+                <div class="space-y-1 text-sm text-ink-2 mb-6">
+                  <p>
+                    <span class="text-ink-muted">When:</span>{" "}
+                    {formatEventDate(ev.startsAt)} · {formatEventTime(ev.startsAt)}
+                    {ev.endsAt && ` – ${formatEventTime(ev.endsAt)}`}
+                  </p>
+                  <p>
+                    <span class="text-ink-muted">Where:</span>{" "}
+                    {ev.venueLabel ??
+                      (ev.locationName ? ev.locationName.replace(/^Soccer One\s+/i, "") : "TBA")}
+                    {ev.locationCity && !ev.venueLabel && `, ${ev.locationCity}`}
+                  </p>
+                  {ev.priceCents !== null && (
+                    <p>
+                      <span class="text-ink-muted">Cost:</span>{" "}
+                      {ev.priceCents === 0 ? "Free" : `$${(ev.priceCents / 100).toFixed(2)}`}
+                    </p>
+                  )}
+                </div>
+
+                {ev.registrationUrl ? (
+                  <a
+                    href={ev.registrationUrl}
+                    target={ev.registrationUrl.startsWith("http") ? "_blank" : undefined}
+                    rel={ev.registrationUrl.startsWith("http") ? "noopener noreferrer" : undefined}
+                    class="inline-flex items-center gap-2 text-sm font-medium tracking-wide uppercase bg-ink text-cream px-5 py-3 hover:bg-primary-orange transition-colors"
+                    style="letter-spacing: 0.08em;"
+                  >
+                    Register →
+                  </a>
+                ) : (
+                  <span class="text-sm text-ink-muted italic">Registration opens soon</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  </main>
+</BaseLayout>

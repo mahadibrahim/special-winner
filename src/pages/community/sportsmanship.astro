@@ -1,0 +1,130 @@
+---
+export const prerender = true;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Sportsmanship at Aspire Sports"
+  description="The Aspire Sports code of conduct — what we expect from players, parents, and coaches on and off the field."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Community
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            Sportsmanship
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          Code of conduct
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          Play hard. Play <span class="italic text-primary-orange">right.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
+          Aspire Sports is for competitors who also know how to lose with grace and win without
+          contempt. These are the standards we hold every player, parent, and coach to — at every
+          level, on every field.
+        </p>
+      </div>
+    </section>
+
+    {/* Three audiences */}
+    <section class="py-16 lg:py-24">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 space-y-16">
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            For players
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-5">
+            Compete fully. Respect always.
+          </h2>
+          <ul class="space-y-3 text-ink-2 leading-relaxed text-lg">
+            <li>· Show up on time, ready to work, even when you'd rather be anywhere else.</li>
+            <li>· Compete hard within the rules. Hard play and dirty play are different.</li>
+            <li>· Officials make calls in real time. Disagree privately, never publicly.</li>
+            <li>· Teammates are teammates — protect them on the field and off.</li>
+            <li>· Trash talk, slurs, and intimidation are not part of the game here.</li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            For parents
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-5">
+            Cheer. Don't coach from the sideline.
+          </h2>
+          <ul class="space-y-3 text-ink-2 leading-relaxed text-lg">
+            <li>· Cheer effort, not outcomes. The score will take care of itself.</li>
+            <li>· The coach coaches. The official officiates. Sideline instructions confuse kids and undermine both.</li>
+            <li>· If you have feedback for a coach, schedule it for after the game — never during.</li>
+            <li>· Other people's kids are not your project. Praise specific, broadly. Critique only your own.</li>
+            <li>· Win or lose, the car ride home is for connection, not analysis.</li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            For coaches
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-5">
+            Develop people. Then develop players.
+          </h2>
+          <ul class="space-y-3 text-ink-2 leading-relaxed text-lg">
+            <li>· Every player gets meaningful coached time. Bench-warming as a strategy is not allowed.</li>
+            <li>· Praise effort and improvement, not just results.</li>
+            <li>· Officials' calls stand. Disagreement is a one-sentence respectful question, then back to the game.</li>
+            <li>· Players' identities and beliefs are respected without commentary.</li>
+            <li>· If something happens that needs reporting — injury, conduct concern, family situation — escalate it that day, not next week.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    {/* Enforcement */}
+    <section class="bg-cream-2 py-16 lg:py-20">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-6">
+          When this gets broken.
+        </h2>
+        <p class="text-ink-2 leading-relaxed text-lg mb-4 max-w-3xl">
+          We address incidents directly with the people involved — not via group emails, not via
+          public shaming. Sequence is usually:
+        </p>
+        <ol class="space-y-3 text-ink-2 leading-relaxed text-lg list-decimal list-inside max-w-3xl">
+          <li>A private conversation with the coach or program director.</li>
+          <li>If repeated: a written warning and a sit-out from the next session.</li>
+          <li>If continued: removal from the program. Refund treatment is per the <a href="/refund-policy" class="text-primary-orange hover:underline">refund policy</a>.</li>
+        </ol>
+        <p class="text-ink-muted leading-relaxed mt-6">
+          For things that warrant immediate removal — physical violence, slurs, threats — we
+          skip steps 1-2 and go straight to removal. We aim for fair, but we don't apologize
+          for protecting the field.
+        </p>
+      </div>
+    </section>
+
+    {/* Footer link */}
+    <section class="py-12">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
+        <p class="text-ink-muted">
+          See also: <a href="/community/inclusion" class="text-primary-orange hover:underline">Inclusion</a>{" "}
+          · <a href="/promise" class="text-primary-orange hover:underline">The Aspire Promise</a>
+        </p>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
