@@ -1,0 +1,141 @@
+---
+export const prerender = true;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Inclusion at Aspire Sports"
+  description="Aspire Sports inclusion principles — how we run programs that welcome every player, every family, every community."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Community
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            Inclusion
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          Our principles
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          Sports for <span class="italic text-primary-orange">everyone.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
+          Aspire Sports is for the kid who's never touched a ball, the adult returning after
+          twenty years away, and every player in between. These are the principles that govern
+          how we run our programs.
+        </p>
+      </div>
+    </section>
+
+    {/* Principles */}
+    <section class="py-16 lg:py-24">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 space-y-16">
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            ① Skill, not status
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-3">
+            Programs sort by skill — never by who you know.
+          </h2>
+          <p class="text-ink-muted leading-relaxed text-lg">
+            Travel-team politics, "the right club," gym memberships passed down — none of it
+            applies here. Our placement decisions use age, skill, and player preference. That's it.
+          </p>
+        </div>
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            ② Beginners are welcome
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-3">
+            New to the sport? Start here.
+          </h2>
+          <p class="text-ink-muted leading-relaxed text-lg">
+            Most programs include a beginner pathway. Coaches lead with fundamentals. There's
+            no test to pass before you can join — only a spot to claim.
+          </p>
+        </div>
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            ③ Every player gets coached
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-3">
+            No bench-warmers as a strategy.
+          </h2>
+          <p class="text-ink-muted leading-relaxed text-lg">
+            Every registered player gets meaningful playing time at their level. We don't
+            run programs where kids pay to watch from the sideline.
+          </p>
+        </div>
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            ④ Cost shouldn't be the gate
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-3">
+            Talk to us if cost is a barrier.
+          </h2>
+          <p class="text-ink-muted leading-relaxed text-lg">
+            We offer payment plans, and we have limited-need scholarships. Email
+            <a href="mailto:hello@aspiresportsohio.com" class="text-primary-orange hover:underline">
+              hello@aspiresportsohio.com
+            </a>{" "}
+            and we'll work something out. No application essay, no public record.
+          </p>
+        </div>
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            ⑤ Identity is not a debate
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-3">
+            Players choose how they're addressed and grouped.
+          </h2>
+          <p class="text-ink-muted leading-relaxed text-lg">
+            Every player — youth or adult — has the right to be addressed by their name, their
+            pronouns, and to play in the league or division that fits them. Coaches are trained
+            to respect these choices without commentary.
+          </p>
+        </div>
+
+        <div>
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            ⑥ Accommodations on request
+          </p>
+          <h2 class="font-display text-2xl lg:text-3xl text-ink mb-3">
+            Disability, neurodivergence, medical — we'll meet you where you are.
+          </h2>
+          <p class="text-ink-muted leading-relaxed text-lg">
+            Tell us in your registration notes or email separately. Our coaches adjust drills,
+            pace, and team placement to fit. Programs that aren't appropriate get a clear "this
+            isn't the right fit" rather than a sink-or-swim experience.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    {/* Footer link */}
+    <section class="bg-cream-2 py-12">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
+        <p class="text-ink-muted">
+          See also: <a href="/community/sportsmanship" class="text-primary-orange hover:underline">Sportsmanship</a>{" "}
+          · <a href="/promise" class="text-primary-orange hover:underline">The Aspire Promise</a>
+        </p>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

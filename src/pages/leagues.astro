@@ -1,0 +1,196 @@
+---
+// Adult-leagues hub — explains the three sign-up paths and routes
+// the visitor into the catalog. No DB query required at the page level
+// (the catalog page does its own filtering).
+export const prerender = true;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Adult Leagues — Aspire Sports"
+  description="Aspire Sports adult leagues. Sign up solo, with friends, or as a full team — leagues for every weeknight at our central Ohio venues."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Central Ohio
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            Adult Leagues
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          For adults 18+
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          Adult leagues that play <span class="italic text-primary-orange">your way.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed mb-10">
+          Sign up solo, bring a few friends, or roll up with a full squad. Every Aspire adult
+          league supports all three — pick the one that fits, and we'll handle the rest.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-4">
+          <a
+            href="/programs?audience=adult"
+            class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Browse open leagues →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {/* Three signup paths */}
+    <section class="py-20 lg:py-28">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="mb-12 max-w-3xl">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            Three ways to sign up
+          </p>
+          <h2 class="font-display text-3xl lg:text-5xl text-ink leading-tight">
+            Whatever your roster looks like.
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+          {/* Individual */}
+          <div class="bg-paper border border-ink/10 rounded-2xl p-8 hover:border-primary-orange/40 transition-colors flex flex-col">
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+              ① Individual
+            </p>
+            <h3 class="font-display text-2xl text-ink mb-3 leading-tight">Sign up solo.</h3>
+            <p class="text-ink-muted leading-relaxed mb-4">
+              Don't have a team? Join the <strong class="text-ink">Free Agent Pool</strong>. We
+              match free agents into balanced teams by skill, position, and schedule.
+              Show up with new teammates, leave with friends.
+            </p>
+            <p class="text-sm text-ink-muted mb-6">
+              Best if: you're new to the area, want to meet people, or your old team broke up.
+            </p>
+            <div class="mt-auto">
+              <a
+                href="/programs?audience=adult"
+                class="inline-flex items-center gap-2 text-primary-orange font-medium hover:underline"
+              >
+                Browse leagues →
+              </a>
+            </div>
+          </div>
+
+          {/* Group of Friends */}
+          <div class="bg-paper border border-ink/10 rounded-2xl p-8 hover:border-primary-orange/40 transition-colors flex flex-col">
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+              ② Group of Friends
+            </p>
+            <h3 class="font-display text-2xl text-ink mb-3 leading-tight">Bring a few.</h3>
+            <p class="text-ink-muted leading-relaxed mb-4">
+              Have a small crew but not a full team? Sign up together and we'll place you on
+              the same roster — then fill out the rest from the Free Agent Pool.
+            </p>
+            <p class="text-sm text-ink-muted mb-6">
+              Best if: you've got a handful of regulars but need teammates to round it out.
+            </p>
+            <div class="mt-auto">
+              <a
+                href="/programs?audience=adult&path=friends"
+                class="inline-flex items-center gap-2 text-primary-orange font-medium hover:underline"
+              >
+                Sign up with friends →
+              </a>
+            </div>
+          </div>
+
+          {/* Full Team */}
+          <div class="bg-paper border border-ink/10 rounded-2xl p-8 hover:border-primary-orange/40 transition-colors flex flex-col">
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+              ③ Full Team
+            </p>
+            <h3 class="font-display text-2xl text-ink mb-3 leading-tight">Bring the whole squad.</h3>
+            <p class="text-ink-muted leading-relaxed mb-4">
+              Got a roster ready? Register as captain, name your team, invite your players.
+              You pick the league, we handle the schedule and the officials.
+            </p>
+            <p class="text-sm text-ink-muted mb-6">
+              Best if: you've got a returning team or a workplace/group of friends ready to play.
+            </p>
+            <div class="mt-auto">
+              <a
+                href="/programs?audience=adult&path=team"
+                class="inline-flex items-center gap-2 text-primary-orange font-medium hover:underline"
+              >
+                Register a team →
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Free Agent Pool detail */}
+    <section class="bg-cream-2 py-16 lg:py-20">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              How free agency works
+            </p>
+            <h2 class="font-display text-3xl lg:text-4xl text-ink leading-tight mb-6">
+              The Free Agent Pool.
+            </h2>
+            <p class="text-ink-2 leading-relaxed text-lg mb-4">
+              Roughly a third of every league's roster is free agents. We treat the pool like a
+              feature, not a fallback — it's how new players join, how returning players find a
+              new circle, and how the community grows.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-xl text-ink mb-3">What we balance for</h3>
+            <ul class="space-y-2 text-ink-2 leading-relaxed">
+              <li>· Self-reported skill level (recreational / intermediate / competitive)</li>
+              <li>· Position preference (where appropriate for the sport)</li>
+              <li>· Schedule and conflicts you flag at signup</li>
+              <li>· Friend pairings — group signups stay together</li>
+            </ul>
+
+            <h3 class="font-display text-xl text-ink mt-8 mb-3">When you find out</h3>
+            <p class="text-ink-2 leading-relaxed">
+              Team rosters get released the week of the season's start. We email captains and
+              free agents at the same time so everyone has the same lead time.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section class="py-20 lg:py-24 bg-ink text-cream">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
+        <h2 class="font-display text-3xl lg:text-5xl mb-6">
+          Pick your league.
+        </h2>
+        <p class="text-cream/80 text-lg mb-10 max-w-xl mx-auto">
+          Any sport, any night, any path. Same Aspire standards.
+        </p>
+        <a
+          href="/programs?audience=adult"
+          class="inline-flex items-center gap-3 bg-cream text-ink px-8 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange hover:text-cream transition-colors"
+          style="letter-spacing: 0.08em;"
+        >
+          Browse adult leagues →
+        </a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

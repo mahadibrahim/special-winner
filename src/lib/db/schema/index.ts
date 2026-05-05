@@ -54,3 +54,6 @@ export * from "./consents";
 
 // Newsletter top-of-funnel email capture
 export * from "./newsletter-signups";
+
+// Standalone events (tournaments, watch parties, clinics)
+export * from "./events";
