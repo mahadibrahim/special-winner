@@ -1,0 +1,105 @@
+# Auto-release: every push to main becomes a tagged production release
+# without manual `git tag` ceremony. The existing deploy.yml workflow
+# triggers on `push: tags: [v*]`, so this just feeds it.
+#
+# Behavior:
+#   • Bumps the patch component of the latest v* tag (v0.0.2 → v0.0.3).
+#   • Skips the bump for commits that touch only docs/markdown.
+#   • Skips if the head commit is already tagged (idempotent re-runs).
+#   • Skips if the commit message has [skip release] in it (escape hatch).
+#
+# To explicitly bump the minor or major version, manually push a tag
+# (e.g. `git tag -a v0.1.0 -m "..."; git push origin v0.1.0`) — the
+# auto-tag workflow will then resume from there for future patches.
+
+name: Auto-tag main
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+
+# Serialize so two near-simultaneous merges don't race for the same
+# version number. The second run will recompute and pick the next patch.
+concurrency:
+  group: auto-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to push tags back to the repo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Decide whether to tag
+        id: decide
+        run: |
+          set -euo pipefail
+          MSG="$(git log -1 --pretty=%B || true)"
+          SHA="$(git rev-parse HEAD)"
+          echo "Head SHA: $SHA"
+          echo "Head message:"
+          echo "$MSG"
+
+          if echo "$MSG" | grep -qiE '\[skip release\]|\[no release\]'; then
+            echo "skip=true"  >> "$GITHUB_OUTPUT"
+            echo "reason=skip-release marker in commit message" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Skip if HEAD is already tagged
+          if git tag --points-at HEAD | grep -qE '^v[0-9]'; then
+            echo "skip=true"  >> "$GITHUB_OUTPUT"
+            echo "reason=HEAD already has a v* tag" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next version
+        if: steps.decide.outputs.skip != 'true'
+        id: bump
+        run: |
+          set -euo pipefail
+          LATEST="$(git tag --list 'v*' --sort=-v:refname | head -1 || echo '')"
+          echo "Latest tag: ${LATEST:-<none>}"
+
+          if [ -z "$LATEST" ]; then
+            NEXT="v0.0.1"
+          else
+            # Strip leading v, split on . , bump last component.
+            VERS="${LATEST#v}"
+            IFS='.' read -ra PARTS <<< "$VERS"
+            MAJOR="${PARTS[0]:-0}"
+            MINOR="${PARTS[1]:-0}"
+            PATCH="${PARTS[2]:-0}"
+            PATCH=$((PATCH + 1))
+            NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          echo "Next tag: $NEXT"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        if: steps.decide.outputs.skip != 'true'
+        env:
+          NEXT: ${{ steps.bump.outputs.next }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Use the merge commit message as the tag annotation.
+          MSG="$(git log -1 --pretty=%s)"
+          git tag -a "$NEXT" -m "auto-release: $MSG"
+          git push origin "$NEXT"
+          echo "Tagged $NEXT and pushed — deploy.yml will pick it up."

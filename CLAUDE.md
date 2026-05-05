@@ -198,6 +198,28 @@ The pattern is a brief "here's what I'm about to do, confirm?" — not a full br
 - **Use a worktree for ≥3-task plans or any subagent-driven implementation.** Branch drift during long multi-task sessions has required destructive cherry-pick recovery more than once. Create the worktree before the first edit, not after a problem surfaces. The `superpowers:using-git-worktrees` skill handles setup.
 - **Never switch the main checkout off the user's active feature branch** to do unrelated work — open a worktree instead.
 
+## Release process (auto-tag → deploy)
+
+Every merge to `main` automatically tags + deploys to prod. No manual `git tag` ceremony required.
+
+**Pipeline:**
+1. PR merges to `main`
+2. `.github/workflows/auto-tag.yml` bumps the patch version of the latest `v*` tag (e.g. v0.0.2 → v0.0.3) and pushes the new tag
+3. The new tag triggers `.github/workflows/deploy.yml`, which runs migrations + builds + deploys to Netlify prod
+
+**Escape hatches:**
+- `[skip release]` or `[no release]` in a commit message → auto-tag is skipped (use for docs-only / refactor commits where you don't want a deploy)
+- To bump minor or major (e.g. v0.1.0): manually push the tag — `git tag -a v0.1.0 -m "minor bump for X"; git push origin v0.1.0`. Auto-tag resumes patch-bumping from there.
+- The auto-tag workflow ignores commits that touch only `docs/**` or `**/*.md`.
+
+**Rollback:** check out the previous green tag and re-tag patch+1 from it, or use Netlify's "instant rollback" UI on the prod site.
+
+## Catalog cleanup (prod DB)
+
+Cleanup scripts (`scripts/cleanup-prod-strict.ts`, `scripts/cleanup-prod-pollution.ts`) **never run automatically** — they're destructive and the allow-list assumptions can drift as the catalog expands.
+
+Trigger via the **Cleanup prod catalog** workflow (Actions tab → workflow_dispatch). Defaults to `dry_run=true` and `strict=true`; the dry-run output appears in the workflow log so you can review what would be deleted before re-running with `dry_run=false`.
+
 ## Pre-push checklist (major work — schema changes, new endpoints, new E2E flows)
 
 For routine pushes, invoke the `/ship` skill — it automates steps 1, 5, and 6 below plus env-var-drift and E2E-filter scans. Use this full checklist for major work that warrants the API + Playwright runs (steps 2–4 require a running dev server).
