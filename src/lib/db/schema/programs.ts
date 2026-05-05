@@ -11,7 +11,7 @@ import {
   pgEnum,
   index,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { locations } from "./organizations";
 import { sports, ageGroups } from "./sports";
 import { venues } from "./teams";
@@ -91,11 +91,22 @@ export const seasons = pgTable(
     earlyBirdDeadline: timestamp("early_bird_deadline"),
     maxParticipants: integer("max_participants"),
     minParticipants: integer("min_participants"),
+    // Individual / free-agent price (always present). For team-only
+    // leagues this duplicates teamPriceCents and is hidden by the UI.
     priceCents: integer("price_cents").notNull(),
-    // 'per_individual' (per kid for youth, per player for adult) or
-    // 'per_team' (full-team registrations like fraternity/IM, corporate
-    // leagues). Drives pricing-unit display on the catalog so a $1,200
-    // team fee isn't misread as a per-person price.
+    // Team registration price. NULL when team signup is not offered.
+    teamPriceCents: integer("team_price_cents"),
+    // Which signup paths the season accepts: any combination of
+    // ['individual', 'team']. Drives card display + which CTAs show.
+    // Default '{individual}' covers the youth catalog; adult leagues are
+    // populated via the data backfill in migration 0022.
+    signupModes: varchar("signup_modes", { length: 20 })
+      .array()
+      .default(sql`ARRAY['individual']::varchar[]`)
+      .notNull(),
+    // Legacy: 'per_individual' | 'per_team'. Now derivable from
+    // signupModes; kept for one release for backwards compat. Will be
+    // dropped once all callsites read signupModes instead.
     pricingMode: varchar("pricing_mode", { length: 20 })
       .default("per_individual")
       .notNull(),

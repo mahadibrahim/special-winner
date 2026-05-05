@@ -8,7 +8,8 @@ export interface SeasonForDerive {
   endDate: string;
   registeredCount: number;
   maxParticipants: number | null;
-  pricingMode: string; // 'per_individual' | 'per_team'
+  pricingMode: string; // 'per_individual' | 'per_team' (legacy — derivable from signupModes)
+  signupModes?: string[]; // ['individual'] | ['team'] | ['individual','team']
   registrationCloses?: string | null;
   scheduleNotes?: string | null;
   program: {
@@ -16,6 +17,42 @@ export interface SeasonForDerive {
     audienceType: string; // 'parents' | 'adults'
   };
   ageGroup: { minAge: number; maxAge: number } | null;
+}
+
+/** True when both individual and team signups are accepted. */
+export function isDualMode(s: SeasonForDerive): boolean {
+  const modes = s.signupModes ?? [];
+  return modes.includes("individual") && modes.includes("team");
+}
+
+/** True when only team signups are accepted. */
+export function isTeamOnly(s: SeasonForDerive): boolean {
+  const modes = s.signupModes ?? [];
+  if (modes.length > 0) return modes.includes("team") && !modes.includes("individual");
+  return s.pricingMode === "per_team";
+}
+
+/** True when only individual signups are accepted. */
+export function isIndividualOnly(s: SeasonForDerive): boolean {
+  const modes = s.signupModes ?? [];
+  if (modes.length > 0) return modes.includes("individual") && !modes.includes("team");
+  return s.pricingMode !== "per_team";
+}
+
+/** Player-pricing unit label only (the per-individual side). */
+export function deriveIndividualUnit(s: SeasonForDerive): string {
+  const isYouth = s.program.audienceType === "parents";
+  switch (s.program.programType) {
+    case "camp":
+      return isYouth ? "per kid · per week" : "per player · per week";
+    case "clinic":
+    case "training":
+      return isYouth ? "per kid · per session" : "per player · per session";
+    case "league":
+    case "tournament":
+    default:
+      return isYouth ? "per kid" : "per player";
+  }
 }
 
 /** Smart status pill replacing naked spot counts. */
