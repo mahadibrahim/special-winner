@@ -2,6 +2,7 @@
 import '@/styles/globals.css';
 import Navigation from '@/components/navigation';
 import Footer from '@/components/footer';
+import RegistrationRibbon from '@/components/registration-ribbon';
 import PostHog from '@/components/posthog.astro';
 import GoogleTagManager from '@/components/google-tag-manager.astro';
 import GoogleTagManagerNoscript from '@/components/google-tag-manager-noscript.astro';
@@ -48,6 +49,7 @@ const {
   </head>
   <body class={bodyClass}>
     <GoogleTagManagerNoscript />
+    {navigation && <RegistrationRibbon client:load />}
     {navigation && <Navigation client:load />}
     <slot />
     {footer && <Footer />}

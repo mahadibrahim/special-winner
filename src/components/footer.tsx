@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
-import { Mail, MapPin } from "lucide-react"
+import { Mail, MapPin, Loader2, CheckCircle2 } from "lucide-react"
 
 const programLinks = [
   { label: "Soccer", href: "/programs?sport=soccer" },
@@ -20,6 +20,7 @@ const resourceLinks = [
 
 const supportLinks = [
   { label: "Email us", href: "mailto:hello@aspiresportsohio.com" },
+  { label: "The Aspire Promise", href: "/promise" },
   { label: "Refund policy", href: "/refund-policy" },
   { label: "Terms of service", href: "/terms" },
   { label: "Privacy policy", href: "/privacy" },
@@ -32,6 +33,39 @@ export default function Footer() {
   // Locations are fetched from /api/public/filters so the footer reflects
   // real venues without needing a code change when one is added.
   const [locations, setLocations] = useState<string[]>([])
+
+  // Newsletter form state
+  const [nlEmail, setNlEmail] = useState("")
+  const [nlAudience, setNlAudience] = useState<"" | "parent" | "adult">("")
+  const [nlStatus, setNlStatus] = useState<"idle" | "submitting" | "ok" | "error">("idle")
+  const [nlError, setNlError] = useState<string | null>(null)
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!nlEmail.trim()) return
+    setNlStatus("submitting")
+    setNlError(null)
+    try {
+      const res = await fetch("/api/public/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: nlEmail.trim(),
+          audience: nlAudience || undefined,
+          source: "footer",
+        }),
+      })
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(json.error ?? "Could not subscribe")
+      }
+      setNlStatus("ok")
+    } catch (err) {
+      setNlError(err instanceof Error ? err.message : "Could not subscribe")
+      setNlStatus("error")
+    }
+  }
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -88,9 +122,61 @@ export default function Footer() {
             </p>
 
             <p className="text-sm leading-relaxed mb-8 text-cream/50 max-w-xs">
-              Development-focused youth sports programs building character, confidence,
-              and community through athletics in Central Ohio.
+              Sports programs for kids and adults in Central Ohio — built on real frameworks,
+              taught by coaches who played the game.
             </p>
+
+            {/* Newsletter signup — top-of-funnel email capture */}
+            <div>
+              <h4 className="text-cream font-semibold mb-3 text-[11px] uppercase tracking-[0.15em]">
+                Get the Aspire newsletter
+              </h4>
+              {nlStatus === "ok" ? (
+                <p className="flex items-center gap-2 text-sm text-cream/80">
+                  <CheckCircle2 className="w-4 h-4 text-primary-orange" />
+                  Thanks — you're on the list.
+                </p>
+              ) : (
+                <form onSubmit={handleNewsletterSubmit} className="space-y-2">
+                  <input
+                    type="email"
+                    required
+                    value={nlEmail}
+                    onChange={(e) => setNlEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    aria-label="Email address"
+                    className="w-full px-3 py-2 bg-cream/5 border border-cream/10 rounded text-cream placeholder:text-cream/30 text-sm focus:outline-none focus:border-primary-orange transition-colors"
+                  />
+                  <select
+                    value={nlAudience}
+                    onChange={(e) => setNlAudience(e.target.value as "" | "parent" | "adult")}
+                    aria-label="I'm a"
+                    className="w-full px-3 py-2 bg-cream/5 border border-cream/10 rounded text-cream text-sm focus:outline-none focus:border-primary-orange transition-colors"
+                  >
+                    <option value="" className="bg-navy-deep">I'm a… (optional)</option>
+                    <option value="parent" className="bg-navy-deep">Parent</option>
+                    <option value="adult" className="bg-navy-deep">Adult player</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={nlStatus === "submitting"}
+                    className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary-orange text-cream text-sm font-medium rounded hover:bg-primary-orange/90 disabled:opacity-60 transition-colors"
+                  >
+                    {nlStatus === "submitting" ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Subscribing…
+                      </>
+                    ) : (
+                      "Subscribe"
+                    )}
+                  </button>
+                  {nlError && (
+                    <p className="text-xs text-red-400">{nlError}</p>
+                  )}
+                </form>
+              )}
+            </div>
           </div>
 
           {/* Column 2 - Programs */}
