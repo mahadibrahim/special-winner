@@ -1,0 +1,205 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { db } from "@/lib/db";
+import {
+  teamRegistrations,
+  teamRegistrationMembers,
+  seasons,
+  programs,
+  sports,
+  locations,
+  registrations,
+  familyMembers,
+} from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+
+const { token } = Astro.params;
+
+if (!token) {
+  return Astro.redirect("/programs");
+}
+
+interface TeamView {
+  teamName: string;
+  captainName: string;
+  status: string;
+  seasonId: string;
+  seasonName: string;
+  seasonPrice: number;
+  programName: string;
+  sportName: string;
+  locationName: string;
+  members: Array<{
+    firstName: string;
+    lastInitial: string | null;
+    role: string;
+    paymentStatus: string;
+  }>;
+}
+
+let view: TeamView | null = null;
+
+try {
+  if (db) {
+    const teamRow = await db
+      .select({
+        team: teamRegistrations,
+        season: seasons,
+        program: programs,
+        sport: sports,
+        location: locations,
+      })
+      .from(teamRegistrations)
+      .innerJoin(seasons, eq(teamRegistrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(sports, eq(programs.sportId, sports.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(teamRegistrations.inviteToken, token))
+      .limit(1);
+
+    if (teamRow.length > 0) {
+      const t = teamRow[0]!;
+
+      const memberRows = await db
+        .select({
+          role: teamRegistrationMembers.role,
+          paymentStatus: registrations.paymentStatus,
+          firstName: familyMembers.firstName,
+          lastName: familyMembers.lastName,
+        })
+        .from(teamRegistrationMembers)
+        .innerJoin(
+          registrations,
+          eq(teamRegistrationMembers.registrationId, registrations.id),
+        )
+        .innerJoin(
+          familyMembers,
+          eq(registrations.familyMemberId, familyMembers.id),
+        )
+        .where(eq(teamRegistrationMembers.teamRegistrationId, t.team.id));
+
+      view = {
+        teamName: t.team.teamName,
+        captainName: t.team.captainName,
+        status: t.team.status,
+        seasonId: t.season.id,
+        seasonName: t.season.name,
+        seasonPrice: t.season.priceCents / 100,
+        programName: t.program.name,
+        sportName: t.sport.name,
+        locationName: t.location.name,
+        members: memberRows.map((m) => ({
+          firstName: m.firstName,
+          lastInitial: m.lastName ? m.lastName[0] : null,
+          role: m.role,
+          paymentStatus: m.paymentStatus,
+        })),
+      };
+    }
+  }
+} catch (err) {
+  console.error("[team/[token]] db error", err);
+}
+
+if (!view) {
+  return Astro.redirect("/programs");
+}
+
+const cleanLocation = view.locationName.replace(/^Soccer One\s+/i, "");
+---
+
+<BaseLayout
+  title={`Join ${view.teamName} — Aspire Sports`}
+  description={`Join ${view.teamName} for ${view.seasonName} — captain ${view.captainName} invited you to play.`}
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Team
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            {view.sportName}
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          You've been invited
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-6"
+          style="font-size: clamp(2.25rem, 6vw, 4.5rem); letter-spacing: -0.03em;"
+        >
+          Join <span class="italic text-primary-orange">{view.teamName}.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed mb-2">
+          <strong class="text-ink">{view.captainName}</strong> is captaining a team for{" "}
+          <strong class="text-ink">{view.seasonName}</strong>.
+        </p>
+        <p class="text-ink-muted leading-relaxed mb-10">
+          {view.programName} · {cleanLocation} · ${view.seasonPrice}/player
+        </p>
+
+        <a
+          href={`/register/${view.seasonId}?team=${token}&path=team`}
+          class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
+          style="letter-spacing: 0.08em;"
+        >
+          Register & join the team →
+        </a>
+      </div>
+    </section>
+
+    {/* Roster */}
+    <section class="bg-cream-2 border-y border-ink/10 py-12">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+          Roster so far
+        </p>
+        <h2 class="font-display text-2xl text-ink mb-6">
+          {view.members.length === 0
+            ? "Be the first to join."
+            : `${view.members.length} player${view.members.length === 1 ? "" : "s"} on the roster.`}
+        </h2>
+
+        {view.members.length > 0 && (
+          <ul class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {view.members.map((m) => (
+              <li class="bg-paper border border-ink/10 rounded-lg px-4 py-3">
+                <p class="text-ink font-medium">
+                  {m.firstName}
+                  {m.lastInitial && ` ${m.lastInitial}.`}
+                </p>
+                <p class="text-[11px] uppercase tracking-wide text-ink-muted mt-1">
+                  {m.role === "captain" ? "Captain" : "Player"}
+                  {m.paymentStatus === "paid" ? " · Paid" : m.paymentStatus === "partial" ? " · Deposit" : " · Pending"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+
+    {/* What happens next */}
+    <section class="py-16 lg:py-24">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <h2 class="font-display text-2xl lg:text-3xl text-ink mb-6">What happens after you join.</h2>
+        <ol class="space-y-4 text-ink-2 leading-relaxed">
+          <li><strong class="text-ink">①</strong> Click "Register & join the team" above and complete your registration like any other player.</li>
+          <li><strong class="text-ink">②</strong> You'll pay your portion of the team fee at checkout.</li>
+          <li><strong class="text-ink">③</strong> You'll show up on this roster as a confirmed player.</li>
+          <li><strong class="text-ink">④</strong> Captain handles team-level details (schedule, jerseys, communication).</li>
+        </ol>
+        <p class="text-sm text-ink-muted mt-6 italic">
+          Note: this is the v1 team flow. Captain auto-charge for unpaid teammate balances ships in a future update.
+        </p>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

@@ -57,3 +57,12 @@ export * from "./newsletter-signups";
 
 // Standalone events (tournaments, watch parties, clinics)
 export * from "./events";
+
+// Corporate teams B2B lead capture
+export * from "./corporate-inquiries";
+
+// Partner venues / sponsor bars
+export * from "./sponsor-bars";
+
+// Team registrations (TeamPayer v1 — captain-led adult team signups)
+export * from "./team-registrations";

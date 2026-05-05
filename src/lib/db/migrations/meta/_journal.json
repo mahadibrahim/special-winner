@@ -141,6 +141,13 @@
       "when": 1777943366165,
       "tag": "0019_spooky_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1777943789287,
+      "tag": "0020_sticky_centennial",
+      "breakpoints": true
     }
   ]
 }

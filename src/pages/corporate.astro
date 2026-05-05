@@ -1,0 +1,131 @@
+---
+// SSR (form posts to API). Page itself is static markup; React island
+// drives the form.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import CorporateInquiryForm from "@/components/corporate-inquiry-form";
+---
+
+<BaseLayout
+  title="Corporate teams — Aspire Sports"
+  description="Aspire Sports corporate league programs for central Ohio companies. Multi-team discounts, dedicated coordination, sport options across our venue network."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Central Ohio
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            Corporate
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          For employers
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          Sports as an <span class="italic text-primary-orange">employee benefit.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
+          Aspire Sports corporate leagues give your company an after-work team-building activity
+          that scales — multi-team discounts, dedicated coordination, and the same coaching
+          standards we run for our public leagues.
+        </p>
+      </div>
+    </section>
+
+    {/* What you get */}
+    <section class="py-16 lg:py-24">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-10 max-w-2xl leading-tight">
+          What corporate teams get.
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ① Multi-team pricing
+            </p>
+            <h3 class="font-display text-xl text-ink mb-3">Discounts that scale.</h3>
+            <p class="text-ink-muted leading-relaxed">
+              Per-team pricing drops with each additional team your company registers. The more
+              teams you bring, the lower the per-player cost.
+            </p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ② One coordinator
+            </p>
+            <h3 class="font-display text-xl text-ink mb-3">A real point of contact.</h3>
+            <p class="text-ink-muted leading-relaxed">
+              You work with one Aspire coordinator across rosters, schedules, and billing. No
+              automated systems to fight with.
+            </p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ③ Custom league format
+            </p>
+            <h3 class="font-display text-xl text-ink mb-3">League shape that fits your culture.</h3>
+            <p class="text-ink-muted leading-relaxed">
+              Round-robin between your departments, all-vs-public, or a closed corporate league —
+              we'll design the structure to match your goals.
+            </p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ④ Centralized billing
+            </p>
+            <h3 class="font-display text-xl text-ink mb-3">One invoice. One PO.</h3>
+            <p class="text-ink-muted leading-relaxed">
+              Procurement-friendly. We invoice the company; players don't pay individually. Net
+              terms available for established corporate accounts.
+            </p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ⑤ Branded gear option
+            </p>
+            <h3 class="font-display text-xl text-ink mb-3">Your logo, our jersey.</h3>
+            <p class="text-ink-muted leading-relaxed">
+              Add custom team kits to the package — co-branded with your company on Aspire jerseys.
+              Pricing per unit, included in the team total.
+            </p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ⑥ Scheduling with your week
+            </p>
+            <h3 class="font-display text-xl text-ink mb-3">Games when your team can play.</h3>
+            <p class="text-ink-muted leading-relaxed">
+              We work the schedule around your office hours, not against them. Right after-work
+              slots, no early-morning games unless you want them.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Inquiry form */}
+    <section class="bg-cream-2 py-16 lg:py-24">
+      <div class="max-w-[900px] mx-auto px-6 sm:px-10 lg:px-16">
+        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-3">
+          Tell us about your company.
+        </h2>
+        <p class="text-ink-2 leading-relaxed mb-10 max-w-2xl">
+          Quick form — we respond within one business day with a tailored proposal.
+          No commitment.
+        </p>
+
+        <CorporateInquiryForm client:load />
+      </div>
+    </section>
+  </main>
+</BaseLayout>
