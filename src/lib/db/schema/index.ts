@@ -51,3 +51,6 @@ export * from "./stripe-events";
 
 // Consent + waiver audit log (parental, age confirmation, liability, media auth)
 export * from "./consents";
+
+// Newsletter top-of-funnel email capture
+export * from "./newsletter-signups";

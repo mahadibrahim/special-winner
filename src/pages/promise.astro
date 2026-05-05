@@ -1,0 +1,137 @@
+---
+// Static editorial page — brand-level promise framing.
+export const prerender = true;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="The Aspire Promise — Aspire Sports"
+  description="The Aspire Promise: what we commit to every player and every family — coaching standards, fair refunds, schedule integrity, inclusive play."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Central Ohio
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            The Promise
+          </span>
+        </div>
+
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary-orange"></span>
+          What we commit to
+        </p>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          The Aspire <span class="italic text-primary-orange">Promise.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
+          Every family and every adult player who registers with Aspire is owed a clear set
+          of commitments. This is what we hold ourselves to — and what to do if we ever fall short.
+        </p>
+      </div>
+    </section>
+
+    {/* Promise tiles */}
+    <section class="py-16 lg:py-24">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-12">
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ① Coaching standards
+            </p>
+            <h2 class="font-display text-2xl text-ink mb-3">Coaches who earned the right.</h2>
+            <p class="text-ink-muted leading-relaxed">
+              Every coach has a real playing résumé and is trained in our development frameworks
+              (Double-Goal Coach, ELM, TDEQ-5). Not parent volunteers filling a clipboard.
+            </p>
+          </div>
+
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ② Fair refunds
+            </p>
+            <h2 class="font-display text-2xl text-ink mb-3">No surprise penalties.</h2>
+            <p class="text-ink-muted leading-relaxed">
+              Full refunds 14+ days before a season starts. Prorated credits or refunds after that
+              for legitimate reasons — injury, relocation, family emergency. We don't hide behind
+              fine print.
+            </p>
+          </div>
+
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ③ Schedule integrity
+            </p>
+            <h2 class="font-display text-2xl text-ink mb-3">If we cancel, you're made whole.</h2>
+            <p class="text-ink-muted leading-relaxed">
+              Programs we cancel for any reason — facility loss, insufficient enrollment, weather,
+              staffing — get prorated credits or full refunds. Within 10 business days.
+            </p>
+          </div>
+
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ④ Inclusive play
+            </p>
+            <h2 class="font-display text-2xl text-ink mb-3">Every player gets coached.</h2>
+            <p class="text-ink-muted leading-relaxed">
+              No bench-warmers as a coaching strategy. We run programs where every registered
+              player gets developmental attention and meaningful playing time at their level.
+              See our <a href="/community/inclusion" class="text-primary-orange hover:underline">inclusion principles</a>
+              and <a href="/community/sportsmanship" class="text-primary-orange hover:underline">code of conduct</a>.
+            </p>
+          </div>
+
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ⑤ Honest catalog
+            </p>
+            <h2 class="font-display text-2xl text-ink mb-3">No phantom programs.</h2>
+            <p class="text-ink-muted leading-relaxed">
+              Every program in the catalog is real, scheduled, and has confirmed coaches and
+              facilities. If we cannot run it as listed, we tell you before you pay — not after.
+            </p>
+          </div>
+
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+              ⑥ One platform, full lifecycle
+            </p>
+            <h2 class="font-display text-2xl text-ink mb-3">From U6 to adult, on one account.</h2>
+            <p class="text-ink-muted leading-relaxed">
+              Your registration history, your kid's program history, your adult-league rosters —
+              all on one Aspire account. Sports don't end at 18, and neither does your data.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* If something goes wrong */}
+    <section class="bg-cream-2 py-16 lg:py-20">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-6">
+          If we ever fall short.
+        </h2>
+        <p class="text-ink-2 leading-relaxed text-lg max-w-3xl mb-6">
+          Email <a href="mailto:hello@aspiresportsohio.com" class="text-primary-orange hover:underline">hello@aspiresportsohio.com</a>
+          with what happened and what would make it right. We respond within one business day,
+          and a real person — not a ticket queue — owns your case until it's resolved.
+        </p>
+        <p class="text-ink-muted leading-relaxed text-sm">
+          For the full mechanics of refunds, credits, and timelines, see the
+          <a href="/refund-policy" class="text-primary-orange hover:underline">refund policy</a>.
+        </p>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
