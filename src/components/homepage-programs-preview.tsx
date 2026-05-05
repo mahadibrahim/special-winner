@@ -17,8 +17,11 @@ import type { SeasonForDerive } from "@/lib/programs/derive"
  *  • "Filling up" — programs ≥60% full (social proof)
  *  • "Starting soon" — earliest start dates (urgency)
  *
- * Auto-hides when no programs are open (so a freshly-deployed catalog
- * doesn't render an awkward empty state on the homepage).
+ * Always renders the section header + "Browse all programs" CTA so the
+ * `#programs` anchor on the homepage has visible content even while the
+ * fetch is in flight or when zero programs are open. The Playwright
+ * homepage test depends on this — and it's better UX than a collapsing
+ * section.
  */
 
 interface ApiSeason extends SeasonForDerive {
@@ -60,8 +63,6 @@ export default function HomepageProgramsPreview() {
     }
   }, [])
 
-  if (loading || seasons.length === 0) return null
-
   const fillingUp = seasons
     .filter((s) => s.maxParticipants && s.registeredCount / s.maxParticipants >= 0.6)
     .slice(0, ROW_LIMIT)
@@ -69,17 +70,18 @@ export default function HomepageProgramsPreview() {
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
     .slice(0, ROW_LIMIT)
 
-  // If "Filling up" is empty, only show "Starting soon" — keeps the
-  // homepage from showing two near-identical rows when capacity data
-  // is sparse.
   const rows: Array<{ title: string; items: ApiSeason[] }> = []
   if (fillingUp.length > 0) rows.push({ title: "Filling up", items: fillingUp })
-  rows.push({ title: "Starting soon", items: startingSoon })
+  if (startingSoon.length > 0) rows.push({ title: "Starting soon", items: startingSoon })
+
+  const hasContent = rows.length > 0
 
   return (
     <section className="bg-cream py-20 lg:py-28">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section header */}
+        {/* Section header — always present so the homepage's #programs
+            anchor has visible content even before the fetch resolves
+            or when zero programs are currently open. */}
         <div className="flex items-end justify-between mb-12 max-w-3xl">
           <div>
             <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary mb-3 flex items-center gap-3">
@@ -95,8 +97,33 @@ export default function HomepageProgramsPreview() {
           </div>
         </div>
 
+        {/* Loading state — three skeleton cards on a single row so the
+            section has shape while data is in flight. */}
+        {loading && (
+          <div className="mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="bg-paper border border-border rounded-2xl p-5 h-[200px] animate-pulse"
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state — preserves section height and surfaces the
+            primary CTA so the visitor still has somewhere to go. */}
+        {!loading && !hasContent && (
+          <p className="text-ink-muted text-base mb-10 max-w-xl">
+            New programs are added each season. Browse the full catalog to see
+            what's coming up — or check back soon.
+          </p>
+        )}
+
         {/* Rows */}
-        {rows.map((row) => (
+        {!loading && rows.map((row) => (
           <div key={row.title} className="mb-10">
             <div className="flex items-end justify-between mb-4">
               <h3 className="font-display text-xl text-ink">{row.title}</h3>
@@ -117,7 +144,7 @@ export default function HomepageProgramsPreview() {
           </div>
         ))}
 
-        {/* Browse all CTA */}
+        {/* Browse all CTA — always present. */}
         <div className="text-center mt-12">
           <a
             href="/programs"
