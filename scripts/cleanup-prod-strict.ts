@@ -44,11 +44,13 @@ import {
   programs,
   seasons,
   ageGroups,
+  organizations,
   registrations,
   payments,
   paymentPlans,
 } from "../src/lib/db/schema";
 
+const ALLOWED_ORG_SLUG = "aspire-sports";
 const ALLOWED_SPORT_SLUGS = ["soccer"] as const;
 const ALLOWED_LOCATION_SLUGS = ["worthington", "downtown"] as const;
 
@@ -100,26 +102,46 @@ async function main() {
   const db = drizzle(sql_client);
 
   try {
-    // 1. Find what's outside the allow-list.
+    // 0. Resolve the canonical organization. The catalog visible at
+    //    aspiresportsohio.com is scoped to this org via the domain
+    //    resolver. Sports + locations on any other org are duplicates
+    //    (e.g. SoccerOne org's own "Worthington"/"Downtown" rows that
+    //    don't get rendered) and should be cleaned up too.
+    const [allowedOrg] = await db
+      .select({ id: organizations.id, slug: organizations.slug, name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.slug, ALLOWED_ORG_SLUG))
+      .limit(1);
+    if (!allowedOrg) {
+      console.error(
+        `❌ Refusing to run: no organization with slug='${ALLOWED_ORG_SLUG}' found.\n` +
+          `   The cleanup is scoped to a single canonical org; without one the\n` +
+          `   allow-list logic would either delete everything or nothing.`,
+      );
+      process.exit(3);
+    }
+    console.log(`[cleanup-prod-strict] canonical org: ${allowedOrg.slug} (${allowedOrg.id})\n`);
+
+    // 1. Find what's outside the allow-list. A row is KEPT only if
+    //    BOTH its slug is in the allowed list AND it belongs to the
+    //    canonical organization. Anything else gets deleted.
     const allSports = await db
-      .select({ id: sports.id, slug: sports.slug, name: sports.name })
+      .select({ id: sports.id, slug: sports.slug, name: sports.name, organizationId: sports.organizationId })
       .from(sports);
-    const sportsToDelete = allSports.filter(
-      (s) => !ALLOWED_SPORT_SLUGS.includes(s.slug as typeof ALLOWED_SPORT_SLUGS[number]),
-    );
-    const sportsToKeep = allSports.filter(
-      (s) => ALLOWED_SPORT_SLUGS.includes(s.slug as typeof ALLOWED_SPORT_SLUGS[number]),
-    );
+    const isKeptSport = (s: (typeof allSports)[number]) =>
+      ALLOWED_SPORT_SLUGS.includes(s.slug as typeof ALLOWED_SPORT_SLUGS[number]) &&
+      s.organizationId === allowedOrg.id;
+    const sportsToDelete = allSports.filter((s) => !isKeptSport(s));
+    const sportsToKeep = allSports.filter(isKeptSport);
 
     const allLocations = await db
-      .select({ id: locations.id, slug: locations.slug, name: locations.name })
+      .select({ id: locations.id, slug: locations.slug, name: locations.name, organizationId: locations.organizationId })
       .from(locations);
-    const locationsToDelete = allLocations.filter(
-      (l) => !ALLOWED_LOCATION_SLUGS.includes(l.slug as typeof ALLOWED_LOCATION_SLUGS[number]),
-    );
-    const locationsToKeep = allLocations.filter(
-      (l) => ALLOWED_LOCATION_SLUGS.includes(l.slug as typeof ALLOWED_LOCATION_SLUGS[number]),
-    );
+    const isKeptLocation = (l: (typeof allLocations)[number]) =>
+      ALLOWED_LOCATION_SLUGS.includes(l.slug as typeof ALLOWED_LOCATION_SLUGS[number]) &&
+      l.organizationId === allowedOrg.id;
+    const locationsToDelete = allLocations.filter((l) => !isKeptLocation(l));
+    const locationsToKeep = allLocations.filter(isKeptLocation);
 
     // 2. Find programs / seasons that reference rows being deleted.
     const programIdsToDelete = new Set<string>();
@@ -148,16 +170,20 @@ async function main() {
       seasonsCount = c[0]?.n ?? 0;
     }
 
-    // 3. Print report.
+    // 3. Print report. Org-id suffix is shown so duplicates across orgs
+    //    are visually distinct (this was the bug that left "Worthington"
+    //    and "Aspire Sports — Worthington" both in the kept list).
+    const orgTag = (orgId: string) => (orgId === allowedOrg.id ? "[canonical]" : `[org=${orgId.slice(0, 8)}…]`);
+
     console.log(`   Sports kept (${sportsToKeep.length}):`);
-    for (const s of sportsToKeep) console.log(`     ✓ ${s.slug.padEnd(16)} "${s.name}"`);
+    for (const s of sportsToKeep) console.log(`     ✓ ${s.slug.padEnd(16)} "${s.name}" ${orgTag(s.organizationId)}`);
     console.log(`\n   Sports to delete (${sportsToDelete.length}):`);
-    for (const s of sportsToDelete) console.log(`     ✗ ${s.slug.padEnd(16)} "${s.name}"`);
+    for (const s of sportsToDelete) console.log(`     ✗ ${s.slug.padEnd(16)} "${s.name}" ${orgTag(s.organizationId)}`);
 
     console.log(`\n   Locations kept (${locationsToKeep.length}):`);
-    for (const l of locationsToKeep) console.log(`     ✓ ${l.slug.padEnd(16)} "${l.name}"`);
+    for (const l of locationsToKeep) console.log(`     ✓ ${l.slug.padEnd(16)} "${l.name}" ${orgTag(l.organizationId)}`);
     console.log(`\n   Locations to delete (${locationsToDelete.length}):`);
-    for (const l of locationsToDelete) console.log(`     ✗ ${l.slug.padEnd(16)} "${l.name}"`);
+    for (const l of locationsToDelete) console.log(`     ✗ ${l.slug.padEnd(16)} "${l.name}" ${orgTag(l.organizationId)}`);
 
     console.log(
       `\n   Cascade impact: ${programIdsToDelete.size} programs + ${seasonsCount} seasons reference rows being deleted and will also be removed.`,
