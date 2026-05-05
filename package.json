@@ -18,6 +18,7 @@
     "db:seed:launch": "tsx src/lib/db/seeds/seed-launch-2026.ts",
     "seasons:open": "tsx scripts/open-launch-seasons.ts",
     "prod:cleanup": "tsx scripts/cleanup-prod-pollution.ts",
+    "prod:cleanup-strict": "tsx scripts/cleanup-prod-strict.ts",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
