@@ -48,6 +48,7 @@ import {
   registrations,
   payments,
   paymentPlans,
+  emailLogs,
 } from "../src/lib/db/schema";
 
 const ALLOWED_ORG_SLUG = "aspire-sports";
@@ -236,10 +237,18 @@ async function main() {
     console.log("\n   Committing deletes (transactional)...");
     await db.transaction(async (tx) => {
       // Clear FK chain leading into registrations so the RESTRICT FKs
-      // (payments.registration_id and payment_plans.registration_id)
-      // don't block. scheduledPayments cascades from paymentPlans, so
-      // it's handled implicitly when paymentPlans are deleted.
+      // Three non-cascading FKs reference registrations directly:
+      //   • email_logs.registration_id (NO ACTION)
+      //   • payment_plans.registration_id (RESTRICT)
+      //   • payments.registration_id (RESTRICT)
+      // Clear all three before the registrations delete. Other refs
+      // (rosters CASCADE, consents SET NULL, team_registration_members
+      // CASCADE) are already handled by the FK behavior.
+      // scheduledPayments cascades from paymentPlans.
       if (registrationIdsToDelete.length > 0) {
+        await tx
+          .delete(emailLogs)
+          .where(inArray(emailLogs.registrationId, registrationIdsToDelete));
         await tx
           .delete(payments)
           .where(inArray(payments.registrationId, registrationIdsToDelete));
