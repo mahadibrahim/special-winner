@@ -44,6 +44,9 @@ import {
   programs,
   seasons,
   ageGroups,
+  registrations,
+  payments,
+  paymentPlans,
 } from "../src/lib/db/schema";
 
 const ALLOWED_SPORT_SLUGS = ["soccer"] as const;
@@ -172,10 +175,56 @@ async function main() {
       return;
     }
 
+    // 3.5. Look up the FK-dependent rows we'll need to delete first.
+    //      registrations FK to seasons is ON DELETE RESTRICT, and payments
+    //      FK to registrations is ON DELETE RESTRICT — so deleting seasons
+    //      directly fails if any polluted season has registrations. Per the
+    //      operator's confirmation that there are no real users in prod
+    //      (2026-04-26 + 2026-05-05), any registrations attached to
+    //      pollution-flagged seasons are themselves pollution — delete them
+    //      cascade-style in the same transaction. Other FKs (assessments,
+    //      discounts, program_gear, team_registrations, consents) are
+    //      already CASCADE or SET NULL, so they handle themselves.
+    let registrationIdsToDelete: string[] = [];
+    if (programIdsToDelete.size > 0) {
+      const seasonRows = await db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .where(inArray(seasons.programId, [...programIdsToDelete]));
+      const seasonIds = seasonRows.map((s) => s.id);
+      if (seasonIds.length > 0) {
+        const regRows = await db
+          .select({ id: registrations.id })
+          .from(registrations)
+          .where(inArray(registrations.seasonId, seasonIds));
+        registrationIdsToDelete = regRows.map((r) => r.id);
+      }
+    }
+    if (registrationIdsToDelete.length > 0) {
+      console.log(
+        `   ↳ ${registrationIdsToDelete.length} registrations attached to polluted seasons — will be deleted (treated as pollution; no real users on prod).`,
+      );
+    }
+
     // 4. Real run — wrap the destructive ops in a transaction.
     console.log("\n   Committing deletes (transactional)...");
     await db.transaction(async (tx) => {
-      // Delete seasons + programs first (FK dependencies).
+      // Clear FK chain leading into registrations so the RESTRICT FKs
+      // (payments.registration_id and payment_plans.registration_id)
+      // don't block. scheduledPayments cascades from paymentPlans, so
+      // it's handled implicitly when paymentPlans are deleted.
+      if (registrationIdsToDelete.length > 0) {
+        await tx
+          .delete(payments)
+          .where(inArray(payments.registrationId, registrationIdsToDelete));
+        await tx
+          .delete(paymentPlans)
+          .where(inArray(paymentPlans.registrationId, registrationIdsToDelete));
+        await tx
+          .delete(registrations)
+          .where(inArray(registrations.id, registrationIdsToDelete));
+      }
+      // Delete seasons + programs.
       if (programIdsToDelete.size > 0) {
         await tx
           .delete(seasons)
@@ -197,7 +246,7 @@ async function main() {
       }
     });
     console.log(
-      `   ✓ ${sportsToDelete.length} sports + ${locationsToDelete.length} locations + ${programIdsToDelete.size} programs + ${seasonsCount} seasons deleted.`,
+      `   ✓ ${sportsToDelete.length} sports + ${locationsToDelete.length} locations + ${programIdsToDelete.size} programs + ${seasonsCount} seasons + ${registrationIdsToDelete.length} registrations deleted.`,
     );
   } finally {
     await sql_client.end({ timeout: 5 });
