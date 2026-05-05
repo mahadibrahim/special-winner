@@ -1,0 +1,1 @@
+ALTER TABLE "seasons" ADD COLUMN "pricing_mode" varchar(20) DEFAULT 'per_individual' NOT NULL;

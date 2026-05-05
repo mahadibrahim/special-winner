@@ -1,0 +1,446 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+import { ChevronRight, SlidersHorizontal } from "lucide-react"
+import ProgramCardV2 from "./program-card-v2"
+import { deriveAudience, deriveDayBucket, type SeasonForDerive } from "@/lib/programs/derive"
+
+type Audience = "youth" | "adult" | "team"
+
+interface ApiSeason {
+  id: string
+  name: string
+  slug: string
+  startDate: string
+  endDate: string
+  price: number
+  deposit: number | null
+  allowDeposit: boolean
+  pricingMode: string
+  maxParticipants: number | null
+  registeredCount: number
+  spotsLeft: number | null
+  scheduleNotes: string | null
+  status: string
+  registrationCloses?: string | null
+  program: { id: string; name: string; slug: string; programType: string; audienceType: string }
+  sport: { id: string; name: string; slug: string; icon: string | null; color: string | null }
+  location: { id: string; name: string; slug: string; city: string | null; state: string | null }
+  ageGroup: { id: string; name: string; minAge: number; maxAge: number } | null
+}
+
+interface Props {
+  initialAudience?: Audience | null
+}
+
+const SEGMENT_LABELS: Record<Audience, { icon: string; label: string; sub: string }> = {
+  youth: { icon: "👶", label: "A kid", sub: "Youth · ages 4–18" },
+  adult: { icon: "⚽", label: "Myself", sub: "Adult leagues · solo or w/ team" },
+  team: { icon: "🏆", label: "A team", sub: "Captain registration" },
+}
+
+export default function ProgramsCatalog({ initialAudience }: Props) {
+  const [seasons, setSeasons] = useState<ApiSeason[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const [audience, setAudience] = useState<Audience>(
+    initialAudience === "adult" ? "adult"
+    : initialAudience === "team" ? "team"
+    : "youth",
+  )
+  const [activeSport, setActiveSport] = useState<string | null>(null)
+  const [activeLocation, setActiveLocation] = useState<string | null>(null)
+  const [activeAgeBand, setActiveAgeBand] = useState<string | null>(null)
+  const [activeSkill, setActiveSkill] = useState<string | null>(null)
+  const [activeDayBucket, setActiveDayBucket] = useState<string | null>(null)
+  const [sort, setSort] = useState<"start" | "deadline" | "filling">("start")
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+
+  // Sync URL ?audience= → state
+  useEffect(() => {
+    if (initialAudience === "adult") setAudience("adult")
+    else if (initialAudience === "team") setAudience("team")
+  }, [initialAudience])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetch("/api/public/seasons?status=open")
+      .then((r) => {
+        if (!r.ok) throw new Error("Could not load programs")
+        return r.json() as Promise<{ seasons: ApiSeason[] }>
+      })
+      .then((j) => {
+        if (cancelled) return
+        setSeasons(j.seasons)
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Step 1: filter by audience segment.
+  const segmentSeasons = useMemo(() => {
+    if (audience === "team") {
+      return seasons.filter((s) => deriveAudience(s as SeasonForDerive) === "adult" && s.pricingMode === "per_team")
+    }
+    return seasons.filter((s) => deriveAudience(s as SeasonForDerive) === audience)
+  }, [seasons, audience])
+
+  // Step 2: derive facet inventories from the segment slice.
+  const sports = useMemo(() => unique(segmentSeasons.map((s) => s.sport.slug)), [segmentSeasons])
+  const locations = useMemo(() => unique(segmentSeasons.map((s) => s.location.slug)), [segmentSeasons])
+  const dayBuckets = useMemo(
+    () => unique(segmentSeasons.map((s) => deriveDayBucket(s as SeasonForDerive))),
+    [segmentSeasons],
+  )
+
+  // Age bands (youth only) — coarse buckets for chip strip.
+  const ageBands = useMemo(() => {
+    if (audience !== "youth") return []
+    const bands = [
+      { key: "4-8", label: "Ages 4–8", match: (s: ApiSeason) => s.ageGroup && s.ageGroup.maxAge <= 8 },
+      { key: "9-12", label: "Ages 9–12", match: (s: ApiSeason) => s.ageGroup && s.ageGroup.minAge >= 9 && s.ageGroup.maxAge <= 12 },
+      { key: "13-18", label: "Ages 13–18", match: (s: ApiSeason) => s.ageGroup && s.ageGroup.minAge >= 13 },
+    ]
+    return bands.map((b) => ({ ...b, count: segmentSeasons.filter(b.match).length })).filter((b) => b.count > 0)
+  }, [segmentSeasons, audience])
+
+  // Step 3: apply chip filters.
+  const filtered = useMemo(() => {
+    return segmentSeasons.filter((s) => {
+      if (activeSport && s.sport.slug !== activeSport) return false
+      if (activeLocation && s.location.slug !== activeLocation) return false
+      if (activeDayBucket && deriveDayBucket(s as SeasonForDerive) !== activeDayBucket) return false
+      if (audience === "youth" && activeAgeBand) {
+        const band = ageBands.find((b) => b.key === activeAgeBand)
+        if (band && !band.match(s)) return false
+      }
+      // Skill filtering is not yet derivable from the schema; placeholder.
+      if (activeSkill) {
+        // TODO: when seasons have a skill_level field, filter by it here
+      }
+      return true
+    })
+  }, [segmentSeasons, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, audience, ageBands])
+
+  // Step 4: sort.
+  const sorted = useMemo(() => {
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      if (sort === "start") return a.startDate.localeCompare(b.startDate)
+      if (sort === "deadline") {
+        const ad = a.registrationCloses ?? a.startDate
+        const bd = b.registrationCloses ?? b.startDate
+        return ad.localeCompare(bd)
+      }
+      if (sort === "filling") {
+        const af = a.maxParticipants ? a.registeredCount / a.maxParticipants : 0
+        const bf = b.maxParticipants ? b.registeredCount / b.maxParticipants : 0
+        return bf - af
+      }
+      return 0
+    })
+    return arr
+  }, [filtered, sort])
+
+  // Featured rows are tailored to the segment.
+  const featuredRows = useMemo(() => {
+    const rows: Array<{ title: string; items: ApiSeason[] }> = []
+    if (filtered.length === 0) return rows
+
+    const fillingUp = filtered
+      .filter((s) => s.maxParticipants && s.registeredCount / s.maxParticipants >= 0.6)
+      .slice(0, 8)
+    if (fillingUp.length > 0) rows.push({ title: "Filling up", items: fillingUp })
+
+    const startingSoon = [...filtered]
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+      .slice(0, 8)
+    if (startingSoon.length > 0) rows.push({ title: "Starting soon", items: startingSoon })
+
+    if (audience === "youth") {
+      const popularMid = filtered
+        .filter((s) => s.ageGroup && s.ageGroup.minAge >= 9 && s.ageGroup.maxAge <= 12)
+        .slice(0, 8)
+      if (popularMid.length > 0) rows.push({ title: "Most popular ages 9–12", items: popularMid })
+    }
+    return rows
+  }, [filtered, audience])
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center text-ink-muted">
+        <div className="inline-block w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-3"></div>
+        <p>Loading programs…</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="py-12 text-center">
+        <p className="text-ink-2">{error}</p>
+      </div>
+    )
+  }
+
+  if (seasons.length === 0) {
+    return (
+      <div className="py-20 text-center max-w-md mx-auto">
+        <h2 className="font-display text-2xl text-ink mb-3">No programs open right now.</h2>
+        <p className="text-ink-muted mb-6">
+          Programs are added as seasons are scheduled. Check back soon, or join the
+          newsletter (footer) to hear about new openings first.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Step 1: Audience segmenter */}
+      <div className="mb-8 max-w-3xl mx-auto">
+        <p className="text-center text-sm text-ink-muted mb-4 font-medium tracking-wide uppercase">
+          Who's signing up?
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {(Object.keys(SEGMENT_LABELS) as Audience[]).map((seg) => {
+            const meta = SEGMENT_LABELS[seg]
+            const count =
+              seg === "team"
+                ? seasons.filter((s) => deriveAudience(s as SeasonForDerive) === "adult" && s.pricingMode === "per_team").length
+                : seasons.filter((s) => deriveAudience(s as SeasonForDerive) === seg).length
+            const active = audience === seg
+            return (
+              <button
+                key={seg}
+                type="button"
+                onClick={() => {
+                  setAudience(seg)
+                  setActiveAgeBand(null)
+                  setActiveSkill(null)
+                }}
+                className={`group flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                  active
+                    ? "border-ink bg-ink text-cream"
+                    : "border-border bg-paper hover:border-primary/50"
+                }`}
+              >
+                <span className="text-2xl">{meta.icon}</span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm">{meta.label}</div>
+                  <div className={`text-xs mt-0.5 ${active ? "text-cream/70" : "text-ink-muted"}`}>
+                    {meta.sub} · {count}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Step 2: Context-aware chip strip (sticky on scroll) */}
+      <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-cream/95 backdrop-blur border-y border-border py-3 mb-8">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Mobile: collapse into one button */}
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className="md:hidden inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide bg-paper border border-border rounded-md px-3 py-2"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" /> Filter
+          </button>
+
+          {/* Desktop: chips inline. Mobile: collapsible. */}
+          <div className={`${mobileFiltersOpen ? "flex" : "hidden"} md:flex flex-wrap items-center gap-2 flex-1`}>
+            {/* Sport — auto-hidden when only one option */}
+            {sports.length > 1 && (
+              <ChipGroup
+                label="Sport"
+                options={sports.map((slug) => {
+                  const sport = segmentSeasons.find((s) => s.sport.slug === slug)?.sport
+                  return { value: slug, label: sport?.name ?? slug, count: segmentSeasons.filter((s) => s.sport.slug === slug).length }
+                })}
+                active={activeSport}
+                onChange={setActiveSport}
+              />
+            )}
+
+            {/* Audience-specific second facet */}
+            {audience === "youth" && ageBands.length > 1 && (
+              <ChipGroup
+                label="Age"
+                options={ageBands.map((b) => ({ value: b.key, label: b.label, count: b.count }))}
+                active={activeAgeBand}
+                onChange={setActiveAgeBand}
+              />
+            )}
+            {audience === "team" && (
+              <ChipGroup
+                label="Format"
+                options={unique(segmentSeasons.map((s) => s.program.programType)).map((t) => ({
+                  value: t,
+                  label: t.charAt(0).toUpperCase() + t.slice(1),
+                  count: segmentSeasons.filter((s) => s.program.programType === t).length,
+                }))}
+                active={activeSkill}
+                onChange={setActiveSkill}
+              />
+            )}
+
+            {/* Location — auto-hidden when only one option */}
+            {locations.length > 1 && (
+              <ChipGroup
+                label="Location"
+                options={locations.map((slug) => {
+                  const loc = segmentSeasons.find((s) => s.location.slug === slug)?.location
+                  return {
+                    value: slug,
+                    label: (loc?.name ?? slug).replace(/^Soccer One\s+/i, ""),
+                    count: segmentSeasons.filter((s) => s.location.slug === slug).length,
+                  }
+                })}
+                active={activeLocation}
+                onChange={setActiveLocation}
+              />
+            )}
+
+            {/* Day bucket — auto-hidden when only one option */}
+            {dayBuckets.length > 1 && (
+              <ChipGroup
+                label="Day"
+                options={dayBuckets.map((b) => ({
+                  value: b,
+                  label: b,
+                  count: segmentSeasons.filter((s) => deriveDayBucket(s as SeasonForDerive) === b).length,
+                }))}
+                active={activeDayBucket}
+                onChange={setActiveDayBucket}
+              />
+            )}
+
+            {/* Sort */}
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as typeof sort)}
+              className="ml-auto bg-paper border border-border rounded-md px-2.5 py-1.5 text-xs text-ink-2"
+              aria-label="Sort"
+            >
+              <option value="start">Sort: Start date ↓</option>
+              <option value="deadline">Sort: Deadline ↑</option>
+              <option value="filling">Sort: Filling fastest</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Step 3: Featured rows */}
+      {featuredRows.map((row) => (
+        <section key={row.title} className="mb-10">
+          <div className="flex items-end justify-between mb-4">
+            <h2 className="font-display text-xl text-ink">{row.title}</h2>
+            <span className="text-xs text-ink-muted">{row.items.length} program{row.items.length === 1 ? "" : "s"}</span>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 snap-x snap-mandatory">
+            {row.items.map((s) => (
+              <div key={`${row.title}-${s.id}`} className="flex-none w-[300px] sm:w-[320px] snap-start">
+                <ProgramCardV2 season={s} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {/* Step 4: Full filtered catalog */}
+      <section className="border-t border-border pt-10 mt-4">
+        <div className="flex items-end justify-between mb-6">
+          <h2 className="font-display text-2xl text-ink">
+            {audience === "youth" ? "All youth programs" : audience === "adult" ? "All adult leagues" : "All team-only leagues"}
+          </h2>
+          <span className="text-xs text-ink-muted">
+            {sorted.length} program{sorted.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        {sorted.length === 0 ? (
+          <div className="py-12 text-center text-ink-muted">
+            <p>Nothing matches your filters. Try removing one.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSport(null)
+                setActiveLocation(null)
+                setActiveAgeBand(null)
+                setActiveSkill(null)
+                setActiveDayBucket(null)
+              }}
+              className="mt-3 text-sm font-medium text-primary hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sorted.map((s) => (
+              <ProgramCardV2 key={s.id} season={s} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function ChipGroup({
+  label,
+  options,
+  active,
+  onChange,
+}: {
+  label: string
+  options: Array<{ value: string; label: string; count: number }>
+  active: string | null
+  onChange: (v: string | null) => void
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] tracking-[0.1em] uppercase text-ink-muted font-semibold mr-1">
+        {label}:
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(null)}
+        className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+          active === null ? "bg-ink text-cream border-ink" : "bg-paper text-ink-2 border-border hover:border-ink-muted"
+        }`}
+      >
+        All
+      </button>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(active === opt.value ? null : opt.value)}
+          className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+            active === opt.value ? "bg-ink text-cream border-ink" : "bg-paper text-ink-2 border-border hover:border-ink-muted"
+          }`}
+        >
+          {opt.label} <span className="opacity-60 ml-0.5">{opt.count}</span>
+        </button>
+      ))}
+      <span className="hidden md:inline-block w-px h-5 bg-border mx-1.5" />
+    </div>
+  )
+}
+
+function unique<T>(arr: T[]): T[] {
+  return Array.from(new Set(arr))
+}

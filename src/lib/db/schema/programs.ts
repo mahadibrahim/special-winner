@@ -92,6 +92,13 @@ export const seasons = pgTable(
     maxParticipants: integer("max_participants"),
     minParticipants: integer("min_participants"),
     priceCents: integer("price_cents").notNull(),
+    // 'per_individual' (per kid for youth, per player for adult) or
+    // 'per_team' (full-team registrations like fraternity/IM, corporate
+    // leagues). Drives pricing-unit display on the catalog so a $1,200
+    // team fee isn't misread as a per-person price.
+    pricingMode: varchar("pricing_mode", { length: 20 })
+      .default("per_individual")
+      .notNull(),
     earlyBirdPriceCents: integer("early_bird_price_cents"),
     depositCents: integer("deposit_cents"),
     allowDeposit: boolean("allow_deposit").default(true),
