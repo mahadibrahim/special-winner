@@ -94,7 +94,30 @@ export const TEST_USERS = {
  */
 export const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
 
+/**
+ * Refuse to run if DATABASE_URL looks like it's pointed at production.
+ * The e2e seed inserts fixture rows (tests, sample programs) that must
+ * never end up in prod. CI sets ALLOW_E2E_SEED=yes against staging; any
+ * other invocation must include "staging" in DATABASE_URL or set the
+ * same flag explicitly.
+ */
+function assertNotProduction(): void {
+  const url = process.env.DATABASE_URL ?? "";
+  const explicitlyAllowed = process.env.ALLOW_E2E_SEED === "yes";
+  const looksLikeStaging = /staging/i.test(url);
+  if (!explicitlyAllowed && !looksLikeStaging) {
+    console.error(
+      "❌ REFUSED: DATABASE_URL does not contain 'staging' and ALLOW_E2E_SEED is not set.\n" +
+        "   The e2e seed inserts fixture rows that must never reach production.\n" +
+        "   To run against a non-staging-named DB intentionally, set\n" +
+        "   ALLOW_E2E_SEED=yes (CI does this for the staging Railway proxy).",
+    );
+    process.exit(2);
+  }
+}
+
 async function seedE2ETests() {
+  assertNotProduction();
   console.log("🧪 Seeding E2E test data...\n");
   const db = getDb();
 
