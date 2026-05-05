@@ -124,6 +124,7 @@ export const GET: APIRoute = async ({ url }) => {
         price: r.season.priceCents / 100,
         deposit: r.season.depositCents ? r.season.depositCents / 100 : null,
         allowDeposit: r.season.allowDeposit,
+        pricingMode: r.season.pricingMode,
         maxParticipants: r.season.maxParticipants,
         registeredCount,
         spotsLeft,
@@ -134,6 +135,7 @@ export const GET: APIRoute = async ({ url }) => {
           name: r.program.name,
           slug: r.program.slug,
           programType: r.program.programType,
+          audienceType: r.program.audienceType,
         },
         sport: {
           id: r.sport.id,

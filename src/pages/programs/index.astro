@@ -1,130 +1,62 @@
 ---
-// NOT prerendered: org/catalog data is request-scoped via middleware so we
-// can't freeze it at build time without leaking one tenant's catalog to all.
+// SSR — catalog data is request-scoped via middleware; can't prerender
+// without leaking one tenant's catalog to all.
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import ProgramsDirectory from '../../components/programs-directory';
-import { db } from '../../lib/db';
-import { sports, locations } from '../../lib/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import ProgramsCatalog from '@/components/programs/programs-catalog';
 
-// Parse audience filter
+// Audience preselect from query param: ?audience=youth | adult | team
 const rawAudience = Astro.url.searchParams.get("audience");
-const audience = (rawAudience === "youth" || rawAudience === "adult") ? rawAudience : null;
-const isYouth = audience === "youth";
-const isAdult = audience === "adult";
+const audience: "youth" | "adult" | "team" | null =
+  rawAudience === "adult" ? "adult"
+  : rawAudience === "team" ? "team"
+  : rawAudience === "youth" ? "youth"
+  : null;
 
-// Canonical: each filtered URL is its own canonical
 const canonicalUrl = audience
   ? `${Astro.url.origin}/programs?audience=${audience}`
   : `${Astro.url.origin}/programs`;
 
-// Audience-aware title / description
-const pageTitle = isAdult
+const pageTitle = audience === "adult"
   ? "Adult Programs — Aspire Sports"
-  : isYouth
+  : audience === "team"
+  ? "Team Registration — Aspire Sports"
+  : audience === "youth"
   ? "Youth Programs — Aspire Sports"
   : "Programs — Aspire Sports";
-const pageDescription = isAdult
-  ? "Browse and register for adult sports programs including leagues, training, and open play."
-  : isYouth
-  ? "Browse and register for youth sports programs including leagues, camps, clinics, and training."
-  : "Browse and register for sports programs including leagues, camps, clinics, and training.";
 
-// Fetch sports and locations
-let sportsList: any[] = [];
-let locationsList: any[] = [];
-
-try {
-  // Fetch sports
-  const allSports = await db
-    .select({
-      id: sports.id,
-      name: sports.name,
-      slug: sports.slug,
-      icon: sports.icon,
-      color: sports.color,
-    })
-    .from(sports)
-    .where(eq(sports.active, true))
-    .orderBy(asc(sports.sortOrder), asc(sports.name));
-
-  sportsList = allSports;
-
-  // Fetch locations
-  const allLocations = await db
-    .select({
-      id: locations.id,
-      name: locations.name,
-      slug: locations.slug,
-      city: locations.city,
-      state: locations.state,
-    })
-    .from(locations)
-    .orderBy(asc(locations.name));
-
-  locationsList = allLocations;
-} catch (error) {
-  console.error('Error fetching data:', error);
-}
+const pageDescription = audience === "adult"
+  ? "Browse adult sports leagues. Sign up solo, with friends, or as a full team — Aspire Sports in central Ohio."
+  : audience === "team"
+  ? "Register your team for an Aspire Sports league. Captain creates and invites; players each pay their share."
+  : audience === "youth"
+  ? "Browse Aspire Sports youth programs — leagues, camps, clinics for kids ages 4–18 in central Ohio."
+  : "Sports programs for kids and adults in central Ohio. Aspire Sports — built on real frameworks, taught by coaches who played the game.";
 ---
 
-<BaseLayout
-  title={pageTitle}
-  description={pageDescription}
->
+<BaseLayout title={pageTitle} description={pageDescription}>
   <Fragment slot="head">
     <link rel="canonical" href={canonicalUrl} />
   </Fragment>
 
-  <main id="main-content" class="flex-1 pt-20">
-    <!-- Hero Section -->
-    <div class="bg-gradient-to-b from-primary/10 to-transparent py-16 px-4">
-      <div class="max-w-7xl mx-auto text-center">
-        <h1 class="text-4xl md:text-5xl font-bold text-ink mb-4">
-          Our Programs
-        </h1>
-        <p class="text-xl text-ink-muted max-w-2xl mx-auto">
-          Find the perfect program for your athlete. From youth leagues to advanced training, we have something for everyone.
+  <main id="main-content" class="flex-1 pt-24 pb-16">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <header class="mb-10">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary mb-3 flex items-center gap-3">
+          <span class="inline-block w-8 h-px bg-primary"></span>
+          Now enrolling · Summer 2026
         </p>
-      </div>
-    </div>
+        <h1
+          class="font-display text-ink mb-4"
+          style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.025em;"
+        >
+          Find your program.
+        </h1>
+        <p class="text-lg text-ink-muted max-w-2xl">
+          Pick your audience, narrow with the chips, browse what's curated, or scroll the full catalog at the bottom.
+        </p>
+      </header>
 
-    <!-- Audience filter chips -->
-    <div class="max-w-7xl mx-auto px-4 pt-2 pb-4">
-      <nav class="flex gap-2" aria-label="Audience filter">
-        <a
-          href="/programs"
-          class={!isYouth && !isAdult
-            ? "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-primary text-cream shadow-sm"
-            : "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors"}
-        >
-          All
-        </a>
-        <a
-          href="/programs?audience=youth"
-          class={isYouth
-            ? "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-primary text-cream shadow-sm"
-            : "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors"}
-        >
-          Youth
-        </a>
-        <a
-          href="/programs?audience=adult"
-          class={isAdult
-            ? "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-primary text-cream shadow-sm"
-            : "inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors"}
-        >
-          Adult
-        </a>
-      </nav>
-    </div>
-
-    <!-- Programs Directory -->
-    <div class="max-w-7xl mx-auto px-4 pb-16">
-      <ProgramsDirectory
-        client:load
-        initialAudience={audience}
-      />
+      <ProgramsCatalog client:load initialAudience={audience} />
     </div>
   </main>
 </BaseLayout>
