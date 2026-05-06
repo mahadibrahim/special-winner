@@ -1,0 +1,32 @@
+id: act.staff_debrief
+name: Staff debrief
+description: |
+  Brief end-of-day huddle (5-10 min) with on-shift staff: what worked,
+  what broke, anything to flag for the office. Notes captured in the
+  debrief form for the daily digest and weekly review.
+trigger: After facility close walkthrough is signed off
+phase: end_of_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager, role.event_lead]
+  consulted: []
+  informed: [role.director, role.facilities, role.front_of_house]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, role.event_lead runs the debrief and
+  escalates to role.director per the standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.staff_debrief
+expected_completion: phase_end

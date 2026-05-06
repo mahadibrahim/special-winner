@@ -1,0 +1,34 @@
+id: act.daily_digest_send
+name: Daily digest send
+description: |
+  Once the day's matches are closed, the platform generates and sends a
+  daily digest to the venue manager, director, and event leads
+  summarizing scores posted, incidents, attendance, walk-ons, and any
+  open items.
+trigger: After the last activity of the day is recorded
+phase: end_of_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.venue_manager, role.director, role.event_lead]
+automation_status: platform
+platform_features:
+  - feat.daily_digest_generator
+  - feat.activity_tracking_engine
+escalation_path: |
+  If digest job fails, on-call platform engineer escalates to
+  role.director; venue_manager sends a manual end-of-day summary in
+  the meantime.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.daily_digest_sent
+expected_completion: '21:00'

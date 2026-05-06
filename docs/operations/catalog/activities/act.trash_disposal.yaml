@@ -1,0 +1,32 @@
+id: act.trash_disposal
+name: Trash disposal
+description: |
+  Pull all interior and sideline trash bags, walk to the dumpster,
+  replace liners, and confirm the disposal area is locked. Applies at
+  owned venues where Aspire is responsible for waste handling.
+trigger: After last match concludes (owned venues)
+phase: end_of_day
+sport_tags: []
+venue_tags: [owned]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.trash_disposal
+expected_completion: phase_end

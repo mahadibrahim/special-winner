@@ -1,0 +1,33 @@
+id: act.lost_and_found_inventory
+name: Lost and found inventory
+description: |
+  Catalog any items collected at the lost-and-found bin during the day —
+  description, area found, contact info if known — so the office can
+  match items to inquiries and dispose per policy after the holding
+  window.
+trigger: At end of day after the venue clears
+phase: end_of_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.front_of_house
+  responsible: [role.front_of_house]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If front_of_house unreachable, role.event_lead inventories and
+  escalates to role.venue_manager per the standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.lost_and_found_inventory
+expected_completion: phase_end

@@ -1,0 +1,33 @@
+id: act.facility_close_walkthrough
+name: Facility close walkthrough
+description: |
+  Walk every space — locker rooms, restrooms, bleachers, surfaces —
+  to confirm no person is left behind, no equipment is unsecured, and
+  no obvious safety issues remain before lock-up.
+trigger: After the last match concludes and spectators have cleared
+phase: end_of_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.facilities, role.event_lead]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder; closure cannot be completed without a
+  walkthrough sign-off.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.facility_close_walkthrough
+expected_completion: phase_end

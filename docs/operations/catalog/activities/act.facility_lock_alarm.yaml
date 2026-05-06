@@ -1,0 +1,33 @@
+id: act.facility_lock_alarm
+name: Facility lock and alarm
+description: |
+  Power down equipment and HVAC, lock interior and exterior doors, set
+  the alarm, and confirm the perimeter is secure. Applies to owned
+  venues where Aspire is responsible for closing.
+trigger: After the close walkthrough is signed off
+phase: end_of_day
+sport_tags: []
+venue_tags: [owned]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.director]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder; alarm code rotation policy is enforced
+  centrally.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.facility_lock_alarm
+expected_completion: phase_end

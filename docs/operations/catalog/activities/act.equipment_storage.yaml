@@ -1,0 +1,32 @@
+id: act.equipment_storage
+name: Equipment storage
+description: |
+  Return all equipment from staging back into storage in its labeled
+  location, count balls and pinnies on return, and note anything
+  damaged or missing for the next inventory check.
+trigger: After last match concludes
+phase: end_of_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.equipment_storage
+expected_completion: phase_end
