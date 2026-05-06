@@ -1,0 +1,6 @@
+id: feat.signature_capture
+name: Signature Capture
+description: |
+  Generic signature UI for sig.* artifact templates.
+priority: P0
+status: stub

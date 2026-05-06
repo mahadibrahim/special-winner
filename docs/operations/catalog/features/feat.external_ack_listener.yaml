@@ -1,0 +1,7 @@
+id: feat.external_ack_listener
+name: External Ack Listener
+description: |
+  Webhook receivers for Stripe, Telegram, Resend, and Quo to satisfy
+  external_acknowledgment tracking.
+priority: P1
+status: stub

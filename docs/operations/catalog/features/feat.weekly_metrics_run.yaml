@@ -1,0 +1,6 @@
+id: feat.weekly_metrics_run
+name: Weekly Metrics Run
+description: |
+  Cross-venue weekly roll-up of attendance, incidents, payroll, and revenue.
+priority: P2
+status: stub

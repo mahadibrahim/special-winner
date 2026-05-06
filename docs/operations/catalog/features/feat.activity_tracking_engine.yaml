@@ -1,0 +1,8 @@
+id: feat.activity_tracking_engine
+name: Activity Tracking Engine
+description: |
+  Per-event activity records, expected_completion computation, reminder/escalation
+  firing, overdue dashboard. Core service the rest of the catalog operating model
+  depends on.
+priority: P0
+status: stub

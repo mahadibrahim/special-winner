@@ -1,0 +1,6 @@
+id: feat.weather_alert_dashboard
+name: Weather Alert Dashboard
+description: |
+  Weather forecast surfaced in admin for pre-day and pregame checks.
+priority: P1
+status: stub

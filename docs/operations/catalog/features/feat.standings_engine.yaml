@@ -1,0 +1,7 @@
+id: feat.standings_engine
+name: Standings Engine
+description: |
+  Computes standings from posted scores, handles ties, and drives playoff
+  seeding.
+priority: P0
+status: stub

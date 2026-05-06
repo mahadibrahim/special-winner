@@ -1,0 +1,6 @@
+id: feat.photo_upload_capture
+name: Photo Upload Capture
+description: |
+  Generic photo upload tied to activity completion.
+priority: P1
+status: stub

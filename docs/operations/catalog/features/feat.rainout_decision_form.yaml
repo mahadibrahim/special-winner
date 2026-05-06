@@ -1,0 +1,7 @@
+id: feat.rainout_decision_form
+name: Rainout Decision Form
+description: |
+  Structured rainout decision with reason codes feeding refund and reschedule
+  workflows.
+priority: P2
+status: stub

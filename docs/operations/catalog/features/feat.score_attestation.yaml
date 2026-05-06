@@ -1,0 +1,7 @@
+id: feat.score_attestation
+name: Score Attestation
+description: |
+  Both teams' captains/coaches sign the final score before it is posted to
+  standings.
+priority: P1
+status: stub

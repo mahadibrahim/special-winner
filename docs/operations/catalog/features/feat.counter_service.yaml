@@ -1,0 +1,6 @@
+id: feat.counter_service
+name: Counter Service
+description: |
+  Generic counter increments for counter.* artifacts.
+priority: P0
+status: stub

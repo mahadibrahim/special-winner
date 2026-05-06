@@ -1,0 +1,6 @@
+id: feat.media_tagger_handoff
+name: Media Tagger Handoff
+description: |
+  Connects post_game photo_handoff to the existing media phase 2 tagger.
+priority: P1
+status: stub

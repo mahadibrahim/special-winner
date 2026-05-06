@@ -1,0 +1,6 @@
+id: feat.cancellation_broadcast
+name: Cancellation Broadcast
+description: |
+  One-call cancellation cascading to team Telegram, parent SMS, and email.
+priority: P1
+status: stub

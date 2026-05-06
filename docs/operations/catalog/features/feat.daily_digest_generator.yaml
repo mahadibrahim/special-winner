@@ -1,0 +1,6 @@
+id: feat.daily_digest_generator
+name: Daily Digest Generator
+description: |
+  Per-venue end-of-day summary delivered to Director and Venue Manager.
+priority: P1
+status: stub

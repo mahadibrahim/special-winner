@@ -1,0 +1,6 @@
+id: feat.checklist_renderer
+name: Checklist Renderer
+description: |
+  Generic checklist UI used by all chk.* artifact templates.
+priority: P0
+status: stub
