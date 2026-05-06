@@ -1,0 +1,32 @@
+id: act.staff_schedule_confirm
+name: Staff schedule confirmation
+description: |
+  Confirm each shift assignment for the upcoming event window — venue
+  manager, event leads, facilities, front of house, and photographers —
+  has been acknowledged. Replace any no-responses from the standby pool.
+trigger: 48h before event window
+phase: pre_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.director, role.event_lead]
+automation_status: hybrid
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.staff_schedule_confirm
+expected_completion: T-48h

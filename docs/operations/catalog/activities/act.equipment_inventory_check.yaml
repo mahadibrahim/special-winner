@@ -1,0 +1,33 @@
+id: act.equipment_inventory_check
+name: Equipment inventory check
+description: |
+  Walk the storage area and verify the equipment manifest against on-hand
+  stock (balls, cones, pinnies, jerseys, first-aid restock, scoreboards,
+  whistles). Surface shortages early so they can be ordered or borrowed
+  before the event.
+trigger: 48h before event window
+phase: pre_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.equipment_inventory
+expected_completion: T-48h

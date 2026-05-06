@@ -1,0 +1,32 @@
+id: act.coach_pregame_briefing_dispatch
+name: Coach pregame briefing dispatch
+description: |
+  Send each coach their pregame briefing packet (roster, field assignment,
+  match time, opponent, ref crew, and any league-specific notes) on a
+  fixed schedule before kickoff.
+trigger: 24h before event kickoff (scheduled job)
+phase: pre_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.coach, role.event_lead]
+automation_status: platform
+platform_features:
+  - feat.activity_tracking_engine
+escalation_path: |
+  If the dispatch job fails, on-call platform engineer escalates to
+  role.director; event_lead manually relays packets via direct message
+  until automation recovers.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.coach_pregame_dispatch
+expected_completion: T-24h

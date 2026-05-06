@@ -1,0 +1,32 @@
+id: act.field_assignment_publish
+name: Field assignment publish
+description: |
+  Publish per-match field, court, or pitch assignments to coaches, refs,
+  and parents so everyone arrives at the right surface. Triggered once
+  the venue manager finalizes the field grid.
+trigger: 24h before event window (after venue grid is finalized)
+phase: pre_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.coach, role.ref, role.parent, role.event_lead]
+automation_status: platform
+platform_features:
+  - feat.activity_tracking_engine
+escalation_path: |
+  If publish fails, on-call platform engineer escalates to role.director;
+  event_lead posts assignments manually in the team channels until
+  automation recovers.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.field_assignment_published
+expected_completion: T-24h
