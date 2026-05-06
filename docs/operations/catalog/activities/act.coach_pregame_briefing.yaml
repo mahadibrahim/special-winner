@@ -1,0 +1,34 @@
+id: act.coach_pregame_briefing
+name: Coach pregame briefing (youth league)
+description: |
+  Event lead delivers a brief huddle with the youth match's coaches
+  covering rules of the day, special situations, conduct expectations,
+  and ref crew. Coach signs to acknowledge. Adult leagues are
+  self-managed and skip this activity.
+trigger: ~15 minutes before each youth-league kickoff
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: [league]
+audience_tags: [youth]
+raci:
+  accountable: role.event_lead
+  responsible: [role.event_lead, role.coach]
+  consulted: []
+  informed: [role.ref]
+automation_status: manual
+platform_features:
+  - feat.signature_capture
+  - feat.activity_tracking_engine
+escalation_path: |
+  If event_lead unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: signature
+tracking_artifact:
+  template_id: sig.coach_pregame
+  required_role: role.coach
+expected_completion: T-15min

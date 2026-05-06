@@ -1,0 +1,33 @@
+id: act.photographer_check_in
+name: Photographer check-in
+description: |
+  The on-shift photographer signs in at the event lead's station before
+  their first match, confirming arrival, gear, and shot list. Signature
+  starts the contractor pay clock.
+trigger: ~30 minutes before first assigned match
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.photographer
+  responsible: [role.photographer, role.event_lead]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: hybrid
+platform_features:
+  - feat.signature_capture
+  - feat.activity_tracking_engine
+escalation_path: |
+  If photographer no-show, event_lead escalates to role.venue_manager;
+  pull from standby pool or accept reduced media coverage.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: signature
+tracking_artifact:
+  template_id: sig.photographer_check_in
+  required_role: role.photographer
+expected_completion: T-30min

@@ -1,0 +1,33 @@
+id: act.walk_on_registration
+name: Walk-on registration
+description: |
+  Register day-of walk-on players for drop-in sessions and clinics:
+  collect waiver, capture payment, and add the player to the roster.
+  Each walk-on increments the day's counter for revenue reconciliation.
+trigger: Throughout the drop-in/clinic intake window
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: [drop_in, clinic]
+audience_tags: []
+raci:
+  accountable: role.front_of_house
+  responsible: [role.front_of_house]
+  consulted: []
+  informed: [role.event_lead, role.venue_manager]
+automation_status: hybrid
+platform_features:
+  - feat.counter_service
+  - feat.activity_tracking_engine
+escalation_path: |
+  If front_of_house unreachable, escalate to role.event_lead per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: counter_increment
+tracking_artifact:
+  counter: counter.walk_on_registrations
+  min_count: 0
+expected_completion: T-15min

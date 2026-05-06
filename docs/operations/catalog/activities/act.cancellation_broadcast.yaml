@@ -1,0 +1,33 @@
+id: act.cancellation_broadcast
+name: Cancellation broadcast
+description: |
+  When a rainout or cancellation decision is recorded, the platform fans
+  out notifications to parents, coaches, refs, captains, and the venue
+  team via the configured channels (push, SMS, email, Telegram).
+trigger: rainout_decision form submitted with cancel/delay outcome
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.parent, role.coach, role.ref, role.team_captain, role.venue_manager]
+automation_status: platform
+platform_features:
+  - feat.cancellation_broadcast
+  - feat.activity_tracking_engine
+escalation_path: |
+  If broadcast job fails, on-call platform engineer escalates to
+  role.director; venue_manager and event_lead manually notify
+  affected parties via existing channels.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.cancellation_broadcast_sent
+expected_completion: T-60min

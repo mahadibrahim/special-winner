@@ -1,0 +1,34 @@
+id: act.rainout_decision
+name: Rainout decision
+description: |
+  Make and document the call to play, delay, or cancel based on weather
+  and field conditions. The form captures the decision, rationale, and
+  authorizing signer; downstream automation handles broadcasts and
+  refund/reschedule workflows.
+trigger: Weather/field condition within 2h of kickoff suggests cancellation
+phase: pre_game
+sport_tags: []
+venue_tags: [outdoor]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: [role.director]
+  informed: [role.event_lead, role.coach, role.ref, role.parent, role.team_captain]
+automation_status: hybrid
+platform_features:
+  - feat.weather_alert_dashboard
+  - feat.rainout_decision_form
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director who has
+  unilateral authority to call the event.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.rainout_decision
+expected_completion: T-90min
