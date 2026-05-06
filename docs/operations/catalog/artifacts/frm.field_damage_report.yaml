@@ -1,0 +1,8 @@
+id: frm.field_damage_report
+kind: form
+status: stub
+fields:
+  - id: pending_authorship
+    label: (placeholder — full field schema pending operator authorship)
+    type: text
+    required: false
