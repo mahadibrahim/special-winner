@@ -1,0 +1,34 @@
+id: act.weekly_metrics_rollup
+name: Weekly metrics rollup
+description: |
+  Platform aggregates the prior week's operational metrics — completion
+  rates by activity, incident counts, attendance, walk-on volume,
+  weather cancellations — into a weekly report for the director and
+  venue managers.
+trigger: Weekly cron at the configured roll-up time
+phase: post_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.director, role.venue_manager]
+automation_status: platform
+platform_features:
+  - feat.weekly_metrics_run
+  - feat.activity_tracking_engine
+escalation_path: |
+  If the rollup job fails, on-call platform engineer escalates to
+  role.director; manual report from raw activity log delivered until
+  automation recovers.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.weekly_metrics_run
+expected_completion: T+72h

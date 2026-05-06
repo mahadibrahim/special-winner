@@ -1,0 +1,34 @@
+id: act.weekly_safety_review
+name: Weekly safety review
+description: |
+  Director reviews the week's incident reports, near-misses, and field
+  damage entries; documents themes, decisions, and any policy or
+  facility changes required. The safety review is the company's
+  primary feedback loop into the operating model.
+trigger: Weekly cadence after the weekly metrics rollup lands
+phase: post_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.director
+  responsible: [role.director]
+  consulted: [role.venue_manager]
+  informed: [role.event_lead, role.facilities, role.front_of_house]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If director unreachable in a given week, role.venue_manager drafts
+  the review and director signs off retroactively; no review goes
+  unsigned past two weeks.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.weekly_safety_review
+expected_completion: T+72h

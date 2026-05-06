@@ -1,0 +1,33 @@
+id: act.rainout_refund_decision
+name: Rainout refund decision
+description: |
+  After a rainout, the director decides whether to refund, credit, or
+  reschedule affected registrations and records the policy call so the
+  platform can fan out the refund/credit workflow.
+trigger: T+24h after a recorded rainout
+phase: post_day
+sport_tags: []
+venue_tags: [outdoor]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.director
+  responsible: [role.director]
+  consulted: [role.venue_manager]
+  informed: [role.platform, role.parent, role.team_captain]
+automation_status: hybrid
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If director unreachable, role.venue_manager may default to "credit
+  only" until director sign-off; refund disbursements still require
+  director authorization.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.rainout_refund
+expected_completion: T+24h
