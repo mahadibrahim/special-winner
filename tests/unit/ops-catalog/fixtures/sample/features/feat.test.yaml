@@ -1,0 +1,5 @@
+id: feat.test
+name: Test Feature
+description: A feature stub for testing
+priority: P1
+status: stub

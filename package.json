@@ -82,6 +82,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
     "twilio": "^5.13.1",
+    "yaml": "^2.8.4",
     "zod": "^4.3.5"
   },
   "devDependencies": {

@@ -1,0 +1,6 @@
+id: role.test_role
+name: Test Role
+tier: operational
+kind: worker
+description: A role for testing
+manual_target: employee_manual
