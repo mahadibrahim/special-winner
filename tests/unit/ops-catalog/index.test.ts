@@ -21,6 +21,6 @@ describe("ops-catalog CLI", () => {
 
   it("runs validate command without error", () => {
     const out = execSync(`npx tsx ${cliPath} validate`, { cwd: repoRoot }).toString();
-    expect(out).toContain("not yet implemented");
+    expect(out).toContain("Validation passed");
   });
 });

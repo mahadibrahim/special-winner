@@ -1,9 +1,29 @@
 #!/usr/bin/env tsx
+import path from "node:path";
+import { loadCatalog } from "./loader";
+import { validateCatalog } from "./validator";
+
 const command = process.argv[2];
+
+const CATALOG_DIR = path.join(process.cwd(), "docs/operations/catalog");
 
 const commands: Record<string, () => Promise<number>> = {
   validate: async () => {
-    console.log("[ops-catalog] validate (not yet implemented)");
+    const catalog = await loadCatalog(CATALOG_DIR);
+    const result = validateCatalog(catalog);
+    for (const w of result.warnings) {
+      console.warn(`[warn] ${w.source}: ${w.message}`);
+    }
+    for (const e of result.errors) {
+      console.error(`[error] ${e.source}: ${e.message}`);
+    }
+    if (result.errors.length > 0) {
+      console.error(
+        `Validation failed: ${result.errors.length} error(s), ${result.warnings.length} warning(s)`,
+      );
+      return 1;
+    }
+    console.log(`Validation passed: ${result.warnings.length} warning(s)`);
     return 0;
   },
   render: async () => {
