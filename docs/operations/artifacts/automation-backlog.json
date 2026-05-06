@@ -1,0 +1,240 @@
+[
+  {
+    "id": "feat.activity_tracking_engine",
+    "name": "Activity Tracking Engine",
+    "description": "Per-event activity records, expected_completion computation, reminder/escalation\nfiring, overdue dashboard. Core service the rest of the catalog operating model\ndepends on.\n",
+    "priority": "P0",
+    "status": "stub",
+    "referenced_by": [
+      "act.attendance_roster_confirm",
+      "act.cancellation_broadcast",
+      "act.cash_concession_reconcile",
+      "act.coach_pregame_briefing_dispatch",
+      "act.daily_digest_send",
+      "act.field_assignment_publish",
+      "act.live_score_update",
+      "act.parent_t24_reminder",
+      "act.photo_handoff",
+      "act.photo_publish",
+      "act.photographer_check_in",
+      "act.rainout_decision",
+      "act.rainout_refund_decision",
+      "act.rainout_reschedule",
+      "act.ref_assignment_confirm",
+      "act.ref_check_in",
+      "act.ref_payroll_event",
+      "act.ref_stipend_log",
+      "act.score_post_to_standings",
+      "act.score_reporting_final",
+      "act.staff_clock_out",
+      "act.staff_payroll_event",
+      "act.staff_schedule_confirm",
+      "act.standings_update",
+      "act.team_check_in",
+      "act.timekeeping",
+      "act.walk_on_registration",
+      "act.weather_check_pregame",
+      "act.weather_pre_check",
+      "act.weekly_metrics_rollup"
+    ]
+  },
+  {
+    "id": "feat.form_renderer",
+    "name": "Form Renderer",
+    "description": "Generic form UI used by all frm.* artifact templates.\n",
+    "priority": "P0",
+    "status": "stub",
+    "referenced_by": [
+      "act.cash_concession_reconcile",
+      "act.rainout_refund_decision",
+      "act.rainout_reschedule",
+      "act.ref_stipend_log",
+      "act.team_check_in"
+    ]
+  },
+  {
+    "id": "feat.checklist_renderer",
+    "name": "Checklist Renderer",
+    "description": "Generic checklist UI used by all chk.* artifact templates.\n",
+    "priority": "P0",
+    "status": "stub",
+    "referenced_by": [
+      "act.ref_assignment_confirm",
+      "act.staff_schedule_confirm",
+      "act.weather_check_pregame",
+      "act.weather_pre_check"
+    ]
+  },
+  {
+    "id": "feat.counter_service",
+    "name": "Counter Service",
+    "description": "Generic counter increments for counter.* artifacts.\n",
+    "priority": "P0",
+    "status": "stub",
+    "referenced_by": [
+      "act.live_score_update",
+      "act.photo_handoff",
+      "act.photo_publish",
+      "act.walk_on_registration"
+    ]
+  },
+  {
+    "id": "feat.payroll_integration",
+    "name": "Payroll Integration",
+    "description": "W2 and 1099 stipend payouts triggered by post_day events.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.ref_payroll_event",
+      "act.ref_stipend_log",
+      "act.staff_clock_out",
+      "act.staff_payroll_event"
+    ]
+  },
+  {
+    "id": "feat.signature_capture",
+    "name": "Signature Capture",
+    "description": "Generic signature UI for sig.* artifact templates.\n",
+    "priority": "P0",
+    "status": "stub",
+    "referenced_by": [
+      "act.photographer_check_in",
+      "act.ref_check_in",
+      "act.score_reporting_final",
+      "act.staff_clock_out"
+    ]
+  },
+  {
+    "id": "feat.weather_alert_dashboard",
+    "name": "Weather Alert Dashboard",
+    "description": "Weather forecast surfaced in admin for pre-day and pregame checks.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.rainout_decision",
+      "act.weather_check_pregame",
+      "act.weather_pre_check"
+    ]
+  },
+  {
+    "id": "feat.external_ack_listener",
+    "name": "External Ack Listener",
+    "description": "Webhook receivers for Stripe, Telegram, Resend, and Quo to satisfy\nexternal_acknowledgment tracking.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.ref_payroll_event",
+      "act.staff_payroll_event"
+    ]
+  },
+  {
+    "id": "feat.media_tagger_handoff",
+    "name": "Media Tagger Handoff",
+    "description": "Connects post_game photo_handoff to the existing media phase 2 tagger.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.photo_handoff",
+      "act.photo_publish"
+    ]
+  },
+  {
+    "id": "feat.standings_engine",
+    "name": "Standings Engine",
+    "description": "Computes standings from posted scores, handles ties, and drives playoff\nseeding.\n",
+    "priority": "P0",
+    "status": "stub",
+    "referenced_by": [
+      "act.score_post_to_standings",
+      "act.standings_update"
+    ]
+  },
+  {
+    "id": "feat.cancellation_broadcast",
+    "name": "Cancellation Broadcast",
+    "description": "One-call cancellation cascading to team Telegram, parent SMS, and email.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.cancellation_broadcast"
+    ]
+  },
+  {
+    "id": "feat.daily_digest_generator",
+    "name": "Daily Digest Generator",
+    "description": "Per-venue end-of-day summary delivered to Director and Venue Manager.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.daily_digest_send"
+    ]
+  },
+  {
+    "id": "feat.live_score_entry",
+    "name": "Live Score Entry",
+    "description": "Ref enters scores in real-time from a phone interface during the match.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.live_score_update"
+    ]
+  },
+  {
+    "id": "feat.rainout_decision_form",
+    "name": "Rainout Decision Form",
+    "description": "Structured rainout decision with reason codes feeding refund and reschedule\nworkflows.\n",
+    "priority": "P2",
+    "status": "stub",
+    "referenced_by": [
+      "act.rainout_decision"
+    ]
+  },
+  {
+    "id": "feat.ref_checkin_signature",
+    "name": "Ref Check-in Signature",
+    "description": "Ref signs in via QR code at the venue; logs arrival timestamp and ties it to\nthe assignment.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.ref_check_in"
+    ]
+  },
+  {
+    "id": "feat.score_attestation",
+    "name": "Score Attestation",
+    "description": "Both teams' captains/coaches sign the final score before it is posted to\nstandings.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.score_reporting_final"
+    ]
+  },
+  {
+    "id": "feat.team_checkin_panel",
+    "name": "Team Check-in Panel",
+    "description": "Per-match roster, jersey, and eligibility verification UI used by Front of\nHouse at venue check-in.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": [
+      "act.team_check_in"
+    ]
+  },
+  {
+    "id": "feat.weekly_metrics_run",
+    "name": "Weekly Metrics Run",
+    "description": "Cross-venue weekly roll-up of attendance, incidents, payroll, and revenue.\n",
+    "priority": "P2",
+    "status": "stub",
+    "referenced_by": [
+      "act.weekly_metrics_rollup"
+    ]
+  },
+  {
+    "id": "feat.photo_upload_capture",
+    "name": "Photo Upload Capture",
+    "description": "Generic photo upload tied to activity completion.\n",
+    "priority": "P1",
+    "status": "stub",
+    "referenced_by": []
+  }
+]
