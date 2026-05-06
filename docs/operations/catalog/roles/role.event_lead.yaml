@@ -1,0 +1,8 @@
+id: role.event_lead
+name: Event Lead
+tier: operational
+kind: worker
+description: |
+  Per-match operational lead. Owns the run-of-show for an individual match or
+  event slot within a venue's event-day.
+manual_target: employee_manual

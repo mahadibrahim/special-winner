@@ -1,0 +1,8 @@
+id: role.front_of_house
+name: Front of House
+tier: operational
+kind: worker
+description: |
+  Owns check-in, parent comms, walk-on registrations, and concessions during an
+  event-day.
+manual_target: employee_manual

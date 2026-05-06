@@ -1,0 +1,8 @@
+id: role.team_captain
+name: Team Captain
+tier: field_side
+kind: worker
+description: |
+  Field-side worker representing an adult-league team that does not have a
+  coach. Coordinates roster and conduct for the team.
+manual_target: hand_authored

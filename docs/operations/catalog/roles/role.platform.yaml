@@ -1,0 +1,8 @@
+id: role.platform
+name: Platform
+tier: system
+kind: system
+description: |
+  Autonomous platform actions. When platform is the accountable role, the
+  corresponding platform_features must exist or the activity is broken.
+manual_target: none

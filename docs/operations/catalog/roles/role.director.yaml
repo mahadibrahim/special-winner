@@ -1,0 +1,8 @@
+id: role.director
+name: Director
+tier: leadership
+kind: worker
+description: |
+  Whole business / multi-venue accountability. Rarely day-of accountable; provides
+  oversight, owns the catalog, and serves as the final escalation tier.
+manual_target: employee_manual
