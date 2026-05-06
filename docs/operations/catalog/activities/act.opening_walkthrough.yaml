@@ -1,0 +1,33 @@
+id: act.opening_walkthrough
+name: Opening walkthrough
+description: |
+  Walk the entire facility — playing surfaces, restrooms, locker rooms,
+  bleachers, parking — and document any safety, cleanliness, or
+  damage findings before staff and customers arrive.
+trigger: Immediately after facility unlock
+phase: day_setup
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.facilities, role.event_lead]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder; facilities walks the building until
+  coverage resumes.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.opening_walkthrough_findings
+expected_completion: T-2h

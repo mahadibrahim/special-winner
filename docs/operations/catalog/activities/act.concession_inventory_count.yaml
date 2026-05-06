@@ -1,0 +1,32 @@
+id: act.concession_inventory_count
+name: Concession inventory count (open)
+description: |
+  Count opening inventory of concession stock — drinks, snacks, hot food
+  pars, paper goods — so end-of-day reconciliation can compute usage and
+  shrink. Numbers are entered in the inventory form.
+trigger: After concession setup, before first sale
+phase: day_setup
+sport_tags: []
+venue_tags: [concessions]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.front_of_house
+  responsible: [role.front_of_house]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If front_of_house unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.concession_inventory
+expected_completion: T-60min

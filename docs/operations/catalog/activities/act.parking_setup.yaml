@@ -1,0 +1,32 @@
+id: act.parking_setup
+name: Parking setup
+description: |
+  Place cones, ropes, signage, and reserved-row markers in the parking
+  area; staff the entry point if attended; confirm overflow path is
+  cleared. Applies only to venues where Aspire manages parking.
+trigger: ~60 minutes before first kickoff (managed-parking venues only)
+phase: day_setup
+sport_tags: []
+venue_tags: [parking_managed]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager, role.event_lead]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.parking_setup
+expected_completion: T-60min

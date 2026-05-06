@@ -1,0 +1,32 @@
+id: act.facility_unlock
+name: Facility unlock
+description: |
+  Disarm alarm, unlock exterior and interior doors, turn on lights and
+  HVAC, and confirm facility is ready for staff arrival ahead of the
+  event window.
+trigger: ~2h before first kickoff
+phase: day_setup
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.facilities, role.front_of_house, role.event_lead]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.facility_unlock
+expected_completion: T-2h
