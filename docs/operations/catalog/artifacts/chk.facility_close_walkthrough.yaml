@@ -1,0 +1,6 @@
+id: chk.facility_close_walkthrough
+kind: checklist
+status: stub
+items:
+  - id: pending_authorship
+    label: (placeholder — full checklist items pending operator authorship)
