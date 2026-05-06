@@ -19,7 +19,7 @@ const ManualTargetEnum = z.enum([
 ]);
 
 export const RoleSchema = z.object({
-  id: z.string().regex(ID_PATTERNS.role, "must match ^role\\.[a-z_]+$"),
+  id: z.string().regex(ID_PATTERNS.role, "must match ^role\\.[a-z][a-z0-9_]*$"),
   name: NonEmptyString,
   tier: RoleTierEnum,
   kind: RoleKindEnum,

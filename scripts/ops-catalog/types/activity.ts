@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 const ID_PATTERNS = {
-  activity: /^act\.[a-z_]+$/,
-  role: /^role\.[a-z_]+$/,
-  feature: /^feat\.[a-z_]+$/,
-  checklist: /^chk\.[a-z_]+$/,
-  form: /^frm\.[a-z_]+$/,
-  signature: /^sig\.[a-z_]+$/,
-  counter: /^counter\.[a-z_]+$/,
-  event: /^evt\.[a-z_]+$/,
+  activity: /^act\.[a-z][a-z0-9_]*$/,
+  role: /^role\.[a-z][a-z0-9_]*$/,
+  feature: /^feat\.[a-z][a-z0-9_]*$/,
+  checklist: /^chk\.[a-z][a-z0-9_]*$/,
+  form: /^frm\.[a-z][a-z0-9_]*$/,
+  signature: /^sig\.[a-z][a-z0-9_]*$/,
+  counter: /^counter\.[a-z][a-z0-9_]*$/,
+  event: /^evt\.[a-z][a-z0-9_]*$/,
 } as const;
 
-const RoleId = z.string().regex(ID_PATTERNS.role, "must match ^role\\.[a-z_]+$");
-const FeatureId = z.string().regex(ID_PATTERNS.feature, "must match ^feat\\.[a-z_]+$");
+const RoleId = z.string().regex(ID_PATTERNS.role, "must match ^role\\.[a-z][a-z0-9_]*$");
+const FeatureId = z.string().regex(ID_PATTERNS.feature, "must match ^feat\\.[a-z][a-z0-9_]*$");
 
 const PhaseEnum = z.enum([
   "pre_day",
@@ -43,15 +43,15 @@ const TrackingMethodEnum = z.enum([
 // schema. We intentionally use plain objects (not a discriminated union with a
 // synthetic key) because the YAML-authored shape has no discriminator field.
 const ChecklistArtifact = z.object({
-  template_id: z.string().regex(ID_PATTERNS.checklist, "must match ^chk\\.[a-z_]+$"),
+  template_id: z.string().regex(ID_PATTERNS.checklist, "must match ^chk\\.[a-z][a-z0-9_]*$"),
 });
 
 const FormArtifact = z.object({
-  template_id: z.string().regex(ID_PATTERNS.form, "must match ^frm\\.[a-z_]+$"),
+  template_id: z.string().regex(ID_PATTERNS.form, "must match ^frm\\.[a-z][a-z0-9_]*$"),
 });
 
 const SignatureArtifact = z.object({
-  template_id: z.string().regex(ID_PATTERNS.signature, "must match ^sig\\.[a-z_]+$"),
+  template_id: z.string().regex(ID_PATTERNS.signature, "must match ^sig\\.[a-z][a-z0-9_]*$"),
   required_role: RoleId,
 });
 
@@ -61,12 +61,12 @@ const PhotoUploadArtifact = z.object({
 });
 
 const CounterIncrementArtifact = z.object({
-  counter: z.string().regex(ID_PATTERNS.counter, "must match ^counter\\.[a-z_]+$"),
+  counter: z.string().regex(ID_PATTERNS.counter, "must match ^counter\\.[a-z][a-z0-9_]*$"),
   min_count: z.number().int().min(0),
 });
 
 const SystemEventArtifact = z.object({
-  event_type: z.string().regex(ID_PATTERNS.event, "must match ^evt\\.[a-z_]+$"),
+  event_type: z.string().regex(ID_PATTERNS.event, "must match ^evt\\.[a-z][a-z0-9_]*$"),
 });
 
 const ExternalAcknowledgmentArtifact = z.object({
@@ -103,7 +103,7 @@ const NonEmptyString = z.string().min(1);
 
 export const ActivitySchema = z
   .object({
-    id: z.string().regex(ID_PATTERNS.activity, "must match ^act\\.[a-z_]+$"),
+    id: z.string().regex(ID_PATTERNS.activity, "must match ^act\\.[a-z][a-z0-9_]*$"),
     name: NonEmptyString,
     description: NonEmptyString,
     trigger: NonEmptyString,
