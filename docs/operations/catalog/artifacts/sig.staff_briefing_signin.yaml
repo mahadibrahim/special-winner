@@ -1,0 +1,5 @@
+id: sig.staff_briefing_signin
+kind: signature
+status: stub
+required_role: role.front_of_house
+prompt: (placeholder — full prompt pending operator authorship)

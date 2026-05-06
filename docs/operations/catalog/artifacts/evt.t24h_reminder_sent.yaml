@@ -1,0 +1,4 @@
+id: evt.t24h_reminder_sent
+kind: system_event
+status: stub
+description: (placeholder — full description pending implementation)

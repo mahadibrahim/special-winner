@@ -1,0 +1,4 @@
+id: evt.attendance_broadcast_sent
+kind: system_event
+status: stub
+description: (placeholder — full description pending implementation)

@@ -1,0 +1,4 @@
+id: evt.weekly_metrics_run
+kind: system_event
+status: stub
+description: (placeholder — full description pending implementation)

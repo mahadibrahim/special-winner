@@ -1,0 +1,5 @@
+id: sig.ref_check_in
+kind: signature
+status: stub
+required_role: role.ref
+prompt: (placeholder — full prompt pending operator authorship)
