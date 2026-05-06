@@ -26,7 +26,9 @@
     "test:api:watch": "vitest --config vitest.config.ts --project api",
     "test:api:ui": "vitest --ui --config vitest.config.ts",
     "test:unit": "vitest run --config vitest.config.ts --project unit",
-    "strategy:pdf": "tsx scripts/strategy-md-to-pdf.ts"
+    "strategy:pdf": "tsx scripts/strategy-md-to-pdf.ts",
+    "catalog:validate": "tsx scripts/ops-catalog/index.ts validate",
+    "catalog:render": "tsx scripts/ops-catalog/index.ts render"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
