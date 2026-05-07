@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
-      `[cron] Activity tracker tick: ${result.fired} fired, ${result.errors} errors, ${result.processed} processed in ${elapsedMs}ms`,
+      `[cron] Activity tracker tick: ${result.fired} fired, ${result.errors} errors, ${result.processed} processed, ${result.counterCompleted} counter-auto-completed in ${elapsedMs}ms`,
     );
 
     return new Response(

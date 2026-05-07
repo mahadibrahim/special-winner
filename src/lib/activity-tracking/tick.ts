@@ -30,11 +30,13 @@ import { computeStage, stageAlreadyFired } from "./stage";
 import { computeHandoffTarget } from "./handoff";
 import { resolveRecipientsForRole } from "./resolve-recipients";
 import { dispatchReminders } from "./dispatch";
+import { runCounterAutoComplete } from "./counter-autocomplete";
 
 export interface TickResult {
   processed: number;
   fired: number;
   errors: number;
+  counterCompleted: number;
 }
 
 const PRE_REMINDER_LOOKAHEAD_MINUTES = 15;
@@ -43,7 +45,12 @@ export async function runActivityTrackerTick(
   now: Date = new Date(),
 ): Promise<TickResult> {
   const db = getDb();
-  const result: TickResult = { processed: 0, fired: 0, errors: 0 };
+  const result: TickResult = {
+    processed: 0,
+    fired: 0,
+    errors: 0,
+    counterCompleted: 0,
+  };
 
   // Pull rows due now or due within the pre-reminder lookahead window.
   // Status filter excludes terminal states (completed, canceled,
@@ -186,6 +193,19 @@ export async function runActivityTrackerTick(
       console.error("[tracker-tick]", c.id, err);
     }
     result.processed++;
+  }
+
+  // Counter auto-complete pass — runs after reminder dispatch so any
+  // pre_reminder/overdue stage already fired this tick before the row
+  // potentially flips to completed. Adapters are stubs today (see
+  // counter-autocomplete.ts) and return 0 from every source until the
+  // backing tables ship in Plan 4+.
+  try {
+    const counterStats = await runCounterAutoComplete(now);
+    result.counterCompleted = counterStats.completed;
+  } catch (err) {
+    result.errors++;
+    console.error("[tracker-tick] counter auto-complete failed:", err);
   }
 
   return result;
