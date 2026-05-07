@@ -1,12 +1,15 @@
 /**
  * GET /api/admin/activity-completions/today
  *
- * Returns activity_completions for a single date (default: today UTC),
- * scoped to the caller's organization, joined with game.scheduledAt and
- * venue.name for display. Default sort: expected_at ascending.
+ * Returns activity_completions for a single calendar date (default:
+ * today in the caller's organization timezone), scoped to the caller's
+ * organization, joined with game.scheduledAt and venue.name for display.
+ * Default sort: expected_at ascending.
  *
  * Query params:
- *   ?date=YYYY-MM-DD       — filter by expected_at within that calendar day (UTC)
+ *   ?date=YYYY-MM-DD       — filter by expected_at within that calendar
+ *                            day in the org's timezone. Bounds are
+ *                            converted to UTC for the BETWEEN query.
  *
  * Tenant scoping: activity_completions.organization_id is the snapshot
  * captured at bootstrap, so we filter directly with no joins. The
@@ -21,8 +24,10 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { activityCompletions } from "@/lib/db/schema/activity-tracking";
 import { games, venues } from "@/lib/db/schema/teams";
+import { organizations } from "@/lib/db/schema/organizations";
 import { and, asc, between, eq, notInArray } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { tzDayBoundsUtc } from "@/lib/activity-tracking/tz-day";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -44,14 +49,27 @@ export const GET: APIRoute = async (context) => {
   const dateParam = url.searchParams.get("date");
   const includeClosed = url.searchParams.get("includeClosed") === "1";
 
-  // Default to "today" in UTC — the dashboard re-renders client-side so this
-  // is a coarse default; per-org timezone shifting is a UI concern.
-  const date = dateParam ?? new Date().toISOString().slice(0, 10);
+  // Resolve org timezone — defaults to America/New_York per organizations schema.
+  const [orgRow] = await getDb()
+    .select({ timezone: organizations.timezone })
+    .from(organizations)
+    .where(eq(organizations.id, orgContext.organizationId))
+    .limit(1);
+  const tz = orgRow?.timezone ?? "America/New_York";
+
+  // Default "today" is today in the org's timezone, not UTC.
+  const date =
+    dateParam ??
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return json({ error: "date must be YYYY-MM-DD" }, 400);
   }
-  const start = new Date(`${date}T00:00:00.000Z`);
-  const end = new Date(`${date}T23:59:59.999Z`);
+  const { startUtc: start, endUtc: end } = tzDayBoundsUtc(date, tz);
 
   const conditions = [
     eq(activityCompletions.organizationId, orgContext.organizationId),
