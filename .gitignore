@@ -45,8 +45,13 @@ test-results/
 .agents/
 skills-lock.json
 
-# Netlify CLI local cache (functions emulator etc.)
-netlify/
+# Netlify CLI local cache (functions emulator etc.). User-authored
+# scheduled functions live at netlify/functions/ and are tracked.
+netlify/edge-functions-import-map.json
+netlify/state.json
+netlify/cache/
+netlify/build/
+netlify/blobs-serve/
 
 # Generated strategy PDFs
 pdfs/strategy/
