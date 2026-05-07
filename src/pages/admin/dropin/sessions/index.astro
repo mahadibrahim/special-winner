@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../../components/admin/admin-layout';
+import { SessionsList } from '../../../../components/admin/dropin/SessionsList';
+
+export const prerender = false;
+const user = Astro.locals.user!;
+---
+
+<BaseLayout title="Drop-in Sessions — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/dropin/sessions"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <SessionsList client:load />
+  </AdminLayout>
+</BaseLayout>

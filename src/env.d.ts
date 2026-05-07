@@ -4,6 +4,7 @@
 import type { Organization, Location, OrganizationSettings, OrganizationFeatures } from "./lib/db/schema/organizations";
 import type { UserRole } from "./lib/auth/roles";
 import type { UserAttributes } from "./lib/auth/types";
+import type { BrandProfile } from "./lib/branding/resolver";
 
 interface SessionAttributes {
   id: string;
@@ -21,6 +22,7 @@ declare global {
       userRoles: UserRole[];
       isAdmin: boolean;
       isCoach: boolean;
+      brand: BrandProfile | null;
     }
   }
 }

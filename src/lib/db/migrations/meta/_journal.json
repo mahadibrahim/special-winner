@@ -169,6 +169,13 @@
       "when": 1778120650869,
       "tag": "0023_overjoyed_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778159933791,
+      "tag": "0024_curved_runaways",
+      "breakpoints": true
     }
   ]
 }

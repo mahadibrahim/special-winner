@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { BrandProfileEditor } from '../../../components/admin/branding/BrandProfileEditor';
+
+export const prerender = false;
+const user = Astro.locals.user!;
+const profileId = Astro.params.id!;
+---
+
+<BaseLayout title="Brand Profile — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/branding"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <BrandProfileEditor client:load profileId={profileId} />
+  </AdminLayout>
+</BaseLayout>

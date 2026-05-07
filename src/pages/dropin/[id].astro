@@ -1,0 +1,24 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SessionDetail from '@/components/dropin/SessionDetail';
+
+export const prerender = false;
+
+const sessionId = Astro.params.id!;
+const isAuthenticated = !!Astro.locals.user;
+const bookingParam = Astro.url.searchParams.get('booking');
+const bannerKind: 'success' | 'cancelled' | null =
+  bookingParam === 'success' ? 'success' :
+  bookingParam === 'cancelled' ? 'cancelled' : null;
+---
+
+<BaseLayout title="Drop In Session — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <SessionDetail
+      client:load
+      sessionId={sessionId}
+      isAuthenticated={isAuthenticated}
+      bannerKind={bannerKind}
+    />
+  </main>
+</BaseLayout>

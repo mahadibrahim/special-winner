@@ -68,6 +68,12 @@ export const venues = pgTable(
     parkingManaged: boolean("parking_managed").notNull().default(false),
     notes: text("notes"),
     active: boolean("active").default(true).notNull(),
+    // Stripe Connect destination charge support for partner-owned venues
+    // (e.g. drop-in soccer at indoor partner facilities). When set, drop-in
+    // bookings split payment to the partner's Connect account using
+    // application_fee_pct as the platform's cut.
+    partnerStripeAccountId: text("partner_stripe_account_id"),
+    partnerApplicationFeePct: integer("partner_application_fee_pct"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

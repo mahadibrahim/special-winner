@@ -1,5 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 import { resolveOrganizationFromHost } from "./lib/organization/domain-resolver";
+import { resolveBrandProfile } from "./lib/branding/resolver";
 import { lucia } from "./lib/auth/lucia";
 import { getUserRoles, getCoachTeamIds } from "./lib/auth/roles";
 import { ensureEnvValidated } from "./lib/env";
@@ -71,6 +72,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.userRoles = [];
   context.locals.isAdmin = false;
   context.locals.isCoach = false;
+  context.locals.brand = null;
 
   // Resolve organization from domain (non-blocking — if it fails, we just
   // proceed without organization context and the page handles it).
@@ -81,6 +83,21 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (resolved) {
       context.locals.organization = resolved.organization;
       context.locals.currentLocation = resolved.location;
+    }
+
+    // Resolve brand profile from the same host. Brand is independent of
+    // org resolution: a host may belong to an org and also have its own
+    // brand row (e.g. dropin marketing sites pointing at shared inventory).
+    // Strip any port suffix the headers might include.
+    const hostname = host.split(":")[0]?.toLowerCase() ?? host;
+    try {
+      const brand = await resolveBrandProfile(hostname);
+      if (brand) {
+        context.locals.brand = brand;
+      }
+    } catch {
+      // Don't let a brand-table outage break the request.
+      console.log("Middleware: Error resolving brand profile");
     }
   } catch (error) {
     console.log("Middleware: Error resolving organization from host");

@@ -1,0 +1,228 @@
+import {
+  pgTable,
+  pgEnum,
+  uuid,
+  text,
+  timestamp,
+  integer,
+  boolean,
+  jsonb,
+  primaryKey,
+  uniqueIndex,
+  index,
+} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { organizations } from "./organizations";
+import { venues } from "./teams";
+import { users } from "./users";
+import { mediaAssets } from "./media";
+
+// === enums ===
+
+export const dropInSessionKindEnum = pgEnum("drop_in_session_kind", ["pickup", "class"]);
+export const dropInSkillLevelEnum = pgEnum("drop_in_skill_level", [
+  "recreational",
+  "intermediate",
+  "advanced",
+  "all_levels",
+]);
+export const dropInAudienceEnum = pgEnum("drop_in_audience", ["adults", "youth", "all_ages"]);
+export const dropInSessionStatusEnum = pgEnum("drop_in_session_status", [
+  "scheduled",
+  "cancelled",
+  "completed",
+]);
+export const dropInBookingStatusEnum = pgEnum("drop_in_booking_status", [
+  "confirmed",
+  "waitlisted",
+  "pending_claim",
+  "cancelled",
+  "no_show",
+]);
+export const dropInBookingSourceEnum = pgEnum("drop_in_booking_source", [
+  "online_booking",
+  "walk_up",
+]);
+export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
+  "card_online",
+  "card_present",
+  "member_unlimited",
+  "member_allotment",
+]);
+export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason", [
+  "user_request",
+  "no_show",
+  "admin_override",
+  "session_cancelled",
+  "expired_promotion",
+]);
+export const skillLevelEnum = pgEnum("skill_level", [
+  "recreational",
+  "intermediate",
+  "advanced",
+]);
+export const skillLevelSourceEnum = pgEnum("skill_level_source", [
+  "self_reported",
+  "admin_assigned",
+]);
+
+// === tables ===
+
+export const dropInSessions = pgTable(
+  "drop_in_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    venueId: uuid("venue_id")
+      .notNull()
+      .references(() => venues.id, { onDelete: "restrict" }),
+    // TODO: add FK when bookable_resources ships from 2026-04-28 design
+    bookableResourceId: uuid("bookable_resource_id"),
+    kind: dropInSessionKindEnum("kind").notNull(),
+    sportOrClassLabel: text("sport_or_class_label").notNull(),
+    formatLabel: text("format_label"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    capacity: integer("capacity").notNull(),
+    capacityMale: integer("capacity_male"),
+    capacityFemale: integer("capacity_female"),
+    skillLevel: dropInSkillLevelEnum("skill_level").notNull().default("all_levels"),
+    audience: dropInAudienceEnum("audience").notNull().default("adults"),
+    membersOnly: boolean("members_only").notNull().default(false),
+    sessionRateCents: integer("session_rate_cents"),
+    memberRateCents: integer("member_rate_cents"),
+    teamCount: integer("team_count").notNull().default(0),
+    teamColors: text("team_colors")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    status: dropInSessionStatusEnum("status").notNull().default("scheduled"),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("drop_in_sessions_org_starts_at_idx").on(table.organizationId, table.startsAt),
+    index("drop_in_sessions_venue_starts_at_idx").on(table.venueId, table.startsAt),
+    index("drop_in_sessions_status_idx").on(table.status),
+  ],
+);
+
+export const dropInBookings = pgTable(
+  "drop_in_bookings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => dropInSessions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    status: dropInBookingStatusEnum("status").notNull(),
+    source: dropInBookingSourceEnum("source").notNull(),
+    paymentMethod: dropInPaymentMethodEnum("payment_method").notNull(),
+    amountPaidCents: integer("amount_paid_cents").notNull().default(0),
+    // TODO: add FK when memberships ships from 2026-04-28 design
+    membershipId: uuid("membership_id"),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    stripeRefundId: text("stripe_refund_id"),
+    promotedAt: timestamp("promoted_at", { withTimezone: true }),
+    promotionExpiresAt: timestamp("promotion_expires_at", { withTimezone: true }),
+    promotionToken: text("promotion_token"),
+    teamAssignment: text("team_assignment"),
+    checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancellationReason: dropInCancellationReasonEnum("cancellation_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("drop_in_bookings_one_active_per_user_session")
+      .on(table.sessionId, table.userId)
+      .where(sql`status IN ('confirmed', 'waitlisted', 'pending_claim')`),
+    index("drop_in_bookings_session_status_idx").on(table.sessionId, table.status),
+    index("drop_in_bookings_user_status_idx").on(
+      table.userId,
+      table.status,
+      table.createdAt,
+    ),
+    index("drop_in_bookings_promotion_expiry_idx")
+      .on(table.promotionExpiresAt)
+      .where(sql`status = 'pending_claim'`),
+  ],
+);
+
+export const dropInRateCard = pgTable("drop_in_rate_card", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .unique()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  defaultSessionRateCents: integer("default_session_rate_cents").notNull().default(1500),
+  defaultMemberRateCents: integer("default_member_rate_cents").notNull().default(1200),
+  cancelWindowHours: integer("cancel_window_hours").notNull().default(24),
+  promotionWindowMinutes: integer("promotion_window_minutes").notNull().default(30),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+});
+
+export const brandProfiles = pgTable(
+  "brand_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    logoMediaId: uuid("logo_media_id").references(() => mediaAssets.id, {
+      onDelete: "set null",
+    }),
+    heroCopy: jsonb("hero_copy"),
+    colorTokens: jsonb("color_tokens"),
+    footerCopy: text("footer_copy"),
+    featuredVenueIds: uuid("featured_venue_ids")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::uuid[]`),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("brand_profiles_org_active_idx").on(table.organizationId, table.active),
+  ],
+);
+
+export const userSkillLevels = pgTable(
+  "user_skill_levels",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sport: text("sport").notNull(),
+    level: skillLevelEnum("level").notNull(),
+    source: skillLevelSourceEnum("source").notNull(),
+    setAt: timestamp("set_at", { withTimezone: true }).notNull().defaultNow(),
+    setByUserId: uuid("set_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.sport] })],
+);
+
+// Type exports
+export type DropInSession = typeof dropInSessions.$inferSelect;
+export type NewDropInSession = typeof dropInSessions.$inferInsert;
+export type DropInBooking = typeof dropInBookings.$inferSelect;
+export type NewDropInBooking = typeof dropInBookings.$inferInsert;
+export type DropInRateCard = typeof dropInRateCard.$inferSelect;
+export type BrandProfile = typeof brandProfiles.$inferSelect;
+export type NewBrandProfile = typeof brandProfiles.$inferInsert;
+export type UserSkillLevel = typeof userSkillLevels.$inferSelect;

@@ -1,0 +1,316 @@
+/**
+ * Drop-in booking orchestrator.
+ *
+ * Free-path entry point: confirms a member's $0 booking inside a single DB
+ * transaction with `SELECT ... FOR UPDATE` on the session row to keep
+ * concurrent bookings race-safe.
+ *
+ * Paid bookings (rate > 0) are handled separately via Stripe Checkout in
+ * the API endpoint — we don't insert the booking row until the webhook
+ * fires `checkout.session.completed`, to avoid orphan rows on Checkout
+ * abandonment.
+ *
+ * Helper stubs (`getActiveMembershipForUser`, `decrementAllotment`) are
+ * intentionally no-op until the memberships schema lands from the
+ * 2026-04-28 design. Until then the only path that produces a $0 rate is
+ * a session-level override (`sessionRateCents = 0` or `memberRateCents`
+ * with a future membership row).
+ */
+import { getDb } from "@/lib/db";
+import {
+  dropInSessions,
+  dropInBookings,
+  dropInRateCard,
+  userSkillLevels,
+} from "@/lib/db/schema/drop-in";
+import { users } from "@/lib/db/schema/users";
+import { and, eq, sql } from "drizzle-orm";
+import { resolveRate, type ResolvedRate } from "./pricing";
+import { checkMembersOnly, checkCapacity, checkGenderCap } from "./gates";
+import { assignTeam } from "./team-assignment";
+import { dispatchBookingConfirmation } from "./messages/dispatch";
+
+export interface BookingError {
+  code:
+    | "members_only"
+    | "session_full"
+    | "gender_cap_full"
+    | "session_not_found"
+    | "session_not_scheduled"
+    | "user_not_found"
+    | "already_booked"
+    | "rate_card_missing"
+    | "non_free_rate";
+  message: string;
+}
+
+export interface BookingResult {
+  ok: true;
+  bookingId: string;
+  amountCents: number;
+  paymentMethod: ResolvedRate["paymentMethod"];
+  teamAssignment: string | null;
+}
+
+export interface BookingFailure {
+  ok: false;
+  error: BookingError;
+}
+
+export type CreateConfirmedBookingResult = BookingResult | BookingFailure;
+
+export async function createConfirmedBookingFreePath(opts: {
+  sessionId: string;
+  userId: string;
+  source: "online_booking" | "walk_up";
+}): Promise<CreateConfirmedBookingResult> {
+  const db = getDb();
+
+  return await db.transaction(async (tx) => {
+    // Lock the session row.
+    const [session] = await tx
+      .select()
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, opts.sessionId))
+      .for("update");
+
+    if (!session) {
+      return {
+        ok: false,
+        error: { code: "session_not_found", message: "Session not found" },
+      };
+    }
+    if (session.status !== "scheduled") {
+      return {
+        ok: false,
+        error: {
+          code: "session_not_scheduled",
+          message: "Session is not open for booking",
+        },
+      };
+    }
+
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, opts.userId))
+      .limit(1);
+    if (!user) {
+      return {
+        ok: false,
+        error: { code: "user_not_found", message: "User not found" },
+      };
+    }
+
+    // Existing active booking? Bail before we try to insert (the partial
+    // unique index would also catch it but we want a clean error code).
+    const existing = await tx
+      .select({ id: dropInBookings.id })
+      .from(dropInBookings)
+      .where(
+        and(
+          eq(dropInBookings.sessionId, opts.sessionId),
+          eq(dropInBookings.userId, opts.userId),
+          sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim')`,
+        ),
+      );
+    if (existing.length > 0) {
+      return {
+        ok: false,
+        error: {
+          code: "already_booked",
+          message: "User already has an active booking on this session",
+        },
+      };
+    }
+
+    const membership = await getActiveMembershipForUser(
+      opts.userId,
+      session.organizationId,
+    );
+
+    const [rateCard] = await tx
+      .select()
+      .from(dropInRateCard)
+      .where(eq(dropInRateCard.organizationId, session.organizationId))
+      .limit(1);
+    if (!rateCard) {
+      return {
+        ok: false,
+        error: {
+          code: "rate_card_missing",
+          message:
+            "Rate card not configured for organization — should have been seeded at org creation",
+        },
+      };
+    }
+
+    // Gates.
+    const memGate = checkMembersOnly(session, membership);
+    if (!memGate.ok) {
+      return {
+        ok: false,
+        error: {
+          code: memGate.reason,
+          message: "Session is members-only",
+        },
+      };
+    }
+
+    const [confirmedRow] = await tx
+      .select({ c: sql<number>`count(*)::int` })
+      .from(dropInBookings)
+      .where(
+        and(
+          eq(dropInBookings.sessionId, opts.sessionId),
+          eq(dropInBookings.status, "confirmed"),
+        ),
+      );
+    const capGate = checkCapacity(session, confirmedRow?.c ?? 0);
+    if (!capGate.ok) {
+      return {
+        ok: false,
+        error: { code: capGate.reason, message: "Session is full" },
+      };
+    }
+
+    if (
+      session.capacityMale !== null &&
+      session.capacityFemale !== null &&
+      user.gender !== null
+    ) {
+      const counts = await fetchGenderCounts(tx, opts.sessionId);
+      const genderGate = checkGenderCap(session, user.gender, counts);
+      if (!genderGate.ok) {
+        return {
+          ok: false,
+          error: { code: genderGate.reason, message: "Gender cap full" },
+        };
+      }
+    }
+
+    // Resolve rate. The free-path orchestrator only handles $0 outcomes.
+    const rate = resolveRate(session, { id: opts.userId }, membership, rateCard);
+    if (rate.amountCents !== 0) {
+      return {
+        ok: false,
+        error: {
+          code: "non_free_rate",
+          message:
+            "Booking requires payment — use Stripe Checkout flow instead",
+        },
+      };
+    }
+
+    // Existing bookings for team-balance computation.
+    const existingForTeam = await tx
+      .select({
+        teamAssignment: dropInBookings.teamAssignment,
+        skillLevel: sql<string>`coalesce(usl.level::text, 'all_levels')`,
+      })
+      .from(dropInBookings)
+      .leftJoin(
+        sql`user_skill_levels usl`,
+        sql`usl.user_id = ${dropInBookings.userId} AND usl.sport = ${session.sportOrClassLabel}`,
+      )
+      .where(
+        and(
+          eq(dropInBookings.sessionId, opts.sessionId),
+          eq(dropInBookings.status, "confirmed"),
+        ),
+      );
+
+    const userSkill = await fetchUserSkill(
+      tx,
+      opts.userId,
+      session.sportOrClassLabel,
+    );
+    const team = assignTeam(session, userSkill, existingForTeam);
+
+    const [booking] = await tx
+      .insert(dropInBookings)
+      .values({
+        sessionId: opts.sessionId,
+        userId: opts.userId,
+        status: "confirmed",
+        source: opts.source,
+        paymentMethod: rate.paymentMethod,
+        amountPaidCents: 0,
+        membershipId: rate.membershipId,
+        teamAssignment: team,
+      })
+      .returning();
+
+    if (rate.paymentMethod === "member_allotment" && rate.membershipId) {
+      await decrementAllotment(rate.membershipId);
+    }
+
+    // Fire-and-forget transactional confirmation. We dispatch *after* the
+    // transaction commits — but since we need the booking id, we kick it off
+    // via a microtask: the inserted row is committed when the tx body
+    // returns and the dispatcher reads it from a fresh DB query.
+    queueMicrotask(() => {
+      void dispatchBookingConfirmation(booking.id).catch((err) => {
+        console.error("[dropin] booking-confirmation dispatch failed", err);
+      });
+    });
+
+    return {
+      ok: true,
+      bookingId: booking.id,
+      amountCents: 0,
+      paymentMethod: rate.paymentMethod,
+      teamAssignment: team,
+    };
+  });
+}
+
+// ---- Helper stubs ----------------------------------------------------------
+// These become real implementations once the memberships schema ships from
+// the 2026-04-28 design. Until then `getActiveMembershipForUser` always
+// returns null, which means resolveRate always returns the public session
+// rate (paid path) — the orchestrator's `non_free_rate` branch covers it.
+
+export async function getActiveMembershipForUser(
+  _userId: string,
+  _organizationId: string,
+): Promise<null> {
+  return null;
+}
+
+async function fetchGenderCounts(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  sessionId: string,
+): Promise<{ male: number; female: number }> {
+  const [row] = await tx.execute<{ male: number; female: number }>(
+    sql`
+      SELECT
+        COUNT(*) FILTER (WHERE u.gender = 'male')::int AS male,
+        COUNT(*) FILTER (WHERE u.gender = 'female')::int AS female
+      FROM drop_in_bookings b
+      JOIN users u ON u.id = b.user_id
+      WHERE b.session_id = ${sessionId}
+        AND b.status = 'confirmed'
+    `,
+  );
+  return { male: row?.male ?? 0, female: row?.female ?? 0 };
+}
+
+async function fetchUserSkill(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  userId: string,
+  sport: string,
+): Promise<string> {
+  const [row] = await tx
+    .select({ level: userSkillLevels.level })
+    .from(userSkillLevels)
+    .where(
+      and(eq(userSkillLevels.userId, userId), eq(userSkillLevels.sport, sport)),
+    )
+    .limit(1);
+  return row?.level ?? "all_levels";
+}
+
+async function decrementAllotment(_membershipId: string): Promise<void> {
+  // no-op until memberships schema is wired
+}
