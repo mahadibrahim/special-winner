@@ -23,6 +23,7 @@ import {
 } from "@/lib/db/schema/drop-in";
 import { assignTeam } from "@/lib/dropin/team-assignment";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
+import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
 
 const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
   "card_online",
@@ -124,6 +125,17 @@ export async function handleDropInWalkUpPayment(
         teamAssignment: team,
       })
       .returning();
+
+    // Fire-and-forget confirmation (walk-up source). Messaging failures
+    // must not roll back the booking; dispatch logs its own errors.
+    queueMicrotask(() => {
+      void dispatchBookingConfirmation(booking.id).catch((err) => {
+        console.error(
+          "[dropin] walk-up booking-confirmation dispatch failed",
+          err,
+        );
+      });
+    });
 
     return {
       status: "processed",

@@ -24,6 +24,7 @@ import {
 } from "@/lib/db/schema/drop-in";
 import { stripe } from "@/lib/stripe/client";
 import { promoteNextWaitlister } from "./promotion";
+import { dispatchBookingCancelledByAdmin } from "./messages/dispatch";
 
 export interface CancelRefundResult {
   ok: boolean;
@@ -35,7 +36,16 @@ export interface CancelRefundResult {
 
 export async function processCancelRefund(
   bookingId: string,
-  options: { adminOverride?: boolean; reason?: string } = {},
+  options: {
+    adminOverride?: boolean;
+    /**
+     * If "session_cancelled", we record `session_cancelled` as the
+     * cancellation reason and use the matching customer notification
+     * variant. Otherwise admin-overrides record `admin_override` and
+     * customer-driven cancels record `user_request`.
+     */
+    reason?: "session_cancelled" | string;
+  } = {},
 ): Promise<CancelRefundResult> {
   const db = getDb();
 
@@ -97,17 +107,39 @@ export async function processCancelRefund(
   // TODO: when memberships schema lands, restore the allotment counter
   // here for paymentMethod === "member_allotment" cases.
 
+  const isSessionCancel = options.reason === "session_cancelled";
+  const cancellationReason = isSessionCancel
+    ? "session_cancelled"
+    : options.adminOverride
+      ? "admin_override"
+      : "user_request";
+
   await db
     .update(dropInBookings)
     .set({
       status: "cancelled",
-      cancellationReason: options.adminOverride
-        ? "admin_override"
-        : "user_request",
+      cancellationReason,
       cancelledAt: new Date(),
       updatedAt: new Date(),
     })
     .where(eq(dropInBookings.id, bookingId));
+
+  // Notify the customer when staff initiated the cancel (admin override
+  // OR session cancelled). User-initiated cancels skip the email — the
+  // user just clicked Cancel and saw the confirmation in the UI.
+  if (options.adminOverride || isSessionCancel) {
+    queueMicrotask(() => {
+      void dispatchBookingCancelledByAdmin(bookingId, {
+        reason: isSessionCancel ? "session_cancelled" : "admin_refund",
+        refunded,
+      }).catch((err) => {
+        console.error(
+          "[dropin refund] booking-cancelled-by-admin dispatch failed",
+          err,
+        );
+      });
+    });
+  }
 
   let promotedNextBookingId: string | undefined;
   try {

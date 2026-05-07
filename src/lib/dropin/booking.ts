@@ -28,6 +28,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { resolveRate, type ResolvedRate } from "./pricing";
 import { checkMembersOnly, checkCapacity, checkGenderCap } from "./gates";
 import { assignTeam } from "./team-assignment";
+import { dispatchBookingConfirmation } from "./messages/dispatch";
 
 export interface BookingError {
   code:
@@ -243,6 +244,16 @@ export async function createConfirmedBookingFreePath(opts: {
     if (rate.paymentMethod === "member_allotment" && rate.membershipId) {
       await decrementAllotment(rate.membershipId);
     }
+
+    // Fire-and-forget transactional confirmation. We dispatch *after* the
+    // transaction commits — but since we need the booking id, we kick it off
+    // via a microtask: the inserted row is committed when the tx body
+    // returns and the dispatcher reads it from a fresh DB query.
+    queueMicrotask(() => {
+      void dispatchBookingConfirmation(booking.id).catch((err) => {
+        console.error("[dropin] booking-confirmation dispatch failed", err);
+      });
+    });
 
     return {
       ok: true,

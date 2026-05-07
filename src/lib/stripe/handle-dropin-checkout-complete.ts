@@ -23,6 +23,7 @@ import {
 } from "@/lib/db/schema/drop-in";
 import { assignTeam } from "@/lib/dropin/team-assignment";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
+import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
 
 const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
   "card_online",
@@ -129,6 +130,17 @@ export async function handleDropInCheckoutComplete(
         teamAssignment: team,
       })
       .returning();
+
+    // Fire-and-forget confirmation. The webhook handler is idempotent and
+    // we don't want messaging failures to roll back the booking insert.
+    queueMicrotask(() => {
+      void dispatchBookingConfirmation(booking.id).catch((err) => {
+        console.error(
+          "[dropin] checkout booking-confirmation dispatch failed",
+          err,
+        );
+      });
+    });
 
     return {
       status: "processed",

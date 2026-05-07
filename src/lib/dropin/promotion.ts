@@ -23,6 +23,7 @@ import {
   dropInSessions,
   dropInRateCard,
 } from "@/lib/db/schema/drop-in";
+import { dispatchWaitlistPromoted } from "./messages/dispatch";
 
 export interface PromotionResult {
   promoted: boolean;
@@ -85,7 +86,7 @@ export async function promoteNextWaitlister(
       })
       .where(eq(dropInBookings.id, next.id));
 
-    return {
+    const result: PromotionResult = {
       promoted: true,
       bookingId: next.id,
       userId: next.userId,
@@ -93,6 +94,17 @@ export async function promoteNextWaitlister(
       token,
       expiresAt,
     };
+
+    // Fire the claim notification once the row update commits. The
+    // microtask queues after the surrounding tx returns, ensuring the
+    // dispatcher sees the promoted state when it reads the booking row.
+    queueMicrotask(() => {
+      void dispatchWaitlistPromoted(next.id, token, expiresAt).catch((err) => {
+        console.error("[dropin] waitlist-promoted dispatch failed", err);
+      });
+    });
+
+    return result;
   });
 }
 
