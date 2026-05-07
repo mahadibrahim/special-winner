@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderSportAddendum } from "../../../../scripts/ops-catalog/views/sport-addendum";
+import { renderSportAddendum } from "../../../../src/lib/ops-catalog/views/sport-addendum";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
 
 describe("renderSportAddendum", () => {

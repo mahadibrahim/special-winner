@@ -1,13 +1,15 @@
 #!/usr/bin/env tsx
+// Thin CLI shim — all runtime logic now lives in src/lib/ops-catalog/.
+// This file is invoked via `npm run catalog:validate` and `npm run catalog:render`.
 import path from "node:path";
 import fs from "node:fs/promises";
-import { loadCatalog } from "./loader";
-import { validateCatalog } from "./validator";
-import { generateAllRoleManuals } from "./views/role-manual";
-import { generateAutomationBacklog } from "./views/automation-backlog";
-import { renderRunbook } from "./views/runbook";
-import { renderRaciMatrix } from "./views/raci-matrix";
-import { renderSportAddendum } from "./views/sport-addendum";
+import { loadCatalog } from "../../src/lib/ops-catalog/loader";
+import { validateCatalog } from "../../src/lib/ops-catalog/validator";
+import { generateAllRoleManuals } from "../../src/lib/ops-catalog/views/role-manual";
+import { generateAutomationBacklog } from "../../src/lib/ops-catalog/views/automation-backlog";
+import { renderRunbook } from "../../src/lib/ops-catalog/views/runbook";
+import { renderRaciMatrix } from "../../src/lib/ops-catalog/views/raci-matrix";
+import { renderSportAddendum } from "../../src/lib/ops-catalog/views/sport-addendum";
 
 const command = process.argv[2];
 

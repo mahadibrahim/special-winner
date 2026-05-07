@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   renderRoleManual,
   generateAllRoleManuals,
-} from "../../../../scripts/ops-catalog/views/role-manual";
+} from "../../../../src/lib/ops-catalog/views/role-manual";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
 
 describe("renderRoleManual", () => {

@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { validateCatalog } from "../../../scripts/ops-catalog/validator";
-import type { Catalog } from "../../../scripts/ops-catalog/loader";
-import type { Activity } from "../../../scripts/ops-catalog/types/activity";
-import type { Role } from "../../../scripts/ops-catalog/types/role";
-import type { Feature } from "../../../scripts/ops-catalog/types/feature";
-import type { ArtifactTemplate } from "../../../scripts/ops-catalog/types/artifact-template";
+import { validateCatalog } from "../../../src/lib/ops-catalog/validator";
+import type { Catalog } from "../../../src/lib/ops-catalog/loader";
+import type { Activity } from "../../../src/lib/ops-catalog/types/activity";
+import type { Role } from "../../../src/lib/ops-catalog/types/role";
+import type { Feature } from "../../../src/lib/ops-catalog/types/feature";
+import type { ArtifactTemplate } from "../../../src/lib/ops-catalog/types/artifact-template";
 
 const venueManagerRole: Role = {
   id: "role.venue_manager",

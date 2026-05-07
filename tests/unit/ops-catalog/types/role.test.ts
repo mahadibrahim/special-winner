@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { RoleSchema } from "../../../../scripts/ops-catalog/types/role";
+import { RoleSchema } from "../../../../src/lib/ops-catalog/types/role";
 
 describe("RoleSchema", () => {
   it("accepts a worker role", () => {

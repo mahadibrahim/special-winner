@@ -3,11 +3,11 @@
 // Shape matches the schemas in scripts/ops-catalog/types/. Kept small and
 // hand-built so tests can pin precise expectations against output strings.
 
-import type { Catalog } from "../../../../scripts/ops-catalog/loader";
-import type { Activity } from "../../../../scripts/ops-catalog/types/activity";
-import type { ArtifactTemplate } from "../../../../scripts/ops-catalog/types/artifact-template";
-import type { Feature } from "../../../../scripts/ops-catalog/types/feature";
-import type { Role } from "../../../../scripts/ops-catalog/types/role";
+import type { Catalog } from "../../../../src/lib/ops-catalog/loader";
+import type { Activity } from "../../../../src/lib/ops-catalog/types/activity";
+import type { ArtifactTemplate } from "../../../../src/lib/ops-catalog/types/artifact-template";
+import type { Feature } from "../../../../src/lib/ops-catalog/types/feature";
+import type { Role } from "../../../../src/lib/ops-catalog/types/role";
 
 const roleVenueManager: Role = {
   id: "role.venue_manager",

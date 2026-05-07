@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ActivitySchema } from "../../../../scripts/ops-catalog/types/activity";
+import { ActivitySchema } from "../../../../src/lib/ops-catalog/types/activity";
 
 const validActivity = {
   id: "act.rainout_decision",

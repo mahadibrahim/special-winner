@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FeatureSchema } from "../../../../scripts/ops-catalog/types/feature";
+import { FeatureSchema } from "../../../../src/lib/ops-catalog/types/feature";
 
 describe("FeatureSchema", () => {
   it("accepts a feature stub", () => {

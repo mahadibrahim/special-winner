@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ArtifactTemplateSchema } from "../../../../scripts/ops-catalog/types/artifact-template";
+import { ArtifactTemplateSchema } from "../../../../src/lib/ops-catalog/types/artifact-template";
 
 describe("ArtifactTemplateSchema", () => {
   it("accepts a checklist template with items", () => {

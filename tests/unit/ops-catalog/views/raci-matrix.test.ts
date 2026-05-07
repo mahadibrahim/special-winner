@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderRaciMatrix } from "../../../../scripts/ops-catalog/views/raci-matrix";
+import { renderRaciMatrix } from "../../../../src/lib/ops-catalog/views/raci-matrix";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
 
 describe("renderRaciMatrix", () => {

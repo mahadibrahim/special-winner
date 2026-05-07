@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   renderRunbook,
   type RunbookContext,
-} from "../../../../scripts/ops-catalog/views/runbook";
+} from "../../../../src/lib/ops-catalog/views/runbook";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
 
 const baseCtx: RunbookContext = {

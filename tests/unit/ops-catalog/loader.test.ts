@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import path from "node:path";
-import { loadCatalog } from "../../../scripts/ops-catalog/loader";
+import { loadCatalog } from "../../../src/lib/ops-catalog/loader";
 
 const fixturesDir = path.resolve(__dirname, "fixtures");
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateAutomationBacklog } from "../../../../scripts/ops-catalog/views/automation-backlog";
+import { generateAutomationBacklog } from "../../../../src/lib/ops-catalog/views/automation-backlog";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
 
 describe("generateAutomationBacklog", () => {
