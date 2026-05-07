@@ -1,0 +1,15 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SessionList from '@/components/dropin/SessionList';
+
+// SSR — needs request-time host context for org resolution.
+export const prerender = false;
+---
+
+<BaseLayout title="Drop In — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-6xl mx-auto">
+      <SessionList client:load />
+    </div>
+  </main>
+</BaseLayout>

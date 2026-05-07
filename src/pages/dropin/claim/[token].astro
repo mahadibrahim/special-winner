@@ -1,0 +1,15 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ClaimPage from '@/components/dropin/ClaimPage';
+
+export const prerender = false;
+
+const token = Astro.params.token!;
+const isAuthenticated = !!Astro.locals.user;
+---
+
+<BaseLayout title="Claim Spot — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <ClaimPage client:load token={token} isAuthenticated={isAuthenticated} />
+  </main>
+</BaseLayout>

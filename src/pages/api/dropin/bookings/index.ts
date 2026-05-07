@@ -16,9 +16,13 @@
  * partner account net of our `partnerApplicationFeePct` cut.
  */
 import type { APIRoute } from "astro";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
+import {
+  dropInSessions,
+  dropInRateCard,
+  dropInBookings,
+} from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
 import { stripe } from "@/lib/stripe/client";
 import { resolveRate } from "@/lib/dropin/pricing";
@@ -28,6 +32,63 @@ import {
 } from "@/lib/dropin/booking";
 
 export const prerender = false;
+
+/**
+ * GET /api/dropin/bookings → list the authenticated user's drop-in
+ * bookings (any status). Used by the dashboard panel.
+ */
+export const GET: APIRoute = async ({ locals }) => {
+  if (!locals.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: dropInBookings.id,
+      sessionId: dropInBookings.sessionId,
+      status: dropInBookings.status,
+      paymentMethod: dropInBookings.paymentMethod,
+      amountPaidCents: dropInBookings.amountPaidCents,
+      teamAssignment: dropInBookings.teamAssignment,
+      createdAt: dropInBookings.createdAt,
+      sportOrClassLabel: dropInSessions.sportOrClassLabel,
+      formatLabel: dropInSessions.formatLabel,
+      startsAt: dropInSessions.startsAt,
+      endsAt: dropInSessions.endsAt,
+      venueName: venues.name,
+    })
+    .from(dropInBookings)
+    .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+    .leftJoin(venues, eq(venues.id, dropInSessions.venueId))
+    .where(eq(dropInBookings.userId, locals.user.id))
+    .orderBy(desc(dropInSessions.startsAt));
+
+  return new Response(
+    JSON.stringify({
+      bookings: rows.map((r) => ({
+        id: r.id,
+        sessionId: r.sessionId,
+        status: r.status,
+        paymentMethod: r.paymentMethod,
+        amountPaidCents: r.amountPaidCents,
+        teamAssignment: r.teamAssignment,
+        createdAt: r.createdAt,
+        session: {
+          sportOrClassLabel: r.sportOrClassLabel,
+          formatLabel: r.formatLabel,
+          startsAt: r.startsAt,
+          endsAt: r.endsAt,
+          venueName: r.venueName,
+        },
+      })),
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+};
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
