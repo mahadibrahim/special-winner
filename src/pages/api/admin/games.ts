@@ -8,6 +8,7 @@ import {
   notifyScheduleChange,
   notifyEventCancellation,
 } from "@/lib/messaging/notifications";
+import { bootstrapActivityCompletions } from "@/lib/activity-tracking/bootstrap";
 
 const gameSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -244,6 +245,14 @@ export const POST: APIRoute = async (context) => {
         scheduledAt: new Date(result.data.scheduledAt),
       })
       .returning();
+
+    // Seed activity_completions for the new game. Failure here is logged
+    // but does not fail the request — admins can re-bootstrap from the
+    // game detail UI if catalog/DB issues prevent a row from being
+    // created on first save.
+    bootstrapActivityCompletions(newGame.id).catch((err) => {
+      console.error("[bootstrap] failed for game", newGame.id, err);
+    });
 
     return new Response(JSON.stringify({ game: newGame }), {
       status: 201,
