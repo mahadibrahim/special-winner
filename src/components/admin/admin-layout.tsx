@@ -28,6 +28,9 @@ import {
   BarChart3,
   ShoppingBag,
   ShieldCheck,
+  Zap,
+  Palette,
+  Receipt,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -53,6 +56,9 @@ const navigation = [
   { name: "Age Groups", href: "/admin/age-groups", icon: Users },
   { name: "Teams", href: "/admin/teams", icon: Users2 },
   { name: "Games", href: "/admin/games", icon: CalendarDays },
+  { name: "Drop-in Sessions", href: "/admin/dropin/sessions", icon: Zap },
+  { name: "Drop-in Rate Card", href: "/admin/dropin/rate-card", icon: Receipt },
+  { name: "Branding", href: "/admin/branding", icon: Palette },
   { name: "Curriculum", href: "/admin/curriculum", icon: BookOpen },
   { name: "Registrations", href: "/admin/registrations", icon: Users },
   { name: "Walk-Up Registration", href: "/admin/walk-up-registration", icon: UserPlus },

@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../../../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../../../components/admin/admin-layout';
+import { SessionForm } from '../../../../../components/admin/dropin/SessionForm';
+
+export const prerender = false;
+const user = Astro.locals.user!;
+const sessionId = Astro.params.id!;
+---
+
+<BaseLayout title="Edit Session — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/dropin/sessions"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <SessionForm client:load sessionId={sessionId} />
+  </AdminLayout>
+</BaseLayout>

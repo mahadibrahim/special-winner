@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
 import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
 import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
+import { handleDropInWalkUpPayment } from "@/lib/stripe/handle-dropin-walkup-payment";
 import { handlePaymentFailed } from "@/lib/stripe/handle-payment-failed";
 import { getDb } from "@/lib/db";
 import { stripeEvents } from "@/lib/db/schema";
@@ -101,7 +102,18 @@ export const POST: APIRoute = async ({ request }) => {
 
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log("Payment succeeded:", paymentIntent.id);
+        // Drop-in walk-up flow: PaymentIntent is created server-side
+        // first, the booking row is inserted here after the Terminal
+        // reader confirms.
+        if (paymentIntent.metadata?.type === "dropin_booking_walk_up") {
+          const result = await handleDropInWalkUpPayment(paymentIntent);
+          console.log(
+            `[stripe webhook] payment_intent.succeeded (dropin walk-up) → ${result.status}`,
+            result,
+          );
+        } else {
+          console.log("Payment succeeded:", paymentIntent.id);
+        }
         break;
       }
 
