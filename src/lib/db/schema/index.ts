@@ -69,3 +69,6 @@ export * from "./team-registrations";
 
 // Activity tracking engine (game-day operational completions)
 export * from "./activity-tracking";
+
+// Drop-in booking (pickup + classes per-seat) + brand profiles + skill levels
+export * from "./drop-in";

@@ -30,6 +30,13 @@ export const scopeTypeEnum = pgEnum("scope_type", [
   "team",
 ]);
 
+export const userGenderEnum = pgEnum("user_gender", [
+  "male",
+  "female",
+  "non_binary",
+  "prefer_not_to_say",
+]);
+
 // Users table
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -41,6 +48,7 @@ export const users = pgTable("users", {
   phone: varchar("phone", { length: 20 }),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
   birthDate: date("birth_date"),
+  gender: userGenderEnum("gender"),
   avatarUrl: text("avatar_url"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   messagingPrimaryChannel: varchar("messaging_primary_channel", { length: 20 }),
