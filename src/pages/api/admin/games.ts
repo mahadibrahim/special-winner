@@ -9,6 +9,10 @@ import {
   notifyEventCancellation,
 } from "@/lib/messaging/notifications";
 import { bootstrapActivityCompletions } from "@/lib/activity-tracking/bootstrap";
+import {
+  rescheduleActivityCompletions,
+  cancelActivityCompletions,
+} from "@/lib/activity-tracking/lifecycle";
 
 const gameSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -409,9 +413,19 @@ export const PUT: APIRoute = async (context) => {
       ).catch((err) => {
         console.error("Game cancellation notification error:", err);
       });
+      // Also flip every still-actionable activity_completions row to
+      // canceled. Completed rows are preserved (historical work stands).
+      cancelActivityCompletions(id).catch((err) => {
+        console.error("[cancel activity completions]", err);
+      });
     } else if (scheduleChanged) {
       notifyScheduleChange(id, gameCheck.previousScheduledAt).catch((err) => {
         console.error("Schedule change notification error:", err);
+      });
+      // Recompute expected_at against the new kickoff for every
+      // still-actionable row and clear stale reminders.
+      rescheduleActivityCompletions(id).catch((err) => {
+        console.error("[reschedule activity completions]", err);
       });
     }
 
