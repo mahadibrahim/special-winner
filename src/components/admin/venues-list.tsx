@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2, MapPin, Home, TreePine } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, MapPin, Home, TreePine, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -249,6 +249,11 @@ export function VenuesList({ locations }: VenuesListProps) {
                     {venue.active ? "Active" : "Inactive"}
                   </span>
                   <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" asChild title="Manage staff">
+                      <a href={`/admin/venues/${venue.id}/staff`}>
+                        <Users className="h-4 w-4" />
+                      </a>
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(venue)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
