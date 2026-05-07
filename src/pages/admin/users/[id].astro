@@ -1,0 +1,57 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { SkillLevelsEditor } from '../../../components/admin/users/SkillLevelsEditor';
+import { getDb } from '../../../lib/db';
+import { users } from '../../../lib/db/schema/users';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+const adminUser = Astro.locals.user!;
+const userId = Astro.params.id!;
+
+const db = getDb();
+const [target] = await db
+  .select({
+    id: users.id,
+    email: users.email,
+    firstName: users.firstName,
+    lastName: users.lastName,
+    phone: users.phone,
+  })
+  .from(users)
+  .where(eq(users.id, userId))
+  .limit(1);
+---
+
+<BaseLayout title="User — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/users"
+    user={{ firstName: adminUser.firstName, lastName: adminUser.lastName, email: adminUser.email }}
+  >
+    {!target && (
+      <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900">
+        User not found.
+      </div>
+    )}
+    {target && (
+      <div class="space-y-8 max-w-3xl">
+        <header>
+          <a href="/admin/users" class="text-xs uppercase tracking-wider text-ink-muted hover:text-ink">
+            ← All users
+          </a>
+          <h1 class="text-2xl font-bold text-ink mt-2">
+            {target.firstName} {target.lastName}
+          </h1>
+          <p class="text-sm text-ink-muted mt-1">{target.email}</p>
+          {target.phone && (
+            <p class="text-xs text-ink-muted">{target.phone}</p>
+          )}
+        </header>
+
+        <SkillLevelsEditor client:load userId={target.id} />
+      </div>
+    )}
+  </AdminLayout>
+</BaseLayout>
