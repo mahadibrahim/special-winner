@@ -1,0 +1,18 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { AdminLayout } from "../../../components/admin/admin-layout";
+import { ActivityTrackingDashboard } from "../../../components/admin/game-day/activity-tracking-dashboard";
+
+// Middleware guarantees user is admin for /admin/** routes.
+const user = Astro.locals.user!;
+---
+
+<BaseLayout title="Today — Game day — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/game-day/today"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <ActivityTrackingDashboard client:load />
+  </AdminLayout>
+</BaseLayout>
