@@ -1,0 +1,33 @@
+id: act.weather_check_pregame
+name: Pregame weather check
+description: |
+  Re-check live weather, lightning radar, and field conditions in the
+  90-minute pre-kickoff window for outdoor venues. Output feeds the
+  rainout decision.
+trigger: ~90 minutes before kickoff (outdoor venues only)
+phase: pre_game
+sport_tags: []
+venue_tags: [outdoor]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.event_lead, role.director]
+automation_status: hybrid
+platform_features:
+  - feat.weather_alert_dashboard
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.weather_pregame
+expected_completion: T-90min

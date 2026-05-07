@@ -1,0 +1,7 @@
+id: feat.ref_checkin_signature
+name: Ref Check-in Signature
+description: |
+  Ref signs in via QR code at the venue; logs arrival timestamp and ties it to
+  the assignment.
+priority: P1
+status: stub

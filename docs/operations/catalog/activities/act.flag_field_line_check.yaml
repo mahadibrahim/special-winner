@@ -1,0 +1,33 @@
+id: act.flag_field_line_check
+name: Flag football field line check
+description: |
+  Walk the outdoor flag football field, verify yard lines, end zones,
+  and sideline markings are visible and accurate, and capture a photo
+  for the match record. Specific to outdoor flag football matches.
+trigger: ~30 minutes before each flag football kickoff
+phase: pre_game
+sport_tags: [outdoor:flag_football]
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager, role.ref]
+automation_status: manual
+platform_features:
+  - feat.photo_upload_capture
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: photo_upload
+tracking_artifact:
+  media_kind: flag_lines
+  min_count: 1
+expected_completion: T-30min

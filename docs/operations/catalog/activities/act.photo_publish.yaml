@@ -1,0 +1,34 @@
+id: act.photo_publish
+name: Photo publish
+description: |
+  Photographer (or media tagger) publishes the curated, tagged photos
+  to the public-facing media gallery so families can view and order
+  prints. Each publish increments the day's published-photo counter.
+trigger: After tagging is complete (typically T+24h)
+phase: post_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.photographer
+  responsible: [role.photographer]
+  consulted: []
+  informed: [role.parent, role.event_lead, role.director]
+automation_status: hybrid
+platform_features:
+  - feat.media_tagger_handoff
+  - feat.counter_service
+  - feat.activity_tracking_engine
+escalation_path: |
+  If photographer unreachable, role.event_lead pings role.director;
+  publish authority can be re-assigned for that batch only.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: counter_increment
+tracking_artifact:
+  counter: counter.photos_published
+  min_count: 0
+expected_completion: T+24h

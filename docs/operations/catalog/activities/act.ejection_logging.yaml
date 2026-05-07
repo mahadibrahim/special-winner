@@ -1,0 +1,33 @@
+id: act.ejection_logging
+name: Ejection logging
+description: |
+  Referee logs any in-match ejections — player or coach — with the
+  reason, time, and any league-specific suspension implications. The
+  log feeds the office's discipline tracker.
+trigger: Ejection issued during or immediately after the match
+phase: post_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.ref
+  responsible: [role.ref]
+  consulted: [role.event_lead]
+  informed: [role.venue_manager, role.director, role.coach]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If ref cannot complete the form, role.event_lead captures the ref's
+  verbal account and files; escalate to role.director for any ejection
+  carrying multi-match suspension.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.ejection_log
+expected_completion: T+30min

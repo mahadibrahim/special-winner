@@ -1,0 +1,32 @@
+id: act.timekeeping
+name: Timekeeping
+description: |
+  Referee operates the match clock — start, stop, and final whistle —
+  and the system records each clock event so the match record reflects
+  actual elapsed time (used for stipend rules and disputes).
+trigger: Match clock start at kickoff
+phase: in_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.ref
+  responsible: [role.ref]
+  consulted: []
+  informed: [role.event_lead]
+automation_status: hybrid
+platform_features:
+  - feat.activity_tracking_engine
+escalation_path: |
+  If primary ref unable to operate clock, the assistant ref or event
+  lead takes over; escalate to role.venue_manager only if the match
+  must be paused.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.timekeeping_clock
+expected_completion: phase_end

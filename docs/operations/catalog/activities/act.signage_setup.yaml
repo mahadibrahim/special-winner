@@ -1,0 +1,33 @@
+id: act.signage_setup
+name: Signage setup
+description: |
+  Place wayfinding signs, sponsor banners, field-of-play markers, and
+  safety placards in their assigned positions; capture a photo to
+  confirm placement.
+trigger: ~90 minutes before first kickoff
+phase: day_setup
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: manual
+platform_features:
+  - feat.photo_upload_capture
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: photo_upload
+tracking_artifact:
+  media_kind: signage_setup
+  min_count: 1
+expected_completion: T-90min

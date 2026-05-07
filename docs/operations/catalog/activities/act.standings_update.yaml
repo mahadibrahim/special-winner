@@ -1,0 +1,33 @@
+id: act.standings_update
+name: Standings update (post-day)
+description: |
+  Once all of the day's match scores are posted and any disputes are
+  resolved, the platform publishes the recomputed standings, tiebreakers,
+  and any league-specific points adjustments to the public table.
+trigger: T+24h after the day's final score is posted
+phase: post_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.coach, role.team_captain, role.parent, role.event_lead]
+automation_status: platform
+platform_features:
+  - feat.standings_engine
+  - feat.activity_tracking_engine
+escalation_path: |
+  If publish fails, on-call platform engineer escalates to role.director;
+  event_lead posts a manual standings update to team channels until
+  automation recovers.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.standings_updated
+expected_completion: T+24h

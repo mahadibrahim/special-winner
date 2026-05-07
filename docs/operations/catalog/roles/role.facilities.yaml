@@ -1,0 +1,8 @@
+id: role.facilities
+name: Facilities
+tier: operational
+kind: worker
+description: |
+  Owns field, court, and equipment readiness for the event-day — setup,
+  turnover, reset, and close-down.
+manual_target: employee_manual

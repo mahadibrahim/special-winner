@@ -1,0 +1,6 @@
+id: chk.equipment_turnover
+kind: checklist
+status: stub
+items:
+  - id: pending_authorship
+    label: (placeholder — full checklist items pending operator authorship)

@@ -1,0 +1,8 @@
+id: role.photographer
+name: Photographer
+tier: field_side
+kind: worker
+description: |
+  Field-side contractor responsible for media capture per assignment, feeding
+  the media tagging and publishing pipeline.
+manual_target: contractor_handbook

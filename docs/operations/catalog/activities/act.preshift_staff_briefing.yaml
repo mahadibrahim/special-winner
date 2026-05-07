@@ -1,0 +1,33 @@
+id: act.preshift_staff_briefing
+name: Pre-shift staff briefing
+description: |
+  Gather all on-shift staff (event leads, facilities, front of house,
+  photographer) for a 5-10 minute huddle: today's schedule, special
+  notes, weather, VIP guests, safety reminders. Each attendee signs in.
+trigger: ~60 minutes before first kickoff
+phase: day_setup
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager, role.event_lead]
+  consulted: []
+  informed: [role.facilities, role.front_of_house, role.photographer]
+automation_status: manual
+platform_features:
+  - feat.signature_capture
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, role.event_lead delivers the briefing and
+  escalates to role.director per the standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: signature
+tracking_artifact:
+  template_id: sig.staff_briefing_signin
+  required_role: role.front_of_house
+expected_completion: T-60min

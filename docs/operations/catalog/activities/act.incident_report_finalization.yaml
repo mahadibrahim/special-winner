@@ -1,0 +1,33 @@
+id: act.incident_report_finalization
+name: Incident report finalization
+description: |
+  Complete the full structured incident report — witnesses, statements,
+  photos, post-event status — building on the in-the-moment incident
+  response form. This is the record-of-truth used by the office and
+  insurer.
+trigger: After the incident is stable and the affected match is over
+phase: post_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: [role.director]
+  informed: [role.event_lead, role.parent]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, role.event_lead drafts and role.director
+  finalizes; nothing closes until the report is signed off.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.incident_report_full
+expected_completion: T+30min

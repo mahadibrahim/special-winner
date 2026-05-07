@@ -1,0 +1,10 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { ActivityCompletionPage } from "../../../components/admin/activity-completions/page";
+
+// Middleware guarantees user is admin for /admin/** routes.
+const { id } = Astro.params;
+---
+<BaseLayout title="Activity completion">
+  <ActivityCompletionPage client:load completionId={id!} />
+</BaseLayout>

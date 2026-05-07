@@ -1,0 +1,8 @@
+id: role.venue_manager
+name: Venue Manager
+tier: leadership
+kind: worker
+description: |
+  Single venue, single day. The on-site decision-maker accountable for the
+  end-to-end execution of an event-day at one location.
+manual_target: employee_manual

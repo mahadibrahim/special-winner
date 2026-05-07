@@ -1,0 +1,33 @@
+id: act.score_post_to_standings
+name: Score post to standings
+description: |
+  When the ref's signed final score is captured, the platform posts the
+  result to the league standings, recomputes ranking and tiebreakers,
+  and publishes the updated table.
+trigger: Final score attestation signature received
+phase: post_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.event_lead, role.coach, role.team_captain, role.parent]
+automation_status: platform
+platform_features:
+  - feat.standings_engine
+  - feat.activity_tracking_engine
+escalation_path: |
+  If posting fails, on-call platform engineer escalates to role.director;
+  event_lead manually records the score on the printed standings sheet
+  until automation recovers.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.score_posted
+expected_completion: T+5min

@@ -1,0 +1,8 @@
+id: role.ref
+name: Referee
+tier: field_side
+kind: worker
+description: |
+  Field-side contractor responsible for match officiating and final score
+  authority.
+manual_target: contractor_handbook

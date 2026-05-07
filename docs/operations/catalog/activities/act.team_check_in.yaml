@@ -1,0 +1,34 @@
+id: act.team_check_in
+name: Team check-in
+description: |
+  Each team's coach or captain checks in at the event lead's station
+  before their match, confirming roster present, jerseys, and any
+  guest-player paperwork. Used to gate kickoff and to record day-of
+  attendance.
+trigger: ~15 minutes before each kickoff
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.event_lead
+  responsible: [role.event_lead]
+  consulted: []
+  informed: [role.coach, role.team_captain, role.ref]
+automation_status: hybrid
+platform_features:
+  - feat.team_checkin_panel
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If event_lead unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.team_check_in
+expected_completion: T-15min

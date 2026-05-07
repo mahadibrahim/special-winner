@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2, MapPin, Home, TreePine } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, MapPin, Home, TreePine, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,9 @@ interface Venue {
   address: string | null
   fieldCount: number | null
   indoor: boolean | null
+  owned: boolean | null
+  concessions: boolean | null
+  parkingManaged: boolean | null
   notes: string | null
   active: boolean
   location: Location | null
@@ -61,6 +64,9 @@ export function VenuesList({ locations }: VenuesListProps) {
     address: "",
     fieldCount: 1,
     indoor: false,
+    owned: false,
+    concessions: false,
+    parkingManaged: false,
     notes: "",
     active: true,
   })
@@ -91,6 +97,9 @@ export function VenuesList({ locations }: VenuesListProps) {
       address: "",
       fieldCount: 1,
       indoor: false,
+      owned: false,
+      concessions: false,
+      parkingManaged: false,
       notes: "",
       active: true,
     })
@@ -105,6 +114,9 @@ export function VenuesList({ locations }: VenuesListProps) {
       address: venue.address || "",
       fieldCount: venue.fieldCount || 1,
       indoor: venue.indoor || false,
+      owned: venue.owned || false,
+      concessions: venue.concessions || false,
+      parkingManaged: venue.parkingManaged || false,
       notes: venue.notes || "",
       active: venue.active,
     })
@@ -249,6 +261,11 @@ export function VenuesList({ locations }: VenuesListProps) {
                     {venue.active ? "Active" : "Inactive"}
                   </span>
                   <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" asChild title="Manage staff">
+                      <a href={`/admin/venues/${venue.id}/staff`}>
+                        <Users className="h-4 w-4" />
+                      </a>
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(venue)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -341,6 +358,45 @@ export function VenuesList({ locations }: VenuesListProps) {
                     />
                     <Label htmlFor="indoor" className="font-normal">
                       Indoor facility
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <Label className="text-sm font-medium">Operational flags</Label>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Drives which activity-tracking responsibilities apply at this venue.
+                </p>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="owned"
+                      checked={formData.owned}
+                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, owned: checked === true }))}
+                    />
+                    <Label htmlFor="owned" className="font-normal text-sm">
+                      Owned facility (we run open/close, not a third-party host)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="concessions"
+                      checked={formData.concessions}
+                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, concessions: checked === true }))}
+                    />
+                    <Label htmlFor="concessions" className="font-normal text-sm">
+                      Concessions on-site (cash reconcile, inventory, etc.)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="parkingManaged"
+                      checked={formData.parkingManaged}
+                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, parkingManaged: checked === true }))}
+                    />
+                    <Label htmlFor="parkingManaged" className="font-normal text-sm">
+                      Parking we manage (parking setup checklist applies)
                     </Label>
                   </div>
                 </div>

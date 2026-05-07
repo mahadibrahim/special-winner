@@ -1,0 +1,6 @@
+id: feat.form_renderer
+name: Form Renderer
+description: |
+  Generic form UI used by all frm.* artifact templates.
+priority: P0
+status: stub

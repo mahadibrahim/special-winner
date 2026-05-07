@@ -1,0 +1,32 @@
+id: act.concession_setup
+name: Concession setup
+description: |
+  Open the concession stand: power on equipment, restock from the back
+  cooler, set up the POS terminal, calibrate fountain syrup ratios, and
+  confirm hand-wash and sanitizer stations are stocked.
+trigger: ~90 minutes before first kickoff (concessions venues only)
+phase: day_setup
+sport_tags: []
+venue_tags: [concessions]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.front_of_house
+  responsible: [role.front_of_house]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If front_of_house unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.concession_setup
+expected_completion: T-90min

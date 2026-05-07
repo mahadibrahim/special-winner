@@ -1,0 +1,7 @@
+id: feat.team_checkin_panel
+name: Team Check-in Panel
+description: |
+  Per-match roster, jersey, and eligibility verification UI used by Front of
+  House at venue check-in.
+priority: P1
+status: stub

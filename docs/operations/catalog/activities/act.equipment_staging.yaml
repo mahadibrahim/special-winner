@@ -1,0 +1,32 @@
+id: act.equipment_staging
+name: Equipment staging
+description: |
+  Move balls, cones, pinnies, scoreboards, water, first-aid kits, and
+  match equipment from storage to the staging area near the playing
+  surfaces so each match crew can grab and go.
+trigger: ~90 minutes before first kickoff
+phase: day_setup
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager, role.event_lead]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.equipment_staging
+expected_completion: T-90min

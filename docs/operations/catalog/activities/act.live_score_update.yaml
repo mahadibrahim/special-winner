@@ -1,0 +1,35 @@
+id: act.live_score_update
+name: Live score update
+description: |
+  Referee enters each goal/score event during the match so spectators
+  and remote viewers see live updates and the running score is
+  authoritative when the final whistle blows.
+trigger: Each scoring event during the match
+phase: in_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.ref
+  responsible: [role.ref]
+  consulted: []
+  informed: [role.event_lead, role.parent, role.coach]
+automation_status: hybrid
+platform_features:
+  - feat.live_score_entry
+  - feat.counter_service
+  - feat.activity_tracking_engine
+escalation_path: |
+  If the entry app fails, ref keeps a paper tally and event_lead
+  enters the running score in batch; escalate to role.venue_manager
+  if the issue persists across matches.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: counter_increment
+tracking_artifact:
+  counter: counter.live_scores
+  min_count: 0
+expected_completion: phase_end

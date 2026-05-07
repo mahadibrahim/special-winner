@@ -1,0 +1,32 @@
+id: act.ref_assignment_confirm
+name: Referee assignment confirmation
+description: |
+  Confirm each scheduled match has an assigned referee crew that has
+  acknowledged the assignment, and backfill any unconfirmed slots from
+  the standby pool before the event window.
+trigger: 48h before kickoff (after assignor publishes schedule)
+phase: pre_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.event_lead
+  responsible: [role.event_lead]
+  consulted: []
+  informed: [role.venue_manager, role.ref]
+automation_status: hybrid
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If event_lead unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.ref_assignment_confirm
+expected_completion: T-48h

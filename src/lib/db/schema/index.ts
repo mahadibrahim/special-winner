@@ -66,3 +66,6 @@ export * from "./sponsor-bars";
 
 // Team registrations (TeamPayer v1 — captain-led adult team signups)
 export * from "./team-registrations";
+
+// Activity tracking engine (game-day operational completions)
+export * from "./activity-tracking";

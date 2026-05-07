@@ -1,0 +1,34 @@
+id: act.incident_response
+name: Incident response (in-the-moment)
+description: |
+  Capture what was done in the moment when an incident occurs (injury,
+  altercation, medical event, property damage): who responded, what
+  immediate care was given, whether 911 was called. The post-game
+  finalization completes the full structured report.
+trigger: Incident observed or reported during the match
+phase: in_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager, role.event_lead]
+  consulted: [role.director]
+  informed: [role.parent, role.coach]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  Any life-threatening incident escalates immediately to 911 and
+  role.director; venue_manager remains accountable for documentation
+  but role.event_lead may capture the initial form.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.incident_response
+expected_completion: trigger+5min

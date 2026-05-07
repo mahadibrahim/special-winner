@@ -1,0 +1,32 @@
+id: act.rainout_reschedule
+name: Rainout reschedule
+description: |
+  Director picks the make-up date(s) for cancelled matches, accounting
+  for venue availability, ref crews, and league calendar. Form output
+  feeds the platform's rescheduling workflow.
+trigger: T+24h after a recorded rainout (when reschedule is the chosen path)
+phase: post_day
+sport_tags: []
+venue_tags: [outdoor]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.director
+  responsible: [role.director]
+  consulted: [role.venue_manager, role.event_lead]
+  informed: [role.platform, role.coach, role.team_captain, role.parent, role.ref]
+automation_status: hybrid
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If director unreachable, role.venue_manager may propose reschedule
+  candidates; director sign-off still required before publish.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.rainout_reschedule
+expected_completion: T+48h

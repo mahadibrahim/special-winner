@@ -1,0 +1,8 @@
+id: role.coach
+name: Coach
+tier: field_side
+kind: worker
+description: |
+  Field-side worker accountable for one team's compliance, conduct, and
+  attendance during youth programs.
+manual_target: hand_authored

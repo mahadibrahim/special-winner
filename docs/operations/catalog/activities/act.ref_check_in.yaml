@@ -1,0 +1,35 @@
+id: act.ref_check_in
+name: Referee check-in
+description: |
+  Each referee signs in at the event lead's station before their
+  assigned match, confirming arrival, uniform, and equipment. Signature
+  starts the stipend clock.
+trigger: ~30 minutes before each kickoff
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.event_lead
+  responsible: [role.event_lead, role.ref]
+  consulted: []
+  informed: [role.venue_manager]
+automation_status: hybrid
+platform_features:
+  - feat.ref_checkin_signature
+  - feat.signature_capture
+  - feat.activity_tracking_engine
+escalation_path: |
+  If event_lead unreachable, escalate to role.venue_manager per the
+  standard handoff ladder; backup ref pulled from standby pool if
+  scheduled ref no-shows.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: signature
+tracking_artifact:
+  template_id: sig.ref_check_in
+  required_role: role.ref
+expected_completion: T-30min

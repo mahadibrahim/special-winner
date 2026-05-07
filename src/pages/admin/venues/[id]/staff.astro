@@ -1,0 +1,55 @@
+---
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { AdminLayout } from "../../../../components/admin/admin-layout";
+import { RoleAssignmentsList } from "../../../../components/admin/venues/role-assignments-list";
+import { db } from "../../../../lib/db";
+import { venues } from "../../../../lib/db/schema";
+import { locations } from "../../../../lib/db/schema/organizations";
+import { eq } from "drizzle-orm";
+
+// Middleware guarantees user is an admin for /admin routes.
+// Same-org enforcement happens at the API layer; this page only needs to
+// look up the venue's display name. (If the id is cross-tenant, the API
+// fetches will return 404 and the UI will show empty state.)
+const user = Astro.locals.user!;
+const { id } = Astro.params;
+
+let venue: { id: string; name: string; locationName: string } | null = null;
+if (id) {
+  const [row] = await db
+    .select({
+      id: venues.id,
+      name: venues.name,
+      locationName: locations.name,
+    })
+    .from(venues)
+    .innerJoin(locations, eq(venues.locationId, locations.id))
+    .where(eq(venues.id, id))
+    .limit(1);
+  if (row) {
+    venue = { id: row.id, name: row.name, locationName: row.locationName };
+  }
+}
+---
+
+<BaseLayout title={`${venue?.name ?? "Venue"} staff — Admin — Aspire Sports`} navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/venues"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    {venue ? (
+      <RoleAssignmentsList client:load venueId={venue.id} venueName={venue.name} locationName={venue.locationName} />
+    ) : (
+      <div class="container mx-auto p-6">
+        <h1 class="text-2xl font-bold">Venue not found</h1>
+        <p class="text-gray-600 mt-2">
+          This venue does not exist.
+        </p>
+        <a href="/admin/venues" class="text-primary hover:underline mt-4 inline-block">
+          ← Back to venues
+        </a>
+      </div>
+    )}
+  </AdminLayout>
+</BaseLayout>

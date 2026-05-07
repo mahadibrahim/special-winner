@@ -1,0 +1,33 @@
+id: act.weather_pre_check
+name: Pre-day weather pre-check
+description: |
+  Review the 72h forecast for outdoor venues and flag any matches at risk
+  for delay, lightning, heat advisory, or field-condition issues so that
+  staffing and rainout decisions can be made early.
+trigger: 72h before event window for outdoor venues (scheduled review)
+phase: pre_day
+sport_tags: []
+venue_tags: [outdoor]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.event_lead, role.director]
+automation_status: hybrid
+platform_features:
+  - feat.weather_alert_dashboard
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.weather_pre_check
+expected_completion: T-72h

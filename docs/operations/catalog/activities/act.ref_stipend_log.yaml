@@ -1,0 +1,33 @@
+id: act.ref_stipend_log
+name: Ref stipend log
+description: |
+  Event lead logs the stipend owed for each match the ref worked
+  (rate plus any add-ons), captures the ref's acknowledgment, and
+  hands off to the platform's payroll integration for payout.
+trigger: After ref's last match of the day
+phase: post_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.event_lead
+  responsible: [role.event_lead]
+  consulted: []
+  informed: [role.ref, role.venue_manager, role.director]
+automation_status: hybrid
+platform_features:
+  - feat.payroll_integration
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If event_lead unreachable, role.venue_manager logs the stipend and
+  escalates to role.director for sign-off.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.ref_stipend_log
+expected_completion: T+30min

@@ -1,0 +1,32 @@
+id: act.field_reset_between_matches
+name: Field reset between matches
+description: |
+  Sweep, re-line if needed, replace any displaced markers, and confirm
+  the playing surface is ready for the next match. Includes rapid trash
+  pickup along sidelines.
+trigger: Final whistle of each match
+phase: post_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.event_lead, role.venue_manager, role.ref]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.field_reset
+expected_completion: T+15min

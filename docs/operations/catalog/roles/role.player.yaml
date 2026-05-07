@@ -1,0 +1,9 @@
+id: role.player
+name: Player
+tier: customer
+kind: customer
+description: |
+  Adult registrant or athlete-self-account — receives comms but is not a
+  worker. Customer-facing documentation is hand-authored, not
+  catalog-generated.
+manual_target: hand_authored

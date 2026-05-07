@@ -1,0 +1,32 @@
+id: act.attendance_roster_confirm
+name: Attendance roster confirmation broadcast
+description: |
+  Send the registered roster a confirmation prompt 72h before kickoff so
+  parents and players can confirm or release their spot. The platform fans
+  out reminders and aggregates responses for the event lead.
+trigger: 72h before event kickoff (scheduled job)
+phase: pre_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.event_lead, role.coach]
+automation_status: platform
+platform_features:
+  - feat.activity_tracking_engine
+escalation_path: |
+  If the broadcast job fails, on-call platform engineer escalates to
+  role.director per the standard handoff ladder; event_lead manually
+  confirms rosters via direct message until automation recovers.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: system_event
+tracking_artifact:
+  event_type: evt.attendance_broadcast_sent
+expected_completion: T-72h

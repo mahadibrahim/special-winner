@@ -1,0 +1,6 @@
+id: feat.live_score_entry
+name: Live Score Entry
+description: |
+  Ref enters scores in real-time from a phone interface during the match.
+priority: P1
+status: stub

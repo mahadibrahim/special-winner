@@ -2,6 +2,14 @@
   command = "npm run build"
   publish = "dist"
 
+# User-authored functions (e.g. scheduled tasks) live alongside the
+# adapter-generated ones. Astro's @astrojs/netlify adapter writes its
+# functions into .netlify/functions-internal at build time; this
+# declaration adds a second source directory for our own scheduled
+# tasks (see netlify/functions/scheduled-*.ts).
+[functions]
+  directory = "netlify/functions"
+
   # ============================================================
   # DEPLOY MODEL (2026-05-03)
   # ============================================================

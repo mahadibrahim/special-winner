@@ -1,0 +1,9 @@
+id: role.parent
+name: Parent
+tier: customer
+kind: customer
+description: |
+  Youth program guardian — receives comms (cancellations, schedule updates,
+  reminders) but is not a worker. Customer-facing documentation is
+  hand-authored, not catalog-generated.
+manual_target: hand_authored

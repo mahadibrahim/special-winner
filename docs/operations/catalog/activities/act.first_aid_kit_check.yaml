@@ -1,0 +1,32 @@
+id: act.first_aid_kit_check
+name: First-aid kit check
+description: |
+  Open every first-aid kit on premises, verify contents against the
+  manifest, restock missing items from bulk supply, and confirm AED
+  battery and pad expiration dates are valid.
+trigger: ~60 minutes before first kickoff
+phase: day_setup
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.facilities]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, escalate to role.director per the
+  standard handoff ladder; no event begins without a verified kit.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.first_aid
+expected_completion: T-60min

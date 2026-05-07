@@ -1,0 +1,32 @@
+id: act.field_damage_report
+name: Field damage report
+description: |
+  Document any damage to the playing surface or facility (turf burns,
+  goal damage, broken equipment, vandalism) at owned venues so it can
+  be repaired and, where appropriate, charged back.
+trigger: Damage observed at any point during or after a match
+phase: post_game
+sport_tags: []
+venue_tags: [owned]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: [role.venue_manager]
+  informed: [role.director]
+automation_status: manual
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, role.venue_manager logs the damage and
+  escalates to role.director for repair authorization.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.field_damage_report
+expected_completion: T+30min

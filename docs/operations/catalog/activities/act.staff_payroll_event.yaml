@@ -1,0 +1,34 @@
+id: act.staff_payroll_event
+name: Staff payroll event (W-2 payout)
+description: |
+  Platform hands the day's W-2 staff hours and any tips/bonuses to the
+  payroll system and listens for the payout receipt acknowledgment so
+  the labor record is closed.
+trigger: T+24h after staff clock-out signatures are recorded
+phase: post_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.platform
+  responsible: [role.platform]
+  consulted: []
+  informed: [role.director, role.venue_manager]
+automation_status: platform
+platform_features:
+  - feat.payroll_integration
+  - feat.external_ack_listener
+  - feat.activity_tracking_engine
+escalation_path: |
+  If payroll handoff fails, on-call platform engineer escalates to
+  role.director; manual payroll batch entered as fallback.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: external_acknowledgment
+tracking_artifact:
+  external_system: payroll
+  record_kind: w2_payout_receipt
+expected_completion: T+24h

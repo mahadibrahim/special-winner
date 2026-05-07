@@ -1,0 +1,54 @@
+name: ops-catalog
+
+# Validates the operations catalog (docs/operations/catalog/**) and asserts
+# the generated artifacts (docs/operations/artifacts/**) are in sync. Lives
+# in a dedicated workflow because the main CI workflow has `paths-ignore:
+# docs/**` and these checks don't need a database or dev server.
+
+on:
+  pull_request:
+    paths:
+      - "docs/operations/catalog/**"
+      - "docs/operations/artifacts/**"
+      - "scripts/ops-catalog/**"
+      - "tests/unit/ops-catalog/**"
+      - ".github/workflows/ops-catalog.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/operations/catalog/**"
+      - "docs/operations/artifacts/**"
+      - "scripts/ops-catalog/**"
+      - "tests/unit/ops-catalog/**"
+      - ".github/workflows/ops-catalog.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate catalog
+        run: npm run catalog:validate
+
+      - name: Run ops-catalog unit tests
+        run: npx vitest run tests/unit/ops-catalog/
+
+      - name: Verify generated artifacts up-to-date
+        run: |
+          npm run catalog:render
+          if [[ -n "$(git status --porcelain docs/operations/artifacts/)" ]]; then
+            echo "::error::Generated artifacts are out of date. Run 'npm run catalog:render' and commit the result."
+            git diff docs/operations/artifacts/
+            exit 1
+          fi

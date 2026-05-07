@@ -4,6 +4,7 @@ import { games, teams, venues } from "@/lib/db/schema/teams";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { composeBroadcast } from "./broadcast";
+import { markCompleteBySystemEvent } from "@/lib/activity-tracking/mark-complete";
 
 /**
  * Outbound notification helpers.
@@ -218,6 +219,22 @@ export async function notifyEventCancellation(
 
     const contacted = result.telegramGroupPosts + result.smsSent + result.emailSent;
     const skipped = result.errors.length;
+
+    // Activity-tracking integration: signal that the platform-owned
+    // cancellation broadcast activity has fired so the matching
+    // activity_completions row(s) close out without manual marking.
+    // Fire-and-forget: dashboard signal must not block the admin response,
+    // and a failure here doesn't invalidate the broadcast that already
+    // shipped.
+    markCompleteBySystemEvent(gameId, "evt.cancellation_broadcast_sent").catch(
+      (err) => {
+        console.error(
+          `[mark-complete] cancellation_broadcast_sent for game ${gameId} failed:`,
+          err,
+        );
+      },
+    );
+
     return { contacted, skipped };
   } catch (err) {
     console.error(`notifyEventCancellation broadcast failed for game ${gameId}:`, err);

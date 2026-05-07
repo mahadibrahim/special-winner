@@ -1,0 +1,35 @@
+id: act.staff_clock_out
+name: Staff clock-out
+description: |
+  Each staff member signs out at the end of their shift, capturing
+  end-time and any notes. The signed clock-out closes the labor record
+  and feeds the payroll integration.
+trigger: As each staff member finishes their last task
+phase: end_of_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.front_of_house, role.facilities, role.event_lead, role.director]
+automation_status: hybrid
+platform_features:
+  - feat.signature_capture
+  - feat.payroll_integration
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, role.event_lead witnesses the
+  clock-out and escalates to role.director per the standard handoff
+  ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: signature
+tracking_artifact:
+  template_id: sig.staff_clock_out
+  required_role: role.front_of_house
+expected_completion: phase_end

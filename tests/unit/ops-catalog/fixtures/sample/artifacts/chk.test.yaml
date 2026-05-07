@@ -1,0 +1,6 @@
+id: chk.test
+kind: checklist
+status: stub
+items:
+  - id: item_one
+    label: First item

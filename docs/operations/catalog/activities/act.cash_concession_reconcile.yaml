@@ -1,0 +1,33 @@
+id: act.cash_concession_reconcile
+name: Cash and concession reconcile
+description: |
+  Count drawer cash, run the POS Z-report, count closing concession
+  inventory, and capture variance. The form ties cash, card receipts,
+  and stock movement back to expected revenue per opening counts.
+trigger: After concession close, before deposit
+phase: end_of_day
+sport_tags: []
+venue_tags: [concessions]
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.front_of_house
+  responsible: [role.front_of_house]
+  consulted: [role.venue_manager]
+  informed: [role.director]
+automation_status: hybrid
+platform_features:
+  - feat.form_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If front_of_house unreachable, role.venue_manager performs the
+  reconciliation; any cash variance over threshold escalates to
+  role.director.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: form
+tracking_artifact:
+  template_id: frm.cash_reconcile
+expected_completion: phase_end

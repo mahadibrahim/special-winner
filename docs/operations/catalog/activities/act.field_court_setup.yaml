@@ -1,0 +1,33 @@
+id: act.field_court_setup
+name: Field/court setup (per match)
+description: |
+  Place goals, nets, corner flags, benches, scoreboards, and any
+  match-specific markings before each match. Capture a photo of the
+  configured surface to confirm setup.
+trigger: ~30 minutes before each kickoff
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.facilities
+  responsible: [role.facilities]
+  consulted: []
+  informed: [role.venue_manager, role.event_lead, role.ref]
+automation_status: manual
+platform_features:
+  - feat.photo_upload_capture
+  - feat.activity_tracking_engine
+escalation_path: |
+  If facilities unreachable, escalate to role.venue_manager per the
+  standard handoff ladder.
+sop_body: |
+  Procedure to be authored by the operating team. This activity is defined
+  in the catalog; full step-by-step SOP content will be added in a
+  follow-up PR.
+tracking_method: photo_upload
+tracking_artifact:
+  media_kind: field_setup
+  min_count: 1
+expected_completion: T-30min
