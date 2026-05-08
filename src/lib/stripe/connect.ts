@@ -189,7 +189,9 @@ interface PaymentWithConnectOptions {
 }
 
 /**
- * Create a Checkout Session with Stripe Connect split payment
+ * Create a PaymentIntent with Stripe Connect split payment for a
+ * registration. Returns the `pi_..._secret_...` clientSecret consumed
+ * by the embedded PaymentElement on the wizard's payment step.
  */
 export async function createConnectCheckoutSession(
   options: PaymentWithConnectOptions
@@ -216,51 +218,42 @@ export async function createConnectCheckoutSession(
   }
 
   try {
-    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
-      ui_mode: "custom",
-      line_items: [
-        {
-          price_data: {
-            currency,
-            product_data: {
-              name: productName,
-              description: productDescription,
-            },
-            unit_amount: amountCents,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      customer_email: customerId ? undefined : customerEmail,
-      customer: customerId,
+    const description = productDescription
+      ? `${productName} — ${productDescription}`
+      : productName;
+
+    const params: Stripe.PaymentIntentCreateParams = {
+      amount: amountCents,
+      currency,
+      automatic_payment_methods: { enabled: true },
+      description,
       metadata,
-      payment_intent_data: {
-        application_fee_amount: applicationFee,
-        transfer_data: {
-          destination: destinationAccountId,
-        },
-        metadata,
+      application_fee_amount: applicationFee,
+      transfer_data: {
+        destination: destinationAccountId,
       },
+      ...(customerId
+        ? { customer: customerId }
+        : { receipt_email: customerEmail }),
     };
 
     const registrationId = metadata.registrationId;
     const idempotencyKey = registrationId
-      ? `${registrationId}:connect-checkout:${amountCents}`
-      : `${destinationAccountId}:connect-checkout:${amountCents}`;
+      ? `${registrationId}:connect-pi:${amountCents}`
+      : `${destinationAccountId}:connect-pi:${amountCents}`;
 
-    const session = await stripe.checkout.sessions.create(sessionConfig, {
+    const paymentIntent = await stripe.paymentIntents.create(params, {
       idempotencyKey,
     });
 
-    if (!session.client_secret) {
-      console.error("Stripe Connect session returned without client_secret");
+    if (!paymentIntent.client_secret) {
+      console.error("Stripe Connect payment intent returned without client_secret");
       return null;
     }
 
-    return { id: session.id, clientSecret: session.client_secret };
+    return { id: paymentIntent.id, clientSecret: paymentIntent.client_secret };
   } catch (error) {
-    console.error("Error creating Connect checkout session:", error);
+    console.error("Error creating Connect payment intent:", error);
     throw error;
   }
 }

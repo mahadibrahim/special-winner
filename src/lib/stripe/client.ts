@@ -1,20 +1,19 @@
 /**
- * Stripe client + checkout session helper.
+ * Stripe client + payment intent helper.
  *
  * Idempotency keys are passed to every Stripe write so Netlify Function
  * retries (and double-fired client requests) don't double-charge.
  *
  * Key conventions used across the codebase:
- *   - checkout session create:  `${registrationId}:checkout:${amountCents}`
- *   - connect checkout create:  `${registrationId}:connect-checkout:${amountCents}`
- *   - refund:                   `${registrationId}:refund:${amountCents}`
- *   - connect account create:   `${organizationId}:connect-account`
- *   - connect payment intent:   `${registrationId}:connect-pi:${amountCents}`
+ *   - registration payment intent: `${registrationId}:pi:${amountCents}`
+ *   - connect registration PI:     `${registrationId}:connect-pi:${amountCents}`
+ *   - refund:                      `${registrationId}:refund:${amountCents}`
+ *   - connect account create:      `${organizationId}:connect-account`
  *
  * The amountCents suffix matters because partial-pay flows can legitimately
  * charge the same registration multiple times for different amounts; using
- * a static `${id}:checkout` would make the second charge fail with the
- * Stripe duplicate-idempotency-key error.
+ * a static `${id}:pi` would make the second charge fail with the Stripe
+ * duplicate-idempotency-key error.
  */
 import Stripe from "stripe";
 
@@ -33,7 +32,11 @@ export function isStripeConfigured(): boolean {
   return stripe !== null;
 }
 
-// Create a checkout session for registration payment
+// Create a PaymentIntent for a registration payment.
+//
+// Returns the `pi_..._secret_...` clientSecret that the embedded
+// PaymentElement on the wizard's payment step expects. The webhook
+// `payment_intent.succeeded` flips the registration to paid.
 export async function createCheckoutSession({
   registrationId,
   seasonName,
@@ -55,24 +58,13 @@ export async function createCheckoutSession({
   }
 
   try {
-    const session = await stripe.checkout.sessions.create(
+    const paymentIntent = await stripe.paymentIntents.create(
       {
-        ui_mode: "custom",
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: seasonName,
-                description: `Registration for ${playerName}`,
-              },
-              unit_amount: amountCents,
-            },
-            quantity: 1,
-          },
-        ],
-        mode: "payment",
-        customer_email: customerEmail,
+        amount: amountCents,
+        currency: "usd",
+        receipt_email: customerEmail,
+        automatic_payment_methods: { enabled: true },
+        description: `${seasonName} — registration for ${playerName}`,
         metadata: {
           registrationId,
           type: "registration_payment",
@@ -80,18 +72,18 @@ export async function createCheckoutSession({
         },
       },
       {
-        idempotencyKey: `${registrationId}:checkout:${amountCents}`,
+        idempotencyKey: `${registrationId}:pi:${amountCents}`,
       },
     );
 
-    if (!session.client_secret) {
-      console.error("Stripe session returned without client_secret");
+    if (!paymentIntent.client_secret) {
+      console.error("Stripe payment intent returned without client_secret");
       return null;
     }
 
-    return { id: session.id, clientSecret: session.client_secret };
+    return { id: paymentIntent.id, clientSecret: paymentIntent.client_secret };
   } catch (error) {
-    console.error("Error creating Stripe checkout session:", error);
+    console.error("Error creating Stripe payment intent:", error);
     throw error;
   }
 }
