@@ -19,6 +19,7 @@ import {
 } from "@/lib/analytics/datalayer";
 
 interface EmbeddedPaymentProps {
+  /** PaymentIntent client secret (pi_xxx_secret_xxx). */
   clientSecret: string;
   publishableKey: string;
   seasonItem: SeasonItem;
@@ -28,9 +29,17 @@ interface EmbeddedPaymentProps {
   coupon?: string;
   /** Where Stripe sends the user back after SCA / 3DS (absolute URL) */
   returnUrl: string;
-  /** Called after a synchronous (non-redirect) successful confirm */
+  /**
+   * The customer's bank-vs-card choice from the previous screen. The
+   * PaymentIntent was created with payment_method_types narrowed to
+   * match, so we use this prop to order methods within the card family.
+   * Defaults to undefined for callers (e.g. pay-balance-form) that
+   * haven't adopted the bank/card split yet.
+   */
+  paymentMethodCategory?: "bank" | "card";
+  /** Called after a synchronous (non-redirect) successful confirm. */
   onSuccess: (paymentIntentId: string) => void;
-  /** Called when user clicks Back to abandon this in-flight session */
+  /** Called when the user clicks Back to abandon this in-flight intent. */
   onCancel: () => void;
 }
 
@@ -44,6 +53,19 @@ function getStripePromise(publishableKey: string): Promise<StripeJs | null> {
   }
   return p;
 }
+
+// Card-family ordering — Card first, then Link / BNPL / wallets. Each entry
+// must be a payment method type accepted by Stripe; wallet brands like
+// Apple Pay / Google Pay ride on top of "card" and are not separate entries.
+const CARD_METHOD_ORDER = [
+  "card",
+  "link",
+  "cashapp",
+  "amazon_pay",
+  "klarna",
+  "affirm",
+  "afterpay_clearpay",
+];
 
 export function EmbeddedPayment(props: EmbeddedPaymentProps) {
   const stripePromise = useMemo(
@@ -81,6 +103,7 @@ function PaymentForm({
   paymentType,
   coupon,
   returnUrl,
+  paymentMethodCategory,
   onSuccess,
   onCancel,
 }: Omit<EmbeddedPaymentProps, "clientSecret" | "publishableKey">) {
@@ -139,7 +162,12 @@ function PaymentForm({
   return (
     <div className="space-y-4">
       <PaymentElement
-        options={{ layout: "accordion" }}
+        options={{
+          layout: "accordion",
+          ...(paymentMethodCategory === "card"
+            ? { paymentMethodOrder: CARD_METHOD_ORDER }
+            : {}),
+        }}
         onReady={() => setIsReady(true)}
         onChange={(e) => {
           setIsComplete(e.complete);

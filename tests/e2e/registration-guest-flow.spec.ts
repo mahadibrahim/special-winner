@@ -102,8 +102,11 @@ test.describe("Anonymous registration (guest checkout)", () => {
     // Step 3 — Media authorization: defaults grant all 3 scopes; just Continue
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Step 4 — Payment: keep "Pay in Full" default; submit
-    await page.getByRole("button", { name: /complete registration/i }).click();
+    // Step 4 — Payment: keep "Pay in Full" + the default "Bank transfer"
+    // method (preselected, no surcharge) and click the submit button. The
+    // button label was renamed from "Complete Registration" to "Continue
+    // to payment" when the bank/card method picker was introduced.
+    await page.getByRole("button", { name: /continue to payment|complete registration/i }).click();
 
     // Outcome: with embedded checkout, the contract is "Stripe Elements iframe mounted
     // inline" instead of "navigated to checkout.stripe.com". Other valid outcomes:

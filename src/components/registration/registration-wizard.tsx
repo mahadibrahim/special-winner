@@ -191,6 +191,13 @@ export default function RegistrationWizard({
   const [paymentClientSecret, setPaymentClientSecret] = useState<string | null>(null)
   const [paymentPublishableKey, setPaymentPublishableKey] = useState<string | null>(null)
   const [paymentValueCents, setPaymentValueCents] = useState(0)
+  // Customer's choice of payment-method group. Drives both the displayed
+  // surcharge and the Stripe Checkout Session's payment_method_types.
+  // Defaults to "bank" to anchor on the no-fee path.
+  const [selectedPaymentCategory, setSelectedPaymentCategory] = useState<
+    "bank" | "card"
+  >("bank")
+  const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
   // CheckoutPaymentType is "deposit" | "balance" | "full". The wizard only
   // sets "deposit" or "full" — balance pay UI ships in Phase 2 (separate
   // dashboard surface). Type is widened for forward-compat with the analytics
@@ -232,17 +239,33 @@ export default function RegistrationWizard({
     }
   }, [wasCancelled, seasonId, isGuest])
 
+  // Compute whether the season's audience is unambiguous. When it is, the
+  // mode is "locked": the wizard forces the value and hides the radio toggle.
+  // Otherwise both options stay available.
+  //
+  //   audienceHint = "adult" | "child" from URL  → locked to that mode
+  //   ageGroup.maxAge < 18                       → locked to "child"
+  //   ageGroup.minAge >= 18                      → locked to "adult"
+  //   otherwise                                  → ambiguous, show toggle
+  const lockedGuestMode: GuestRegistrationMode | null = (() => {
+    if (audienceHint === "adult" || audienceHint === "child") {
+      return audienceHint
+    }
+    if (season?.ageGroup) {
+      if (season.ageGroup.maxAge < 18) return "child"
+      if (season.ageGroup.minAge >= 18) return "adult"
+    }
+    return null
+  })()
+
   // Auto-detect guest mode once season loads
   useEffect(() => {
     if (!isGuest || !season) return
-    const urlForced = audienceHint === "adult" || audienceHint === "child"
-    if (urlForced) {
-      setGuestMode(audienceHint as GuestRegistrationMode)
-    } else if (season.ageGroup && season.ageGroup.minAge >= 18) {
-      setGuestMode("adult")
+    if (lockedGuestMode) {
+      setGuestMode(lockedGuestMode)
     }
-    // If no signal, leave at the "child" default
-  }, [isGuest, season, audienceHint])
+    // If no lock, leave at the "child" default
+  }, [isGuest, season, lockedGuestMode])
 
   // Fire view_item once when entering step 4 (the payment step)
   useEffect(() => {
@@ -422,6 +445,7 @@ export default function RegistrationWizard({
     setPaymentClientSecret(null)
     setPaymentPublishableKey(null)
     setPaymentValueCents(0)
+    setAppliedSurchargeCents(0)
   }
 
   const handleResumePayment = async () => {
@@ -432,7 +456,10 @@ export default function RegistrationWizard({
       const res = await fetch("/api/payments/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationId: resumableRegistrationId }),
+        body: JSON.stringify({
+          registrationId: resumableRegistrationId,
+          paymentMethodCategory: selectedPaymentCategory,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -443,10 +470,13 @@ export default function RegistrationWizard({
           paymentOption === "deposit" && season!.depositCents
             ? season!.depositCents
             : season!.priceCents
-        const finalValueCents = appliedDiscount
+        const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
+        const surchargeCents = data.surchargeCents ?? 0
+        const finalValueCents = baseAfterDiscount + surchargeCents
 
+        setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
         setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
         setPaymentPublishableKey(data.publishableKey)
@@ -500,6 +530,7 @@ export default function RegistrationWizard({
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
+              paymentMethodCategory: selectedPaymentCategory,
             }
           : {
               seasonId,
@@ -520,6 +551,7 @@ export default function RegistrationWizard({
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
+              paymentMethodCategory: selectedPaymentCategory,
             }
 
       const res = await fetch("/api/registrations/guest-checkout", {
@@ -536,10 +568,13 @@ export default function RegistrationWizard({
           paymentOption === "deposit" && season!.depositCents
             ? season!.depositCents
             : season!.priceCents
-        const finalValueCents = appliedDiscount
+        const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
+        const surchargeCents = data.surchargeCents ?? 0
+        const finalValueCents = baseAfterDiscount + surchargeCents
 
+        setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
         setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
         setPaymentPublishableKey(data.publishableKey)
@@ -627,6 +662,7 @@ export default function RegistrationWizard({
           body: JSON.stringify({
             registrationId: regData.registration.id,
             discountCode: discountCode || undefined,
+            paymentMethodCategory: selectedPaymentCategory,
           }),
         })
 
@@ -653,10 +689,13 @@ export default function RegistrationWizard({
             paymentOption === "deposit" && season!.depositCents
               ? season!.depositCents
               : season!.priceCents
-          const finalValueCents = appliedDiscount
+          const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
             : valueCents
+          const surchargeCents = checkoutData.surchargeCents ?? 0
+          const finalValueCents = baseAfterDiscount + surchargeCents
 
+          setAppliedSurchargeCents(surchargeCents)
           setPaymentValueCents(finalValueCents)
           setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
           setPaymentPublishableKey(checkoutData.publishableKey)
@@ -984,6 +1023,7 @@ export default function RegistrationWizard({
             seasonId={seasonId}
             mode={guestMode}
             onModeChange={setGuestMode}
+            lockedMode={lockedGuestMode}
             parentFirstName={guestParentFirstName}
             parentLastName={guestParentLastName}
             parentEmail={guestParentEmail}
@@ -1061,9 +1101,14 @@ export default function RegistrationWizard({
           <PaymentStep
             seasonName={season.name}
             seasonPrice={season.price}
+            seasonPriceCents={season.priceCents}
             seasonDeposit={season.deposit}
+            seasonDepositCents={season.depositCents}
             allowDeposit={season.allowDeposit}
             paymentOption={paymentOption}
+            paymentMethodCategory={selectedPaymentCategory}
+            onPaymentMethodCategoryChange={setSelectedPaymentCategory}
+            appliedSurchargeCents={appliedSurchargeCents}
             registrantName={
               isGuest
                 ? guestMode === "adult"
@@ -1161,8 +1206,8 @@ export default function RegistrationWizard({
                 </>
               ) : (
                 <>
-                  Complete Registration
-                  <CheckCircle2 className="w-4 h-4 ml-2" />
+                  Continue to payment
+                  <ChevronRight className="w-4 h-4 ml-1" />
                 </>
               )}
             </Button>

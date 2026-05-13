@@ -11,6 +11,7 @@ import { parseGaClientId, readQueryOrCookie } from "@/lib/analytics/parse-cookie
 const checkoutSchema = z.object({
   registrationId: z.string().uuid("Invalid registration ID"),
   discountCode: z.string().optional(),
+  paymentMethodCategory: z.enum(["bank", "card"]).optional(),
 });
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
@@ -40,7 +41,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       );
     }
 
-    const { registrationId, discountCode } = validation.data;
+    const { registrationId, discountCode, paymentMethodCategory } = validation.data;
     registrationIdForLog = registrationId;
     discountCodeForLog = discountCode;
     const db = getDb();
@@ -65,6 +66,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       baseUrl: url.origin,
       discountCode,
       extraMetadata,
+      paymentMethodCategory,
     });
 
     const posthog = getPostHogServer();
@@ -101,6 +103,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       JSON.stringify({
         clientSecret: result.clientSecret,
         sessionId: result.sessionId,
+        surchargeCents: result.surchargeCents,
         publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },

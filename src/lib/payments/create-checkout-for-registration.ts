@@ -15,6 +15,7 @@ import {
   createConnectCheckoutSession,
   getOrganizationPaymentConfig,
 } from "@/lib/stripe/connect";
+import type { PaymentMethodCategory } from "@/lib/payments/surcharge";
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -36,7 +37,12 @@ export class CheckoutError extends Error {
 // ---------------------------------------------------------------------------
 
 export type CheckoutResult =
-  | { kind: "stripe_session"; clientSecret: string; sessionId: string }
+  | {
+      kind: "stripe_session"
+      clientSecret: string
+      sessionId: string
+      surchargeCents: number
+    }
   | { kind: "paid_zero"; registrationId: string };
 
 // baseUrl currently unused in Phase 1 (no redirect URLs); retained for Phase 2 magic-link emails
@@ -47,6 +53,8 @@ export interface CreateCheckoutForRegistrationInput {
   baseUrl: string;
   discountCode?: string;
   extraMetadata?: Record<string, string>;
+  /** "bank" → ACH only, no surcharge. "card" → card + wallets + BNPL with surcharge. */
+  paymentMethodCategory?: PaymentMethodCategory;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,7 +64,16 @@ export interface CreateCheckoutForRegistrationInput {
 export async function createCheckoutForRegistration(
   input: CreateCheckoutForRegistrationInput,
 ): Promise<CheckoutResult> {
-  const { db, registrationId, userId, baseUrl, discountCode, extraMetadata } = input;
+  const {
+    db,
+    registrationId,
+    userId,
+    baseUrl,
+    discountCode,
+    extraMetadata,
+    paymentMethodCategory,
+  } = input;
+  void baseUrl;
 
   // 1. Stripe must be configured
   if (!isStripeConfigured()) {
@@ -255,12 +272,18 @@ export async function createCheckoutForRegistration(
       productName: `${program.name} - ${season.name}`,
       productDescription: `Registration for ${familyMember.firstName} ${familyMember.lastName}`,
       metadata: merged,
+      paymentMethodCategory,
     });
 
     if (!session) {
       throw new CheckoutError(500, "Failed to create Connect checkout session");
     }
-    return { kind: "stripe_session", clientSecret: session.clientSecret, sessionId: session.id };
+    return {
+      kind: "stripe_session",
+      clientSecret: session.clientSecret,
+      sessionId: session.id,
+      surchargeCents: session.surchargeCents,
+    };
   }
 
   // Platform-direct (HQ, or franchise without a connected account yet)
@@ -271,11 +294,17 @@ export async function createCheckoutForRegistration(
     amountCents: amountDue,
     customerEmail,
     extraMetadata,
+    paymentMethodCategory,
   });
 
   if (!session) {
     throw new CheckoutError(500, "Failed to create checkout session");
   }
 
-  return { kind: "stripe_session", clientSecret: session.clientSecret, sessionId: session.id };
+  return {
+    kind: "stripe_session",
+    clientSecret: session.clientSecret,
+    sessionId: session.id,
+    surchargeCents: session.surchargeCents,
+  };
 }
