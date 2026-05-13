@@ -50,13 +50,12 @@ test.describe("Anonymous adult guest checkout", () => {
         // No spinner — that's fine
       });
 
-    // ── Step 1: mode toggle should be visible, defaulting to adult ──
-    await expect(page.getByText("Who is registering?")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/An adult registering themselves/i)).toBeVisible();
-
-    // Confirm "adult" radio is selected
-    const adultRadio = page.locator("#mode-adult");
-    await expect(adultRadio).toBeChecked({ timeout: 5_000 });
+    // ── Step 1: adult-only season → mode is locked to "adult" and the
+    // parent/adult radio toggle is hidden (the wizard derives the mode
+    // from season.ageGroup.minAge ≥ 18). The adult registrant form
+    // should render directly. ──
+    await expect(page.getByText(/About you/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#mode-adult")).toHaveCount(0);
 
     // ── Fill adult registrant fields ──
     // Labels in the wizard have no htmlFor — use the container + label text pattern
@@ -135,7 +134,11 @@ test.describe("Anonymous adult guest checkout", () => {
     await expect(registrationForRow).toContainText("Floor Walker");
   });
 
-  test("mode toggle lets user switch from adult back to child", async ({ page }) => {
+  test("mode toggle is hidden on an adult-only season", async ({ page }) => {
+    // Adult-only season (minAge ≥ 18) → the wizard locks the mode to
+    // "adult" and removes the parent/adult radio toggle entirely.
+    // Registering a child on an adult-only program makes no sense, so
+    // the toggle is correctly absent.
     await page.goto(`/register/${seasonId}?audience=adult`, { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
 
@@ -143,15 +146,9 @@ test.describe("Anonymous adult guest checkout", () => {
       .waitForSelector("[class*='animate-spin']", { state: "detached", timeout: 15_000 })
       .catch(() => {});
 
-    // Defaults to adult
-    await expect(page.locator("#mode-adult")).toBeChecked({ timeout: 10_000 });
-
-    // Switch to child mode
-    await page.locator("#mode-child").click();
-    await expect(page.locator("#mode-child")).toBeChecked();
-
-    // "Player" section heading should now be visible (child mode)
-    // Use role=heading to avoid matching the "Select Player" step label
-    await expect(page.getByRole("heading", { name: "Player" })).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator("#mode-adult")).toHaveCount(0);
+    await expect(page.locator("#mode-child")).toHaveCount(0);
+    // Heading from the locked-adult registrant form, not the toggle prompt.
+    await expect(page.getByText(/About you/i)).toBeVisible({ timeout: 10_000 });
   });
 });
