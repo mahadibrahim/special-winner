@@ -282,14 +282,7 @@ export async function createCheckoutForRegistration(
       kind: "stripe_session",
       clientSecret: session.clientSecret,
       sessionId: session.id,
-      // createConnectCheckoutSession doesn't expose surcharge yet; recompute
-      // locally so the API contract stays uniform.
-      surchargeCents: paymentMethodCategory
-        ? (await import("@/lib/payments/surcharge")).computeSurchargeCents(
-            amountDue,
-            paymentMethodCategory,
-          )
-        : 0,
+      surchargeCents: session.surchargeCents,
     };
   }
 

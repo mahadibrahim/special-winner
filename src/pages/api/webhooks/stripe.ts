@@ -4,6 +4,7 @@ import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
 import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
 import { handleDropInWalkUpPayment } from "@/lib/stripe/handle-dropin-walkup-payment";
 import { handlePaymentFailed } from "@/lib/stripe/handle-payment-failed";
+import { handleRegistrationPaymentSucceeded } from "@/lib/stripe/handle-registration-payment-succeeded";
 import { getDb } from "@/lib/db";
 import { stripeEvents } from "@/lib/db/schema";
 import type Stripe from "stripe";
@@ -109,6 +110,12 @@ export const POST: APIRoute = async ({ request }) => {
           const result = await handleDropInWalkUpPayment(paymentIntent);
           console.log(
             `[stripe webhook] payment_intent.succeeded (dropin walk-up) → ${result.status}`,
+            result,
+          );
+        } else if (paymentIntent.metadata?.type === "registration_payment") {
+          const result = await handleRegistrationPaymentSucceeded(paymentIntent);
+          console.log(
+            `[stripe webhook] payment_intent.succeeded (registration) → ${result.status}`,
             result,
           );
         } else {

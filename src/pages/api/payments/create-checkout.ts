@@ -15,6 +15,10 @@ const checkoutSchema = z.object({
 });
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
+  // Hoisted so the catch block can include them in diagnostic capture.
+  let registrationIdForLog: string | undefined;
+  let discountCodeForLog: string | undefined;
+
   try {
     const user = locals.user;
     if (!user) {
@@ -38,6 +42,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     }
 
     const { registrationId, discountCode, paymentMethodCategory } = validation.data;
+    registrationIdForLog = registrationId;
+    discountCodeForLog = discountCode;
     const db = getDb();
 
     // Capture GA4 client_id + ad-platform IDs to pass through Stripe session
@@ -113,11 +119,45 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       );
     }
 
-    console.error("Error creating checkout session:", error);
-
-    const e = error as { type?: string; message?: string };
+    // Diagnostic capture — pull Stripe-error shape so prod failures are
+    // pinpointable from logs + PostHog without scraping function logs.
+    const e = error as {
+      type?: string;
+      code?: string;
+      message?: string;
+      statusCode?: number;
+      requestId?: string;
+      decline_code?: string;
+      param?: string;
+      raw?: { code?: string; message?: string };
+    };
     const stripeType =
       typeof e?.type === "string" && e.type.startsWith("Stripe") ? e.type : null;
+
+    const diag = {
+      stripe_type: stripeType,
+      stripe_code: e?.code ?? e?.raw?.code,
+      stripe_decline_code: e?.decline_code,
+      stripe_param: e?.param,
+      stripe_request_id: e?.requestId,
+      stripe_status: e?.statusCode,
+      message: e?.message ?? e?.raw?.message,
+      registration_id: registrationIdForLog,
+      discount_code: discountCodeForLog,
+      user_id: locals.user?.id,
+    };
+    console.error("[create-checkout] failed", JSON.stringify(diag));
+
+    try {
+      const posthog = getPostHogServer();
+      posthog.capture({
+        distinctId: locals.user?.id ?? "anonymous",
+        event: "checkout_create_failed",
+        properties: diag,
+      });
+    } catch {
+      // never let telemetry mask the original error
+    }
 
     if (stripeType === "StripeAuthenticationError") {
       return new Response(

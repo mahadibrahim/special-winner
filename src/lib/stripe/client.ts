@@ -1,20 +1,22 @@
 /**
- * Stripe client + checkout session helper.
+ * Stripe client + payment intent helper.
  *
  * Idempotency keys are passed to every Stripe write so Netlify Function
  * retries (and double-fired client requests) don't double-charge.
  *
  * Key conventions used across the codebase:
- *   - checkout session create:  `${registrationId}:checkout:${amountCents}`
- *   - connect checkout create:  `${registrationId}:connect-checkout:${amountCents}`
- *   - refund:                   `${registrationId}:refund:${amountCents}`
- *   - connect account create:   `${organizationId}:connect-account`
- *   - connect payment intent:   `${registrationId}:connect-pi:${amountCents}`
+ *   - registration payment intent: `${registrationId}:pi:${category}:${amountCents}:v2`
+ *   - connect registration PI:     `${registrationId}:connect-pi:${category}:${amountCents}:v2`
+ *   - refund:                      `${registrationId}:refund:${amountCents}`
+ *   - connect account create:      `${organizationId}:connect-account`
  *
  * The amountCents suffix matters because partial-pay flows can legitimately
  * charge the same registration multiple times for different amounts; using
- * a static `${id}:checkout` would make the second charge fail with the
- * Stripe duplicate-idempotency-key error.
+ * a static `${id}:pi` would make the second charge fail with the Stripe
+ * duplicate-idempotency-key error. The `:category:` suffix lets the
+ * customer flip bank↔card on the payment step and get distinct intents,
+ * and `:v2` is a manual version salt to break Stripe's 24h idempotency
+ * cache when the parameter shape changes across deploys.
  */
 import Stripe from "stripe";
 import {
@@ -37,14 +39,19 @@ export function isStripeConfigured(): boolean {
   return stripe !== null;
 }
 
-// Create a checkout session for registration payment.
+// Create a PaymentIntent for a registration payment.
 //
 // `paymentMethodCategory` controls both the methods Stripe will offer and
 // the surcharge applied to the total:
 //   - "bank" → us_bank_account only, no surcharge
-//   - "card" → card + wallets + BNPL, 2.9% + $0.30 surcharge added as a
-//             separate line item so the customer sees the fee called out
-//   - omitted → legacy behavior (no surcharge, Stripe's automatic methods)
+//   - "card" → card + wallets + BNPL, 2.9% + $0.30 surcharge added to the
+//             PaymentIntent amount (presented as a separate line in the
+//             order summary on the client)
+//   - omitted → legacy behavior (Stripe's automatic methods, no surcharge)
+//
+// Returns the `pi_..._secret_...` clientSecret that the embedded
+// PaymentElement on the wizard's payment step expects. The webhook
+// `payment_intent.succeeded` flips the registration to paid.
 export async function createCheckoutSession({
   registrationId,
   seasonName,
@@ -70,88 +77,61 @@ export async function createCheckoutSession({
   const surchargeCents = paymentMethodCategory
     ? computeSurchargeCents(amountCents, paymentMethodCategory)
     : 0;
-
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-    {
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: seasonName,
-          description: `Registration for ${playerName}`,
-        },
-        unit_amount: amountCents,
-      },
-      quantity: 1,
-    },
-  ];
-  if (surchargeCents > 0) {
-    lineItems.push({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: "Card processing fee",
-          description: "Pay by bank to avoid this fee.",
-        },
-        unit_amount: surchargeCents,
-      },
-      quantity: 1,
-    });
-  }
+  const totalCents = amountCents + surchargeCents;
 
   // Narrow `payment_method_types` to match the category the customer
   // chose on the previous screen. This prevents them from sneaking into
-  // the no-fee bank flow after we already attached the card surcharge
-  // line item (and vice-versa). Cast required because TS resolves the
-  // bare `PaymentMethodType` symbol against a narrower union than the
-  // one Stripe's SDK actually accepts at runtime.
-  const paymentMethodTypes = (
+  // the no-fee bank flow after we already added the card surcharge to
+  // the amount (and vice-versa).
+  //
+  // payment_method_types and automatic_payment_methods are mutually
+  // exclusive on PaymentIntent.create — when narrowing, omit the latter.
+  const paymentMethodTypes: string[] | undefined =
     paymentMethodCategory === "bank"
       ? ["us_bank_account"]
       : paymentMethodCategory === "card"
         ? ["card", "klarna", "affirm", "cashapp", "amazon_pay", "afterpay_clearpay"]
-        : undefined
-  ) as Stripe.Checkout.SessionCreateParams.PaymentMethodType[] | undefined;
+        : undefined;
+
+  const params: Stripe.PaymentIntentCreateParams = {
+    amount: totalCents,
+    currency: "usd",
+    receipt_email: customerEmail,
+    description: `${seasonName} — registration for ${playerName}`,
+    metadata: {
+      registrationId,
+      type: "registration_payment",
+      ...(paymentMethodCategory ? { payment_method_category: paymentMethodCategory } : {}),
+      ...(surchargeCents > 0 ? { surcharge_cents: surchargeCents.toString() } : {}),
+      ...(extraMetadata ?? {}),
+    },
+    ...(paymentMethodTypes
+      ? { payment_method_types: paymentMethodTypes }
+      : { automatic_payment_methods: { enabled: true } }),
+  };
 
   try {
-    const session = await stripe.checkout.sessions.create(
-      {
-        ui_mode: "custom",
-        line_items: lineItems,
-        mode: "payment",
-        customer_email: customerEmail,
-        ...(paymentMethodTypes ? { payment_method_types: paymentMethodTypes } : {}),
-        metadata: {
-          registrationId,
-          type: "registration_payment",
-          ...(paymentMethodCategory ? { payment_method_category: paymentMethodCategory } : {}),
-          ...(surchargeCents > 0 ? { surcharge_cents: surchargeCents.toString() } : {}),
-          ...(extraMetadata ?? {}),
-        },
-      },
-      {
-        // Idempotency key includes the method category and the
-        // surcharge-inclusive total so flipping bank↔card creates a fresh
-        // session rather than colliding with a previous one. The :v2
-        // suffix exists to break through Stripe's 24h idempotency cache
-        // when the parameter shape changes across deploys; bump it when
-        // you intentionally alter the request body for the same
-        // registration+category+total.
-        idempotencyKey: `${registrationId}:checkout:${paymentMethodCategory ?? "auto"}:${amountCents + surchargeCents}:v2`,
-      },
-    );
+    const paymentIntent = await stripe.paymentIntents.create(params, {
+      // Idempotency key includes the method category and the
+      // surcharge-inclusive total so flipping bank↔card creates a fresh
+      // intent rather than colliding with a previous one. The :v2 suffix
+      // is a manual salt — bump when the request body shape changes
+      // across deploys for the same registration+category+total.
+      idempotencyKey: `${registrationId}:pi:${paymentMethodCategory ?? "auto"}:${totalCents}:v2`,
+    });
 
-    if (!session.client_secret) {
-      console.error("Stripe session returned without client_secret");
+    if (!paymentIntent.client_secret) {
+      console.error("Stripe payment intent returned without client_secret");
       return null;
     }
 
     return {
-      id: session.id,
-      clientSecret: session.client_secret,
+      id: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret,
       surchargeCents,
     };
   } catch (error) {
-    console.error("Error creating Stripe checkout session:", error);
+    console.error("Error creating Stripe payment intent:", error);
     throw error;
   }
 }
