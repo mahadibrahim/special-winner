@@ -11,6 +11,12 @@ export interface GuestInfoStepProps {
   seasonId: string
   mode: GuestRegistrationMode
   onModeChange: (mode: GuestRegistrationMode) => void
+  /**
+   * When the season's audience is unambiguous (child-only or adult-only),
+   * the wizard locks the mode and we hide the parent/adult radio entirely.
+   * Set to null/undefined to expose the toggle (ambiguous audience).
+   */
+  lockedMode?: GuestRegistrationMode | null
 
   // Shared parent / registrant fields
   parentFirstName: string
@@ -67,41 +73,45 @@ export function GuestInfoStep({
   adultGender,
   onAdultBirthDateChange,
   onAdultGenderChange,
+  lockedMode,
 }: GuestInfoStepProps) {
+  const showModeToggle = !lockedMode
   return (
     <div className="space-y-6">
-      {/* Mode toggle */}
-      <div>
-        <p className="text-sm font-medium text-ink mb-3">Who is registering?</p>
-        <RadioGroup
-          value={mode}
-          onValueChange={(v) => onModeChange(v as GuestRegistrationMode)}
-          className="grid gap-2"
-        >
-          <label
-            htmlFor="mode-child"
-            className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-colors ${
-              mode === "child"
-                ? "border-primary bg-primary/5"
-                : "border-border bg-cream-2 hover:border-primary/40"
-            }`}
+      {/* Mode toggle — only shown when the season's audience is ambiguous */}
+      {showModeToggle && (
+        <div>
+          <p className="text-sm font-medium text-ink mb-3">Who is registering?</p>
+          <RadioGroup
+            value={mode}
+            onValueChange={(v) => onModeChange(v as GuestRegistrationMode)}
+            className="grid gap-2"
           >
-            <RadioGroupItem id="mode-child" value="child" />
-            <span className="text-sm text-ink">A parent registering their child</span>
-          </label>
-          <label
-            htmlFor="mode-adult"
-            className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-colors ${
-              mode === "adult"
-                ? "border-primary bg-primary/5"
-                : "border-border bg-cream-2 hover:border-primary/40"
-            }`}
-          >
-            <RadioGroupItem id="mode-adult" value="adult" />
-            <span className="text-sm text-ink">An adult registering themselves</span>
-          </label>
-        </RadioGroup>
-      </div>
+            <label
+              htmlFor="mode-child"
+              className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-colors ${
+                mode === "child"
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-cream-2 hover:border-primary/40"
+              }`}
+            >
+              <RadioGroupItem id="mode-child" value="child" />
+              <span className="text-sm text-ink">A parent registering their child</span>
+            </label>
+            <label
+              htmlFor="mode-adult"
+              className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-colors ${
+                mode === "adult"
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-cream-2 hover:border-primary/40"
+              }`}
+            >
+              <RadioGroupItem id="mode-adult" value="adult" />
+              <span className="text-sm text-ink">An adult registering themselves</span>
+            </label>
+          </RadioGroup>
+        </div>
+      )}
 
       {mode === "child" ? (
         /* ── CHILD MODE: preserve existing parent + child form byte-for-byte ── */

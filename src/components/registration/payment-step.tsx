@@ -1,12 +1,13 @@
 "use client"
 
-import { Tag, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react"
+import { Tag, CheckCircle2, AlertCircle, Loader2, X, Landmark, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { OrderSummary } from "./order-summary"
 import { EmbeddedPayment } from "./embedded-payment"
+import { computeSurchargeCents } from "@/lib/payments/surcharge"
 import type { SeasonItem, CheckoutPaymentType } from "@/lib/analytics/datalayer"
 
 interface AppliedDiscount {
@@ -19,10 +20,18 @@ interface AppliedDiscount {
 export interface PaymentStepProps {
   seasonName: string
   seasonPrice: number
+  seasonPriceCents: number
   seasonDeposit: number | null
+  seasonDepositCents: number | null
   allowDeposit: boolean
   paymentOption: "full" | "deposit"
   registrantName: string
+
+  // Payment-method category (the bank-vs-card choice that drives surcharge).
+  paymentMethodCategory: "bank" | "card"
+  onPaymentMethodCategoryChange: (v: "bank" | "card") => void
+  /** Server-confirmed surcharge applied to the active session, in cents. */
+  appliedSurchargeCents: number
 
   // Discount state
   discountCodeInput: string
@@ -51,9 +60,14 @@ export interface PaymentStepProps {
 export function PaymentStep({
   seasonName,
   seasonPrice,
+  seasonPriceCents,
   seasonDeposit,
+  seasonDepositCents,
   allowDeposit,
   paymentOption,
+  paymentMethodCategory,
+  onPaymentMethodCategoryChange,
+  appliedSurchargeCents,
   registrantName,
   discountCodeInput,
   isValidatingDiscount,
@@ -72,6 +86,31 @@ export function PaymentStep({
   onPaymentSuccess,
   onPaymentCancel,
 }: PaymentStepProps) {
+  // Once we have a clientSecret, the customer has committed to a category
+  // and we hide the picker (changing would require recreating the session).
+  const sessionLocked = clientSecret !== null
+
+  // Compute a preview surcharge for each method group so the picker can show
+  // exactly what each option costs before the customer commits.
+  const baseAmountCents =
+    paymentOption === "deposit" && allowDeposit && seasonDepositCents
+      ? seasonDepositCents
+      : seasonPriceCents
+  const discountedBaseCents = appliedDiscount
+    ? Math.max(0, baseAmountCents - appliedDiscount.discountAmountCents)
+    : baseAmountCents
+  const previewCardSurcharge = computeSurchargeCents(discountedBaseCents, "card")
+  const previewBankTotal = discountedBaseCents
+  const previewCardTotal = discountedBaseCents + previewCardSurcharge
+
+  // Display surcharge: post-commit, use the server-confirmed value so we can't
+  // get out of sync with what Stripe actually charged.
+  const displaySurchargeCents = sessionLocked
+    ? appliedSurchargeCents
+    : paymentMethodCategory === "card"
+      ? previewCardSurcharge
+      : 0
+
   return (
     <div className="space-y-6">
       <div>
@@ -120,6 +159,70 @@ export function PaymentStep({
           )}
         </div>
       </RadioGroup>
+
+      {/* Payment-method category — bank vs card. Surcharge applies to card. */}
+      {!sessionLocked && (
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-lg font-semibold text-ink mb-1">Payment Method</h3>
+            <p className="text-ink-muted text-sm">
+              Bank transfer is free. Card payments include the processor fee.
+            </p>
+          </div>
+          <RadioGroup
+            value={paymentMethodCategory}
+            onValueChange={(v) => onPaymentMethodCategoryChange(v as "bank" | "card")}
+          >
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Label
+                htmlFor="method-bank"
+                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                  paymentMethodCategory === "bank"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-ink-faint bg-paper"
+                }`}
+              >
+                <RadioGroupItem value="bank" id="method-bank" className="mt-1" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Landmark className="w-4 h-4 text-primary" />
+                    <p className="font-medium text-ink">Bank transfer</p>
+                    <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      No fee
+                    </span>
+                  </div>
+                  <p className="text-sm text-ink-muted">
+                    Pay ${(previewBankTotal / 100).toFixed(2)} from your checking account (ACH).
+                  </p>
+                </div>
+              </Label>
+              <Label
+                htmlFor="method-card"
+                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                  paymentMethodCategory === "card"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-ink-faint bg-paper"
+                }`}
+              >
+                <RadioGroupItem value="card" id="method-card" className="mt-1" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CreditCard className="w-4 h-4 text-ink-2" />
+                    <p className="font-medium text-ink">Card or wallet</p>
+                    <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
+                      +${(previewCardSurcharge / 100).toFixed(2)} fee
+                    </span>
+                  </div>
+                  <p className="text-sm text-ink-muted">
+                    Pay ${(previewCardTotal / 100).toFixed(2)} by Visa, Mastercard, Apple Pay, Klarna,
+                    Affirm, Cash App, or Amazon Pay.
+                  </p>
+                </div>
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+      )}
 
       {/* Discount Code */}
       <div className="space-y-3">
@@ -186,12 +289,33 @@ export function PaymentStep({
         paymentOption={paymentOption}
         registrantName={registrantName}
         appliedDiscount={appliedDiscount}
+        surchargeCents={displaySurchargeCents}
+        paymentMethodCategory={paymentMethodCategory}
       />
 
       {/* Step 4b: Embedded payment (rendered once Continue-to-Payment fires) */}
       {clientSecret && publishableKey && seasonItem && (
         <div className="mt-6 pt-6 border-t border-border">
-          <h3 className="text-lg font-semibold text-ink mb-4">Payment Details</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-ink">Payment Details</h3>
+            <div className="flex items-center gap-2 text-sm">
+              {paymentMethodCategory === "bank" ? (
+                <Landmark className="w-4 h-4 text-primary" />
+              ) : (
+                <CreditCard className="w-4 h-4 text-ink-2" />
+              )}
+              <span className="text-ink-muted">
+                Paying by {paymentMethodCategory === "bank" ? "bank" : "card or wallet"}
+              </span>
+              <button
+                type="button"
+                onClick={onPaymentCancel}
+                className="text-primary hover:underline"
+              >
+                Change
+              </button>
+            </div>
+          </div>
           <EmbeddedPayment
             clientSecret={clientSecret}
             publishableKey={publishableKey}
@@ -200,6 +324,7 @@ export function PaymentStep({
             paymentType={checkoutPaymentType}
             coupon={appliedDiscount?.code}
             returnUrl={paymentReturnUrl}
+            paymentMethodCategory={paymentMethodCategory}
             onSuccess={onPaymentSuccess}
             onCancel={onPaymentCancel}
           />

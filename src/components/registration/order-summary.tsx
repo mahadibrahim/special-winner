@@ -15,6 +15,9 @@ interface OrderSummaryProps {
   paymentOption: "full" | "deposit"
   registrantName: string
   appliedDiscount: AppliedDiscount | null
+  /** Card processing fee in cents — 0 for bank, computed by the parent for card. */
+  surchargeCents?: number
+  paymentMethodCategory?: "bank" | "card"
 }
 
 export function OrderSummary({
@@ -25,13 +28,16 @@ export function OrderSummary({
   paymentOption,
   registrantName,
   appliedDiscount,
+  surchargeCents = 0,
+  paymentMethodCategory,
 }: OrderSummaryProps) {
   const baseAmount =
     paymentOption === "deposit" && allowDeposit && seasonDeposit
       ? seasonDeposit
       : seasonPrice
   const discountAmount = appliedDiscount ? appliedDiscount.discountAmountCents / 100 : 0
-  const totalDue = baseAmount - discountAmount
+  const surchargeAmount = surchargeCents / 100
+  const totalDue = baseAmount - discountAmount + surchargeAmount
 
   return (
     <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
@@ -47,7 +53,7 @@ export function OrderSummary({
         <span className="text-ink-2">
           {paymentOption === "deposit" ? "Deposit" : "Subtotal"}
         </span>
-        <span className="text-ink">${baseAmount}</span>
+        <span className="text-ink">${baseAmount.toFixed(2)}</span>
       </div>
       {appliedDiscount && (
         <div className="flex items-center justify-between mb-2 text-green-400">
@@ -55,10 +61,21 @@ export function OrderSummary({
           <span>-${discountAmount.toFixed(2)}</span>
         </div>
       )}
+      {surchargeCents > 0 && (
+        <div className="flex items-center justify-between mb-2 text-ink-2">
+          <span>Card processing fee</span>
+          <span>+${surchargeAmount.toFixed(2)}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between pt-2 border-t border-primary/20">
         <span className="text-ink font-semibold">Total Due Today</span>
         <span className="text-ink font-bold text-xl">${totalDue.toFixed(2)}</span>
       </div>
+      {paymentMethodCategory === "card" && surchargeCents > 0 && (
+        <p className="text-xs text-ink-muted mt-2">
+          Switch to bank transfer above to skip the ${surchargeAmount.toFixed(2)} fee.
+        </p>
+      )}
     </div>
   )
 }

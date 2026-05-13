@@ -3,11 +3,10 @@
 import { useMemo, useState } from "react";
 import { loadStripe, type Stripe as StripeJs } from "@stripe/stripe-js";
 import {
-  Elements,
+  CheckoutProvider,
   PaymentElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
+  useCheckout,
+} from "@stripe/react-stripe-js/checkout";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -19,6 +18,7 @@ import {
 } from "@/lib/analytics/datalayer";
 
 interface EmbeddedPaymentProps {
+  /** Custom Checkout Session client secret (cs_xxx_secret_xxx). */
   clientSecret: string;
   publishableKey: string;
   seasonItem: SeasonItem;
@@ -28,9 +28,17 @@ interface EmbeddedPaymentProps {
   coupon?: string;
   /** Where Stripe sends the user back after SCA / 3DS (absolute URL) */
   returnUrl: string;
-  /** Called after a synchronous (non-redirect) successful confirm */
-  onSuccess: (paymentIntentId: string) => void;
-  /** Called when user clicks Back to abandon this in-flight session */
+  /**
+   * The customer's bank-vs-card choice from the previous screen. The
+   * Checkout Session was created with the corresponding amount/line items;
+   * this prop only drives display ordering inside the PaymentElement.
+   * Defaults to "card" for callers (e.g. pay-balance-form) that haven't
+   * adopted the bank/card split yet.
+   */
+  paymentMethodCategory?: "bank" | "card";
+  /** Called after a synchronous (non-redirect) successful confirm. */
+  onSuccess: (sessionId: string) => void;
+  /** Called when the user clicks Back to abandon this in-flight session. */
   onCancel: () => void;
 }
 
@@ -45,33 +53,55 @@ function getStripePromise(publishableKey: string): Promise<StripeJs | null> {
   return p;
 }
 
+// Card-family ordering — Card first, then Link / BNPL / wallets. Each entry
+// must be a payment method type accepted by Stripe; wallet brands like
+// Apple Pay / Google Pay ride on top of "card" and are not separate entries.
+const CARD_METHOD_ORDER = [
+  "card",
+  "link",
+  "cashapp",
+  "amazon_pay",
+  "klarna",
+  "affirm",
+  "afterpay_clearpay",
+];
+
+const APPEARANCE = {
+  theme: "flat" as const,
+  variables: {
+    colorPrimary: "#1a1a1a",
+    colorBackground: "#fdfaf2",
+    colorText: "#1a1a1a",
+    colorDanger: "#b91c1c",
+    fontFamily: "system-ui, -apple-system, sans-serif",
+    borderRadius: "8px",
+  },
+};
+
 export function EmbeddedPayment(props: EmbeddedPaymentProps) {
   const stripePromise = useMemo(
     () => getStripePromise(props.publishableKey),
     [props.publishableKey],
   );
 
+  // CheckoutProvider holds the clientSecret in a stable closure — passing
+  // a Promise that resolves to the current value matches Stripe's API and
+  // avoids re-creating the session on re-render.
+  const fetchClientSecret = useMemo(
+    () => () => Promise.resolve(props.clientSecret),
+    [props.clientSecret],
+  );
+
   return (
-    <Elements
+    <CheckoutProvider
       stripe={stripePromise}
       options={{
-        clientSecret: props.clientSecret,
-        appearance: {
-          theme: "flat",
-          variables: {
-            colorPrimary: "#1a1a1a",
-            colorBackground: "#fdfaf2",
-            colorText: "#1a1a1a",
-            colorDanger: "#b91c1c",
-            fontFamily: "system-ui, -apple-system, sans-serif",
-            borderRadius: "8px",
-          },
-        },
-        loader: "auto",
+        fetchClientSecret,
+        elementsOptions: { appearance: APPEARANCE },
       }}
     >
       <PaymentForm {...props} />
-    </Elements>
+    </CheckoutProvider>
   );
 }
 
@@ -81,66 +111,77 @@ function PaymentForm({
   paymentType,
   coupon,
   returnUrl,
+  paymentMethodCategory,
   onSuccess,
   onCancel,
 }: Omit<EmbeddedPaymentProps, "clientSecret" | "publishableKey">) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [isReady, setIsReady] = useState(false);
+  const checkoutState = useCheckout();
   const [isComplete, setIsComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFiredAddPaymentInfo, setHasFiredAddPaymentInfo] = useState(false);
 
+  if (checkoutState.type === "loading") {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-ink-muted">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading secure payment form…</span>
+      </div>
+    );
+  }
+
+  if (checkoutState.type === "error") {
+    return (
+      <ErrorBanner
+        message={
+          checkoutState.error?.message ??
+          "We couldn't load the payment form. Please try again."
+        }
+      />
+    );
+  }
+
+  const { checkout } = checkoutState;
+
   const handlePay = async () => {
-    if (!stripe || !elements) return;
     setIsSubmitting(true);
     setError(null);
 
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setError(submitError.message ?? "Card details are invalid");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: returnUrl },
+    const result = await checkout.confirm({
+      returnUrl,
       redirect: "if_required",
     });
 
-    if (confirmError) {
-      setError(confirmError.message ?? "Payment failed");
+    if (result.type === "error") {
+      setError(result.error.message ?? "Payment failed");
       setIsSubmitting(false);
       return;
     }
 
-    if (paymentIntent && paymentIntent.status === "succeeded") {
-      trackPurchase(
-        paymentIntent.id,
-        seasonItem,
-        valueCents,
-        paymentType,
-        coupon,
-      );
-      onSuccess(paymentIntent.id);
-      return;
-    }
-
-    // status: "processing" | "requires_action" — Stripe will have redirected
-    // for redirect-required flows because of the return_url; for processing,
-    // hand off to the return page so it can poll status.
-    if (paymentIntent) {
-      window.location.href = `${returnUrl}?payment_intent=${paymentIntent.id}`;
-    }
+    // type === "success" — non-redirect path completed. For methods that
+    // require a redirect (3DS, bank flows), Stripe will have navigated to
+    // returnUrl before this point.
+    trackPurchase(
+      result.session.id,
+      seasonItem,
+      valueCents,
+      paymentType,
+      coupon,
+    );
+    onSuccess(result.session.id);
   };
 
   return (
     <div className="space-y-4">
       <PaymentElement
-        options={{ layout: "accordion" }}
-        onReady={() => setIsReady(true)}
+        options={{
+          // Tabs is cleaner than accordion when the session has been
+          // narrowed to a small set of methods on the previous screen.
+          layout: "tabs",
+          ...(paymentMethodCategory === "card"
+            ? { paymentMethodOrder: CARD_METHOD_ORDER }
+            : {}),
+        }}
         onChange={(e) => {
           setIsComplete(e.complete);
           if (e.complete && !hasFiredAddPaymentInfo) {
@@ -159,7 +200,7 @@ function PaymentForm({
         </Button>
         <Button
           onClick={handlePay}
-          disabled={!stripe || !isReady || !isComplete || isSubmitting}
+          disabled={!isComplete || isSubmitting}
           className="bg-primary hover:bg-primary/90"
         >
           {isSubmitting ? (

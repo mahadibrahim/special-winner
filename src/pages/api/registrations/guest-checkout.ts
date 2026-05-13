@@ -65,6 +65,7 @@ const guestCheckoutSchema = z.union([
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
+    paymentMethodCategory: z.enum(["bank", "card"]).optional(),
   }),
   // New adult self shape
   z.object({
@@ -76,6 +77,7 @@ const guestCheckoutSchema = z.union([
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
+    paymentMethodCategory: z.enum(["bank", "card"]).optional(),
   }),
 ]);
 
@@ -192,6 +194,7 @@ export const POST: APIRoute = async (context) => {
       lookingForTeam?: boolean;
       mediaAuthOptOuts?: ReadonlyArray<"internal" | "promotional" | "public">;
       extraMetadata: Record<string, string>;
+      paymentMethodCategory?: "bank" | "card";
     }) {
       const {
         userRow,
@@ -207,7 +210,9 @@ export const POST: APIRoute = async (context) => {
         lookingForTeam,
         mediaAuthOptOuts,
         extraMetadata,
+        paymentMethodCategory,
       } = opts;
+      void distinctIdForPosthog;
 
       // Step 3: create the registration via shared helper
       let regResult;
@@ -290,6 +295,7 @@ export const POST: APIRoute = async (context) => {
           baseUrl: url.origin,
           discountCode,
           extraMetadata,
+          paymentMethodCategory,
         });
 
         // Account-takeover prevention: only set Lucia session for genuinely new users
@@ -314,6 +320,7 @@ export const POST: APIRoute = async (context) => {
           JSON.stringify({
             clientSecret: checkout.clientSecret,
             sessionId: checkout.sessionId,
+            surchargeCents: checkout.surchargeCents,
             publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
             wasNewUser,
           }),
@@ -371,6 +378,7 @@ export const POST: APIRoute = async (context) => {
         lookingForTeam: data.lookingForTeam ?? false,
         mediaAuthOptOuts: data.mediaAuthOptOuts,
         extraMetadata: analyticsMetadata,
+        paymentMethodCategory: data.paymentMethodCategory,
       });
     }
 
@@ -431,6 +439,7 @@ export const POST: APIRoute = async (context) => {
       distinctIdForPosthog: userRow.email,
       mediaAuthOptOuts: data.mediaAuthOptOuts,
       extraMetadata: analyticsMetadata,
+      paymentMethodCategory: "paymentMethodCategory" in data ? data.paymentMethodCategory : undefined,
     });
   } catch (error) {
     console.error("Error in guest-checkout:", error);

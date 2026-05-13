@@ -186,6 +186,7 @@ interface PaymentWithConnectOptions {
   metadata?: Record<string, string>;
   productName: string;
   productDescription?: string;
+  paymentMethodCategory?: "bank" | "card";
 }
 
 /**
@@ -207,34 +208,73 @@ export async function createConnectCheckoutSession(
     metadata = {},
     productName,
     productDescription,
+    paymentMethodCategory,
   } = options;
 
-  // Calculate application fee
+  // Compute surcharge (added on top of the registration price when paying by card).
+  const { computeSurchargeCents } = await import("@/lib/payments/surcharge");
+  const surchargeCents = paymentMethodCategory
+    ? computeSurchargeCents(amountCents, paymentMethodCategory)
+    : 0;
+  const totalCents = amountCents + surchargeCents;
+
+  // Calculate application fee against the pre-surcharge amount so the
+  // platform's take doesn't grow when the customer pays by card.
   let applicationFee = applicationFeeAmountCents;
   if (!applicationFee && applicationFeePercent) {
     applicationFee = Math.round(amountCents * (applicationFeePercent / 100));
   }
 
   try {
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      {
+        price_data: {
+          currency,
+          product_data: {
+            name: productName,
+            description: productDescription,
+          },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      },
+    ];
+    if (surchargeCents > 0) {
+      lineItems.push({
+        price_data: {
+          currency,
+          product_data: {
+            name: "Card processing fee",
+            description: "Pay by bank to avoid this fee.",
+          },
+          unit_amount: surchargeCents,
+        },
+        quantity: 1,
+      });
+    }
+
+    // See stripe/client.ts for why this cast is necessary and why we
+    // narrow on category — same fee-bypass guard for Connect sessions.
+    const paymentMethodTypes = (
+      paymentMethodCategory === "bank"
+        ? ["us_bank_account"]
+        : paymentMethodCategory === "card"
+          ? ["card", "klarna", "affirm", "cashapp", "amazon_pay", "afterpay_clearpay"]
+          : undefined
+    ) as Stripe.Checkout.SessionCreateParams.PaymentMethodType[] | undefined;
+
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       ui_mode: "custom",
-      line_items: [
-        {
-          price_data: {
-            currency,
-            product_data: {
-              name: productName,
-              description: productDescription,
-            },
-            unit_amount: amountCents,
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: lineItems,
       mode: "payment",
       customer_email: customerId ? undefined : customerEmail,
       customer: customerId,
-      metadata,
+      ...(paymentMethodTypes ? { payment_method_types: paymentMethodTypes } : {}),
+      metadata: {
+        ...metadata,
+        ...(paymentMethodCategory ? { payment_method_category: paymentMethodCategory } : {}),
+        ...(surchargeCents > 0 ? { surcharge_cents: surchargeCents.toString() } : {}),
+      },
       payment_intent_data: {
         application_fee_amount: applicationFee,
         transfer_data: {
@@ -245,9 +285,11 @@ export async function createConnectCheckoutSession(
     };
 
     const registrationId = metadata.registrationId;
+    const categoryTag = paymentMethodCategory ?? "auto";
+    // :v2 suffix matches stripe/client.ts — bump on parameter-shape changes.
     const idempotencyKey = registrationId
-      ? `${registrationId}:connect-checkout:${amountCents}`
-      : `${destinationAccountId}:connect-checkout:${amountCents}`;
+      ? `${registrationId}:connect-checkout:${categoryTag}:${totalCents}:v2`
+      : `${destinationAccountId}:connect-checkout:${categoryTag}:${totalCents}:v2`;
 
     const session = await stripe.checkout.sessions.create(sessionConfig, {
       idempotencyKey,
