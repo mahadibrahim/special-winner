@@ -53,8 +53,10 @@ test.describe("Anonymous adult guest checkout", () => {
     // ── Step 1: adult-only season → mode is locked to "adult" and the
     // parent/adult radio toggle is hidden (the wizard derives the mode
     // from season.ageGroup.minAge ≥ 18). The adult registrant form
-    // should render directly. ──
-    await expect(page.getByText(/About you/i)).toBeVisible({ timeout: 10_000 });
+    // (headed "Registrant info") should render directly. ──
+    await expect(
+      page.getByRole("heading", { name: "Registrant info" }),
+    ).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("#mode-adult")).toHaveCount(0);
 
     // ── Fill adult registrant fields ──
@@ -149,6 +151,8 @@ test.describe("Anonymous adult guest checkout", () => {
     await expect(page.locator("#mode-adult")).toHaveCount(0);
     await expect(page.locator("#mode-child")).toHaveCount(0);
     // Heading from the locked-adult registrant form, not the toggle prompt.
-    await expect(page.getByText(/About you/i)).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("heading", { name: "Registrant info" }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
