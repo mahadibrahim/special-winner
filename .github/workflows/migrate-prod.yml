@@ -1,0 +1,84 @@
+# Keeps the PRODUCTION database schema in sync with `main`.
+#
+# ── Why this workflow exists ──────────────────────────────────────────
+# The production Netlify site is connected to this repo's `main` branch
+# and auto-publishes CODE on every merge. It does NOT run database
+# migrations. Before this workflow, migrations only ran via a separate
+# tag-triggered job — but the auto-tag workflow pushes tags using
+# GITHUB_TOKEN, and GitHub deliberately does not let GITHUB_TOKEN-pushed
+# events trigger other workflows. So migrations silently stopped running
+# after v0.0.2 while code kept shipping → new code hitting a stale
+# schema → production errors.
+#
+# This workflow fills the gap: it runs the committed Drizzle migrations
+# against the production database on the SAME trigger as the code deploy
+# (every push to `main`), so code and schema stay in sync.
+#
+# ── Safety ────────────────────────────────────────────────────────────
+# Migrations are idempotent — drizzle tracks applied migrations in
+# drizzle.__drizzle_migrations, so re-running on an up-to-date DB is a
+# no-op. The repo convention is additive, forward-compatible schema
+# changes, so the brief window where Netlify may publish new code a few
+# seconds before this job finishes is self-healing. In practice this job
+# (npm ci + migrate, ~90s) finishes before the Netlify build (~2-3 min).
+#
+# `workflow_dispatch` is kept so migrations can be re-run by hand from
+# the Actions tab if ever needed.
+#
+# ── Ideal end state (follow-up, needs a Netlify dashboard change) ──────
+# The fully race-free design is: disconnect the prod Netlify site from
+# git auto-deploy, and prepend `npm run db:migrate` to the Netlify build
+# command in netlify.toml so migrate→build→deploy is one atomic process
+# (a failed migration then also blocks the code deploy). That requires
+# DATABASE_URL in the Netlify build env and is left as a hardening
+# follow-up — see web-app/CLAUDE.md "Release process".
+
+name: Migrate production database
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
+  # Allow manual re-runs from the Actions tab.
+  workflow_dispatch:
+
+# Serialize so two near-simultaneous merges don't race to apply the
+# same migrations.
+concurrency:
+  group: migrate-prod
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Bootstrap is for a DB previously managed via `drizzle-kit push`
+      # (no __drizzle_migrations rows). It's idempotent — a no-op once
+      # tracking exists — so it's safe to run on every invocation.
+      - name: Bootstrap migration tracking
+        run: npm run db:migrate:bootstrap
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # Applies any committed migrations not yet in __drizzle_migrations.
+      # If this fails the workflow fails loudly — surfacing schema drift
+      # instead of letting it rot silently.
+      - name: Apply database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
