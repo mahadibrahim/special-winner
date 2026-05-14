@@ -4,14 +4,16 @@ import { useEffect, useState } from "react"
 import { ArrowRight } from "lucide-react"
 
 /**
- * DualCtaHero — conversion-first hero for a dual-audience platform.
+ * DualCtaHero — the homepage's showpiece gateway.
  *
- * Two clear paths in the hero so the visitor self-segments in one glance:
- *  - "Browse youth programs"  → /programs?audience=youth
- *  - "Browse adult leagues"   → /programs?audience=adult
+ * An editorial brand moment with the dual-audience choice as the primary
+ * action. Two clear paths so the visitor self-segments in one glance:
+ *  - "For your kid"  → /youth   (the youth finder)
+ *  - "For yourself"  → /adult   (the adult finder)
  *
- * Brand-neutral framing — no specific venues or sports in the headline.
- * The current offering (soccer in central Ohio) lives in the kicker line.
+ * The audience colors mirror the finders themselves — emerald for youth,
+ * ink for adult — so the gateway and its destinations feel of a piece.
+ * Brand-neutral framing; the current offering lives on the finder pages.
  */
 export function DualCtaHero() {
   const [mounted, setMounted] = useState(false)
@@ -28,7 +30,7 @@ export function DualCtaHero() {
             }`}
           >
             <span className="inline-block w-8 h-px bg-primary-orange" />
-            Now enrolling
+            Aspire Sports · Central Ohio
           </p>
 
           <h1
@@ -48,8 +50,6 @@ export function DualCtaHero() {
             >
               conviction.
             </span>
-            <br />
-            For kids. For adults.
           </h1>
 
           <p
@@ -58,11 +58,12 @@ export function DualCtaHero() {
             }`}
             style={{ letterSpacing: "-0.003em" }}
           >
-            Real programs, real coaches, real community — for the kid learning
-            the game and the adult who never stopped playing.
+            Real coaches, real development — for the kid learning the game and
+            the adult who never stopped playing.
           </p>
 
-          {/* Dual CTAs */}
+          {/* Dual CTAs — the gateway. Emerald for youth, ink for adult,
+              matching the finders they lead to. */}
           <div
             className={`mt-10 flex flex-wrap items-center gap-4 transition-all duration-700 delay-300 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -70,18 +71,20 @@ export function DualCtaHero() {
           >
             <a
               href="/youth"
-              className="group inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors duration-300"
+              data-landing-cta="homepage-hero-youth"
+              className="group inline-flex items-center gap-3 bg-emerald-600 text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-emerald-700 transition-colors duration-300"
               style={{ letterSpacing: "0.08em" }}
             >
-              Browse youth programs
+              For your kid
               <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
             <a
               href="/adult"
-              className="group inline-flex items-center gap-3 border border-ink text-ink px-7 py-4 text-sm font-medium tracking-wide uppercase hover:border-primary-orange hover:text-primary-orange transition-colors duration-300"
+              data-landing-cta="homepage-hero-adult"
+              className="group inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors duration-300"
               style={{ letterSpacing: "0.08em" }}
             >
-              Browse adult leagues
+              For yourself
               <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
           </div>

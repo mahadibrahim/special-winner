@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import { ArrowRight, Sparkles } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 export default function CTABanner() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -175,32 +174,28 @@ export default function CTABanner() {
             the game and the adult who never stopped playing.
           </p>
 
-          {/* CTA buttons */}
+          {/* CTA buttons — the same Youth/Adult gateway split as the hero,
+              so the page opens and closes on the same choice. */}
           <div
             className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-700 delay-300 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
-            <Button
-              size="lg"
-              className="group relative overflow-hidden bg-cream hover:bg-cream/95 text-ink px-8 py-6 text-lg font-bold rounded-xl shadow-2xl shadow-navy-deep/20 hover:shadow-navy-deep/30 transition-all duration-300 hover:scale-105"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                Browse Programs
-                <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
-              </span>
-              {/* Shine effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            </Button>
-
             <a
-              href="mailto:hello@aspiresportsohio.com"
-              className="group flex items-center gap-2 text-cream font-medium px-6 py-3 rounded-xl hover:bg-cream/10 transition-all duration-300"
+              href="/youth"
+              data-landing-cta="homepage-cta-youth"
+              className="group inline-flex items-center gap-2 bg-cream text-ink px-8 py-4 text-base font-bold rounded-xl shadow-2xl shadow-navy-deep/20 hover:shadow-navy-deep/30 hover:scale-105 transition-all duration-300"
             >
-              Email Us
-              <span className="w-6 h-6 rounded-full border border-cream/30 flex items-center justify-center group-hover:bg-cream/10 transition-colors">
-                <ArrowRight className="w-3 h-3 transition-transform duration-300 group-hover:translate-x-0.5" />
-              </span>
+              For your kid
+              <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
+            </a>
+            <a
+              href="/adult"
+              data-landing-cta="homepage-cta-adult"
+              className="group inline-flex items-center gap-2 bg-ink text-cream px-8 py-4 text-base font-bold rounded-xl hover:scale-105 transition-all duration-300"
+            >
+              For yourself
+              <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
           </div>
         </div>

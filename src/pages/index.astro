@@ -28,3 +28,14 @@ import CTABanner from '../components/cta-banner';
     <CTABanner client:visible />
   </main>
 </BaseLayout>
+
+<script>
+  import { track } from "@/lib/analytics/track";
+
+  // Conversion analytics on the gateway CTAs (hero + CTA banner).
+  document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
+    el.addEventListener("click", () => {
+      track("landing_hero_cta_click", { cta: el.dataset.landingCta });
+    });
+  });
+</script>
