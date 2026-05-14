@@ -28,6 +28,9 @@ export function validateRentalRateCardPut(
       return `${key} must be a non-negative number`;
     }
   }
+  if (body.cancelWindowHours !== undefined && body.cancelWindowHours > 24 * 30) {
+    return "cancelWindowHours unrealistic (>30 days)";
+  }
   if (
     body.minDurationMinutes !== undefined &&
     body.maxDurationMinutes !== undefined &&
@@ -73,7 +76,9 @@ export function validateRentalBookingRequest(
   if (end.getTime() <= start.getTime()) return "endsAt must be after startsAt";
   if (
     body.partySize !== undefined &&
-    (typeof body.partySize !== "number" || body.partySize < 1)
+    (typeof body.partySize !== "number" ||
+      !Number.isInteger(body.partySize) ||
+      body.partySize < 1)
   ) {
     return "partySize must be a positive integer";
   }
@@ -116,7 +121,9 @@ export function validateAdminRentalCreate(
   }
   if (
     body.partySize !== undefined &&
-    (typeof body.partySize !== "number" || body.partySize < 1)
+    (typeof body.partySize !== "number" ||
+      !Number.isInteger(body.partySize) ||
+      body.partySize < 1)
   ) {
     return "partySize must be a positive integer";
   }

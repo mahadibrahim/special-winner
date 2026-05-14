@@ -19,6 +19,11 @@ describe("validateRentalRateCardPut", () => {
       validateRentalRateCardPut({ minDurationMinutes: 300, maxDurationMinutes: 240 }),
     ).toMatch(/minDuration/);
   });
+  it("rejects an unrealistic cancelWindowHours (>30 days)", () => {
+    expect(validateRentalRateCardPut({ cancelWindowHours: 99999 })).toMatch(
+      /cancelWindowHours/,
+    );
+  });
 });
 
 describe("validateRentalBookingRequest", () => {
@@ -49,6 +54,21 @@ describe("validateRentalBookingRequest", () => {
       validateRentalBookingRequest({ ...base, waiverName: "  " }),
     ).toMatch(/waiver/i);
   });
+  it("rejects a non-UUID venueId", () => {
+    expect(
+      validateRentalBookingRequest({ ...base, venueId: "not-a-uuid" }),
+    ).toMatch(/venueId/);
+  });
+  it("rejects a non-integer fieldNumber", () => {
+    expect(
+      validateRentalBookingRequest({ ...base, fieldNumber: 1.5 }),
+    ).toMatch(/fieldNumber/);
+  });
+  it("rejects a non-integer partySize", () => {
+    expect(
+      validateRentalBookingRequest({ ...base, partySize: 2.5 }),
+    ).toMatch(/partySize/);
+  });
 });
 
 describe("validateAdminRentalCreate", () => {
@@ -73,5 +93,10 @@ describe("validateAdminRentalCreate", () => {
     expect(
       validateAdminRentalCreate({ ...base, paymentMethod: "bitcoin" as never }),
     ).toMatch(/paymentMethod/);
+  });
+  it("rejects an invalid startsAt date string", () => {
+    expect(
+      validateAdminRentalCreate({ ...base, startsAt: "not-a-date" }),
+    ).toMatch(/startsAt/);
   });
 });
