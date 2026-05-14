@@ -39,3 +39,15 @@ const accentClasses =
     }
   </div>
 </section>
+
+<script>
+  import { track } from "@/lib/analytics/track";
+  document.querySelectorAll<HTMLAnchorElement>("[data-format-tile]").forEach((el) => {
+    el.addEventListener("click", () => {
+      track("landing_format_tile_click", {
+        format: el.dataset.formatTile,
+        href: el.getAttribute("href"),
+      });
+    });
+  });
+</script>
