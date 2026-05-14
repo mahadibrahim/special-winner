@@ -80,7 +80,7 @@ export function DualCtaHero() {
             }`}
           >
             <a
-              href="/programs?audience=youth"
+              href="/youth"
               className="group inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors duration-300"
               style={{ letterSpacing: "0.08em" }}
             >
@@ -88,7 +88,7 @@ export function DualCtaHero() {
               <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
             <a
-              href="/programs?audience=adult"
+              href="/adult"
               className="group inline-flex items-center gap-3 border border-ink text-ink px-7 py-4 text-sm font-medium tracking-wide uppercase hover:border-primary-orange hover:text-primary-orange transition-colors duration-300"
               style={{ letterSpacing: "0.08em" }}
             >
