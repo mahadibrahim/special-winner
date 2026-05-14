@@ -1,25 +1,47 @@
 /**
- * Netlify Scheduled Function — runs runActivityTrackerTick every 5 minutes.
+ * Netlify Scheduled Function — triggers the activity-tracker tick every
+ * 5 minutes by POSTing to the /api/cron/tick-activity-tracker route.
  *
- * Cron schedule "*\/5 * * * *" matches the cadence the dispatch logic
- * was tuned for: pre_reminder fires 15min ahead, overdue_alert 15min
- * after, escalation 60min after — a 5-minute tick gives us at most a
- * 5-minute slip in either direction.
+ * It deliberately does NOT import the app lib directly. The lib tree reads
+ * `import.meta.env` (a Vite-only construct) — which is `undefined` in the
+ * Netlify function bundle (esbuild/zisi, not Vite), crashing the module at
+ * load. The HTTP route runs the same work inside the Astro SSR runtime
+ * where env access works; this function is just the scheduler.
  *
- * Returns 200 on success and 500 on uncaught error so Netlify's logs
- * surface failures without retrying (the next tick is 5 minutes away,
- * which is the desired backoff).
+ * Returns 200 when the route responds OK, 500 otherwise so Netlify's logs
+ * surface failures without retrying (the next tick is 5 minutes away).
  */
 import { schedule } from "@netlify/functions";
-import { runActivityTrackerTick } from "../../src/lib/activity-tracking/tick";
+
+const ROUTE = "/api/cron/tick-activity-tracker";
 
 export const handler = schedule("*/5 * * * *", async () => {
-  try {
-    const result = await runActivityTrackerTick();
-    console.info(
-      `[scheduled-activity-tracker-tick] processed=${result.processed} fired=${result.fired} errors=${result.errors}`,
+  // `URL` is injected by Netlify (the site's primary URL); PUBLIC_APP_URL
+  // is the fallback for any environment that doesn't set it.
+  const base = process.env.URL ?? process.env.PUBLIC_APP_URL;
+  if (!base) {
+    console.error(
+      "[scheduled-activity-tracker-tick] no site URL in env (URL / PUBLIC_APP_URL)",
     );
-    return { statusCode: 200, body: JSON.stringify(result) };
+    return { statusCode: 500, body: "Site URL not configured" };
+  }
+
+  try {
+    const res = await fetch(`${base}${ROUTE}`, {
+      method: "POST",
+      headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" },
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      console.error(
+        `[scheduled-activity-tracker-tick] ${ROUTE} → ${res.status}: ${body}`,
+      );
+      return { statusCode: 500, body };
+    }
+    console.info(
+      `[scheduled-activity-tracker-tick] ${ROUTE} → ${res.status}: ${body}`,
+    );
+    return { statusCode: 200, body };
   } catch (err) {
     console.error("[scheduled-activity-tracker-tick]", err);
     return {

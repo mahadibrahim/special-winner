@@ -1,23 +1,48 @@
 /**
- * Netlify Scheduled Function — expires drop-in pending-claim rows whose
- * promotion window has elapsed and promotes the next waitlister on each
- * affected session. Runs every 5 minutes — matches the cadence we use
- * for the activity-tracker tick (15-min reminder windows mean a 5-min
- * tick gives at most a 5-min slip in either direction).
+ * Netlify Scheduled Function — triggers the drop-in pending-claim expiry
+ * sweep every 5 minutes by POSTing to the /api/cron/expire-pending-claims
+ * route.
  *
- * Returns 200 on success, 500 on uncaught error so Netlify's logs
- * surface failures without retrying — the next tick is 5 minutes away.
+ * It deliberately does NOT import the app lib directly. The lib tree reads
+ * `import.meta.env` (a Vite-only construct) — which is `undefined` in the
+ * Netlify function bundle (esbuild/zisi, not Vite), crashing the module at
+ * load. The HTTP route runs the same work inside the Astro SSR runtime
+ * where env access works; this function is just the scheduler.
+ *
+ * Returns 200 when the route responds OK, 500 otherwise so Netlify's logs
+ * surface failures without retrying (the next tick is 5 minutes away).
  */
 import { schedule } from "@netlify/functions";
-import { expireOverduePromotions } from "../../src/lib/dropin/promotion";
+
+const ROUTE = "/api/cron/expire-pending-claims";
 
 export const handler = schedule("*/5 * * * *", async () => {
-  try {
-    const result = await expireOverduePromotions();
-    console.info(
-      `[scheduled-expire-pending-claims] expired=${result.expired} promotedNext=${result.promotedNext}`,
+  // `URL` is injected by Netlify (the site's primary URL); PUBLIC_APP_URL
+  // is the fallback for any environment that doesn't set it.
+  const base = process.env.URL ?? process.env.PUBLIC_APP_URL;
+  if (!base) {
+    console.error(
+      "[scheduled-expire-pending-claims] no site URL in env (URL / PUBLIC_APP_URL)",
     );
-    return { statusCode: 200, body: JSON.stringify(result) };
+    return { statusCode: 500, body: "Site URL not configured" };
+  }
+
+  try {
+    const res = await fetch(`${base}${ROUTE}`, {
+      method: "POST",
+      headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" },
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      console.error(
+        `[scheduled-expire-pending-claims] ${ROUTE} → ${res.status}: ${body}`,
+      );
+      return { statusCode: 500, body };
+    }
+    console.info(
+      `[scheduled-expire-pending-claims] ${ROUTE} → ${res.status}: ${body}`,
+    );
+    return { statusCode: 200, body };
   } catch (err) {
     console.error("[scheduled-expire-pending-claims]", err);
     return {
