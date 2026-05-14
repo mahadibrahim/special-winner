@@ -105,7 +105,7 @@ export default function HomepageProgramsPreview() {
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="bg-paper border border-border rounded-2xl p-5 h-[200px] animate-pulse"
+                  className="bg-paper border border-border rounded-2xl h-[320px] animate-pulse"
                   aria-hidden="true"
                 />
               ))}
