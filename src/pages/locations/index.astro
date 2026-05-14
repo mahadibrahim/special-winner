@@ -1,0 +1,66 @@
+---
+// SSR — fetches the live location list. New page default per CLAUDE.md.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+interface Location {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  state: string | null;
+}
+
+let locations: Location[] = [];
+try {
+  const res = await fetch(`${Astro.url.origin}/api/public/filters`);
+  if (res.ok) {
+    const data = (await res.json()) as { locations?: Location[] };
+    locations = data.locations ?? [];
+  }
+} catch {
+  // Silent — page renders the empty state below.
+}
+---
+
+<BaseLayout
+  title="Locations — Aspire Sports"
+  description="Aspire Sports venues across central Ohio. Find programs near you."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/locations`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1 pt-28 pb-16">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="font-display text-ink mb-3" style="font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.025em;">
+        Our locations
+      </h1>
+      <p class="text-lg text-ink-muted max-w-2xl mb-10">
+        Aspire Sports runs programs across central Ohio. Pick a venue to see
+        what's on.
+      </p>
+
+      {
+        locations.length === 0 ? (
+          <p class="text-ink-muted">Locations are being finalized — check back soon.</p>
+        ) : (
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {locations.map((loc) => (
+              <a
+                href={`/locations/${loc.slug}`}
+                class="block p-6 rounded-xl border border-border bg-paper hover:border-primary/40 transition-colors"
+              >
+                <div class="font-display text-xl text-ink">{loc.name}</div>
+                {(loc.city || loc.state) && (
+                  <div class="text-sm text-ink-muted mt-1">
+                    {[loc.city, loc.state].filter(Boolean).join(", ")}
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </main>
+</BaseLayout>
