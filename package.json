@@ -32,6 +32,7 @@
     "@anthropic-ai/sdk": "^0.89.0",
     "@astrojs/netlify": "^6.6.3",
     "@astrojs/react": "^4.4.2",
+    "@astrojs/sitemap": "^3.7.2",
     "@aws-sdk/client-s3": "^3.1032.0",
     "@aws-sdk/s3-request-presigner": "^3.1032.0",
     "@hookform/resolvers": "^5.2.2",
