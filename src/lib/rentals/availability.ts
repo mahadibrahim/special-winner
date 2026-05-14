@@ -70,6 +70,7 @@ export async function getVenueRentalAvailability(
         lt(games.scheduledAt, dayEnd),
         gt(
           sql`${games.scheduledAt} + (COALESCE(${games.durationMinutes}, 0) * interval '1 minute')`,
+          // A JS Date passed into a raw sql() context loses its pg type and must be cast explicitly.
           sql`${dayStart.toISOString()}::timestamptz`,
         ),
       ),

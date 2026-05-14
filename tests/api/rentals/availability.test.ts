@@ -1,11 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { E2E_RENTAL_VENUE_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
-// Fixed UUID from seed-e2e-tests.ts E2E_RENTAL_VENUE_ID.
-// Importing that constant directly would execute the seed module's top-level
-// seedE2ETests() call, so we embed the value here instead.
-const E2E_RENTAL_VENUE_ID = "4b237a78-868d-4e64-8487-f3dce687b603";
+const ISO_RX = /^\d{4}-\d{2}-\d{2}T/;
 
 describe("rental availability API", () => {
   it("returns per-field free blocks for a rental-enabled venue", async () => {
@@ -18,6 +16,14 @@ describe("rental availability API", () => {
     expect(body.fields.length).toBeGreaterThan(0);
     expect(body.fields[0]).toHaveProperty("free");
     expect(Array.isArray(body.fields[0].free)).toBe(true);
+    // Verify that free-block timestamps are serialized as ISO strings.
+    if (body.fields[0].free.length > 0) {
+      const block = body.fields[0].free[0];
+      expect(typeof block.startsAt).toBe("string");
+      expect(block.startsAt).toMatch(ISO_RX);
+      expect(typeof block.endsAt).toBe("string");
+      expect(block.endsAt).toMatch(ISO_RX);
+    }
   });
 
   it("returns 404 for a venue that does not exist", async () => {

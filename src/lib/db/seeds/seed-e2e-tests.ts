@@ -9,6 +9,7 @@
 
 // Load environment variables from .env file if present
 import "dotenv/config";
+import { pathToFileURL } from "node:url";
 
 import { getDb } from "../index";
 import { hashPassword } from "../../auth/password";
@@ -1271,12 +1272,16 @@ async function seedE2ETests() {
   console.log("─".repeat(50));
 }
 
-// Run if executed directly
-seedE2ETests()
-  .catch((error) => {
-    console.error("❌ E2E seeding failed:", error);
-    process.exit(1);
-  })
-  .finally(() => {
-    process.exit(0);
-  });
+// Run only when executed directly (via tsx/node), not when imported as a module.
+// This prevents any `import` of this file (e.g. importing E2E_RENTAL_VENUE_ID in
+// a test) from triggering the full seed.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  seedE2ETests()
+    .catch((error) => {
+      console.error("❌ E2E seeding failed:", error);
+      process.exit(1);
+    })
+    .finally(() => {
+      process.exit(0);
+    });
+}
