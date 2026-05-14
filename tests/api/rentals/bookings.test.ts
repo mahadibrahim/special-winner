@@ -7,27 +7,28 @@ import { E2E_RENTAL_VENUE_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
-// Unique per-run offset so re-runs don't collide with prior rows in the
-// shared staging DB. We carve out a slot in the 2027-03 range, within the
-// venue's 08:00–22:00 UTC rental window, 1h duration.
-const RUN_OFFSET_MS = (Date.now() % 50) * 3600_000; // 0–49h bucket
+// A distinct calendar DAY per test run, far in the future, at a fixed
+// within-window hour. Date.now() spread across millions of distinct days
+// means consecutive runs (even seconds apart) never reuse a slot.
+const RUN_DAY_OFFSET = Date.now() % 3_000_000;
+const DAY_MS = 86_400_000;
+const RUN_BASE_UTC = Date.UTC(2030, 0, 1) + RUN_DAY_OFFSET * DAY_MS;
 
-function slot(fieldOffsetHours: number, durationHours = 1) {
-  // Base: 2027-03-15 10:00 UTC + offset + fieldOffsetHours
-  const startMs =
-    Date.UTC(2027, 2, 15, 10, 0, 0) +
-    RUN_OFFSET_MS +
-    fieldOffsetHours * 3600_000;
-  const startsAt = new Date(startMs);
-  const endsAt = new Date(startMs + durationHours * 3600_000);
-  return { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() };
+/**
+ * Build a slot inside the venue rental window (8am-10pm UTC). `hourOfDay`
+ * stays between 9 and 19 so a 1-2h booking ends by 21:00.
+ */
+function slot(hourOfDay: number, durationHours: number) {
+  const start = new Date(RUN_BASE_UTC + hourOfDay * 3_600_000);
+  const end = new Date(start.getTime() + durationHours * 3_600_000);
+  return { startsAt: start.toISOString(), endsAt: end.toISOString() };
 }
 
 function validBody(overrides: Record<string, unknown> = {}) {
   return {
     venueId: E2E_RENTAL_VENUE_ID,
     fieldNumber: 1,
-    ...slot(0),
+    ...slot(9, 1),
     partySize: 4,
     purpose: "scrimmage",
     waiverAccepted: true,
@@ -64,13 +65,13 @@ describe("POST /api/rentals/bookings", () => {
 
   it("returns 200 with paymentRequired and checkoutUrl for a valid paid booking", async () => {
     const cookie = await getParentCookie();
-    // Use a distinct slot (field 2, offset by 100h) so it doesn't collide
-    // with the conflict test file's field 3 bookings.
+    // Use a distinct slot (field 1, hour 14) so it doesn't collide with
+    // conflict.test.ts which uses field 2 at hours 10-13.
     const res = await apiFetch("/api/rentals/bookings", {
       method: "POST",
       cookie,
       body: JSON.stringify(
-        validBody({ fieldNumber: 2, ...slot(100) }),
+        validBody({ fieldNumber: 1, ...slot(14, 2) }),
       ),
     });
     const body = await res.json();
