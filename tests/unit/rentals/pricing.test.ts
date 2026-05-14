@@ -26,4 +26,8 @@ describe("computeRentalPriceCents", () => {
   it("returns 0 when end is not after start", () => {
     expect(computeRentalPriceCents(start, start, 8000)).toBe(0);
   });
+  it("returns 0 for a zero hourly rate (free-venue path skips Stripe)", () => {
+    const end = new Date("2026-06-01T20:00:00Z");
+    expect(computeRentalPriceCents(start, end, 0)).toBe(0);
+  });
 });

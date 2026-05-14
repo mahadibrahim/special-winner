@@ -4,7 +4,7 @@
  * pattern (`src/lib/dropin/pricing.ts`).
  */
 
-/** Venue per-venue override wins; otherwise the org rate-card default. */
+/** Venue-level override wins; otherwise the org rate-card default. */
 export function resolveRentalHourlyRateCents(
   venueHourlyRateCents: number | null,
   rateCardDefaultHourlyRateCents: number,
@@ -12,7 +12,13 @@ export function resolveRentalHourlyRateCents(
   return venueHourlyRateCents ?? rateCardDefaultHourlyRateCents;
 }
 
-/** Price = (duration in hours) * hourly rate, rounded to the nearest cent. */
+/**
+ * Price = (duration in hours) * hourly rate, rounded to the nearest cent.
+ *
+ * @param startsAt - start of the rental window
+ * @param endsAt - end of the rental window; returns 0 if not after startsAt
+ * @param hourlyRateCents - must be >= 0; callers are responsible for validation
+ */
 export function computeRentalPriceCents(
   startsAt: Date,
   endsAt: Date,
