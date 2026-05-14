@@ -1,4 +1,4 @@
-CREATE TYPE "public"."activity_completion_status" AS ENUM('pending', 'in_progress', 'overdue', 'completed', 'canceled', 'skipped_by_handoff');--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."activity_completion_status" AS ENUM('pending', 'in_progress', 'overdue', 'completed', 'canceled', 'skipped_by_handoff'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
 CREATE TABLE "activity_completions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -59,9 +59,9 @@ CREATE TABLE "venue_role_assignments" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "venues" ADD COLUMN "owned" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "venues" ADD COLUMN "concessions" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "venues" ADD COLUMN "parking_managed" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "venues" ADD COLUMN IF NOT EXISTS "owned" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "venues" ADD COLUMN IF NOT EXISTS "concessions" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "venues" ADD COLUMN IF NOT EXISTS "parking_managed" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "activity_completions" ADD CONSTRAINT "activity_completions_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "activity_completions" ADD CONSTRAINT "activity_completions_game_id_games_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."games"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "activity_completions" ADD CONSTRAINT "activity_completions_completed_by_user_id_users_id_fk" FOREIGN KEY ("completed_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
