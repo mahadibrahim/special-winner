@@ -7,7 +7,7 @@ import { waitForHydration, signIn } from "../utils/test-helpers";
 
 const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
 
-test.describe("Adult self registration", () => {
+test.describe("Adult self registration", { tag: "@critical" }, () => {
   test.setTimeout(120_000);
 
   let seasonId: string;

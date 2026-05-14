@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { TEST_USERS, signIn, signOut, expectToast } from "../utils/test-helpers";
 
-test.describe("Authentication Flow", () => {
+test.describe("Authentication Flow", { tag: "@critical" }, () => {
   test.describe("Sign In", () => {
     test("shows signin page with email and password fields", async ({ page }) => {
       await page.goto("/signin");

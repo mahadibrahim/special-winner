@@ -6,7 +6,7 @@ import { waitForHydration } from "../utils/test-helpers";
 // We locate inputs by filtering for the div.space-y-2 container whose label
 // text matches, then grabbing the input inside that container.
 
-test.describe("Anonymous registration (guest checkout)", () => {
+test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, () => {
   test.setTimeout(120_000);
 
   test("anonymous visitor can fill the wizard and reach Stripe embedded checkout", async ({ page, request }) => {
