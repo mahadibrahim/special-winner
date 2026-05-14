@@ -273,7 +273,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 4 - Support */}
+          {/* Column 6 - Support */}
           <div className="lg:col-span-2">
             <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
               Support
@@ -292,7 +292,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 5 - Connect */}
+          {/* Column 7 - Connect */}
           <div className="lg:col-span-2">
             <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
               Connect
