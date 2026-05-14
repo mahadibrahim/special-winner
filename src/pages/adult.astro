@@ -1,0 +1,86 @@
+---
+// SSR — reuses request-scoped section components. New page default per
+// CLAUDE.md prerender policy.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import FormatTiles from "@/components/landing/format-tiles.astro";
+import FeaturedProgramsRow from "@/components/landing/featured-programs-row.tsx";
+import Testimonials from "@/components/testimonials";
+import CTABanner from "@/components/cta-banner";
+
+const formatTiles = [
+  { label: "Leagues", sub: "Season · solo or team", href: "/programs?audience=adult&type=league" },
+  { label: "Pick-up", sub: "Show up & play", href: "/dropin" },
+  { label: "Tournaments", sub: "One-day events", href: "/programs?audience=adult&type=tournament" },
+];
+---
+
+<BaseLayout
+  title="Adult Sports Leagues — Aspire Sports"
+  description="Adult sports leagues, pick-up, and tournaments in central Ohio. Sign up solo, with friends, or as a full team — Aspire Sports."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/adult`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    {/* Hero — energy + credibility, dark/orange */}
+    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-16">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+          Founding season · Summer 2026
+        </p>
+        <h1
+          class="font-display max-w-3xl"
+          style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          The league you'll build your week around.
+        </h1>
+        <p class="mt-6 text-lg text-cream/85 max-w-2xl">
+          Fair refs, reliable communication, and a post-game scene worth staying
+          for. Sign up solo, bring friends, or register a full team.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a
+            href="/programs?audience=adult"
+            data-landing-cta="adult-hero-browse"
+            class="inline-flex items-center gap-2 bg-primary text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary/90 transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Browse adult leagues →
+          </a>
+          <a
+            href="/programs?audience=team"
+            data-landing-cta="adult-hero-team"
+            class="inline-flex items-center gap-2 border border-cream text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-cream hover:text-ink transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Register a team
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {/* Section 2 — the heart: format tiles */}
+    <FormatTiles
+      heading="How do you want to play?"
+      tiles={formatTiles}
+      accent="orange"
+    />
+
+    {/* Featured adult leagues */}
+    <section class="bg-cream py-14">
+      <div class="max-w-[1400px] mx-auto">
+        <div class="px-4 sm:px-6 lg:px-8 mb-6">
+          <h2 class="font-display text-2xl text-ink">Open adult leagues</h2>
+        </div>
+        <FeaturedProgramsRow audience="adult" client:visible />
+      </div>
+    </section>
+
+    {/* Testimonials — captain voice */}
+    <Testimonials client:visible />
+
+    {/* CTA banner */}
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>
