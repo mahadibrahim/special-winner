@@ -9,7 +9,7 @@
  * they carry no field number. See the spec's "Availability + conflict
  * detection" section.
  */
-import { and, eq, gte, lt, inArray, isNull, or, gt } from "drizzle-orm";
+import { and, eq, gte, lt, inArray, isNull, or, gt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { venues, games } from "@/lib/db/schema/teams";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
@@ -48,10 +48,14 @@ export async function getVenueRentalAvailability(
       ? new Date(dayStart.getTime() + venue.rentalCloseMinute * 60_000)
       : dayEnd;
 
-  // Games on this venue overlapping the day. games.endsAt is derived from
-  // scheduledAt + durationMinutes.
-  // NOTE: games.fieldNumber is varchar in the schema; comparison is done
-  // after fetching by converting the loop integer to string.
+  // Games on this venue overlapping the day. A game overlaps the day when it
+  // starts before dayEnd AND its computed end (scheduledAt + durationMinutes)
+  // is after dayStart. COALESCE(durationMinutes, 0) handles the nullable column
+  // so games without a duration are treated as zero-length and are not silently
+  // dropped from the overlap test.
+  // NOTE: games.fieldNumber is a varchar column; the loop integer is converted
+  // to a string for comparison (fieldKey = String(fieldNumber)). fieldRentals
+  // .fieldNumber is an integer column, so that comparison stays numeric.
   const gameRows = await db
     .select({
       fieldNumber: games.fieldNumber,
@@ -64,18 +68,22 @@ export async function getVenueRentalAvailability(
         eq(games.venueId, venueId),
         inArray(games.status, ["scheduled", "in_progress"]),
         lt(games.scheduledAt, dayEnd),
+        gt(
+          sql`${games.scheduledAt} + (COALESCE(${games.durationMinutes}, 0) * interval '1 minute')`,
+          dayStart,
+        ),
       ),
     );
 
   // Confirmed + non-expired pending_payment rentals overlapping the day.
+  // status and paymentExpiresAt are used only in the WHERE clause below;
+  // they are not needed in the select projection.
   const now = new Date();
   const rentalRows = await db
     .select({
       fieldNumber: fieldRentals.fieldNumber,
       startsAt: fieldRentals.startsAt,
       endsAt: fieldRentals.endsAt,
-      status: fieldRentals.status,
-      paymentExpiresAt: fieldRentals.paymentExpiresAt,
     })
     .from(fieldRentals)
     .where(
@@ -101,7 +109,7 @@ export async function getVenueRentalAvailability(
     const fieldKey = String(fieldNumber);
     const busy: TimeBlock[] = [];
     for (const g of gameRows) {
-      // games.fieldNumber is varchar; default to "1" when null.
+      // games.fieldNumber is varchar (see comment above); compare as string.
       if ((g.fieldNumber ?? "1") !== fieldKey) continue;
       busy.push({
         startsAt: g.scheduledAt,

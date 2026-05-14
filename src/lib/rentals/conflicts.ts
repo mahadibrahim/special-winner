@@ -79,7 +79,7 @@ export async function assertNoRentalConflict(
         inArray(games.status, ["scheduled", "in_progress"]),
         lt(games.scheduledAt, endsAt),
         gt(
-          sql`${games.scheduledAt} + (${games.durationMinutes} * interval '1 minute')`,
+          sql`${games.scheduledAt} + (COALESCE(${games.durationMinutes}, 0) * interval '1 minute')`,
           startsAt,
         ),
       ),
