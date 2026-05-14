@@ -24,6 +24,16 @@ describe("validateRentalRateCardPut", () => {
       /cancelWindowHours/,
     );
   });
+  it("rejects a non-integer defaultHourlyRateCents", () => {
+    expect(validateRentalRateCardPut({ defaultHourlyRateCents: 94.99 })).toMatch(
+      /defaultHourlyRateCents/,
+    );
+  });
+  it("rejects a maxDurationMinutes exceeding 24 hours", () => {
+    expect(validateRentalRateCardPut({ maxDurationMinutes: 99999 })).toMatch(
+      /maxDurationMinutes/,
+    );
+  });
 });
 
 describe("validateRentalBookingRequest", () => {

@@ -17,6 +17,10 @@ describe("rental rate-card API", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.rateCard.defaultHourlyRateCents).toBeGreaterThan(0);
+    expect(body.rateCard.id).toBeTruthy();
+    expect(body.rateCard.organizationId).toBeTruthy();
+    expect(typeof body.rateCard.cancelWindowHours).toBe("number");
+    expect(typeof body.rateCard.bookingIncrementMinutes).toBe("number");
   });
 
   it("PUT updates the default hourly rate", async () => {
@@ -35,6 +39,15 @@ describe("rental rate-card API", () => {
       method: "PUT",
       headers: { cookie, "Content-Type": "application/json" },
       body: JSON.stringify({ defaultHourlyRateCents: -5 }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("PUT rejects minDurationMinutes > maxDurationMinutes with 400", async () => {
+    const res = await fetch(`${BASE}/api/admin/rentals/rate-card`, {
+      method: "PUT",
+      headers: { cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ minDurationMinutes: 300, maxDurationMinutes: 60 }),
     });
     expect(res.status).toBe(400);
   });

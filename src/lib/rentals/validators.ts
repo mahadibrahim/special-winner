@@ -24,13 +24,23 @@ export function validateRentalRateCardPut(
   ] as const) {
     const v = body[key];
     if (v === undefined) continue;
-    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
-      return `${key} must be a non-negative number`;
+    if (typeof v !== "number" || !Number.isFinite(v) || !Number.isInteger(v) || v < 0) {
+      return `${key} must be a non-negative integer`;
     }
   }
   if (body.cancelWindowHours !== undefined && body.cancelWindowHours > 24 * 30) {
     return "cancelWindowHours unrealistic (>30 days)";
   }
+  for (const minuteKey of [
+    "bookingIncrementMinutes",
+    "minDurationMinutes",
+    "maxDurationMinutes",
+  ] as const) {
+    if (body[minuteKey] !== undefined && body[minuteKey]! > 1440) {
+      return `${minuteKey} unrealistic (>24 hours)`;
+    }
+  }
+  // Cross-field check is request-scoped only — cannot catch inconsistency introduced by a partial update against a previously-stored value.
   if (
     body.minDurationMinutes !== undefined &&
     body.maxDurationMinutes !== undefined &&

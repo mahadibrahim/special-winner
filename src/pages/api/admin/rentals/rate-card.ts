@@ -77,6 +77,7 @@ export const PUT: APIRoute = async (context) => {
     if (body[key] !== undefined) updates[key] = body[key];
   }
 
+  // Upsert: insert if missing, update if present.
   const [existing] = await db
     .select({ id: fieldRentalRateCard.id })
     .from(fieldRentalRateCard)
