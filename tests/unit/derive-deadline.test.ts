@@ -41,4 +41,10 @@ describe("deriveDeadline", () => {
     vi.setSystemTime(new Date("2026-06-07T12:00:00Z"));
     expect(deriveDeadline(seasonWith("2026-06-15"))?.urgent).toBe(false);
   });
+
+  it("is urgent exactly 7 days out (midnight to midnight)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-08T00:00:00Z"));
+    expect(deriveDeadline(seasonWith("2026-06-15"))?.urgent).toBe(true);
+  });
 });
