@@ -39,7 +39,7 @@ export function DualCtaHero() {
             }`}
           >
             <span className="inline-block w-8 h-px bg-primary-orange" />
-            Now enrolling · Summer 2026
+            Now enrolling
           </p>
 
           <h1
