@@ -19,17 +19,6 @@ export function DualCtaHero() {
 
   return (
     <section className="relative bg-cream text-ink pt-20 lg:pt-24">
-      {/* Top rule — section break */}
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <div className="flex items-center justify-between py-6 border-b border-ink/15">
-          <span className="label-sm text-ink-muted">Central Ohio</span>
-          <span className="label-sm text-ink-muted hidden sm:inline">
-            Youth &amp; Adult Programs
-          </span>
-          <span className="label-sm text-ink-muted">Est. 2015</span>
-        </div>
-      </div>
-
       {/* Hero body */}
       <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pt-16 lg:pt-24 pb-16 lg:pb-24">
         <div className="max-w-4xl">
@@ -96,18 +85,6 @@ export function DualCtaHero() {
               <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
           </div>
-        </div>
-      </div>
-
-      {/* Bottom rule */}
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <div className="flex items-center justify-between py-6 border-t border-ink/15">
-          <span className="label-sm text-ink-muted">
-            Programs below ↓
-          </span>
-          <span className="label-sm text-ink-faint hidden md:inline">
-            Aspire Sports
-          </span>
         </div>
       </div>
 
