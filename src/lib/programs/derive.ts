@@ -129,9 +129,15 @@ export function deriveAudience(s: SeasonForDerive): "youth" | "adult" {
   return s.program.audienceType === "adults" ? "adult" : "youth";
 }
 
-/** Format a deadline for display: "Closes Jun 1" or "Registration open". */
-export function deriveDeadline(s: SeasonForDerive): string | null {
+/** Format a deadline for display with a near-deadline urgency flag.
+ *  `urgent` is true when the deadline is 7 or fewer days away. */
+export function deriveDeadline(
+  s: SeasonForDerive,
+): { label: string; urgent: boolean } | null {
   if (!s.registrationCloses) return null;
   const d = new Date(s.registrationCloses);
-  return `Closes ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const label = `Closes ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysUntil = Math.ceil((d.getTime() - Date.now()) / msPerDay);
+  return { label, urgent: daysUntil <= 7 };
 }
