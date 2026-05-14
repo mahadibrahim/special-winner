@@ -70,7 +70,7 @@ export async function getVenueRentalAvailability(
         lt(games.scheduledAt, dayEnd),
         gt(
           sql`${games.scheduledAt} + (COALESCE(${games.durationMinutes}, 0) * interval '1 minute')`,
-          dayStart,
+          sql`${dayStart.toISOString()}::timestamptz`,
         ),
       ),
     );
