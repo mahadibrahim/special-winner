@@ -12,6 +12,14 @@ const audience: "youth" | "adult" | "team" | null =
   : rawAudience === "youth" ? "youth"
   : null;
 
+// Program-type preselect from query param: ?type=league|camp|clinic|tournament|training
+const rawType = Astro.url.searchParams.get("type");
+const VALID_TYPES = ["league", "camp", "clinic", "tournament", "training"] as const;
+const programType =
+  rawType && (VALID_TYPES as readonly string[]).includes(rawType)
+    ? (rawType as (typeof VALID_TYPES)[number])
+    : null;
+
 const canonicalUrl = audience
   ? `${Astro.url.origin}/programs?audience=${audience}`
   : `${Astro.url.origin}/programs`;
@@ -56,7 +64,7 @@ const pageDescription = audience === "adult"
         </p>
       </header>
 
-      <ProgramsCatalog client:load initialAudience={audience} />
+      <ProgramsCatalog client:load initialAudience={audience} initialType={programType} />
     </div>
   </main>
 </BaseLayout>

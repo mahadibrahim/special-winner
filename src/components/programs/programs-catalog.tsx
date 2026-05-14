@@ -33,6 +33,7 @@ interface ApiSeason {
 
 interface Props {
   initialAudience?: Audience | null
+  initialType?: string | null
 }
 
 const SEGMENT_LABELS: Record<Audience, { icon: string; label: string; sub: string }> = {
@@ -41,7 +42,7 @@ const SEGMENT_LABELS: Record<Audience, { icon: string; label: string; sub: strin
   team: { icon: "🏆", label: "A team", sub: "Captain registration" },
 }
 
-export default function ProgramsCatalog({ initialAudience }: Props) {
+export default function ProgramsCatalog({ initialAudience, initialType }: Props) {
   const [seasons, setSeasons] = useState<ApiSeason[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +57,7 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
   const [activeAgeBand, setActiveAgeBand] = useState<string | null>(null)
   const [activeSkill, setActiveSkill] = useState<string | null>(null)
   const [activeDayBucket, setActiveDayBucket] = useState<string | null>(null)
+  const [activeType, setActiveType] = useState<string | null>(initialType ?? null)
   const [sort, setSort] = useState<"start" | "deadline" | "filling">("start")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   // Pagination — full catalog. Initial page size of 12 (3 grid rows on
@@ -75,7 +77,7 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
   // first row.
   useEffect(() => {
     setVisibleCount(12)
-  }, [audience, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, sort])
+  }, [audience, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, activeType, sort])
 
   useEffect(() => {
     let cancelled = false
@@ -143,13 +145,14 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
         const band = ageBands.find((b) => b.key === activeAgeBand)
         if (band && !band.match(s)) return false
       }
+      if (activeType && s.program.programType !== activeType) return false
       // Skill filtering is not yet derivable from the schema; placeholder.
       if (activeSkill) {
         // TODO: when seasons have a skill_level field, filter by it here
       }
       return true
     })
-  }, [segmentSeasons, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, audience, ageBands])
+  }, [segmentSeasons, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, activeType, audience, ageBands])
 
   // Step 4: sort.
   const sorted = useMemo(() => {
@@ -226,6 +229,20 @@ export default function ProgramsCatalog({ initialAudience }: Props) {
 
   return (
     <div>
+      {activeType && (
+        <div className="mb-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setActiveType(null)}
+            className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide bg-ink text-cream px-3 py-1.5 rounded-full"
+          >
+            Showing: {activeType.charAt(0).toUpperCase() + activeType.slice(1)}
+            <span aria-hidden="true">✕</span>
+            <span className="sr-only">Clear program type filter</span>
+          </button>
+        </div>
+      )}
+
       {/* Step 1: Audience segmenter */}
       <div className="mb-8 max-w-3xl mx-auto">
         <p className="text-center text-sm text-ink-muted mb-4 font-medium tracking-wide uppercase">
