@@ -121,7 +121,7 @@ export default function Footer() {
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
         {/* Main footer grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(16,minmax(0,1fr))] gap-12 lg:gap-8 mb-16">
           {/* Column 1 - Brand & Newsletter */}
           <div className="lg:col-span-4">
             {/* Logo */}
