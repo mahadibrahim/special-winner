@@ -87,12 +87,31 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-  # ── Build (no DB — prerendering degrades gracefully without one) ────
+  # ── Build ──────────────────────────────────────────────────────────
+  # Needs a reachable, migrated DB: prerendered pages (e.g. /guides/*)
+  # run real queries at build time (SELECT FROM sports …) and hard-fail
+  # on a connection error.
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aspire_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          database-url: ${{ env.DATABASE_URL }}
       - name: Build
         run: npm run build
 

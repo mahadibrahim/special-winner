@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import type Stripe from "stripe";
 import { stripe, updateOrganizationStripeStatus } from "@/lib/stripe/connect";
 import { getPostHogServer } from "@/lib/posthog-server";
 
@@ -34,7 +35,9 @@ export const POST: APIRoute = async ({ request }) => {
 
     switch (event.type) {
       case "account.updated": {
-        const account = event.data.object;
+        // Stripe's base Event type leaves data.object untyped; narrow it
+        // per event.type.
+        const account = event.data.object as Stripe.Account;
         const accountId = account.id;
 
         // Determine status based on account properties
@@ -64,36 +67,36 @@ export const POST: APIRoute = async ({ request }) => {
 
       case "account.application.authorized": {
         // Account has authorized the platform
-        const account = event.data.object;
-        console.log(`Account authorized: ${account.id}`);
+        const application = event.data.object as Stripe.Application;
+        console.log(`Account authorized: ${application.id}`);
         break;
       }
 
       case "account.application.deauthorized": {
         // Account has disconnected from the platform
-        const account = event.data.object;
-        await updateOrganizationStripeStatus(account.id as string, "disabled");
-        console.log(`Account deauthorized: ${account.id}`);
+        const application = event.data.object as Stripe.Application;
+        await updateOrganizationStripeStatus(application.id, "disabled");
+        console.log(`Account deauthorized: ${application.id}`);
         break;
       }
 
       case "capability.updated": {
         // A capability on a connected account was updated
-        const capability = event.data.object;
+        const capability = event.data.object as Stripe.Capability;
         console.log(`Capability updated: ${capability.id} -> ${capability.status}`);
         break;
       }
 
       case "payout.paid": {
         // A payout was sent to a connected account
-        const payout = event.data.object;
+        const payout = event.data.object as Stripe.Payout;
         console.log(`Payout completed: ${payout.id} for ${payout.amount / 100} ${payout.currency}`);
         break;
       }
 
       case "payout.failed": {
         // A payout failed
-        const payout = event.data.object;
+        const payout = event.data.object as Stripe.Payout;
         console.error(`Payout failed: ${payout.id}`, payout.failure_message);
         break;
       }
