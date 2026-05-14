@@ -55,8 +55,11 @@ export default function Navigation() {
     : ""
 
   const navLinks = [
-    { href: "/programs", label: "Programs" },
-    { href: "/guides", label: "Guides" },
+    { href: "/youth", label: "Youth" },
+    { href: "/adult", label: "Adult" },
+    { href: "/sports", label: "Sports" },
+    { href: "/locations", label: "Locations" },
+    { href: "/shop", label: "Shop" },
     { href: "/about", label: "About" },
   ]
 
