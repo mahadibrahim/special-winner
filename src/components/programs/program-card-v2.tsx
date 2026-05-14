@@ -69,8 +69,7 @@ export default function ProgramCardV2({ season }: { season: Season }) {
     : season.program.audienceType === "adults"
       ? "Adult"
       : "All ages"
-  const scheduleLabel =
-    season.scheduleNotes ?? `${duration}`
+  const scheduleLabel = season.scheduleNotes ?? duration
   const sportColor =
     season.sport.color ?? SPORT_FALLBACK_COLORS[season.sport.slug] ?? "#52525b"
 
@@ -93,6 +92,8 @@ export default function ProgramCardV2({ season }: { season: Season }) {
       <div
         className="relative h-28 flex-shrink-0"
         style={{
+          // `${sportColor}cc` appends hex alpha (80%) — assumes sportColor is a
+          // 6-digit hex. SPORT_FALLBACK_COLORS and the #52525b default all are.
           background: `linear-gradient(135deg, ${sportColor}, ${sportColor}cc)`,
         }}
       >
