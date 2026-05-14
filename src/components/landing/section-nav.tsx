@@ -5,7 +5,9 @@ import { track } from "@/lib/analytics/track"
 export interface SectionNavItem {
   id: string
   label: string
-  icon: string
+  /** Optional leading glyph. Omitted for sections whose label stands alone
+   *  (e.g. age bands), used for the adult finder's sport/format icons. */
+  icon?: string
 }
 
 interface SectionNavProps {
@@ -41,9 +43,11 @@ export function SectionNav({ items, active }: SectionNavProps) {
                     : "border-transparent text-ink-muted hover:text-ink"
                 }`}
               >
-                <span aria-hidden="true" className="mr-1.5">
-                  {item.icon}
-                </span>
+                {item.icon && (
+                  <span aria-hidden="true" className="mr-1.5">
+                    {item.icon}
+                  </span>
+                )}
                 {item.label}
               </a>
             )

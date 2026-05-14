@@ -8,17 +8,36 @@ import type { ApiSeason } from "./adult-finder"
 const PAGE_SIZE = 6
 
 /**
- * One finder section backed by the seasons catalog — used for BOTH the
- * Leagues and Tournaments sections of the /adult page. The parent passes
- * the already-audience-and-type-filtered season list; this component owns
- * the per-section chip filters, pagination, and loading/empty states.
+ * One finder section backed by the seasons catalog. Used by BOTH finders:
+ *   • /adult — one section per program type (Leagues, Tournaments). Each is
+ *     pre-filtered to a single `programType`, so the Format chip auto-hides.
+ *   • /youth — one section per age band. Each contains mixed program types,
+ *     so the Format chip shows (Leagues / Classes / Camps / Clinics / …).
  *
- * Filters are Sport + Venue only. A "Day"/"Month" filter was considered but
- * dropped: the only schedule signal on a season record is the free-text
- * `scheduleNotes`, and the structured `startDate` is the season-record start
- * date, not the game/event day — deriving a filter from it returns results
- * that contradict what the card displays.
+ * The parent passes an already-scoped season list; this component owns the
+ * per-section chip filters (Format · Sport · Venue), pagination, and the
+ * loading/empty states. Every chip group auto-hides when it has ≤1 option.
+ *
+ * No "Day"/"Month" filter: the only schedule signal on a season record is
+ * the free-text `scheduleNotes`; the structured `startDate` is the record's
+ * start date, not the game/event day, so a filter derived from it would
+ * contradict what the card displays.
  */
+
+const PROGRAM_TYPE_LABELS: Record<string, string> = {
+  league: "Leagues",
+  training: "Classes",
+  camp: "Camps",
+  clinic: "Clinics",
+  tournament: "Tournaments",
+}
+
+function programTypeLabel(programType: string): string {
+  return (
+    PROGRAM_TYPE_LABELS[programType] ??
+    programType.charAt(0).toUpperCase() + programType.slice(1)
+  )
+}
 
 function venueLabel(s: ApiSeason): string {
   return s.location.name.replace(/^Soccer One\s+/i, "")
@@ -42,7 +61,8 @@ function buildOptions(
 
 interface SeasonsFinderSectionProps {
   id: string
-  icon: string
+  /** Optional leading glyph for the heading. Omitted for age-band sections. */
+  icon?: string
   title: string
   descriptor: string
   seasons: ApiSeason[]
@@ -57,6 +77,7 @@ export function SeasonsFinderSection({
   seasons,
   loading,
 }: SeasonsFinderSectionProps) {
+  const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
   const [activeVenue, setActiveVenue] = useState<string | null>(null)
   const [visible, setVisible] = useState(PAGE_SIZE)
@@ -66,8 +87,17 @@ export function SeasonsFinderSection({
   // new first row.
   useEffect(() => {
     setVisible(PAGE_SIZE)
-  }, [activeSport, activeVenue])
+  }, [activeFormat, activeSport, activeVenue])
 
+  const formatOptions = useMemo(
+    () =>
+      buildOptions(
+        seasons,
+        (s) => s.program.programType,
+        (s) => programTypeLabel(s.program.programType),
+      ),
+    [seasons],
+  )
   const sportOptions = useMemo(
     () => buildOptions(seasons, (s) => s.sport.slug, (s) => s.sport.name),
     [seasons],
@@ -79,17 +109,20 @@ export function SeasonsFinderSection({
 
   const filtered = useMemo(() => {
     return seasons.filter((s) => {
+      if (activeFormat && s.program.programType !== activeFormat) return false
       if (activeSport && s.sport.slug !== activeSport) return false
       if (activeVenue && s.location.slug !== activeVenue) return false
       return true
     })
-  }, [seasons, activeSport, activeVenue])
+  }, [seasons, activeFormat, activeSport, activeVenue])
 
   const clearFilters = () => {
+    setActiveFormat(null)
     setActiveSport(null)
     setActiveVenue(null)
   }
-  const hasActiveFilters = activeSport !== null || activeVenue !== null
+  const hasActiveFilters =
+    activeFormat !== null || activeSport !== null || activeVenue !== null
 
   return (
     <section id={id} className="scroll-mt-36 py-12 lg:py-16">
@@ -97,7 +130,7 @@ export function SeasonsFinderSection({
         {/* Heading */}
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="font-display text-2xl lg:text-3xl text-ink">
-            <span aria-hidden="true" className="mr-2">{icon}</span>
+            {icon && <span aria-hidden="true" className="mr-2">{icon}</span>}
             {title}
           </h2>
           {!loading && (
@@ -111,6 +144,7 @@ export function SeasonsFinderSection({
         {/* Filters */}
         {!loading && seasons.length > 0 && (
           <div className="mt-6 flex flex-col gap-2.5">
+            <FilterChips label="Format" options={formatOptions} active={activeFormat} onChange={setActiveFormat} />
             <FilterChips label="Sport" options={sportOptions} active={activeSport} onChange={setActiveSport} />
             <FilterChips label="Venue" options={venueOptions} active={activeVenue} onChange={setActiveVenue} />
           </div>
