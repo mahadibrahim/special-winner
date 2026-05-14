@@ -23,7 +23,7 @@ const formatTiles = [
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    {/* Hero — energy + credibility, dark/orange */}
+    <!-- Hero — energy + credibility, dark/orange -->
     <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-16">
       <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
@@ -60,14 +60,14 @@ const formatTiles = [
       </div>
     </section>
 
-    {/* Section 2 — the heart: format tiles */}
+    <!-- Section 2 — the heart: format tiles -->
     <FormatTiles
       heading="How do you want to play?"
       tiles={formatTiles}
       accent="orange"
     />
 
-    {/* Featured adult leagues */}
+    <!-- Featured adult leagues -->
     <section class="bg-cream py-14">
       <div class="max-w-[1400px] mx-auto">
         <div class="px-4 sm:px-6 lg:px-8 mb-6">
@@ -77,10 +77,11 @@ const formatTiles = [
       </div>
     </section>
 
-    {/* Testimonials — captain voice */}
+    <!-- Testimonials — captain voice -->
     <Testimonials client:visible />
 
-    {/* CTA banner */}
+    <!-- CTA banner -->
     <CTABanner client:visible />
   </main>
 </BaseLayout>
+

@@ -32,7 +32,7 @@ const ageBands = [
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    {/* Hero — reassurance, warm/green */}
+    <!-- Hero — reassurance, warm/green -->
     <section class="bg-gradient-to-br from-emerald-600 to-emerald-400 text-white pt-28 pb-16">
       <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/85 mb-4">
@@ -61,14 +61,14 @@ const ageBands = [
       </div>
     </section>
 
-    {/* Section 2 — the heart: format tiles */}
+    <!-- Section 2 — the heart: format tiles -->
     <FormatTiles
       heading="What kind of program?"
       tiles={formatTiles}
       accent="green"
     />
 
-    {/* Secondary age quick-filter row */}
+    <!-- Secondary age quick-filter row -->
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 flex flex-wrap items-center justify-center gap-2">
       <span class="text-[11px] font-semibold uppercase tracking-wide text-ink-muted mr-1">
         By age:
@@ -85,10 +85,10 @@ const ageBands = [
       }
     </div>
 
-    {/* Why parents trust Aspire */}
+    <!-- Why parents trust Aspire -->
     <WhyAspire client:visible />
 
-    {/* Featured youth programs */}
+    <!-- Featured youth programs -->
     <section class="bg-cream py-14">
       <div class="max-w-[1400px] mx-auto">
         <div class="px-4 sm:px-6 lg:px-8 mb-6">
@@ -98,10 +98,10 @@ const ageBands = [
       </div>
     </section>
 
-    {/* Parent FAQ */}
+    <!-- Parent FAQ -->
     <FAQSection client:visible />
 
-    {/* CTA banner */}
+    <!-- CTA banner -->
     <CTABanner client:visible />
   </main>
 </BaseLayout>
