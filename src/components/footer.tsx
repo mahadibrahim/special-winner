@@ -4,18 +4,36 @@ import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import { Mail, MapPin, Loader2, CheckCircle2 } from "lucide-react"
 
-const programLinks = [
-  { label: "Soccer", href: "/programs?sport=soccer" },
-  { label: "Basketball", href: "/programs?sport=basketball" },
-  { label: "Baseball", href: "/programs?sport=baseball" },
-  { label: "Football", href: "/programs?sport=football" },
-  { label: "View All Programs", href: "/programs" },
+const youthLinks = [
+  { label: "Youth programs", href: "/youth" },
+  { label: "Leagues", href: "/programs?audience=youth&type=league" },
+  { label: "Classes", href: "/programs?audience=youth&type=training" },
+  { label: "Camps", href: "/programs?audience=youth&type=camp" },
+  { label: "Clinics", href: "/programs?audience=youth&type=clinic" },
+  { label: "Coaching guides", href: "/guides" },
 ]
 
-const resourceLinks = [
-  { label: "Coaching guides", href: "/guides" },
+const adultLinks = [
+  { label: "Adult leagues", href: "/adult" },
+  { label: "Leagues", href: "/programs?audience=adult&type=league" },
+  { label: "Pick-up", href: "/dropin" },
+  { label: "Tournaments", href: "/programs?audience=adult&type=tournament" },
+  { label: "Register a team", href: "/programs?audience=team" },
+]
+
+const sportLinks = [
+  { label: "Soccer", href: "/sports/soccer" },
+  { label: "Basketball", href: "/sports/basketball" },
+  { label: "Baseball", href: "/sports/baseball" },
+  { label: "Hockey", href: "/sports/hockey" },
+  { label: "All sports", href: "/sports" },
+]
+
+const orgLinks = [
+  { label: "All locations", href: "/locations" },
   { label: "Our philosophy", href: "/about" },
   { label: "For coaches", href: "/coach" },
+  { label: "Shop", href: "/shop" },
 ]
 
 const supportLinks = [
@@ -179,14 +197,14 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Column 2 - Programs */}
+          {/* Column 2 - Youth */}
           <div className="lg:col-span-2">
             <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
-              Programs
+              Youth
             </h4>
             <ul className="space-y-3">
-              {programLinks.map((link) => (
-                <li key={link.label}>
+              {youthLinks.map((link) => (
+                <li key={link.href}>
                   <a
                     href={link.href}
                     className="text-cream/50 hover:text-primary text-sm transition-colors"
@@ -198,14 +216,52 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 3 - Resources */}
+          {/* Column 3 - Adult */}
           <div className="lg:col-span-2">
             <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
-              Resources
+              Adult
             </h4>
             <ul className="space-y-3">
-              {resourceLinks.map((link) => (
-                <li key={link.label}>
+              {adultLinks.map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    className="text-cream/50 hover:text-primary text-sm transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Column 4 - Sports */}
+          <div className="lg:col-span-2">
+            <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
+              Sports
+            </h4>
+            <ul className="space-y-3">
+              {sportLinks.map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    className="text-cream/50 hover:text-primary text-sm transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Column 5 - Aspire */}
+          <div className="lg:col-span-2">
+            <h4 className="text-cream font-semibold mb-4 text-[11px] uppercase tracking-[0.15em]">
+              Aspire
+            </h4>
+            <ul className="space-y-3">
+              {orgLinks.map((link) => (
+                <li key={link.href}>
                   <a
                     href={link.href}
                     className="text-cream/50 hover:text-primary text-sm transition-colors"
