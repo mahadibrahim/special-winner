@@ -74,6 +74,14 @@ export const venues = pgTable(
     // application_fee_pct as the platform's cut.
     partnerStripeAccountId: text("partner_stripe_account_id"),
     partnerApplicationFeePct: integer("partner_application_fee_pct"),
+    // Field rental config. rentalEnabled gates the feature per venue;
+    // rentalHourlyRateCents overrides the org rate-card default when set;
+    // open/close minutes bound the rentable window (minutes from midnight,
+    // org timezone). Null open/close means no time-of-day restriction.
+    rentalEnabled: boolean("rental_enabled").notNull().default(false),
+    rentalHourlyRateCents: integer("rental_hourly_rate_cents"),
+    rentalOpenMinute: integer("rental_open_minute"),
+    rentalCloseMinute: integer("rental_close_minute"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

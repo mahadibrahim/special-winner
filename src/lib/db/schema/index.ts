@@ -72,3 +72,6 @@ export * from "./activity-tracking";
 
 // Drop-in booking (pickup + classes per-seat) + brand profiles + skill levels
 export * from "./drop-in";
+
+// Field rentals (book a field/venue time-block + payment)
+export * from "./field-rentals";
