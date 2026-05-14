@@ -107,18 +107,6 @@ export default function Footer() {
 
   return (
     <footer className="relative bg-navy-deep text-cream/80">
-      {/* Editorial section break */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-6 border-b border-cream/10">
-          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/40">
-            § The Colophon
-          </p>
-          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/40">
-            Aspire Sports · Columbus, Ohio
-          </p>
-        </div>
-      </div>
-
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
         {/* Main footer grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(16,minmax(0,1fr))] gap-12 lg:gap-8 mb-16">
