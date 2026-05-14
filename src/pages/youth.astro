@@ -1,0 +1,106 @@
+---
+// SSR — the YouthFinder island fetches the seasons endpoint client-side;
+// kept SSR for consistency with /adult and the prerender policy for new pages.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import YouthFinder from "@/components/landing/youth-finder.tsx";
+import WhyAspire from "@/components/why-aspire";
+import FAQSection from "@/components/faq-section";
+import CTABanner from "@/components/cta-banner";
+---
+
+<BaseLayout
+  title="Youth Sports Programs — Aspire Sports"
+  description="Leagues, classes, camps, clinics and tournaments for kids in central Ohio. Find the right program for your kid's age — Aspire Sports."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    <!-- Hero — reassurance, warm/green. Evergreen kicker (no time-bound
+         copy). CTAs scroll down to the finder, not away. -->
+    <section class="bg-gradient-to-br from-emerald-600 to-emerald-400 text-white pt-28 pb-16">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/85 mb-4">
+          Youth Sports · Central Ohio
+        </p>
+        <h1
+          class="font-display max-w-3xl"
+          style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          Sports your kid will actually look forward to.
+        </h1>
+        <p class="mt-6 text-lg text-white/90 max-w-2xl">
+          Real coaches, real development — built on the Double-Goal Coach and ELM
+          frameworks. Find what fits your kid by age, then narrow by format,
+          sport, and venue.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a
+            href="#ages-4-8"
+            data-landing-cta="youth-hero-4-8"
+            class="inline-flex items-center gap-2 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Ages 4–8 ↓
+          </a>
+          <a
+            href="#ages-9-12"
+            data-landing-cta="youth-hero-9-12"
+            class="inline-flex items-center gap-2 border border-white text-white px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-white hover:text-ink transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Ages 9–12 ↓
+          </a>
+          <a
+            href="#ages-13-18"
+            data-landing-cta="youth-hero-13-18"
+            class="inline-flex items-center gap-2 border border-white text-white px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-white hover:text-ink transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Ages 13–18 ↓
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- The finder — sticky section-nav + three age-band sections.
+         Everything a parent needs resolves here without navigating away. -->
+    <YouthFinder client:load />
+
+    <!-- Why parents trust Aspire -->
+    <WhyAspire client:visible />
+
+    <!-- Parent FAQ -->
+    <FAQSection client:visible />
+
+    <!-- CTA banner -->
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>
+
+<script>
+  import { track } from "@/lib/analytics/track";
+
+  // Conversion analytics on the hero jump-links.
+  document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
+    el.addEventListener("click", () => {
+      track("landing_hero_cta_click", { cta: el.dataset.landingCta });
+    });
+  });
+
+  // Smooth-scroll for in-page anchors (hero jump-links + the sticky
+  // section-nav). `scroll-mt-*` on each <section> offsets the sticky headers.
+  document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
+    if (!anchor) return;
+    const id = anchor.getAttribute("href")?.slice(1);
+    if (!id) return;
+    const section = document.getElementById(id);
+    if (!section) return;
+    e.preventDefault();
+    section.scrollIntoView({ behavior: "smooth" });
+    history.replaceState(null, "", `#${id}`);
+  });
+</script>

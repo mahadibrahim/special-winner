@@ -12,6 +12,22 @@ const audience: "youth" | "adult" | "team" | null =
   : rawAudience === "youth" ? "youth"
   : null;
 
+// Program-type preselect from query param: ?type=league|camp|clinic|tournament|training
+const rawType = Astro.url.searchParams.get("type");
+const VALID_TYPES = ["league", "camp", "clinic", "tournament", "training"] as const;
+const programType =
+  rawType && (VALID_TYPES as readonly string[]).includes(rawType)
+    ? (rawType as (typeof VALID_TYPES)[number])
+    : null;
+
+// Age-band preselect from query param: ?age=4-8|9-12|13-18 (youth catalog only)
+const rawAge = Astro.url.searchParams.get("age");
+const VALID_AGE_BANDS = ["4-8", "9-12", "13-18"] as const;
+const ageBand =
+  rawAge && (VALID_AGE_BANDS as readonly string[]).includes(rawAge)
+    ? (rawAge as (typeof VALID_AGE_BANDS)[number])
+    : null;
+
 const canonicalUrl = audience
   ? `${Astro.url.origin}/programs?audience=${audience}`
   : `${Astro.url.origin}/programs`;
@@ -43,7 +59,7 @@ const pageDescription = audience === "adult"
       <header class="mb-10">
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary mb-3 flex items-center gap-3">
           <span class="inline-block w-8 h-px bg-primary"></span>
-          Now enrolling · Summer 2026
+          All Programs · Central Ohio
         </p>
         <h1
           class="font-display text-ink mb-4"
@@ -56,7 +72,7 @@ const pageDescription = audience === "adult"
         </p>
       </header>
 
-      <ProgramsCatalog client:load initialAudience={audience} />
+      <ProgramsCatalog client:load initialAudience={audience} initialType={programType} initialAgeBand={ageBand} />
     </div>
   </main>
 </BaseLayout>
