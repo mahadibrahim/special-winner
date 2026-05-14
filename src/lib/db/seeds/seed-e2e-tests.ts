@@ -33,6 +33,7 @@ import {
   mediaAssets,
 } from "../schema/media";
 import { rosters, games } from "../schema";
+import { fieldRentalRateCard } from "../schema/field-rentals";
 import { asc, eq, ne, and, or } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -95,6 +96,20 @@ export const TEST_USERS = {
 export const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
 
 /**
+ * Fixed UUID for the main e2e organization ("aspire-sports").
+ * Used by field-rental API tests to construct requests scoped to the right org.
+ */
+export const E2E_ORG_ID = "04836321-9e38-430e-b6a1-4bf4e6ca1b62";
+
+/**
+ * Fixed UUID for the rental-enabled venue seeded for field-rental API tests.
+ * The venue belongs to the main e2e org (aspire-sports) and has:
+ *   rentalEnabled: true, rentalHourlyRateCents: 8000,
+ *   rentalOpenMinute: 480 (8am), rentalCloseMinute: 1320 (10pm), fieldCount: 3
+ */
+export const E2E_RENTAL_VENUE_ID = "4b237a78-868d-4e64-8487-f3dce687b603";
+
+/**
  * Refuse to run if DATABASE_URL looks like it's pointed at production.
  * The e2e seed inserts fixture rows (tests, sample programs) that must
  * never end up in prod. CI sets ALLOW_E2E_SEED=yes against staging; any
@@ -139,6 +154,7 @@ async function seedE2ETests() {
     [org] = await db
       .insert(organizations)
       .values({
+        id: E2E_ORG_ID,
         name: "Aspire Sports",
         slug: "aspire-sports",
         status: "active",
@@ -500,6 +516,41 @@ async function seedE2ETests() {
       })
       .returning();
   }
+
+  // Rental-enabled venue — fixed UUID so tests can import E2E_RENTAL_VENUE_ID.
+  // onConflictDoUpdate ensures rental fields are refreshed on every seed run.
+  await db
+    .insert(venues)
+    .values({
+      id: E2E_RENTAL_VENUE_ID,
+      locationId: location.id,
+      name: "E2E Rental Field Complex",
+      address: "789 Rental Ave, Powell, OH 43065",
+      fieldCount: 3,
+      indoor: false,
+      rentalEnabled: true,
+      rentalHourlyRateCents: 8000,
+      rentalOpenMinute: 480,   // 8am
+      rentalCloseMinute: 1320, // 10pm
+    })
+    .onConflictDoUpdate({
+      target: venues.id,
+      set: {
+        rentalEnabled: true,
+        rentalHourlyRateCents: 8000,
+        rentalOpenMinute: 480,
+        rentalCloseMinute: 1320,
+        fieldCount: 3,
+      },
+    });
+  console.log(`   ✓ Rental venue: E2E Rental Field Complex (${E2E_RENTAL_VENUE_ID})`);
+
+  // Rate card for the main e2e org — one row per org, idempotent.
+  await db
+    .insert(fieldRentalRateCard)
+    .values({ organizationId: org.id })
+    .onConflictDoNothing();
+  console.log(`   ✓ Field rental rate card seeded for org ${org.id}`);
 
   // Create program
   let [program] = await db
