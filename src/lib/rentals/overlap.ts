@@ -17,7 +17,7 @@ export function rangesOverlap(
   return aStart.getTime() < bEnd.getTime() && bStart.getTime() < aEnd.getTime();
 }
 
-/** Merge overlapping/adjacent blocks into a sorted, disjoint list. */
+/** Merge overlapping/touching blocks into a sorted, disjoint list. */
 function mergeBlocks(blocks: TimeBlock[]): TimeBlock[] {
   const sorted = [...blocks].sort(
     (x, y) => x.startsAt.getTime() - y.startsAt.getTime(),
@@ -52,12 +52,12 @@ export function subtractBusyBlocks(
     if (block.endsAt <= cursor) continue;
     if (block.startsAt >= windowEnd) break;
     if (block.startsAt > cursor) {
-      free.push({ startsAt: cursor, endsAt: block.startsAt });
+      free.push({ startsAt: new Date(cursor.getTime()), endsAt: new Date(block.startsAt.getTime()) });
     }
     if (block.endsAt > cursor) cursor = block.endsAt;
   }
   if (cursor < windowEnd) {
-    free.push({ startsAt: cursor, endsAt: windowEnd });
+    free.push({ startsAt: new Date(cursor.getTime()), endsAt: new Date(windowEnd.getTime()) });
   }
   return free;
 }
