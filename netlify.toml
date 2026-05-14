@@ -11,17 +11,33 @@
   directory = "netlify/functions"
 
   # ============================================================
-  # DEPLOY MODEL (2026-05-03)
+  # DEPLOY MODEL (updated 2026-05-14)
   # ============================================================
-  # Two Netlify sites build from this repo:
-  #   • aspire-sports-staging — auto-deploys every push to main.
-  #     Points at STAGING_DATABASE_URL + Stripe test mode.
-  #   • production site — disconnected from Git auto-deploy in the
-  #     Netlify dashboard. Deploys only via .github/workflows/deploy.yml
-  #     on v* tags, against DATABASE_URL (prod) + Stripe live mode.
+  # Two Netlify sites build from this repo, both git-connected to
+  # `main`:
+  #   • aspire-sports-staging — STAGING_DATABASE_URL + Stripe test mode.
+  #   • production site       — DATABASE_URL (prod) + Stripe live mode.
   #
-  # Branch deploys + deploy previews are still gated (see contexts
-  # below) so we don't burn credits on feature-branch builds.
+  # Each one auto-publishes CODE on every push to `main`. Neither runs
+  # database migrations as part of its build — that is handled
+  # out-of-band by .github/workflows/migrate-prod.yml, which runs the
+  # committed Drizzle migrations against prod on the same trigger
+  # (every push to `main`). So code and schema stay in sync.
+  #
+  # (An earlier comment here claimed the production site was
+  # disconnected from git auto-deploy and shipped only via a tagged
+  # workflow. That was never actually true — the site stayed
+  # git-connected, the tagged workflow stopped firing, and migrations
+  # silently stopped running. The model above is the corrected reality.)
+  #
+  # Hardening follow-up: prepend `npm run db:migrate` to the build
+  # command below so migrate→build→deploy is one atomic process and a
+  # failed migration blocks the code deploy. Requires DATABASE_URL in
+  # each site's Netlify build env first.
+  #
+  # Branch deploys + deploy previews are intentionally gated (see
+  # contexts below) so we don't burn credits on feature-branch builds —
+  # this is why the per-PR Netlify checks "fail" in ~12s.
   # ============================================================
 
 # Stop automatic deploys - we deploy manually via CI on releases

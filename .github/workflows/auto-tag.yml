@@ -1,6 +1,14 @@
-# Auto-release: every push to main becomes a tagged production release
-# without manual `git tag` ceremony. The existing deploy.yml workflow
-# triggers on `push: tags: [v*]`, so this just feeds it.
+# Tags every push to main with the next patch version, purely as a
+# release/rollback REFERENCE — it is NOT a deploy trigger.
+#
+# History: this workflow used to "feed" deploy.yml (which triggered on
+# `push: tags: [v*]`). But tags pushed here use GITHUB_TOKEN, and GitHub
+# does not let GITHUB_TOKEN-pushed events trigger other workflows — so
+# deploy.yml silently never ran. Deploys now work independently:
+#   • code   → Netlify git integration auto-publishes every main push
+#   • schema → migrate-prod.yml runs migrations on every main push
+# These tags just give each prod state a stable name for rollback
+# ("Netlify → Deploys → the deploy tagged vX.Y.Z").
 #
 # Behavior:
 #   • Bumps the patch component of the latest v* tag (v0.0.2 → v0.0.3).
@@ -102,4 +110,4 @@ jobs:
           MSG="$(git log -1 --pretty=%s)"
           git tag -a "$NEXT" -m "auto-release: $MSG"
           git push origin "$NEXT"
-          echo "Tagged $NEXT and pushed — deploy.yml will pick it up."
+          echo "Tagged $NEXT — release/rollback reference only (not a deploy trigger)."

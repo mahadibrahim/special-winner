@@ -198,21 +198,27 @@ The pattern is a brief "here's what I'm about to do, confirm?" — not a full br
 - **Use a worktree for ≥3-task plans or any subagent-driven implementation.** Branch drift during long multi-task sessions has required destructive cherry-pick recovery more than once. Create the worktree before the first edit, not after a problem surfaces. The `superpowers:using-git-worktrees` skill handles setup.
 - **Never switch the main checkout off the user's active feature branch** to do unrelated work — open a worktree instead.
 
-## Release process (auto-tag → deploy)
+## Release process
 
-Every merge to `main` automatically tags + deploys to prod. No manual `git tag` ceremony required.
+Every merge to `main` ships to prod automatically — two independent mechanisms, both triggered by the push to `main`:
 
-**Pipeline:**
-1. PR merges to `main`
-2. `.github/workflows/auto-tag.yml` bumps the patch version of the latest `v*` tag (e.g. v0.0.2 → v0.0.3) and pushes the new tag
-3. The new tag triggers `.github/workflows/deploy.yml`, which runs migrations + builds + deploys to Netlify prod
+1. **Code** — the production Netlify site is git-connected to `main` and auto-publishes the build on every merge.
+2. **Schema** — `.github/workflows/migrate-prod.yml` runs the committed Drizzle migrations against the prod database on every merge.
+3. **Version tag** — `.github/workflows/auto-tag.yml` bumps the patch `v*` tag (e.g. v0.0.2 → v0.0.3) as a rollback/reference label. It is **not** a deploy trigger.
+
+Migrations are idempotent and the repo convention is additive, forward-compatible schema changes — so the brief window where Netlify may publish new code seconds before `migrate-prod.yml` finishes is self-healing. In practice the migrate job finishes first.
+
+> **History:** there used to be a `deploy.yml` that ran migrations + deploy on `v*` tags, fed by `auto-tag.yml`. But auto-tag pushes tags with `GITHUB_TOKEN`, and GitHub does not let `GITHUB_TOKEN`-pushed events trigger other workflows — so `deploy.yml` silently never ran, code shipped without migrations, and prod drifted onto a stale schema. `migrate-prod.yml` replaces it by triggering directly on `push: branches: [main]`.
 
 **Escape hatches:**
-- `[skip release]` or `[no release]` in a commit message → auto-tag is skipped (use for docs-only / refactor commits where you don't want a deploy)
+- `[skip release]` / `[no release]` in a commit message → auto-tag skips the version bump (does not stop the code deploy or migrations).
+- The auto-tag and migrate workflows ignore commits that touch only `docs/**` or `**/*.md`.
 - To bump minor or major (e.g. v0.1.0): manually push the tag — `git tag -a v0.1.0 -m "minor bump for X"; git push origin v0.1.0`. Auto-tag resumes patch-bumping from there.
-- The auto-tag workflow ignores commits that touch only `docs/**` or `**/*.md`.
+- Re-run migrations by hand: Actions tab → "Migrate production database" → Run workflow.
 
-**Rollback:** check out the previous green tag and re-tag patch+1 from it, or use Netlify's "instant rollback" UI on the prod site.
+**Rollback:** use Netlify's "instant rollback" UI on the prod site (the auto-tag `v*` labels each deploy so you can find the right one). Note a code rollback does **not** roll back the schema — additive migrations are forward-compatible, so this is usually fine, but a destructive migration would need a manual down-migration.
+
+**Hardening follow-up (not yet done):** the fully race-free design is to disconnect the prod Netlify site from git auto-deploy and prepend `npm run db:migrate` to the Netlify build command in `netlify.toml`, making migrate→build→deploy one atomic process where a failed migration blocks the code deploy. This needs `DATABASE_URL` in the Netlify build env first.
 
 ## Database write surface
 
