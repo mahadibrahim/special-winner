@@ -1,0 +1,60 @@
+---
+// SSR — fetches the live sport list. New page default per CLAUDE.md.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+interface Sport {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+}
+
+let sports: Sport[] = [];
+try {
+  const res = await fetch(`${Astro.url.origin}/api/public/filters`);
+  if (res.ok) {
+    const data = (await res.json()) as { sports?: Sport[] };
+    sports = data.sports ?? [];
+  }
+} catch {
+  // Silent — page renders the empty state below.
+}
+---
+
+<BaseLayout
+  title="Sports — Aspire Sports"
+  description="Every sport Aspire Sports runs in central Ohio — leagues, classes, camps, clinics and tournaments."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/sports`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1 pt-28 pb-16">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="font-display text-ink mb-3" style="font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.025em;">
+        Our sports
+      </h1>
+      <p class="text-lg text-ink-muted max-w-2xl mb-10">
+        Browse programs by sport across all Aspire Sports locations.
+      </p>
+
+      {
+        sports.length === 0 ? (
+          <p class="text-ink-muted">Sports are being scheduled — check back soon.</p>
+        ) : (
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {sports.map((sport) => (
+              <a
+                href={`/sports/${sport.slug}`}
+                class="flex items-center gap-3 p-5 rounded-xl border border-border bg-paper hover:border-primary/40 transition-colors"
+              >
+                {sport.icon && <span class="text-2xl">{sport.icon}</span>}
+                <span class="font-display text-lg text-ink">{sport.name}</span>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </main>
+</BaseLayout>
