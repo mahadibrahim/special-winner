@@ -1,14 +1,14 @@
-CREATE TYPE "public"."drop_in_audience" AS ENUM('adults', 'youth', 'all_ages');--> statement-breakpoint
-CREATE TYPE "public"."drop_in_booking_source" AS ENUM('online_booking', 'walk_up');--> statement-breakpoint
-CREATE TYPE "public"."drop_in_booking_status" AS ENUM('confirmed', 'waitlisted', 'pending_claim', 'cancelled', 'no_show');--> statement-breakpoint
-CREATE TYPE "public"."drop_in_cancellation_reason" AS ENUM('user_request', 'no_show', 'admin_override', 'session_cancelled', 'expired_promotion');--> statement-breakpoint
-CREATE TYPE "public"."drop_in_payment_method" AS ENUM('card_online', 'card_present', 'member_unlimited', 'member_allotment');--> statement-breakpoint
-CREATE TYPE "public"."drop_in_session_kind" AS ENUM('pickup', 'class');--> statement-breakpoint
-CREATE TYPE "public"."drop_in_session_status" AS ENUM('scheduled', 'cancelled', 'completed');--> statement-breakpoint
-CREATE TYPE "public"."drop_in_skill_level" AS ENUM('recreational', 'intermediate', 'advanced', 'all_levels');--> statement-breakpoint
-CREATE TYPE "public"."skill_level" AS ENUM('recreational', 'intermediate', 'advanced');--> statement-breakpoint
-CREATE TYPE "public"."skill_level_source" AS ENUM('self_reported', 'admin_assigned');--> statement-breakpoint
-CREATE TYPE "public"."user_gender" AS ENUM('male', 'female', 'non_binary', 'prefer_not_to_say');--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_audience" AS ENUM('adults', 'youth', 'all_ages'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_booking_source" AS ENUM('online_booking', 'walk_up'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_booking_status" AS ENUM('confirmed', 'waitlisted', 'pending_claim', 'cancelled', 'no_show'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_cancellation_reason" AS ENUM('user_request', 'no_show', 'admin_override', 'session_cancelled', 'expired_promotion'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_payment_method" AS ENUM('card_online', 'card_present', 'member_unlimited', 'member_allotment'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_session_kind" AS ENUM('pickup', 'class'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_session_status" AS ENUM('scheduled', 'cancelled', 'completed'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."drop_in_skill_level" AS ENUM('recreational', 'intermediate', 'advanced', 'all_levels'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."skill_level" AS ENUM('recreational', 'intermediate', 'advanced'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."skill_level_source" AS ENUM('self_reported', 'admin_assigned'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."user_gender" AS ENUM('male', 'female', 'non_binary', 'prefer_not_to_say'); EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
 CREATE TABLE "brand_profiles" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -95,9 +95,9 @@ CREATE TABLE "user_skill_levels" (
 	CONSTRAINT "user_skill_levels_user_id_sport_pk" PRIMARY KEY("user_id","sport")
 );
 --> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "gender" "user_gender";--> statement-breakpoint
-ALTER TABLE "venues" ADD COLUMN "partner_stripe_account_id" text;--> statement-breakpoint
-ALTER TABLE "venues" ADD COLUMN "partner_application_fee_pct" integer;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "gender" "user_gender";--> statement-breakpoint
+ALTER TABLE "venues" ADD COLUMN IF NOT EXISTS "partner_stripe_account_id" text;--> statement-breakpoint
+ALTER TABLE "venues" ADD COLUMN IF NOT EXISTS "partner_application_fee_pct" integer;--> statement-breakpoint
 ALTER TABLE "brand_profiles" ADD CONSTRAINT "brand_profiles_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "brand_profiles" ADD CONSTRAINT "brand_profiles_logo_media_id_media_assets_id_fk" FOREIGN KEY ("logo_media_id") REFERENCES "public"."media_assets"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drop_in_bookings" ADD CONSTRAINT "drop_in_bookings_session_id_drop_in_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."drop_in_sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
