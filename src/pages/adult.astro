@@ -1,33 +1,27 @@
 ---
-// SSR — reuses request-scoped section components. New page default per
-// CLAUDE.md prerender policy.
+// SSR — the AdultFinder island fetches the drop-in endpoint client-side,
+// which is org-scoped via the request host; the page must not be prerendered.
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import FormatTiles from "@/components/landing/format-tiles.astro";
-import FeaturedProgramsRow from "@/components/landing/featured-programs-row.tsx";
+import AdultFinder from "@/components/landing/adult-finder.tsx";
 import Testimonials from "@/components/testimonials";
 import CTABanner from "@/components/cta-banner";
-
-const formatTiles = [
-  { label: "Leagues", sub: "Season · solo or team", href: "/programs?audience=adult&type=league" },
-  { label: "Pick-up", sub: "Show up & play", href: "/dropin" },
-  { label: "Tournaments", sub: "One-day events", href: "/programs?audience=adult&type=tournament" },
-];
 ---
 
 <BaseLayout
   title="Adult Sports Leagues — Aspire Sports"
-  description="Adult sports leagues, pick-up, and tournaments in central Ohio. Sign up solo, with friends, or as a full team — Aspire Sports."
+  description="Adult sports leagues, pickup, and tournaments in central Ohio. Find a league, play pickup, or register for a tournament — Aspire Sports."
 >
   <Fragment slot="head">
     <link rel="canonical" href={`${Astro.url.origin}/adult`} />
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <!-- Hero — energy + credibility, dark/orange -->
+    <!-- Hero — energy + credibility, dark/orange. Evergreen kicker (no
+         time-bound copy). CTAs scroll down to the finder, not away. -->
     <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-16">
       <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
-          Founding season · Summer 2026
+          Adult Sports · Central Ohio
         </p>
         <h1
           class="font-display max-w-3xl"
@@ -37,45 +31,41 @@ const formatTiles = [
         </h1>
         <p class="mt-6 text-lg text-cream/85 max-w-2xl">
           Fair refs, reliable communication, and a post-game scene worth staying
-          for. Sign up solo, bring friends, or register a full team.
+          for. Find a league, drop into pickup, or register a team for a
+          tournament — all right here.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
           <a
-            href="/programs?audience=adult"
-            data-landing-cta="adult-hero-browse"
+            href="#leagues"
+            data-landing-cta="adult-hero-leagues"
             class="inline-flex items-center gap-2 bg-primary text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary/90 transition-colors"
             style="letter-spacing: 0.08em;"
           >
-            Browse adult leagues →
+            Find a league ↓
           </a>
           <a
-            href="/programs?audience=team"
-            data-landing-cta="adult-hero-team"
+            href="#pickup"
+            data-landing-cta="adult-hero-pickup"
             class="inline-flex items-center gap-2 border border-cream text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-cream hover:text-ink transition-colors"
             style="letter-spacing: 0.08em;"
           >
-            Register a team
+            Play pickup ↓
+          </a>
+          <a
+            href="#tournaments"
+            data-landing-cta="adult-hero-tournaments"
+            class="inline-flex items-center gap-2 border border-cream text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-cream hover:text-ink transition-colors"
+            style="letter-spacing: 0.08em;"
+          >
+            Tournaments ↓
           </a>
         </div>
       </div>
     </section>
 
-    <!-- Section 2 — the heart: format tiles -->
-    <FormatTiles
-      heading="How do you want to play?"
-      tiles={formatTiles}
-      accent="orange"
-    />
-
-    <!-- Featured adult leagues -->
-    <section class="bg-cream py-14">
-      <div class="max-w-[1400px] mx-auto">
-        <div class="px-4 sm:px-6 lg:px-8 mb-6">
-          <h2 class="font-display text-2xl text-ink">Open adult leagues</h2>
-        </div>
-        <FeaturedProgramsRow audience="adult" client:visible />
-      </div>
-    </section>
+    <!-- The finder — sticky section-nav + three filterable sections.
+         Everything an adult needs resolves here without navigating away. -->
+    <AdultFinder client:load />
 
     <!-- Testimonials — captain voice -->
     <Testimonials client:visible />
@@ -87,10 +77,26 @@ const formatTiles = [
 
 <script>
   import { track } from "@/lib/analytics/track";
+
+  // Conversion analytics on the hero jump-links.
   document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
     el.addEventListener("click", () => {
       track("landing_hero_cta_click", { cta: el.dataset.landingCta });
     });
   });
-</script>
 
+  // Smooth-scroll for in-page anchors (hero jump-links + the sticky
+  // section-nav). `scroll-mt-*` on each <section> offsets the sticky headers.
+  document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
+    if (!anchor) return;
+    const id = anchor.getAttribute("href")?.slice(1);
+    if (!id) return;
+    const section = document.getElementById(id);
+    if (!section) return;
+    e.preventDefault();
+    section.scrollIntoView({ behavior: "smooth" });
+    history.replaceState(null, "", `#${id}`);
+  });
+</script>
