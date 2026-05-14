@@ -9,9 +9,13 @@
  *       · earlier create/add NOT dropped later → expectPresent: true
  *       · earlier create/add dropped later     → expectPresent: false
  *   - check whether each expectPresent:true target exists in the target DB
- *   - reconcile the tracking table:
- *       · missing expected rows → INSERT (hash, created_at)
- *       · rows for hashes whose net effects don't match DB state → DELETE (drift)
+ *   - reconcile the tracking table authoritatively (in one transaction):
+ *       · the table is rewritten to contain exactly the expectedApplied
+ *         set, each row carrying its journal `when` as `created_at`
+ *       · rows whose hash isn't in expectedApplied → DELETE (drift)
+ *     This matters because drizzle's migrator selects what to run by the
+ *     `created_at` TIMESTAMP, not by hash — a row with the right hash but
+ *     a NULL/stale created_at silently makes it re-run every migration.
  *
  * On a truly empty DB (no `users` table) the whole bootstrap is a no-op and
  * the downstream migrator builds schema from scratch.
@@ -285,34 +289,79 @@ async function main() {
       }
     }
 
-    // Reconcile against the actual tracking-table contents.
-    const existingRows = await sql<Array<{ hash: string }>>`
-      SELECT hash FROM drizzle.__drizzle_migrations
+    // ── Reconcile drizzle.__drizzle_migrations ────────────────────────
+    // CRITICAL: drizzle's migrator (pg-core dialect) decides what to run
+    // PURELY by the `created_at` timestamp — it runs every migration
+    // whose journal `when` is greater than MAX(created_at) in this
+    // table. It never compares hashes. So a row that exists with the
+    // right hash but a NULL or stale `created_at` silently makes the
+    // migrator re-run every migration from 0000 (which then fails on
+    // "type/table already exists").
+    //
+    // The previous reconcile keyed only on `hash` ("does a row with this
+    // hash exist?") and skipped otherwise — leaving bad `created_at`
+    // values in place. We now reconcile authoritatively on BOTH columns:
+    // the table is rewritten to contain exactly the expectedApplied set,
+    // each row carrying its journal `when` as `created_at`.
+    const existingRows = await sql<Array<{ hash: string; created_at: string | null }>>`
+      SELECT hash, created_at FROM drizzle.__drizzle_migrations
     `;
-    const existingHashes = new Set(existingRows.map((r) => r.hash));
 
-    // DELETE stale rows (hash in table but migration's tables don't all exist).
-    let deleted = 0;
-    for (const hash of existingHashes) {
-      if (!expectedApplied.has(hash)) {
-        await sql`DELETE FROM drizzle.__drizzle_migrations WHERE hash = ${hash}`;
-        deleted++;
-        console.log(`  removed stale tracking row (${hash.slice(0, 12)}…)`);
-      }
+    // Safety guard: core tables exist (checked above) but we resolved
+    // ZERO applied migrations — that means the schema-effect parser
+    // failed to recognise a populated DB, not that the DB is unmigrated.
+    // Rewriting the table here would wipe valid tracking and make the
+    // migrator re-run everything against a live database. Abort instead.
+    if (expectedApplied.size === 0) {
+      console.error(
+        "Bootstrap ABORTED: core tables are present but zero migrations " +
+          "resolved as applied. Refusing to rewrite the tracking table — " +
+          "that would make the migrator re-run every migration against a " +
+          "populated database. Investigate the effect parser before retrying.",
+      );
+      process.exit(1);
     }
 
-    // INSERT missing rows.
-    let inserted = 0;
-    for (const [hash, meta] of expectedApplied) {
-      if (!existingHashes.has(hash)) {
-        await sql`
+    let deleted = 0;
+    let written = 0;
+
+    await sql.begin(async (txRaw) => {
+      // The `postgres` lib types TransactionSql as Omit<Sql, …>, which
+      // (a known TS quirk) drops the callable tagged-template signature.
+      // It IS callable at runtime — re-alias to the base Sql type.
+      const tx = txRaw as unknown as typeof sql;
+
+      // Drop rows whose hash isn't in the expected-applied set (drift or
+      // stale entries from an earlier broken bootstrap).
+      for (const r of existingRows) {
+        if (!expectedApplied.has(r.hash)) {
+          await tx`DELETE FROM drizzle.__drizzle_migrations WHERE hash = ${r.hash}`;
+          deleted++;
+          console.log(`  removed stale tracking row (${r.hash.slice(0, 12)}…)`);
+        }
+      }
+
+      // Authoritatively (re)write every expected row with the correct
+      // created_at. DELETE-then-INSERT so a pre-existing row with a
+      // NULL/stale created_at is corrected rather than left untouched.
+      for (const [hash, meta] of expectedApplied) {
+        const existing = existingRows.find((r) => r.hash === hash);
+        const needsFix =
+          !existing || String(existing.created_at) !== String(meta.when);
+        await tx`DELETE FROM drizzle.__drizzle_migrations WHERE hash = ${hash}`;
+        await tx`
           INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
           VALUES (${hash}, ${meta.when})
         `;
-        inserted++;
-        console.log(`  ${meta.tag}: marked applied (${hash.slice(0, 12)}…)`);
+        written++;
+        if (needsFix) {
+          console.log(
+            `  ${meta.tag}: created_at reconciled → ${meta.when} ` +
+              `(${hash.slice(0, 12)}…)`,
+          );
+        }
       }
-    }
+    });
 
     for (const { tag, missing } of expectedPending) {
       console.log(
@@ -328,8 +377,8 @@ async function main() {
     }
 
     console.log(
-      `Bootstrap complete: ${inserted} inserted, ${deleted} removed, ` +
-        `${expectedPending.length} pending for migrator.`,
+      `Bootstrap complete: ${written} rows written (created_at reconciled), ` +
+        `${deleted} stale removed, ${expectedPending.length} pending for migrator.`,
     );
   } finally {
     await sql.end();
