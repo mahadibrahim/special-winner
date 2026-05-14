@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Public API Endpoints', () => {
+test.describe('Public API Endpoints', { tag: '@critical' }, () => {
   test('GET /api/public/seasons returns data', async ({ request }) => {
     const response = await request.get('/api/public/seasons');
 
@@ -22,7 +22,7 @@ test.describe('Public API Endpoints', () => {
   });
 });
 
-test.describe('Protected API Endpoints', () => {
+test.describe('Protected API Endpoints', { tag: '@critical' }, () => {
   test('GET /api/admin/users returns 401 when not authenticated', async ({ request }) => {
     const response = await request.get('/api/admin/users');
 

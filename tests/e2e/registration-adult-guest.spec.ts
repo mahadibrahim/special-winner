@@ -8,7 +8,7 @@ import { waitForHydration } from "../utils/test-helpers";
 
 const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
 
-test.describe("Anonymous adult guest checkout", () => {
+test.describe("Anonymous adult guest checkout", { tag: "@critical" }, () => {
   test.setTimeout(120_000);
 
   let seasonId: string;

@@ -1,0 +1,45 @@
+name: Setup
+description: >-
+  Install Node + npm dependencies. Optionally migrate + seed an ephemeral
+  CI database so each job is fully self-contained (no shared staging DB).
+
+inputs:
+  database-url:
+    description: >-
+      If set, runs db:migrate:bootstrap + db:migrate + db:seed:e2e against
+      this URL. Leave empty for jobs that don't touch the database
+      (e.g. typecheck).
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    # Each CI job spins up its own throwaway Postgres service container,
+    # so this prepares a fresh schema + fixtures per job. On an empty
+    # container `bootstrap` is a no-op and `migrate` builds the schema
+    # from scratch; `seed:e2e` loads the shared test fixtures.
+    - name: Prepare database
+      if: inputs.database-url != ''
+      shell: bash
+      run: |
+        npm run db:migrate:bootstrap
+        npm run db:migrate
+        npm run db:seed:e2e
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+        # The seed + reset scripts are guarded against prod; these flags
+        # are the explicit CI opt-in (the container's URL has no
+        # "staging" substring).
+        STAGING_DB_CONFIRMED: 'yes'
+        ALLOW_E2E_SEED: 'yes'

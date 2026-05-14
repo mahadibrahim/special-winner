@@ -1,3 +1,23 @@
+# ── CI: tiered for fast PR iteration ─────────────────────────────────
+#
+# Pull requests run a FAST GATE — the launch-critical path only:
+#   typecheck + build + full API tests + the @critical-tagged E2E specs
+#   (registration, payment, auth). Target turnaround ~8 min.
+#
+# Pushes to main run the FULL E2E SUITE (every spec, sharded) as a
+# post-merge check. A regression outside the critical path is caught on
+# main minutes after merge instead of gating every PR.
+#
+# Every DB-touching job spins up its own throwaway Postgres service
+# container and migrates + seeds it via the local `setup` composite
+# action — so runs are fully independent and never queue behind each
+# other (the old model serialized ALL runs through one shared staging
+# DB, which is most of where the ~30-min PR turnaround came from).
+#
+# This is a pre-launch tradeoff: when things reach a steady state, fold
+# `test-full` back into the PR gate (or just delete the `@critical`
+# split) to restore full-coverage gating on every PR.
+
 name: CI
 
 on:
@@ -17,235 +37,92 @@ on:
       - 'LICENSE'
   workflow_dispatch:
 
-# Serialize all CI runs through the staging DB so the schema-reset step
-# in db-setup doesn't race when two PRs run concurrently. Newer queued
-# runs wait; in-flight runs are NOT cancelled (cancel-in-progress: false).
+# Per-ref grouping only. A new push to the same PR branch cancels the
+# stale in-flight run; different PRs / branches never block each other.
+# Main runs are NOT cancelled (each post-merge run completes).
 concurrency:
-  group: ci-staging-db
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Shared config + secrets for every job. DATABASE_URL points at the
+# per-job Postgres service container (see `services:` blocks below).
+env:
+  CI: 'true'
+  R2_MOCK: '1'
+  # Disable the auth/OTP rate limiter — the shared CI runner IP trips it
+  # across dozens of sign-ins per suite and cascades into timeouts.
+  DISABLE_RATE_LIMIT: '1'
+  # Literal CI value so cron endpoints enforce auth and the dev server +
+  # test runner agree on it. Not a real secret.
+  CRON_SECRET: ci-cron-test-secret
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aspire_ci
+  STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+  STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+  STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+  PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
+  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+  RESEND_INBOUND_WEBHOOK_SECRET: ${{ secrets.RESEND_INBOUND_WEBHOOK_SECRET }}
+  CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+  CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+  CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+  TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+  TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+  TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+  TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
+  TWILIO_WEBHOOK_AUTH_TOKEN: ${{ secrets.TWILIO_WEBHOOK_AUTH_TOKEN }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  ANTHROPIC_CLASSIFIER_MODEL: ${{ secrets.ANTHROPIC_CLASSIFIER_MODEL }}
+  MAGIC_LINK_BASE_URL: ${{ secrets.MAGIC_LINK_BASE_URL }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
+  TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
 
 jobs:
-  build:
-    needs: db-setup
-    if: github.event_name != 'push'
+  # ── Fast, no DB ────────────────────────────────────────────────────
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Type check
+        run: npm run typecheck
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
+  # ── Build (no DB — prerendering degrades gracefully without one) ────
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - name: Build
         run: npm run build
-        env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_INBOUND_WEBHOOK_SECRET: ${{ secrets.RESEND_INBOUND_WEBHOOK_SECRET }}
-          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-          # Phase 1 — messaging layer (optional; lazy-guarded at runtime)
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
-          TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
-          TWILIO_WEBHOOK_AUTH_TOKEN: ${{ secrets.TWILIO_WEBHOOK_AUTH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_CLASSIFIER_MODEL: ${{ secrets.ANTHROPIC_CLASSIFIER_MODEL }}
-          MAGIC_LINK_BASE_URL: ${{ secrets.MAGIC_LINK_BASE_URL }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
-          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
-  # Single-runner DB setup shared by both test jobs. Running db:push in parallel
-  # from `test` and `test-api` deadlocks on pg_catalog DDL locks, so we do it
-  # once here and have the test jobs `needs:` this.
-  #
-  # Pre-launch policy: heavy test jobs only run on PRs and manual dispatch
-  # (workflow_dispatch). Direct pushes to main run build-only to conserve
-  # Actions minutes. Trigger full CI on demand with: gh workflow run CI
-  db-setup:
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install psql client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
-
-      # Drop + recreate the public schema, then run bootstrap + migrate.
-      # The script requires either a URL containing "staging" or the
-      # explicit STAGING_DB_CONFIRMED=yes flag (Railway's public-proxy
-      # hostnames don't contain "staging", so CI opts in via the flag).
-      - name: Reset staging schema and apply migrations
-        run: ./scripts/reset-staging-schema.sh
-        env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          ALLOW_DESTRUCTIVE_RESET: "yes"
-          STAGING_DB_CONFIRMED: "yes"
-
-      # Seed test fixtures (test users, baseline org, sports, sample
-      # seasons, etc.) — required by virtually every API/E2E test. Safe
-      # against staging now that staging has its own dedicated DB.
-      # ALLOW_E2E_SEED=yes is the explicit opt-in: the seed refuses to
-      # run unless either DATABASE_URL contains "staging" (Railway proxy
-      # hostnames don't) or this flag is set.
-      - name: Seed E2E test fixtures
-        run: npm run db:seed:e2e
-        env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          ALLOW_E2E_SEED: "yes"
-
-  test:
-    needs: db-setup
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      # Cache the ~150MB Chromium download keyed on package-lock.json. System
-      # apt deps can't be cached and are installed via `install-deps` below.
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright Browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Install Playwright system dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - name: Run Playwright tests
-        run: npm test
-        env:
-          CI: true
-          R2_MOCK: "1"
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_INBOUND_WEBHOOK_SECRET: ${{ secrets.RESEND_INBOUND_WEBHOOK_SECRET }}
-          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-          # Phase 1 — messaging layer (optional; lazy-guarded at runtime)
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
-          TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
-          TWILIO_WEBHOOK_AUTH_TOKEN: ${{ secrets.TWILIO_WEBHOOK_AUTH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_CLASSIFIER_MODEL: ${{ secrets.ANTHROPIC_CLASSIFIER_MODEL }}
-          MAGIC_LINK_BASE_URL: ${{ secrets.MAGIC_LINK_BASE_URL }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
-          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-          # Literal CI-only value so cron endpoints enforce auth and the
-          # 401-rejection tests can assert it. Not a real secret.
-          CRON_SECRET: ci-cron-test-secret
-          # Disable the new auth/OTP rate limiter for test runs. The shared
-          # IP between dozens of sign-ins per suite trips the limiter and
-          # cascades into waitForURL timeouts across the dashboard suites
-          # (signin POST returns 429, the form stays on /signin). Same fix
-          # that landed for test-api in feec5da.
-          DISABLE_RATE_LIMIT: "1"
-
-      - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 30
-
+  # ── Full API integration tests (every event) ───────────────────────
   test-api:
-    needs: db-setup
-    if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aspire_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+          database-url: ${{ env.DATABASE_URL }}
 
       - name: Start dev server
         run: |
           npm run dev > /tmp/dev-server.log 2>&1 &
           echo $! > /tmp/dev-server.pid
-        env:
-          CI: true
-          R2_MOCK: "1"
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_INBOUND_WEBHOOK_SECRET: ${{ secrets.RESEND_INBOUND_WEBHOOK_SECRET }}
-          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
-          TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
-          TWILIO_WEBHOOK_AUTH_TOKEN: ${{ secrets.TWILIO_WEBHOOK_AUTH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_CLASSIFIER_MODEL: ${{ secrets.ANTHROPIC_CLASSIFIER_MODEL }}
-          MAGIC_LINK_BASE_URL: ${{ secrets.MAGIC_LINK_BASE_URL }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
-          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-          # Literal CI-only value so cron endpoints enforce auth and the
-          # 401-rejection tests can assert it. Not a real secret.
-          CRON_SECRET: ci-cron-test-secret
-          # Disable the new auth/OTP rate limiter for test runs. The shared
-          # IP between dozens of sign-ins per suite trips the limiter and
-          # cascades into beforeAll failures across many test files. The
-          # auth-check-email rate-limit test detects this and skips.
-          DISABLE_RATE_LIMIT: "1"
 
       - name: Wait for dev server
         run: npx --yes wait-on http://localhost:4321/api/auth/session --timeout 180000
@@ -253,18 +130,13 @@ jobs:
       - name: Run API tests
         run: npm run test:api
         env:
-          CI: true
           TEST_BASE_URL: http://localhost:4321
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          # Must match the dev server's CRON_SECRET so the "runs job with
-          # correct secret" cron tests can hit the endpoints successfully.
-          CRON_SECRET: ci-cron-test-secret
 
       - name: Stop dev server
         if: always()
         run: |
           if [ -f /tmp/dev-server.pid ]; then
-            kill $(cat /tmp/dev-server.pid) || true
+            kill "$(cat /tmp/dev-server.pid)" || true
           fi
 
       - name: Upload dev server log on failure
@@ -273,4 +145,108 @@ jobs:
         with:
           name: dev-server-log
           path: /tmp/dev-server.log
+          retention-days: 7
+
+  # ── PR gate: launch-critical E2E only (@critical-tagged specs) ──────
+  test-critical:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aspire_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          database-url: ${{ env.DATABASE_URL }}
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright (browser + system deps)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run critical E2E tests
+        run: npm run test:critical
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-critical
+          path: playwright-report/
+          retention-days: 7
+
+  # ── Post-merge: full E2E suite, sharded (push to main + manual) ─────
+  test-full:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aspire_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          database-url: ${{ env.DATABASE_URL }}
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright (browser + system deps)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run full E2E suite (shard ${{ matrix.shard }}/3)
+        run: npx playwright test --shard=${{ matrix.shard }}/3
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-full-${{ matrix.shard }}
+          path: playwright-report/
           retention-days: 7
