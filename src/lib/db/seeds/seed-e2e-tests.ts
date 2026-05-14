@@ -173,6 +173,14 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Organization: ${org.name} (${org.id})`);
 
+  if (org.id !== E2E_ORG_ID) {
+    throw new Error(
+      `E2E seed invariant violated: org "aspire-sports" exists with id ${org.id} ` +
+      `but E2E_ORG_ID constant is ${E2E_ORG_ID}. ` +
+      `Update E2E_ORG_ID to match, or delete the org row and re-seed.`,
+    );
+  }
+
   // Demote any OTHER headquarters/active orgs so aspire-sports is the
   // unambiguous default org on shared CI databases. Without this, prior
   // test runs that created additional HQ/active orgs (e.g., via the admin
