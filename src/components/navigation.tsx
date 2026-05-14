@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Menu, X, ArrowRight, LogOut, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import LocationSelector from "@/components/location-selector"
 
 interface MeUser {
   id: string
@@ -106,9 +105,6 @@ export default function Navigation() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Location Selector */}
-            <LocationSelector mode="dropdown" />
-
             {!authResolved ? (
               // Reserve space to avoid layout shift while /api/auth/me resolves.
               <div className="h-10 w-40" aria-hidden />
@@ -208,14 +204,6 @@ export default function Navigation() {
                         <ArrowRight className="w-5 h-5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
                       </a>
                     ))}
-                  </div>
-
-                  {/* Mobile Location Selector */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-semibold text-ink-muted uppercase tracking-wider">
-                      Your Location
-                    </h4>
-                    <LocationSelector mode="cards" />
                   </div>
                 </div>
 
