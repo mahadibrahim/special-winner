@@ -34,6 +34,7 @@ interface ApiSeason {
 interface Props {
   initialAudience?: Audience | null
   initialType?: string | null
+  initialAgeBand?: string | null
 }
 
 const SEGMENT_LABELS: Record<Audience, { icon: string; label: string; sub: string }> = {
@@ -42,7 +43,7 @@ const SEGMENT_LABELS: Record<Audience, { icon: string; label: string; sub: strin
   team: { icon: "🏆", label: "A team", sub: "Captain registration" },
 }
 
-export default function ProgramsCatalog({ initialAudience, initialType }: Props) {
+export default function ProgramsCatalog({ initialAudience, initialType, initialAgeBand }: Props) {
   const [seasons, setSeasons] = useState<ApiSeason[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +55,7 @@ export default function ProgramsCatalog({ initialAudience, initialType }: Props)
   )
   const [activeSport, setActiveSport] = useState<string | null>(null)
   const [activeLocation, setActiveLocation] = useState<string | null>(null)
-  const [activeAgeBand, setActiveAgeBand] = useState<string | null>(null)
+  const [activeAgeBand, setActiveAgeBand] = useState<string | null>(initialAgeBand ?? null)
   const [activeSkill, setActiveSkill] = useState<string | null>(null)
   const [activeDayBucket, setActiveDayBucket] = useState<string | null>(null)
   const [activeType, setActiveType] = useState<string | null>(initialType ?? null)

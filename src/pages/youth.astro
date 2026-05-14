@@ -16,13 +16,10 @@ const formatTiles = [
   { label: "Tournaments", sub: "Compete", href: "/programs?audience=youth&type=tournament" },
 ];
 
-// TODO: these all link to the unfiltered youth catalog — the catalog has no
-// ?age= param yet. Add an initialAgeBand prop to ProgramsCatalog (parallel to
-// initialType) and give each band a distinct href in a follow-up.
 const ageBands = [
-  { label: "Ages 4–8", href: "/programs?audience=youth" },
-  { label: "Ages 9–12", href: "/programs?audience=youth" },
-  { label: "Ages 13–18", href: "/programs?audience=youth" },
+  { label: "Ages 4–8", href: "/programs?audience=youth&age=4-8" },
+  { label: "Ages 9–12", href: "/programs?audience=youth&age=9-12" },
+  { label: "Ages 13–18", href: "/programs?audience=youth&age=13-18" },
 ];
 ---
 
