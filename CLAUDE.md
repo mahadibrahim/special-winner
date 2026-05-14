@@ -23,8 +23,8 @@ Key patterns established across the codebase — follow these when adding new pa
 npm run dev              # Start dev server at localhost:4321
 
 # Database
-npm run db:push          # Push schema changes to database
-npm run db:generate      # Generate migrations
+npm run db:push          # Push schema directly — LOCAL DBs ONLY (guarded; see below)
+npm run db:generate      # Generate a migration file (the path for staging/prod)
 npm run db:studio        # Open Drizzle Studio
 npm run db:seed          # Seed database with test data
 
@@ -227,8 +227,18 @@ After the launch transition, the only DB-writing scripts in this repo are:
 - `scripts/db-migrate.ts` / `db-migrate-bootstrap.ts` — schema migrations, runs every deploy
 - `src/lib/db/seeds/seed-e2e-tests.ts` — staging-only fixture seed; refuses to run unless `DATABASE_URL` contains "staging" or `ALLOW_E2E_SEED=yes` (CI sets the flag against the staging Railway proxy)
 - `scripts/provision-staging-db.sh` / `reset-staging-schema.sh` — staging provisioning, hard-guarded against prod
+- `scripts/db-push-guard.ts` — guards `npm run db:push` (see below)
 
 One-time job scripts (launch catalog seed, season-opener, prod cleanup) were deleted post-launch — leaving destructive bulk scripts in the repo with prod credentials available is a footgun once the catalog expands beyond their allow-lists. If a real one-off ever comes up, write it as a new branch-specific script and delete it after the merge.
+
+### `db:push` vs `db:generate` + `db:migrate`
+
+`drizzle-kit push` diffs the live DB against `schema.ts` and applies the delta **directly** — no migration file, no `drizzle.__drizzle_migrations` row. That is exactly what caused the 0024 production incident: prod had been `push`-ed at some point, so it carried the `user_gender` enum + `users.gender` column with no tracking, and the next `db:migrate` collided with "type already exists".
+
+Rules:
+- **`npm run db:push` is for LOCAL databases only.** It's wrapped by `scripts/db-push-guard.ts`, which refuses to run unless `DATABASE_URL` points at `localhost`/`127.0.0.1`. To push to a remote DB anyway you must opt in explicitly: `ALLOW_REMOTE_PUSH=yes npm run db:push` — don't do this against prod.
+- **For staging/prod, the only path is `db:generate` → commit the migration → `db:migrate`.** `migrate-prod.yml` applies committed migrations to prod on every push to `main`.
+- New migrations that touch types/columns which may already exist on a drifted DB should be written idempotently — `DO $$ BEGIN CREATE TYPE … EXCEPTION WHEN duplicate_object THEN null; END $$;` and `ADD COLUMN IF NOT EXISTS` (see `0023`/`0024` for the pattern).
 
 ## Pre-push checklist (major work — schema changes, new endpoints, new E2E flows)
 
