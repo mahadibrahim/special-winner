@@ -1,24 +1,10 @@
 ---
-// SSR — fetches the live sport list. New page default per CLAUDE.md.
+// SSR — queries the public sports list directly via the shared helper.
+// New page default per CLAUDE.md.
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getPublicSports } from "@/lib/programs/public-filters";
 
-interface Sport {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-}
-
-let sports: Sport[] = [];
-try {
-  const res = await fetch(`${Astro.url.origin}/api/public/filters`);
-  if (res.ok) {
-    const data = (await res.json()) as { sports?: Sport[] };
-    sports = data.sports ?? [];
-  }
-} catch {
-  // Silent — page renders the empty state below.
-}
+const sports = await getPublicSports();
 ---
 
 <BaseLayout

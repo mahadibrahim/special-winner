@@ -1,25 +1,10 @@
 ---
-// SSR — fetches the live location list. New page default per CLAUDE.md.
+// SSR — queries the public locations list directly via the shared helper.
+// New page default per CLAUDE.md.
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getPublicLocations } from "@/lib/programs/public-filters";
 
-interface Location {
-  id: string;
-  name: string;
-  slug: string;
-  city: string | null;
-  state: string | null;
-}
-
-let locations: Location[] = [];
-try {
-  const res = await fetch(`${Astro.url.origin}/api/public/filters`);
-  if (res.ok) {
-    const data = (await res.json()) as { locations?: Location[] };
-    locations = data.locations ?? [];
-  }
-} catch {
-  // Silent — page renders the empty state below.
-}
+const locations = await getPublicLocations();
 ---
 
 <BaseLayout
