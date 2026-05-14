@@ -147,6 +147,8 @@ export default function ProgramsCatalog({ initialAudience, initialType }: Props)
       }
       if (activeType && s.program.programType !== activeType) return false
       // Skill filtering is not yet derivable from the schema; placeholder.
+      // NOTE: activeType from the ?type= query param also filters programType —
+      // reconcile with this when wiring activeSkill so they don't double-filter.
       if (activeSkill) {
         // TODO: when seasons have a skill_level field, filter by it here
       }
