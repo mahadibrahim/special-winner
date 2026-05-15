@@ -3,10 +3,19 @@
 import { useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { FindBooking } from "./FindBooking";
+import { WalkInWizard } from "./WalkInWizard";
 
 type Mode = "landing" | "find" | "walkin";
 
-export default function KioskLanding({ venueSlug, venueName }: { venueSlug: string; venueName: string }) {
+export default function KioskLanding({
+  venueSlug,
+  venueName,
+  publishableKey,
+}: {
+  venueSlug: string;
+  venueName: string;
+  publishableKey: string;
+}) {
   useHydrationBeacon();
   const [mode, setMode] = useState<Mode>("landing");
 
@@ -15,20 +24,13 @@ export default function KioskLanding({ venueSlug, venueName }: { venueSlug: stri
   }
 
   if (mode === "walkin") {
-    // T22 ships the wizard. For T21, placeholder.
     return (
-      <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => setMode("landing")}
-          className="text-sm text-stone-600"
-        >
-          ← Back
-        </button>
-        <div className="p-6 rounded-lg border bg-stone-50 text-stone-700 text-sm">
-          Walk-in registration coming next. (T22 will replace this with the wizard.)
-        </div>
-      </div>
+      <WalkInWizard
+        venueSlug={venueSlug}
+        venueName={venueName}
+        publishableKey={publishableKey}
+        onBack={() => setMode("landing")}
+      />
     );
   }
 

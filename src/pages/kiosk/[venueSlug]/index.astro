@@ -25,7 +25,7 @@ if (slug) {
         <p class="text-sm">This URL doesn't match an active venue. Ask the front desk for the correct kiosk URL.</p>
       </div>
     ) : (
-      <KioskLanding client:load venueSlug={slug!} venueName={venueName!} />
+      <KioskLanding client:load venueSlug={slug!} venueName={venueName!} publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""} />
     )}
   </main>
 </BaseLayout>
