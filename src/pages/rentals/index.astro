@@ -1,0 +1,55 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import RentalBooking from '@/components/rentals/RentalBooking';
+import { getDb } from '@/lib/db';
+import { venues, locations } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+// SSR — depends on org context resolved by middleware.
+export const prerender = false;
+
+const org = Astro.locals.organization;
+
+let rentalVenues: { id: string; name: string; fieldCount: number }[] = [];
+
+if (org) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: venues.id,
+      name: venues.name,
+      fieldCount: venues.fieldCount,
+    })
+    .from(venues)
+    .innerJoin(locations, eq(venues.locationId, locations.id))
+    .where(
+      and(
+        eq(locations.organizationId, org.id),
+        eq(venues.rentalEnabled, true),
+        eq(venues.active, true),
+      ),
+    )
+    .orderBy(venues.name);
+
+  rentalVenues = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    fieldCount: r.fieldCount ?? 1,
+  }));
+}
+---
+
+<BaseLayout title="Book a Field — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-4xl mx-auto">
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold text-stone-900">Book a Field</h1>
+        <p class="mt-2 text-stone-600">
+          Reserve a field for practice, pickup, or events. Select a venue and
+          date to see available time slots.
+        </p>
+      </div>
+      <RentalBooking client:load venues={rentalVenues} />
+    </div>
+  </main>
+</BaseLayout>
