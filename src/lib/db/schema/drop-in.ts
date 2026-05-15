@@ -137,6 +137,9 @@ export const dropInBookings = pgTable(
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancellationReason: dropInCancellationReasonEnum("cancellation_reason"),
+    waiverSigned: boolean("waiver_signed").notNull().default(false),
+    waiverSignedAt: timestamp("waiver_signed_at", { withTimezone: true }),
+    waiverSignedBy: text("waiver_signed_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -166,6 +169,7 @@ export const dropInRateCard = pgTable("drop_in_rate_card", {
   defaultMemberRateCents: integer("default_member_rate_cents").notNull().default(1200),
   cancelWindowHours: integer("cancel_window_hours").notNull().default(24),
   promotionWindowMinutes: integer("promotion_window_minutes").notNull().default(30),
+  checkInWindowMinutes: integer("check_in_window_minutes").notNull().default(60),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
     onDelete: "set null",

@@ -183,6 +183,13 @@
       "when": 1778798351571,
       "tag": "0025_jittery_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1778864429468,
+      "tag": "0026_polite_ultimates",
+      "breakpoints": true
     }
   ]
 }

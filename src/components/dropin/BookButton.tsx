@@ -2,6 +2,16 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 interface BookButtonProps {
@@ -18,6 +28,9 @@ interface BookButtonProps {
   isAuthenticated: boolean;
 }
 
+const WAIVER_TEXT =
+  "I understand that participating in drop-in sports sessions involves physical activity and inherent risk of injury. I voluntarily assume all risks associated with participation and release Aspire Sports, its partners, and staff from liability for any injury, loss, or damage arising from my participation. I confirm that I am physically fit to participate and have no medical conditions that would prevent safe participation.";
+
 export function BookButton({
   sessionId,
   resolvedAmountCents,
@@ -26,6 +39,9 @@ export function BookButton({
   isAuthenticated,
 }: BookButtonProps) {
   const [busy, setBusy] = useState(false);
+  const [showWaiver, setShowWaiver] = useState(false);
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [waiverName, setWaiverName] = useState("");
 
   if (!isAuthenticated) {
     return (
@@ -57,13 +73,18 @@ export function BookButton({
     );
   }
 
-  const submit = async () => {
+  const submitBooking = async () => {
     setBusy(true);
+    setShowWaiver(false);
     try {
       const res = await fetch("/api/dropin/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({
+          sessionId,
+          waiverAccepted: true,
+          waiverName: waiverName.trim(),
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -91,6 +112,14 @@ export function BookButton({
     }
   };
 
+  const openWaiver = () => {
+    setWaiverAccepted(false);
+    setWaiverName("");
+    setShowWaiver(true);
+  };
+
+  const canConfirm = waiverAccepted && waiverName.trim().length > 0;
+
   const label = isFull
     ? "Join waitlist"
     : resolvedAmountCents === 0
@@ -100,8 +129,66 @@ export function BookButton({
         : `Book — $${(resolvedAmountCents / 100).toFixed(2)}`;
 
   return (
-    <Button onClick={submit} disabled={busy} size="lg" className="w-full">
-      {busy ? "Working…" : label}
-    </Button>
+    <>
+      <Button onClick={openWaiver} disabled={busy} size="lg" className="w-full">
+        {busy ? "Working…" : label}
+      </Button>
+
+      <Dialog open={showWaiver} onOpenChange={setShowWaiver}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Waiver &amp; Assumption of Risk</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-stone-700 leading-relaxed">{WAIVER_TEXT}</p>
+
+          <div className="space-y-4 pt-2">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="waiver-accept"
+                checked={waiverAccepted}
+                onCheckedChange={(checked) =>
+                  setWaiverAccepted(checked === true)
+                }
+              />
+              <Label
+                htmlFor="waiver-accept"
+                className="text-sm leading-snug cursor-pointer"
+              >
+                I accept the waiver above
+              </Label>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="waiver-name" className="text-sm">
+                Full name (typed signature)
+              </Label>
+              <Input
+                id="waiver-name"
+                value={waiverName}
+                onChange={(e) => setWaiverName(e.target.value)}
+                placeholder="Your full name"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowWaiver(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitBooking}
+              disabled={!canConfirm || busy}
+            >
+              {busy ? "Working…" : "Confirm & book"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

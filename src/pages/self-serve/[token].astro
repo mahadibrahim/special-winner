@@ -1,0 +1,47 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SelfServe from "@/components/self-serve/SelfServe";
+
+export const prerender = false;
+
+const token = Astro.params.token;
+if (!token) return Astro.redirect("/");
+
+let context: any = null;
+let error: string | null = null;
+
+try {
+  const url = new URL(`/api/self-serve/${token}`, Astro.url);
+  const res = await fetch(url, {
+    headers: { cookie: Astro.request.headers.get("cookie") ?? "" },
+  });
+  if (res.status === 410 || res.status === 404) {
+    error = "This link has expired or is invalid. Please ask the front desk for a new one.";
+  } else if (!res.ok) {
+    error = `Couldn't load this link (${res.status}).`;
+  } else {
+    context = await res.json();
+  }
+} catch (err) {
+  error = "Couldn't reach the server.";
+}
+---
+
+<BaseLayout
+  title="Finish your booking — Aspire Sports"
+  navigation={false}
+  footer={false}
+>
+  <main class="min-h-screen bg-cream flex items-start justify-center p-4 pt-8">
+    <div class="w-full max-w-md">
+      {error ? (
+        <div class="p-6 rounded-lg border border-rose-200 bg-rose-50 text-rose-800">
+          <h1 class="font-semibold text-lg mb-2">Link unavailable</h1>
+          <p class="text-sm">{error}</p>
+        </div>
+      ) : (
+        <SelfServe client:load token={token} context={context} />
+      )}
+    </div>
+  </main>
+</BaseLayout>

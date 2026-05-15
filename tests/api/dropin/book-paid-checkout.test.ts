@@ -34,9 +34,25 @@ describe("POST /api/dropin/bookings", () => {
     const res = await apiFetch(ENDPOINT, {
       method: "POST",
       cookie,
-      body: JSON.stringify({ sessionId: "00000000-0000-0000-0000-000000000000" }),
+      body: JSON.stringify({
+        sessionId: "00000000-0000-0000-0000-000000000000",
+        waiverAccepted: true,
+        waiverName: "Test Player",
+      }),
     });
     const json = await expectJson(res, 404);
+    expect(json.error).toBeDefined();
+  });
+
+  it("returns 422 when waiver fields are missing (authenticated parent)", async () => {
+    const { getParentCookie } = await import("../setup/test-helpers");
+    const cookie = await getParentCookie();
+    const res = await apiFetch(ENDPOINT, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId: "00000000-0000-0000-0000-000000000000" }),
+    });
+    const json = await expectJson(res, 422);
     expect(json.error).toBeDefined();
   });
 });
