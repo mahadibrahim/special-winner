@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { handleFieldRentalCheckoutComplete } from "@/lib/stripe/handle-field-rental-checkout-complete";
+import { handleFieldRentalWalkUpPayment } from "@/lib/stripe/handle-field-rental-walkup-payment";
 import { createRentalHold } from "@/lib/rentals/booking";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
@@ -144,5 +145,171 @@ describe("handleFieldRentalCheckoutComplete", () => {
     expect(result.status).toBe("skipped");
     if (result.status !== "skipped") throw new Error("expected skipped");
     expect(result.reason).toContain("not found");
+  });
+});
+
+describe("handleFieldRentalWalkUpPayment", () => {
+  it("happy path: flips pending_payment hold to confirmed", async () => {
+    const hold = await createRentalHold({
+      organizationId: E2E_ORG_ID,
+      venueId: E2E_RENTAL_VENUE_ID,
+      fieldNumber: 5,
+      ...slot(14, 1),
+      source: "admin_created",
+      paymentMethod: "card_present",
+      amountDueCents: 7500,
+      renterUserId: null,
+      renterName: "Walk-Up Test",
+      renterEmail: null,
+      renterPhone: null,
+      partySize: 3,
+      purpose: null,
+      notes: null,
+      createdByUserId: null,
+      waiverSigned: false,
+      waiverSignedBy: null,
+    });
+    expect(hold.ok).toBe(true);
+    if (!hold.ok) throw new Error("hold creation failed");
+
+    const rentalId = hold.rental.id;
+    const fakePiId = `pi_test_walkup_${Date.now()}`;
+
+    const fakePI = {
+      id: fakePiId,
+      metadata: { type: "field_rental_walk_up", rental_id: rentalId },
+      amount_received: 7500,
+      amount: 7500,
+    } as unknown as Stripe.PaymentIntent;
+
+    const result = await handleFieldRentalWalkUpPayment(fakePI);
+    expect(result.status).toBe("processed");
+    if (result.status !== "processed") throw new Error("handler did not process");
+    expect(result.rentalId).toBe(rentalId);
+    expect(result.paidCents).toBe(7500);
+
+    // Re-fetch and assert DB state
+    const [row] = await getDb()
+      .select()
+      .from(fieldRentals)
+      .where(eq(fieldRentals.id, rentalId));
+
+    expect(row).toBeDefined();
+    expect(row!.status).toBe("confirmed");
+    expect(row!.paymentStatus).toBe("paid");
+    expect(row!.amountPaidCents).toBe(7500);
+    expect(row!.stripePaymentIntentId).toBe(fakePiId);
+    expect(row!.paymentExpiresAt).toBeNull();
+  });
+
+  it("idempotency: second call on confirmed rental returns skipped", async () => {
+    const hold = await createRentalHold({
+      organizationId: E2E_ORG_ID,
+      venueId: E2E_RENTAL_VENUE_ID,
+      fieldNumber: 5,
+      ...slot(16, 1),
+      source: "admin_created",
+      paymentMethod: "card_present",
+      amountDueCents: 6000,
+      renterUserId: null,
+      renterName: "Idempotency Walk-Up Test",
+      renterEmail: null,
+      renterPhone: null,
+      partySize: 2,
+      purpose: null,
+      notes: null,
+      createdByUserId: null,
+      waiverSigned: false,
+      waiverSignedBy: null,
+    });
+    expect(hold.ok).toBe(true);
+    if (!hold.ok) throw new Error("hold creation failed");
+
+    const rentalId = hold.rental.id;
+    const fakePiId = `pi_test_walkup_idem_${Date.now()}`;
+
+    const fakePI = {
+      id: fakePiId,
+      metadata: { type: "field_rental_walk_up", rental_id: rentalId },
+      amount_received: 6000,
+      amount: 6000,
+    } as unknown as Stripe.PaymentIntent;
+
+    const first = await handleFieldRentalWalkUpPayment(fakePI);
+    expect(first.status).toBe("processed");
+
+    const second = await handleFieldRentalWalkUpPayment(fakePI);
+    expect(second.status).toBe("skipped");
+    if (second.status !== "skipped") throw new Error("expected skipped");
+    expect(second.reason).toContain("already confirmed");
+  });
+
+  it("returns skipped when metadata has no rental_id", async () => {
+    const result = await handleFieldRentalWalkUpPayment({
+      id: "pi_noop",
+      metadata: {},
+      amount_received: 0,
+      amount: 0,
+    } as unknown as Stripe.PaymentIntent);
+
+    expect(result.status).toBe("skipped");
+    if (result.status !== "skipped") throw new Error("expected skipped");
+    expect(result.reason).toBe("missing rental_id metadata");
+  });
+
+  it("returns skipped when rental_id does not exist in the database", async () => {
+    const result = await handleFieldRentalWalkUpPayment({
+      id: "pi_notfound",
+      metadata: { type: "field_rental_walk_up", rental_id: "00000000-0000-0000-0000-000000000000" },
+      amount_received: 5000,
+      amount: 5000,
+    } as unknown as Stripe.PaymentIntent);
+
+    expect(result.status).toBe("skipped");
+    if (result.status !== "skipped") throw new Error("expected skipped");
+    expect(result.reason).toContain("not found");
+  });
+
+  it("cancelled-guard: late Terminal success does not flip a cancelled rental", async () => {
+    const hold = await createRentalHold({
+      organizationId: E2E_ORG_ID,
+      venueId: E2E_RENTAL_VENUE_ID,
+      fieldNumber: 5,
+      ...slot(18, 1),
+      source: "admin_created",
+      paymentMethod: "card_present",
+      amountDueCents: 5500,
+      renterUserId: null,
+      renterName: "Cancelled Guard Test",
+      renterEmail: null,
+      renterPhone: null,
+      partySize: 1,
+      purpose: null,
+      notes: null,
+      createdByUserId: null,
+      waiverSigned: false,
+      waiverSignedBy: null,
+    });
+    expect(hold.ok).toBe(true);
+    if (!hold.ok) throw new Error("hold creation failed");
+
+    const rentalId = hold.rental.id;
+
+    // Directly cancel the row to simulate a refund/cancel before Terminal succeeds
+    await getDb()
+      .update(fieldRentals)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(fieldRentals.id, rentalId));
+
+    const result = await handleFieldRentalWalkUpPayment({
+      id: `pi_test_walkup_cancel_${Date.now()}`,
+      metadata: { type: "field_rental_walk_up", rental_id: rentalId },
+      amount_received: 5500,
+      amount: 5500,
+    } as unknown as Stripe.PaymentIntent);
+
+    expect(result.status).toBe("skipped");
+    if (result.status !== "skipped") throw new Error("expected skipped");
+    expect(result.reason).toContain("already cancelled");
   });
 });
