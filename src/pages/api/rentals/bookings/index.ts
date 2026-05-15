@@ -159,8 +159,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ paymentRequired: false, rentalId: result.rental.id }, 200);
   }
 
-  if (!stripe) return json({ error: "Stripe not configured" }, 500);
-
+  // Run the conflict check + create the hold BEFORE checking Stripe so a
+  // genuine 409 is reported even on environments without Stripe configured
+  // (e.g. CI). If Stripe is missing we clean up the hold below.
   const hold = await createRentalHold({
     organizationId: orgId,
     venueId,
@@ -182,6 +183,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     waiverSignedBy: waiverName,
   });
   if (!hold.ok) return json({ error: hold.error }, 409);
+
+  if (!stripe) {
+    // Stripe missing — release the hold and surface the misconfig.
+    await db.delete(fieldRentals).where(eq(fieldRentals.id, hold.rental.id));
+    return json({ error: "Stripe not configured" }, 500);
+  }
 
   const partnerStripeAccountId = venue.partnerStripeAccountId ?? null;
   const applicationFeePct = venue.partnerApplicationFeePct ?? 0;
