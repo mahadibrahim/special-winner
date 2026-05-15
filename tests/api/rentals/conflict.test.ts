@@ -17,9 +17,13 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 // A distinct calendar DAY per test run, far in the future, at a fixed
 // within-window hour. Date.now() spread across millions of distinct days
 // means consecutive runs (even seconds apart) never reuse a slot.
-const RUN_DAY_OFFSET = Date.now() % 3_000_000;
+// Per-run base date, kept inside the 4-digit-year range so toISOString()
+// doesn't produce a `+`-prefixed extended-year string that pg rejects.
+// 10 years × 365 days = ~3650 distinct days; with 3 fields × multiple
+// hours per run that's enormous slot space — collision-free in practice.
+const RUN_DAY_OFFSET = Math.floor(Math.random() * 3_650);
 const DAY_MS = 86_400_000;
-const RUN_BASE_UTC = Date.UTC(2030, 0, 1) + RUN_DAY_OFFSET * DAY_MS;
+const RUN_BASE_UTC = Date.UTC(2035, 0, 1) + RUN_DAY_OFFSET * DAY_MS;
 
 /**
  * Build a slot inside the venue rental window (8am-10pm UTC). `hourOfDay`

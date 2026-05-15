@@ -7,9 +7,12 @@ import {
 import { E2E_RENTAL_VENUE_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 // Unique-per-run day spread so consecutive runs never reuse the same slot.
-const RUN_DAY_OFFSET =
-  (Date.now() + Math.floor(Math.random() * 1_000_000)) % 5_000_000;
-const RUN_BASE_UTC = Date.UTC(2030, 0, 1) + RUN_DAY_OFFSET * 86_400_000;
+// Per-run base date, kept inside the 4-digit-year range so toISOString()
+// doesn't produce a `+`-prefixed extended-year string that pg rejects.
+// 10 years × 365 days = ~3650 distinct days; with 3 fields × multiple
+// hours per run that's enormous slot space — collision-free in practice.
+const RUN_DAY_OFFSET = Math.floor(Math.random() * 3_650);
+const RUN_BASE_UTC = Date.UTC(2035, 0, 1) + RUN_DAY_OFFSET * 86_400_000;
 
 function slot(hour: number, durationHours: number) {
   const start = new Date(RUN_BASE_UTC + hour * 3_600_000);

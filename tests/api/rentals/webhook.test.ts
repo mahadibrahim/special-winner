@@ -10,8 +10,12 @@ import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 // A distinct calendar DAY per test run, far in the future. A random component
 // is added so parallel CI jobs starting at the same millisecond still get
 // distinct days and avoid slot collisions.
-const RUN_DAY_OFFSET = (Date.now() + Math.floor(Math.random() * 1_000_000)) % 5_000_000;
-const RUN_BASE_UTC = Date.UTC(2030, 0, 1) + RUN_DAY_OFFSET * 86_400_000;
+// Per-run base date, kept inside the 4-digit-year range so toISOString()
+// doesn't produce a `+`-prefixed extended-year string that pg rejects.
+// 10 years × 365 days = ~3650 distinct days; with 3 fields × multiple
+// hours per run that's enormous slot space — collision-free in practice.
+const RUN_DAY_OFFSET = Math.floor(Math.random() * 3_650);
+const RUN_BASE_UTC = Date.UTC(2035, 0, 1) + RUN_DAY_OFFSET * 86_400_000;
 
 function slot(hourOfDay: number, durationHours: number) {
   const startsAt = new Date(RUN_BASE_UTC + hourOfDay * 3_600_000);
