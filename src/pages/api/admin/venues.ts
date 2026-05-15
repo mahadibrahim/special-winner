@@ -10,18 +10,51 @@ import {
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 
-const venueSchema = z.object({
-  locationId: z.string().uuid("Valid location ID is required"),
-  name: z.string().min(1, "Name is required"),
-  address: z.string().optional().nullable(),
-  fieldCount: z.number().min(1).default(1),
-  indoor: z.boolean().default(false),
-  owned: z.boolean().default(false),
-  concessions: z.boolean().default(false),
-  parkingManaged: z.boolean().default(false),
-  notes: z.string().optional().nullable(),
-  active: z.boolean().default(true),
-});
+const venueSchema = z
+  .object({
+    locationId: z.string().uuid("Valid location ID is required"),
+    name: z.string().min(1, "Name is required"),
+    address: z.string().optional().nullable(),
+    fieldCount: z.number().min(1).default(1),
+    indoor: z.boolean().default(false),
+    owned: z.boolean().default(false),
+    concessions: z.boolean().default(false),
+    parkingManaged: z.boolean().default(false),
+    notes: z.string().optional().nullable(),
+    active: z.boolean().default(true),
+    rentalEnabled: z.boolean().default(false),
+    rentalHourlyRateCents: z
+      .number()
+      .int("rentalHourlyRateCents must be a whole number of cents")
+      .min(0, "rentalHourlyRateCents must be >= 0")
+      .nullable()
+      .optional(),
+    rentalOpenMinute: z
+      .number()
+      .int("rentalOpenMinute must be an integer")
+      .min(0, "rentalOpenMinute must be in [0, 1440]")
+      .max(1440, "rentalOpenMinute must be in [0, 1440]")
+      .nullable()
+      .optional(),
+    rentalCloseMinute: z
+      .number()
+      .int("rentalCloseMinute must be an integer")
+      .min(0, "rentalCloseMinute must be in [0, 1440]")
+      .max(1440, "rentalCloseMinute must be in [0, 1440]")
+      .nullable()
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    const open = data.rentalOpenMinute ?? null;
+    const close = data.rentalCloseMinute ?? null;
+    if (open != null && close != null && open >= close) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "rentalOpenMinute must be less than rentalCloseMinute",
+        path: ["rentalOpenMinute"],
+      });
+    }
+  });
 
 // GET - List venues
 // ?scope=all  (super_admin only) — returns venues across all orgs with
@@ -60,6 +93,10 @@ export const GET: APIRoute = async (context) => {
           notes: venues.notes,
           active: venues.active,
           createdAt: venues.createdAt,
+          rentalEnabled: venues.rentalEnabled,
+          rentalHourlyRateCents: venues.rentalHourlyRateCents,
+          rentalOpenMinute: venues.rentalOpenMinute,
+          rentalCloseMinute: venues.rentalCloseMinute,
           location: {
             id: locations.id,
             name: locations.name,
@@ -101,6 +138,10 @@ export const GET: APIRoute = async (context) => {
         notes: venues.notes,
         active: venues.active,
         createdAt: venues.createdAt,
+        rentalEnabled: venues.rentalEnabled,
+        rentalHourlyRateCents: venues.rentalHourlyRateCents,
+        rentalOpenMinute: venues.rentalOpenMinute,
+        rentalCloseMinute: venues.rentalCloseMinute,
         location: {
           id: locations.id,
           name: locations.name,

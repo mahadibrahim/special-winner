@@ -44,6 +44,10 @@ interface Venue {
   notes: string | null
   active: boolean
   location: Location | null
+  rentalEnabled: boolean
+  rentalHourlyRateCents: number | null
+  rentalOpenMinute: number | null
+  rentalCloseMinute: number | null
 }
 
 interface VenuesListProps {
@@ -69,6 +73,10 @@ export function VenuesList({ locations }: VenuesListProps) {
     parkingManaged: false,
     notes: "",
     active: true,
+    rentalEnabled: false,
+    rentalHourlyRateDollars: "" as string, // UI dollars string; converted to cents on submit
+    rentalOpenTime: "" as string,          // HH:MM string; converted to minutes on submit
+    rentalCloseTime: "" as string,         // HH:MM string; converted to minutes on submit
   })
 
   useEffect(() => {
@@ -102,8 +110,19 @@ export function VenuesList({ locations }: VenuesListProps) {
       parkingManaged: false,
       notes: "",
       active: true,
+      rentalEnabled: false,
+      rentalHourlyRateDollars: "",
+      rentalOpenTime: "",
+      rentalCloseTime: "",
     })
     setIsDialogOpen(true)
+  }
+
+  function minutesToTime(minutes: number | null): string {
+    if (minutes == null) return ""
+    const h = Math.floor(minutes / 60).toString().padStart(2, "0")
+    const m = (minutes % 60).toString().padStart(2, "0")
+    return `${h}:${m}`
   }
 
   function openEditDialog(venue: Venue) {
@@ -119,8 +138,23 @@ export function VenuesList({ locations }: VenuesListProps) {
       parkingManaged: venue.parkingManaged || false,
       notes: venue.notes || "",
       active: venue.active,
+      rentalEnabled: venue.rentalEnabled || false,
+      rentalHourlyRateDollars: venue.rentalHourlyRateCents != null
+        ? (venue.rentalHourlyRateCents / 100).toString()
+        : "",
+      rentalOpenTime: minutesToTime(venue.rentalOpenMinute),
+      rentalCloseTime: minutesToTime(venue.rentalCloseMinute),
     })
     setIsDialogOpen(true)
+  }
+
+  function timeToMinutes(time: string): number | null {
+    if (!time) return null
+    const [hStr, mStr] = time.split(":")
+    const h = parseInt(hStr, 10)
+    const m = parseInt(mStr, 10)
+    if (isNaN(h) || isNaN(m)) return null
+    return h * 60 + m
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -128,12 +162,27 @@ export function VenuesList({ locations }: VenuesListProps) {
     setIsSubmitting(true)
     setError(null)
 
+    // Convert rental UI values to API values
+    const rentalHourlyRateCents = formData.rentalHourlyRateDollars.trim() !== ""
+      ? Math.round(parseFloat(formData.rentalHourlyRateDollars) * 100)
+      : null
+    const rentalOpenMinute = timeToMinutes(formData.rentalOpenTime)
+    const rentalCloseMinute = timeToMinutes(formData.rentalCloseTime)
+
+    const { rentalHourlyRateDollars, rentalOpenTime, rentalCloseTime, ...rest } = formData
+    const apiPayload = {
+      ...rest,
+      rentalHourlyRateCents,
+      rentalOpenMinute,
+      rentalCloseMinute,
+    }
+
     try {
       const url = "/api/admin/venues"
       const method = editingVenue ? "PUT" : "POST"
       const body = editingVenue
-        ? { id: editingVenue.id, ...formData }
-        : formData
+        ? { id: editingVenue.id, ...apiPayload }
+        : apiPayload
 
       const response = await fetch(url, {
         method,
@@ -411,6 +460,66 @@ export function VenuesList({ locations }: VenuesListProps) {
                   placeholder="Additional information about this venue"
                   rows={2}
                 />
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <Label className="text-sm font-medium">Field rentals</Label>
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="rentalEnabled"
+                      checked={formData.rentalEnabled}
+                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, rentalEnabled: checked === true }))}
+                    />
+                    <Label htmlFor="rentalEnabled" className="font-normal text-sm">
+                      Enable field rentals at this venue
+                    </Label>
+                  </div>
+
+                  {formData.rentalEnabled && (
+                    <div className="space-y-3 pl-6">
+                      <div className="space-y-1">
+                        <Label htmlFor="rentalHourlyRateDollars" className="text-sm">
+                          Hourly rental rate (leave blank to use org default)
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                          <Input
+                            id="rentalHourlyRateDollars"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            className="pl-7"
+                            value={formData.rentalHourlyRateDollars}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, rentalHourlyRateDollars: e.target.value }))}
+                            placeholder="e.g. 95.00"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="rentalOpenTime" className="text-sm">Rentals open</Label>
+                          <Input
+                            id="rentalOpenTime"
+                            type="time"
+                            value={formData.rentalOpenTime}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, rentalOpenTime: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="rentalCloseTime" className="text-sm">Rentals close</Label>
+                          <Input
+                            id="rentalCloseTime"
+                            type="time"
+                            value={formData.rentalCloseTime}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, rentalCloseTime: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center space-x-2">

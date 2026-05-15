@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { RentalDetail } from '../../../components/admin/rentals/RentalDetail';
+
+export const prerender = false;
+const user = Astro.locals.user!;
+const rentalId = Astro.params.id!;
+---
+
+<BaseLayout title="Rental Detail — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/rentals"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <RentalDetail client:load rentalId={rentalId} />
+  </AdminLayout>
+</BaseLayout>

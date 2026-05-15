@@ -2,7 +2,9 @@ import type { APIRoute } from "astro";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
 import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
 import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
+import { handleFieldRentalCheckoutComplete } from "@/lib/stripe/handle-field-rental-checkout-complete";
 import { handleDropInWalkUpPayment } from "@/lib/stripe/handle-dropin-walkup-payment";
+import { handleFieldRentalWalkUpPayment } from "@/lib/stripe/handle-field-rental-walkup-payment";
 import { handlePaymentFailed } from "@/lib/stripe/handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "@/lib/stripe/handle-registration-payment-succeeded";
 import { getDb } from "@/lib/db";
@@ -91,6 +93,12 @@ export const POST: APIRoute = async ({ request }) => {
             `[stripe webhook] checkout.session.completed (dropin) → ${result.status}`,
             result,
           );
+        } else if (session.metadata?.type === "field_rental") {
+          const result = await handleFieldRentalCheckoutComplete(session);
+          console.log(
+            `[stripe webhook] checkout.session.completed (field_rental) → ${result.status}`,
+            result,
+          );
         } else {
           const result = await handleCheckoutComplete(session);
           console.log(
@@ -103,10 +111,16 @@ export const POST: APIRoute = async ({ request }) => {
 
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        // Drop-in walk-up flow: PaymentIntent is created server-side
-        // first, the booking row is inserted here after the Terminal
-        // reader confirms.
-        if (paymentIntent.metadata?.type === "dropin_booking_walk_up") {
+        // Field-rental walk-up flow: PaymentIntent is created server-side
+        // by the admin endpoint (Task 12); the hold is flipped to confirmed
+        // here after the Terminal reader succeeds.
+        if (paymentIntent.metadata?.type === "field_rental_walk_up") {
+          const result = await handleFieldRentalWalkUpPayment(paymentIntent);
+          console.log(
+            `[stripe webhook] payment_intent.succeeded (field_rental walk-up) → ${result.status}`,
+            result,
+          );
+        } else if (paymentIntent.metadata?.type === "dropin_booking_walk_up") {
           const result = await handleDropInWalkUpPayment(paymentIntent);
           console.log(
             `[stripe webhook] payment_intent.succeeded (dropin walk-up) → ${result.status}`,
