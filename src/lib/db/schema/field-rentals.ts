@@ -113,6 +113,7 @@ export const fieldRentalRateCard = pgTable("field_rental_rate_card", {
   bookingIncrementMinutes: integer("booking_increment_minutes").notNull().default(60),
   minDurationMinutes: integer("min_duration_minutes").notNull().default(60),
   maxDurationMinutes: integer("max_duration_minutes").notNull().default(240),
+  checkInWindowMinutes: integer("check_in_window_minutes").notNull().default(60),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
     onDelete: "set null",

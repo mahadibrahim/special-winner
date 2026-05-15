@@ -75,3 +75,6 @@ export * from "./drop-in";
 
 // Field rentals (book a field/venue time-block + payment)
 export * from "./field-rentals";
+
+// Self-service tokens for waiver/photo/payment self-serve surfaces
+export * from "./self-service-tokens";
