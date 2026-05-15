@@ -4,6 +4,34 @@ import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL;
 
+// Refuse to connect to a prod-DB host from a test runtime. A misconfigured
+// local `npm run test:api` was leaking test orgs/locations/sports into
+// prod; this is the in-code stop-gap. The check runs only when the
+// process is identifiably a test runner (vitest sets process.env.VITEST,
+// or NODE_ENV is "test") so production server imports pay no cost.
+// Hosts on the denylist must be opt-out-only by changing this code — env
+// vars can't disable it from the outside.
+const PROD_DB_HOSTS = ["gondola.proxy.rlwy.net"];
+if (
+  connectionString &&
+  (process.env.VITEST || process.env.NODE_ENV === "test")
+) {
+  const host = (() => {
+    try {
+      return new URL(connectionString).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  if (PROD_DB_HOSTS.includes(host)) {
+    throw new Error(
+      `[db] REFUSED: a test runtime is trying to connect to a prod DB host (${host}). ` +
+        `Use 'DATABASE_URL=$STAGING_DATABASE_URL <command>' (or a local Postgres URL) before running tests. ` +
+        `If you have a legitimate reason to point tests at this host, edit PROD_DB_HOSTS in src/lib/db/index.ts.`,
+    );
+  }
+}
+
 // Gracefully handle missing DATABASE_URL (e.g., in CI tests)
 let db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
