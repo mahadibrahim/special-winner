@@ -60,6 +60,10 @@ export async function handleFieldRentalWalkUpPayment(
         updatedAt: new Date(),
       })
       .where(eq(fieldRentals.id, rentalId));
+    // TODO(rentals): fire-and-forget a rental confirmation email/SMS here
+    // once a rental messaging module exists (mirrors dispatchBookingConfirmation
+    // in the drop-in flow). Tracked alongside the same TODO in
+    // handle-field-rental-checkout-complete.ts.
     return { status: "processed", rentalId, paidCents };
   });
 }
