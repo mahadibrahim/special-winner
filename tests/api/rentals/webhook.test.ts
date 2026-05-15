@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
@@ -6,9 +7,10 @@ import { handleFieldRentalCheckoutComplete } from "@/lib/stripe/handle-field-ren
 import { createRentalHold } from "@/lib/rentals/booking";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
-// A distinct calendar DAY per test run, far in the future. Date.now() spread
-// across millions of distinct days means consecutive runs never reuse a slot.
-const RUN_DAY_OFFSET = Date.now() % 3_000_000;
+// A distinct calendar DAY per test run, far in the future. A random component
+// is added so parallel CI jobs starting at the same millisecond still get
+// distinct days and avoid slot collisions.
+const RUN_DAY_OFFSET = (Date.now() + Math.floor(Math.random() * 1_000_000)) % 5_000_000;
 const RUN_BASE_UTC = Date.UTC(2030, 0, 1) + RUN_DAY_OFFSET * 86_400_000;
 
 function slot(hourOfDay: number, durationHours: number) {
@@ -51,7 +53,7 @@ describe("handleFieldRentalCheckoutComplete", () => {
       metadata: { type: "field_rental", rental_id: rentalId },
       payment_intent: UNIQUE_PI,
       amount_total: 8000,
-    } as never);
+    } as unknown as Stripe.Checkout.Session);
 
     expect(result.status).toBe("processed");
     if (result.status !== "processed") throw new Error("handler did not process");
@@ -73,9 +75,7 @@ describe("handleFieldRentalCheckoutComplete", () => {
   });
 
   it("is idempotent — second call returns skipped", async () => {
-    // Re-use the same rental_id that was confirmed in the previous test.
-    // We need to look it up by querying for the confirmed row we created.
-    // Instead, create a fresh hold, confirm it, then call again.
+    // Create a fresh hold, confirm it via the handler, then call again — expect skipped.
     const hold = await createRentalHold({
       organizationId: E2E_ORG_ID,
       venueId: E2E_RENTAL_VENUE_ID,
@@ -105,7 +105,7 @@ describe("handleFieldRentalCheckoutComplete", () => {
       metadata: { type: "field_rental", rental_id: rentalId },
       payment_intent: pi,
       amount_total: 9000,
-    } as never;
+    } as unknown as Stripe.Checkout.Session;
 
     // First call — should process
     const first = await handleFieldRentalCheckoutComplete(fakeSession);
@@ -123,10 +123,22 @@ describe("handleFieldRentalCheckoutComplete", () => {
       metadata: {},
       payment_intent: "pi_noop",
       amount_total: 0,
-    } as never);
+    } as unknown as Stripe.Checkout.Session);
 
     expect(result.status).toBe("skipped");
     if (result.status !== "skipped") throw new Error("expected skipped");
     expect(result.reason).toBe("missing rental_id metadata");
+  });
+
+  it("returns skipped when rental_id does not exist in the database", async () => {
+    const result = await handleFieldRentalCheckoutComplete({
+      metadata: { type: "field_rental", rental_id: "00000000-0000-0000-0000-000000000000" },
+      payment_intent: "pi_notfound",
+      amount_total: 5000,
+    } as unknown as Stripe.Checkout.Session);
+
+    expect(result.status).toBe("skipped");
+    if (result.status !== "skipped") throw new Error("expected skipped");
+    expect(result.reason).toContain("not found");
   });
 });
