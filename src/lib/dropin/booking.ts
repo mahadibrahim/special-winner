@@ -63,6 +63,9 @@ export async function createConfirmedBookingFreePath(opts: {
   sessionId: string;
   userId: string;
   source: "online_booking" | "walk_up";
+  waiverSigned?: boolean;
+  waiverSignedAt?: Date;
+  waiverSignedBy?: string;
 }): Promise<CreateConfirmedBookingResult> {
   const db = getDb();
 
@@ -238,6 +241,9 @@ export async function createConfirmedBookingFreePath(opts: {
         amountPaidCents: 0,
         membershipId: rate.membershipId,
         teamAssignment: team,
+        waiverSigned: opts.waiverSigned ?? false,
+        waiverSignedAt: opts.waiverSignedAt ?? null,
+        waiverSignedBy: opts.waiverSignedBy ?? null,
       })
       .returning();
 

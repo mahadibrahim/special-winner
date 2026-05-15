@@ -101,7 +101,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  let body: { sessionId?: string };
+  let body: {
+    sessionId?: string;
+    waiverAccepted?: boolean;
+    waiverName?: string;
+  };
   try {
     body = await request.json();
   } catch {
@@ -112,6 +116,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!sessionId) {
     return json({ error: "sessionId required" }, 400);
   }
+
+  // Waiver acceptance is required for all customer-facing direct bookings.
+  if (body.waiverAccepted !== true) {
+    return json({ error: "Waiver acceptance is required" }, 422);
+  }
+  const waiverName = typeof body.waiverName === "string" ? body.waiverName.trim() : "";
+  if (!waiverName) {
+    return json({ error: "waiverName is required" }, 422);
+  }
+  const waiverSignedAt = new Date();
 
   const db = getDb();
   const [session] = await db
@@ -154,6 +168,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       sessionId,
       userId: locals.user.id,
       source: "online_booking",
+      waiverSigned: true,
+      waiverSignedAt,
+      waiverSignedBy: waiverName,
     });
     if (!result.ok) {
       const httpStatus = result.error.code === "session_not_found" ? 404 : 409;
@@ -214,6 +231,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       payment_method: rate.paymentMethod,
       membership_id: rate.membershipId ?? "",
       organization_id: session.organizationId,
+      waiver_signed_at: waiverSignedAt.toISOString(),
+      waiver_name: waiverName,
     },
     payment_intent_data: partnerStripeAccountId
       ? {

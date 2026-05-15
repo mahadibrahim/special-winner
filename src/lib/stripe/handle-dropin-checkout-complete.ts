@@ -44,6 +44,9 @@ export async function handleDropInCheckoutComplete(
     | DropInPaymentMethod
     | undefined;
   const membershipId = session.metadata?.membership_id || null;
+  const waiverName = session.metadata?.waiver_name || null;
+  const waiverSignedAtRaw = session.metadata?.waiver_signed_at;
+  const waiverSignedAt = waiverSignedAtRaw ? new Date(waiverSignedAtRaw) : null;
 
   if (!sessionDbId || !userId) {
     return { status: "skipped", reason: "missing dropin metadata" };
@@ -128,6 +131,9 @@ export async function handleDropInCheckoutComplete(
         membershipId,
         stripePaymentIntentId: paymentIntentId,
         teamAssignment: team,
+        waiverSigned: waiverName !== null,
+        waiverSignedAt,
+        waiverSignedBy: waiverName,
       })
       .returning();
 
