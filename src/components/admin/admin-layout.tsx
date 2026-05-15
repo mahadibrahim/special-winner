@@ -32,6 +32,7 @@ import {
   Palette,
   Receipt,
   Key,
+  ClipboardCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -61,6 +62,7 @@ const navigation = [
   { name: "Drop-in Rate Card", href: "/admin/dropin/rate-card", icon: Receipt },
   { name: "Rentals", href: "/admin/rentals", icon: Key },
   { name: "Rental Rate Card", href: "/admin/rentals/rate-card", icon: Receipt },
+  { name: "Check-in", href: "/admin/check-in", icon: ClipboardCheck },
   { name: "Branding", href: "/admin/branding", icon: Palette },
   { name: "Curriculum", href: "/admin/curriculum", icon: BookOpen },
   { name: "Registrations", href: "/admin/registrations", icon: Users },
