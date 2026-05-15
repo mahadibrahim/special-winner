@@ -21,6 +21,7 @@ interface Booking {
   paymentMethod: string;
   amountPaidCents: number;
   teamAssignment: string | null;
+  checkedInAt: string | null;
   createdAt: string;
   session: {
     sportOrClassLabel: string;
@@ -56,12 +57,19 @@ function statusColor(status: Booking["status"]): string {
   }
 }
 
+/** Returns true when startsAt is within ±2 hours of now (loose UI hint). */
+function isNearStart(startsAt: string): boolean {
+  const diff = Math.abs(new Date(startsAt).getTime() - Date.now());
+  return diff <= 2 * 60 * 60 * 1000;
+}
+
 export default function MyDropInBookings() {
   useHydrationBeacon();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkingIn, setCheckingIn] = useState<Set<string>>(new Set());
 
   const reload = async () => {
     setLoading(true);
@@ -97,6 +105,30 @@ export default function MyDropInBookings() {
       toast.success("Cancelled (inside cancellation window — no refund)");
     }
     await reload();
+  };
+
+  const handleCheckIn = async (bookingId: string) => {
+    setCheckingIn((prev) => new Set(prev).add(bookingId));
+    try {
+      const res = await fetch("/api/dashboard/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "drop_in_booking", targetId: bookingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Check-in failed");
+        return;
+      }
+      toast.success("Checked in");
+      await reload();
+    } finally {
+      setCheckingIn((prev) => {
+        const next = new Set(prev);
+        next.delete(bookingId);
+        return next;
+      });
+    }
   };
 
   const upcoming = bookings.filter(
@@ -182,6 +214,22 @@ export default function MyDropInBookings() {
                       >
                         Details
                       </a>
+                      {b.checkedInAt ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-800 border-emerald-200"
+                        >
+                          Here
+                        </Badge>
+                      ) : isNearStart(b.session.startsAt) ? (
+                        <Button
+                          size="sm"
+                          disabled={checkingIn.has(b.id)}
+                          onClick={() => handleCheckIn(b.id)}
+                        >
+                          {checkingIn.has(b.id) ? "Checking in..." : "Check me in"}
+                        </Button>
+                      ) : null}
                       {b.status === "confirmed" && (
                         <Button
                           variant="outline"

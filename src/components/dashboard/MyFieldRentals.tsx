@@ -74,6 +74,12 @@ function statusLabel(status: FieldRental["status"]): string {
   }
 }
 
+/** Returns true when startsAt is within ±2 hours of now (loose UI hint). */
+function isNearStart(startsAt: string): boolean {
+  const diff = Math.abs(new Date(startsAt).getTime() - Date.now());
+  return diff <= 2 * 60 * 60 * 1000;
+}
+
 export default function MyFieldRentals() {
   useHydrationBeacon();
 
@@ -81,6 +87,7 @@ export default function MyFieldRentals() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState(false);
+  const [checkingIn, setCheckingIn] = useState<Set<string>>(new Set());
 
   const reload = async () => {
     setLoading(true);
@@ -124,6 +131,30 @@ export default function MyFieldRentals() {
     }
     toast.success("Rental cancelled");
     await reload();
+  };
+
+  const handleCheckIn = async (rentalId: string) => {
+    setCheckingIn((prev) => new Set(prev).add(rentalId));
+    try {
+      const res = await fetch("/api/dashboard/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "field_rental", targetId: rentalId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Check-in failed");
+        return;
+      }
+      toast.success("Checked in");
+      await reload();
+    } finally {
+      setCheckingIn((prev) => {
+        const next = new Set(prev);
+        next.delete(rentalId);
+        return next;
+      });
+    }
   };
 
   const now = Date.now();
@@ -207,8 +238,24 @@ export default function MyFieldRentals() {
                         )}
                       </div>
                     </div>
-                    {canCancel(r) && (
-                      <div className="shrink-0">
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      {r.checkedInAt ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-800 border-emerald-200"
+                        >
+                          Here
+                        </Badge>
+                      ) : isNearStart(r.startsAt) ? (
+                        <Button
+                          size="sm"
+                          disabled={checkingIn.has(r.id)}
+                          onClick={() => handleCheckIn(r.id)}
+                        >
+                          {checkingIn.has(r.id) ? "Checking in..." : "Check me in"}
+                        </Button>
+                      ) : null}
+                      {canCancel(r) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -216,8 +263,8 @@ export default function MyFieldRentals() {
                         >
                           Cancel
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

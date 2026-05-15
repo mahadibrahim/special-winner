@@ -54,6 +54,7 @@ export const GET: APIRoute = async ({ locals }) => {
       paymentMethod: dropInBookings.paymentMethod,
       amountPaidCents: dropInBookings.amountPaidCents,
       teamAssignment: dropInBookings.teamAssignment,
+      checkedInAt: dropInBookings.checkedInAt,
       createdAt: dropInBookings.createdAt,
       sportOrClassLabel: dropInSessions.sportOrClassLabel,
       formatLabel: dropInSessions.formatLabel,
@@ -76,6 +77,7 @@ export const GET: APIRoute = async ({ locals }) => {
         paymentMethod: r.paymentMethod,
         amountPaidCents: r.amountPaidCents,
         teamAssignment: r.teamAssignment,
+        checkedInAt: r.checkedInAt ?? null,
         createdAt: r.createdAt,
         session: {
           sportOrClassLabel: r.sportOrClassLabel,
