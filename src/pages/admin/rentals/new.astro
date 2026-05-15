@@ -1,0 +1,32 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { RentalCreateForm } from '../../../components/admin/rentals/RentalCreateForm';
+
+export const prerender = false;
+const user = Astro.locals.user!;
+---
+
+<BaseLayout title="New Field Rental — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    currentPath="/admin/rentals"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-4">
+      <div>
+        <a
+          href="/admin/rentals"
+          class="text-xs uppercase tracking-wider text-ink-muted hover:text-ink"
+        >
+          ← All rentals
+        </a>
+        <h1 class="mt-2 text-2xl font-bold text-ink">New field rental</h1>
+        <p class="text-sm text-ink-muted mt-1">
+          Book a field rental for a walk-in or phone customer.
+        </p>
+      </div>
+      <RentalCreateForm client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>
