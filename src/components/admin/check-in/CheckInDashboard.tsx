@@ -6,6 +6,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { EventCard } from "./EventCard";
+import { Drawer } from "./Drawer";
 
 interface Venue {
   id: string;
@@ -38,6 +39,10 @@ export default function CheckInDashboard({ venues }: { venues: Venue[] }) {
   const [data, setData] = useState<DayData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openEvent, setOpenEvent] = useState<{
+    kind: DayEvent["kind"];
+    id: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!venueId) return;
@@ -127,9 +132,21 @@ export default function CheckInDashboard({ venues }: { venues: Venue[] }) {
       {data && data.events.length > 0 && (
         <div className="space-y-3">
           {data.events.map((ev) => (
-            <EventCard key={`${ev.kind}-${ev.id}`} event={ev} />
+            <EventCard
+              key={`${ev.kind}-${ev.id}`}
+              event={ev}
+              onOpen={() => setOpenEvent({ kind: ev.kind, id: ev.id })}
+            />
           ))}
         </div>
+      )}
+
+      {openEvent && (
+        <Drawer
+          kind={openEvent.kind}
+          id={openEvent.id}
+          onClose={() => setOpenEvent(null)}
+        />
       )}
     </div>
   );
