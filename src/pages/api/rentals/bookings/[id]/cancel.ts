@@ -56,6 +56,12 @@ export const POST: APIRoute = async ({ params, locals }) => {
   }
 
   const result = await refundFieldRental(rentalId, "user_request");
-  if (!result.ok) return json({ error: result.error }, 502);
+  if (!result.ok) {
+    const { error } = result;
+    if (error === "Rental not found") return json({ error }, 404);
+    if (error === "Rental already cancelled") return json({ error }, 409);
+    if (error === "Stripe not configured") return json({ error }, 503);
+    return json({ error }, 502);
+  }
   return json({ rental: result.rental }, 200);
 };

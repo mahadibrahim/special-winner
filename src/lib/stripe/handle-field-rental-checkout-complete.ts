@@ -54,6 +54,9 @@ export async function handleFieldRentalCheckoutComplete(
     if (!rental) {
       return { status: "skipped", reason: `rental ${rentalId} not found` };
     }
+    if (rental.status === "cancelled") {
+      return { status: "skipped", reason: `rental ${rentalId} already cancelled — late webhook` };
+    }
     if (rental.status === "confirmed") {
       return { status: "skipped", reason: `rental ${rentalId} already confirmed` };
     }
