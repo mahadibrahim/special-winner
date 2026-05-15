@@ -103,10 +103,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     .where(eq(fieldRentalRateCard.organizationId, orgId))
     .limit(1);
   if (!rateCard) {
-    [rateCard] = await db
+    await db
       .insert(fieldRentalRateCard)
       .values({ organizationId: orgId })
-      .returning();
+      .onConflictDoNothing();
+    [rateCard] = await db
+      .select()
+      .from(fieldRentalRateCard)
+      .where(eq(fieldRentalRateCard.organizationId, orgId))
+      .limit(1);
   }
 
   const durationMinutes = (endsAt.getTime() - startsAt.getTime()) / 60_000;
@@ -229,6 +234,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       200,
     );
   } catch (err) {
+    // Stripe call failed after the hold row was committed (no outer tx) — manually undo it to release the field.
     await db.delete(fieldRentals).where(eq(fieldRentals.id, hold.rental.id));
     console.error("[rentals] checkout session create failed", err);
     return json({ error: "Could not start checkout" }, 502);

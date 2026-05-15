@@ -1,15 +1,18 @@
 /**
  * Conflict detection integration tests for POST /api/rentals/bookings.
  *
- * Books a slot, then attempts to book an overlapping slot on the same
- * venue+field and asserts a 409 conflict response.
+ * Seeds a confirmed rental row directly (no Stripe dependency), then
+ * POSTs an overlapping booking and asserts a 409 conflict response.
+ * Also asserts a non-overlapping booking on the same field succeeds.
  *
  * Slots are unique per test run via a Date.now()-derived day offset so
  * re-runs against the shared staging DB don't collide with prior rows.
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import { getParentCookie, apiFetch } from "../setup/test-helpers";
-import { E2E_RENTAL_VENUE_ID } from "@/lib/db/seeds/seed-e2e-tests";
+import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
+import { getDb } from "@/lib/db";
+import { fieldRentals } from "@/lib/db/schema/field-rentals";
 
 // A distinct calendar DAY per test run, far in the future, at a fixed
 // within-window hour. Date.now() spread across millions of distinct days
@@ -47,37 +50,29 @@ describe("rental booking conflict detection", () => {
 
   beforeAll(async () => {
     parentCookie = await getParentCookie();
-  });
 
-  it("creates the first booking successfully (200)", async () => {
-    // First booking: field 2, hour 10, 2h duration (10:00–12:00)
-    const res = await apiFetch("/api/rentals/bookings", {
-      method: "POST",
-      cookie: parentCookie,
-      body: JSON.stringify(
-        bookingBody(slot(10, 2)),
-      ),
+    // Seed a confirmed rental directly — no Stripe dependency.
+    // This is the row the conflict test POSTs against.
+    // slot: hour 10, 2h → 10:00–12:00 on the run-unique day.
+    const db = getDb();
+    const seedSlot = slot(10, 2);
+    await db.insert(fieldRentals).values({
+      organizationId: E2E_ORG_ID,
+      venueId: E2E_RENTAL_VENUE_ID,
+      fieldNumber: FIELD,
+      startsAt: new Date(seedSlot.startsAt),
+      endsAt: new Date(seedSlot.endsAt),
+      status: "confirmed",
+      source: "admin_created",
+      renterName: "Conflict Seed",
+      paymentMethod: "comp",
+      amountDueCents: 0,
+      paymentStatus: "paid",
     });
-    const body = await res.json();
-
-    // If Stripe is not configured, the endpoint 500s. We still consider this
-    // a pass for conflict purposes — the hold row was written before Stripe is
-    // attempted. But if the hold wasn't written, the conflict test below is a
-    // false negative. Flag it clearly.
-    if (res.status === 500 && body?.error === "Stripe not configured") {
-      console.warn(
-        "[conflict.test] Stripe not configured — hold row was inserted before Stripe call. " +
-          "Conflict test below should still exercise the DB conflict check.",
-      );
-      // Stripe error means hold was inserted; proceed with conflict test.
-      return;
-    }
-
-    expect(res.status).toBe(200);
   });
 
   it("rejects an overlapping booking on the same field with 409", async () => {
-    // Second booking: field 2, hour 11, 2h duration (11:00–13:00) — overlaps first (10:00–12:00)
+    // POST: field 2, hour 11, 2h (11:00–13:00) — overlaps seeded row (10:00–12:00)
     const res = await apiFetch("/api/rentals/bookings", {
       method: "POST",
       cookie: parentCookie,
@@ -89,5 +84,19 @@ describe("rental booking conflict detection", () => {
     expect(res.status).toBe(409);
     expect(typeof body.error).toBe("string");
     expect(body.error.length).toBeGreaterThan(0);
+  });
+
+  it("accepts a non-overlapping booking on the same field with 200", async () => {
+    // POST: field 2, hour 15, 1h (15:00–16:00) — does NOT overlap seeded row (10:00–12:00)
+    const res = await apiFetch("/api/rentals/bookings", {
+      method: "POST",
+      cookie: parentCookie,
+      body: JSON.stringify(
+        bookingBody(slot(15, 1)),
+      ),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body).toHaveProperty("paymentRequired");
   });
 });
