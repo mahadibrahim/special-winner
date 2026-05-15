@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import MyDropInBookings from '@/components/dashboard/MyDropInBookings';
+import MyFieldRentals from '@/components/dashboard/MyFieldRentals';
 
 // Middleware guards /dashboard/** for auth.
 export const prerender = false;
@@ -8,8 +9,13 @@ export const prerender = false;
 
 <BaseLayout title="My Bookings — Aspire Sports">
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-    <div class="max-w-3xl mx-auto">
-      <MyDropInBookings client:load />
+    <div class="max-w-3xl mx-auto space-y-12">
+      <section>
+        <MyDropInBookings client:load />
+      </section>
+      <section>
+        <MyFieldRentals client:load />
+      </section>
     </div>
   </main>
 </BaseLayout>
