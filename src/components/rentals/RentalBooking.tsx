@@ -39,6 +39,7 @@ export default function RentalBooking({ venues }: Props) {
 
   const [selectedFieldNumber, setSelectedFieldNumber] = useState<number | null>(null);
   const [slotStart, setSlotStart] = useState<Date | null>(null);
+  const [slotBlockEnd, setSlotBlockEnd] = useState<Date | null>(null);
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [partySize, setPartySize] = useState(4);
   const [purpose, setPurpose] = useState("");
@@ -46,6 +47,7 @@ export default function RentalBooking({ venues }: Props) {
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
 
   useEffect(() => {
     if (!selectedVenueId) return;
@@ -53,6 +55,7 @@ export default function RentalBooking({ venues }: Props) {
     setFetchError(null);
     setSelectedFieldNumber(null);
     setSlotStart(null);
+    setSlotBlockEnd(null);
     setLoading(true);
 
     const run = async () => {
@@ -74,10 +77,12 @@ export default function RentalBooking({ venues }: Props) {
     void run();
   }, [selectedVenueId, date]);
 
-  const handleSlotClick = (fieldNumber: number, slot: Date) => {
+  const handleSlotClick = (fieldNumber: number, slot: Date, blockEnd: Date) => {
     setSelectedFieldNumber(fieldNumber);
     setSlotStart(slot);
+    setSlotBlockEnd(blockEnd);
     setSubmitError(null);
+    setNeedsSignIn(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,6 +110,10 @@ export default function RentalBooking({ venues }: Props) {
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        if (res.status === 401) {
+          setNeedsSignIn(true);
+          return;
+        }
         const msg = typeof body.error === "string" ? body.error : `Error ${res.status}`;
         if (res.status >= 500) toast.error(msg);
         setSubmitError(msg);
@@ -131,6 +140,20 @@ export default function RentalBooking({ venues }: Props) {
         description="Rentals are not currently enabled at any venue."
       />
     );
+  }
+
+  const DURATIONS = [60, 90, 120, 180, 240];
+
+  const availableDurations =
+    slotStart && slotBlockEnd
+      ? DURATIONS.filter(
+          (d) => slotStart.getTime() + d * 60_000 <= slotBlockEnd.getTime(),
+        )
+      : DURATIONS;
+
+  // If the current selection no longer fits, reset to the largest available option.
+  if (availableDurations.length > 0 && !availableDurations.includes(durationMinutes)) {
+    setDurationMinutes(availableDurations[availableDurations.length - 1]!);
   }
 
   const hasAnyFreeBlocks = availability?.fields.some((f) => f.free.length > 0);
@@ -210,11 +233,15 @@ export default function RentalBooking({ venues }: Props) {
                   onChange={(e) => setDurationMinutes(Number(e.target.value))}
                   className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-500"
                 >
-                  <option value={60}>1h</option>
-                  <option value={90}>1.5h</option>
-                  <option value={120}>2h</option>
-                  <option value={180}>3h</option>
-                  <option value={240}>4h</option>
+                  {availableDurations.map((d) => (
+                    <option key={d} value={d}>
+                      {d < 60
+                        ? `${d}m`
+                        : d % 60 === 0
+                          ? `${d / 60}h`
+                          : `${Math.floor(d / 60)}h ${d % 60}m`}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -282,7 +309,19 @@ export default function RentalBooking({ venues }: Props) {
               <p className="text-sm text-stone-500">Ends at {fmtTime(endTime)}</p>
             )}
 
-            {submitError && (
+            {needsSignIn && (
+              <div className="rounded-md border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+                Sign in to complete your booking.{" "}
+                <a
+                  href="/signin?redirect=/rentals"
+                  className="inline-block rounded-md bg-stone-900 px-3 py-1 text-xs font-medium text-white hover:bg-stone-700"
+                >
+                  Sign in
+                </a>
+              </div>
+            )}
+
+            {submitError && !needsSignIn && (
               <ErrorBanner message={submitError} onDismiss={() => setSubmitError(null)} />
             )}
 
@@ -291,7 +330,7 @@ export default function RentalBooking({ venues }: Props) {
               disabled={submitDisabled}
               className="w-full rounded-md bg-stone-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Working…" : "Continue to payment"}
+              {submitting ? "Working…" : "Continue"}
             </button>
           </form>
         </div>

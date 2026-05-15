@@ -14,7 +14,7 @@ interface Props {
   fields: FieldAvailability[];
   selectedFieldNumber: number | null;
   slotStart: Date | null;
-  onSlotClick: (fieldNumber: number, slot: Date) => void;
+  onSlotClick: (fieldNumber: number, slot: Date, blockEnd: Date) => void;
 }
 
 function fmtTime(iso: string): string {
@@ -72,7 +72,7 @@ export function AvailabilityGrid({
                           <button
                             key={slot.toISOString()}
                             type="button"
-                            onClick={() => onSlotClick(field.fieldNumber, slot)}
+                            onClick={() => onSlotClick(field.fieldNumber, slot, new Date(block.endsAt))}
                             className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-stone-500 ${
                               isSelected
                                 ? "border-stone-900 bg-stone-900 text-white"
