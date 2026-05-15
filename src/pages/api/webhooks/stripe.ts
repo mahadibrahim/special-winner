@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
 import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
 import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
+import { handleFieldRentalCheckoutComplete } from "@/lib/stripe/handle-field-rental-checkout-complete";
 import { handleDropInWalkUpPayment } from "@/lib/stripe/handle-dropin-walkup-payment";
 import { handlePaymentFailed } from "@/lib/stripe/handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "@/lib/stripe/handle-registration-payment-succeeded";
@@ -89,6 +90,12 @@ export const POST: APIRoute = async ({ request }) => {
           const result = await handleDropInCheckoutComplete(session);
           console.log(
             `[stripe webhook] checkout.session.completed (dropin) → ${result.status}`,
+            result,
+          );
+        } else if (session.metadata?.type === "field_rental") {
+          const result = await handleFieldRentalCheckoutComplete(session);
+          console.log(
+            `[stripe webhook] checkout.session.completed (field_rental) → ${result.status}`,
             result,
           );
         } else {
