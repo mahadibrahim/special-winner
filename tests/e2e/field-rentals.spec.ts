@@ -44,12 +44,39 @@ test("a signed-in customer can book a field through to Stripe Checkout", async (
   // Submit — button text is "Continue".
   await page.getByRole("button", { name: /continue/i }).click();
 
-  // Either land on Stripe Checkout (paid path) or the dashboard success page (comp path).
-  // Both mean the form submitted successfully — assert we navigated away from /rentals.
-  await page.waitForURL(
-    /checkout\.stripe\.com|\/dashboard\/bookings|\/signin/,
-    { timeout: 20_000 },
-  );
+  // Two valid outcomes from the booking POST:
+  //   1) success → redirect to Stripe Checkout (paid path) or the dashboard
+  //      success page (comp / $0 path);
+  //   2) the dev server doesn't have Stripe keys → 500 with "Stripe not
+  //      configured", which the island renders in an <ErrorBanner>.
+  // (2) happens on CI test-full shards that don't pass Stripe secrets to the
+  // dev server. Skip in that case rather than time out and fail — same
+  // pattern bookings.test.ts uses for the API-level paid-path test.
+  const navigated = page
+    .waitForURL(/checkout\.stripe\.com|\/dashboard\/bookings|\/signin/, {
+      timeout: 20_000,
+    })
+    .then(() => "navigated" as const)
+    .catch(() => "timeout" as const);
+  const stripeMissing = page
+    .getByText(/Stripe not configured/i)
+    .waitFor({ state: "visible", timeout: 20_000 })
+    .then(() => "no-stripe" as const)
+    .catch(() => "no-banner" as const);
+  const outcome = await Promise.race([navigated, stripeMissing]);
+
+  if (outcome === "no-stripe") {
+    test.skip(
+      true,
+      "Stripe not configured in dev-server env — paid booking path cannot be verified end-to-end",
+    );
+    return;
+  }
+  if (outcome !== "navigated") {
+    throw new Error(
+      `Booking submit produced neither a redirect nor a 'Stripe not configured' banner within 20s. URL: ${page.url()}`,
+    );
+  }
 
   expect(page.url()).not.toContain("/rentals");
 });
