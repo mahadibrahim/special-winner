@@ -48,7 +48,9 @@ test.describe("admin role routing", () => {
     // /admin/seasons is super_admin only — middleware should bounce.
     await page.goto("/admin/seasons");
     await expect(page).toHaveURL(/\/admin\/unauthorized/);
-    await waitForHydration(page);
+    // /admin/unauthorized has no client:load components — skip the
+    // hydration beacon wait; the heading assertion below has its own
+    // implicit wait.
     await expect(
       page.getByRole("heading", { name: /not your home/i }),
     ).toBeVisible();
