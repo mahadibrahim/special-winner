@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -9,6 +9,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import type { Stripe as StripeJs } from "@stripe/stripe-js";
+import { Camera, ImageIcon, RotateCcw } from "lucide-react";
 
 interface Session {
   id: string;
@@ -40,6 +41,14 @@ interface Parent {
 type Step = "session" | "contact" | "waiver" | "photo" | "payment" | "done";
 
 const STEPS: Step[] = ["session", "contact", "waiver", "photo", "payment"];
+const STEP_LABEL: Record<Step, string> = {
+  session: "Pick a session",
+  contact: "Your details",
+  waiver: "Liability waiver",
+  photo: "Profile photo",
+  payment: "Payment",
+  done: "All set",
+};
 
 function ageFromDob(dob: string): number {
   if (!dob) return 99;
@@ -51,7 +60,6 @@ function ageFromDob(dob: string): number {
   return age;
 }
 
-// Cache one Stripe.js promise per publishable key for the page lifetime.
 const stripePromiseCache = new Map<string, Promise<StripeJs | null>>();
 function getStripePromise(publishableKey: string): Promise<StripeJs | null> {
   let p = stripePromiseCache.get(publishableKey);
@@ -68,6 +76,15 @@ interface Props {
   publishableKey: string;
   onBack: () => void;
 }
+
+const INPUT_CLASS =
+  "w-full px-4 py-3 bg-paper border border-border focus:border-ink focus:outline-none rounded-lg text-base text-ink placeholder:text-ink-faint transition-colors";
+
+const PRIMARY_BTN =
+  "w-full px-6 py-4 rounded-xl bg-primary text-cream text-lg font-medium transition-all hover:bg-primary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed";
+
+const GHOST_BTN =
+  "text-sm text-ink-muted hover:text-ink transition-colors";
 
 export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: Props) {
   const [step, setStep] = useState<Step>("session");
@@ -100,6 +117,8 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
   }, [venueSlug]);
 
   const minor = ageFromDob(contact.dob) < 18;
+  const playerName = `${contact.firstName} ${contact.lastName}`.trim();
+  const parentName = `${parent.firstName} ${parent.lastName}`.trim();
 
   const startBooking = async () => {
     if (!selectedSession) return;
@@ -168,7 +187,6 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
         );
         return;
       }
-      // Initialize payment after photo upload succeeds
       const payRes = await fetch(`/api/kiosk/${venueSlug}/walkin/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -191,219 +209,342 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
 
   if (step === "done") {
     return (
-      <div className="p-6 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-center space-y-2">
-        <h1 className="text-xl font-semibold">You're checked in</h1>
-        <p className="text-sm">Welcome to {venueName}! See you on the field.</p>
+      <div className="space-y-6 pt-4">
+        <header className="space-y-3">
+          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary">
+            All set
+          </p>
+          <h1 className="font-display text-5xl md:text-6xl font-medium italic leading-[0.95] text-ink">
+            You're checked in.
+          </h1>
+          <div className="h-px bg-border w-16" />
+          <p className="text-base text-ink-2 leading-relaxed max-w-md">
+            Welcome to {venueName}. See you on the field — head over whenever you're ready.
+          </p>
+        </header>
+        <button type="button" onClick={onBack} className={PRIMARY_BTN}>
+          Done
+        </button>
       </div>
     );
   }
 
   const stepIndex = STEPS.indexOf(step);
+  const progressPct = stepIndex >= 0 ? ((stepIndex + 1) / STEPS.length) * 100 : 0;
 
   return (
-    <div className="space-y-4">
-      <button type="button" onClick={onBack} className="text-sm text-stone-600">
+    <div className="space-y-8">
+      <button type="button" onClick={onBack} className={GHOST_BTN}>
         ← Back
       </button>
-      <header>
-        <h1 className="text-xl font-semibold">Walk-in registration</h1>
+
+      <header className="space-y-3">
+        <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary">
+          Walk-in registration
+        </p>
+        <h1 className="font-display text-4xl md:text-5xl font-medium italic leading-[0.95] text-ink">
+          {STEP_LABEL[step]}
+        </h1>
         {stepIndex >= 0 && (
-          <p className="text-stone-600 text-sm">
-            Step {stepIndex + 1} of {STEPS.length}
-          </p>
+          <div className="pt-2 space-y-2">
+            <div className="flex items-baseline justify-between text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
+              <span>
+                Step {String(stepIndex + 1).padStart(2, "0")} / {String(STEPS.length).padStart(2, "0")}
+              </span>
+              <span className="text-ink-faint">{Math.round(progressPct)}%</span>
+            </div>
+            <div className="h-px bg-border relative overflow-hidden">
+              <div
+                className="absolute inset-y-0 left-0 bg-primary transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
         )}
       </header>
 
       {error && (
-        <div className="p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+        <div className="rounded-xl border border-rose-200/70 bg-rose-50/40 px-4 py-3 text-sm text-rose-800">
           {error}
         </div>
       )}
 
-      {/* Step 1: Pick a session */}
       {step === "session" && (
-        <div className="space-y-2">
-          <h2 className="font-medium">Pick a session</h2>
-          {sessionsError ? (
-            <p className="text-sm text-rose-700">{sessionsError}</p>
-          ) : sessions.length === 0 ? (
-            <p className="text-sm text-stone-500">No open sessions today.</p>
-          ) : (
-            sessions.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  setSelectedSession(s);
-                  setStep("contact");
-                }}
-                disabled={s.available <= 0}
-                className="w-full text-left p-3 border rounded-lg flex items-center justify-between disabled:opacity-50"
-              >
-                <div>
-                  <div className="font-medium">{s.title}</div>
-                  <div className="text-xs text-stone-500">
-                    {new Date(s.startsAt).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                    {" – "}
-                    {new Date(s.endsAt).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                    {s.sessionRateCents != null &&
-                      ` · $${(s.sessionRateCents / 100).toFixed(2)}`}
-                  </div>
-                </div>
-                <div className="text-xs text-stone-500">
-                  {s.available} / {s.capacity} open
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Step 2: Contact info */}
-      {step === "contact" && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            startBooking();
+        <SessionStep
+          sessions={sessions}
+          sessionsError={sessionsError}
+          onPick={(s) => {
+            setSelectedSession(s);
+            setStep("contact");
           }}
-          className="space-y-3"
-        >
-          <h2 className="font-medium">Your information</h2>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              required
-              placeholder="First name"
-              value={contact.firstName}
-              onChange={(e) => setContact({ ...contact, firstName: e.target.value })}
-              className="border rounded px-3 py-2"
-            />
-            <input
-              required
-              placeholder="Last name"
-              value={contact.lastName}
-              onChange={(e) => setContact({ ...contact, lastName: e.target.value })}
-              className="border rounded px-3 py-2"
-            />
-          </div>
-          <input
-            required
-            type="email"
-            placeholder="Email"
-            value={contact.email}
-            onChange={(e) => setContact({ ...contact, email: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-          />
-          <input
-            required
-            type="tel"
-            placeholder="Phone"
-            value={contact.phone}
-            onChange={(e) => setContact({ ...contact, phone: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-          />
-          <label className="block text-xs text-stone-600">Date of birth</label>
-          <input
-            required
-            type="date"
-            value={contact.dob}
-            onChange={(e) => setContact({ ...contact, dob: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-          />
-          {minor && (
-            <div className="border-t pt-3 space-y-2">
-              <p className="text-sm font-medium">Parent/guardian (required for under 18)</p>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  required
-                  placeholder="Parent first name"
-                  value={parent.firstName}
-                  onChange={(e) => setParent({ ...parent, firstName: e.target.value })}
-                  className="border rounded px-3 py-2"
-                />
-                <input
-                  required
-                  placeholder="Parent last name"
-                  value={parent.lastName}
-                  onChange={(e) => setParent({ ...parent, lastName: e.target.value })}
-                  className="border rounded px-3 py-2"
-                />
-              </div>
-              <input
-                required
-                type="email"
-                placeholder="Parent email"
-                value={parent.email}
-                onChange={(e) => setParent({ ...parent, email: e.target.value })}
-                className="w-full border rounded px-3 py-2"
-              />
-              <input
-                required
-                type="tel"
-                placeholder="Parent phone"
-                value={parent.phone}
-                onChange={(e) => setParent({ ...parent, phone: e.target.value })}
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full px-4 py-3 rounded bg-stone-900 text-white disabled:opacity-50"
-          >
-            {busy ? "..." : "Continue"}
-          </button>
-        </form>
+        />
       )}
 
-      {/* Step 3: Waiver */}
+      {step === "contact" && (
+        <ContactStep
+          contact={contact}
+          setContact={setContact}
+          parent={parent}
+          setParent={setParent}
+          minor={minor}
+          busy={busy}
+          onSubmit={startBooking}
+        />
+      )}
+
       {step === "waiver" && (
         <WaiverStep
-          signerName={
-            minor
-              ? `${parent.firstName} ${parent.lastName}`.trim()
-              : `${contact.firstName} ${contact.lastName}`.trim()
-          }
+          isMinor={minor}
+          playerName={playerName}
+          defaultSignerName={minor ? parentName : playerName}
           onSubmit={submitWaiver}
           busy={busy}
         />
       )}
 
-      {/* Step 4: Photo */}
-      {step === "photo" && <PhotoStep onSubmit={submitPhoto} busy={busy} />}
+      {step === "photo" && (
+        <PhotoStep
+          isMinor={minor}
+          playerName={playerName}
+          onSubmit={submitPhoto}
+          busy={busy}
+        />
+      )}
 
-      {/* Step 5: Payment */}
-      {step === "payment" && clientSecret && (
+      {step === "payment" && clientSecret && selectedSession && (
         <Elements
           stripe={getStripePromise(publishableKey)}
           options={{ clientSecret, appearance: { theme: "stripe" } }}
         >
-          <PaymentStep onSuccess={() => setStep("done")} />
+          <PaymentStep session={selectedSession} onSuccess={() => setStep("done")} />
         </Elements>
       )}
     </div>
   );
 }
 
-// --- Sub-components ---
+// ============================================================================
+// Step 1 — Session
+// ============================================================================
+
+function SessionStep({
+  sessions,
+  sessionsError,
+  onPick,
+}: {
+  sessions: Session[];
+  sessionsError: string | null;
+  onPick: (s: Session) => void;
+}) {
+  if (sessionsError) {
+    return (
+      <p className="text-sm text-rose-700">{sessionsError}</p>
+    );
+  }
+  if (sessions.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-cream-2 px-5 py-8 text-center">
+        <p className="font-display text-lg italic text-ink-muted">No open sessions today.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {sessions.map((s) => {
+        const full = s.available <= 0;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => onPick(s)}
+            disabled={full}
+            className="w-full text-left p-5 rounded-xl border border-border bg-paper hover:bg-cream-2 hover:border-ink/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-paper"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-ink truncate">{s.title}</div>
+                <div className="text-sm text-ink-muted mt-1">
+                  {new Date(s.startsAt).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                  {" – "}
+                  {new Date(s.endsAt).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                {s.sessionRateCents != null && (
+                  <div className="font-display text-2xl italic text-ink">
+                    ${(s.sessionRateCents / 100).toFixed(2)}
+                  </div>
+                )}
+                <div className="text-[11px] font-semibold tracking-[0.12em] uppercase text-ink-muted mt-0.5">
+                  {full ? "Full" : `${s.available} / ${s.capacity} open`}
+                </div>
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================================
+// Step 2 — Contact
+// ============================================================================
+
+function ContactStep({
+  contact,
+  setContact,
+  parent,
+  setParent,
+  minor,
+  busy,
+  onSubmit,
+}: {
+  contact: Contact;
+  setContact: (c: Contact) => void;
+  parent: Parent;
+  setParent: (p: Parent) => void;
+  minor: boolean;
+  busy: boolean;
+  onSubmit: () => void;
+}) {
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+      className="space-y-4"
+    >
+      <p className="text-sm text-ink-muted">
+        Tell us who's playing. We'll use this for check-in and the waiver.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          required
+          placeholder="First name"
+          value={contact.firstName}
+          onChange={(e) => setContact({ ...contact, firstName: e.target.value })}
+          className={INPUT_CLASS}
+        />
+        <input
+          required
+          placeholder="Last name"
+          value={contact.lastName}
+          onChange={(e) => setContact({ ...contact, lastName: e.target.value })}
+          className={INPUT_CLASS}
+        />
+      </div>
+      <input
+        required
+        type="email"
+        placeholder="Email"
+        value={contact.email}
+        onChange={(e) => setContact({ ...contact, email: e.target.value })}
+        className={INPUT_CLASS}
+      />
+      <input
+        required
+        type="tel"
+        placeholder="Phone"
+        value={contact.phone}
+        onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+        className={INPUT_CLASS}
+      />
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted px-1">
+          Date of birth
+        </label>
+        <input
+          required
+          type="date"
+          value={contact.dob}
+          onChange={(e) => setContact({ ...contact, dob: e.target.value })}
+          className={INPUT_CLASS}
+        />
+      </div>
+
+      {minor && (
+        <div className="pt-4 mt-4 border-t border-border space-y-3">
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
+              Parent or guardian
+            </p>
+            <p className="text-sm text-ink-muted mt-1">
+              Required for players under 18 — you'll sign the waiver on their behalf.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              required
+              placeholder="Parent first name"
+              value={parent.firstName}
+              onChange={(e) => setParent({ ...parent, firstName: e.target.value })}
+              className={INPUT_CLASS}
+            />
+            <input
+              required
+              placeholder="Parent last name"
+              value={parent.lastName}
+              onChange={(e) => setParent({ ...parent, lastName: e.target.value })}
+              className={INPUT_CLASS}
+            />
+          </div>
+          <input
+            required
+            type="email"
+            placeholder="Parent email"
+            value={parent.email}
+            onChange={(e) => setParent({ ...parent, email: e.target.value })}
+            className={INPUT_CLASS}
+          />
+          <input
+            required
+            type="tel"
+            placeholder="Parent phone"
+            value={parent.phone}
+            onChange={(e) => setParent({ ...parent, phone: e.target.value })}
+            className={INPUT_CLASS}
+          />
+        </div>
+      )}
+
+      <button type="submit" disabled={busy} className={PRIMARY_BTN}>
+        {busy ? "Saving…" : "Continue"}
+      </button>
+    </form>
+  );
+}
+
+// ============================================================================
+// Step 3 — Waiver
+// ============================================================================
 
 function WaiverStep({
-  signerName,
+  isMinor,
+  playerName,
+  defaultSignerName,
   onSubmit,
   busy,
 }: {
-  signerName: string;
+  isMinor: boolean;
+  playerName: string;
+  defaultSignerName: string;
   onSubmit: (name: string) => void;
   busy: boolean;
 }) {
   const [accepted, setAccepted] = useState(false);
-  const [typed, setTyped] = useState(signerName);
+  const [typed, setTyped] = useState(defaultSignerName);
+
+  const acceptLabel = isMinor
+    ? `I am the parent or legal guardian of ${playerName || "this player"} and accept these terms on their behalf.`
+    : "I have read and accept these terms.";
 
   return (
     <form
@@ -411,82 +552,198 @@ function WaiverStep({
         e.preventDefault();
         onSubmit(typed.trim());
       }}
-      className="space-y-3"
+      className="space-y-4"
     >
-      <h2 className="font-medium">Sign the liability waiver</h2>
-      <p className="text-sm bg-stone-50 border rounded p-3">
-        I acknowledge the inherent risks of recreational sports activity. I waive Aspire
-        Sports from liability for injuries during this session.
-      </p>
-      <label className="flex items-start gap-2 text-sm">
+      <div className="rounded-xl border border-border bg-paper p-5">
+        <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
+          Liability waiver
+        </p>
+        <p className="text-sm text-ink-2 leading-relaxed">
+          I acknowledge the inherent risks of recreational sports activity, including
+          contact, falls, and weather-related conditions. I waive Aspire Sports and its
+          partner venues from liability for injuries that occur during this session, and
+          I confirm that the player named above is physically able to participate.
+        </p>
+      </div>
+
+      <label className="flex items-start gap-3 p-4 rounded-xl border border-border bg-paper cursor-pointer hover:bg-cream-2 transition-colors">
         <input
           type="checkbox"
           checked={accepted}
           onChange={(e) => setAccepted(e.target.checked)}
+          className="mt-1 w-4 h-4 accent-primary"
         />
-        <span>I accept on behalf of the player above</span>
+        <span className="text-sm text-ink leading-relaxed">{acceptLabel}</span>
       </label>
-      <input
-        type="text"
-        value={typed}
-        onChange={(e) => setTyped(e.target.value)}
-        placeholder="Type signer name"
-        className="w-full border rounded px-3 py-2"
-      />
+
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted px-1">
+          {isMinor ? "Parent/guardian signature" : "Signature"}
+        </label>
+        <input
+          type="text"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Type your full name"
+          className={INPUT_CLASS}
+        />
+      </div>
+
       <button
         type="submit"
         disabled={busy || !accepted || typed.trim().length === 0}
-        className="w-full px-4 py-3 rounded bg-stone-900 text-white disabled:opacity-50"
+        className={PRIMARY_BTN}
       >
-        {busy ? "..." : "Continue"}
+        {busy ? "Saving…" : "Continue"}
       </button>
     </form>
   );
 }
 
+// ============================================================================
+// Step 4 — Photo (camera + upload)
+// ============================================================================
+
 function PhotoStep({
+  isMinor,
+  playerName,
   onSubmit,
   busy,
 }: {
+  isMinor: boolean;
+  playerName: string;
   onSubmit: (file: File) => void;
   busy: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (f: File | null) => {
+    setFile(f);
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(f ? URL.createObjectURL(f) : null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const whoFor = isMinor && playerName ? playerName : "yourself";
 
   return (
-    <div className="space-y-3">
-      <h2 className="font-medium">Take a photo</h2>
+    <div className="space-y-4">
+      <p className="text-sm text-ink-muted">
+        Add a quick photo of {whoFor} so the front desk can spot you at check-in.
+      </p>
+
       <input
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="user"
-        onChange={(e) => {
-          const f = e.target.files?.[0] ?? null;
-          setFile(f);
-          if (f) setPreview(URL.createObjectURL(f));
-        }}
+        className="sr-only"
+        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
       />
-      {preview && (
-        <img
-          src={preview}
-          alt="Preview"
-          className="w-32 h-32 rounded-full object-cover mx-auto"
-        />
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+      />
+
+      {preview ? (
+        <div className="rounded-xl border border-border bg-paper p-6 flex flex-col items-center gap-4">
+          <img
+            src={preview}
+            alt="Profile preview"
+            className="w-40 h-40 rounded-full object-cover ring-2 ring-border"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              handleFile(null);
+              cameraInputRef.current?.click();
+            }}
+            className="inline-flex items-center gap-2 text-sm text-ink-muted hover:text-ink transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Retake photo
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            className="group w-full px-6 py-7 rounded-xl bg-primary text-cream text-left transition-all hover:bg-primary/90 active:scale-[0.99] shadow-sm"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-cream/15 flex items-center justify-center shrink-0">
+                  <Camera className="w-6 h-6 text-cream" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold tracking-[0.15em] uppercase text-cream/70 mb-1">
+                    Recommended
+                  </div>
+                  <div className="text-xl font-medium">Take a photo with the camera</div>
+                </div>
+              </div>
+              <span aria-hidden="true" className="text-2xl text-cream/80 transition-transform group-hover:translate-x-1">
+                ›
+              </span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => uploadInputRef.current?.click()}
+            className="group w-full px-6 py-5 rounded-xl bg-paper border border-border hover:bg-cream-2 hover:border-ink/40 transition-colors text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-cream-2 flex items-center justify-center shrink-0">
+                <ImageIcon className="w-5 h-5 text-ink-muted" />
+              </div>
+              <div className="flex-1">
+                <div className="text-base font-medium text-ink">Choose from device</div>
+                <div className="text-xs text-ink-muted mt-0.5">
+                  Upload an existing photo instead.
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
       )}
+
       <button
         type="button"
         onClick={() => file && onSubmit(file)}
         disabled={!file || busy}
-        className="w-full px-4 py-3 rounded bg-stone-900 text-white disabled:opacity-50"
+        className={PRIMARY_BTN}
       >
-        {busy ? "..." : "Continue to payment"}
+        {busy ? "Uploading…" : "Continue to payment"}
       </button>
     </div>
   );
 }
 
-function PaymentStep({ onSuccess }: { onSuccess: () => void }) {
+// ============================================================================
+// Step 5 — Payment
+// ============================================================================
+
+function PaymentStep({
+  session,
+  onSuccess,
+}: {
+  session: Session;
+  onSuccess: () => void;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -510,17 +767,35 @@ function PaymentStep({ onSuccess }: { onSuccess: () => void }) {
     onSuccess();
   };
 
+  const amount =
+    session.sessionRateCents != null ? `$${(session.sessionRateCents / 100).toFixed(2)}` : null;
+
   return (
-    <form onSubmit={onPay} className="space-y-3">
-      <h2 className="font-medium">Pay to confirm your spot</h2>
-      <PaymentElement />
-      {error && <div className="text-sm text-rose-700">{error}</div>}
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full px-4 py-3 rounded bg-stone-900 text-white disabled:opacity-50"
-      >
-        {busy ? "Processing..." : "Pay"}
+    <form onSubmit={onPay} className="space-y-4">
+      <div className="rounded-xl border border-border bg-paper p-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Today's session
+          </p>
+          <p className="text-base font-medium text-ink mt-1">{session.title}</p>
+        </div>
+        {amount && (
+          <div className="font-display text-3xl italic text-ink shrink-0">{amount}</div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-paper p-5">
+        <PaymentElement />
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-rose-200/70 bg-rose-50/40 px-4 py-3 text-sm text-rose-800">
+          {error}
+        </div>
+      )}
+
+      <button type="submit" disabled={busy} className={PRIMARY_BTN}>
+        {busy ? "Processing…" : amount ? `Pay ${amount}` : "Pay"}
       </button>
     </form>
   );
