@@ -118,13 +118,18 @@ export function UsersList() {
     setIsSubmitting(true)
 
     try {
+      // super_admin is a platform-wide role (scopeType=global). All other
+      // roles default to org-scope on the current organization — the API
+      // fills in the scopeId server-side from the request's org context.
+      const scopeType = newRole === "super_admin" ? "global" : "organization"
+
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: selectedUser.id,
           roleName: newRole,
-          scopeType: "global",
+          scopeType,
         }),
       })
 
