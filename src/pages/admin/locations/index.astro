@@ -1,20 +1,69 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { LocationsList } from '../../../components/admin/locations-list';
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { LocationsList } from "@/components/admin/locations-list";
+import { VenuesList } from "@/components/admin/venues-list";
+import { getDb } from "@/lib/db";
+import { locations } from "@/lib/db/schema/organizations";
+import { asc } from "drizzle-orm";
 
-// Middleware guarantees user is an admin for /admin routes.
+export const prerender = false;
+
 const user = Astro.locals.user!;
 const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+
+type Tab = "locations" | "venues";
+const tabRaw = Astro.url.searchParams.get("tab");
+const tab: Tab = tabRaw === "venues" ? "venues" : "locations";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "locations", label: "Locations" },
+  { id: "venues", label: "Venues" },
+];
+
+// VenuesList needs the locations dropdown data on the Venues tab.
+let locationsList: { id: string; name: string }[] = [];
+if (tab === "venues") {
+  try {
+    locationsList = await getDb()
+      .select({ id: locations.id, name: locations.name })
+      .from(locations)
+      .orderBy(asc(locations.name));
+  } catch (error) {
+    console.error("Error fetching locations:", error);
+  }
+}
 ---
 
-<BaseLayout title="Locations — Admin — Aspire Sports" navigation={false} footer={false}>
+<BaseLayout title="Locations & venues — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
     currentPath="/admin/locations"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <LocationsList client:load />
+    <div class="space-y-4">
+      <h1 class="font-display text-3xl font-semibold text-ink">Locations & venues</h1>
+
+      <div class="border-b border-border flex gap-4 overflow-x-auto">
+        {
+          TABS.map((t) => (
+            <a
+              href={t.id === "locations" ? "/admin/locations" : `/admin/locations?tab=${t.id}`}
+              class={`py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
+                tab === t.id
+                  ? "border-ink text-ink font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {t.label}
+            </a>
+          ))
+        }
+      </div>
+
+      {tab === "locations" && <LocationsList client:load />}
+      {tab === "venues" && <VenuesList client:load locations={locationsList} />}
+    </div>
   </AdminLayout>
 </BaseLayout>
