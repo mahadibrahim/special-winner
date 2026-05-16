@@ -41,6 +41,10 @@ export const userGenderEnum = pgEnum("user_gender", [
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).unique().notNull(),
+  // Canonical form for uniqueness checks (Gmail dot-trick normalization).
+  // Backfilled to lower(email) for pre-existing rows; gmail rows are
+  // re-normalized on next signin via the app layer.
+  emailCanonical: varchar("email_canonical", { length: 255 }).unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   passwordHash: varchar("password_hash", { length: 255 }),
   firstName: varchar("first_name", { length: 100 }),

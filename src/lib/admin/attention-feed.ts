@@ -84,7 +84,7 @@ export async function getAttentionFeed(orgId: string): Promise<AttentionItem[]> 
     WHERE locations.organization_id = ${orgId}
       AND seasons.max_participants IS NOT NULL
       AND seasons.max_participants > 0
-      AND seasons.status IN ('open', 'in_progress')
+      AND seasons.status IN ('open', 'active')
   `);
   // drizzle-orm returns rows on .rows for node-postgres adapter, or directly
   // on the array shape for postgres-js. Handle both for safety.

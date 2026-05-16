@@ -7,6 +7,7 @@ import { lucia } from "@/lib/auth/lucia";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
+import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 
 const signinSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -38,18 +39,32 @@ export const POST: APIRoute = async (context) => {
 
     const { email, password } = result.data;
     const normalizedEmail = email.toLowerCase();
+    const emailCanonical = normalizeForUniqueness(email);
 
     // Per-email rate limit (slows down credential-stuffing against one
     // account from rotating IPs).
-    const emailLimit = rateLimit(`signin:email:${normalizedEmail}`, 10, 60_000);
+    const emailLimit = rateLimit(`signin:email:${emailCanonical}`, 10, 60_000);
     if (!emailLimit.allowed) {
       return rateLimitedResponse(emailLimit.retryAfter ?? 60);
     }
 
-    // Find user
-    const user = await getDb().query.users.findFirst({
-      where: eq(users.email, normalizedEmail),
+    // Find user. Primary lookup is by canonical form (catches Gmail
+    // dot-trick equivalents). Fall back to lower(email) for pre-canonical
+    // rows and self-heal the canonical column on first match.
+    let user = await getDb().query.users.findFirst({
+      where: eq(users.emailCanonical, emailCanonical),
     });
+    if (!user) {
+      user = await getDb().query.users.findFirst({
+        where: eq(users.email, normalizedEmail),
+      });
+      if (user && user.emailCanonical !== emailCanonical) {
+        await getDb()
+          .update(users)
+          .set({ emailCanonical })
+          .where(eq(users.id, user.id));
+      }
+    }
 
     if (!user || !user.passwordHash) {
       return new Response(
