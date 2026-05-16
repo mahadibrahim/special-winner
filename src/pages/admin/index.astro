@@ -1,286 +1,102 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../components/admin/admin-layout';
-import { MessagingMetricsCard } from '../../components/admin/messaging-metrics-card';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { getDb } from '../../lib/db';
-import { sports, locations, programs, seasons, registrations, users, conversations, conversationMessages } from '../../lib/db/schema';
-import { userOrganizationAccess } from '../../lib/db/schema/organizations';
-import { count, eq, and, isNotNull, sql, desc, inArray } from 'drizzle-orm';
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { NeedsAttentionPanel } from "@/components/admin/super/needs-attention-panel";
+import { SeasonsGrid, type SeasonCard } from "@/components/admin/super/seasons-grid";
+import { TodayAcrossVenues } from "@/components/admin/super/today-across-venues";
+import { getDb } from "@/lib/db";
+import { programs, seasons } from "@/lib/db/schema/programs";
+import { locations } from "@/lib/db/schema/organizations";
+import { registrations } from "@/lib/db/schema/registrations";
+import { and, eq, ne, sql, desc, asc } from "drizzle-orm";
 
-// Middleware guarantees user is an admin for /admin routes.
+export const prerender = false;
+
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const orgId = Astro.locals.organization?.id;
+const userRoles = Astro.locals.userRoles ?? [];
+const primaryRole = userRoles[0]?.name ?? "parent";
 
-// Resolve the organization context. Stats need to be org-scoped — global
-// counts leak data about other tenants and aren't actionable for a single
-// org's admin anyway.
-const organization = Astro.locals.organization;
+// Pull the latest seasons (any non-cancelled status) for the SeasonsGrid.
+let seasonCards: SeasonCard[] = [];
+let venueList: { id: string; name: string }[] = [];
+let loadError: string | null = null;
 
-// Get counts for dashboard
-let statsError = null;
-let stats = {
-  sports: 0,
-  locations: 0,
-  programs: 0,
-  activeSeasons: 0,
-  registrations: 0,
-  users: 0,
-  pendingRefunds: 0,
-  pendingRefundsAmountCents: 0,
-  activeConversations: 0,
-  needsReply: 0,
-};
-
-interface RecentConversation {
-  id: string;
-  parentName: string;
-  assignmentRole: string | null;
-  lastChannel: string | null;
-  lastDirection: string | null;
-  snippet: string;
-  lastMessageAt: Date;
-  // Pre-computed display values so the template doesn't need variable
-  // declarations inside expression blocks (Astro parses arrow function
-  // bodies differently than React JSX — statements aren't allowed).
-  roleBadge: string;
-  roleBadgeClass: string;
-  channelIcon: string;
-  sentMarker: string;
-  relativeTime: string;
-}
-
-let recentConversations: RecentConversation[] = [];
-
-function formatRelative(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return 'now';
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-const ROLE_BADGE_STYLES = {
-  bot: 'bg-blue-100 text-blue-700',
-  coach: 'bg-emerald-100 text-emerald-700',
-  admin: 'bg-amber-100 text-amber-700',
-};
-
-function channelIconFor(channel: string | null): string {
-  if (channel === 'sms') return '💬';
-  if (channel === 'email') return '✉️';
-  if (channel === 'telegram') return '✈️';
-  return '💭';
-}
-
-try {
-  const db = getDb();
-
-  // Without an organization in context (e.g. local dev hitting /admin on
-  // localhost without a domain mapping) we can't safely scope stats — show
-  // zeros rather than leak global counts.
-  const orgId = organization?.id ?? null;
-
-  // Core stats — all org-scoped via organizationId or via locations join.
-  // Each query includes a tenant filter; queries that go through a join chain
-  // (programs, seasons, registrations) join through locations.
-  const [
-    [sportsCount],
-    [locationsCount],
-    [programsCount],
-    [seasonsCount],
-    [registrationsCount],
-    [usersCount],
-    [pendingRefundsData],
-  ] = await Promise.all([
-    orgId
-      ? db.select({ count: count() }).from(sports).where(eq(sports.organizationId, orgId))
-      : Promise.resolve([{ count: 0 }]),
-    orgId
-      ? db.select({ count: count() }).from(locations).where(eq(locations.organizationId, orgId))
-      : Promise.resolve([{ count: 0 }]),
-    orgId
-      ? db
-          .select({ count: count() })
-          .from(programs)
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(eq(locations.organizationId, orgId))
-      : Promise.resolve([{ count: 0 }]),
-    orgId
-      ? db
-          .select({ count: count() })
-          .from(seasons)
-          .innerJoin(programs, eq(seasons.programId, programs.id))
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(and(eq(seasons.status, 'open'), eq(locations.organizationId, orgId)))
-      : Promise.resolve([{ count: 0 }]),
-    orgId
-      ? db
-          .select({ count: count() })
-          .from(registrations)
-          .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-          .innerJoin(programs, eq(seasons.programId, programs.id))
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(eq(locations.organizationId, orgId))
-      : Promise.resolve([{ count: 0 }]),
-    // "users" count = distinct users with org access for this org
-    orgId
-      ? db
-          .select({ count: sql<number>`COUNT(DISTINCT ${userOrganizationAccess.userId})` })
-          .from(userOrganizationAccess)
-          .where(eq(userOrganizationAccess.organizationId, orgId))
-      : Promise.resolve([{ count: 0 }]),
-    orgId
-      ? db
-          .select({
-            count: count(),
-            totalAmount: sql<number>`COALESCE(SUM(${registrations.refundAmountCents}), 0)`,
-          })
-          .from(registrations)
-          .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-          .innerJoin(programs, eq(seasons.programId, programs.id))
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(
-            and(
-              eq(registrations.refundStatus, 'pending_approval'),
-              eq(locations.organizationId, orgId),
-            ),
-          )
-      : Promise.resolve([{ count: 0, totalAmount: 0 }]),
-  ]);
-
-  // Messaging stats — conversations table may not exist yet, also org-scoped
-  let activeConversationsCount = { count: 0 };
-  let needsReplyCount = { count: 0 };
-  if (orgId) {
-    try {
-      [activeConversationsCount] = await db
-        .select({ count: count() })
-        .from(conversations)
-        .where(
-          and(
-            eq(conversations.status, 'active'),
-            eq(conversations.organizationId, orgId),
-          ),
-        );
-      [needsReplyCount] = await db
-        .select({ count: count() })
-        .from(conversations)
-        .where(
-          and(
-            eq(conversations.status, 'active'),
-            eq(conversations.organizationId, orgId),
-            isNotNull(conversations.assignmentRole),
-            sql`${conversations.assignmentRole} <> 'bot'`,
-            isNotNull(conversations.lastInboundAt),
-            sql`(${conversations.lastOutboundAt} IS NULL OR ${conversations.lastInboundAt} > ${conversations.lastOutboundAt})`,
-          ),
-        );
-    } catch {
-      // conversations table doesn't exist yet — messaging not deployed
-    }
-  }
-
-  stats = {
-    sports: sportsCount.count,
-    locations: locationsCount.count,
-    programs: programsCount.count,
-    activeSeasons: seasonsCount.count,
-    registrations: registrationsCount.count,
-    users: usersCount.count,
-    pendingRefunds: pendingRefundsData.count,
-    pendingRefundsAmountCents: Number(pendingRefundsData.totalAmount) || 0,
-    activeConversations: activeConversationsCount?.count ?? 0,
-    needsReply: needsReplyCount?.count ?? 0,
-  };
-
-  // Fetch the 5 most recent active conversations for the widget below the
-  // stat grid. Each conversation includes parent name and the most recent
-  // message snippet. Wrapped in try/catch since conversations table may not exist.
+if (orgId) {
   try {
-  const recentRows = orgId
-    ? await db
-        .select({
-          id: conversations.id,
-          parentFirstName: users.firstName,
-          parentLastName: users.lastName,
-          parentEmail: users.email,
-          assignmentRole: conversations.assignmentRole,
-          lastMessageAt: conversations.lastMessageAt,
-        })
-        .from(conversations)
-        .innerJoin(users, eq(users.id, conversations.parentUserId))
-        .where(
-          and(
-            eq(conversations.status, 'active'),
-            eq(conversations.organizationId, orgId),
-          ),
-        )
-        .orderBy(desc(conversations.lastMessageAt))
-        .limit(5)
-    : [];
-
-  // For each recent conversation, fetch the most recent message snippet
-  if (recentRows.length > 0) {
-    const conversationIds = recentRows.map(r => r.id);
-    const latestMessages = await db
+    const rawSeasons = await getDb()
       .select({
-        conversationId: conversationMessages.conversationId,
-        body: conversationMessages.body,
-        direction: conversationMessages.direction,
-        channel: conversationMessages.channel,
-        createdAt: conversationMessages.createdAt,
+        id: seasons.id,
+        seasonName: seasons.name,
+        programName: programs.name,
+        locationName: locations.name,
+        status: seasons.status,
+        maxParticipants: seasons.maxParticipants,
+        endDate: seasons.endDate,
+        registered: sql<number>`COALESCE((
+          SELECT COUNT(*)::int FROM ${registrations}
+            WHERE ${registrations.seasonId} = ${seasons.id}
+              AND ${registrations.status} <> 'cancelled'
+        ), 0)`,
       })
-      .from(conversationMessages)
-      .where(sql`${conversationMessages.conversationId} = ANY(${conversationIds})`)
-      .orderBy(desc(conversationMessages.createdAt));
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(
+        and(
+          eq(locations.organizationId, orgId),
+          ne(seasons.status, "cancelled"),
+        ),
+      )
+      .orderBy(desc(seasons.createdAt))
+      .limit(6);
 
-    const snippetMap = new Map<string, { body: string; direction: string; channel: string }>();
-    for (const m of latestMessages) {
-      if (!snippetMap.has(m.conversationId)) {
-        snippetMap.set(m.conversationId, {
-          body: m.body.length > 110 ? m.body.slice(0, 107) + '…' : m.body,
-          direction: m.direction,
-          channel: m.channel,
-        });
-      }
-    }
-
-    recentConversations = recentRows.map(r => {
-      const snippet = snippetMap.get(r.id);
-      const name = `${r.parentFirstName ?? ''} ${r.parentLastName ?? ''}`.trim() || r.parentEmail;
-      const roleKey = (r.assignmentRole ?? 'bot') as 'bot' | 'coach' | 'admin';
-      const direction = snippet?.direction ?? null;
+    seasonCards = rawSeasons.map((s) => {
+      const today = new Date();
+      const end = s.endDate ? new Date(`${s.endDate}T23:59:59Z`) : null;
+      const daysLeft =
+        end && end > today
+          ? Math.ceil((end.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+          : null;
       return {
-        id: r.id,
-        parentName: name,
-        assignmentRole: r.assignmentRole,
-        lastChannel: snippet?.channel ?? null,
-        lastDirection: direction,
-        snippet: snippet?.body ?? '',
-        lastMessageAt: r.lastMessageAt,
-        roleBadge: roleKey,
-        roleBadgeClass: ROLE_BADGE_STYLES[roleKey] ?? ROLE_BADGE_STYLES.bot,
-        channelIcon: channelIconFor(snippet?.channel ?? null),
-        sentMarker: direction === 'outbound' ? 'You: ' : '',
-        relativeTime: formatRelative(r.lastMessageAt),
+        id: s.id,
+        programName: s.programName,
+        seasonLabel: s.seasonName,
+        locationName: s.locationName,
+        status: s.status as SeasonCard["status"],
+        capacityCurrent: Number(s.registered) || 0,
+        capacityMax: s.maxParticipants ?? null,
+        daysLeft,
       };
     });
+
+    const locs = await getDb()
+      .select({ id: locations.id, name: locations.name })
+      .from(locations)
+      .where(eq(locations.organizationId, orgId))
+      .orderBy(asc(locations.createdAt));
+    venueList = locs;
+  } catch (e) {
+    loadError =
+      "Couldn't load seasons + venues. Check the database connection.";
+    console.error("Admin home load error:", e);
   }
-  } catch {
-    // conversations table doesn't exist yet
-  }
-} catch (error) {
-  console.error('Error fetching stats:', error);
-  statsError = 'Failed to load dashboard statistics. Please check your database connection.';
 }
+
+const greeting =
+  new Date().getHours() < 12
+    ? "morning"
+    : new Date().getHours() < 17
+      ? "afternoon"
+      : "evening";
+const niceDate = new Date().toLocaleDateString("en-US", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+});
 ---
 
-<BaseLayout title="Admin Dashboard — Aspire Sports" navigation={false} footer={false}>
+<BaseLayout title="Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
@@ -288,272 +104,29 @@ try {
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
     <div class="space-y-6">
-      <div class="flex items-end justify-between">
+      <div class="flex items-end justify-between gap-3">
         <div>
-          <p class="text-xs text-ink-muted mb-1">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user.firstName || 'Admin'}</p>
-          <h1 class="text-3xl font-display font-semibold text-ink">Dashboard</h1>
-        </div>
-        <div class="flex items-center gap-3">
-          <a href="/" class="text-sm text-primary hover:text-primary/80 font-medium transition-colors">View Site →</a>
-        </div>
-      </div>
-
-      {statsError ? (
-        <Card class="border-destructive">
-          <CardContent class="pt-6">
-            <p class="text-destructive">{statsError}</p>
-            <p class="text-sm text-muted-foreground mt-2">
-              Make sure you have run <code class="bg-gray-100 px-1 rounded">npm run db:push</code> and <code class="bg-gray-100 px-1 rounded">npm run db:seed</code>
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader class="pb-2">
-              <CardDescription>Sports</CardDescription>
-              <CardTitle class="text-4xl">{stats.sports}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <a href="/admin/sports" class="text-sm text-primary hover:underline">
-                Manage sports &rarr;
-              </a>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader class="pb-2">
-              <CardDescription>Locations</CardDescription>
-              <CardTitle class="text-4xl">{stats.locations}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <a href="/admin/locations" class="text-sm text-primary hover:underline">
-                Manage locations &rarr;
-              </a>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader class="pb-2">
-              <CardDescription>Programs</CardDescription>
-              <CardTitle class="text-4xl">{stats.programs}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <a href="/admin/programs" class="text-sm text-primary hover:underline">
-                Manage programs &rarr;
-              </a>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader class="pb-2">
-              <CardDescription>Active Seasons</CardDescription>
-              <CardTitle class="text-4xl">{stats.activeSeasons}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <a href="/admin/seasons" class="text-sm text-primary hover:underline">
-                Manage seasons &rarr;
-              </a>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader class="pb-2">
-              <CardDescription>Registrations</CardDescription>
-              <CardTitle class="text-4xl">{stats.registrations}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <a href="/admin/registrations" class="text-sm text-primary hover:underline">
-                View registrations &rarr;
-              </a>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader class="pb-2">
-              <CardDescription>Users</CardDescription>
-              <CardTitle class="text-4xl">{stats.users}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <a href="/admin/users" class="text-sm text-primary hover:underline">
-                Manage users &rarr;
-              </a>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Messages needing reply alert — plain HTML to sidestep the
-          pre-existing Card type errors in this file. */}
-      {!statsError && stats.needsReply > 0 && (
-        <div class="rounded-lg border border-blue-300 bg-blue-50 p-6 shadow-sm">
-          <div class="flex items-center justify-between pb-2">
-            <div>
-              <p class="text-sm text-blue-700">Messages needing reply</p>
-              <p class="text-4xl font-semibold text-blue-800">{stats.needsReply}</p>
-            </div>
-            <div class="text-right">
-              <p class="text-sm text-blue-600">Active conversations</p>
-              <p class="text-2xl font-bold text-blue-800">{stats.activeConversations}</p>
-            </div>
-          </div>
-          <p class="text-sm text-blue-700 mb-2">
-            {stats.needsReply === 1
-              ? 'There is 1 parent conversation waiting on a staff reply.'
-              : `There are ${stats.needsReply} parent conversations waiting on a staff reply.`}
+          <p class="text-[10px] uppercase tracking-widest text-ink-muted font-semibold">
+            Good {greeting}, {user.firstName ?? "Admin"}
           </p>
-          <a href="/messages" class="inline-flex items-center gap-1 text-sm font-medium text-blue-800 hover:underline">
-            Open the staff inbox &rarr;
-          </a>
+          <h1 class="font-display text-3xl font-semibold text-ink">{niceDate}</h1>
         </div>
-      )}
-
-      {/* Recent conversations widget */}
-      {!statsError && recentConversations.length > 0 && (
-        <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-900">Recent conversations</h2>
-              <p class="text-sm text-gray-500 mt-0.5">Newest parent threads across every channel</p>
-            </div>
-            <a href="/messages" class="text-sm font-medium text-primary hover:underline">
-              Open inbox &rarr;
-            </a>
-          </div>
-          <ul class="divide-y divide-gray-200">
-            {recentConversations.map((conv) => (
-              <li>
-                <a
-                  href={`/messages?conversation=${conv.id}`}
-                  class="flex items-start gap-3 px-6 py-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 text-sm">
-                    {conv.channelIcon}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                      <p class="text-sm font-medium text-gray-900 truncate">{conv.parentName}</p>
-                      <span class={`text-[10px] px-2 py-0.5 rounded ${conv.roleBadgeClass} uppercase font-semibold`}>
-                        {conv.roleBadge}
-                      </span>
-                      <span class="text-xs text-gray-400 ml-auto flex-shrink-0">{conv.relativeTime}</span>
-                    </div>
-                    <p class="text-sm text-gray-600 truncate">
-                      {conv.sentMarker}{conv.snippet || 'No messages yet'}
-                    </p>
-                  </div>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Pending Refunds Alert Card */}
-      {!statsError && stats.pendingRefunds > 0 && (
-        <Card class="border-yellow-300 bg-yellow-50">
-          <CardHeader class="pb-2">
-            <div class="flex items-center justify-between">
-              <div>
-                <CardDescription class="text-yellow-700">Pending Refunds</CardDescription>
-                <CardTitle class="text-4xl text-yellow-800">{stats.pendingRefunds}</CardTitle>
-              </div>
-              <div class="text-right">
-                <p class="text-sm text-yellow-600">Total Amount</p>
-                <p class="text-2xl font-bold text-yellow-800">
-                  ${(stats.pendingRefundsAmountCents / 100).toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p class="text-sm text-yellow-700 mb-2">
-              {stats.pendingRefunds === 1
-                ? 'There is 1 refund request awaiting your approval.'
-                : `There are ${stats.pendingRefunds} refund requests awaiting your approval.`}
-            </p>
-            <a href="/admin/refunds" class="inline-flex items-center gap-1 text-sm font-medium text-yellow-800 hover:underline">
-              Review refund requests &rarr;
-            </a>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Messaging adoption metrics */}
-      {!statsError && (
-        <MessagingMetricsCard client:load />
-      )}
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common administrative tasks</CardDescription>
-          </CardHeader>
-          <CardContent class="space-y-2">
-            <a
-              href="/admin/sports/new"
-              class="block p-3 rounded-lg border hover:bg-gray-50 transition-colors"
-            >
-              <span class="font-medium">Add New Sport</span>
-              <p class="text-sm text-muted-foreground">Configure a new sport for your organization</p>
-            </a>
-            <a
-              href="/admin/programs/new"
-              class="block p-3 rounded-lg border hover:bg-gray-50 transition-colors"
-            >
-              <span class="font-medium">Create Program</span>
-              <p class="text-sm text-muted-foreground">Set up a new program for a location</p>
-            </a>
-            <a
-              href="/admin/seasons/new"
-              class="block p-3 rounded-lg border hover:bg-gray-50 transition-colors"
-            >
-              <span class="font-medium">Create Season</span>
-              <p class="text-sm text-muted-foreground">Open registration for a new season</p>
-            </a>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Getting Started</CardTitle>
-            <CardDescription>Set up your sports management platform</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ol class="space-y-3 text-sm">
-              <li class="flex items-start gap-3">
-                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">1</span>
-                <div>
-                  <span class="font-medium">Configure Sports</span>
-                  <p class="text-muted-foreground">Add the sports your organization offers</p>
-                </div>
-              </li>
-              <li class="flex items-start gap-3">
-                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">2</span>
-                <div>
-                  <span class="font-medium">Set Up Locations</span>
-                  <p class="text-muted-foreground">Add your facilities and playing locations</p>
-                </div>
-              </li>
-              <li class="flex items-start gap-3">
-                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">3</span>
-                <div>
-                  <span class="font-medium">Create Programs</span>
-                  <p class="text-muted-foreground">Define your leagues, camps, and clinics</p>
-                </div>
-              </li>
-              <li class="flex items-start gap-3">
-                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">4</span>
-                <div>
-                  <span class="font-medium">Open Seasons</span>
-                  <p class="text-muted-foreground">Create seasons and open registration</p>
-                </div>
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
+        <a href="/" class="text-sm text-primary hover:text-primary/80 font-medium">
+          View Site →
+        </a>
       </div>
+
+      {loadError ? (
+        <div class="rounded border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+          {loadError}
+        </div>
+      ) : (
+        <>
+          <NeedsAttentionPanel client:load />
+          <SeasonsGrid client:load seasons={seasonCards} />
+          <TodayAcrossVenues client:load venues={venueList} />
+        </>
+      )}
     </div>
   </AdminLayout>
 </BaseLayout>
