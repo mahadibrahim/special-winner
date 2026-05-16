@@ -10,6 +10,7 @@ import { count, eq, and, isNotNull, sql, desc, inArray } from 'drizzle-orm';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 
 // Resolve the organization context. Stats need to be org-scoped — global
 // counts leak data about other tenants and aren't actionable for a single
@@ -282,6 +283,7 @@ try {
 <BaseLayout title="Admin Dashboard — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >

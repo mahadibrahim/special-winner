@@ -4,11 +4,13 @@ import { AdminLayout } from '../../components/admin/admin-layout';
 import { SentAnnouncementsList } from '../../components/admin/sent-announcements-list';
 
 // Middleware guarantees user is an admin for /admin routes.
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="Sent Announcements — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/broadcasts"
     user={{ firstName: Astro.locals.user!.firstName, lastName: Astro.locals.user!.lastName, email: Astro.locals.user!.email }}
   >

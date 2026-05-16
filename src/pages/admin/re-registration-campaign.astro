@@ -5,11 +5,13 @@ import { ReRegistrationCampaign as CampaignForm } from '../../components/admin/r
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="Re-Registration Campaign — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/re-registration-campaign"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
