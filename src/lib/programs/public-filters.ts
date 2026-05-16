@@ -8,7 +8,7 @@
  * what /api/public/filters has always returned.
  */
 import { db } from "@/lib/db";
-import { sports, locations, programs, seasons } from "@/lib/db/schema";
+import { sports, locations, programs, seasons, organizations } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 export interface PublicSport {
@@ -44,10 +44,12 @@ export async function getPublicSports(): Promise<PublicSport[]> {
         color: sports.color,
       })
       .from(sports)
+      .innerJoin(organizations, eq(organizations.id, sports.organizationId))
       .innerJoin(programs, eq(programs.sportId, sports.id))
       .innerJoin(seasons, eq(seasons.programId, programs.id))
       .where(
         and(
+          eq(organizations.status, "active"),
           eq(programs.active, true),
           eq(programs.isTest, false),
           eq(seasons.isTest, false),
@@ -77,10 +79,12 @@ export async function getPublicLocations(): Promise<PublicLocation[]> {
         sortOrder: locations.sortOrder,
       })
       .from(locations)
+      .innerJoin(organizations, eq(organizations.id, locations.organizationId))
       .innerJoin(programs, eq(programs.locationId, locations.id))
       .innerJoin(seasons, eq(seasons.programId, programs.id))
       .where(
         and(
+          eq(organizations.status, "active"),
           eq(locations.active, true),
           eq(programs.active, true),
           eq(programs.isTest, false),

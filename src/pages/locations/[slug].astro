@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { db } from "@/lib/db";
-import { locations, programs, seasons } from "@/lib/db/schema";
+import { locations, programs, seasons, organizations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 // SSR — request-time queries against the catalog. Each location's open
@@ -43,7 +43,8 @@ try {
         postalCode: locations.postalCode,
       })
       .from(locations)
-      .where(eq(locations.slug, slug))
+      .innerJoin(organizations, eq(organizations.id, locations.organizationId))
+      .where(and(eq(locations.slug, slug), eq(organizations.status, "active")))
       .limit(1);
     location = rows[0] ?? null;
 
