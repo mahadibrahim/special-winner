@@ -225,6 +225,9 @@ async function seedPrograms(db: DB): Promise<void> {
 }
 
 async function seedSeasons(db: DB): Promise<void> {
+  // Placeholder pricing — adjust before going live. Adult 7v7 supports
+  // both team + individual signup; Founders Tournament is free (captain
+  // acquisition); Worthington U10 is individual-only.
   const seasons = [
     {
       program_slug: "adult-coed-7v7",
@@ -238,6 +241,9 @@ async function seedSeasons(db: DB): Promise<void> {
       status: "open",
       age_group_name: "Adult Co-Ed",
       venue_name: "Field 1",
+      price_cents: 12000, // $120 individual / free-agent
+      team_price_cents: 96000, // $960 team
+      signup_modes: ["individual", "team"],
     },
     {
       program_slug: "founders-tournament",
@@ -251,6 +257,9 @@ async function seedSeasons(db: DB): Promise<void> {
       status: "open",
       age_group_name: "Adult Co-Ed",
       venue_name: "Field 1",
+      price_cents: 0, // free — captain acquisition
+      team_price_cents: 0,
+      signup_modes: ["team"],
     },
     {
       program_slug: "worthington-youth-soccer",
@@ -264,6 +273,9 @@ async function seedSeasons(db: DB): Promise<void> {
       status: "draft",
       age_group_name: "U10",
       venue_name: "Field A",
+      price_cents: 20000, // $200 per kid
+      team_price_cents: null,
+      signup_modes: ["individual"],
     },
   ];
 
@@ -293,16 +305,23 @@ async function seedSeasons(db: DB): Promise<void> {
       await db.execute(sql.raw(`SELECT id FROM venues WHERE name = '${q(s.venue_name)}' LIMIT 1`)),
     )[0]?.id;
 
+    const signupModesArray =
+      "ARRAY[" + s.signup_modes.map((m) => `'${m}'`).join(",") + "]::varchar[]";
+
     await db.execute(
       sql.raw(`
         INSERT INTO seasons (program_id, age_group_id, venue_id, name, slug, start_date, end_date,
-                             registration_opens, registration_closes, max_participants, status)
+                             registration_opens, registration_closes, max_participants, status,
+                             price_cents, team_price_cents, signup_modes)
         VALUES ('${programId}',
                 ${ageGroupId ? `'${ageGroupId}'` : "NULL"},
                 ${venueId ? `'${venueId}'` : "NULL"},
                 '${q(s.name)}', '${s.slug}', '${s.start_date}', '${s.end_date}',
                 '${s.registration_opens}', '${s.registration_closes}',
-                ${s.max_participants}, '${s.status}')
+                ${s.max_participants}, '${s.status}',
+                ${s.price_cents},
+                ${s.team_price_cents !== null ? s.team_price_cents : "NULL"},
+                ${signupModesArray})
       `),
     );
     console.log(`  ✓ Created season ${s.name} (status=${s.status})`);
