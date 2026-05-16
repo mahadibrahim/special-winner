@@ -1,20 +1,4 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../components/admin/admin-layout';
-import { AgeGroupsList } from '../../components/admin/age-groups-list';
-
-// Middleware guarantees user is an admin for /admin routes.
-const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+// Age groups absorbed into /admin/programs?tab=age-groups.
+return Astro.redirect("/admin/programs?tab=age-groups", 301);
 ---
-
-<BaseLayout title="Age Groups — Admin — Aspire Sports" navigation={false} footer={false}>
-  <AdminLayout
-    client:load
-    role={primaryRole}
-    currentPath="/admin/age-groups"
-    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-  >
-    <AgeGroupsList client:load />
-  </AdminLayout>
-</BaseLayout>

@@ -1,20 +1,4 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { SportsList } from '../../../components/admin/sports-list';
-
-// Middleware guarantees user is an admin for /admin routes.
-const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+// Sports management absorbed into /admin/programs?tab=sports.
+return Astro.redirect("/admin/programs?tab=sports", 301);
 ---
-
-<BaseLayout title="Sports — Admin — Aspire Sports" navigation={false} footer={false}>
-  <AdminLayout
-    client:load
-    role={primaryRole}
-    currentPath="/admin/sports"
-    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-  >
-    <SportsList client:load />
-  </AdminLayout>
-</BaseLayout>
