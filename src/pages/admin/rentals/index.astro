@@ -1,11 +1,22 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { RentalsList } from '../../../components/admin/rentals/RentalsList';
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { RentalsList } from "@/components/admin/rentals/RentalsList";
+import { RentalRateCardEditor } from "@/components/admin/rentals/RentalRateCardEditor";
 
 export const prerender = false;
+
 const user = Astro.locals.user!;
 const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+
+type Tab = "bookings" | "rate-card";
+const tabRaw = Astro.url.searchParams.get("tab");
+const tab: Tab = tabRaw === "rate-card" ? "rate-card" : "bookings";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "bookings", label: "Bookings" },
+  { id: "rate-card", label: "Rate card" },
+];
 ---
 
 <BaseLayout title="Field Rentals — Admin — Aspire Sports" navigation={false} footer={false}>
@@ -18,27 +29,40 @@ const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
     <div class="space-y-4">
       <div class="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 class="text-2xl font-bold text-ink">Field rentals</h1>
+          <h1 class="font-display text-3xl font-semibold text-ink">Field rentals</h1>
           <p class="text-sm text-ink-muted mt-1">
             Review and manage all field rental bookings.
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <a
-            href="/admin/rentals/rate-card"
-            class="text-sm text-ink-muted underline hover:text-ink"
-          >
-            Rate card
-          </a>
+        {tab === "bookings" && (
           <a
             href="/admin/rentals/new"
-            class="rounded-lg bg-ink text-cream px-4 py-2 text-sm font-medium hover:bg-ink/90 transition-colors"
+            class="rounded-lg bg-ink text-cream px-4 py-2 text-sm font-medium hover:bg-ink/90 transition-colors min-h-[44px] inline-flex items-center"
           >
             + New rental
           </a>
-        </div>
+        )}
       </div>
-      <RentalsList client:load />
+
+      <div class="border-b border-border flex gap-4 overflow-x-auto">
+        {
+          TABS.map((t) => (
+            <a
+              href={t.id === "bookings" ? "/admin/rentals" : `/admin/rentals?tab=${t.id}`}
+              class={`py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
+                tab === t.id
+                  ? "border-ink text-ink font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {t.label}
+            </a>
+          ))
+        }
+      </div>
+
+      {tab === "bookings" && <RentalsList client:load />}
+      {tab === "rate-card" && <RentalRateCardEditor client:load />}
     </div>
   </AdminLayout>
 </BaseLayout>

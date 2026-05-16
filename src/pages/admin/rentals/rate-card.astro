@@ -1,20 +1,4 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { RentalRateCardEditor } from '../../../components/admin/rentals/RentalRateCardEditor';
-
-export const prerender = false;
-const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+// Merged into /admin/rentals — see Rate card tab.
+return Astro.redirect("/admin/rentals?tab=rate-card", 301);
 ---
-
-<BaseLayout title="Rental Rate Card — Admin — Aspire Sports" navigation={false} footer={false}>
-  <AdminLayout
-    client:load
-    role={primaryRole}
-    currentPath="/admin/rentals/rate-card"
-    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-  >
-    <RentalRateCardEditor client:load />
-  </AdminLayout>
-</BaseLayout>
