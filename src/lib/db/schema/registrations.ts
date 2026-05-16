@@ -127,6 +127,16 @@ export const registrations = pgTable(
     refundStatus: refundStatusEnum("refund_status").default("none"),
     refundAmountCents: integer("refund_amount_cents"),
     refundProcessedAt: timestamp("refund_processed_at"),
+    // Refund-request submission audit (venue-manager submit-only flow).
+    // refundRequestedByUserId is the user who clicked "Submit refund request"
+    // — different from cancelledBy, which is the user who cancelled the
+    // registration itself.
+    refundRequestedAt: timestamp("refund_requested_at"),
+    refundRequestReason: text("refund_request_reason"),
+    refundRequestedByUserId: uuid("refund_requested_by_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
     // Waitlist management
     waitlistPosition: integer("waitlist_position"),
     waitlistPromotedAt: timestamp("waitlist_promoted_at"),

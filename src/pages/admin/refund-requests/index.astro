@@ -1,0 +1,151 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { getDb } from "@/lib/db";
+import { registrations, familyMembers } from "@/lib/db/schema/registrations";
+import { programs, seasons } from "@/lib/db/schema/programs";
+import { locations } from "@/lib/db/schema/organizations";
+import { eq, desc, inArray } from "drizzle-orm";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const userRoles = Astro.locals.userRoles ?? [];
+const primaryRole = userRoles[0]?.name ?? "parent";
+const isSuperAdmin = userRoles.some((r) => r.name === "super_admin");
+
+// Venue managers see only their own submitted requests, super-admins see
+// the org-wide queue. The super-admin's primary refund-approval surface is
+// still /admin/refunds; this page is mostly for venue-managers to see
+// what they've submitted and the status.
+const orgId = Astro.locals.organization?.id;
+let requests: Array<{
+  id: string;
+  playerName: string;
+  programName: string;
+  seasonName: string;
+  refundStatus: string | null;
+  refundAmountCents: number | null;
+  refundRequestReason: string | null;
+  refundRequestedAt: Date | null;
+}> = [];
+
+if (orgId) {
+  const baseQuery = getDb()
+    .select({
+      id: registrations.id,
+      playerName: familyMembers.firstName,
+      playerLast: familyMembers.lastName,
+      programName: programs.name,
+      seasonName: seasons.name,
+      refundStatus: registrations.refundStatus,
+      refundAmountCents: registrations.refundAmountCents,
+      refundRequestReason: registrations.refundRequestReason,
+      refundRequestedAt: registrations.refundRequestedAt,
+      refundRequestedByUserId: registrations.refundRequestedByUserId,
+    })
+    .from(registrations)
+    .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(
+      isSuperAdmin
+        ? inArray(registrations.refundStatus, [
+            "pending_approval",
+            "approved",
+            "denied",
+            "processed",
+          ])
+        : eq(registrations.refundRequestedByUserId, user.id),
+    )
+    .orderBy(desc(registrations.refundRequestedAt));
+
+  const rows = await baseQuery;
+  requests = rows.map((r) => ({
+    id: r.id,
+    playerName: `${r.playerName ?? ""} ${r.playerLast ?? ""}`.trim(),
+    programName: r.programName,
+    seasonName: r.seasonName,
+    refundStatus: r.refundStatus,
+    refundAmountCents: r.refundAmountCents,
+    refundRequestReason: r.refundRequestReason,
+    refundRequestedAt: r.refundRequestedAt,
+  }));
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  pending_approval: "bg-amber-100 text-amber-900",
+  approved: "bg-emerald-100 text-emerald-900",
+  processed: "bg-emerald-100 text-emerald-900",
+  denied: "bg-rose-100 text-rose-900",
+  none: "bg-gray-100 text-gray-700",
+};
+---
+
+<BaseLayout title="Refund Requests — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/refund-requests"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-4">
+      <div>
+        <h1 class="font-display text-3xl font-semibold text-ink">Refund requests</h1>
+        <p class="text-sm text-ink-muted">
+          {isSuperAdmin
+            ? "All refund requests across the org. Approve / deny via /admin/refunds."
+            : "Refund requests you've submitted. Status updates when a super-admin processes them."}
+        </p>
+      </div>
+
+      {requests.length === 0 ? (
+        <div class="bg-white rounded border border-border p-6 text-sm text-ink-muted italic">
+          No refund requests yet.
+        </div>
+      ) : (
+        <div class="bg-white rounded border border-border overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-cream text-left">
+              <tr>
+                <th class="px-3 py-2 font-medium">Player</th>
+                <th class="px-3 py-2 font-medium">Season</th>
+                <th class="px-3 py-2 font-medium">Amount</th>
+                <th class="px-3 py-2 font-medium">Status</th>
+                <th class="px-3 py-2 font-medium">Reason</th>
+                <th class="px-3 py-2 font-medium">Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((r) => (
+                <tr class="border-t border-cream">
+                  <td class="px-3 py-2">{r.playerName || "Unnamed"}</td>
+                  <td class="px-3 py-2 text-ink-muted">{r.programName} · {r.seasonName}</td>
+                  <td class="px-3 py-2">
+                    {r.refundAmountCents != null
+                      ? `$${(r.refundAmountCents / 100).toFixed(2)}`
+                      : "—"}
+                  </td>
+                  <td class="px-3 py-2">
+                    <span class={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded ${STATUS_STYLES[r.refundStatus ?? "none"] ?? STATUS_STYLES.none}`}>
+                      {r.refundStatus ?? "none"}
+                    </span>
+                  </td>
+                  <td class="px-3 py-2 text-ink-muted max-w-md truncate" title={r.refundRequestReason ?? ""}>
+                    {r.refundRequestReason ?? "—"}
+                  </td>
+                  <td class="px-3 py-2 text-ink-muted">
+                    {r.refundRequestedAt
+                      ? new Date(r.refundRequestedAt).toLocaleDateString()
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </AdminLayout>
+</BaseLayout>
