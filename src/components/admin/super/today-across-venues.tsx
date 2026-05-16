@@ -6,6 +6,13 @@ import { formatStripDate } from "@/lib/admin/week-strip"
 
 type Props = { venues: { id: string; name: string }[] }
 
+// Per-venue load state. Undefined while in-flight, "error" if the fetch
+// failed (so we can show an error message instead of forever-Loading),
+// or the actual payload when it lands. The previous shape conflated
+// "loaded null on error" with "still loading" — UI got stuck on Loading
+// whenever the API 4xx'd/5xx'd.
+type CardState = VenueDayData | "error" | undefined
+
 /**
  * Mini multi-venue snapshot for the super-admin home. Each card shows up
  * to 3 of today's activity blocks at one location, with a deep-link into
@@ -14,7 +21,7 @@ type Props = { venues: { id: string; name: string }[] }
  */
 export function TodayAcrossVenues({ venues }: Props) {
   const today = formatStripDate(new Date())
-  const [data, setData] = useState<Record<string, VenueDayData | null>>({})
+  const [data, setData] = useState<Record<string, CardState>>({})
 
   // Keyed on the joined list so re-renders with the same venues don't refetch.
   const venuesKey = venues.map((v) => v.id).join(",")
@@ -22,12 +29,24 @@ export function TodayAcrossVenues({ venues }: Props) {
   useEffect(() => {
     let alive = true
     Promise.all(
-      venues.map((v) =>
-        fetch(`/api/admin/venue-day/${today}?locationId=${v.id}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null)
-          .then((d) => [v.id, d] as const),
-      ),
+      venues.map(async (v) => {
+        try {
+          const r = await fetch(
+            `/api/admin/venue-day/${today}?locationId=${v.id}`,
+          )
+          if (!r.ok) {
+            console.error(
+              `[today-across-venues] /api/admin/venue-day → ${r.status} for ${v.name}`,
+            )
+            return [v.id, "error"] as const
+          }
+          const json = (await r.json()) as VenueDayData
+          return [v.id, json] as const
+        } catch (err) {
+          console.error(`[today-across-venues] fetch failed for ${v.name}:`, err)
+          return [v.id, "error"] as const
+        }
+      }),
     ).then((entries) => {
       if (!alive) return
       setData(Object.fromEntries(entries))
@@ -57,13 +76,20 @@ export function TodayAcrossVenues({ venues }: Props) {
                   Open Venue Day →
                 </a>
               </div>
-              {!d && <div className="text-xs text-ink-muted">Loading…</div>}
-              {d && d.blocks.length === 0 && (
+              {d === undefined && (
+                <div className="text-xs text-ink-muted">Loading…</div>
+              )}
+              {d === "error" && (
+                <div className="text-xs text-rose-700">
+                  Couldn't load — check the console.
+                </div>
+              )}
+              {d && d !== "error" && d.blocks.length === 0 && (
                 <div className="text-xs text-ink-muted italic">
                   No activities scheduled
                 </div>
               )}
-              {d && d.blocks.length > 0 && (
+              {d && d !== "error" && d.blocks.length > 0 && (
                 <ul className="text-xs text-ink-muted space-y-1 list-none">
                   {d.blocks.slice(0, 3).map((b) => (
                     <li key={b.id} className="truncate">
