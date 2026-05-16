@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 
-// Mock getDb so the helper exercises its .map/.filter without touching the DB.
-// Mirrors the pattern in tests/unit/branding/resolver.test.ts — the project's
-// .env DATABASE_URL points at the prod Railway DB, so DB-touching tests are
-// unsafe to run locally.
-const selectMock = vi.fn();
+// Mock getDb so the helper exercises its logic without hitting the DB.
+// The helper makes TWO sequential queries: (1) userRoles → scopes, then
+// (2) locations within scoped orgs (only if org-scoped rows exist). We
+// queue mocks in that order per test.
+const queryMock = vi.fn();
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
     select: () => ({
       from: () => ({
-        where: () => selectMock(),
+        where: () => queryMock(),
       }),
     }),
   }),
@@ -18,30 +18,48 @@ vi.mock("@/lib/db", () => ({
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 
 describe("getLocationIdsForUser", () => {
-  it("returns an empty array when no location-scoped rows exist", async () => {
-    selectMock.mockResolvedValueOnce([]);
+  it("returns empty array when the user has no scoped roles", async () => {
+    queryMock.mockResolvedValueOnce([]);
     const ids = await getLocationIdsForUser("user-1");
     expect(ids).toEqual([]);
   });
 
-  it("returns the scopeId values from each row", async () => {
-    selectMock.mockResolvedValueOnce([
-      { scopeId: "11111111-1111-1111-1111-111111111111" },
-      { scopeId: "22222222-2222-2222-2222-222222222222" },
+  it("returns location scopeIds for location-scoped rows", async () => {
+    queryMock.mockResolvedValueOnce([
+      { scopeType: "location", scopeId: "loc-1" },
+      { scopeType: "location", scopeId: "loc-2" },
     ]);
     const ids = await getLocationIdsForUser("user-1");
-    expect(ids.sort()).toEqual([
-      "11111111-1111-1111-1111-111111111111",
-      "22222222-2222-2222-2222-222222222222",
-    ]);
+    expect(ids.sort()).toEqual(["loc-1", "loc-2"]);
   });
 
-  it("filters out null scopeId values defensively", async () => {
-    selectMock.mockResolvedValueOnce([
-      { scopeId: "33333333-3333-3333-3333-333333333333" },
-      { scopeId: null },
+  it("expands organization-scoped rows to all locations in those orgs", async () => {
+    queryMock
+      .mockResolvedValueOnce([
+        { scopeType: "organization", scopeId: "org-1" },
+      ])
+      .mockResolvedValueOnce([{ id: "loc-a" }, { id: "loc-b" }, { id: "loc-c" }]);
+    const ids = await getLocationIdsForUser("user-1");
+    expect(ids.sort()).toEqual(["loc-a", "loc-b", "loc-c"]);
+  });
+
+  it("dedupes overlapping location- and org-scoped rows", async () => {
+    queryMock
+      .mockResolvedValueOnce([
+        { scopeType: "location", scopeId: "loc-a" },
+        { scopeType: "organization", scopeId: "org-1" },
+      ])
+      .mockResolvedValueOnce([{ id: "loc-a" }, { id: "loc-b" }]);
+    const ids = await getLocationIdsForUser("user-1");
+    expect(ids.sort()).toEqual(["loc-a", "loc-b"]);
+  });
+
+  it("ignores rows with null scopeId", async () => {
+    queryMock.mockResolvedValueOnce([
+      { scopeType: "location", scopeId: "loc-1" },
+      { scopeType: "location", scopeId: null },
     ]);
     const ids = await getLocationIdsForUser("user-1");
-    expect(ids).toEqual(["33333333-3333-3333-3333-333333333333"]);
+    expect(ids).toEqual(["loc-1"]);
   });
 });
