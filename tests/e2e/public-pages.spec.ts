@@ -24,9 +24,10 @@ test.describe('Public Pages', () => {
   });
 
   test('forgot password page loads correctly', async ({ page }) => {
+    // /forgot-password 301-redirects to /email-link-signin (passwordless flow).
     await page.goto('/forgot-password');
 
-    await expect(page).toHaveTitle(/Forgot Password|Reset/i);
+    await expect(page).toHaveTitle(/Sign in with email link|Forgot Password|Reset/i);
 
     // Check form has email input (use first() to avoid matching footer newsletter)
     await expect(page.locator('input[type="email"]').first()).toBeVisible();

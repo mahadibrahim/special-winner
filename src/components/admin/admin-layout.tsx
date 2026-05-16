@@ -5,6 +5,7 @@ import { Menu, X, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getSidebarForRole } from "@/lib/admin/sidebar-for-role"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -25,6 +26,7 @@ export function AdminLayout({
   venueLabel,
   user,
 }: AdminLayoutProps) {
+  useHydrationBeacon()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navGroups = getSidebarForRole(role)
   const isSuperAdmin = role === "super_admin"

@@ -1,12 +1,19 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { users, userRoles, roles } from "@/lib/db/schema";
-import { hashPassword, createSession } from "@/lib/auth";
+import { users, userRoles, roles, sessions } from "@/lib/db/schema";
+import { hashPassword } from "@/lib/auth";
+import { lucia } from "@/lib/auth/lucia";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
+
+// Short pre-verification session: a freshly-signed-up account holds a
+// 1-hour session until they verify their email. On verification we
+// re-issue a normal 30-day session. Prevents bots from sitting on a
+// 30-day session with an unverified email.
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -88,8 +95,22 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Create session
-    await createSession(newUser.id, context);
+    // Create session, then shorten its expiry to 1 hour since the new
+    // user hasn't verified their email yet. The cookie attributes Lucia
+    // sets remain at the default 30-day lifetime — that's fine; the
+    // server-side validation rejects after 1 hour and the user re-signs-in
+    // or completes verification first.
+    const newSession = await lucia.createSession(newUser.id, {});
+    const sessionCookie = lucia.createSessionCookie(newSession.id);
+    context.cookies.set(
+      sessionCookie.name,
+      sessionCookie.value,
+      sessionCookie.attributes,
+    );
+    await getDb()
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() + ONE_HOUR_MS) })
+      .where(eq(sessions.id, newSession.id));
 
     const posthog = getPostHogServer();
     const phSessionId = context.request.headers.get("X-PostHog-Session-Id") || undefined;

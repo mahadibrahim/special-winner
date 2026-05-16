@@ -1,13 +1,19 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { users, userRoles, roles } from "@/lib/db/schema";
-import { verifyPassword, createSession } from "@/lib/auth";
+import { users, userRoles, roles, sessions } from "@/lib/db/schema";
+import { verifyPassword } from "@/lib/auth";
 import { lucia } from "@/lib/auth/lucia";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
+
+// Pre-verification session lifetime: when a signin succeeds but the
+// user hasn't verified their email yet, we shorten the session to 1 hour
+// (instead of the default 30 days). After verification, the
+// /api/auth/verify-email endpoint extends back to 30 days.
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 const signinSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -99,8 +105,22 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    // Create session
-    await createSession(user.id, context);
+    // Create session. If the user hasn't verified their email yet,
+    // shorten the session to 1 hour — this defends against bots holding
+    // a long-lived session on an unverified account.
+    const newSession = await lucia.createSession(user.id, {});
+    const sessionCookie = lucia.createSessionCookie(newSession.id);
+    context.cookies.set(
+      sessionCookie.name,
+      sessionCookie.value,
+      sessionCookie.attributes,
+    );
+    if (!user.emailVerified) {
+      await getDb()
+        .update(sessions)
+        .set({ expiresAt: new Date(Date.now() + ONE_HOUR_MS) })
+        .where(eq(sessions.id, newSession.id));
+    }
 
     // Fetch user roles
     const userRolesList = await getDb()
