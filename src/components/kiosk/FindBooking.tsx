@@ -70,59 +70,100 @@ export function FindBooking({ venueSlug, venueName, onBack }: Props) {
     }
   };
 
+  const idle = q.trim().length < 2 && !loading;
+  const noMatches = !loading && q.trim().length >= 2 && results.length === 0;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <button
         type="button"
         onClick={onBack}
-        className="text-sm text-stone-600"
+        className="text-sm text-ink-muted hover:text-ink transition-colors"
       >
         ← Back
       </button>
-      <header>
-        <h1 className="text-2xl font-semibold">{venueName}</h1>
-        <p className="text-stone-600 text-sm">Find your booking to finish anything left.</p>
+
+      <header className="space-y-2">
+        <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary">
+          Find your booking
+        </p>
+        <h1 className="font-display text-4xl md:text-5xl font-medium italic leading-[0.95] text-ink">
+          {venueName}
+        </h1>
+        <p className="text-sm text-ink-muted leading-relaxed pt-1">
+          We'll look up today's reservations so you can finish anything left.
+        </p>
       </header>
-      <input
-        type="text"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by name or last 4 of your phone…"
-        className="w-full px-4 py-3 border rounded-lg text-base"
-        autoFocus
-      />
+
+      <div className="space-y-2">
+        <input
+          type="text"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by name or phone"
+          className="w-full px-5 py-4 bg-paper border border-border focus:border-ink focus:outline-none rounded-xl text-lg placeholder:text-ink-faint transition-colors"
+          autoFocus
+        />
+        <p className="text-xs text-ink-muted px-1">
+          Tip: type your first name, or the last 4 digits of your phone number.
+        </p>
+      </div>
+
       {loading && <LoadingSkeleton />}
-      {!loading && q.trim().length >= 2 && results.length === 0 && (
-        <div className="p-4 text-center text-sm text-stone-500">
-          No bookings match "{q}" today. Ask the front desk to text or email a link.
+
+      {idle && (
+        <div className="rounded-xl border border-dashed border-border bg-cream-2 px-5 py-8 text-center">
+          <p className="font-display text-lg italic text-ink-muted">
+            Start typing to find your booking.
+          </p>
         </div>
       )}
-      <div className="space-y-2">
-        {results.map((r) => (
-          <button
-            type="button"
-            key={`${r.kind}-${r.targetId}`}
-            onClick={() => openResult(r)}
-            disabled={opening}
-            className="w-full text-left p-3 border rounded-lg bg-white flex items-center gap-3 disabled:opacity-50"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="font-medium truncate">{r.title}</div>
-              <div className="text-xs text-stone-500 truncate">{r.subtitle}</div>
-              <div className="text-xs mt-1 flex gap-2">
-                {r.waiverSigned ? (
-                  <span className="text-emerald-700">✓ waiver</span>
-                ) : (
-                  <span className="text-amber-700">⚠ waiver missing</span>
-                )}
-                {r.checkedIn && <span className="text-emerald-700">✓ checked in</span>}
+
+      {noMatches && (
+        <div className="rounded-xl border border-border bg-paper p-5">
+          <p className="text-sm font-medium text-ink mb-1">No bookings match "{q}" today.</p>
+          <p className="text-sm text-ink-muted">
+            Ask the front desk and we'll text or email a link to your phone.
+          </p>
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted px-1">
+            Today's matches
+          </p>
+          {results.map((r) => (
+            <button
+              type="button"
+              key={`${r.kind}-${r.targetId}`}
+              onClick={() => openResult(r)}
+              disabled={opening}
+              className="w-full text-left p-4 rounded-xl border border-border bg-paper hover:bg-cream-2 hover:border-ink/40 transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-ink truncate">{r.title}</div>
+                <div className="text-xs text-ink-muted truncate mt-0.5">{r.subtitle}</div>
+                <div className="text-xs mt-2 flex gap-3">
+                  {r.waiverSigned ? (
+                    <span className="text-sage">✓ waiver signed</span>
+                  ) : (
+                    <span className="text-ochre">⚠ waiver missing</span>
+                  )}
+                  {r.checkedIn && <span className="text-sage">✓ checked in</span>}
+                </div>
               </div>
-            </div>
-            <span className="text-stone-400 text-2xl">›</span>
-          </button>
-        ))}
-      </div>
-      {error && <div className="text-sm text-rose-700">{error}</div>}
+              <span aria-hidden="true" className="text-ink-faint text-2xl">›</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-rose-200/70 bg-rose-50/40 px-4 py-3 text-sm text-rose-800">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

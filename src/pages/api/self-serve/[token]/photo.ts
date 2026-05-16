@@ -22,10 +22,14 @@ export const POST: APIRoute = async ({ params, request }) => {
   if (!file) return json({ error: "file required" }, 400);
 
   const signer = await resolveSigner(tok.kind, tok.targetId);
+  // walkin_session: resolveSigner returns null by design — the token row
+  // carries the freshly-minted user's id in recipientUserId. Other kinds
+  // populate signer.recipientUserId.
+  const userId = signer?.recipientUserId ?? tok.recipientUserId;
   const target = signer?.isMinor && signer.familyMemberId
     ? { kind: "family_member" as const, id: signer.familyMemberId }
-    : signer?.recipientUserId
-      ? { kind: "user" as const, id: signer.recipientUserId }
+    : userId
+      ? { kind: "user" as const, id: userId }
       : null;
   if (!target) return json({ error: "No photo target" }, 422);
 

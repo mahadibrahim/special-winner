@@ -130,6 +130,7 @@ export async function putObject(
   body: Buffer | Uint8Array,
   contentType: string
 ): Promise<void> {
+  if (process.env.R2_MOCK === "1") return;
   await client().send(
     new PutObjectCommand({
       Bucket: bucket(),

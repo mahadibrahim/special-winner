@@ -16,16 +16,50 @@ if (slug) {
 } else {
   invalid = true;
 }
+
+const today = new Date().toLocaleDateString("en-US", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
 ---
-<BaseLayout title={venueName ? `${venueName} kiosk — Aspire Sports` : "Kiosk — Aspire Sports"} navigation={false} footer={false}>
-  <main class="max-w-xl mx-auto p-4">
-    {invalid ? (
-      <div class="p-6 rounded-lg border border-rose-200 bg-rose-50 text-rose-800">
-        <h1 class="font-semibold text-lg mb-2">Kiosk not configured</h1>
-        <p class="text-sm">This URL doesn't match an active venue. Ask the front desk for the correct kiosk URL.</p>
+<BaseLayout
+  title={venueName ? `${venueName} kiosk — Aspire Sports` : "Kiosk — Aspire Sports"}
+  navigation={false}
+  footer={false}
+>
+  <main class="min-h-screen bg-cream text-ink antialiased">
+    <!-- Editorial masthead -->
+    <div class="border-b border-border">
+      <div class="max-w-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+        <p class="text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
+          § The Front Desk
+        </p>
+        <p class="text-[11px] font-medium tracking-[0.08em] uppercase text-ink-faint">
+          {today}
+        </p>
       </div>
-    ) : (
-      <KioskLanding client:load venueSlug={slug!} venueName={venueName!} publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""} />
-    )}
+    </div>
+
+    <div class="max-w-2xl mx-auto px-6 py-10 md:py-14">
+      {invalid ? (
+        <div class="bg-paper border border-rose-200/70 rounded-xl p-6">
+          <h1 class="font-display text-2xl font-medium italic text-ink mb-2">
+            Kiosk not configured
+          </h1>
+          <p class="text-sm text-ink-muted leading-relaxed">
+            This URL doesn't match an active venue. Ask the front desk for the correct kiosk URL.
+          </p>
+        </div>
+      ) : (
+        <KioskLanding
+          client:load
+          venueSlug={slug!}
+          venueName={venueName!}
+          publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
+        />
+      )}
+    </div>
   </main>
 </BaseLayout>
