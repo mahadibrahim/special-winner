@@ -1,68 +1,227 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { ProgramGearBinding } from '../../../components/admin/program-gear-binding';
-import { getDb } from '../../../lib/db';
-import { seasons, programs, locations } from '../../../lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import {
+  SeasonHubLayout,
+  type SeasonHeader,
+  type SeasonStats,
+  type SeasonHubTab,
+} from "@/components/admin/super/season-hub-layout";
+import { ProgramGearBinding } from "@/components/admin/program-gear-binding";
+import { getDb } from "@/lib/db";
+import { seasons, programs } from "@/lib/db/schema/programs";
+import { sports } from "@/lib/db/schema/sports";
+import { locations } from "@/lib/db/schema/organizations";
+import { registrations } from "@/lib/db/schema/registrations";
+import { teams, games } from "@/lib/db/schema/teams";
+import { payments } from "@/lib/db/schema/payments";
+import { and, eq, sql, ne } from "drizzle-orm";
 
-// Middleware guarantees user is an admin for /admin routes.
+export const prerender = false;
+
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
-
+const userRoles = Astro.locals.userRoles ?? [];
+const primaryRole = userRoles[0]?.name ?? "parent";
 const organization = Astro.locals.organization;
-const { id } = Astro.params;
+const seasonId = Astro.params.id;
 
-if (!id || !organization?.id) {
-  return Astro.redirect('/admin/seasons');
+if (!seasonId || !organization?.id) {
+  return Astro.redirect("/admin/seasons");
 }
 
 const [row] = await getDb()
   .select({
-    season: seasons,
-    program: programs,
+    seasonId: seasons.id,
+    seasonName: seasons.name,
+    seasonStatus: seasons.status,
+    startDate: seasons.startDate,
+    endDate: seasons.endDate,
+    maxParticipants: seasons.maxParticipants,
+    programName: programs.name,
+    sportName: sports.name,
+    locationName: locations.name,
   })
   .from(seasons)
   .innerJoin(programs, eq(seasons.programId, programs.id))
+  .innerJoin(sports, eq(programs.sportId, sports.id))
   .innerJoin(locations, eq(programs.locationId, locations.id))
   .where(
-    and(eq(seasons.id, id), eq(locations.organizationId, organization.id)),
+    and(eq(seasons.id, seasonId), eq(locations.organizationId, organization.id)),
   );
 
 if (!row) {
-  return Astro.redirect('/admin/seasons');
+  return Astro.redirect("/admin/seasons");
 }
 
-const { season, program } = row;
+// Aggregate counts for the key-facts strip.
+const [[regCount], [teamCount], [gameCount], [waitCount], [refundCount], [revRow]] =
+  await Promise.all([
+    getDb()
+      .select({ n: sql<number>`count(*)::int` })
+      .from(registrations)
+      .where(
+        and(
+          eq(registrations.seasonId, seasonId),
+          ne(registrations.status, "cancelled"),
+        ),
+      ),
+    getDb()
+      .select({ n: sql<number>`count(*)::int` })
+      .from(teams)
+      .where(eq(teams.seasonId, seasonId)),
+    getDb()
+      .select({ n: sql<number>`count(*)::int` })
+      .from(games)
+      .where(eq(games.seasonId, seasonId)),
+    getDb()
+      .select({ n: sql<number>`count(*)::int` })
+      .from(registrations)
+      .where(
+        and(
+          eq(registrations.seasonId, seasonId),
+          eq(registrations.status, "waitlist"),
+        ),
+      ),
+    getDb()
+      .select({ n: sql<number>`count(*)::int` })
+      .from(registrations)
+      .where(
+        and(
+          eq(registrations.seasonId, seasonId),
+          eq(registrations.refundStatus, "pending_approval"),
+        ),
+      ),
+    getDb()
+      .select({
+        total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)::int`,
+      })
+      .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .where(
+        and(
+          eq(registrations.seasonId, seasonId),
+          eq(payments.status, "succeeded"),
+        ),
+      ),
+  ]);
+
+const header: SeasonHeader = {
+  id: row.seasonId,
+  name: row.seasonName,
+  programName: row.programName,
+  sportName: row.sportName,
+  locationName: row.locationName,
+  status: row.seasonStatus,
+  startDate: row.startDate.toString(),
+  endDate: row.endDate.toString(),
+};
+
+const stats: SeasonStats = {
+  capacityCurrent: regCount?.n ?? 0,
+  capacityMax: row.maxParticipants ?? null,
+  revenueCents: revRow?.total ?? 0,
+  teams: teamCount?.n ?? 0,
+  games: gameCount?.n ?? 0,
+  waitlistCount: waitCount?.n ?? 0,
+  refundsPending: refundCount?.n ?? 0,
+};
+
+// Phase 3 v1: simple placeholder tab contents that deep-link to the
+// existing top-level admin surfaces, plus the working gear binding.
+// Phase 3.7 follow-up fills in inline read-only previews.
+const placeholderForTab = (label: string, hrefs: { label: string; href: string }[]) => `
+  <div class="bg-white border border-border rounded p-6 space-y-3">
+    <p class="text-sm text-ink-muted">${label}</p>
+    <ul class="space-y-1 text-sm">
+      ${hrefs
+        .map(
+          (h) =>
+            `<li><a href="${h.href}" class="underline hover:no-underline">${h.label} →</a></li>`,
+        )
+        .join("")}
+    </ul>
+  </div>
+`;
+
+const tabContents = {
+  registrations: placeholderForTab(
+    `${stats.capacityCurrent} active registrations${
+      stats.capacityMax ? ` of ${stats.capacityMax} capacity` : ""
+    }.`,
+    [{ label: `View all registrations for this season`, href: `/admin/registrations?seasonId=${seasonId}` }],
+  ),
+  teams: placeholderForTab(
+    `${stats.teams} team${stats.teams === 1 ? "" : "s"} in this season.`,
+    [
+      { label: `Manage teams`, href: `/admin/teams?seasonId=${seasonId}` },
+      { label: `Gear binding`, href: `#gear` },
+    ],
+  ),
+  schedule: placeholderForTab(
+    `${stats.games} game${stats.games === 1 ? "" : "s"} scheduled.`,
+    [{ label: `Manage games`, href: `/admin/games?seasonId=${seasonId}` }],
+  ),
+  pricing: placeholderForTab(
+    `Pricing + discount codes for this season.`,
+    [
+      { label: `Edit season pricing`, href: `/admin/seasons/${seasonId}/edit` },
+      { label: `Manage discount codes`, href: `/admin/discount-codes?seasonId=${seasonId}` },
+    ],
+  ),
+  communications: placeholderForTab(
+    `Broadcasts and announcements for this season.`,
+    [
+      { label: `Send an announcement`, href: `/admin/announcements?seasonId=${seasonId}` },
+      { label: `View sent broadcasts`, href: `/admin/broadcasts?seasonId=${seasonId}` },
+    ],
+  ),
+  refunds: placeholderForTab(
+    stats.refundsPending > 0
+      ? `${stats.refundsPending} refund request${stats.refundsPending === 1 ? "" : "s"} pending approval.`
+      : `No refund requests pending for this season.`,
+    [{ label: `Open refunds queue`, href: `/admin/refunds` }],
+  ),
+  settings: placeholderForTab(
+    `Edit dates, capacity, registration window, and status.`,
+    [{ label: `Edit season`, href: `/admin/seasons/${seasonId}/edit` }],
+  ),
+} as Record<SeasonHubTab, string>;
+
+// Deserialize at the React boundary — Astro renders strings, React wraps.
+// We pass each tab as already-rendered HTML via dangerouslySetInnerHTML.
+const initialTab = (Astro.url.searchParams.get("tab") as SeasonHubTab) || "registrations";
 ---
 
-<BaseLayout title={`${season.name} — Seasons — Admin — Aspire Sports`} navigation={false} footer={false}>
+<BaseLayout
+  title={`${header.name} — Seasons — Admin — Aspire Sports`}
+  navigation={false}
+  footer={false}
+>
   <AdminLayout
     client:load
     role={primaryRole}
     currentPath="/admin/seasons"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <div class="max-w-4xl space-y-8">
-      <div>
-        <a
-          href="/admin/seasons"
-          class="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back to seasons
-        </a>
-        <h1 class="text-3xl font-bold text-gray-900 mt-2">{season.name}</h1>
-        <p class="text-sm text-muted-foreground mt-1">
-          Program: <span class="font-medium">{program.name}</span> ·{' '}
-          {season.startDate} – {season.endDate} · Status:{' '}
-          <span class="font-medium">{season.status}</span>
-        </p>
-      </div>
+    <SeasonHubLayout
+      client:load
+      season={header}
+      stats={stats}
+      initialTab={initialTab}
+      tabContents={{
+        registrations: <Fragment set:html={tabContents.registrations} />,
+        teams: <Fragment set:html={tabContents.teams} />,
+        schedule: <Fragment set:html={tabContents.schedule} />,
+        pricing: <Fragment set:html={tabContents.pricing} />,
+        communications: <Fragment set:html={tabContents.communications} />,
+        refunds: <Fragment set:html={tabContents.refunds} />,
+        settings: <Fragment set:html={tabContents.settings} />,
+      }}
+    />
 
-      <section>
-        <h2 class="text-xl font-semibold mb-4">Gear</h2>
-        <ProgramGearBinding client:load seasonId={season.id} />
-      </section>
-    </div>
+    <section id="gear" class="mt-8">
+      <h2 class="text-xl font-semibold mb-3 text-ink">Gear binding</h2>
+      <ProgramGearBinding client:load seasonId={header.id} />
+    </section>
   </AdminLayout>
 </BaseLayout>
