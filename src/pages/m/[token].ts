@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { consumeMagicLink } from "@/lib/auth/magic-link";
 import { lucia } from "@/lib/auth/lucia";
-import type { MagicLinkPurpose } from "@/lib/db/schema/magic-links";
+import { getUserRoles } from "@/lib/auth/roles";
+import { destinationFor } from "@/lib/auth/magic-link-destination";
 
 /**
  * Magic-link redemption endpoint.
@@ -35,82 +36,22 @@ export const GET: APIRoute = async ({ params, cookies, redirect, url }) => {
   const sessionCookie = lucia.createSessionCookie(session.id);
   cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
 
-  // Redirect to purpose-specific landing page
+  // For plain-login purposes, send admin roles to /admin instead of /dashboard.
+  const userRoles = await getUserRoles(result.userId);
+  const isAdminRole = userRoles.some(
+    (r) => r.name === "super_admin" || r.name === "location_admin",
+  );
+
   const destination = destinationFor(
     result.purpose,
     result.purposeContext,
     url.origin,
+    { isAdminRole },
   );
   return redirect(destination);
 };
 
-function destinationFor(
-  purpose: MagicLinkPurpose,
-  context: Record<string, unknown> | null,
-  origin: string,
-): string {
-  const ctx = context ?? {};
-
-  switch (purpose) {
-    case "login":
-    case "password_reset_login": {
-      const redirectTo = typeof ctx.redirectTo === "string" ? ctx.redirectTo : null;
-      // Only honor relative paths starting with "/" to prevent open redirects.
-      if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
-        return redirectTo;
-      }
-      return "/dashboard";
-    }
-
-    case "pay_invoice": {
-      const invoiceId = typeof ctx.invoiceId === "string" ? ctx.invoiceId : null;
-      if (invoiceId) {
-        return `/dashboard/payments/${invoiceId}/pay`;
-      }
-      return "/dashboard/payments";
-    }
-
-    case "register_for_season": {
-      const seasonId = typeof ctx.seasonId === "string" ? ctx.seasonId : null;
-      if (seasonId) {
-        return `/register/${seasonId}?returning=1`;
-      }
-      return "/#programs";
-    }
-
-    case "view_development_report": {
-      const kidId = typeof ctx.kidId === "string" ? ctx.kidId : null;
-      if (kidId) {
-        return `/dashboard/children/${kidId}/development`;
-      }
-      return "/dashboard";
-    }
-
-    case "update_medical_info": {
-      const kidId = typeof ctx.kidId === "string" ? ctx.kidId : null;
-      if (kidId) {
-        return `/dashboard/children/${kidId}?edit=medical`;
-      }
-      return "/dashboard";
-    }
-
-    case "update_phone":
-      return "/dashboard/settings?section=phone";
-
-    case "view_season_summary": {
-      const seasonId = typeof ctx.seasonId === "string" ? ctx.seasonId : null;
-      if (seasonId) {
-        return `/dashboard/seasons/${seasonId}/summary`;
-      }
-      return "/dashboard";
-    }
-
-    default:
-      return "/dashboard";
-  }
-}
-
-function expiredUrl(origin: string, reason: string): string {
+function expiredUrl(_origin: string, reason: string): string {
   const params = new URLSearchParams({ reason });
   return `/auth/link-expired?${params.toString()}`;
 }
