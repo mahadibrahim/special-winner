@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { db } from "@/lib/db";
-import { sports, programs, seasons } from "@/lib/db/schema";
+import { sports, programs, seasons, organizations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 // SSR — sport pages need request-time data and the catalog will change.
@@ -27,7 +27,14 @@ try {
     const rows = await db
       .select({ id: sports.id, name: sports.name, slug: sports.slug })
       .from(sports)
-      .where(and(eq(sports.slug, slug), eq(sports.active, true)))
+      .innerJoin(organizations, eq(organizations.id, sports.organizationId))
+      .where(
+        and(
+          eq(sports.slug, slug),
+          eq(sports.active, true),
+          eq(organizations.status, "active"),
+        ),
+      )
       .limit(1);
     sport = rows[0] ?? null;
 

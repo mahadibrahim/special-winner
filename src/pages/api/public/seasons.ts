@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { seasons, programs, sports, locations, ageGroups, registrations } from "@/lib/db/schema";
+import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql, asc } from "drizzle-orm";
 
 // Mock data for preview when DB has no seasons
@@ -66,6 +66,11 @@ export const GET: APIRoute = async ({ url }) => {
     // through admin endpoints with `?include_test=1`, not the public catalog.
     conditions.push(eq(seasons.isTest, false));
     conditions.push(eq(programs.isTest, false));
+    // Defense-in-depth: only surface rows owned by an active organization.
+    // CI/test orgs are soft-archived to status='inactive' (see PR #49), so
+    // this clause hides leaked fixtures even if their programs/seasons
+    // weren't tagged isTest=true.
+    conditions.push(eq(organizations.status, "active"));
 
     const rows = await db
       .select({
@@ -78,6 +83,7 @@ export const GET: APIRoute = async ({ url }) => {
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
+      .innerJoin(organizations, eq(organizations.id, sports.organizationId))
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
