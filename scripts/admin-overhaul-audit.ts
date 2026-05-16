@@ -37,8 +37,8 @@ const QUERIES: { name: string; sql: string }[] = [
     sql: `SELECT s.id, s.name FROM sports s LEFT JOIN programs p ON p.sport_id = s.id WHERE p.id IS NULL ORDER BY s.name`,
   },
   {
-    name: "Age groups with zero programs",
-    sql: `SELECT ag.id, ag.name FROM age_groups ag LEFT JOIN programs p ON p.age_group_id = ag.id WHERE p.id IS NULL ORDER BY ag.name`,
+    name: "Age groups with zero seasons (age_group_id lives on seasons, not programs)",
+    sql: `SELECT ag.id, ag.name FROM age_groups ag LEFT JOIN seasons s ON s.age_group_id = ag.id WHERE s.id IS NULL ORDER BY ag.name`,
   },
   {
     name: "Programs with zero seasons (review — may be intentional drafts)",
@@ -61,8 +61,32 @@ const QUERIES: { name: string; sql: string }[] = [
     sql: `SELECT v.id, v.name FROM venues v LEFT JOIN locations l ON l.id = v.location_id WHERE l.id IS NULL`,
   },
   {
-    name: "user_organization_access for missing or archived orgs",
-    sql: `SELECT uoa.id, uoa.user_id, uoa.organization_id FROM user_organization_access uoa LEFT JOIN organizations o ON o.id = uoa.organization_id WHERE o.id IS NULL OR o.status = 'archived'`,
+    name: "user_organization_access for missing/suspended/inactive orgs",
+    sql: `SELECT uoa.id, uoa.user_id, uoa.organization_id, o.status FROM user_organization_access uoa LEFT JOIN organizations o ON o.id = uoa.organization_id WHERE o.id IS NULL OR o.status IN ('suspended', 'inactive')`,
+  },
+  {
+    name: "Test-pattern Programs (name starts with 'Test Program')",
+    sql: `SELECT p.id, p.name, p.created_at FROM programs p WHERE p.name LIKE 'Test Program%' OR p.name LIKE 'test-%' ORDER BY p.created_at`,
+  },
+  {
+    name: "Test-pattern Age groups (name matches U10-1778… or Test-AG…)",
+    sql: `SELECT ag.id, ag.name FROM age_groups ag WHERE ag.name ~ '^(U[0-9]+|Adult)-1[0-9]{12}-' OR ag.name LIKE 'Test-AG-%' ORDER BY ag.name`,
+  },
+  {
+    name: "Test-pattern Seasons (name starts with 'Season 1778…')",
+    sql: `SELECT s.id, s.name, s.status FROM seasons s WHERE s.name ~ '^Season 1[0-9]{12}-' ORDER BY s.created_at`,
+  },
+  {
+    name: "Test-pattern Sports (anything with -1778… suffix)",
+    sql: `SELECT sp.id, sp.name FROM sports sp WHERE sp.name ~ '-1[0-9]{12}-' ORDER BY sp.name`,
+  },
+  {
+    name: "is_test=true programs",
+    sql: `SELECT p.id, p.name, p.created_at FROM programs p WHERE p.is_test = true ORDER BY p.created_at`,
+  },
+  {
+    name: "Programs created in the last hour (recent test churn)",
+    sql: `SELECT p.id, p.name, p.created_at FROM programs p WHERE p.created_at > NOW() - INTERVAL '1 hour' ORDER BY p.created_at DESC LIMIT 50`,
   },
   {
     name: "family_members with both parent and self null (DB CHECK enforces this — should always be 0)",
