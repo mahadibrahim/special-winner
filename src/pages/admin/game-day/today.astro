@@ -5,7 +5,7 @@ import { ActivityTrackingDashboard } from "../../../components/admin/game-day/ac
 
 // Middleware guarantees user is admin for /admin/** routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="Today — Game day — Admin — Aspire Sports" navigation={false} footer={false}>

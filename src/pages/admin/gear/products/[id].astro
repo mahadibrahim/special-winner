@@ -8,7 +8,7 @@ import { and, eq } from 'drizzle-orm';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 
 const organization = Astro.locals.organization;
 const { id } = Astro.params;

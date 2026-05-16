@@ -9,7 +9,7 @@ const user = {
   lastName: Astro.locals.user!.lastName,
   email: Astro.locals.user!.email,
 };
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="Organizations — Admin — Aspire Sports" navigation={false} footer={false}>

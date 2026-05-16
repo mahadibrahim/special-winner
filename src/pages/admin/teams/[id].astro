@@ -7,7 +7,7 @@ import { TeamGroupManagementSection } from '../../../components/admin/team-group
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 
 const { id } = Astro.params;
 if (!id) {

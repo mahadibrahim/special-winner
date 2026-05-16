@@ -203,6 +203,68 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (user && REDIRECT_IF_AUTHED.some((rx) => rx.test(pathname))) {
       return context.redirect("/dashboard");
     }
+
+    // Role-based admin home routing. After the role check above has confirmed
+    // the user is an admin of some kind, send them to the home that matches
+    // their role.
+    if (user) {
+      const userRoleNames = (context.locals.userRoles ?? []).map((r) => r.name);
+      const isSuperAdmin = userRoleNames.includes("super_admin");
+      const isLocationAdmin =
+        userRoleNames.includes("location_admin") && !isSuperAdmin;
+
+      // /admin (super_admin home) → location_admin redirected to /admin/venue
+      if (pathname === "/admin" || pathname === "/admin/") {
+        if (isLocationAdmin) {
+          return context.redirect("/admin/venue");
+        }
+      }
+
+      // location_admin is blocked from super-admin-only path prefixes.
+      // /admin/unauthorized is exempt so the 403 page itself stays reachable.
+      const SUPER_ADMIN_ONLY_PREFIXES = [
+        "/admin/seasons",
+        "/admin/programs",
+        "/admin/sports",
+        "/admin/age-groups",
+        "/admin/dropins",
+        "/admin/dropin",
+        "/admin/rentals",
+        "/admin/refunds",
+        "/admin/discount-codes",
+        "/admin/gear",
+        "/admin/branding",
+        "/admin/curriculum",
+        "/admin/compliance",
+        "/admin/users",
+        "/admin/organizations",
+        "/admin/settings",
+        "/admin/campaigns",
+        "/admin/re-registration-campaign",
+        "/admin/locations",
+        "/admin/venues",
+      ];
+      if (
+        isLocationAdmin &&
+        SUPER_ADMIN_ONLY_PREFIXES.some(
+          (p) => pathname === p || pathname.startsWith(p + "/"),
+        )
+      ) {
+        return context.redirect("/admin/unauthorized");
+      }
+
+      // /admin/venue/** is for venue managers and super-admins (super can use
+      // it to test the venue-manager flow). Non-admins fall through; they're
+      // already blocked by the ROUTE_RULES role check above, so this only
+      // catches edge cases.
+      if (
+        !isLocationAdmin &&
+        !isSuperAdmin &&
+        (pathname === "/admin/venue" || pathname.startsWith("/admin/venue/"))
+      ) {
+        return context.redirect("/admin/unauthorized");
+      }
+    }
   }
 
   return next();

@@ -5,7 +5,7 @@ import { ShootBulkGrid } from '../../../../components/media/shoot-bulk-grid';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="Bulk Weekend — Admin — Aspire Sports" navigation={false} footer={false}>

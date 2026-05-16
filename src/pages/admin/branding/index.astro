@@ -5,7 +5,7 @@ import { BrandProfilesList } from '../../../components/admin/branding/BrandProfi
 
 export const prerender = false;
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="Branding — Admin — Aspire Sports" navigation={false} footer={false}>

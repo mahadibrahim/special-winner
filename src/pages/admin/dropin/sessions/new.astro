@@ -5,7 +5,7 @@ import { SessionForm } from '../../../../components/admin/dropin/SessionForm';
 
 export const prerender = false;
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="New Drop-in Session — Admin — Aspire Sports" navigation={false} footer={false}>

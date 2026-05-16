@@ -5,7 +5,7 @@ import { BrandProfileEditor } from '../../../components/admin/branding/BrandProf
 
 export const prerender = false;
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 const profileId = Astro.params.id!;
 ---
 

@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 // look up the venue's display name. (If the id is cross-tenant, the API
 // fetches will return 404 and the UI will show empty state.)
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 const { id } = Astro.params;
 
 let venue: { id: string; name: string; locationName: string } | null = null;

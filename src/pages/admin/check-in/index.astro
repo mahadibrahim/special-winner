@@ -11,7 +11,7 @@ export const prerender = false;
 
 // Middleware guarantees admin for /admin/**
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 const orgId = Astro.locals.organization?.id;
 
 let venuesList: { id: string; name: string }[] = [];

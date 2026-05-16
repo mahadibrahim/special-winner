@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 
 export const prerender = false;
 const adminUser = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 const userId = Astro.params.id!;
 
 const db = getDb();

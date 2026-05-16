@@ -5,7 +5,7 @@ import { RentalsList } from '../../../components/admin/rentals/RentalsList';
 
 export const prerender = false;
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 ---
 
 <BaseLayout title="Field Rentals — Admin — Aspire Sports" navigation={false} footer={false}>
