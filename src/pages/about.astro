@@ -1,13 +1,62 @@
 ---
 export const prerender = true;
 import BaseLayout from '@/layouts/BaseLayout.astro';
+
+// JSON-LD Organization schema. `founder` references a Person; `location`
+// references the two Columbus venues. Update postal addresses + lat/lng
+// when partner facility agreements are finalized (currently {{TBD}}).
+const orgSchema = {
+  "@context": "https://schema.org",
+  "@type": "SportsOrganization",
+  name: "Aspire Sports",
+  url: "https://aspiresportsohio.com",
+  foundingDate: "2023",
+  founder: {
+    "@type": "Person",
+    name: "Bashir Awl",
+    jobTitle: "Founder",
+  },
+  areaServed: {
+    "@type": "City",
+    name: "Columbus",
+    containedInPlace: {
+      "@type": "State",
+      name: "Ohio",
+    },
+  },
+  sport: ["Soccer"],
+  location: [
+    {
+      "@type": "Place",
+      name: "Aspire Sports — Worthington",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Worthington",
+        addressRegion: "OH",
+        addressCountry: "US",
+      },
+    },
+    {
+      "@type": "Place",
+      name: "Aspire Sports — Downtown / OSU",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Columbus",
+        addressRegion: "OH",
+        addressCountry: "US",
+      },
+    },
+  ],
+};
 ---
 
 <BaseLayout
-  title="About — Aspire Sports"
-  description="Youth sports, done with conviction. Aspire Sports is an evidence-based youth athletics program serving Powell, Ohio and Central Ohio families since 2015."
+  title="About Aspire Sports — Columbus soccer leagues for adults and kids"
+  description="Aspire Sports is a Columbus, Ohio sports operator founded in 2023 by Bashir Awl. Adult co-ed soccer leagues, youth soccer programs, and two neighborhood-anchored venues in Worthington and downtown Columbus."
   bodyClass="bg-cream text-ink antialiased"
 >
+  <script type="application/ld+json" set:html={JSON.stringify(orgSchema)} />
+
   <main id="main-content" class="relative pt-28 lg:pt-36">
     <div class="pointer-events-none absolute inset-0 opacity-[0.25] paper-grain"></div>
 
@@ -15,32 +64,28 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     <header class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pb-16 lg:pb-24">
       <div class="flex items-baseline justify-between border-b border-ink/20 pb-6">
         <span class="label-sm text-ink-muted">§ About Aspire</span>
-        <span class="label-sm text-ink-muted hidden sm:inline">Est. 2015 · Powell, Ohio</span>
+        <span class="label-sm text-ink-muted hidden sm:inline">Est. 2023 · Columbus, Ohio</span>
       </div>
 
       <div class="grid grid-cols-12 gap-6 lg:gap-12 mt-16 lg:mt-24">
         <div class="col-span-12 lg:col-span-9">
           <p class="label-sm text-primary-orange mb-6 flex items-center gap-3">
             <span class="inline-block w-8 h-px bg-primary-orange"></span>
-            Our Philosophy
+            Our Mission
           </p>
           <h1
             class="display text-ink"
             style="font-size: clamp(3rem, 9vw, 9rem); line-height: 0.92; letter-spacing: -0.035em; font-weight: 500;"
           >
-            The case for
-            <br />
-            doing it{" "}
-            <span class="italic text-primary-orange">right</span>.
+            Make sports
+            <span class="italic text-primary-orange">better</span>.
           </h1>
         </div>
 
         <div class="col-span-12 lg:col-span-3 lg:pl-8 lg:border-l lg:border-ink/15">
           <p class="label-sm text-ink-muted mb-4">In one sentence</p>
           <p class="text-ink-2 text-base leading-relaxed serif italic">
-            We coach kids the way motor learning research says they
-            should be coached — and we publish our work so you can
-            judge it for yourself.
+            Aspire is a Columbus sports operator running leagues — adult and youth — the way leagues ought to be run.
           </p>
         </div>
       </div>
@@ -50,39 +95,32 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     <section class="relative max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pb-24 lg:pb-32 border-t border-ink/15">
       <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mt-16 mb-14">
         <h2 class="label-sm text-ink-muted">§ The Story</h2>
-        <span class="label-sm text-ink-muted">Why we started</span>
+        <span class="label-sm text-ink-muted">Why Aspire exists</span>
       </div>
 
       <div class="grid grid-cols-12 gap-8 lg:gap-16">
         <div class="col-span-12 lg:col-span-8">
           <p class="text-lg lg:text-xl text-ink leading-[1.55] mb-8">
-            <span class="drop-cap">A</span>spire started in 2015 with a
-            simple premise: youth sports in Central Ohio had been hijacked
-            by tournament economics, and the kids were paying for it.
-            Travel teams were charging five thousand dollars a year to
-            put nine-year-olds on buses. Local leagues were running three
-            volunteer coaches across four hundred kids with no shared
-            curriculum. Parents had a choice between expensive and
-            thin — and neither one was developing the athletes they were
-            billed as developing.
+            <span class="drop-cap">A</span>spire Sports was founded in 2023 by Bashir Awl, a Columbus
+            resident with a simple conviction: most leagues — youth and adult — are run worse than
+            they need to be. National chains optimize for square footage and forget what
+            league night is for. Volunteer leagues run thin on logistics and lose families to
+            cancelled games. Travel teams ask parents for thousands of dollars a year and still
+            don't develop the player they advertise.
           </p>
           <p class="text-base lg:text-lg text-ink-2 leading-relaxed mb-8 max-w-prose">
-            We built Aspire as a third option. Professional coaching at a
-            price that matches a rec league. A shared curriculum rooted
-            in published motor learning research — not in whatever
-            drill the head coach remembered from his college team.
-            Progressions that respect how kids actually absorb new
-            skills. And we write it all down, so you can see exactly
-            what your kid is being taught, week by week.
+            Aspire was built to operate in the middle: professional logistics at neighborhood
+            scale, with the captain experience and the post-game scene treated as the product —
+            not as overhead. The refs are on payroll. The schedule doesn't move. The standings
+            update on time. We invest disproportionately in the boring stuff, because the boring
+            stuff is where most operators quietly lose the trust.
           </p>
           <p class="text-base lg:text-lg text-ink-2 leading-relaxed max-w-prose">
-            Ten years later, we're still in Powell, still running four
-            sports, still free to read. We've coached thousands of kids
-            through the program. Some of them are in college now. Some
-            of them are coaches on our own staff. And we're still
-            building — still arguing about progressions, still rewriting
-            curriculum, still learning from every season what we got
-            right and what we need to change.
+            We're launching with soccer in Columbus — adult co-ed 7v7 at our downtown venue,
+            with youth programming at our Worthington facility. Flag football follows in 2027.
+            One sport done excellently is worth more than two done adequately. The wedge is
+            local culture: we know the captains by name, we run leagues at the same field every
+            week, and we publish what we're building as we build it.
           </p>
         </div>
 
@@ -93,46 +131,46 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
               class="display text-ink"
               style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
             >
-              2015
+              2023
             </p>
             <p class="text-sm text-ink-muted mt-2 serif italic">
-              Powell, Ohio
+              Columbus, Ohio
             </p>
           </div>
           <div>
-            <p class="label-sm text-primary-orange mb-3">Sports</p>
+            <p class="label-sm text-primary-orange mb-3">Founder</p>
             <p
               class="display text-ink"
               style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
             >
-              Four
+              Bashir Awl
             </p>
             <p class="text-sm text-ink-muted mt-2 serif italic">
-              Soccer · Basketball · Hockey · Baseball
+              Locally based, founder-operated
             </p>
           </div>
           <div>
-            <p class="label-sm text-primary-orange mb-3">Ages</p>
+            <p class="label-sm text-primary-orange mb-3">Programs</p>
             <p
               class="display text-ink"
               style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
             >
-              4–14
+              Adult + Youth
             </p>
             <p class="text-sm text-ink-muted mt-2 serif italic">
-              Long-term development model
+              Co-ed 7v7 soccer · Youth development
             </p>
           </div>
           <div>
-            <p class="label-sm text-primary-orange mb-3">Framework</p>
+            <p class="label-sm text-primary-orange mb-3">Venues</p>
             <p
               class="display text-ink"
               style="font-size: 2rem; line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
             >
-              TDEQ-5
+              Two
             </p>
             <p class="text-sm text-ink-muted mt-2 serif italic">
-              Plus PCA Double-Goal Coach &amp; ELM
+              Worthington · Downtown / OSU
             </p>
           </div>
         </aside>
@@ -144,40 +182,46 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-24 lg:py-36">
         <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mb-16">
           <h2 class="label-sm text-ink-muted">§ What We Believe</h2>
-          <span class="label-sm text-ink-muted">Five positions</span>
+          <span class="label-sm text-ink-muted">Six positions</span>
         </div>
 
         <div class="space-y-0 border-t border-ink/15">
           {[
             {
               num: '01',
-              kicker: 'Development',
-              title: 'Talent is developed, not discovered.',
-              body: "The kid who looks fastest at seven is rarely the kid who wins at seventeen. We coach the body that'll still be improving at age twenty-five, not the one that'll peak at the end of the season.",
+              kicker: 'Captains',
+              title: 'The captain is the product.',
+              body: "A league is only as good as the captains who run their teams. Every player's first impression of Aspire goes through them, so they get the treatment that reflects that — better tools, real support, a person to call when something breaks.",
             },
             {
               num: '02',
-              kicker: 'Curriculum',
-              title: 'Every drill has a reason.',
-              body: "Our progressions come from published motor learning research. If we can't explain why a drill sits where it sits in the week, we don't run the drill.",
+              kicker: 'Operations',
+              title: 'Operations are the brand.',
+              body: 'Refs show up. Schedules don\'t move. Standings update on time. Boring, unsexy, durable — and the place most operators quietly lose the trust. We treat the middle 80% of running a league as the product, not as overhead.',
             },
             {
               num: '03',
-              kicker: 'Coaching',
-              title: 'Coaches are teachers first.',
-              body: 'Every Aspire coach is trained on the Positive Coaching Alliance Double-Goal model. Winning is the small goal; life lessons are the big one. We take both seriously, in that order.',
+              kicker: 'Local',
+              title: 'Local before scale.',
+              body: "We expand by getting one neighborhood right, then the next — not by stamping a template across a state. Facility-owned competitors can't follow us geographically; national chains can't fake the local culture.",
             },
             {
               num: '04',
-              kicker: 'Transparency',
-              title: 'Parents deserve to see what we teach.',
-              body: 'Our coaching guides are published on this website, free to read, free to print, free to share. When you ask how we teach shooting, the answer is a page number.',
+              kicker: 'Social',
+              title: 'The post-game is the product.',
+              body: 'The reason adults come back to a league isn\'t that the schedule was efficient. It\'s that they made friends. League nights have an identity; the post-game scene is part of the offer; we design for it.',
             },
             {
               num: '05',
-              kicker: 'Fun',
-              title: "If the kids don't love it, nothing else matters.",
-              body: "Development research is unambiguous: long-term participation in sport is the biggest predictor of long-term athletic outcome. A kid who quits at nine doesn't get to develop.",
+              kicker: 'Focus',
+              title: 'One sport, done excellently.',
+              body: "We're soccer-only at launch. Flag football follows a season later. Founding-cohort identity gets diluted the moment you launch parallel sports, and most operators don't recover the original league after they do.",
+            },
+            {
+              num: '06',
+              kicker: 'Transparency',
+              title: 'Show your work.',
+              body: 'Schedules, refs, rules, refund policy — all visible, all the time. We don\'t hide pricing. We don\'t hide the schedule until you pay. If you can\'t see it on the website, ask and we\'ll fix that.',
             },
           ].map((b) => (
             <div class="py-14 lg:py-20 border-b border-ink/15 grid grid-cols-12 gap-6 lg:gap-12">
@@ -207,6 +251,119 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       </div>
     </section>
 
+    {/* Team scaffold — placeholders for future content */}
+    <section class="relative border-t border-ink/15">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-24 lg:py-32">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mb-14">
+          <h2 class="label-sm text-ink-muted">§ The Team</h2>
+          <span class="label-sm text-ink-muted">Who runs Aspire</span>
+        </div>
+
+        <div class="grid grid-cols-12 gap-8 lg:gap-12">
+          <div class="col-span-12 lg:col-span-7">
+            <p class="text-lg lg:text-xl text-ink-2 leading-relaxed mb-8 max-w-prose">
+              Aspire is founder-operated at launch. Bashir Awl handles strategy, operations,
+              partnerships, and the curriculum. Coaches and referees join the platform on a
+              contract basis through a shared pool — vetted, scheduled, and paid through one
+              system so quality doesn't drift from week to week.
+            </p>
+            <p class="text-base lg:text-lg text-ink-muted leading-relaxed max-w-prose italic">
+              {/* TODO(founder): replace this block with the bench description once 2027
+                  hires are confirmed. The team page is the second-most-visited page in
+                  most local sports businesses — fill in faces here. */}
+              We're hiring in 2027 as adult leagues, youth programming, and flag football all
+              scale up at the same time. Captains, refs, coaches, operations leads — if you
+              think you'd be good at running a piece of Aspire, the contact form is below.
+            </p>
+          </div>
+
+          <div class="col-span-12 lg:col-span-5 lg:pl-8 lg:border-l lg:border-ink/15 space-y-6">
+            {/* Founder card */}
+            <div class="bg-paper border border-ink/15 rounded-lg p-6">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-full bg-cream-2 flex items-center justify-center shrink-0 ring-1 ring-ink/15">
+                  {/* {{TBD: founder portrait — drop /public/img/team/bashir-awl.jpg in here}} */}
+                  <span class="font-display italic text-2xl text-ink">BA</span>
+                </div>
+                <div>
+                  <p class="label-sm text-primary-orange mb-1">Founder</p>
+                  <p class="font-display text-xl italic text-ink leading-tight">Bashir Awl</p>
+                  <p class="text-sm text-ink-muted mt-1 leading-snug">
+                    Founder, CEO. Columbus-based. Runs the league.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Placeholder card — visible but clearly scaffolded */}
+            <div class="border border-dashed border-ink/25 rounded-lg p-6 bg-cream-2/50">
+              <p class="label-sm text-ink-muted mb-2">{`{{TBD — Operations lead}}`}</p>
+              <p class="text-sm text-ink-muted leading-relaxed italic">
+                Reserved for the first ops hire — likely Q2 2027 when adult leagues reach the
+                second division. Drop a real name + headshot here when signed.
+              </p>
+            </div>
+
+            <div class="border border-dashed border-ink/25 rounded-lg p-6 bg-cream-2/50">
+              <p class="label-sm text-ink-muted mb-2">{`{{TBD — Director of coaching}}`}</p>
+              <p class="text-sm text-ink-muted leading-relaxed italic">
+                Reserved for the lead of the coach/ref pool once it crosses ~25 contractors.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Highlights / milestones — scaffold */}
+    <section class="relative bg-cream-2 border-t border-ink/15">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-24 lg:py-32">
+        <div class="flex items-baseline justify-between border-b border-ink/20 pb-4 mb-14">
+          <h2 class="label-sm text-ink-muted">§ Milestones</h2>
+          <span class="label-sm text-ink-muted">Where we are</span>
+        </div>
+
+        <ol class="space-y-10 border-l border-ink/15 pl-8 lg:pl-12 max-w-3xl">
+          {[
+            {
+              date: '2023',
+              title: 'Aspire is founded.',
+              body: 'Bashir Awl incorporates Aspire Sports in Columbus, Ohio with a focus on neighborhood-scale league operations.',
+            },
+            {
+              date: '2026',
+              title: 'Two-venue operating partnership.',
+              body: 'Aspire confirms operating-partner agreements at two indoor facilities — one in Worthington and one downtown / near OSU — covering adult and youth programming respectively.',
+            },
+            {
+              date: 'Summer 2026',
+              title: 'Soccer season 1 launches.',
+              body: 'Adult co-ed 7v7, eight-team founders\' division at the downtown venue. Founders\' tournament precedes public registration.',
+            },
+            {
+              date: 'Winter 2027',
+              title: 'Flag football season 1.',
+              body: 'Aspire\'s second sport launches one season after soccer reaches a steady cadence.',
+            },
+            {
+              date: `{{TBD}}`,
+              title: 'Next milestone.',
+              body: '{{TODO(founder): drop the next public-facing milestone here as it lands — first sold-out night, first 100-captain mark, first partner sponsorship, etc.}}',
+            },
+          ].map((m) => (
+            <li class="relative">
+              <span
+                class="absolute -left-[2.65rem] lg:-left-[3.65rem] top-1 w-3 h-3 rounded-full bg-primary-orange ring-4 ring-cream-2"
+              ></span>
+              <p class="label-sm text-primary-orange mb-2">{m.date}</p>
+              <h3 class="font-display text-2xl italic text-ink mb-2 leading-tight">{m.title}</h3>
+              <p class="text-base text-ink-2 leading-relaxed max-w-2xl">{m.body}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
     {/* Footer CTA */}
     <section class="relative border-t border-ink/15">
       <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-20 lg:py-28">
@@ -216,17 +373,21 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
               class="display text-ink"
               style="font-size: clamp(2rem, 5vw, 4rem); line-height: 1; letter-spacing: -0.02em; font-weight: 500;"
             >
-              See what we coach
+              See it
               <span class="italic text-primary-orange">in practice</span>.
             </h2>
+            <p class="text-base lg:text-lg text-ink-2 mt-6 max-w-prose">
+              The league pages have the schedule, the venues have the field info, and the
+              founders' tournament is open if you want to play before season 1 starts.
+            </p>
           </div>
           <div class="col-span-12 lg:col-span-4 lg:text-right flex flex-wrap gap-3 lg:justify-end">
             <a
-              href="/guides"
+              href="/locations"
               class="inline-flex items-center gap-3 border border-ink/25 text-ink px-6 py-4 text-sm font-medium uppercase hover:bg-ink hover:text-cream transition-colors duration-300"
               style="letter-spacing: 0.08em;"
             >
-              Read the guides
+              See the venues
             </a>
             <a
               href="/programs"
