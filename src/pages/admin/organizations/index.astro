@@ -9,10 +9,11 @@ const user = {
   lastName: Astro.locals.user!.lastName,
   email: Astro.locals.user!.email,
 };
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
 ---
 
 <BaseLayout title="Organizations — Admin — Aspire Sports" navigation={false} footer={false}>
-  <AdminLayout client:load currentPath="/admin/organizations" user={user}>
+  <AdminLayout client:load role={primaryRole} currentPath="/admin/organizations" user={user}>
     <OrganizationsList client:load />
   </AdminLayout>
 </BaseLayout>

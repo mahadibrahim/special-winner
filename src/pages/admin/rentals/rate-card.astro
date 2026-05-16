@@ -5,11 +5,13 @@ import { RentalRateCardEditor } from '../../../components/admin/rentals/RentalRa
 
 export const prerender = false;
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
 ---
 
 <BaseLayout title="Rental Rate Card — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/rentals/rate-card"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >

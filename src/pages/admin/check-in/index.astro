@@ -11,6 +11,7 @@ export const prerender = false;
 
 // Middleware guarantees admin for /admin/**
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
 const orgId = Astro.locals.organization?.id;
 
 let venuesList: { id: string; name: string }[] = [];
@@ -28,6 +29,7 @@ if (orgId) {
 <BaseLayout title="Check-in — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/check-in"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >

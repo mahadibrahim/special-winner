@@ -5,11 +5,12 @@ import { ShootDetail } from '../../../../components/media/shoot-detail';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
 const id = Astro.params.id as string;
 ---
 
 <BaseLayout title="Shoot Detail — Admin — Aspire Sports" navigation={false} footer={false}>
-  <AdminLayout client:load currentPath="/admin/media/shoots"
+  <AdminLayout client:load role={primaryRole} currentPath="/admin/media/shoots"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
     <ShootDetail client:load sessionId={id} />
   </AdminLayout>

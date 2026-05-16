@@ -5,11 +5,13 @@ import { RentalCreateForm } from '../../../components/admin/rentals/RentalCreate
 
 export const prerender = false;
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
 ---
 
 <BaseLayout title="New Field Rental — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/rentals"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >

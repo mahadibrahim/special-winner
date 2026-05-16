@@ -1,45 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import {
-  LayoutDashboard,
-  Trophy,
-  MapPin,
-  Calendar,
-  Users,
-  Users2,
-  CreditCard,
-  Settings,
-  Menu,
-  X,
-  ChevronDown,
-  LogOut,
-  Dumbbell,
-  Building2,
-  RefreshCcw,
-  BookOpen,
-  CalendarDays,
-  Megaphone,
-  MessageSquare,
-  UserPlus,
-  Send,
-  Tag,
-  ListOrdered,
-  BarChart3,
-  ShoppingBag,
-  ShieldCheck,
-  Zap,
-  Palette,
-  Receipt,
-  Key,
-  ClipboardCheck,
-} from "lucide-react"
+import { Menu, X, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { getSidebarForRole } from "@/lib/admin/sidebar-for-role"
 
 interface AdminLayoutProps {
   children: React.ReactNode
   currentPath: string
+  role: string
+  venueLabel?: string
   user: {
     firstName: string | null
     lastName: string | null
@@ -47,42 +18,20 @@ interface AdminLayoutProps {
   } | null
 }
 
-const navigation = [
-  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "Organizations", href: "/admin/organizations", icon: Building2 },
-  { name: "Sports", href: "/admin/sports", icon: Trophy },
-  { name: "Locations", href: "/admin/locations", icon: MapPin },
-  { name: "Venues", href: "/admin/venues", icon: MapPin },
-  { name: "Programs", href: "/admin/programs", icon: Dumbbell },
-  { name: "Seasons", href: "/admin/seasons", icon: Calendar },
-  { name: "Age Groups", href: "/admin/age-groups", icon: Users },
-  { name: "Teams", href: "/admin/teams", icon: Users2 },
-  { name: "Games", href: "/admin/games", icon: CalendarDays },
-  { name: "Drop-in Sessions", href: "/admin/dropin/sessions", icon: Zap },
-  { name: "Drop-in Rate Card", href: "/admin/dropin/rate-card", icon: Receipt },
-  { name: "Rentals", href: "/admin/rentals", icon: Key },
-  { name: "Rental Rate Card", href: "/admin/rentals/rate-card", icon: Receipt },
-  { name: "Check-in", href: "/admin/check-in", icon: ClipboardCheck },
-  { name: "Branding", href: "/admin/branding", icon: Palette },
-  { name: "Curriculum", href: "/admin/curriculum", icon: BookOpen },
-  { name: "Registrations", href: "/admin/registrations", icon: Users },
-  { name: "Walk-Up Registration", href: "/admin/walk-up-registration", icon: UserPlus },
-  { name: "Re-Registration Campaign", href: "/admin/re-registration-campaign", icon: Send },
-  { name: "Waitlist", href: "/admin/waitlist", icon: ListOrdered },
-  { name: "Refunds", href: "/admin/refunds", icon: RefreshCcw },
-  { name: "Payments", href: "/admin/payments", icon: CreditCard },
-  { name: "Discount Codes", href: "/admin/discount-codes", icon: Tag },
-  { name: "Gear", href: "/admin/gear", icon: ShoppingBag },
-  { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Messages", href: "/messages", icon: MessageSquare },
-  { name: "Announcements", href: "/admin/announcements", icon: Megaphone },
-  { name: "Reports", href: "/admin/reports", icon: BarChart3 },
-  { name: "Compliance", href: "/admin/compliance", icon: ShieldCheck },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
-]
-
-export function AdminLayout({ children, currentPath, user }: AdminLayoutProps) {
+export function AdminLayout({
+  children,
+  currentPath,
+  role,
+  venueLabel,
+  user,
+}: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const navGroups = getSidebarForRole(role)
+  const isSuperAdmin = role === "super_admin"
+  const homeHref = isSuperAdmin ? "/admin" : "/admin/venue"
+  const sidebarSubtitle = isSuperAdmin
+    ? "Super-admin"
+    : (venueLabel ?? "Venue")
 
   return (
     <div className="min-h-screen bg-cream">
@@ -104,9 +53,11 @@ export function AdminLayout({ children, currentPath, user }: AdminLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-4 bg-navy">
-            <a href="/admin" className="flex items-center gap-3">
+            <a href={homeHref} className="flex items-center gap-3">
               <img src="/images/logo.svg" alt="Aspire Sports" className="h-8 w-auto" />
-              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/50">Admin</span>
+              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-cream/50">
+                {sidebarSubtitle}
+              </span>
             </a>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -117,26 +68,38 @@ export function AdminLayout({ children, currentPath, user }: AdminLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
-              const isActive = currentPath === item.href ||
-                (item.href !== "/admin" && currentPath.startsWith(item.href))
-              return (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-navy text-cream"
-                      : "text-cream/60 hover:bg-navy hover:text-cream"
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
-                </a>
-              )
-            })}
+          <nav className="flex-1 px-2 py-4 overflow-y-auto">
+            {navGroups.map((group, gi) => (
+              <div key={gi} className={gi === 0 ? "" : "mt-4"}>
+                {group.name && (
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-cream/40">
+                    {group.name}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive =
+                      currentPath === item.href ||
+                      (item.href !== "/admin" && currentPath.startsWith(item.href))
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-navy text-cream"
+                            : "text-cream/60 hover:bg-navy hover:text-cream"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="flex-1 truncate">{item.name}</span>
+                      </a>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           {/* User section */}
@@ -151,7 +114,9 @@ export function AdminLayout({ children, currentPath, user }: AdminLayoutProps) {
                     ? `${user.firstName} ${user.lastName}`
                     : user?.email}
                 </p>
-                <p className="text-xs text-cream/50 truncate">Administrator</p>
+                <p className="text-xs text-cream/50 truncate">
+                  {isSuperAdmin ? "Super-admin" : "Venue manager"}
+                </p>
               </div>
             </div>
             <form action="/api/auth/signout" method="POST" className="mt-3">

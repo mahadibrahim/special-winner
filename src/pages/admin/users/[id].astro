@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 
 export const prerender = false;
 const adminUser = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
 const userId = Astro.params.id!;
 
 const db = getDb();
@@ -27,6 +28,7 @@ const [target] = await db
 <BaseLayout title="User — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/users"
     user={{ firstName: adminUser.firstName, lastName: adminUser.lastName, email: adminUser.email }}
   >

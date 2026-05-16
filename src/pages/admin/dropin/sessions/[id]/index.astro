@@ -5,12 +5,14 @@ import { AdminSessionDetail } from '../../../../../components/admin/dropin/Admin
 
 export const prerender = false;
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "parent";
 const sessionId = Astro.params.id!;
 ---
 
 <BaseLayout title="Drop-in Session — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/dropin/sessions"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
