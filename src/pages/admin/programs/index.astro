@@ -1,12 +1,29 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { ProgramsList } from '../../../components/admin/programs-list';
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { ProgramsList } from "@/components/admin/programs-list";
+import { SportsList } from "@/components/admin/sports-list";
+import { AgeGroupsList } from "@/components/admin/age-groups-list";
+
+export const prerender = false;
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
 const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
-const isSuperAdmin = (Astro.locals.userRoles ?? []).some((r) => r.name === "super_admin");
+const isSuperAdmin = (Astro.locals.userRoles ?? []).some(
+  (r) => r.name === "super_admin",
+);
+
+type Tab = "programs" | "sports" | "age-groups";
+const tabRaw = Astro.url.searchParams.get("tab");
+const tab: Tab =
+  tabRaw === "sports" || tabRaw === "age-groups" ? tabRaw : "programs";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "programs", label: "Programs" },
+  { id: "sports", label: "Sports" },
+  { id: "age-groups", label: "Age groups" },
+];
 ---
 
 <BaseLayout title="Programs — Admin — Aspire Sports" navigation={false} footer={false}>
@@ -16,6 +33,27 @@ const isSuperAdmin = (Astro.locals.userRoles ?? []).some((r) => r.name === "supe
     currentPath="/admin/programs"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <ProgramsList client:load isSuperAdmin={isSuperAdmin} />
+    <div class="space-y-4">
+      <div class="border-b border-border flex gap-4 overflow-x-auto">
+        {
+          TABS.map((t) => (
+            <a
+              href={t.id === "programs" ? "/admin/programs" : `/admin/programs?tab=${t.id}`}
+              class={`py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
+                tab === t.id
+                  ? "border-ink text-ink font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {t.label}
+            </a>
+          ))
+        }
+      </div>
+
+      {tab === "programs" && <ProgramsList client:load isSuperAdmin={isSuperAdmin} />}
+      {tab === "sports" && <SportsList client:load />}
+      {tab === "age-groups" && <AgeGroupsList client:load />}
+    </div>
   </AdminLayout>
 </BaseLayout>
