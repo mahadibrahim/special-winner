@@ -12,10 +12,10 @@ import { getDb } from "@/lib/db";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { sports } from "@/lib/db/schema/sports";
 import { locations } from "@/lib/db/schema/organizations";
-import { registrations } from "@/lib/db/schema/registrations";
+import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { teams, games } from "@/lib/db/schema/teams";
 import { payments } from "@/lib/db/schema/payments";
-import { and, eq, sql, ne } from "drizzle-orm";
+import { and, eq, sql, ne, desc, asc } from "drizzle-orm";
 
 export const prerender = false;
 
@@ -126,9 +126,69 @@ const stats: SeasonStats = {
   refundsPending: refundCount?.n ?? 0,
 };
 
-// Phase 3 v1: simple placeholder tab contents that deep-link to the
-// existing top-level admin surfaces, plus the working gear binding.
-// Phase 3.7 follow-up fills in inline read-only previews.
+// Pull recent rows for the inline previews on each tab.
+const [recentRegistrations, allTeams, upcomingGames, pendingRefunds] = await Promise.all([
+  getDb()
+    .select({
+      id: registrations.id,
+      status: registrations.status,
+      createdAt: registrations.createdAt,
+      firstName: familyMembers.firstName,
+      lastName: familyMembers.lastName,
+    })
+    .from(registrations)
+    .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+    .where(eq(registrations.seasonId, seasonId))
+    .orderBy(desc(registrations.createdAt))
+    .limit(10),
+  getDb()
+    .select({ id: teams.id, name: teams.name, color: teams.color })
+    .from(teams)
+    .where(eq(teams.seasonId, seasonId))
+    .orderBy(asc(teams.name)),
+  getDb()
+    .select({
+      id: games.id,
+      scheduledAt: games.scheduledAt,
+      status: games.status,
+    })
+    .from(games)
+    .where(eq(games.seasonId, seasonId))
+    .orderBy(asc(games.scheduledAt))
+    .limit(10),
+  getDb()
+    .select({
+      id: registrations.id,
+      reason: registrations.refundRequestReason,
+      amountCents: registrations.refundAmountCents,
+      requestedAt: registrations.refundRequestedAt,
+      firstName: familyMembers.firstName,
+      lastName: familyMembers.lastName,
+    })
+    .from(registrations)
+    .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+    .where(
+      and(
+        eq(registrations.seasonId, seasonId),
+        eq(registrations.refundStatus, "pending_approval"),
+      ),
+    )
+    .orderBy(desc(registrations.refundRequestedAt)),
+]);
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    c === "&"
+      ? "&amp;"
+      : c === "<"
+        ? "&lt;"
+        : c === ">"
+          ? "&gt;"
+          : c === '"'
+            ? "&quot;"
+            : "&#39;",
+  );
+}
 const placeholderForTab = (label: string, hrefs: { label: string; href: string }[]) => `
   <div class="bg-white border border-border rounded p-6 space-y-3">
     <p class="text-sm text-ink-muted">${label}</p>
@@ -143,24 +203,144 @@ const placeholderForTab = (label: string, hrefs: { label: string; href: string }
   </div>
 `;
 
+// --- Inline tab content ---
+
+// Registrations tab: the 10 most-recent + a deep link to the full list.
+const registrationsRows = recentRegistrations
+  .map(
+    (r) => `
+    <tr class="border-t border-cream">
+      <td class="px-3 py-2">${escapeHtml(`${r.firstName} ${r.lastName}`)}</td>
+      <td class="px-3 py-2 text-ink-muted">${escapeHtml(r.status ?? "")}</td>
+      <td class="px-3 py-2 text-ink-muted">${new Date(r.createdAt).toLocaleDateString()}</td>
+    </tr>`,
+  )
+  .join("");
+const registrationsTab = `
+  <div class="space-y-2">
+    <div class="flex items-baseline justify-between">
+      <p class="text-sm text-ink-muted">${stats.capacityCurrent} active${stats.capacityMax ? ` of ${stats.capacityMax}` : ""} · showing ${recentRegistrations.length} most recent</p>
+      <a href="/admin/registrations?seasonId=${seasonId}" class="text-sm underline">View all →</a>
+    </div>
+    ${
+      recentRegistrations.length === 0
+        ? `<div class="bg-white border border-border rounded p-6 text-sm text-ink-muted italic">No registrations yet.</div>`
+        : `<div class="bg-white border border-border rounded overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-cream text-left">
+                <tr>
+                  <th class="px-3 py-2 font-medium">Player</th>
+                  <th class="px-3 py-2 font-medium">Status</th>
+                  <th class="px-3 py-2 font-medium">Signed up</th>
+                </tr>
+              </thead>
+              <tbody>${registrationsRows}</tbody>
+            </table>
+          </div>`
+    }
+  </div>
+`;
+
+// Teams tab: list each team with color swatch.
+const teamsTab = `
+  <div class="space-y-2">
+    <div class="flex items-baseline justify-between">
+      <p class="text-sm text-ink-muted">${stats.teams} team${stats.teams === 1 ? "" : "s"}</p>
+      <a href="/admin/teams?seasonId=${seasonId}" class="text-sm underline">Manage teams →</a>
+    </div>
+    ${
+      allTeams.length === 0
+        ? `<div class="bg-white border border-border rounded p-6 text-sm text-ink-muted italic">No teams yet.</div>`
+        : `<div class="bg-white border border-border rounded p-3">
+            <ul class="space-y-1 text-sm">
+              ${allTeams
+                .map(
+                  (t) => `
+                <li class="flex items-center gap-2">
+                  <span class="inline-block w-3 h-3 rounded" style="background:${escapeHtml(t.color ?? "#9ca3af")}"></span>
+                  ${escapeHtml(t.name)}
+                </li>`,
+                )
+                .join("")}
+            </ul>
+          </div>`
+    }
+  </div>
+`;
+
+// Schedule tab: upcoming games (next 10) sorted by date.
+const scheduleRows = upcomingGames
+  .map(
+    (g) => `
+    <tr class="border-t border-cream">
+      <td class="px-3 py-2">${new Date(g.scheduledAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}</td>
+      <td class="px-3 py-2 text-ink-muted">${escapeHtml(g.status ?? "")}</td>
+    </tr>`,
+  )
+  .join("");
+const scheduleTab = `
+  <div class="space-y-2">
+    <div class="flex items-baseline justify-between">
+      <p class="text-sm text-ink-muted">${stats.games} total · showing next 10</p>
+      <a href="/admin/games?seasonId=${seasonId}" class="text-sm underline">Manage games →</a>
+    </div>
+    ${
+      upcomingGames.length === 0
+        ? `<div class="bg-white border border-border rounded p-6 text-sm text-ink-muted italic">No games scheduled yet.</div>`
+        : `<div class="bg-white border border-border rounded overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-cream text-left">
+                <tr><th class="px-3 py-2 font-medium">When</th><th class="px-3 py-2 font-medium">Status</th></tr>
+              </thead>
+              <tbody>${scheduleRows}</tbody>
+            </table>
+          </div>`
+    }
+  </div>
+`;
+
+// Refunds tab: pending requests for this season.
+const refundRows = pendingRefunds
+  .map(
+    (r) => `
+    <tr class="border-t border-cream">
+      <td class="px-3 py-2">${escapeHtml(`${r.firstName} ${r.lastName}`)}</td>
+      <td class="px-3 py-2">$${((r.amountCents ?? 0) / 100).toFixed(2)}</td>
+      <td class="px-3 py-2 text-ink-muted max-w-xs truncate">${escapeHtml(r.reason ?? "")}</td>
+      <td class="px-3 py-2 text-ink-muted">${r.requestedAt ? new Date(r.requestedAt).toLocaleDateString() : "—"}</td>
+    </tr>`,
+  )
+  .join("");
+const refundsTab = `
+  <div class="space-y-2">
+    <div class="flex items-baseline justify-between">
+      <p class="text-sm text-ink-muted">${pendingRefunds.length} pending approval</p>
+      <a href="/admin/refunds" class="text-sm underline">Open refunds queue →</a>
+    </div>
+    ${
+      pendingRefunds.length === 0
+        ? `<div class="bg-white border border-border rounded p-6 text-sm text-ink-muted italic">No refund requests pending for this season.</div>`
+        : `<div class="bg-white border border-border rounded overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-cream text-left">
+                <tr>
+                  <th class="px-3 py-2 font-medium">Player</th>
+                  <th class="px-3 py-2 font-medium">Amount</th>
+                  <th class="px-3 py-2 font-medium">Reason</th>
+                  <th class="px-3 py-2 font-medium">Requested</th>
+                </tr>
+              </thead>
+              <tbody>${refundRows}</tbody>
+            </table>
+          </div>`
+    }
+  </div>
+`;
+
 const tabContents = {
-  registrations: placeholderForTab(
-    `${stats.capacityCurrent} active registrations${
-      stats.capacityMax ? ` of ${stats.capacityMax} capacity` : ""
-    }.`,
-    [{ label: `View all registrations for this season`, href: `/admin/registrations?seasonId=${seasonId}` }],
-  ),
-  teams: placeholderForTab(
-    `${stats.teams} team${stats.teams === 1 ? "" : "s"} in this season.`,
-    [
-      { label: `Manage teams`, href: `/admin/teams?seasonId=${seasonId}` },
-      { label: `Gear binding`, href: `#gear` },
-    ],
-  ),
-  schedule: placeholderForTab(
-    `${stats.games} game${stats.games === 1 ? "" : "s"} scheduled.`,
-    [{ label: `Manage games`, href: `/admin/games?seasonId=${seasonId}` }],
-  ),
+  registrations: registrationsTab,
+  teams: teamsTab,
+  schedule: scheduleTab,
   pricing: placeholderForTab(
     `Pricing + discount codes for this season.`,
     [
@@ -175,12 +355,7 @@ const tabContents = {
       { label: `View sent broadcasts`, href: `/admin/broadcasts?seasonId=${seasonId}` },
     ],
   ),
-  refunds: placeholderForTab(
-    stats.refundsPending > 0
-      ? `${stats.refundsPending} refund request${stats.refundsPending === 1 ? "" : "s"} pending approval.`
-      : `No refund requests pending for this season.`,
-    [{ label: `Open refunds queue`, href: `/admin/refunds` }],
-  ),
+  refunds: refundsTab,
   settings: placeholderForTab(
     `Edit dates, capacity, registration window, and status.`,
     [{ label: `Edit season`, href: `/admin/seasons/${seasonId}/edit` }],
