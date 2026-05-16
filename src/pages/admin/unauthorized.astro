@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-const role = (Astro.locals.userRoles ?? [])[0]?.roleName ?? "guest";
+const role = (Astro.locals.userRoles ?? [])[0]?.name ?? "guest";
 const homeHref =
   role === "super_admin"
     ? "/admin"

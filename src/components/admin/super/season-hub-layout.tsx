@@ -45,7 +45,12 @@ export type SeasonStats = {
 type Props = {
   season: SeasonHeader
   stats: SeasonStats
-  tabContents: Record<SeasonHubTab, React.ReactNode>
+  /**
+   * Each tab's content as a server-rendered HTML string. Rendered via
+   * dangerouslySetInnerHTML — Astro pre-renders these so XSS-escaping is
+   * the page's responsibility, not this component's.
+   */
+  tabContents: Record<SeasonHubTab, string>
   initialTab?: SeasonHubTab
 }
 
@@ -137,7 +142,7 @@ export function SeasonHubLayout({ season, stats, tabContents, initialTab = "regi
         })}
       </div>
 
-      <div role="tabpanel">{tabContents[active]}</div>
+      <div role="tabpanel" dangerouslySetInnerHTML={{ __html: tabContents[active] }} />
     </div>
   )
 }
