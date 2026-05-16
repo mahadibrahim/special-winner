@@ -1,0 +1,51 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { SessionsList } from "@/components/admin/dropin/SessionsList";
+import { RateCardEditor } from "@/components/admin/dropin/RateCardEditor";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+
+type Tab = "sessions" | "rate-card";
+const tabRaw = Astro.url.searchParams.get("tab");
+const tab: Tab = tabRaw === "rate-card" ? "rate-card" : "sessions";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "sessions", label: "Sessions" },
+  { id: "rate-card", label: "Rate card" },
+];
+---
+
+<BaseLayout title="Drop-ins — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/dropins"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-4">
+      <h1 class="font-display text-3xl font-semibold text-ink">Drop-ins</h1>
+      <div class="border-b border-border flex gap-4 overflow-x-auto">
+        {
+          TABS.map((t) => (
+            <a
+              href={t.id === "sessions" ? "/admin/dropins" : `/admin/dropins?tab=${t.id}`}
+              class={`py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
+                tab === t.id
+                  ? "border-ink text-ink font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {t.label}
+            </a>
+          ))
+        }
+      </div>
+      {tab === "sessions" && <SessionsList client:load />}
+      {tab === "rate-card" && <RateCardEditor client:load />}
+    </div>
+  </AdminLayout>
+</BaseLayout>

@@ -1,20 +1,4 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { AdminLayout } from '../../../components/admin/admin-layout';
-import { RateCardEditor } from '../../../components/admin/dropin/RateCardEditor';
-
-export const prerender = false;
-const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+// Merged into /admin/dropins — see Rate card tab.
+return Astro.redirect("/admin/dropins?tab=rate-card", 301);
 ---
-
-<BaseLayout title="Rate Card — Admin — Aspire Sports" navigation={false} footer={false}>
-  <AdminLayout
-    client:load
-    role={primaryRole}
-    currentPath="/admin/dropin/rate-card"
-    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
-  >
-    <RateCardEditor client:load />
-  </AdminLayout>
-</BaseLayout>
