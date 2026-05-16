@@ -64,19 +64,122 @@ if (!sport) {
 
 const titleCaseSport = sport.name;
 const slugForFilter = sport.slug;
+const sportLower = titleCaseSport.toLowerCase();
+const isSoccer = slugForFilter === "soccer";
+
+// Sport-specific copy block. For sports we don't have hand-written copy
+// for yet, we render the generic template (still SEO-passable but worth
+// hand-tuning when programming launches).
+const SPORT_COPY: Record<string, {
+  adultIntro: string;
+  adultFormat: string;
+  youthIntro: string;
+  youthFormat: string;
+  faq: Array<{ q: string; a: string }>;
+}> = {
+  soccer: {
+    adultIntro: `Aspire's flagship adult program is co-ed 7v7 indoor soccer at our downtown / OSU venue. Eight-team founders' division at launch, with a captain-led signup model — bring a full roster, or get placed on a balanced team as a free agent.`,
+    adultFormat: `Co-ed 7v7 · 8 teams · weekly weeknight matches · post-game scene built in. Captains get a dashboard, refs are on payroll, and the schedule doesn't move once it's posted.`,
+    youthIntro: `Youth ${sportLower} at Aspire is built for long-term development, not just for this season's standings. Programs run year-round at the Worthington facility and feed into the regional travel and high-school pipeline when families want that path.`,
+    youthFormat: `Age-grouped sessions from U6 first-touches up to U18 competitive — same coaching pool, same curriculum, same field. Captains and parents see the schedule before they pay.`,
+    faq: [
+      {
+        q: "Where in Columbus does Aspire play soccer?",
+        a: "Adult co-ed 7v7 runs at our downtown / OSU venue. Youth soccer programs run at our Worthington facility. Both are indoor, year-round venues — no rainouts.",
+      },
+      {
+        q: "Do I need a full team to sign up for adult soccer?",
+        a: "No. Adult leagues accept full-team signups (captain registers the roster) and free-agent signups (we place you on a balanced team). Founders' division pricing applies through season 1.",
+      },
+      {
+        q: "What age groups do you run for youth soccer?",
+        a: "U6 through U18, organized in two-year age bands. Specific age groups in the current season are listed on each program page.",
+      },
+      {
+        q: "Is it co-ed?",
+        a: "Yes — adult 7v7 is co-ed with a minimum gender-balance rule on the field. Youth programs are typically co-ed below U10, age-and-gender-grouped above.",
+      },
+      {
+        q: "What's your refund policy?",
+        a: "Full refund up to 14 days before season start. After that, prorated refunds or credits handled case by case. Captains get the same window for full-team registrations.",
+      },
+      {
+        q: "When does the next season start?",
+        a: openSeasonCount > 0
+          ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} are currently open for registration — see the catalog for exact dates.`
+          : "New seasons open on a rolling basis. Check the catalog or join the captain waitlist to be notified.",
+      },
+    ],
+  },
+};
+
+const copy = SPORT_COPY[slugForFilter] ?? {
+  adultIntro: `Aspire adult ${sportLower} programs in Columbus — built around captain-led teams and reliable league operations.`,
+  adultFormat: `League formats and schedules are published on each season page before registration opens.`,
+  youthIntro: `Aspire youth ${sportLower} programs in Columbus — coaches who played the game, schedules that don't move, and a curriculum families can read before they sign up.`,
+  youthFormat: `Age-grouped programs with the schedule visible before you pay.`,
+  faq: [
+    {
+      q: `What ages do you offer ${sportLower} for?`,
+      a: `Youth programs are organized by age band; adult leagues are 18+. See the catalog for the specific age groups in the current season.`,
+    },
+    {
+      q: `What if I'm new to ${sportLower}?`,
+      a: `Most programs include a beginner pathway. Coaches start with fundamentals — no prior experience required.`,
+    },
+    {
+      q: `Can I sign up without a team?`,
+      a: `Yes. Adult leagues accept free-agent signups; we place you on a balanced team. Youth programs are placed by age group.`,
+    },
+    {
+      q: `What's your refund policy?`,
+      a: `Full refund up to 14 days before season start. After that, prorated refunds or credits handled case by case.`,
+    },
+  ],
+};
+
+// JSON-LD: FAQPage schema for the FAQ block + SportsActivityLocation
+// linking back to the org and venues. These render in the <head> via
+// the script tags below and feed Google's rich-result FAQ snippet.
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: copy.faq.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
+const sportSchema = {
+  "@context": "https://schema.org",
+  "@type": "SportsActivityLocation",
+  name: `Aspire Sports ${titleCaseSport} — Columbus, Ohio`,
+  sport: titleCaseSport,
+  url: `https://aspiresportsohio.com/sports/${slugForFilter}`,
+  areaServed: { "@type": "City", name: "Columbus", containedInPlace: { "@type": "State", name: "Ohio" } },
+  parentOrganization: {
+    "@type": "SportsOrganization",
+    name: "Aspire Sports",
+    url: "https://aspiresportsohio.com",
+  },
+};
 ---
 
 <BaseLayout
-  title={`${titleCaseSport} programs and leagues — Aspire Sports`}
-  description={`Aspire Sports ${titleCaseSport.toLowerCase()} programs and leagues for kids and adults in central Ohio. ${openSeasonCount > 0 ? `${openSeasonCount} now open for registration.` : "Check back soon for open registrations."}`}
+  title={`${titleCaseSport} in Columbus, Ohio — adult and youth leagues at Aspire Sports`}
+  description={`Aspire Sports ${sportLower} programs in Columbus. Adult co-ed leagues, youth development programs, neighborhood venues. ${openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open for registration.` : "Check the catalog for upcoming seasons."}`}
 >
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(sportSchema)} />
+
   <main id="main-content" class="bg-cream">
     {/* Sport hero */}
     <section class="relative pt-24 pb-16 lg:pt-32 lg:pb-20">
       <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
         <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
           <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-            Aspire Sports · Central Ohio
+            Aspire Sports · Columbus, Ohio
           </span>
           <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
             {titleCaseSport}
@@ -85,136 +188,234 @@ const slugForFilter = sport.slug;
 
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
           <span class="inline-block w-8 h-px bg-primary-orange"></span>
-          {openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open` : "Aspire Sport"}
+          {openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open` : `${titleCaseSport} at Aspire`}
         </p>
 
         <h1
           class="font-display text-ink leading-tight mb-8"
           style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
         >
-          {titleCaseSport} in <span class="italic text-primary-orange">central Ohio.</span>
+          {titleCaseSport} in <span class="italic text-primary-orange">Columbus</span>.
         </h1>
 
         <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed mb-10">
-          Aspire Sports {titleCaseSport.toLowerCase()} programs for kids and adults — built on real
-          development frameworks, taught by coaches who played the game.
+          Adult leagues and youth programs at neighborhood venues in Worthington and downtown
+          Columbus. Reliable schedules, real coaching, captain-first operations.
         </p>
 
         <div class="flex flex-wrap items-center gap-4">
           <a
-            href={`/programs?sport=${slugForFilter}&audience=youth`}
+            href="#adult"
             class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
             style="letter-spacing: 0.08em;"
           >
-            Browse youth {titleCaseSport.toLowerCase()} →
+            Adult {sportLower} →
           </a>
           <a
-            href={`/programs?sport=${slugForFilter}&audience=adult`}
+            href="#youth"
             class="inline-flex items-center gap-3 border border-ink text-ink px-7 py-4 text-sm font-medium tracking-wide uppercase hover:border-primary-orange hover:text-primary-orange transition-colors"
             style="letter-spacing: 0.08em;"
           >
-            Browse adult leagues →
+            Youth {sportLower} →
           </a>
         </div>
       </div>
     </section>
 
-    {/* Quick links — borrowed from Heyday's per-sport jumplinks */}
+    {/* Jump-link bar */}
     <section class="bg-cream-2 border-y border-ink/10">
       <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-6">
         <ul class="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-ink-muted">
           <li>
+            <a href="#adult" class="hover:text-ink transition-colors">Adult {sportLower}</a>
+          </li>
+          <li>
+            <a href="#youth" class="hover:text-ink transition-colors">Youth {sportLower}</a>
+          </li>
+          <li>
+            <a href="#where" class="hover:text-ink transition-colors">Where to play</a>
+          </li>
+          <li>
+            <a href="#faq" class="hover:text-ink transition-colors">FAQ</a>
+          </li>
+          <li>
             <a href={`/programs?sport=${slugForFilter}`} class="hover:text-ink transition-colors">
-              All {titleCaseSport.toLowerCase()} programs
-            </a>
-          </li>
-          <li>
-            <a href="/promise" class="hover:text-ink transition-colors">
-              The Aspire Promise
-            </a>
-          </li>
-          <li>
-            <a href="/community/sportsmanship" class="hover:text-ink transition-colors">
-              Sportsmanship
-            </a>
-          </li>
-          <li>
-            <a href="/community/inclusion" class="hover:text-ink transition-colors">
-              Inclusion
-            </a>
-          </li>
-          <li>
-            <a href="/refund-policy" class="hover:text-ink transition-colors">
-              Refund policy
+              All open programs
             </a>
           </li>
         </ul>
       </div>
     </section>
 
-    {/* Why this sport at Aspire */}
-    <section class="py-20 lg:py-28">
+    {/* Adult section */}
+    <section id="adult" class="py-20 lg:py-28">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="grid grid-cols-12 gap-8 lg:gap-16">
+          <div class="col-span-12 lg:col-span-7">
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+              Adult
+            </p>
+            <h2 class="font-display text-3xl lg:text-5xl text-ink leading-tight mb-6">
+              Adult {sportLower} in Columbus.
+            </h2>
+            <p class="text-lg text-ink-2 leading-relaxed mb-6 max-w-prose">
+              {copy.adultIntro}
+            </p>
+            <p class="text-base text-ink-muted leading-relaxed mb-8 max-w-prose">
+              {copy.adultFormat}
+            </p>
+            <a
+              href={`/programs?sport=${slugForFilter}&audience=adult`}
+              class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
+              style="letter-spacing: 0.08em;"
+            >
+              See open adult leagues →
+            </a>
+          </div>
+          <aside class="col-span-12 lg:col-span-5 lg:pl-8 lg:border-l lg:border-ink/15">
+            <p class="label-sm text-ink-muted mb-6">What adult leagues include</p>
+            <ul class="space-y-4 text-base text-ink-2 leading-relaxed">
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Captains' dashboard with real-time roster + schedule.</li>
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Refs on payroll — same crew weekly.</li>
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Free-agent placement on balanced teams.</li>
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Post-game social built into the venue, not an afterthought.</li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    {/* Youth section */}
+    <section id="youth" class="bg-cream-2 border-y border-ink/10 py-20 lg:py-28">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="grid grid-cols-12 gap-8 lg:gap-16">
+          <div class="col-span-12 lg:col-span-7">
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+              Youth
+            </p>
+            <h2 class="font-display text-3xl lg:text-5xl text-ink leading-tight mb-6">
+              Youth {sportLower}, built for development.
+            </h2>
+            <p class="text-lg text-ink-2 leading-relaxed mb-6 max-w-prose">
+              {copy.youthIntro}
+            </p>
+            <p class="text-base text-ink-muted leading-relaxed mb-8 max-w-prose">
+              {copy.youthFormat}
+            </p>
+            <a
+              href={`/programs?sport=${slugForFilter}&audience=youth`}
+              class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
+              style="letter-spacing: 0.08em;"
+            >
+              See open youth programs →
+            </a>
+          </div>
+          <aside class="col-span-12 lg:col-span-5 lg:pl-8 lg:border-l lg:border-ink/15">
+            <p class="label-sm text-ink-muted mb-6">What youth programs include</p>
+            <ul class="space-y-4 text-base text-ink-2 leading-relaxed">
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Age-grouped sessions on a published weekly schedule.</li>
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Coaches vetted through the Aspire pool — same faces across the season.</li>
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Parent communication on a real cadence, not group-text chaos.</li>
+              <li class="flex gap-3"><span class="text-primary-orange font-display italic shrink-0">→</span> Year-round indoor — no weather cancellations.</li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    {/* Where to play — venue cross-links */}
+    <section id="where" class="py-20 lg:py-28">
+      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-baseline justify-between border-b border-ink/15 pb-4 mb-12">
+          <h2 class="font-display text-3xl lg:text-4xl text-ink leading-tight">
+            Where to play {sportLower}.
+          </h2>
+          <span class="label-sm text-ink-muted hidden sm:inline">Two venues</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+          <a
+            href="/locations/downtown"
+            class="group block bg-paper border border-ink/15 rounded-lg p-8 hover:border-primary-orange transition-colors"
+          >
+            <p class="label-sm text-primary-orange mb-3">Downtown / OSU</p>
+            <h3 class="font-display text-2xl italic text-ink mb-3 leading-tight">
+              Aspire Sports — Downtown
+            </h3>
+            <p class="text-base text-ink-2 leading-relaxed mb-4">
+              The adult-league home. Co-ed 7v7 evenings, walk-in pickup, post-game scene
+              within walking distance. Serves Short North, Italian Village, German Village,
+              Clintonville, Grandview.
+            </p>
+            <span class="text-sm text-ink-muted group-hover:text-primary-orange transition-colors">
+              See the venue →
+            </span>
+          </a>
+          <a
+            href="/locations/worthington"
+            class="group block bg-paper border border-ink/15 rounded-lg p-8 hover:border-primary-orange transition-colors"
+          >
+            <p class="label-sm text-primary-orange mb-3">Worthington</p>
+            <h3 class="font-display text-2xl italic text-ink mb-3 leading-tight">
+              Aspire Sports — Worthington
+            </h3>
+            <p class="text-base text-ink-2 leading-relaxed mb-4">
+              The family-friendly venue. Youth development through the week, adult programming
+              on weeknights and weekends. Serves Worthington, Powell, Dublin, north Columbus
+              suburbs.
+            </p>
+            <span class="text-sm text-ink-muted group-hover:text-primary-orange transition-colors">
+              See the venue →
+            </span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {/* What you get */}
+    <section class="bg-cream-2 border-y border-ink/10 py-20 lg:py-28">
       <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
         <h2 class="font-display text-3xl lg:text-4xl text-ink mb-10 max-w-2xl leading-tight">
-          What you get from Aspire {titleCaseSport.toLowerCase()}.
+          What you get at Aspire {sportLower}.
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
           <div>
-            <h3 class="font-display text-lg text-ink mb-3">Real frameworks</h3>
+            <h3 class="font-display text-lg italic text-ink mb-3">Captain-first</h3>
             <p class="text-ink-muted leading-relaxed">
-              Programs grounded in published youth-development research — Double-Goal Coach, ELM, TDEQ-5.
-              Real methodology, not vibes.
+              Captains get a real dashboard, real refs, and a real person to call when something
+              breaks. The league is run for the people who run their teams.
             </p>
           </div>
           <div>
-            <h3 class="font-display text-lg text-ink mb-3">Coaches who played</h3>
+            <h3 class="font-display text-lg italic text-ink mb-3">Operations on time</h3>
             <p class="text-ink-muted leading-relaxed">
-              Not parent volunteers filling a clipboard. Coaches with résumés in {titleCaseSport.toLowerCase()}
-              who've earned the right to teach the game.
+              Schedules published before you pay. Standings updated weekly. Refs paid through
+              one system so the quality doesn't drift between weeks.
             </p>
           </div>
           <div>
-            <h3 class="font-display text-lg text-ink mb-3">Ages 4 to adult</h3>
+            <h3 class="font-display text-lg italic text-ink mb-3">Local culture</h3>
             <p class="text-ink-muted leading-relaxed">
-              From U6 first touches to adult competitive leagues, on the same platform. Sports don't end at 18.
+              Two Columbus venues, neighborhood-anchored programming, captains we know by name.
+              National chains can't fake this.
             </p>
           </div>
         </div>
       </div>
     </section>
 
-    {/* Sport-specific FAQ — extended in P1-10 */}
-    <section class="bg-cream-2 py-20 lg:py-28">
+    {/* FAQ */}
+    <section id="faq" class="py-20 lg:py-28">
       <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
         <h2 class="font-display text-3xl lg:text-4xl text-ink mb-10">
           {titleCaseSport} FAQ
         </h2>
         <dl class="space-y-8">
-          <div>
-            <dt class="font-display text-lg text-ink mb-2">What ages do you offer {titleCaseSport.toLowerCase()} for?</dt>
-            <dd class="text-ink-muted leading-relaxed">
-              Youth programs from age 3 through 18, plus adult leagues for ages 18+.
-              Specific age groups are listed on each program page.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-display text-lg text-ink mb-2">What if I'm new to {titleCaseSport.toLowerCase()}?</dt>
-            <dd class="text-ink-muted leading-relaxed">
-              Most programs include a beginner pathway. Coaches start with fundamentals — no prior experience required.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-display text-lg text-ink mb-2">Can I sign up without a team?</dt>
-            <dd class="text-ink-muted leading-relaxed">
-              Yes. Adult leagues support free-agent signups — we place you on a balanced team. Youth programs are organized by age group.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-display text-lg text-ink mb-2">What's your refund policy?</dt>
-            <dd class="text-ink-muted leading-relaxed">
-              Full refunds up to 14 days before the season starts. After that, prorated refunds or credits on a case-by-case basis. See <a href="/promise" class="text-primary-orange hover:underline">The Aspire Promise</a>.
-            </dd>
-          </div>
+          {copy.faq.map((item) => (
+            <div>
+              <dt class="font-display text-lg italic text-ink mb-2">{item.q}</dt>
+              <dd class="text-ink-muted leading-relaxed">{item.a}</dd>
+            </div>
+          ))}
         </dl>
       </div>
     </section>
@@ -227,15 +428,15 @@ const slugForFilter = sport.slug;
         </h2>
         <p class="text-cream/80 text-lg mb-10 max-w-xl mx-auto">
           {openSeasonCount > 0
-            ? `${openSeasonCount} ${titleCaseSport.toLowerCase()} program${openSeasonCount === 1 ? "" : "s"} open for registration right now.`
-            : `New ${titleCaseSport.toLowerCase()} seasons are added regularly — browse the catalog to see what's open.`}
+            ? `${openSeasonCount} ${sportLower} program${openSeasonCount === 1 ? "" : "s"} open for registration right now.`
+            : `New ${sportLower} seasons are added regularly — browse the catalog to see what's open.`}
         </p>
         <a
           href={`/programs?sport=${slugForFilter}`}
           class="inline-flex items-center gap-3 bg-cream text-ink px-8 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange hover:text-cream transition-colors"
           style="letter-spacing: 0.08em;"
         >
-          Browse {titleCaseSport.toLowerCase()} programs →
+          Browse {sportLower} programs →
         </a>
       </div>
     </section>
