@@ -1,0 +1,28 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+const role = (Astro.locals.userRoles ?? [])[0]?.name ?? "guest";
+const homeHref =
+  role === "super_admin"
+    ? "/admin"
+    : role === "location_admin"
+      ? "/admin/venue"
+      : "/dashboard";
+Astro.response.status = 403;
+---
+<BaseLayout title="Not authorized — Aspire Sports" navigation={false} footer={false}>
+  <main class="min-h-screen flex items-center justify-center bg-cream px-4">
+    <div class="max-w-md text-center">
+      <p class="text-xs font-semibold uppercase tracking-widest text-ink-muted">403</p>
+      <h1 class="mt-2 font-display text-3xl font-semibold text-ink">Not your home</h1>
+      <p class="mt-3 text-ink-muted">
+        That page belongs to a different admin role. Your home is below.
+      </p>
+      <a
+        href={homeHref}
+        class="mt-6 inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-medium text-cream hover:bg-ink/90"
+      >
+        Go home
+      </a>
+    </div>
+  </main>
+</BaseLayout>

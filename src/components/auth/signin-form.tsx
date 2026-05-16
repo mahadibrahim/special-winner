@@ -105,8 +105,8 @@ export function SignInForm() {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="password" className="text-ink-muted">Password</Label>
-          <a href="/forgot-password" className="text-xs text-primary hover:text-primary/80">
-            Forgot password?
+          <a href="/email-link-signin" className="text-xs text-primary hover:text-primary/80">
+            Email me a sign-in link
           </a>
         </div>
         <Input

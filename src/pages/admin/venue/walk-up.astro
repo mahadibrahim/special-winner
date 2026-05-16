@@ -1,0 +1,30 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { WalkUpRegistrationForm } from '@/components/admin/walk-up-registration-form';
+
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+---
+
+<BaseLayout title="Walk-Up Registration — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/venue/walk-up"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-6 max-w-3xl">
+      <div>
+        <h1 class="text-3xl font-bold text-ink">Walk-Up Registration</h1>
+        <p class="text-ink-muted mt-1">
+          Create a registration for a parent who came in to sign up in person. Sends an
+          opt-in welcome text after saving — the parent replies YES to activate messaging.
+        </p>
+      </div>
+
+      <WalkUpRegistrationForm client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>

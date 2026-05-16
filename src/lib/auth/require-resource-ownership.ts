@@ -220,3 +220,25 @@ export function ownershipDeniedResponse(): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+/**
+ * Synchronous scope check for location_admin users. Pass the user's
+ * allowed location IDs (from getLocationIdsForUser) plus the location
+ * the resource lives at. Returns ok if the location is in the set.
+ *
+ * Use 404 (not 403) deliberately — conflates "not yours" with "not
+ * found" to avoid leaking existence of cross-location rows.
+ */
+export type LocationOwnershipResult =
+  | { ok: true; locationId: string }
+  | { ok: false; status: 404 };
+
+export function requireSameLocation(
+  allowedLocationIds: string[],
+  locationId: string,
+): LocationOwnershipResult {
+  if (allowedLocationIds.includes(locationId)) {
+    return { ok: true, locationId };
+  }
+  return { ok: false, status: 404 };
+}

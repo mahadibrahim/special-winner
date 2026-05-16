@@ -1,0 +1,10 @@
+---
+import { formatStripDate } from "@/lib/admin/week-strip";
+
+export const prerender = false;
+
+// /admin/venue → /admin/venue/day/<today>. The trailing date keeps the
+// URL shareable + back-button friendly.
+const today = formatStripDate(new Date());
+return Astro.redirect(`/admin/venue/day/${today}`, 302);
+---

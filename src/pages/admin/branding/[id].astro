@@ -5,12 +5,14 @@ import { BrandProfileEditor } from '../../../components/admin/branding/BrandProf
 
 export const prerender = false;
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 const profileId = Astro.params.id!;
 ---
 
 <BaseLayout title="Brand Profile — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/branding"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >

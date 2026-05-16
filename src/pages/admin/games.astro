@@ -8,6 +8,7 @@ import { eq, asc } from 'drizzle-orm';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 
 // Fetch data for dropdowns
 let seasonsList: any[] = [];
@@ -66,9 +67,17 @@ try {
 <BaseLayout title="Games — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
+    role={primaryRole}
     currentPath="/admin/games"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <GamesList client:load seasons={seasonsList} teams={teamsList} venues={venuesList} />
+    <div class="space-y-3">
+      <div class="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+        Cross-season summary. To create or edit games, open the relevant season's
+        <a href="/admin/seasons" class="underline font-medium">Season Hub</a> →
+        Schedule tab.
+      </div>
+      <GamesList client:load seasons={seasonsList} teams={teamsList} venues={venuesList} />
+    </div>
   </AdminLayout>
 </BaseLayout>

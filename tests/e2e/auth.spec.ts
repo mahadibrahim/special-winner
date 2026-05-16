@@ -49,8 +49,10 @@ test.describe("Authentication Flow", { tag: "@critical" }, () => {
 
       // Admin should be redirected to admin dashboard
       await expect(page).toHaveURL(/\/admin/);
-      // Use heading to be specific - there's both a sidebar link and a heading
-      await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+      // The admin overhaul replaced the "Dashboard" h1 with today's date.
+      // Assert the page-level heading is the dynamic date string ("Saturday,
+      // May 16" etc) by looking for the greeting line above it.
+      await expect(page.getByText(/good (morning|afternoon|evening),/i)).toBeVisible();
     });
 
     test("successfully signs in parent user", async ({ page }) => {
@@ -118,9 +120,11 @@ test.describe("Authentication Flow", { tag: "@critical" }, () => {
 
   test.describe("Forgot Password", () => {
     test("shows forgot password page with email field", async ({ page }) => {
+      // /forgot-password 301-redirects to /email-link-signin (renamed in
+      // the admin overhaul — same form, more honest title).
       await page.goto("/forgot-password");
 
-      await expect(page).toHaveTitle(/Forgot Password|Reset/i);
+      await expect(page).toHaveTitle(/Sign in with email link|Forgot Password|Reset/i);
       await expect(page.locator('input[type="email"]').first()).toBeVisible();
       await expect(
         page.getByRole("button", { name: /reset|send|submit/i })

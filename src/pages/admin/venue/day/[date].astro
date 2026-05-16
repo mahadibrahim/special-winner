@@ -1,0 +1,79 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { VenueDayPage } from "@/components/admin/venue/venue-day-page";
+import { getLocationIdsForUser } from "@/lib/auth/location-scope";
+import { getDb } from "@/lib/db";
+import { locations } from "@/lib/db/schema/organizations";
+import { eq, asc } from "drizzle-orm";
+import { parseStripDate, formatStripDate } from "@/lib/admin/week-strip";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const userRoles = Astro.locals.userRoles ?? [];
+const primaryRole = userRoles[0]?.name ?? "parent";
+const isSuperAdmin = userRoles.some((r) => r.name === "super_admin");
+
+const dateParam = Astro.params.date as string;
+if (!parseStripDate(dateParam)) {
+  return Astro.redirect(`/admin/venue/day/${formatStripDate(new Date())}`, 302);
+}
+
+// Resolve the active location:
+//   - super_admin: ?locationId override, or the org's earliest-created location
+//   - everyone else: their first scoped location
+let locationId: string | null = null;
+let locationName: string | null = null;
+
+if (isSuperAdmin) {
+  const requested = Astro.url.searchParams.get("locationId");
+  const orgId = Astro.locals.organization?.id;
+  if (requested) {
+    locationId = requested;
+  } else if (orgId) {
+    const [first] = await getDb()
+      .select({ id: locations.id })
+      .from(locations)
+      .where(eq(locations.organizationId, orgId))
+      .orderBy(asc(locations.createdAt))
+      .limit(1);
+    locationId = first?.id ?? null;
+  }
+} else {
+  const ids = await getLocationIdsForUser(user.id);
+  locationId = ids[0] ?? null;
+}
+
+if (!locationId) {
+  return Astro.redirect("/admin/unauthorized", 302);
+}
+
+const [loc] = await getDb()
+  .select()
+  .from(locations)
+  .where(eq(locations.id, locationId))
+  .limit(1);
+locationName = loc?.name ?? "Venue";
+---
+
+<BaseLayout
+  title={`Venue Day — ${locationName} — Admin`}
+  navigation={false}
+  footer={false}
+>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    venueLabel={locationName}
+    currentPath={`/admin/venue/day/${dateParam}`}
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <VenueDayPage
+      client:load
+      initialDate={dateParam}
+      locationId={locationId}
+      locationName={locationName}
+    />
+  </AdminLayout>
+</BaseLayout>

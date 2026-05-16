@@ -1,0 +1,30 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { ReRegistrationCampaign as CampaignForm } from "@/components/admin/re-registration-campaign";
+
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+---
+
+<BaseLayout title="Campaigns — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/campaigns"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-6">
+      <div>
+        <h1 class="font-display text-3xl font-semibold text-ink">Campaigns</h1>
+        <p class="text-ink-muted mt-1">
+          Invite returning families back for a new season. One magic link per family,
+          pre-fills their registration form, 30-second flow on the parent's side.
+        </p>
+      </div>
+
+      <CampaignForm client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>
