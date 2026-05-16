@@ -83,7 +83,10 @@ test.describe("Venue Day route", () => {
   });
 
   test("tablet viewport: sidebar item labels are hidden", async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 768 });
+    // Tailwind's lg breakpoint is ≥1024px, so 1024 itself lands in the
+    // full-width sidebar zone (labels visible). 1023 keeps us in the md
+    // icon-rail zone (768–1023) where labels are intentionally hidden.
+    await page.setViewportSize({ width: 1023, height: 768 });
     await signIn(page, LOCATION_ADMIN.email, LOCATION_ADMIN.password);
     await page.waitForURL(/\/admin\/venue\/day\/\d{4}-\d{2}-\d{2}/, { timeout: 10_000 });
     await waitForHydration(page);
