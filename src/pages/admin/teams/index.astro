@@ -93,6 +93,13 @@ try {
     currentPath="/admin/teams"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <TeamsList client:load seasons={seasonsList} coaches={coachesList} />
+    <div class="space-y-3">
+      <div class="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+        Cross-season summary. To create or edit teams, open the relevant season's
+        <a href="/admin/seasons" class="underline font-medium">Season Hub</a> →
+        Teams & rosters tab.
+      </div>
+      <TeamsList client:load seasons={seasonsList} coaches={coachesList} />
+    </div>
   </AdminLayout>
 </BaseLayout>
