@@ -56,6 +56,7 @@ const REDIRECT_IF_AUTHED: RegExp[] = [
   /^\/signin(\/|$)/,
   /^\/signup(\/|$)/,
   /^\/forgot-password(\/|$)/,
+  /^\/email-link-signin(\/|$)/,
 ];
 
 export const onRequest = defineMiddleware(async (context, next) => {
