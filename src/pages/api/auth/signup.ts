@@ -6,6 +6,7 @@ import { hashPassword, createSession } from "@/lib/auth";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
+import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -40,10 +41,14 @@ export const POST: APIRoute = async (context) => {
     }
 
     const { email, password, firstName, lastName, phone } = result.data;
+    const emailLower = email.toLowerCase();
+    const emailCanonical = normalizeForUniqueness(email);
 
-    // Check if user already exists
+    // Check if user already exists — uniqueness is on the CANONICAL form
+    // (Gmail dot-trick normalization), so `a.g.i.v.o.b@gmail.com` and
+    // `agivob@gmail.com` collide as expected.
     const existingUser = await getDb().query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
+      where: eq(users.emailCanonical, emailCanonical),
     });
 
     if (existingUser) {
@@ -60,7 +65,8 @@ export const POST: APIRoute = async (context) => {
     const [newUser] = await getDb()
       .insert(users)
       .values({
-        email: email.toLowerCase(),
+        email: emailLower,
+        emailCanonical,
         passwordHash,
         firstName,
         lastName,
