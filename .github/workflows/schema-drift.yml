@@ -40,8 +40,11 @@ jobs:
 
       # Railway is on Postgres 18.x. The runner image (ubuntu-24.04) ships
       # postgresql-client-16, which aborts with "server version mismatch"
-      # against an 18 server. Install pg-client-18 from PGDG so pg_dump
-      # is server-version compatible.
+      # against an 18 server. Install pg-client-18 from PGDG AND prepend
+      # its bin dir to $GITHUB_PATH — Ubuntu keeps the runner-default
+      # pg_dump-16 at /usr/bin/pg_dump otherwise, so apt-installing 18
+      # alone leaves `pg_dump` resolving to 16 (that bug ate the first
+      # fix in PR #74).
       - name: Install Postgres 18 client (PGDG)
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
@@ -52,9 +55,12 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends postgresql-client-18
+          # Persist for every subsequent step in this job.
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
 
       - name: Verify pg_dump version
         run: |
+          which pg_dump
           pg_dump --version
           pg_dump --version | grep -E ' 1[89]\.' \
             || (echo "::error::pg_dump version mismatch — Railway is on PG18+, need pg-client-18+" && exit 1)
