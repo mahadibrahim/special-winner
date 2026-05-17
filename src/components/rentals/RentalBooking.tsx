@@ -120,10 +120,17 @@ export default function RentalBooking({ venues }: Props) {
         return;
       }
 
-      window.location.href =
-        body.paymentRequired && body.checkoutUrl
-          ? (body.checkoutUrl as string)
-          : "/dashboard/bookings?rental=success";
+      if (body.paymentRequired && body.checkoutUrl) {
+        // Give the user a beat to see "slot held" before Stripe takes over.
+        // The hold lasts 10 min on the server; if they bail mid-checkout
+        // the dashboard countdown picks up the remaining time.
+        toast.success("Slot held — redirecting to payment…", { duration: 1200 });
+        window.setTimeout(() => {
+          window.location.href = body.checkoutUrl as string;
+        }, 800);
+      } else {
+        window.location.href = "/dashboard/bookings?rental=success";
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
       toast.error(msg);

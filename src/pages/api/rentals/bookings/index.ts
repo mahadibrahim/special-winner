@@ -53,6 +53,9 @@ export const GET: APIRoute = async ({ locals }) => {
       partySize: fieldRentals.partySize,
       purpose: fieldRentals.purpose,
       checkedInAt: fieldRentals.checkedInAt,
+      // Surfaced so the dashboard can render a hold-expiry countdown for
+      // rentals still in `pending_payment`.
+      paymentExpiresAt: fieldRentals.paymentExpiresAt,
       venueName: venues.name,
     })
     .from(fieldRentals)
@@ -237,6 +240,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         paymentRequired: true,
         checkoutUrl: checkoutSession.url,
         rentalId: hold.rental.id,
+        // Surfaced so the booking UI can show a "slot held until X" notice
+        // before bouncing the user to the Stripe Checkout page.
+        paymentExpiresAt: hold.rental.paymentExpiresAt,
       },
       200,
     );
