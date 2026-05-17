@@ -82,14 +82,12 @@ export function SessionsList() {
       {error && <ErrorBanner message={error} />}
       {loading && <LoadingSkeleton />}
       {!loading && rows.length === 0 && (
+        // The header CTA stays visible in the empty state, so no
+        // duplicate action inside the empty-state card.
         <EmptyState
           title="No sessions yet"
           description="Create your first drop-in session to get on the schedule."
-        >
-          <Button asChild>
-            <a href="/admin/dropin/sessions/new">+ New session</a>
-          </Button>
-        </EmptyState>
+        />
       )}
       {!loading && rows.length > 0 && (
         <div className="rounded-lg border border-border bg-cream-2 overflow-hidden">

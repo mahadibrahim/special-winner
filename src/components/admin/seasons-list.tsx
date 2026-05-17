@@ -399,10 +399,22 @@ export function SeasonsList() {
                         >
                           Manage gear →
                         </a>
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(season)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit season ${season.name}`}
+                          title={`Edit season ${season.name}`}
+                          onClick={() => openEditDialog(season)}
+                        >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(season)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Delete season ${season.name}`}
+                          title={`Delete season ${season.name}`}
+                          onClick={() => handleDelete(season)}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
