@@ -70,6 +70,10 @@ export const POST: APIRoute = async (context) => {
       ok: true,
       refunded: result.refunded,
       insideWindow: result.insideWindow,
+      // When the Stripe refund failed, expose it so admin UI can flag that
+      // the booking cancelled without returning the money. The booking IS
+      // cancelled in the DB regardless — this is for staff visibility.
+      refundError: result.refundError,
     },
     200,
   );

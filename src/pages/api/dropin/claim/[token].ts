@@ -28,13 +28,29 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const GET: APIRoute = async ({ params }) => {
+async function loadClaimWithOrg(token: string) {
+  const row = await findClaimByToken(token);
+  if (!row) return { row: null, sessionOrgId: null };
+  const db = getDb();
+  const [session] = await db
+    .select({ organizationId: dropInSessions.organizationId })
+    .from(dropInSessions)
+    .where(eq(dropInSessions.id, row.sessionId))
+    .limit(1);
+  return { row, sessionOrgId: session?.organizationId ?? null };
+}
+
+export const GET: APIRoute = async ({ params, locals }) => {
   const token = params.token;
   if (!token) return json({ error: "Token required" }, 400);
 
-  const row = await findClaimByToken(token);
+  const { row, sessionOrgId } = await loadClaimWithOrg(token);
   if (!row) return json({ error: "Token invalid" }, 404);
   if (row.expired) return json({ error: "Window expired" }, 410);
+  if (locals.organization && sessionOrgId !== locals.organization.id) {
+    // Don't leak that the token exists for a different org — same shape as not-found.
+    return json({ error: "Token invalid" }, 404);
+  }
 
   return json(
     {
@@ -55,9 +71,12 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const token = params.token;
   if (!token) return json({ error: "Token required" }, 400);
 
-  const row = await findClaimByToken(token);
+  const { row, sessionOrgId } = await loadClaimWithOrg(token);
   if (!row) return json({ error: "Token invalid" }, 404);
   if (row.expired) return json({ error: "Window expired" }, 410);
+  if (locals.organization && sessionOrgId !== locals.organization.id) {
+    return json({ error: "Token invalid" }, 404);
+  }
   if (row.userId !== locals.user.id) {
     return json({ error: "This claim is for a different user" }, 403);
   }
