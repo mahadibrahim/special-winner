@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -22,7 +22,59 @@ interface FieldRental {
   partySize: number;
   purpose: string | null;
   checkedInAt: string | null;
+  paymentExpiresAt: string | null;
   venueName: string;
+}
+
+/**
+ * Live countdown badge for a pending-payment hold. Re-renders every second
+ * via a tick state. When the deadline passes it shows "Expired" and fires
+ * onExpire once so the parent can reload (the server-side cron flips the
+ * row to `cancelled` independently).
+ */
+function HoldCountdown({
+  expiresAt,
+  onExpire,
+}: {
+  expiresAt: string;
+  onExpire: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const firedExpireRef = useRef(false);
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const deadline = new Date(expiresAt).getTime();
+  const remainingMs = deadline - now;
+  if (remainingMs <= 0) {
+    if (!firedExpireRef.current) {
+      firedExpireRef.current = true;
+      window.setTimeout(onExpire, 0);
+    }
+    return (
+      <Badge variant="outline" className="bg-stone-100 text-stone-500 border-stone-200">
+        Hold expired
+      </Badge>
+    );
+  }
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const display = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  const urgent = remainingMs < 2 * 60 * 1000;
+  return (
+    <Badge
+      variant="outline"
+      className={
+        urgent
+          ? "bg-rose-100 text-rose-900 border-rose-300"
+          : "bg-amber-50 text-amber-900 border-amber-200"
+      }
+    >
+      Pay within {display}
+    </Badge>
+  );
 }
 
 function fmtDateTimeRange(startsAt: string, endsAt: string): string {
@@ -228,6 +280,12 @@ export default function MyFieldRentals() {
                         <Badge variant="outline" className={statusColor(r.status)}>
                           {statusLabel(r.status)}
                         </Badge>
+                        {r.status === "pending_payment" && r.paymentExpiresAt && (
+                          <HoldCountdown
+                            expiresAt={r.paymentExpiresAt}
+                            onExpire={() => void reload()}
+                          />
+                        )}
                         <span className="text-xs text-stone-500">
                           {r.partySize} {r.partySize === 1 ? "person" : "people"}
                         </span>

@@ -14,7 +14,12 @@ import { getDb } from "@/lib/db";
 import { fieldRentals, type FieldRental } from "@/lib/db/schema/field-rentals";
 import { assertNoRentalConflict } from "./conflicts";
 
-const HOLD_MINUTES = 30;
+// Window the field is held for the customer after they POST the booking
+// and before Stripe Checkout confirms. Short enough that an abandoned
+// checkout doesn't tie up an evening slot for long; long enough for a
+// normal Stripe flow (avg ~2-3 min) including a 3DS challenge.
+// Follow-up: move this to fieldRentalRateCard so it's per-org configurable.
+const HOLD_MINUTES = 10;
 
 export interface RentalHoldInput {
   organizationId: string;
