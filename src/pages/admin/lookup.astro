@@ -1,0 +1,21 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { LookupSearch } from "@/components/admin/lookup-search";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+---
+
+<BaseLayout title="Look up — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/lookup"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <LookupSearch client:load />
+  </AdminLayout>
+</BaseLayout>

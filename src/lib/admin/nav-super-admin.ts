@@ -83,7 +83,9 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
     items: [
       { name: "Revenue", href: "/admin/reports/revenue", icon: BarChart3 },
       { name: "Registrations", href: "/admin/reports/registrations", icon: BarChart3 },
-      { name: "Conversion", href: "/admin/reports/conversion", icon: BarChart3 },
+      // Conversion analytics live in PostHog — funnel queries don't have
+      // a backing route or component here yet. Add this entry back once
+      // the funnel API + chart component land.
     ],
   },
 ];
