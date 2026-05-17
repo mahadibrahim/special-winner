@@ -26,7 +26,8 @@
     "test:unit": "vitest run --config vitest.config.ts --project unit",
     "strategy:pdf": "tsx scripts/strategy-md-to-pdf.ts",
     "catalog:validate": "tsx scripts/ops-catalog/index.ts validate",
-    "catalog:render": "tsx scripts/ops-catalog/index.ts render"
+    "catalog:render": "tsx scripts/ops-catalog/index.ts render",
+    "stripe:preflight": "node -r dotenv/config ./node_modules/.bin/tsx scripts/stripe-preflight.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
