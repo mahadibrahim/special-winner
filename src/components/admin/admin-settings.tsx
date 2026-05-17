@@ -21,7 +21,11 @@ import {
   type ExternalStoreValue,
 } from "./external-store-settings";
 
-export function AdminSettings() {
+type AdminSettingsProps = {
+  organizationName?: string | null;
+};
+
+export function AdminSettings({ organizationName }: AdminSettingsProps = {}) {
   const [activeTab, setActiveTab] = useState("general");
   const [externalStore, setExternalStore] =
     useState<ExternalStoreValue | null>(null);
@@ -78,6 +82,11 @@ export function AdminSettings() {
   return (
     <div className="space-y-6">
       <div>
+        {organizationName && (
+          <div className="text-[10px] uppercase tracking-widest text-ink-muted font-semibold mb-1">
+            {organizationName}
+          </div>
+        )}
         <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-600 mt-1">
           Manage organization settings and preferences
