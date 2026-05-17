@@ -1,0 +1,84 @@
+# Weekly check that staging and prod have the same application schema.
+#
+# Real schema drift means one of:
+#   - Someone ran `db:push` against one DB
+#   - Migrations applied successfully on one DB but failed on the other
+#     and weren't re-run
+#   - Someone made an out-of-band hand edit (ALTER TABLE, etc.)
+#   - migrate-staging.yml is failing silently and nobody noticed
+#
+# When staging drifts, integration tests that "work on staging" can
+# ship code that breaks in prod (or vice versa). This cron catches
+# drift within a week — far faster than the "stale staging" pain we hit
+# when discovering it mid-release.
+#
+# How: `pg_dump --schema-only` is deterministic across identical
+# schemas. `diff -u` on two clean dumps either shows nothing (in sync)
+# or the exact DDL needed to reconcile.
+#
+# Excluded:
+#   - `drizzle` schema (migration tracking — content differs by row id
+#     not by structure; the table presence is what matters and that's
+#     guaranteed by both running through db:migrate)
+#
+# Required secrets: STAGING_DATABASE_URL, DATABASE_URL.
+
+name: Schema drift (staging vs prod)
+
+on:
+  schedule:
+    # Mondays 12:00 UTC — start of the work week, before any planned
+    # releases, so we can investigate drift before merging more changes.
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-24.04 (the current ubuntu-latest) ships postgresql-client-16
+      # by default; Railway runs Postgres 16. Verify the version up front
+      # so a future runner-image change failing version-match is loud.
+      - name: Verify pg_dump version
+        run: |
+          pg_dump --version
+          pg_dump --version | grep -E '(16|17)\.' \
+            || (echo "::error::pg_dump version mismatch — install postgresql-client-16+" && exit 1)
+
+      - name: Dump staging schema
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          pg_dump --schema-only --no-owner --no-acl \
+            --exclude-schema=drizzle \
+            "$STAGING_DATABASE_URL" > staging.sql
+
+      - name: Dump prod schema
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          pg_dump --schema-only --no-owner --no-acl \
+            --exclude-schema=drizzle \
+            "$DATABASE_URL" > prod.sql
+
+      - name: Compare
+        run: |
+          if diff -u staging.sql prod.sql > drift.patch; then
+            echo "✅ Staging and prod schemas are in sync."
+          else
+            echo "❌ Schema drift detected between staging and prod."
+            echo "::error::Schema drift detected — see drift.patch artifact for the diff."
+            echo "--- Diff (truncated to 200 lines) ---"
+            head -n 200 drift.patch
+            exit 1
+          fi
+
+      - name: Upload drift patch on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-drift-patch
+          path: drift.patch
+          retention-days: 30

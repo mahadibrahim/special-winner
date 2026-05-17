@@ -1,0 +1,71 @@
+# Keeps the STAGING database schema in sync with `main`.
+#
+# Mirror of migrate-prod.yml using STAGING_DATABASE_URL. Triggered on
+# the same event (push to main) so staging and prod migrate at the same
+# moment, eliminating the schema-drift window that previously developed
+# because staging only updated when someone ran `db:migrate` by hand.
+#
+# Why this matters: when staging falls behind prod, integration tests
+# pointed at staging (or seed scripts that `select *` from rows with new
+# columns) fail with "column does not exist" errors that look like bugs
+# but are actually drift artifacts. The recent pre-launch audit hit
+# exactly this — staging was ~24 migrations behind prod.
+#
+# Safety: same as prod — drizzle tracks applied migrations in
+# `drizzle.__drizzle_migrations`, so re-runs are no-ops; the schema
+# convention is additive/forward-compatible.
+#
+# `workflow_dispatch` is kept so migrations can be re-run by hand from
+# the Actions tab if ever needed.
+#
+# Required secret: STAGING_DATABASE_URL (the Railway staging Postgres
+# connection string).
+
+name: Migrate staging database
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+
+# Serialize so two near-simultaneous merges don't race to apply the
+# same migrations.
+concurrency:
+  group: migrate-staging
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Bootstrap is for a DB previously managed via `drizzle-kit push`
+      # (no `__drizzle_migrations` rows). It's idempotent — a no-op once
+      # tracking exists — so it's safe to run on every invocation.
+      - name: Bootstrap migration tracking
+        run: npm run db:migrate:bootstrap
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      # Applies any committed migrations not yet in __drizzle_migrations.
+      # If this fails the workflow fails loudly — surfacing schema drift
+      # instead of letting it rot silently.
+      - name: Apply database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
