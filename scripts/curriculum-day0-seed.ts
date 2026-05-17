@@ -56,8 +56,10 @@ function q(s: string): string {
   return s.replace(/'/g, "''");
 }
 
-function arr(items: string[]): string {
-  return `ARRAY[${items.map((s) => `'${q(s)}'`).join(",")}]::text[]`;
+// jsonb columns expect a JSON-encoded array, not a Postgres array literal.
+// Use this for: coaching_tips, common_mistakes, equipment_needed.
+function jsonArr(items: string[]): string {
+  return `'${q(JSON.stringify(items))}'::jsonb`;
 }
 
 type DB = ReturnType<typeof getDb>;
@@ -367,7 +369,7 @@ async function seedSkills(
          SELECT '${KEEP_ORG_ID}', '${soccerId}', '${domainId}', '${stageId}',
                 '${q(s.name)}', '${s.slug}', '${q(s.description)}',
                 ${s.introductionAge}, 'observation',
-                ${arr(s.coachingTips)}, ${arr(s.commonMistakes)},
+                ${jsonArr(s.coachingTips)}, ${jsonArr(s.commonMistakes)},
                 ${s.sortOrder}, true
          WHERE NOT EXISTS (
            SELECT 1 FROM skills WHERE sport_id = '${soccerId}' AND slug = '${s.slug}'
@@ -496,7 +498,7 @@ async function seedActivities(db: DB, soccerId: string): Promise<void> {
                 '${a.difficulty}', ${a.minPlayers},
                 ${a.maxPlayers === null ? "NULL" : a.maxPlayers},
                 ${a.durationMinutes},
-                '${q(a.setupInstructions)}', '${q(a.howToPlay)}', ${arr(a.equipment)},
+                '${q(a.setupInstructions)}', '${q(a.howToPlay)}', ${jsonArr(a.equipment)},
                 true, true, false
          WHERE NOT EXISTS (
            SELECT 1 FROM activities WHERE sport_id = '${soccerId}' AND slug = '${a.slug}'
@@ -533,7 +535,7 @@ async function seedTemplates(
        SELECT '${KEEP_ORG_ID}', '${soccerId}', '${foundationStageId}',
               'Foundation — 54-Minute Practice', 'Starter template for U9-U12 sessions covering technical, tactical, and game-realistic blocks.',
               54, '${q(structure)}'::jsonb,
-              ${arr(["8 cones", "Bibs", "Balls (one per player ideally)"])},
+              ${jsonArr(["8 cones", "Bibs", "Balls (one per player ideally)"])},
               true, true
        WHERE NOT EXISTS (
          SELECT 1 FROM practice_templates
