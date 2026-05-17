@@ -212,15 +212,19 @@ export function TeamsList({ seasons, coaches }: TeamsListProps) {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Teams</h1>
-          <p className="text-gray-600 mt-1">Manage teams and rosters</p>
+          <p className="text-gray-600 mt-1">
+            Cross-season summary. Create or edit teams from a season's Teams tab.
+          </p>
         </div>
-        <Button onClick={openCreateDialog} disabled={seasons.length === 0}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Team
-        </Button>
+        <a
+          href="/admin/seasons"
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-cream"
+        >
+          Open a season →
+        </a>
       </div>
 
       {seasons.length === 0 && (
