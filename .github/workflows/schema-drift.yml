@@ -82,16 +82,69 @@ jobs:
             "$DATABASE_URL" > prod.sql
 
       - name: Compare
+        id: compare
         run: |
           if diff -u staging.sql prod.sql > drift.patch; then
             echo "✅ Staging and prod schemas are in sync."
+            echo "drift=no" >> "$GITHUB_OUTPUT"
+            {
+              echo "## ✅ Schema in sync"
+              echo ""
+              echo "Staging and prod schemas match. Nothing to reconcile."
+            } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "❌ Schema drift detected between staging and prod."
             echo "::error::Schema drift detected — see drift.patch artifact for the diff."
+            echo "drift=yes" >> "$GITHUB_OUTPUT"
             echo "--- Diff (truncated to 200 lines) ---"
             head -n 200 drift.patch
             exit 1
           fi
+
+      # Write a human-readable summary to the GHA run page when drift exists.
+      # `if: failure()` runs only on the drift-detected path (Compare's `exit 1`).
+      # Output appears in the run's "Summary" tab — no need to download
+      # drift.patch to see the high-level shape.
+      - name: Drift summary (GitHub UI)
+        if: failure() && hashFiles('drift.patch') != ''
+        run: |
+          # Skip the first two header lines (--- staging.sql / +++ prod.sql)
+          # so they don't get counted as content.
+          body=$(tail -n +3 drift.patch)
+          added=$(printf '%s\n' "$body" | grep -cE '^\+[^+]' || true)
+          removed=$(printf '%s\n' "$body" | grep -cE '^-[^-]' || true)
+
+          {
+            echo "## ❌ Schema drift detected"
+            echo ""
+            echo "| Lines only in **prod** | Lines only in **staging** |"
+            echo "|---|---|"
+            echo "| $added | $removed |"
+            echo ""
+            echo "### Tables present in **prod** but missing from staging"
+            in_prod=$(grep -E '^\+-- Name: [a-zA-Z0-9_]+; Type: TABLE' drift.patch \
+              | sed -E 's/^\+-- Name: ([a-zA-Z0-9_]+); Type: TABLE.*/- `\1`/' \
+              | sort -u)
+            if [ -n "$in_prod" ]; then echo "$in_prod"; else echo "_(none)_"; fi
+            echo ""
+            echo "### Tables present in **staging** but missing from prod"
+            in_staging=$(grep -E '^--- Name: [a-zA-Z0-9_]+; Type: TABLE' drift.patch \
+              | sed -E 's/^--- Name: ([a-zA-Z0-9_]+); Type: TABLE.*/- `\1`/' \
+              | sort -u)
+            if [ -n "$in_staging" ]; then echo "$in_staging"; else echo "_(none)_"; fi
+            echo ""
+            echo "### Postgres server versions"
+            echo '```'
+            grep -E '^[+-]-- Dumped from database version' drift.patch || echo "(not detected)"
+            echo '```'
+            echo ""
+            echo "### Next steps"
+            echo "1. Fire **Migrate staging database** via \`workflow_dispatch\` from the Actions tab to apply any unmerged migrations to staging."
+            echo "2. If \`db:migrate\` fails with \"already exists\" errors, the staging DB has out-of-band schema changes — review the drift.patch artifact and reconcile manually."
+            echo "3. Re-run this workflow. Expect a green ✅ summary."
+            echo ""
+            echo "Full DDL diff is in the **schema-drift-patch** artifact attached to this run."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload drift patch on failure
         if: failure()
