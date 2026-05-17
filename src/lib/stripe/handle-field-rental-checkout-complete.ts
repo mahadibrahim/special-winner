@@ -23,6 +23,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { stripe } from "@/lib/stripe/client";
+import { logAlert } from "@/lib/logging/alerts";
 
 export async function handleFieldRentalCheckoutComplete(
   session: Stripe.Checkout.Session,
@@ -91,18 +92,14 @@ export async function handleFieldRentalCheckoutComplete(
         refundId = refund.id;
       } catch (err) {
         refundError = err instanceof Error ? err.message : String(err);
-        // Structured log so on-call can grep for late-payment refund failures.
         // The customer was CHARGED but the hold was already released — staff
-        // must refund manually using the paymentIntentId below.
-        console.error(
-          JSON.stringify({
-            tag: "rental_late_refund_failed",
-            rentalId,
-            stripePaymentIntentId: piId,
-            paidCents,
-            error: refundError,
-          }),
-        );
+        // must refund manually using the paymentIntentId in the log line.
+        logAlert("rental_late_refund_failed", {
+          rentalId,
+          stripePaymentIntentId: piId,
+          paidCents,
+          error: refundError,
+        });
       }
     } else if (!stripe) {
       refundError = "stripe-not-configured";

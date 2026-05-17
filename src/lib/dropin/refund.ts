@@ -23,6 +23,7 @@ import {
   dropInRateCard,
 } from "@/lib/db/schema/drop-in";
 import { stripe } from "@/lib/stripe/client";
+import { logAlert } from "@/lib/logging/alerts";
 import { promoteNextWaitlister } from "./promotion";
 import { dispatchBookingCancelledByAdmin } from "./messages/dispatch";
 
@@ -109,18 +110,14 @@ export async function processCancelRefund(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       refundError = message;
-      // Structured log so this is easy to grep / route to alerting later.
       // The booking still cancels (customer UI consistency), but the funds
       // were not returned — surface it to the caller so staff sees it.
-      console.error(
-        JSON.stringify({
-          tag: "dropin_refund_failed",
-          bookingId,
-          stripePaymentIntentId: booking.stripePaymentIntentId,
-          amountPaidCents: booking.amountPaidCents,
-          error: message,
-        }),
-      );
+      logAlert("dropin_refund_failed", {
+        bookingId,
+        stripePaymentIntentId: booking.stripePaymentIntentId,
+        amountPaidCents: booking.amountPaidCents,
+        error: message,
+      });
     }
   }
 
