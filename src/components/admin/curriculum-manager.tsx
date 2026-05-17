@@ -1,7 +1,10 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import {
   BookOpen,
   Dumbbell,
@@ -35,6 +38,7 @@ interface CurriculumStats {
 }
 
 export function CurriculumManager() {
+  useHydrationBeacon();
   const [stats, setStats] = useState<CurriculumStats | null>(null);
   const [loading, setLoading] = useState(true);
 
