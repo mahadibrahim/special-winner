@@ -69,6 +69,78 @@ describe("extractSchemaEffects", () => {
     ]);
   });
 
+  // ── Regression suite: 2026-05-17 incident ──────────────────────────
+  // Migration 0029_drop_unused_bookings_tables.sql used
+  // `DROP TABLE IF EXISTS public.bookings CASCADE;` (unquoted,
+  // schema-qualified). The quote-only regex returned no effects → bootstrap
+  // logged "no detectable schema effects … left un-applied" → drizzle's
+  // migrator then silently skipped 0029 because a later migration in
+  // __drizzle_migrations carried a higher `when` timestamp. Result: prod
+  // kept the phantom tables for a full deploy cycle. These tests pin the
+  // bootstrap's tolerance for the four identifier shapes drizzle emits
+  // (quoted, unquoted, and schema-qualified variants of either).
+
+  it("parses unquoted DROP TABLE", () => {
+    const sql = `DROP TABLE bookings CASCADE;`;
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "drop-table", name: "bookings" },
+    ]);
+  });
+
+  it("parses schema-qualified unquoted DROP TABLE", () => {
+    const sql = `DROP TABLE IF EXISTS public.bookings CASCADE;`;
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "drop-table", name: "bookings" },
+    ]);
+  });
+
+  it("parses schema-qualified quoted DROP TABLE", () => {
+    const sql = `DROP TABLE IF EXISTS "public"."bookings";`;
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "drop-table", name: "bookings" },
+    ]);
+  });
+
+  it("parses unquoted CREATE TABLE", () => {
+    const sql = `CREATE TABLE IF NOT EXISTS bookings ("id" uuid);`;
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "create-table", name: "bookings" },
+    ]);
+  });
+
+  it("parses schema-qualified CREATE TABLE", () => {
+    const sql = `CREATE TABLE public.bookings ("id" uuid);`;
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "create-table", name: "bookings" },
+    ]);
+  });
+
+  it("parses unquoted ALTER TABLE ADD COLUMN", () => {
+    const sql = `ALTER TABLE users ADD COLUMN email text;`;
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "add-column", table: "users", column: "email" },
+    ]);
+  });
+
+  it("parses schema-qualified ALTER TABLE DROP COLUMN", () => {
+    const sql = `ALTER TABLE public.users DROP COLUMN IF EXISTS legacy_field;`;
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "drop-column", table: "users", column: "legacy_field" },
+    ]);
+  });
+
+  it("parses 0029's exact body (regression for the original bug)", () => {
+    const sql = [
+      `DROP TABLE IF EXISTS public.bookings CASCADE;`,
+      `--> statement-breakpoint`,
+      `DROP TABLE IF EXISTS public.bookable_resources CASCADE;`,
+    ].join("\n");
+    expect(extractSchemaEffects(sql)).toEqual([
+      { kind: "drop-table", name: "bookings" },
+      { kind: "drop-table", name: "bookable_resources" },
+    ]);
+  });
+
   it("parses multiple effects from a single migration", () => {
     const sql = [
       `CREATE TABLE "foo" ("id" uuid PRIMARY KEY);`,

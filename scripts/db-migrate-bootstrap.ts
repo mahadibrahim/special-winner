@@ -64,35 +64,74 @@ export type ResolvedEffect =
   | { kind: "create-table"; name: string; expectPresent: boolean }
   | { kind: "add-column"; table: string; column: string; expectPresent: boolean };
 
+// Match a SQL identifier in one of four shapes:
+//   "name"            (quoted)         → captured by the "quoted" group
+//   name              (unquoted)       → captured by the "unquoted" group
+//   "schema"."name"   (schema-qual)    → "name" captured by the quoted group; schema discarded
+//   schema.name       (schema-qual)    → "name" captured by the unquoted group; schema discarded
+//   "schema".name     (mixed)          → "name" captured by the unquoted group; schema discarded
+//   schema."name"     (mixed)          → "name" captured by the quoted group; schema discarded
+//
+// Each invocation of the helper appends ONE pair of capture groups, so a regex
+// using two identifiers (e.g. ALTER TABLE t ADD COLUMN c) has 4 capture groups:
+// table-quoted, table-unquoted, column-quoted, column-unquoted.
+//
+// Migration 0029_drop_unused_bookings_tables.sql shipped with unquoted,
+// schema-qualified names (`DROP TABLE IF EXISTS public.bookings CASCADE`) which
+// the original quote-only regexes silently skipped — bootstrap then left the
+// migration "hashless" and drizzle's migrator considered it past-applied
+// because a later migration carried a higher `when` (see
+// drizzle.__drizzle_migrations comment block below).
+const IDENT_GROUPS = `(?:"([^"]+)"|([a-zA-Z_][\\w$]*))`;
+const SCHEMA_PREFIX = `(?:(?:"[^"]+"|[a-zA-Z_][\\w$]*)\\.)?`;
+const QUAL_IDENT = SCHEMA_PREFIX + IDENT_GROUPS;
+
 export function extractSchemaEffects(sqlText: string): RawEffect[] {
   const effects: RawEffect[] = [];
 
-  // CREATE TABLE [IF NOT EXISTS] "name"
-  const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi;
+  // CREATE TABLE [IF NOT EXISTS] [schema.]name
+  const createRe = new RegExp(
+    `CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${QUAL_IDENT}`,
+    "gi",
+  );
   let m: RegExpExecArray | null;
   while ((m = createRe.exec(sqlText)) !== null) {
-    effects.push({ kind: "create-table", name: m[1] });
+    effects.push({ kind: "create-table", name: m[1] ?? m[2] });
   }
 
-  // ALTER TABLE "t" ADD COLUMN [IF NOT EXISTS] "c"
-  const addColRe =
-    /ALTER\s+TABLE\s+"([^"]+)"\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi;
+  // ALTER TABLE [schema.]t ADD COLUMN [IF NOT EXISTS] c
+  const addColRe = new RegExp(
+    `ALTER\\s+TABLE\\s+${QUAL_IDENT}\\s+ADD\\s+COLUMN\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${IDENT_GROUPS}`,
+    "gi",
+  );
   while ((m = addColRe.exec(sqlText)) !== null) {
-    effects.push({ kind: "add-column", table: m[1], column: m[2] });
+    effects.push({
+      kind: "add-column",
+      table: m[1] ?? m[2],
+      column: m[3] ?? m[4],
+    });
   }
 
-  // DROP TABLE [IF EXISTS] "name" [CASCADE]
-  const dropTableRe =
-    /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"([^"]+)"(?:\s+CASCADE)?/gi;
+  // DROP TABLE [IF EXISTS] [schema.]name [CASCADE]
+  const dropTableRe = new RegExp(
+    `DROP\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?${QUAL_IDENT}(?:\\s+CASCADE)?`,
+    "gi",
+  );
   while ((m = dropTableRe.exec(sqlText)) !== null) {
-    effects.push({ kind: "drop-table", name: m[1] });
+    effects.push({ kind: "drop-table", name: m[1] ?? m[2] });
   }
 
-  // ALTER TABLE "t" DROP COLUMN [IF EXISTS] "c"
-  const dropColRe =
-    /ALTER\s+TABLE\s+"([^"]+)"\s+DROP\s+COLUMN\s+(?:IF\s+EXISTS\s+)?"([^"]+)"/gi;
+  // ALTER TABLE [schema.]t DROP COLUMN [IF EXISTS] c
+  const dropColRe = new RegExp(
+    `ALTER\\s+TABLE\\s+${QUAL_IDENT}\\s+DROP\\s+COLUMN\\s+(?:IF\\s+EXISTS\\s+)?${IDENT_GROUPS}`,
+    "gi",
+  );
   while ((m = dropColRe.exec(sqlText)) !== null) {
-    effects.push({ kind: "drop-column", table: m[1], column: m[2] });
+    effects.push({
+      kind: "drop-column",
+      table: m[1] ?? m[2],
+      column: m[3] ?? m[4],
+    });
   }
 
   return effects;
