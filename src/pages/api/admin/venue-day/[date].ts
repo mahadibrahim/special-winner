@@ -47,19 +47,34 @@ export const GET: APIRoute = async ({ params, url, locals }) => {
     }
   }
 
-  const data = await getVenueDayData(locationId, date);
-  if (!data) {
-    return new Response(JSON.stringify({ error: "Not found" }), {
-      status: 404,
-      headers: { "content-type": "application/json" },
-    });
-  }
+  try {
+    const data = await getVenueDayData(locationId, date);
+    if (!data) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
 
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: {
-      "content-type": "application/json",
-      "cache-control": "no-store",
-    },
-  });
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      },
+    });
+  } catch (err) {
+    // Without this catch, a query failure inside getVenueDayData would
+    // bubble out of the route as an unhandled 500 with no body — the
+    // home-page card would then stay on "Loading…" forever instead of
+    // surfacing the failure.
+    console.error("[/api/admin/venue-day] getVenueDayData failed:", err);
+    return new Response(
+      JSON.stringify({ error: "Failed to load venue day" }),
+      {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
 };

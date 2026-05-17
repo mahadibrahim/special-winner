@@ -12,10 +12,10 @@ import { getDb } from "@/lib/db";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { sports } from "@/lib/db/schema/sports";
 import { locations } from "@/lib/db/schema/organizations";
-import { registrations } from "@/lib/db/schema/registrations";
-import { teams, games } from "@/lib/db/schema/teams";
+import { registrations, familyMembers } from "@/lib/db/schema/registrations";
+import { teams, games, rosters } from "@/lib/db/schema/teams";
 import { payments } from "@/lib/db/schema/payments";
-import { and, eq, sql, ne } from "drizzle-orm";
+import { and, eq, sql, ne, desc, asc } from "drizzle-orm";
 
 export const prerender = false;
 
@@ -126,25 +126,76 @@ const stats: SeasonStats = {
   refundsPending: refundCount?.n ?? 0,
 };
 
-// Tab content as pre-rendered HTML strings, passed to SeasonHubLayout
-// (which renders them via dangerouslySetInnerHTML). These are deep-link
-// panels that point at the existing top-level admin surfaces with a
-// seasonId filter; an inline-table enhancement is a Phase-4 follow-up.
+// Pull inline-table data for the two highest-value tabs (Registrations
+// and Teams). The remaining 5 tabs stay as deep-link panels — that work
+// lives on other admin pages and inlining it would duplicate without
+// adding value.
+const [recentRegs, teamsWithRoster] = await Promise.all([
+  getDb()
+    .select({
+      id: registrations.id,
+      status: registrations.status,
+      createdAt: registrations.createdAt,
+      firstName: familyMembers.firstName,
+      lastName: familyMembers.lastName,
+    })
+    .from(registrations)
+    .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+    .where(
+      and(
+        eq(registrations.seasonId, seasonId),
+        ne(registrations.status, "cancelled"),
+      ),
+    )
+    .orderBy(desc(registrations.createdAt))
+    .limit(10),
+  getDb()
+    .select({
+      id: teams.id,
+      name: teams.name,
+      maxRosterSize: teams.maxRosterSize,
+      rosterCount: sql<number>`COALESCE((
+        SELECT COUNT(*)::int FROM ${rosters}
+          WHERE ${rosters.teamId} = ${teams.id}
+            AND ${rosters.status} = 'active'
+      ), 0)`,
+    })
+    .from(teams)
+    .where(eq(teams.seasonId, seasonId))
+    .orderBy(asc(teams.name)),
+]);
+
+// HTML-escape user-controlled text. Cheap to call; defends the
+// dangerouslySetInnerHTML path on the React side without dragging in
+// a library.
+const esc = (s: string): string =>
+  s.replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case '"': return "&quot;";
+      case "'": return "&#39;";
+      default: return c;
+    }
+  });
+
+// Deep-link panel shared by tabs whose real work lives elsewhere.
 function panel(label: string, hrefs: { label: string; href: string }[]): string {
   const items = hrefs
     .map(
       (h) =>
         '<li><a href="' +
-        h.href +
+        esc(h.href) +
         '" class="underline hover:no-underline">' +
-        h.label +
+        esc(h.label) +
         " &rarr;</a></li>",
     )
     .join("");
   return (
     '<div class="bg-white border border-border rounded p-6 space-y-3">' +
     '<p class="text-sm text-ink-muted">' +
-    label +
+    esc(label) +
     "</p>" +
     '<ul class="space-y-1 text-sm">' +
     items +
@@ -152,18 +203,148 @@ function panel(label: string, hrefs: { label: string; href: string }[]): string 
   );
 }
 
+// Inline registrations table — 10 most recent active registrations,
+// followed by a deep-link to the full list with the season filter.
+function registrationsPanel(): string {
+  const summary =
+    stats.capacityCurrent +
+    " active registration" +
+    (stats.capacityCurrent === 1 ? "" : "s") +
+    (stats.capacityMax ? " of " + stats.capacityMax : "") +
+    ".";
+
+  if (recentRegs.length === 0) {
+    return (
+      '<div class="bg-white border border-border rounded p-6 space-y-3">' +
+      '<p class="text-sm text-ink-muted">' +
+      esc(summary) +
+      "</p>" +
+      '<p class="text-sm text-ink-muted italic">No registrations yet.</p>' +
+      '<a href="/admin/registrations?seasonId=' +
+      esc(seasonId) +
+      '" class="underline text-sm hover:no-underline">' +
+      "View all registrations &rarr;</a>" +
+      "</div>"
+    );
+  }
+
+  const rows = recentRegs
+    .map((r) => {
+      const name = esc(`${r.firstName} ${r.lastName}`);
+      const status = esc(r.status);
+      const when = esc(
+        new Date(r.createdAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      );
+      const link = `/admin/registrations/${esc(r.id)}`;
+      return (
+        '<tr class="border-t border-border">' +
+        '<td class="py-2 pr-3"><a href="' +
+        link +
+        '" class="underline hover:no-underline">' +
+        name +
+        "</a></td>" +
+        '<td class="py-2 pr-3 text-ink-muted">' +
+        status +
+        "</td>" +
+        '<td class="py-2 pr-3 text-ink-muted">' +
+        when +
+        "</td>" +
+        "</tr>"
+      );
+    })
+    .join("");
+
+  return (
+    '<div class="bg-white border border-border rounded p-6 space-y-3">' +
+    '<p class="text-sm text-ink-muted">' +
+    esc(summary) +
+    " Showing the 10 most recent.</p>" +
+    '<table class="w-full text-sm"><thead><tr class="text-left text-[10px] uppercase tracking-wider text-ink-muted">' +
+    '<th class="pb-1 pr-3">Player</th>' +
+    '<th class="pb-1 pr-3">Status</th>' +
+    '<th class="pb-1 pr-3">Registered</th>' +
+    "</tr></thead><tbody>" +
+    rows +
+    "</tbody></table>" +
+    '<a href="/admin/registrations?seasonId=' +
+    esc(seasonId) +
+    '" class="underline text-sm hover:no-underline">' +
+    "View all registrations &rarr;</a>" +
+    "</div>"
+  );
+}
+
+// Inline teams table — every team in the season + active roster count.
+function teamsPanel(): string {
+  const summary =
+    stats.teams +
+    " team" +
+    (stats.teams === 1 ? "" : "s") +
+    " in this season.";
+
+  if (teamsWithRoster.length === 0) {
+    return (
+      '<div class="bg-white border border-border rounded p-6 space-y-3">' +
+      '<p class="text-sm text-ink-muted">' +
+      esc(summary) +
+      "</p>" +
+      '<p class="text-sm text-ink-muted italic">No teams yet.</p>' +
+      '<a href="/admin/teams?seasonId=' +
+      esc(seasonId) +
+      '" class="underline text-sm hover:no-underline">' +
+      "Manage teams &rarr;</a>" +
+      "</div>"
+    );
+  }
+
+  const rows = teamsWithRoster
+    .map((t) => {
+      const name = esc(t.name);
+      const count = `${t.rosterCount}${t.maxRosterSize ? " / " + t.maxRosterSize : ""}`;
+      const link = `/admin/teams/${esc(t.id)}`;
+      return (
+        '<tr class="border-t border-border">' +
+        '<td class="py-2 pr-3"><a href="' +
+        link +
+        '" class="underline hover:no-underline">' +
+        name +
+        "</a></td>" +
+        '<td class="py-2 pr-3 text-ink-muted">' +
+        esc(count) +
+        "</td>" +
+        "</tr>"
+      );
+    })
+    .join("");
+
+  return (
+    '<div class="bg-white border border-border rounded p-6 space-y-3">' +
+    '<p class="text-sm text-ink-muted">' +
+    esc(summary) +
+    "</p>" +
+    '<table class="w-full text-sm"><thead><tr class="text-left text-[10px] uppercase tracking-wider text-ink-muted">' +
+    '<th class="pb-1 pr-3">Team</th>' +
+    '<th class="pb-1 pr-3">Active roster</th>' +
+    "</tr></thead><tbody>" +
+    rows +
+    "</tbody></table>" +
+    '<div class="flex gap-4">' +
+    '<a href="/admin/teams?seasonId=' +
+    esc(seasonId) +
+    '" class="underline text-sm hover:no-underline">' +
+    "Manage teams &rarr;</a>" +
+    '<a href="#gear" class="underline text-sm hover:no-underline">Jump to Gear binding &rarr;</a>' +
+    "</div></div>"
+  );
+}
+
 const tabContents: Record<SeasonHubTab, string> = {
-  registrations: panel(
-    `${stats.capacityCurrent} active registrations${stats.capacityMax ? ` of ${stats.capacityMax}` : ""}.`,
-    [{ label: "View all registrations", href: `/admin/registrations?seasonId=${seasonId}` }],
-  ),
-  teams: panel(
-    `${stats.teams} team${stats.teams === 1 ? "" : "s"} in this season.`,
-    [
-      { label: "Manage teams", href: `/admin/teams?seasonId=${seasonId}` },
-      { label: "Jump to Gear binding", href: "#gear" },
-    ],
-  ),
+  registrations: registrationsPanel(),
+  teams: teamsPanel(),
   schedule: panel(
     `${stats.games} game${stats.games === 1 ? "" : "s"} scheduled.`,
     [{ label: "Manage games", href: `/admin/games?seasonId=${seasonId}` }],

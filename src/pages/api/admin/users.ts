@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { users, userRoles, roles, locations, programs, teams, seasons } from "@/lib/db/schema";
+import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { eq, asc, desc, ilike, or, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -64,12 +65,19 @@ export const GET: APIRoute = async (context) => {
       : [];
     const teamIds = orgTeams.map((t) => t.id);
 
-    // Get user IDs who have roles scoped to this organization or its entities
+    // Get user IDs who have roles tied to this organization or its entities.
+    // Includes:
+    //   - global-scoped role-holders (super-admins are visible in every org)
+    //   - org-scoped roles for this org
+    //   - location/program/team-scoped roles for entities under this org
     const orgUserRoles = await getDb()
       .select({ userId: userRoles.userId })
       .from(userRoles)
       .where(
         or(
+          // Global-scoped roles (super-admins) — they belong to every org's
+          // view since they administer the whole platform.
+          eq(userRoles.scopeType, "global"),
           // Organization-scoped roles
           and(
             eq(userRoles.scopeType, "organization"),
@@ -90,7 +98,20 @@ export const GET: APIRoute = async (context) => {
         )
       );
 
-    const userIdsInOrg = [...new Set(orgUserRoles.map((ur) => ur.userId))];
+    // Also include users explicitly granted access to this org via
+    // user_organization_access (the legitimate non-role membership signal,
+    // used for parents and players who have no role but belong to the org).
+    const orgAccessRows = await getDb()
+      .select({ userId: userOrganizationAccess.userId })
+      .from(userOrganizationAccess)
+      .where(eq(userOrganizationAccess.organizationId, orgContext.organizationId));
+
+    const userIdsInOrg = [
+      ...new Set([
+        ...orgUserRoles.map((ur) => ur.userId),
+        ...orgAccessRows.map((a) => a.userId),
+      ]),
+    ];
 
     if (userIdsInOrg.length === 0) {
       return new Response(
@@ -285,9 +306,17 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify the scope is valid for this organization
-    const { scopeType, scopeId } = result.data;
-    if (scopeType === "organization" && scopeId !== orgContext.organizationId) {
-      return new Response(JSON.stringify({ error: "Cannot assign roles to other organizations" }), { status: 403 });
+    const { scopeType } = result.data;
+    // For org-scoped roles, default scopeId to the current org if missing —
+    // the UI dialog doesn't expose a scope picker, so callers send the
+    // role name only. Explicitly-provided scopeIds still get validated.
+    let scopeId = result.data.scopeId ?? null;
+    if (scopeType === "organization") {
+      if (scopeId === null) {
+        scopeId = orgContext.organizationId;
+      } else if (scopeId !== orgContext.organizationId) {
+        return new Response(JSON.stringify({ error: "Cannot assign roles to other organizations" }), { status: 403 });
+      }
     }
 
     if (scopeType === "location" && scopeId) {
@@ -324,9 +353,24 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    // Prevent assigning global/super_admin roles (only super_admin can do that)
+    // Only super-admins can promote another user to super_admin (the only
+    // role that uses scopeType="global"). The auth check earlier in this
+    // handler (requireAdminAccess) does NOT distinguish super_admin from
+    // location_admin, so we have to re-check here.
     if (scopeType === "global") {
-      return new Response(JSON.stringify({ error: "Cannot assign global roles" }), { status: 403 });
+      const assignerRoles = (context.locals.userRoles ?? []).map((r) => r.name);
+      if (!assignerRoles.includes("super_admin")) {
+        return new Response(
+          JSON.stringify({ error: "Only super-admins can assign global roles" }),
+          { status: 403 },
+        );
+      }
+      if (result.data.roleName !== "super_admin") {
+        return new Response(
+          JSON.stringify({ error: "Only super_admin uses global scope" }),
+          { status: 400 },
+        );
+      }
     }
 
     // Find the role by name — explicit orderBy for CI determinism
@@ -355,14 +399,15 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Assign the role
+    // Assign the role. Use the resolved scopeId (which may have been
+    // filled in above when the caller omitted it for an org-scoped role).
     const [newUserRole] = await getDb()
       .insert(userRoles)
       .values({
         userId: result.data.userId,
         roleId: role.id,
         scopeType: result.data.scopeType,
-        scopeId: result.data.scopeId,
+        scopeId,
       })
       .returning();
 
