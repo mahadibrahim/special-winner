@@ -71,6 +71,8 @@ function fmtCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+type VenueOption = { id: string; name: string }
+
 export function RentalsList() {
   useHydrationBeacon();
 
@@ -78,11 +80,33 @@ export function RentalsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Venue dropdown options — fetched once on mount from the org-scoped
+  // /api/admin/venues endpoint. Replaces the raw "paste a UUID" textbox.
+  const [venues, setVenues] = useState<VenueOption[]>([]);
+
   // Filters
   const [venueFilter, setVenueFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/admin/venues")
+      .then((r) => (r.ok ? r.json() : { venues: [] }))
+      .then((data: { venues?: Array<{ id: string; name: string }> }) => {
+        if (!alive) return;
+        setVenues(
+          (data.venues ?? []).map((v) => ({ id: v.id, name: v.name })),
+        );
+      })
+      .catch((err) => {
+        console.error("[rentals] failed to load venues:", err);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -112,14 +136,22 @@ export function RentalsList() {
       {/* Filter bar */}
       <div className="flex flex-wrap gap-3 items-end">
         <div>
-          <label className="block text-xs text-ink-muted mb-1">Venue ID</label>
-          <input
-            type="text"
+          <label className="block text-xs text-ink-muted mb-1" htmlFor="rentals-venue-filter">
+            Venue
+          </label>
+          <select
+            id="rentals-venue-filter"
             value={venueFilter}
             onChange={(e) => setVenueFilter(e.target.value)}
-            placeholder="Paste venue UUID…"
             className="rounded border border-border px-3 py-1.5 text-sm bg-cream w-56"
-          />
+          >
+            <option value="">All venues</option>
+            {venues.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs text-ink-muted mb-1">From</label>
