@@ -2,9 +2,39 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { skills, skillDomains, assessmentRubrics } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgSport,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
+
+/**
+ * Skills with organizationId === null are global; everyone with admin
+ * access can read them but only super_admins should mutate them. We
+ * check ownership against the caller's org and reject for cross-tenant
+ * ids. Mirrors loadTemplateForOrg in templates/[id].ts.
+ */
+async function loadSkillForOrg(
+  orgId: string,
+  skillId: string,
+): Promise<{ id: string; organizationId: string | null } | null> {
+  const [row] = await getDb()
+    .select({
+      id: skills.id,
+      organizationId: skills.organizationId,
+    })
+    .from(skills)
+    .where(
+      and(
+        eq(skills.id, skillId),
+        or(eq(skills.organizationId, orgId), isNull(skills.organizationId)),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
 
 const updateSkillSchema = z.object({
   sportId: z.string().uuid().optional(),
@@ -33,6 +63,9 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -40,6 +73,11 @@ export const GET: APIRoute = async (context) => {
     if (!id) {
       return new Response(JSON.stringify({ error: "Skill ID required" }), { status: 400 });
     }
+
+    // Reject cross-tenant ids before the read (404-equivalent so we don't
+    // leak existence of another org's skill).
+    const ownership = await loadSkillForOrg(orgContext.organizationId, id);
+    if (!ownership) return ownershipDeniedResponse();
 
     const [skill] = await getDb()
       .select({
@@ -102,12 +140,28 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Skill ID required" }), { status: 400 });
+    }
+
+    // Verify the skill belongs to caller's org (block cross-tenant writes
+    // and reject mutations to global skills by non-super_admins).
+    const ownership = await loadSkillForOrg(orgContext.organizationId, id);
+    if (!ownership) return ownershipDeniedResponse();
+
+    const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+    if (ownership.organizationId === null && !isSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: cannot edit global skills" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     const body = await context.request.json();
@@ -118,6 +172,15 @@ export const PUT: APIRoute = async (context) => {
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // If sportId is being changed, verify the new sport belongs to caller's org.
+    if (result.data.sportId) {
+      const sportCheck = await requireSameOrgSport(
+        orgContext.organizationId,
+        result.data.sportId,
+      );
+      if (!sportCheck.ok) return ownershipDeniedResponse();
     }
 
     const [updatedSkill] = await getDb()
@@ -151,12 +214,27 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Skill ID required" }), { status: 400 });
+    }
+
+    // Same gate as PUT — cross-tenant + global-mutation guard.
+    const ownership = await loadSkillForOrg(orgContext.organizationId, id);
+    if (!ownership) return ownershipDeniedResponse();
+
+    const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+    if (ownership.organizationId === null && !isSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: cannot delete global skills" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     // Delete associated rubrics first

@@ -1,8 +1,11 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -87,6 +90,7 @@ const DIFFICULTIES = [
 ];
 
 export function ActivityEditor() {
+  useHydrationBeacon();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [sports, setSports] = useState<Sport[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);

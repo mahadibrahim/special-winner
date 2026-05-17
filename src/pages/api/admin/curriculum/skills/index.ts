@@ -2,9 +2,13 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { skills, skillDomains, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, asc, ilike, or } from "drizzle-orm";
+import { eq, and, asc, ilike, or, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgSport,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
 
 const skillSchema = z.object({
   sportId: z.string().uuid(),
@@ -35,6 +39,9 @@ export const GET: APIRoute = async (context) => {
     return auth.response;
   }
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -45,8 +52,14 @@ export const GET: APIRoute = async (context) => {
     const search = url.searchParams.get("search");
     const activeOnly = url.searchParams.get("active") !== "false";
 
-    // Build conditions
-    const conditions = [];
+    // Tenant scoping: caller sees their org's skills + global skills
+    // (organizationId IS NULL means a platform-wide seed entry).
+    const conditions: ReturnType<typeof and>[] = [
+      or(
+        eq(skills.organizationId, orgContext.organizationId),
+        isNull(skills.organizationId),
+      )!,
+    ];
     if (activeOnly) {
       conditions.push(eq(skills.active, true));
     }
@@ -71,6 +84,7 @@ export const GET: APIRoute = async (context) => {
     const skillsRaw = await getDb()
       .select({
         id: skills.id,
+        organizationId: skills.organizationId,
         sportId: skills.sportId,
         domainId: skills.domainId,
         stageId: skills.stageId,
@@ -91,7 +105,7 @@ export const GET: APIRoute = async (context) => {
       .from(skills)
       .innerJoin(sports, eq(skills.sportId, sports.id))
       .innerJoin(skillDomains, eq(skills.domainId, skillDomains.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(asc(skills.sortOrder), asc(skills.name));
 
     // Transform to match expected shape
@@ -101,9 +115,13 @@ export const GET: APIRoute = async (context) => {
       domain: { id: s.domainId, name: s.domainName },
     }));
 
-    // Get reference data for filters
+    // Get reference data for filters — sports scoped to caller's org.
     const [sportsList, domainsList, stagesList] = await Promise.all([
-      getDb().select({ id: sports.id, name: sports.name }).from(sports).orderBy(asc(sports.name)),
+      getDb()
+        .select({ id: sports.id, name: sports.name })
+        .from(sports)
+        .where(eq(sports.organizationId, orgContext.organizationId))
+        .orderBy(asc(sports.name)),
       getDb().select({ id: skillDomains.id, name: skillDomains.displayName }).from(skillDomains).orderBy(asc(skillDomains.sortOrder)),
       getDb().select({ id: developmentStages.id, name: developmentStages.name, slug: developmentStages.slug }).from(developmentStages).orderBy(asc(developmentStages.sortOrder)),
     ]);
@@ -133,6 +151,9 @@ export const POST: APIRoute = async (context) => {
     return auth.response;
   }
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -146,9 +167,19 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
+    // Verify the posted sportId belongs to the caller's org.
+    const sportCheck = await requireSameOrgSport(
+      orgContext.organizationId,
+      result.data.sportId,
+    );
+    if (!sportCheck.ok) return ownershipDeniedResponse();
+
+    // New skills are always created in the caller's org. To seed a global
+    // skill (organizationId = null), do it directly in a migration or
+    // seed script — not through this endpoint.
     const [newSkill] = await getDb()
       .insert(skills)
-      .values(result.data as any)
+      .values({ ...result.data, organizationId: orgContext.organizationId } as any)
       .returning();
 
     return new Response(JSON.stringify({ skill: newSkill }), {

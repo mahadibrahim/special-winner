@@ -2,9 +2,41 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { activities } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgSport,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
+
+/**
+ * Activities with organizationId === null are global; everyone with admin
+ * access can read them but only super_admins should mutate them. Cross-tenant
+ * ids are rejected. Mirrors loadTemplateForOrg in templates/[id].ts.
+ */
+async function loadActivityForOrg(
+  orgId: string,
+  activityId: string,
+): Promise<{ id: string; organizationId: string | null } | null> {
+  const [row] = await getDb()
+    .select({
+      id: activities.id,
+      organizationId: activities.organizationId,
+    })
+    .from(activities)
+    .where(
+      and(
+        eq(activities.id, activityId),
+        or(
+          eq(activities.organizationId, orgId),
+          isNull(activities.organizationId),
+        ),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
 
 const updateActivitySchema = z.object({
   sportId: z.string().uuid().optional(),
@@ -43,6 +75,9 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -50,6 +85,10 @@ export const GET: APIRoute = async (context) => {
     if (!id) {
       return new Response(JSON.stringify({ error: "Activity ID required" }), { status: 400 });
     }
+
+    // Reject cross-tenant ids before the read.
+    const ownership = await loadActivityForOrg(orgContext.organizationId, id);
+    if (!ownership) return ownershipDeniedResponse();
 
     const [activity] = await getDb()
       .select({
@@ -111,12 +150,27 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Activity ID required" }), { status: 400 });
+    }
+
+    // Cross-tenant + global-mutation guard.
+    const ownership = await loadActivityForOrg(orgContext.organizationId, id);
+    if (!ownership) return ownershipDeniedResponse();
+
+    const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+    if (ownership.organizationId === null && !isSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: cannot edit global activities" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     const body = await context.request.json();
@@ -127,6 +181,15 @@ export const PUT: APIRoute = async (context) => {
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
       );
+    }
+
+    // If sportId is being changed, verify the new sport belongs to caller's org.
+    if (result.data.sportId) {
+      const sportCheck = await requireSameOrgSport(
+        orgContext.organizationId,
+        result.data.sportId,
+      );
+      if (!sportCheck.ok) return ownershipDeniedResponse();
     }
 
     const [updatedActivity] = await getDb()
@@ -160,12 +223,27 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
     const { id } = context.params;
     if (!id) {
       return new Response(JSON.stringify({ error: "Activity ID required" }), { status: 400 });
+    }
+
+    // Cross-tenant + global-mutation guard.
+    const ownership = await loadActivityForOrg(orgContext.organizationId, id);
+    if (!ownership) return ownershipDeniedResponse();
+
+    const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
+    if (ownership.organizationId === null && !isSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: cannot delete global activities" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     const [deletedActivity] = await getDb()

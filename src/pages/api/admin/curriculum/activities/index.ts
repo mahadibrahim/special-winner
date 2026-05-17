@@ -2,9 +2,13 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { activities, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, asc, desc, ilike, or } from "drizzle-orm";
+import { eq, and, asc, desc, ilike, or, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgSport,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
 
 const activitySchema = z.object({
   sportId: z.string().uuid(),
@@ -45,6 +49,9 @@ export const GET: APIRoute = async (context) => {
     return auth.response;
   }
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -58,8 +65,14 @@ export const GET: APIRoute = async (context) => {
     const limit = parseInt(url.searchParams.get("limit") || "100");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // Build conditions
-    const conditions = [];
+    // Tenant scoping: caller sees their org's activities + global activities
+    // (organizationId IS NULL means a platform-wide seed entry).
+    const conditions: ReturnType<typeof and>[] = [
+      or(
+        eq(activities.organizationId, orgContext.organizationId),
+        isNull(activities.organizationId),
+      )!,
+    ];
     if (activeOnly) {
       conditions.push(eq(activities.active, true));
     }
@@ -111,14 +124,18 @@ export const GET: APIRoute = async (context) => {
       })
       .from(activities)
       .innerJoin(sports, eq(activities.sportId, sports.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(activities.featured), asc(activities.name))
       .limit(limit)
       .offset(offset);
 
-    // Get reference data
+    // Get reference data — sports scoped to caller's org.
     const [sportsList, stagesList] = await Promise.all([
-      getDb().select({ id: sports.id, name: sports.name }).from(sports).orderBy(asc(sports.name)),
+      getDb()
+        .select({ id: sports.id, name: sports.name })
+        .from(sports)
+        .where(eq(sports.organizationId, orgContext.organizationId))
+        .orderBy(asc(sports.name)),
       getDb().select({ id: developmentStages.id, name: developmentStages.name, slug: developmentStages.slug }).from(developmentStages).orderBy(asc(developmentStages.sortOrder)),
     ]);
 
@@ -147,6 +164,9 @@ export const POST: APIRoute = async (context) => {
     return auth.response;
   }
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const db = getDb();
 
@@ -160,9 +180,18 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
+    // Verify the posted sportId belongs to the caller's org.
+    const sportCheck = await requireSameOrgSport(
+      orgContext.organizationId,
+      result.data.sportId,
+    );
+    if (!sportCheck.ok) return ownershipDeniedResponse();
+
+    // New activities are always created in the caller's org. Seed globals
+    // (organizationId = null) via migration/seed scripts, not this route.
     const [newActivity] = await getDb()
       .insert(activities)
-      .values(result.data)
+      .values({ ...result.data, organizationId: orgContext.organizationId } as any)
       .returning();
 
     return new Response(JSON.stringify({ activity: newActivity }), {
