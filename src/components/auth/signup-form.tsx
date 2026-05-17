@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, AlertCircle } from "lucide-react";
+import { TurnstileWidget } from "./turnstile-widget";
 
 interface FieldErrors {
   email?: string[];
@@ -25,6 +26,11 @@ export function SignUpForm() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+  // Turnstile CAPTCHA token. Empty until Cloudflare resolves the challenge.
+  // The server-side verifier (src/lib/auth/turnstile.ts) fails closed in
+  // prod when the secret is unset, so a stale or missing token here can't
+  // sneak past in production.
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -66,6 +72,7 @@ export function SignUpForm() {
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone || undefined,
+          turnstileToken: turnstileToken || undefined,
         }),
       });
 
@@ -227,6 +234,13 @@ export function SignUpForm() {
           required
           disabled={isLoading}
           className={inputClassName}
+        />
+      </div>
+
+      <div className="flex justify-center">
+        <TurnstileWidget
+          onToken={(t) => setTurnstileToken(t)}
+          onError={() => setTurnstileToken("")}
         />
       </div>
 
