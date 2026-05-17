@@ -32,6 +32,14 @@ export interface CancelRefundResult {
   reason?: string;
   insideWindow?: boolean;
   promotedNextBookingId?: string;
+  /**
+   * Set when a Stripe refund was attempted but failed. The booking is still
+   * cancelled (so the customer UI is consistent), but the money was NOT
+   * returned — the caller must surface this to staff so it can be reconciled
+   * manually. `null`/`undefined` means no refund failure happened (either the
+   * refund succeeded or no refund was due).
+   */
+  refundError?: string;
 }
 
 export async function processCancelRefund(
@@ -82,6 +90,7 @@ export async function processCancelRefund(
   const shouldRefund = !insideWindow || options.adminOverride === true;
 
   let refunded = false;
+  let refundError: string | undefined;
   if (
     shouldRefund &&
     booking.amountPaidCents > 0 &&
@@ -98,9 +107,20 @@ export async function processCancelRefund(
         .where(eq(dropInBookings.id, bookingId));
       refunded = true;
     } catch (err) {
-      console.error("[dropin refund] Stripe refund failed", err);
-      // Continue — we still want to cancel the booking; refund retry is a
-      // separate cleanup path.
+      const message = err instanceof Error ? err.message : String(err);
+      refundError = message;
+      // Structured log so this is easy to grep / route to alerting later.
+      // The booking still cancels (customer UI consistency), but the funds
+      // were not returned — surface it to the caller so staff sees it.
+      console.error(
+        JSON.stringify({
+          tag: "dropin_refund_failed",
+          bookingId,
+          stripePaymentIntentId: booking.stripePaymentIntentId,
+          amountPaidCents: booking.amountPaidCents,
+          error: message,
+        }),
+      );
     }
   }
 
@@ -154,5 +174,6 @@ export async function processCancelRefund(
     refunded,
     insideWindow,
     promotedNextBookingId,
+    refundError,
   };
 }
