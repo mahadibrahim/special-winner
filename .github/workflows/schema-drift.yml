@@ -38,14 +38,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ubuntu-24.04 (the current ubuntu-latest) ships postgresql-client-16
-      # by default; Railway runs Postgres 16. Verify the version up front
-      # so a future runner-image change failing version-match is loud.
+      # Railway is on Postgres 18.x. The runner image (ubuntu-24.04) ships
+      # postgresql-client-16, which aborts with "server version mismatch"
+      # against an 18 server. Install pg-client-18 from PGDG so pg_dump
+      # is server-version compatible.
+      - name: Install Postgres 18 client (PGDG)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          codename=$(lsb_release -cs)
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${codename}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+
       - name: Verify pg_dump version
         run: |
           pg_dump --version
-          pg_dump --version | grep -E '(16|17)\.' \
-            || (echo "::error::pg_dump version mismatch — install postgresql-client-16+" && exit 1)
+          pg_dump --version | grep -E ' 1[89]\.' \
+            || (echo "::error::pg_dump version mismatch — Railway is on PG18+, need pg-client-18+" && exit 1)
 
       - name: Dump staging schema
         env:
