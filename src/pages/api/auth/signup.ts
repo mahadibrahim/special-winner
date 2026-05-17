@@ -8,6 +8,7 @@ import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
+import { verifyTurnstile } from "@/lib/auth/turnstile";
 
 // Short pre-verification session: a freshly-signed-up account holds a
 // 1-hour session until they verify their email. On verification we
@@ -21,6 +22,10 @@ const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().optional(),
+  // Cloudflare Turnstile token from the client widget. Optional in the
+  // schema so the route can validate it explicitly (and return a friendly
+  // error) rather than failing on the zod boundary.
+  turnstileToken: z.string().optional(),
 });
 
 export const POST: APIRoute = async (context) => {
@@ -47,9 +52,26 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const { email, password, firstName, lastName, phone } = result.data;
+    const { email, password, firstName, lastName, phone, turnstileToken } = result.data;
     const emailLower = email.toLowerCase();
     const emailCanonical = normalizeForUniqueness(email);
+
+    // CAPTCHA check. verifyTurnstile fails closed in prod when the secret
+    // is unset (so a misconfigured env var blocks signups instead of
+    // letting bots through) and fails open in dev/preview so local
+    // iteration isn't gated on a Cloudflare account.
+    const turnstileOk = await verifyTurnstile(turnstileToken ?? "", {
+      secret: import.meta.env.TURNSTILE_SECRET_KEY as string | undefined,
+      isProd: Boolean(import.meta.env.PROD),
+    });
+    if (!turnstileOk) {
+      return new Response(
+        JSON.stringify({
+          error: "Please complete the CAPTCHA challenge before signing up.",
+        }),
+        { status: 400 },
+      );
+    }
 
     // Check if user already exists — uniqueness is on the CANONICAL form
     // (Gmail dot-trick normalization), so `a.g.i.v.o.b@gmail.com` and
