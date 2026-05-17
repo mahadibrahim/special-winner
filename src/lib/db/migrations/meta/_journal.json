@@ -204,6 +204,20 @@
       "when": 1778969962502,
       "tag": "0028_fine_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1779140000000,
+      "tag": "0029_drop_unused_bookings_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1779140001000,
+      "tag": "0030_reconcile_staff_notifications_and_fks",
+      "breakpoints": true
     }
   ]
 }

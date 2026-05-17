@@ -1,0 +1,22 @@
+-- Drops two phantom tables that exist on PROD but are not defined in
+-- src/lib/db/schema/ and not referenced by any application code:
+--
+--   • public.bookings              — early generic "bookings" feature,
+--                                    abandoned in favour of the
+--                                    field_rentals + drop_in_bookings split.
+--   • public.bookable_resources    — backing table for the same abandoned
+--                                    feature (only referenced by a TODO
+--                                    comment in src/lib/db/schema/drop-in.ts
+--                                    that never shipped).
+--
+-- The `btree_gist` extension was added to support the
+-- `bookings_no_overlap` exclusion constraint on `bookings`. With both
+-- tables gone the extension has no users; we leave it installed (it's
+-- harmless idle, and we may want exclusion constraints again for the
+-- rentals system later).
+--
+-- IF EXISTS makes this safe to re-run and a no-op on databases that
+-- never had the tables (staging post-reset, fresh dev DBs, CI).
+DROP TABLE IF EXISTS public.bookings CASCADE;
+--> statement-breakpoint
+DROP TABLE IF EXISTS public.bookable_resources CASCADE;
