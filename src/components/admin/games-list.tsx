@@ -255,15 +255,19 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Games</h1>
-          <p className="text-gray-600 mt-1">Schedule and manage games</p>
+          <p className="text-gray-600 mt-1">
+            Cross-season summary. Schedule games from a season's Schedule tab.
+          </p>
         </div>
-        <Button onClick={openCreateDialog} disabled={seasons.length === 0}>
-          <Plus className="h-4 w-4 mr-2" />
-          Schedule Game
-        </Button>
+        <a
+          href="/admin/seasons"
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-cream"
+        >
+          Open a season →
+        </a>
       </div>
 
       {seasons.length === 0 && (

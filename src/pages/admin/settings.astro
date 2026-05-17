@@ -6,6 +6,7 @@ import { AdminSettings } from '../../components/admin/admin-settings';
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
 const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const organizationName = Astro.locals.organization?.name ?? null;
 ---
 
 <BaseLayout title="Settings — Admin — Aspire Sports" navigation={false} footer={false}>
@@ -15,6 +16,6 @@ const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
     currentPath="/admin/settings"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <AdminSettings client:load />
+    <AdminSettings client:load organizationName={organizationName} />
   </AdminLayout>
 </BaseLayout>
