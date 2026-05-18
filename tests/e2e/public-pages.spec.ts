@@ -23,24 +23,25 @@ test.describe('Public Pages', () => {
     await expect(page.locator('body')).toBeVisible();
   });
 
-  test('forgot password page loads correctly', async ({ page }) => {
-    // /forgot-password 301-redirects to /email-link-signin (passwordless flow).
+  test('forgot password page redirects to /signin', async ({ page }) => {
+    // /forgot-password → /email-link-signin → /signin (both 301).
+    // /signin IS the magic-link form after the password-removal migration.
     await page.goto('/forgot-password');
 
-    await expect(page).toHaveTitle(/Sign in with email link|Forgot Password|Reset/i);
-
-    // Check form has email input (use first() to avoid matching footer newsletter)
+    await expect(page).toHaveURL(/\/signin$/);
+    await expect(page).toHaveTitle(/Sign In/);
     await expect(page.locator('input[type="email"]').first()).toBeVisible();
   });
 
-  test('signin page loads correctly', async ({ page }) => {
+  test('signin page loads correctly (magic-link only)', async ({ page }) => {
     await page.goto('/signin');
 
     await expect(page).toHaveTitle(/Sign In/);
 
-    // Check form has email and password inputs (use first() to avoid matching footer newsletter)
+    // Check the email field exists (use first() to avoid matching footer
+    // newsletter). Magic-link UI has no password field.
     await expect(page.locator('input[type="email"]').first()).toBeVisible();
-    await expect(page.locator('input[type="password"]').first()).toBeVisible();
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
   });
 
   test('signup page loads correctly', async ({ page }) => {

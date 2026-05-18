@@ -39,6 +39,12 @@ export const TEST_USERS = {
  * specifically for E2E tests + admin tooling. We POST credentials
  * directly; the Set-Cookie from the response applies to the page's
  * BrowserContext, so subsequent `page.goto()` calls inherit the session.
+ *
+ * Lands on a role-appropriate URL — admins go to /admin, coaches to
+ * /coach, everyone else to /dashboard. This mirrors the redirect the
+ * old form-based signin used to do client-side, so existing tests that
+ * `waitForURL(/\/admin/)` after `signIn()` continue to work without
+ * rewriting every call site.
  */
 export async function signIn(
   page: Page,
@@ -54,10 +60,17 @@ export async function signIn(
       `signIn(${email}) failed: HTTP ${response.status()} — ${body}`,
     );
   }
-  // Land on /dashboard so subsequent navigation has the cookie applied
-  // and the test sees a stable URL. Tests that need /admin or /coach
-  // navigate explicitly after this call.
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  const body = (await response.json().catch(() => ({}))) as {
+    roles?: string[];
+  };
+  const roles = body.roles ?? [];
+  const target =
+    roles.includes("super_admin") || roles.includes("location_admin")
+      ? "/admin"
+      : roles.includes("coach")
+        ? "/coach"
+        : "/dashboard";
+  await page.goto(target, { waitUntil: "domcontentloaded" });
 }
 
 /**

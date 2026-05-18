@@ -65,16 +65,15 @@ test.describe("admin role routing", () => {
     await expect(page).not.toHaveURL(/\/admin\/unauthorized/);
   });
 
-  test("/forgot-password 301-redirects to /email-link-signin", async ({ page }) => {
-    // Use a fresh context (no auth) so middleware doesn't bounce us to /dashboard.
-    const response = await page.goto("/forgot-password", {
-      waitUntil: "domcontentloaded",
-    });
-    // The 301 happens server-side, so the final URL is /email-link-signin.
-    await expect(page).toHaveURL(/\/email-link-signin$/);
-    // Sanity-check the page rendered the new wording.
+  test("/forgot-password redirects through to /signin", async ({ page }) => {
+    // Two 301s in series: /forgot-password → /email-link-signin → /signin.
+    // The intermediate hop exists so old emails / bookmarks still land
+    // somewhere sensible; the canonical entry point is /signin (which is
+    // itself the magic-link form after the password-removal migration).
+    await page.goto("/forgot-password", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/signin$/);
     await expect(
-      page.getByRole("heading", { name: /sign in with email link/i }),
+      page.getByRole("heading", { name: /^sign in$/i }),
     ).toBeVisible();
   });
 });
