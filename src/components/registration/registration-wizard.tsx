@@ -86,7 +86,9 @@ interface AuthedUser {
   email: string
   firstName: string | null
   lastName: string | null
+  phone: string | null
   birthDate: string | null
+  gender: string | null
 }
 
 interface RegistrationWizardProps {
@@ -401,35 +403,56 @@ export default function RegistrationWizard({
     }
   }
 
-  // Save the missing birthDate (+ optional gender) to the user record so
-  // the Myself card unlocks. Called from WhoStep's inline profile form.
+  // Local mirror of the user's profile that the inline form mutates as the
+  // customer fills in missing fields. Pre-filled from props; persisted to the
+  // server when the form is submitted.
+  const [completedProfile, setCompletedProfile] = useState({
+    firstName: user?.firstName ?? "",
+    lastName: user?.lastName ?? "",
+    phone: user?.phone ?? "",
+    birthDate: user?.birthDate ?? "",
+    gender: user?.gender ?? "",
+  })
+
+  // Save whatever the customer just filled in. The PUT body always carries
+  // the canonical firstName/lastName (schema requires non-empty), plus the
+  // new field(s) the customer just edited. Server only updates fields that
+  // are explicitly included (see updates conditional in /api/user/profile).
   const handleCompleteProfile = async (data: {
-    birthDate: string
+    firstName?: string
+    lastName?: string
+    phone?: string
+    birthDate?: string
     gender?: string
   }) => {
     if (!user) return
     setIsSavingProfile(true)
     setProfileError(null)
     try {
-      // PUT requires firstName/lastName per the schema. The current user
-      // already has these (otherwise auth wouldn't have placed them on
-      // the wizard), but we still send them so the PUT is a clean
-      // overwrite of the profile fields the API knows about.
+      const merged = {
+        firstName: data.firstName ?? completedProfile.firstName ?? user.firstName ?? "",
+        lastName: data.lastName ?? completedProfile.lastName ?? user.lastName ?? "",
+        phone: data.phone ?? completedProfile.phone ?? user.phone ?? undefined,
+        birthDate: data.birthDate ?? completedProfile.birthDate ?? user.birthDate ?? undefined,
+        gender: data.gender ?? completedProfile.gender ?? user.gender ?? undefined,
+      }
       const res = await fetch("/api/user/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: user.firstName ?? "",
-          lastName: user.lastName ?? "",
-          birthDate: data.birthDate,
-          gender: data.gender,
-        }),
+        body: JSON.stringify(merged),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
         throw new Error(parseApiError(body, "Failed to save profile"))
       }
-      setCompletedBirthDate(data.birthDate)
+      setCompletedProfile({
+        firstName: merged.firstName,
+        lastName: merged.lastName,
+        phone: merged.phone ?? "",
+        birthDate: merged.birthDate ?? "",
+        gender: merged.gender ?? "",
+      })
+      setCompletedBirthDate(merged.birthDate ?? null)
       // Auto-select Myself once the profile is saved, so the customer
       // continues with one fewer click.
       setSelectedKey("self")
@@ -1045,13 +1068,23 @@ export default function RegistrationWizard({
             selfOption={
               completedBirthDate
                 ? {
-                    firstName: user?.firstName ?? "",
-                    lastName: user?.lastName ?? "",
+                    firstName: completedProfile.firstName || (user?.firstName ?? ""),
+                    lastName: completedProfile.lastName || (user?.lastName ?? ""),
                     ageEligible: isAgeEligible(completedBirthDate, season),
                   }
                 : null
             }
-            needsProfileCompletion={!!user && !completedBirthDate}
+            selfProfile={
+              user
+                ? {
+                    firstName: completedProfile.firstName || user.firstName,
+                    lastName: completedProfile.lastName || user.lastName,
+                    phone: completedProfile.phone || user.phone,
+                    birthDate: completedBirthDate ?? null,
+                    gender: completedProfile.gender || user.gender,
+                  }
+                : null
+            }
             isSavingProfile={isSavingProfile}
             profileError={profileError}
             dependentError={error}
