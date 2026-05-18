@@ -31,50 +31,33 @@ export const TEST_USERS = {
 };
 
 /**
- * Sign in a user via the signin page
+ * Sign in a user via the password endpoint.
+ *
+ * The customer-facing UI is magic-link only (no password field), so we
+ * can no longer drive sign-in through the form. The password-based
+ * `/api/auth/signin` endpoint is intentionally preserved on the server
+ * specifically for E2E tests + admin tooling. We POST credentials
+ * directly; the Set-Cookie from the response applies to the page's
+ * BrowserContext, so subsequent `page.goto()` calls inherit the session.
  */
 export async function signIn(
   page: Page,
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto("/signin", { waitUntil: "domcontentloaded" });
-
-  // Wait for React hydration - ensure form is interactive
-  const emailInput = page.locator('input[type="email"]').first();
-  const passwordInput = page.locator('input[type="password"]').first();
-  const submitBtn = page.getByRole("button", { name: /sign in/i });
-
-  // Wait for inputs to be editable (hydration complete)
-  await emailInput.waitFor({ state: "visible", timeout: 15000 });
-  await passwordInput.waitFor({ state: "visible", timeout: 15000 });
-  await submitBtn.waitFor({ state: "visible", timeout: 15000 });
-
-  // Wait for React hydration — ensures form event handlers are attached
-  await waitForHydration(page);
-
-  // Fill in credentials
-  await emailInput.fill(email);
-  await passwordInput.fill(password);
-
-  // Wait for the API response after clicking. Railway-backed CI can stall
-  // under parallel-worker load — signin POST has been observed at 35s when
-  // multiple shoots/queue endpoints are running concurrently against the
-  // shared DB. Generous budget so we fail on real bugs, not load.
-  const [response] = await Promise.all([
-    page.waitForResponse(
-      (resp) => resp.url().includes("/api/auth/signin"),
-      { timeout: 60000 }
-    ),
-    submitBtn.click(),
-  ]);
-
-  // If login succeeded (2xx), wait for navigation
-  if (response.ok()) {
-    await page.waitForURL((url) => !url.pathname.includes("/signin"), {
-      timeout: 30000,
-    });
+  const response = await page.request.post("/api/auth/signin", {
+    data: { email, password },
+  });
+  if (!response.ok()) {
+    const body = await response.text().catch(() => "(no body)");
+    throw new Error(
+      `signIn(${email}) failed: HTTP ${response.status()} — ${body}`,
+    );
   }
+  // Land on /dashboard so subsequent navigation has the cookie applied
+  // and the test sees a stable URL. Tests that need /admin or /coach
+  // navigate explicitly after this call.
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
 }
 
 /**
