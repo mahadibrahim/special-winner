@@ -223,9 +223,13 @@ test.describe("Registration Flow", () => {
     await page.goto("/programs");
     await waitForPageLoad(page);
 
-    // Look for register button
-    const registerButton = page.locator(
-      'button:has-text("Register"), a:has-text("Register"), a:has-text("Enroll")'
+    // Scope to the main content. The footer carries an "Adult > Register
+    // a team" link that ALSO matches `a:has-text("Register")` — when no
+    // program cards render in the test env, the footer link wins and
+    // sends us to /programs?audience=team instead of the wizard.
+    const main = page.locator("main").first();
+    const registerButton = main.locator(
+      'button:has-text("Register"), a:has-text("Register"), a:has-text("Enroll")',
     );
 
     if ((await registerButton.count()) > 0) {
