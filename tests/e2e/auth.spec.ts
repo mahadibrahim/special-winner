@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { TEST_USERS, signIn } from "../utils/test-helpers";
+import { TEST_USERS, signIn, waitForHydration } from "../utils/test-helpers";
 
 // The customer-facing auth UI is magic-link only — no password fields.
 // E2E tests authenticate via the password endpoint (still alive for back-
@@ -21,6 +21,9 @@ test.describe("Authentication Flow", { tag: "@critical" }, () => {
 
     test("magic-link form shows confirmation after submit", async ({ page }) => {
       await page.goto("/signin", { waitUntil: "domcontentloaded" });
+      // The Submit button is `disabled={!email.trim()}` — clicks land on
+      // a disabled button (no-op) until React hydration runs.
+      await waitForHydration(page);
 
       await page.locator('input[type="email"]').first().fill(TEST_USERS.parent.email);
       await page
@@ -106,6 +109,8 @@ test.describe("Authentication Flow", { tag: "@critical" }, () => {
 
     test("accepts email and shows confirmation", async ({ page }) => {
       await page.goto("/signin");
+      await waitForHydration(page);
+
       await page
         .locator('input[type="email"]')
         .first()
