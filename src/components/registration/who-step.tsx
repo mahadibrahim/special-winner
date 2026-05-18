@@ -6,36 +6,59 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizePhone, formatPhone } from "@/lib/phone";
+
+/**
+ * Profile data the wizard already has for the signed-in user. The Select
+ * Player step inspects this to decide which fields to ask for inline —
+ * customers who skipped any of {firstName, lastName, phone, birthDate} at
+ * signup get prompted here so they're not silently routed into the broken
+ * dependent-add path.
+ */
+export interface SelfProfileSnapshot {
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  birthDate: string | null;
+  gender: string | null;
+}
+
+export interface SelfProfileUpdate {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+}
 
 export type WhoStepProps = {
   /** Current user's first/last name + age eligibility for the active season.
    * Pass null if the user has not signed in or has no birthDate on file. */
   selfOption: { firstName: string; lastName: string; ageEligible: boolean } | null;
   /**
-   * True when the customer is signed in but the user record has no `birthDate`.
-   * Renders an inline "Complete your profile" form on the Myself card so the
-   * customer isn't silently routed to the dependent-add flow — historically
-   * this was the #1 driver of the parental-consent bug on adult leagues
-   * (every customer without a stored birthDate hit it).
+   * Current profile snapshot. When this is non-null AND any required field
+   * is missing, the step renders an inline "Complete your profile" form
+   * collecting ONLY the missing fields.
    */
-  needsProfileCompletion?: boolean;
+  selfProfile?: SelfProfileSnapshot | null;
   /**
    * Saving the inline profile-completion form. Wizard sets to true while
    * the PUT /api/user/profile is in flight.
    */
   isSavingProfile?: boolean;
   /**
-   * Validation/save error to show on the Myself card. Wizard parses the
-   * API response via parseApiError() and passes the resulting message.
+   * Validation/save error to show on the form. Wizard parses the API
+   * response via parseApiError() and passes the resulting message.
    */
   profileError?: string | null;
   /** Inline error to show under the dependent list (e.g. add-player failures). */
   dependentError?: string | null;
   /**
    * Wizard callback invoked when the customer submits the profile form.
-   * birthDate is YYYY-MM-DD, gender matches the dropdown set used elsewhere.
+   * Only includes the keys the customer actually edited (we don't blank
+   * stored fields on the server).
    */
-  onCompleteProfile?: (data: { birthDate: string; gender?: string }) => void;
+  onCompleteProfile?: (data: SelfProfileUpdate) => void;
   dependents: Array<{
     id: string;
     firstName: string;
@@ -55,9 +78,27 @@ export type WhoStepProps = {
   adultOnly?: boolean;
 };
 
+/** A field is "missing" if the stored value is null/empty or, for phone,
+ *  doesn't normalize to 10 digits (so we re-prompt malformed numbers). */
+function computeMissing(profile: SelfProfileSnapshot): {
+  firstName: boolean;
+  lastName: boolean;
+  phone: boolean;
+  birthDate: boolean;
+  any: boolean;
+} {
+  const missing = {
+    firstName: !profile.firstName?.trim(),
+    lastName: !profile.lastName?.trim(),
+    phone: !normalizePhone(profile.phone ?? ""),
+    birthDate: !profile.birthDate,
+  };
+  return { ...missing, any: Object.values(missing).some(Boolean) };
+}
+
 export function WhoStep({
   selfOption,
-  needsProfileCompletion = false,
+  selfProfile = null,
   isSavingProfile = false,
   profileError = null,
   dependentError = null,
@@ -68,8 +109,40 @@ export function WhoStep({
   onAddDependent,
   adultOnly = false,
 }: WhoStepProps) {
-  const [profileBirthDate, setProfileBirthDate] = useState("");
-  const [profileGender, setProfileGender] = useState("");
+  // Pre-fill any fields we already know — the customer just confirms or
+  // edits. Phone is reformatted into the (NNN) NNN-NNNN display while
+  // editing; submit converts back to the 10-digit normalized form.
+  const [firstName, setFirstName] = useState(selfProfile?.firstName ?? "");
+  const [lastName, setLastName] = useState(selfProfile?.lastName ?? "");
+  const [phone, setPhone] = useState(formatPhone(selfProfile?.phone ?? ""));
+  const [birthDate, setBirthDate] = useState(selfProfile?.birthDate ?? "");
+  const [gender, setGender] = useState(selfProfile?.gender ?? "");
+
+  const missing = selfProfile ? computeMissing(selfProfile) : null;
+  const showCompletionForm = Boolean(
+    selfProfile && missing?.any && onCompleteProfile,
+  );
+
+  const normalizedPhone = normalizePhone(phone);
+  const phoneValid = normalizedPhone.length === 10;
+
+  // Required fields for THIS form are exactly the ones currently missing.
+  const requiredOk =
+    (!missing?.firstName || firstName.trim().length > 0) &&
+    (!missing?.lastName || lastName.trim().length > 0) &&
+    (!missing?.phone || phoneValid) &&
+    (!missing?.birthDate || birthDate.length > 0);
+
+  const handleSubmitProfile = () => {
+    if (!onCompleteProfile || !missing) return;
+    const update: SelfProfileUpdate = {};
+    if (missing.firstName) update.firstName = firstName.trim();
+    if (missing.lastName) update.lastName = lastName.trim();
+    if (missing.phone) update.phone = normalizedPhone;
+    if (missing.birthDate) update.birthDate = birthDate;
+    if (gender) update.gender = gender;
+    onCompleteProfile(update);
+  };
 
   return (
     <div className="space-y-3">
@@ -82,35 +155,85 @@ export function WhoStep({
         </p>
       </div>
 
-      {/* Profile-completion inline card. Shown when signed in but no birthDate
-          on the user record — replaces the previously-silent hide of the
-          Myself card. */}
-      {needsProfileCompletion && onCompleteProfile && (
+      {/* Inline profile-completion: shown when signed in but any required
+          field is missing on the user record. We render ONLY the fields
+          that are missing so customers with partial profiles don't get
+          re-prompted for data we already have. */}
+      {showCompletionForm && missing && (
         <Card className="p-4 border-primary/30">
           <div className="font-semibold mb-1">Complete your profile</div>
           <p className="text-sm text-muted-foreground mb-3">
-            We need your birth date to confirm you're old enough for this
-            program. We'll save it on your account so you don't have to
-            re-enter it next time.
+            We need a few more details to register you. We'll save these on
+            your account so you don't have to re-enter them next time.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-ink-muted">Birth date *</Label>
-              <Input
-                type="date"
-                value={profileBirthDate}
-                onChange={(e) => setProfileBirthDate(e.target.value)}
-                className="bg-cream-2 border-border text-ink"
-                aria-label="Birth date"
-              />
-            </div>
+            {missing.firstName && (
+              <div className="space-y-1">
+                <Label className="text-ink-muted">First name *</Label>
+                <Input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  autoComplete="given-name"
+                  className="bg-cream-2 border-border text-ink"
+                  aria-label="First name"
+                />
+              </div>
+            )}
+            {missing.lastName && (
+              <div className="space-y-1">
+                <Label className="text-ink-muted">Last name *</Label>
+                <Input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  autoComplete="family-name"
+                  className="bg-cream-2 border-border text-ink"
+                  aria-label="Last name"
+                />
+              </div>
+            )}
+            {missing.phone && (
+              <div className="space-y-1">
+                <Label className="text-ink-muted">Phone *</Label>
+                <Input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="(555) 555-0123"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => setPhone(formatPhone(phone))}
+                  autoComplete="tel"
+                  className="bg-cream-2 border-border text-ink"
+                  aria-label="Phone number"
+                />
+                {phone && !phoneValid && (
+                  <div className="text-xs text-destructive">
+                    Enter a 10-digit US number.
+                  </div>
+                )}
+              </div>
+            )}
+            {missing.birthDate && (
+              <div className="space-y-1">
+                <Label className="text-ink-muted">Birth date *</Label>
+                <Input
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  className="bg-cream-2 border-border text-ink"
+                  aria-label="Birth date"
+                />
+              </div>
+            )}
+            {/* Gender is always optional. We surface it whenever the form is
+                shown — never required, never blocks submit. */}
             <div className="space-y-1">
               <Label className="text-ink-muted">
-                Gender <span className="text-ink-faint font-normal">(optional)</span>
+                Gender{" "}
+                <span className="text-ink-faint font-normal">(optional)</span>
               </Label>
               <select
-                value={profileGender}
-                onChange={(e) => setProfileGender(e.target.value)}
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
                 className="w-full h-10 rounded-md border border-border bg-cream-2 px-3 text-sm text-ink"
                 aria-label="Gender"
               >
@@ -129,24 +252,22 @@ export function WhoStep({
           )}
           <div className="mt-4">
             <Button
-              onClick={() =>
-                onCompleteProfile({
-                  birthDate: profileBirthDate,
-                  gender: profileGender || undefined,
-                })
-              }
-              disabled={!profileBirthDate || isSavingProfile}
+              onClick={handleSubmitProfile}
+              disabled={!requiredOk || isSavingProfile}
             >
               {isSavingProfile ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : null}
-              Continue
+              Save profile
             </Button>
           </div>
         </Card>
       )}
 
-      {selfOption && (
+      {/* Myself card is hidden until the profile is complete. Otherwise
+          customers could pick Myself + click the wizard's main Continue
+          and bypass the profile-completion form entirely. */}
+      {!showCompletionForm && selfOption && (
         <Card
           role="button"
           aria-pressed={selectedKey === "self"}

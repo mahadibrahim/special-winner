@@ -87,6 +87,9 @@ export const TEST_USERS = {
     firstName: "Adult",
     lastName: "Self",
     birthDate: "1985-06-15",
+    // Phone is needed so the wizard's profile-completion form stays
+    // hidden and the existing Myself-card path keeps working.
+    phone: "5555550199",
   },
 };
 
@@ -433,6 +436,7 @@ async function seedE2ETests() {
         passwordHash: adultSelfPasswordHash,
         firstName: TEST_USERS.adultSelf.firstName,
         lastName: TEST_USERS.adultSelf.lastName,
+        phone: TEST_USERS.adultSelf.phone,
         birthDate: TEST_USERS.adultSelf.birthDate,
         emailVerified: true,
       })
@@ -442,6 +446,7 @@ async function seedE2ETests() {
       .update(users)
       .set({
         passwordHash: adultSelfPasswordHash,
+        phone: TEST_USERS.adultSelf.phone,
         birthDate: TEST_USERS.adultSelf.birthDate,
         emailVerified: true,
       })

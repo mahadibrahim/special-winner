@@ -13,7 +13,9 @@ const userProp = user
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone ?? null,
       birthDate: user.birthDate ?? null,
+      gender: user.gender ?? null,
     }
   : null;
 ---
