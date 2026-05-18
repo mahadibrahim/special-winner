@@ -11,11 +11,18 @@ export interface AddDependentFormProps {
   lastName: string
   birthDate: string
   gender: string
+  /**
+   * COPPA-aware affirmative consent. The /api/family-members POST schema
+   * requires `parentalConsent: true`; without this checkbox the wizard
+   * was sending an incomplete body and every customer hit "Validation failed."
+   */
+  parentalConsent: boolean
   isSubmitting: boolean
   onFirstNameChange: (v: string) => void
   onLastNameChange: (v: string) => void
   onBirthDateChange: (v: string) => void
   onGenderChange: (v: string) => void
+  onParentalConsentChange: (v: boolean) => void
   onSubmit: () => void
   onCancel: () => void
 }
@@ -25,11 +32,13 @@ export function AddDependentForm({
   lastName,
   birthDate,
   gender,
+  parentalConsent,
   isSubmitting,
   onFirstNameChange,
   onLastNameChange,
   onBirthDateChange,
   onGenderChange,
+  onParentalConsentChange,
   onSubmit,
   onCancel,
 }: AddDependentFormProps) {
@@ -78,6 +87,20 @@ export function AddDependentForm({
           </Select>
         </div>
       </div>
+      <div className="rounded-lg border border-border bg-cream-2 p-3 space-y-2">
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={parentalConsent}
+            onChange={(e) => onParentalConsentChange(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <span className="text-sm text-ink-2">
+            I'm the parent or legal guardian of this player, or I'm
+            registering on their behalf with their permission.
+          </span>
+        </label>
+      </div>
       <div className="flex gap-3">
         <Button
           variant="outline"
@@ -88,7 +111,13 @@ export function AddDependentForm({
         </Button>
         <Button
           onClick={onSubmit}
-          disabled={!firstName || !lastName || !birthDate || isSubmitting}
+          disabled={
+            !firstName ||
+            !lastName ||
+            !birthDate ||
+            !parentalConsent ||
+            isSubmitting
+          }
           className="bg-primary hover:bg-primary/90"
         >
           {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

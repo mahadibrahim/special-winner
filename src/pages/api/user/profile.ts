@@ -9,6 +9,19 @@ const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
   lastName: z.string().min(1, "Last name is required").max(100),
   phone: z.string().max(20).optional().nullable(),
+  // Optional: only set the first time the user completes their profile.
+  // Required for adult-self registrations — the registration wizard
+  // surfaces an inline "complete your profile" form when this is missing
+  // so the customer doesn't get silently routed to the dependent-add flow.
+  birthDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)")
+    .optional()
+    .nullable(),
+  gender: z
+    .enum(["male", "female", "other", "prefer_not_to_say"])
+    .optional()
+    .nullable(),
 });
 
 // GET - Get current user profile
@@ -66,14 +79,24 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
+    const updates: Record<string, unknown> = {
+      firstName: result.data.firstName,
+      lastName: result.data.lastName,
+      phone: result.data.phone,
+      updatedAt: new Date(),
+    };
+    // Only set birthDate/gender when the caller actually included them —
+    // a PUT that omits these should not blank existing values.
+    if (result.data.birthDate !== undefined) {
+      updates.birthDate = result.data.birthDate;
+    }
+    if (result.data.gender !== undefined) {
+      updates.gender = result.data.gender;
+    }
+
     const [updatedProfile] = await getDb()
       .update(users)
-      .set({
-        firstName: result.data.firstName,
-        lastName: result.data.lastName,
-        phone: result.data.phone,
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(users.id, user.id))
       .returning({
         id: users.id,
@@ -82,6 +105,8 @@ export const PUT: APIRoute = async (context) => {
         firstName: users.firstName,
         lastName: users.lastName,
         phone: users.phone,
+        birthDate: users.birthDate,
+        gender: users.gender,
         avatarUrl: users.avatarUrl,
       });
 

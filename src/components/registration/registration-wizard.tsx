@@ -25,6 +25,7 @@ import { PaymentStep } from "./payment-step"
 import { ConfirmationStep } from "./confirmation-step"
 import { AddDependentForm } from "./add-dependent-form"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
+import { parseApiError } from "@/lib/api/error-message"
 
 interface Season {
   id: string
@@ -181,7 +182,17 @@ export default function RegistrationWizard({
   const [newMemberLastName, setNewMemberLastName] = useState("")
   const [newMemberBirthDate, setNewMemberBirthDate] = useState("")
   const [newMemberGender, setNewMemberGender] = useState("")
+  const [newMemberParentalConsent, setNewMemberParentalConsent] = useState(false)
   const [isAddingMember, setIsAddingMember] = useState(false)
+
+  // ── Inline profile-completion (signed-in user without a stored birthDate) ──
+  // Local copy of the user's birthDate that the UI uses for ageEligibility +
+  // the Myself card. `null` means "not stored yet; show the profile form."
+  const [completedBirthDate, setCompletedBirthDate] = useState<string | null>(
+    user?.birthDate ?? null,
+  )
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   // ── Cancel-resume state ──────────────────────────────────────────────────
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
@@ -346,8 +357,13 @@ export default function RegistrationWizard({
 
   const handleAddMember = async () => {
     if (!newMemberFirstName || !newMemberLastName || !newMemberBirthDate) return
+    if (!newMemberParentalConsent) {
+      setError("Please confirm the consent checkbox to add a player.")
+      return
+    }
 
     setIsAddingMember(true)
+    setError(null)
     try {
       const response = await fetch("/api/family-members", {
         method: "POST",
@@ -357,12 +373,16 @@ export default function RegistrationWizard({
           lastName: newMemberLastName,
           birthDate: newMemberBirthDate,
           gender: newMemberGender || undefined,
+          // COPPA-aware affirmative consent. The endpoint's Zod schema
+          // requires this to be `true`. Without it, every customer was
+          // hitting "Validation failed" with no detail. Tracked in PR.
+          parentalConsent: true,
         }),
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to add member")
+        const data = await response.json().catch(() => null)
+        throw new Error(parseApiError(data, "Failed to add member"))
       }
 
       const data = await response.json()
@@ -373,10 +393,50 @@ export default function RegistrationWizard({
       setNewMemberLastName("")
       setNewMemberBirthDate("")
       setNewMemberGender("")
+      setNewMemberParentalConsent(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add member")
     } finally {
       setIsAddingMember(false)
+    }
+  }
+
+  // Save the missing birthDate (+ optional gender) to the user record so
+  // the Myself card unlocks. Called from WhoStep's inline profile form.
+  const handleCompleteProfile = async (data: {
+    birthDate: string
+    gender?: string
+  }) => {
+    if (!user) return
+    setIsSavingProfile(true)
+    setProfileError(null)
+    try {
+      // PUT requires firstName/lastName per the schema. The current user
+      // already has these (otherwise auth wouldn't have placed them on
+      // the wizard), but we still send them so the PUT is a clean
+      // overwrite of the profile fields the API knows about.
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: user.firstName ?? "",
+          lastName: user.lastName ?? "",
+          birthDate: data.birthDate,
+          gender: data.gender,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(parseApiError(body, "Failed to save profile"))
+      }
+      setCompletedBirthDate(data.birthDate)
+      // Auto-select Myself once the profile is saved, so the customer
+      // continues with one fewer click.
+      setSelectedKey("self")
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Failed to save profile")
+    } finally {
+      setIsSavingProfile(false)
     }
   }
 
@@ -463,7 +523,9 @@ export default function RegistrationWizard({
       })
       const data = await res.json()
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create checkout session")
+        throw new Error(
+          parseApiError(data, "Failed to create checkout session"),
+        )
       }
       if (data.clientSecret) {
         const valueCents =
@@ -561,7 +623,7 @@ export default function RegistrationWizard({
       })
       const data = await res.json()
       if (!res.ok) {
-        throw new Error(data.error || "Failed to complete registration")
+        throw new Error(parseApiError(data, "Failed to complete registration"))
       }
       if (data.clientSecret) {
         const valueCents =
@@ -648,8 +710,8 @@ export default function RegistrationWizard({
       })
 
       if (!regResponse.ok) {
-        const data = await regResponse.json()
-        throw new Error(data.error || "Failed to complete registration")
+        const data = await regResponse.json().catch(() => null)
+        throw new Error(parseApiError(data, "Failed to complete registration"))
       }
 
       const regData = await regResponse.json()
@@ -678,7 +740,9 @@ export default function RegistrationWizard({
             }
             return
           }
-          throw new Error(checkoutData.error || "Failed to create checkout session")
+          throw new Error(
+            parseApiError(checkoutData, "Failed to create checkout session"),
+          )
         }
 
         const checkoutData = await checkoutResponse.json()
@@ -979,14 +1043,20 @@ export default function RegistrationWizard({
         {currentStep === 1 && !isGuest && !showAddMember && (
           <WhoStep
             selfOption={
-              user?.birthDate
+              completedBirthDate
                 ? {
-                    firstName: user.firstName ?? "",
-                    lastName: user.lastName ?? "",
-                    ageEligible: isAgeEligible(user.birthDate, season),
+                    firstName: user?.firstName ?? "",
+                    lastName: user?.lastName ?? "",
+                    ageEligible: isAgeEligible(completedBirthDate, season),
                   }
                 : null
             }
+            needsProfileCompletion={!!user && !completedBirthDate}
+            isSavingProfile={isSavingProfile}
+            profileError={profileError}
+            dependentError={error}
+            onCompleteProfile={handleCompleteProfile}
+            adultOnly={(season?.ageGroup?.minAge ?? 0) >= 18}
             dependents={familyMembers.map((m) => ({
               id: m.id,
               firstName: m.firstName,
@@ -1007,13 +1077,18 @@ export default function RegistrationWizard({
             lastName={newMemberLastName}
             birthDate={newMemberBirthDate}
             gender={newMemberGender}
+            parentalConsent={newMemberParentalConsent}
             isSubmitting={isAddingMember}
             onFirstNameChange={setNewMemberFirstName}
             onLastNameChange={setNewMemberLastName}
             onBirthDateChange={setNewMemberBirthDate}
             onGenderChange={setNewMemberGender}
+            onParentalConsentChange={setNewMemberParentalConsent}
             onSubmit={handleAddMember}
-            onCancel={() => setShowAddMember(false)}
+            onCancel={() => {
+              setShowAddMember(false)
+              setNewMemberParentalConsent(false)
+            }}
           />
         )}
 
