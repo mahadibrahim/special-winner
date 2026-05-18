@@ -258,13 +258,16 @@ export function WhoStep({
               {isSavingProfile ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : null}
-              Continue
+              Save profile
             </Button>
           </div>
         </Card>
       )}
 
-      {selfOption && (
+      {/* Myself card is hidden until the profile is complete. Otherwise
+          customers could pick Myself + click the wizard's main Continue
+          and bypass the profile-completion form entirely. */}
+      {!showCompletionForm && selfOption && (
         <Card
           role="button"
           aria-pressed={selectedKey === "self"}
