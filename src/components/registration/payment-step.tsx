@@ -214,8 +214,8 @@ export function PaymentStep({
                     </span>
                   </div>
                   <p className="text-sm text-ink-muted">
-                    Pay ${(previewCardTotal / 100).toFixed(2)} by Visa, Mastercard, Apple Pay, Klarna,
-                    Affirm, Cash App, or Amazon Pay.
+                    Pay ${(previewCardTotal / 100).toFixed(2)} by Visa, Mastercard, Apple Pay, or
+                    Google Pay.
                   </p>
                 </div>
               </Label>
