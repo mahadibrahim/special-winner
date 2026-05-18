@@ -1,42 +1,6 @@
 ---
-// NOT prerendered: needs request-time context for middleware to bounce
-// already-authenticated users to /dashboard.
-import BaseLayout from '@/layouts/BaseLayout.astro';
-import { ForgotPasswordForm } from '../components/auth/forgot-password-form';
-
-// Authenticated users are redirected to /dashboard by middleware — no check needed here.
-//
-// Note: this page used to be named /forgot-password. It is and has always been
-// a magic-link sign-in (no password reset). The old URL still works via a 301
-// redirect from /forgot-password.
+// /signin IS the magic-link form now (passwords removed from the UI),
+// so this older URL just redirects to /signin to keep one canonical
+// entry point. Old emails / bookmarks pointing here still work.
+return Astro.redirect("/signin", 301);
 ---
-
-<BaseLayout title="Sign in with email link — Aspire Sports">
-  <main id="main-content" class="flex-1 flex items-center justify-center py-12 px-4 pt-24">
-    <div class="w-full max-w-md">
-      <!-- Card -->
-      <div class="bg-cream-2 border border-border rounded-2xl p-8">
-        <!-- Header -->
-        <div class="text-center mb-8">
-          <h1 class="text-2xl font-bold text-ink mb-2">Sign in with email link</h1>
-          <p class="text-ink-muted">
-            Enter your email address and we'll send you a sign-in link.
-          </p>
-        </div>
-
-        <!-- Form -->
-        <ForgotPasswordForm client:load />
-
-        <!-- Back to sign in link -->
-        <div class="mt-6 text-center">
-          <p class="text-ink-faint text-sm">
-            Prefer your password?{' '}
-            <a href="/signin" class="text-primary hover:text-primary/80 font-medium">
-              Sign in
-            </a>
-          </p>
-        </div>
-      </div>
-    </div>
-  </main>
-</BaseLayout>

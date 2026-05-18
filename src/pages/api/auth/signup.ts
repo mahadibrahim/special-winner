@@ -1,24 +1,25 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
+import { render } from "@react-email/components";
 import { getDb } from "@/lib/db";
-import { users, userRoles, roles, sessions } from "@/lib/db/schema";
+import { users, userRoles, roles } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth";
-import { lucia } from "@/lib/auth/lucia";
+import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { verifyTurnstile } from "@/lib/auth/turnstile";
-
-// Short pre-verification session: a freshly-signed-up account holds a
-// 1-hour session until they verify their email. On verification we
-// re-issue a normal 30-day session. Prevents bots from sitting on a
-// 30-day session with an unverified email.
-const ONE_HOUR_MS = 60 * 60 * 1000;
+import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  // Password is OPTIONAL and accepted only for back-compat with E2E tests
+  // and the password-based admin auth path. New signups via the UI are
+  // passwordless — the form doesn't collect one. When present it must
+  // still be 8+ chars so a weak password isn't silently stored.
+  password: z.string().min(8, "Password must be at least 8 characters").optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().optional(),
@@ -87,8 +88,10 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Hash password
-    const passwordHash = await hashPassword(password);
+    // Hash password only if one was provided (back-compat path for E2E +
+    // legacy script callers). Magic-link UI signups send no password and
+    // the column stays NULL — the user authenticates via the link.
+    const passwordHash = password ? await hashPassword(password) : null;
 
     // Create user
     const [newUser] = await getDb()
@@ -117,31 +120,55 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Create session, then shorten its expiry to 1 hour since the new
-    // user hasn't verified their email yet. The cookie attributes Lucia
-    // sets remain at the default 30-day lifetime — that's fine; the
-    // server-side validation rejects after 1 hour and the user re-signs-in
-    // or completes verification first.
-    const newSession = await lucia.createSession(newUser.id, {});
-    const sessionCookie = lucia.createSessionCookie(newSession.id);
-    context.cookies.set(
-      sessionCookie.name,
-      sessionCookie.value,
-      sessionCookie.attributes,
-    );
-    await getDb()
-      .update(sessions)
-      .set({ expiresAt: new Date(Date.now() + ONE_HOUR_MS) })
-      .where(eq(sessions.id, newSession.id));
+    // Magic-link path: don't create a session here. Email a one-tap
+    // sign-in link instead — clicking it is what creates the session
+    // (the magic-link consumption endpoint marks email verified at the
+    // same time). For back-compat callers that DO send a password (E2E,
+    // some admin tooling), we still skip the session here and let them
+    // sign in via /api/auth/signin themselves.
+    if (isEmailConfigured()) {
+      const { token } = await createMagicLink({
+        userId: newUser.id,
+        purpose: "password_reset_login",
+        deliveredChannel: "email",
+        deliveredTo: emailLower,
+      });
+      const signinUrl = buildMagicLinkUrl(token);
+      const html = await render(
+        PasswordResetEmail({
+          name: newUser.firstName || "",
+          resetUrl: signinUrl,
+          expiresIn: "15 minutes",
+        }),
+      );
+      await sendEmail({
+        to: emailLower,
+        subject: "Sign in to Aspire Sports",
+        html,
+      });
+    } else {
+      console.warn("Email not configured, sign-in link not sent");
+    }
 
     const posthog = getPostHogServer();
     const phSessionId = context.request.headers.get("X-PostHog-Session-Id") || undefined;
     posthog.identify({ distinctId: newUser.id, properties: { email: newUser.email, firstName: newUser.firstName, lastName: newUser.lastName } });
-    posthog.capture({ distinctId: newUser.id, event: "user_signed_up", properties: { $session_id: phSessionId, has_phone: !!phone } });
+    posthog.capture({
+      distinctId: newUser.id,
+      event: "user_signed_up",
+      properties: {
+        $session_id: phSessionId,
+        has_phone: !!phone,
+        passwordless: !password,
+      },
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
+        // The caller doesn't get a session — they have to tap the magic
+        // link in the email we just sent. UI surfaces a "check your inbox"
+        // confirmation state instead of redirecting to /dashboard.
         user: {
           id: newUser.id,
           email: newUser.email,
