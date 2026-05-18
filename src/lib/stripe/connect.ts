@@ -240,11 +240,12 @@ export async function createConnectCheckoutSession(
 
     // Same fee-bypass guard as stripe/client.ts — narrow methods per
     // category so the customer can't bypass surcharge on a card session.
+    // See client.ts comment for why we don't include BNPL methods.
     const paymentMethodTypes: string[] | undefined =
       paymentMethodCategory === "bank"
         ? ["us_bank_account"]
         : paymentMethodCategory === "card"
-          ? ["card", "klarna", "affirm", "cashapp", "amazon_pay", "afterpay_clearpay"]
+          ? ["card"]
           : undefined;
 
     const params: Stripe.PaymentIntentCreateParams = {

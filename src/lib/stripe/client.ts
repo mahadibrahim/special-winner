@@ -86,11 +86,20 @@ export async function createCheckoutSession({
   //
   // payment_method_types and automatic_payment_methods are mutually
   // exclusive on PaymentIntent.create — when narrowing, omit the latter.
+  //
+  // BNPL methods (klarna, affirm, cashapp, amazon_pay, afterpay_clearpay)
+  // each require explicit per-account activation in the Stripe dashboard.
+  // Including a non-activated method in payment_method_types fails the
+  // whole PaymentIntent with StripeInvalidRequestError, which is how a
+  // freshly-activated live account ended up unable to start any payment.
+  // Card includes Visa/MC + Apple Pay + Google Pay (wallets over card)
+  // out of the box. To add BNPL later: enable each in Stripe dashboard,
+  // then add the literal back to this array.
   const paymentMethodTypes: string[] | undefined =
     paymentMethodCategory === "bank"
       ? ["us_bank_account"]
       : paymentMethodCategory === "card"
-        ? ["card", "klarna", "affirm", "cashapp", "amazon_pay", "afterpay_clearpay"]
+        ? ["card"]
         : undefined;
 
   const params: Stripe.PaymentIntentCreateParams = {
