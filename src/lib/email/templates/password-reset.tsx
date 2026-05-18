@@ -7,8 +7,18 @@ import {
   tokens,
 } from "@/lib/email/components/email-layout";
 
+/**
+ * Magic-link sign-in email.
+ *
+ * Component + file are still named "PasswordResetEmail" / "password-reset.tsx"
+ * to avoid touching every call site at once — same template now serves the
+ * one-tap sign-in flow that replaced the password-reset endpoint. The prop
+ * `resetUrl` likewise carries the magic-link redemption URL; renaming for
+ * clarity is a separate follow-up.
+ */
 interface PasswordResetEmailProps {
   name: string;
+  /** Magic-link redemption URL. Prop name kept for back-compat. */
   resetUrl: string;
   expiresIn: string;
 }
@@ -20,21 +30,21 @@ export function PasswordResetEmail({
 }: PasswordResetEmailProps) {
   return (
     <EmailLayout
-      preview="Reset your Aspire Sports password"
+      preview="Tap the link to sign in to Aspire Sports"
       sectionLabel="Account"
-      sectionMeta="Password reset"
+      sectionMeta="Sign in"
     >
-      <H1>Reset your password</H1>
+      <H1>Sign in to Aspire Sports</H1>
       <P>Hi {name || "there"},</P>
       <P>
-        We received a request to reset your password for your Aspire Sports
-        account. Click the button below to create a new password.
+        Tap the button below to sign in to your Aspire Sports account. No
+        password needed — this is a one-tap, single-use link.
       </P>
-      <Button href={resetUrl}>Reset password</Button>
+      <Button href={resetUrl}>Sign in</Button>
       <P>
         This link will expire in <strong>{expiresIn}</strong>. If you didn't
-        request a password reset, you can safely ignore this email — your
-        password will not be changed.
+        request this email, you can safely ignore it — nobody can access your
+        account without tapping the link.
       </P>
       <P>If the button above doesn't work, copy and paste this link into your browser:</P>
       <Text style={linkLine}>

@@ -5,11 +5,27 @@ import { eq, asc, desc, and, or, isNull, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
+/**
+ * Admin-facing schema. `discountValue` is the human-readable number the
+ * staff member types — a percentage in 1-100 for percentage discounts,
+ * or dollars for fixed_amount discounts. We convert to the underlying
+ * storage shape (basis points / cents) in `encodeDiscountValue` before
+ * the DB write and back to human form in `decodeDiscountValue` on read.
+ *
+ * Storage convention (unchanged):
+ *   - percentage:    basis points  (10000 = 100%)
+ *   - fixed_amount:  cents         (12000 = $120)
+ *
+ * Bug history: this schema previously accepted whatever number the admin
+ * typed and stored it verbatim. A staff member entering "100" for a
+ * percentage discount got 1% off, not 100% off. Same shape for
+ * fixed_amount: "120" was stored as 120 cents = $1.20 instead of $120.
+ */
 const discountCodeSchema = z.object({
   code: z.string().min(1, "Code is required").max(50).toUpperCase(),
   description: z.string().optional().nullable(),
   discountType: z.enum(["percentage", "fixed_amount"]),
-  discountValue: z.number().min(1, "Discount value must be positive"),
+  discountValue: z.number().min(0.01, "Discount value must be positive"),
   minPurchaseCents: z.number().min(0).optional().nullable(),
   maxDiscountCents: z.number().min(0).optional().nullable(),
   maxUses: z.number().min(1).optional().nullable(),
@@ -18,7 +34,36 @@ const discountCodeSchema = z.object({
   active: z.boolean().default(true),
   startsAt: z.string().datetime().optional().nullable(),
   expiresAt: z.string().datetime().optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (data.discountType === "percentage" && data.discountValue > 100) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountValue"],
+      message: "Percentage discount cannot exceed 100",
+    });
+  }
 });
+
+/** Convert human input (percentage / dollars) → storage units. */
+function encodeDiscountValue(
+  type: "percentage" | "fixed_amount",
+  human: number,
+): number {
+  return type === "percentage"
+    ? Math.round(human * 100) // 100 → 10000 basis points
+    : Math.round(human * 100); // 120 → 12000 cents
+}
+
+/** Convert storage units → human input (percentage / dollars). */
+function decodeDiscountValue(
+  type: string | null,
+  stored: number,
+): number {
+  if (type === "percentage" || type === "fixed_amount") {
+    return stored / 100;
+  }
+  return stored;
+}
 
 // GET - List all discount codes
 export const GET: APIRoute = async (context) => {
@@ -52,7 +97,15 @@ export const GET: APIRoute = async (context) => {
       .where(eq(discountCodes.organizationId, orgContext.organizationId))
       .orderBy(desc(discountCodes.createdAt));
 
-    return new Response(JSON.stringify({ discountCodes: allCodes }), {
+    // Decode storage units back to the human-readable form the admin
+    // form expects (percentage 1-100, dollars). Round-trip is stable:
+    // GET → edit → PUT stores the same value.
+    const decoded = allCodes.map((c) => ({
+      ...c,
+      discountValue: decodeDiscountValue(c.discountType, c.discountValue),
+    }));
+
+    return new Response(JSON.stringify({ discountCodes: decoded }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -99,20 +152,37 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
+    const encodedValue = encodeDiscountValue(
+      result.data.discountType,
+      result.data.discountValue,
+    );
+
     const [newCode] = await getDb()
       .insert(discountCodes)
       .values({
         organizationId: orgContext.organizationId,
         ...result.data,
+        discountValue: encodedValue,
         startsAt: result.data.startsAt ? new Date(result.data.startsAt) : null,
         expiresAt: result.data.expiresAt ? new Date(result.data.expiresAt) : null,
       })
       .returning();
 
-    return new Response(JSON.stringify({ discountCode: newCode }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        discountCode: {
+          ...newCode,
+          discountValue: decodeDiscountValue(
+            newCode.discountType,
+            newCode.discountValue,
+          ),
+        },
+      }),
+      {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error: any) {
     console.error("Error creating discount code:", error);
     const pgCode = error.code ?? error.cause?.code;
@@ -149,11 +219,17 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
+    const encodedValue = encodeDiscountValue(
+      result.data.discountType,
+      result.data.discountValue,
+    );
+
     // Verify discount code belongs to this organization
     const [updatedCode] = await getDb()
       .update(discountCodes)
       .set({
         ...result.data,
+        discountValue: encodedValue,
         startsAt: result.data.startsAt ? new Date(result.data.startsAt) : null,
         expiresAt: result.data.expiresAt ? new Date(result.data.expiresAt) : null,
         updatedAt: new Date(),
@@ -165,10 +241,21 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Discount code not found" }), { status: 404 });
     }
 
-    return new Response(JSON.stringify({ discountCode: updatedCode }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        discountCode: {
+          ...updatedCode,
+          discountValue: decodeDiscountValue(
+            updatedCode.discountType,
+            updatedCode.discountValue,
+          ),
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error: any) {
     console.error("Error updating discount code:", error);
     const pgCode = error.code ?? error.cause?.code;
