@@ -295,32 +295,39 @@ export function WhoStep({
         </Card>
       )}
 
-      {dependents.map((d) => (
-        <Card
-          key={d.id}
-          role="button"
-          aria-pressed={selectedKey === d.id}
-          aria-disabled={!d.ageEligible}
-          tabIndex={d.ageEligible ? 0 : -1}
-          onClick={() => d.ageEligible && onSelect(d.id)}
-          onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && d.ageEligible) {
-              e.preventDefault();
-              onSelect(d.id);
-            }
-          }}
-          className={`p-4 cursor-pointer transition-colors ${
-            selectedKey === d.id ? "border-primary ring-2 ring-primary/30" : ""
-          } ${!d.ageEligible ? "opacity-50 cursor-not-allowed" : ""}`}
-        >
-          <div className="font-semibold">{d.firstName} {d.lastName}</div>
-          {!d.ageEligible && (
-            <div className="text-xs text-muted-foreground mt-1">
-              Not in age range for this program.
-            </div>
-          )}
-        </Card>
-      ))}
+      {/* Dependents only appear for youth/all-ages programs. For an adult-
+          only program the subtitle promises "self-registration only" and
+          there's no legitimate path to register a dependent — showing them
+          here contradicts the copy and creates the double-card bug (an
+          existing dependent record with the same name as the registrant
+          appearing alongside the Myself card). */}
+      {!adultOnly &&
+        dependents.map((d) => (
+          <Card
+            key={d.id}
+            role="button"
+            aria-pressed={selectedKey === d.id}
+            aria-disabled={!d.ageEligible}
+            tabIndex={d.ageEligible ? 0 : -1}
+            onClick={() => d.ageEligible && onSelect(d.id)}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && d.ageEligible) {
+                e.preventDefault();
+                onSelect(d.id);
+              }
+            }}
+            className={`p-4 cursor-pointer transition-colors ${
+              selectedKey === d.id ? "border-primary ring-2 ring-primary/30" : ""
+            } ${!d.ageEligible ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <div className="font-semibold">{d.firstName} {d.lastName}</div>
+            {!d.ageEligible && (
+              <div className="text-xs text-muted-foreground mt-1">
+                Not in age range for this program.
+              </div>
+            )}
+          </Card>
+        ))}
 
       {dependentError && (
         <div className="text-sm text-destructive whitespace-pre-line">
