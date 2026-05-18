@@ -30,6 +30,8 @@ function getLucia() {
           firstName: attributes.firstName,
           lastName: attributes.lastName,
           birthDate: attributes.birthDate,
+          phone: attributes.phone,
+          gender: attributes.gender,
           avatarUrl: attributes.avatarUrl,
         };
       },

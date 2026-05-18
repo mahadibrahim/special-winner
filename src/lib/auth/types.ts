@@ -13,4 +13,5 @@ export interface UserAttributes {
   birthDate: string | null;
   avatarUrl: string | null;
   phone?: string | null;
+  gender?: string | null;
 }
