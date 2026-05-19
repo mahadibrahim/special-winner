@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { RegistrationDetail } from '../../../components/admin/registration-detail';
+
+// Middleware guarantees admin role for /admin routes.
+const user = Astro.locals.user!;
+const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect("/admin/registrations");
+}
+---
+
+<BaseLayout title="Registration — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/registrations"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <RegistrationDetail client:load id={id} />
+  </AdminLayout>
+</BaseLayout>
