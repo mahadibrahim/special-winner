@@ -7,15 +7,12 @@ import {
   programs,
   users,
   locations,
-  payments,
-  organizations,
 } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
-import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
-import type Stripe from "stripe";
+import { adminRefund } from "@/lib/payments/admin-refund";
 
 const refundActionSchema = z.object({
   action: z.enum(["approve", "deny"]),
@@ -96,150 +93,38 @@ export const POST: APIRoute = async (context) => {
 
     const refundAmountCents = registration.registration.refundAmountCents || 0;
 
-    // Get parent user info for email
-    const [parentUser] = await getDb()
-      .select()
-      .from(users)
-      .where(eq(users.id, registration.registration.registeredByUserId));
-
-    // Get payment record to access Stripe payment intent ID
-    const [payment] = await getDb()
-      .select()
-      .from(payments)
-      .where(eq(payments.registrationId, id));
-
-    const stripePaymentIntentId = payment?.stripePaymentIntentId;
+    const childName = `${registration.familyMember.firstName} ${registration.familyMember.lastName}`;
 
     if (action === "approve") {
-      // Process Stripe refund if configured and there's an amount to refund
-      let stripeRefundId: string | null = null;
+      const result = await adminRefund({
+        registration: registration.registration,
+        refundAmountCents,
+        reason,
+        adminUserId: auth.user.id,
+        organizationId: orgContext.organizationId,
+        childName,
+        programName: registration.program.name,
+        seasonName: registration.season.name,
+      });
 
-      if (refundAmountCents > 0 && stripePaymentIntentId) {
-        if (!isStripeConfigured() || !stripe) {
-          return new Response(
-            JSON.stringify({ error: "Stripe not configured for refunds" }),
-            {
-              status: 503,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-        }
-
-        // Connect-aware: if this org has a connected Stripe account AND the
-        // payment was a destination charge to that account, the refund must
-        // be issued on the connected account (`stripeAccount` request opt)
-        // and we want to reverse the transfer + refund the application fee.
-        // Otherwise it's a platform-direct refund.
-        const [org] = await getDb()
-          .select({
-            stripeAccountId: organizations.stripeAccountId,
-            stripeOnboardingComplete: organizations.stripeOnboardingComplete,
-          })
-          .from(organizations)
-          .where(eq(organizations.id, orgContext.organizationId))
-          .limit(1);
-
-        const useConnect =
-          !!org?.stripeAccountId && org.stripeOnboardingComplete === true;
-
-        const refundParams: Stripe.RefundCreateParams = {
-          payment_intent: stripePaymentIntentId,
-          amount: refundAmountCents,
-          reason: "requested_by_customer",
-          metadata: {
-            registrationId: id,
-            approvedBy: auth.user.id,
-          },
-        };
-
-        if (useConnect) {
-          refundParams.reverse_transfer = true;
-          refundParams.refund_application_fee = true;
-        }
-
-        const requestOptions: Stripe.RequestOptions = {
-          // Stable idempotency key — see src/lib/stripe/client.ts top.
-          idempotencyKey: `${id}:refund:${refundAmountCents}`,
-        };
-        if (useConnect && org?.stripeAccountId) {
-          requestOptions.stripeAccount = org.stripeAccountId;
-        }
-
-        try {
-          const refund = await stripe.refunds.create(refundParams, requestOptions);
-          stripeRefundId = refund.id;
-        } catch (stripeError) {
-          console.error("Stripe refund error:", stripeError);
-          return new Response(
-            JSON.stringify({
-              error: "Failed to process Stripe refund",
-              details: stripeError instanceof Error ? stripeError.message : "Unknown error",
-            }),
-            {
-              status: 500,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-        }
-      }
-
-      // Determine partial vs full and apply consistent state updates to BOTH
-      // the registration and the underlying payment row.
-      const previousAmountPaid = registration.registration.amountPaidCents ?? 0;
-      const isPartialRefund = refundAmountCents < previousAmountPaid;
-      const newAmountPaid = Math.max(0, previousAmountPaid - refundAmountCents);
-
-      // Update registration: status / refundStatus / amountPaidCents
-      const [updated] = await getDb()
-        .update(registrations)
-        .set({
-          refundStatus: "processed",
-          status: isPartialRefund ? registration.registration.status : "refunded",
-          amountPaidCents: newAmountPaid,
-          paymentStatus: isPartialRefund ? "partial_refund" : "refunded",
-          updatedAt: new Date(),
-        })
-        .where(eq(registrations.id, id))
-        .returning();
-
-      // Update the payment row so admin views and reconciliation see the
-      // refund. Mark partial refunds as `refunded` too — there's no
-      // `partial_refund` value on the payment status enum (see schema).
-      if (payment) {
-        await getDb()
-          .update(payments)
-          .set({
-            status: "refunded",
-            refundReason: reason ?? null,
-            updatedAt: new Date(),
-          })
-          .where(eq(payments.id, payment.id));
-      }
-
-      // Send approval email
-      if (parentUser) {
-        sendRefundNotificationEmail({
-          userId: parentUser.id,
-          organizationId: orgContext.organizationId,
-          registrationId: id,
-          parentEmail: parentUser.email,
-          parentName: parentUser.firstName || parentUser.email.split("@")[0],
-          childName: `${registration.familyMember.firstName} ${registration.familyMember.lastName}`,
-          programName: registration.program.name,
-          seasonName: registration.season.name,
-          refundAmountCents,
-          refundStatus: "approved",
-        }).catch((err) => console.error("Error sending refund approval email:", err));
+      if (!result.ok) {
+        return new Response(
+          JSON.stringify({ error: result.error, details: result.details }),
+          {
+            status: result.status,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
       }
 
       return new Response(
         JSON.stringify({
           success: true,
           message: "Refund approved and processed",
-          registration: updated,
+          registration: result.registration,
           refund: {
             amountCents: refundAmountCents,
-            stripeRefundId,
+            stripeRefundId: result.stripeRefundId,
           },
         }),
         {
@@ -248,7 +133,7 @@ export const POST: APIRoute = async (context) => {
         }
       );
     } else {
-      // Deny refund
+      // Deny refund — no Stripe call, just update + email.
       const [updated] = await getDb()
         .update(registrations)
         .set({
@@ -258,7 +143,11 @@ export const POST: APIRoute = async (context) => {
         .where(eq(registrations.id, id))
         .returning();
 
-      // Send denial email
+      const [parentUser] = await getDb()
+        .select()
+        .from(users)
+        .where(eq(users.id, registration.registration.registeredByUserId));
+
       if (parentUser) {
         sendRefundNotificationEmail({
           userId: parentUser.id,
@@ -266,7 +155,7 @@ export const POST: APIRoute = async (context) => {
           registrationId: id,
           parentEmail: parentUser.email,
           parentName: parentUser.firstName || parentUser.email.split("@")[0],
-          childName: `${registration.familyMember.firstName} ${registration.familyMember.lastName}`,
+          childName,
           programName: registration.program.name,
           seasonName: registration.season.name,
           refundAmountCents,
