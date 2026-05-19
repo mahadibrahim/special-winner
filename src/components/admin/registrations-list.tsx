@@ -13,6 +13,7 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -328,6 +329,16 @@ export function RegistrationsList() {
                             <span className="font-medium">#{registration.waitlistPosition}</span>
                           </p>
                         )}
+                        <div className="pt-2 border-t border-gray-200">
+                          <a
+                            href={`/admin/registrations/${registration.id}`}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Manage registration
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
                       </div>
                     )}
                   </div>
