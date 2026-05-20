@@ -1,0 +1,263 @@
+<h2>Layout C — type system + bolder color</h2>
+<p class="subtitle">Each event type gets a fixed hue, icon, and label. Bolder now: solid icon tiles, a colored card edge, a faint type-tinted background. Status stays on the badge. This is <strong>My Play</strong>.</p>
+
+<style>
+.v3{ --cream:#f6f1e6; --cream2:#efe8d9; --cream3:#e7dcc7;
+  --ink:#272219; --ink2:#4c463b; --inkm:#8c8373; --inkf:#ada491;
+  --paper:#fffdf7; --border:#e6dec9;
+  font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);
+  background:radial-gradient(125% 75% at 50% -8%, #f9eae2 0%, #f6efe1 58%);
+  border:1px solid var(--border);border-radius:16px;padding:24px 28px 30px;margin-top:18px}
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+.v3 *{box-sizing:border-box}
+
+/* type tokens */
+.ty-game{--h:#c5481f;--tint:#fbeadf}
+.ty-pickup{--h:#22394b;--tint:#e9eef1}
+.ty-class{--h:#a87b1e;--tint:#f7f0dd}
+.ty-rental{--h:#4f7050;--tint:#eaf1e7}
+
+/* type key */
+.v3-key{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.v3-keyitem{display:flex;align-items:center;gap:7px;background:var(--paper);
+  border:1px solid var(--border);border-left:3px solid var(--h);border-radius:9px;padding:6px 11px 6px 9px}
+.v3-keyic{width:21px;height:21px;border-radius:6px;background:var(--h);color:#fff;
+  display:flex;align-items:center;justify-content:center}
+.v3-keyic svg{width:12px;height:12px}
+.v3-keytx{font-size:11px;font-weight:600;color:var(--ink)}
+
+/* header */
+.v3-hdr{display:flex;align-items:center;gap:13px;margin-bottom:18px}
+.v3-av{width:42px;height:42px;border-radius:12px;background:#c5481f;color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px}
+.v3-hi{font-size:12px;color:var(--inkf);line-height:1}
+.v3-nm{font-family:'Newsreader',serif;font-size:26px;line-height:1.1;margin-top:4px}
+.v3-tabs{margin-left:auto;display:flex;gap:3px;background:var(--cream2);padding:3px;border-radius:10px}
+.v3-tab{font-size:12.5px;padding:6px 14px;border-radius:8px;color:var(--inkm)}
+.v3-tab.on{background:var(--paper);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+
+.v3-stack{display:flex;flex-direction:column;gap:14px}
+/* panel */
+.v3-panel{background:var(--paper);border:1px solid var(--border);border-radius:15px;overflow:hidden}
+.v3-panel.att{border-color:#e7d3a3}.v3-panel.exp{border-color:#c6d6c3}
+.v3-phd{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.v3-phd.att{background:#faf3e3}.v3-phd.def{background:#fffefa}.v3-phd.exp{background:#f3f6f1}
+.v3-hic{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.v3-hic svg{width:13px;height:13px}
+.v3-hic.att{background:#a87b1e;color:#fff}.v3-hic.def{background:#c5481f;color:#fff}.v3-hic.exp{background:#4f7050;color:#fff}
+.v3-lbl{font-size:10.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase}
+.v3-lbl.att{color:#a87b1e}.v3-lbl.def{color:var(--inkm)}.v3-lbl.exp{color:#4f7050}
+.v3-cnt{font-size:10px;color:var(--inkf);margin-left:auto;font-weight:500}
+.v3-pbd{padding:13px 16px;display:flex;flex-direction:column;gap:10px}
+
+/* TYPE CARD — the unified, bolder card */
+.v3-card{display:flex;align-items:flex-start;gap:12px;background:var(--tint);
+  border:1px solid var(--border);border-left:4px solid var(--h);border-radius:11px;padding:12px 13px}
+.v3-tile{width:40px;height:40px;border-radius:11px;background:var(--h);color:#fff;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.v3-tile svg{width:20px;height:20px}
+.v3-grow{flex:1;min-width:0}
+.v3-eye{font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--h);margin-bottom:3px}
+.v3-h{font-size:14px;font-weight:600;color:var(--ink)}
+.v3-h .opp{color:var(--h)}
+.v3-when{font-size:11.5px;color:var(--ink2);margin-top:4px;display:flex;align-items:center;gap:5px}
+.v3-when svg{width:12px;height:12px;color:var(--inkm);flex:0 0 auto}
+.v3-venue{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap}
+.v3-venue>svg{width:12px;height:12px;color:var(--h);flex:0 0 auto}
+.v3-vtx{font-size:11px;color:var(--ink2)}
+.v3-dir{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;
+  color:var(--h);border:1px solid var(--h);border-radius:999px;padding:2.5px 8px;text-decoration:none;opacity:.92}
+.v3-dir svg{width:10px;height:10px}
+.v3-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+.v3-badge{font-size:9px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid;white-space:nowrap;letter-spacing:.03em}
+.b-amber{background:#f5ecd4;color:#8a6510;border-color:#e4d2a3}
+.b-emer{background:#e3eee1;color:#3a5a3c;border-color:#c8ddc5}
+.b-pend{background:var(--cream3);color:var(--ink2);border-color:#dccfb3}
+.v3-btn{font-size:10.5px;font-weight:700;padding:6px 12px;border-radius:8px;background:var(--h);color:#fff;text-decoration:none}
+.v3-btn.ghost{background:transparent;color:var(--h);border:1px solid var(--h)}
+.v3-dim{font-size:11px;color:var(--inkm)}
+.v3-mono{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500}
+.v3-note{font-size:10.5px;color:var(--ink2);background:var(--tint);border-radius:7px;padding:5px 9px;margin-top:5px;display:inline-block}
+
+/* hero variant — bigger */
+.v3-card.hero{padding:15px}
+.v3-card.hero .v3-tile{width:46px;height:46px}
+.v3-card.hero .title{font-family:'Newsreader',serif;font-size:21px;line-height:1.15;margin-top:1px}
+.v3-card.hero .title .opp{color:var(--h)}
+
+/* explore */
+.v3-ex{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.v3-exc{background:var(--cream2);border:1px solid var(--border);border-radius:12px;padding:13px}
+.v3-exc .ic{width:30px;height:30px;border-radius:8px;color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.v3-exc .ic svg{width:15px;height:15px}
+.v3-exh{font-size:12.5px;font-weight:600}
+.v3-exd{font-size:10.5px;color:var(--inkm);margin-top:3px;line-height:1.45}
+.v3-exl{font-size:10.5px;font-weight:700;margin-top:8px;display:inline-flex;align-items:center;gap:4px}
+.v3-exl svg{width:10px;height:10px}
+</style>
+
+<div class="v3">
+
+  <!-- TYPE KEY -->
+  <div class="v3-key">
+    <div class="v3-keyitem ty-game"><span class="v3-keyic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 4h10v3a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4.5v1.5A3 3 0 0 0 7.5 9.5M17 5h2.5v1.5a3 3 0 0 1-3 3M9.5 20h5M12 12.5V20"/></svg></span><span class="v3-keytx">League game</span></div>
+    <div class="v3-keyitem ty-pickup"><span class="v3-keyic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M14.5 19a4.2 4.2 0 0 1 6 0"/></svg></span><span class="v3-keytx">Pickup game</span></div>
+    <div class="v3-keyitem ty-class"><span class="v3-keyic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8 12 4l9 4-9 4-9-4Z"/><path d="M7 10.5V15c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4.5M21 8v5"/></svg></span><span class="v3-keytx">Class / clinic</span></div>
+    <div class="v3-keyitem ty-rental"><span class="v3-keyic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 21V4l11 3.2L6 10.4"/><rect x="3" y="20" width="18" height="1.5" rx=".75" fill="currentColor" stroke="none"/></svg></span><span class="v3-keytx">Field rental</span></div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="v3-hdr">
+    <div class="v3-av">MI</div>
+    <div><div class="v3-hi">Good evening</div><div class="v3-nm">Mahad</div></div>
+    <div class="v3-tabs"><div class="v3-tab">Family</div><div class="v3-tab on">My Play</div></div>
+  </div>
+
+  <div class="v3-stack">
+
+    <!-- ATTENTION -->
+    <div class="v3-panel att">
+      <div class="v3-phd att">
+        <span class="v3-hic att"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+        <span class="v3-lbl att">Needs your attention</span><span class="v3-cnt">1 ITEM</span>
+      </div>
+      <div class="v3-pbd">
+        <div class="v3-card ty-rental">
+          <div class="v3-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <div class="v3-grow">
+            <div class="v3-eye">Field rental</div>
+            <div class="v3-h">Payment hold expiring</div>
+            <div class="v3-when"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Expires in 38 min · 6:40 PM today</div>
+            <div class="v3-venue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span class="v3-vtx">Field 1 · Aspire Sports — Downtown / OSU</span>
+              <a class="v3-dir" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 22 2l-9 19-2-8-8-2Z"/></svg>Directions</a>
+            </div>
+          </div>
+          <div class="v3-side"><span class="v3-badge b-amber">ACTION NEEDED</span><a class="v3-btn" href="#">Pay $90</a></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WHAT'S COMING UP — all three event types -->
+    <div class="v3-panel">
+      <div class="v3-phd def">
+        <span class="v3-hic def"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 10h18M8 2v5M16 2v5"/></svg></span>
+        <span class="v3-lbl def">What's coming up</span><span class="v3-cnt">3 EVENTS</span>
+      </div>
+      <div class="v3-pbd">
+
+        <!-- LEAGUE GAME hero -->
+        <div class="v3-card hero ty-game">
+          <div class="v3-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 4h10v3a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4.5v1.5A3 3 0 0 0 7.5 9.5M17 5h2.5v1.5a3 3 0 0 1-3 3M9.5 20h5M12 12.5V20"/></svg></div>
+          <div class="v3-grow">
+            <div class="v3-eye">League game · next up</div>
+            <div class="title">vs <span class="opp">Rovers FC</span></div>
+            <div class="v3-when"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 10h18M8 2v5M16 2v5"/></svg> Saturday, May 24 · 6:00 PM · 90 min</div>
+            <div class="v3-venue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span class="v3-vtx">Field 1 · Aspire Sports — Downtown / OSU · 1810 N High St</span>
+              <a class="v3-dir" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 22 2l-9 19-2-8-8-2Z"/></svg>Directions</a>
+            </div>
+          </div>
+          <div class="v3-side"><span class="v3-badge b-emer">HOME</span><a class="v3-btn ghost" href="#">Details</a></div>
+        </div>
+
+        <!-- PICKUP GAME -->
+        <div class="v3-card ty-pickup">
+          <div class="v3-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M14.5 19a4.2 4.2 0 0 1 6 0"/></svg></div>
+          <div class="v3-grow">
+            <div class="v3-eye">Pickup game</div>
+            <div class="v3-h">Soccer · 7v7 drop-in</div>
+            <div class="v3-when"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Monday, May 25 · 6:00 PM</div>
+            <div class="v3-venue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span class="v3-vtx">Field 2 · Aspire Sports — Downtown / OSU</span>
+              <a class="v3-dir" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 22 2l-9 19-2-8-8-2Z"/></svg>Directions</a>
+            </div>
+          </div>
+          <div class="v3-side"><span class="v3-badge b-emer">CONFIRMED</span><span class="v3-dim">3 spots left</span></div>
+        </div>
+
+        <!-- CLASS / CLINIC -->
+        <div class="v3-card ty-class">
+          <div class="v3-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8 12 4l9 4-9 4-9-4Z"/><path d="M7 10.5V15c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4.5M21 8v5"/></svg></div>
+          <div class="v3-grow">
+            <div class="v3-eye">Class / clinic</div>
+            <div class="v3-h">Adult finishing &amp; shooting clinic</div>
+            <div class="v3-when"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Tuesday, May 27 · 7:30 PM · Coach Diallo</div>
+            <div class="v3-venue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span class="v3-vtx">Indoor court · Aspire Sports — Downtown / OSU</span>
+              <a class="v3-dir" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 22 2l-9 19-2-8-8-2Z"/></svg>Directions</a>
+            </div>
+          </div>
+          <div class="v3-side"><span class="v3-badge b-emer">CONFIRMED</span><span class="v3-dim">Bring shin guards</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- WHAT YOU'RE PART OF -->
+    <div class="v3-panel">
+      <div class="v3-phd def">
+        <span class="v3-hic def"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/></svg></span>
+        <span class="v3-lbl def">What you're part of</span>
+      </div>
+      <div class="v3-pbd">
+        <div class="v3-card ty-game">
+          <div class="v3-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/></svg></div>
+          <div class="v3-grow">
+            <div class="v3-eye">My team</div>
+            <div class="v3-h" style="display:flex;align-items:center;gap:7px"><span style="width:10px;height:10px;border-radius:999px;background:#2f5fb0"></span>Thunderbolts</div>
+            <div class="v3-dim" style="margin-top:3px">Adult Co-Ed 7v7 · Division B · 2nd of 8 · next: vs Rovers FC</div>
+          </div>
+          <div class="v3-side"><span class="v3-mono" style="color:#c5481f">3W–1L</span><a class="v3-dir" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 22 2l-9 19-2-8-8-2Z"/></svg>Standings</a></div>
+        </div>
+        <div class="v3-card ty-game">
+          <div class="v3-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></div>
+          <div class="v3-grow">
+            <div class="v3-eye">League registration</div>
+            <div class="v3-h">Adult Co-Ed 7v7 League</div>
+            <div class="v3-dim" style="margin-top:3px">Summer 2026 · starts Jun 15 · 8-game season</div>
+            <span class="v3-note">Awaiting roster confirmation — we'll email when your team is set.</span>
+          </div>
+          <div class="v3-side"><span class="v3-badge b-pend">PENDING</span><a class="v3-btn ghost" href="#">View</a></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPLORE -->
+    <div class="v3-panel exp">
+      <div class="v3-phd exp">
+        <span class="v3-hic exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-4 1-1 4 4-1 1-4Z"/></svg></span>
+        <span class="v3-lbl exp">Explore</span>
+      </div>
+      <div class="v3-pbd">
+        <div class="v3-ex">
+          <div class="v3-exc">
+            <div class="ic" style="background:#c5481f"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 4h10v3a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4.5v1.5A3 3 0 0 0 7.5 9.5M17 5h2.5v1.5a3 3 0 0 1-3 3M9.5 20h5M12 12.5V20"/></svg></div>
+            <div class="v3-exh">Adult leagues</div>
+            <div class="v3-exd">7v7 co-ed soccer and upcoming flag football.</div>
+            <span class="v3-exl" style="color:#c5481f">Browse leagues <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </div>
+          <div class="v3-exc">
+            <div class="ic" style="background:#22394b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
+            <div class="v3-exh">Book a field</div>
+            <div class="v3-exd">Reserve a field for a private game or event.</div>
+            <span class="v3-exl" style="color:#22394b">Book a field <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </div>
+          <div class="v3-exc" style="background:#eef3ec;border-color:#cbdcc7">
+            <div class="ic" style="background:#4f7050"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.2l1-5.8L3.5 9.2l5.9-.9L12 3Z"/></svg></div>
+            <div class="v3-exh" style="color:#4f7050">Kids' camp at Worthington</div>
+            <div class="v3-exd">Youth soccer camps &amp; classes, ages 4–14.</div>
+            <span class="v3-exl" style="color:#4f7050">See youth programs <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">Type key sits up top. Each card is edge + tile + eyebrow in its type hue, with a faint type tint. Status is the badge. Tell me: right boldness, or push the tint louder? And — is four types the full set, or is "tournament" / "camp" its own type too?</p>
