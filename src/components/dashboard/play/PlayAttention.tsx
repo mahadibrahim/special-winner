@@ -185,7 +185,7 @@ export default function PlayAttention() {
   // While loading, render nothing (steady-state "nothing pending" is null)
   if (loading) return null;
 
-  // Nothing pending — render nothing so the Task 10 page can skip this section
+  // Nothing pending — render nothing so the play page can skip this section entirely
   if (items.length === 0) return null;
 
   const kindIcon: Record<AttentionItem["kind"], string> = {
@@ -207,7 +207,12 @@ export default function PlayAttention() {
   };
 
   return (
-    <div className="space-y-3">
+    <section>
+      {/* Heading mirrors DashboardSection.astro accent="attention" — keep classes in sync */}
+      <h2 className="text-[11px] font-semibold tracking-[0.15em] uppercase mb-4 text-ochre">
+        1 · Needs your attention
+      </h2>
+      <div className="space-y-3">
       {items.map((item) => (
         <div
           key={item.label}
@@ -234,6 +239,7 @@ export default function PlayAttention() {
           </div>
         </div>
       ))}
-    </div>
+      </div>
+    </section>
   );
 }
