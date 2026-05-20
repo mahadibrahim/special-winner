@@ -8,8 +8,10 @@ import {
   integer,
   pgEnum,
   index,
+  uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { users } from "./users";
 import { seasons } from "./programs";
 import { locations } from "./organizations";
@@ -140,6 +142,11 @@ export const rosters = pgTable(
   (table) => [
     index("rosters_team_idx").on(table.teamId),
     index("rosters_registration_idx").on(table.registrationId),
+    // A registration can only appear once on a given team's roster.
+    uniqueIndex("rosters_team_registration_uniq").on(
+      table.teamId,
+      table.registrationId,
+    ),
   ],
 );
 
@@ -173,27 +180,42 @@ export const games = pgTable(
     index("games_home_team_idx").on(table.homeTeamId),
     index("games_away_team_idx").on(table.awayTeamId),
     index("games_scheduled_at_idx").on(table.scheduledAt),
+    // A team cannot play itself. NULL team ids (TBD fixtures) pass the
+    // check — `null <> null` is NULL, and CHECK only rejects on FALSE.
+    check("games_distinct_teams", sql`${table.homeTeamId} <> ${table.awayTeamId}`),
+    // Scores are non-negative when present; NULL (unplayed) is allowed.
+    check(
+      "games_non_negative_scores",
+      sql`(${table.homeScore} IS NULL OR ${table.homeScore} >= 0) AND (${table.awayScore} IS NULL OR ${table.awayScore} >= 0)`,
+    ),
   ],
 );
 
 // Standings (calculated/cached)
-export const standings = pgTable("standings", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  seasonId: uuid("season_id")
-    .notNull()
-    .references(() => seasons.id, { onDelete: "cascade" }),
-  teamId: uuid("team_id")
-    .notNull()
-    .references(() => teams.id, { onDelete: "cascade" }),
-  division: varchar("division", { length: 50 }),
-  wins: integer("wins").default(0).notNull(),
-  losses: integer("losses").default(0).notNull(),
-  ties: integer("ties").default(0).notNull(),
-  pointsFor: integer("points_for").default(0).notNull(),
-  pointsAgainst: integer("points_against").default(0).notNull(),
-  gamesPlayed: integer("games_played").default(0).notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const standings = pgTable(
+  "standings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    seasonId: uuid("season_id")
+      .notNull()
+      .references(() => seasons.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    division: varchar("division", { length: 50 }),
+    wins: integer("wins").default(0).notNull(),
+    losses: integer("losses").default(0).notNull(),
+    ties: integer("ties").default(0).notNull(),
+    pointsFor: integer("points_for").default(0).notNull(),
+    pointsAgainst: integer("points_against").default(0).notNull(),
+    gamesPlayed: integer("games_played").default(0).notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // One standings row per (season, team) — the table is a cache.
+    uniqueIndex("standings_season_team_uniq").on(table.seasonId, table.teamId),
+  ],
+);
 
 // Coach Notes (feedback about players)
 export const coachNotes = pgTable(
@@ -236,7 +258,7 @@ export const attendance = pgTable(
       .notNull()
       .references(() => rosters.id, { onDelete: "cascade" }),
     gameId: uuid("game_id").references(() => games.id, { onDelete: "cascade" }),
-    eventDate: timestamp("event_date").notNull(),
+    eventDate: timestamp("event_date", { withTimezone: true }).notNull(),
     eventType: eventTypeEnum("event_type").default("practice").notNull(),
     status: attendanceStatusEnum("status").default("present").notNull(),
     notes: text("notes"),
