@@ -5,6 +5,7 @@ import { eq, or, asc } from "drizzle-orm";
 import { z } from "zod";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { recordConsent } from "@/lib/consents/record";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
 
 const createFamilyMemberSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -96,18 +97,28 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
     const data = validation.data;
     const userAgent = request.headers.get("user-agent");
 
+    // Find-or-create the dependent via the shared helper — dedupes on
+    // (parentUserId, name, birthDate) and avoids the self/parent XOR
+    // constraint race. Extra profile fields are applied afterward so a
+    // re-add refreshes them on the existing row.
+    const person = await resolvePerson(db, {
+      kind: "dependent",
+      parentUserId: user.id,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      birthDate: data.birthDate,
+    });
+
     const [newMember] = await db
-      .insert(familyMembers)
-      .values({
-        parentUserId: user.id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        birthDate: data.birthDate,
-        gender: data.gender,
+      .update(familyMembers)
+      .set({
+        gender: data.gender ?? null,
         medicalNotes: data.medicalNotes || null,
         emergencyContactName: data.emergencyContactName || null,
         emergencyContactPhone: data.emergencyContactPhone || null,
+        updatedAt: new Date(),
       })
+      .where(eq(familyMembers.id, person.id))
       .returning();
 
     const signerName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
