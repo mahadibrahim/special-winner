@@ -394,7 +394,6 @@ const detailPanelStyle: CSSProperties = {
 const buttonPrimaryTdStyle: CSSProperties = {
   backgroundColor: tokens.primary,
   borderRadius: "6px",
-  padding: "15px 24px",
   textAlign: "center",
 };
 
@@ -405,6 +404,7 @@ const buttonPrimaryLinkStyle: CSSProperties = {
   fontSize: "15px",
   fontWeight: 600,
   letterSpacing: "0.01em",
+  padding: "15px 24px",
   textDecoration: "none",
 };
 
@@ -412,7 +412,6 @@ const buttonOutlineTdStyle: CSSProperties = {
   backgroundColor: "transparent",
   border: `1px solid ${tokens.ink}`,
   borderRadius: "6px",
-  padding: "15px 24px",
   textAlign: "center",
 };
 
@@ -423,6 +422,7 @@ const buttonOutlineLinkStyle: CSSProperties = {
   fontSize: "15px",
   fontWeight: 600,
   letterSpacing: "0.01em",
+  padding: "15px 24px",
   textDecoration: "none",
 };
 
