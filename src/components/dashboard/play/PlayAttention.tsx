@@ -11,7 +11,7 @@ interface FieldRental {
   status: "confirmed" | "pending_payment" | "cancelled" | "no_show" | "completed";
   paymentExpiresAt: string | null;
   venueName: string;
-  fieldNumber: number;
+  fieldNumber: string | null;
 }
 
 interface Booking {
@@ -166,7 +166,7 @@ export default function PlayAttention() {
                   kind: "outstanding_balance",
                   label: `Balance due — ${p.program.name} (${p.season.name})`,
                   sublabel: `$${(p.amountCents / 100).toFixed(2)}`,
-                  href: "/dashboard/payments",
+                  href: "/account/invoices",
                 });
               }
             }

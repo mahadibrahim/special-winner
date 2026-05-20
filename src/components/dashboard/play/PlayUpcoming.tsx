@@ -13,7 +13,7 @@ interface Game {
   homeTeamId: string | null;
   awayTeamId: string | null;
   venueId: string | null;
-  fieldNumber: number | null;
+  fieldNumber: string | null;
   opponentName: string | null;
   isHome: boolean;
 }

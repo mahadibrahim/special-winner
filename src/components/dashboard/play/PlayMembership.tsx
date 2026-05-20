@@ -100,7 +100,7 @@ export default function PlayMembership() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch("/api/registrations");
+        const res = await fetch("/api/registrations?self=true");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         // Only show active/confirmed/waitlisted registrations (not cancelled)

@@ -28,7 +28,7 @@ const createRegistrationSchema = z
   );
 
 // GET - List registrations for current user
-export const GET: APIRoute = async ({ locals }) => {
+export const GET: APIRoute = async ({ locals, url }) => {
   try {
     const user = locals.user;
     if (!user) {
@@ -38,7 +38,16 @@ export const GET: APIRoute = async ({ locals }) => {
       });
     }
 
+    const selfOnly = url.searchParams.get("self") === "true";
+
     const db = getDb();
+
+    const whereClause = selfOnly
+      ? and(
+          eq(registrations.registeredByUserId, user.id),
+          eq(familyMembers.selfUserId, user.id),
+        )
+      : eq(registrations.registeredByUserId, user.id);
 
     const userRegistrations = await getDb()
       .select({
@@ -57,7 +66,7 @@ export const GET: APIRoute = async ({ locals }) => {
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
-      .where(eq(registrations.registeredByUserId, user.id))
+      .where(whereClause)
       .orderBy(desc(registrations.createdAt));
 
     const formatted = userRegistrations.map((r) => ({
