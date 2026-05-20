@@ -1,0 +1,47 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import AccountShell from '@/components/account/AccountShell.astro';
+import { ManageConsent } from '@/components/dashboard/manage-consent';
+import { getDb } from '@/lib/db';
+import { familyMembers } from '@/lib/db/schema';
+import { eq, asc } from 'drizzle-orm';
+
+// Middleware guarantees the user is authenticated for /account routes.
+const user = Astro.locals.user!;
+
+const db = getDb();
+
+// Fetch the user's own self-row (adult self-registration path).
+// selfUserId is UNIQUE, so at most one row exists. May be null for
+// new accounts that haven't completed a registration yet.
+const members = await db
+  .select({ id: familyMembers.id, selfUserId: familyMembers.selfUserId })
+  .from(familyMembers)
+  .where(
+    eq(familyMembers.selfUserId, user.id),
+  )
+  .orderBy(asc(familyMembers.id))
+  .limit(1);
+
+// The user's own self-row (adult path) — may be null for new accounts.
+const selfMember = members[0] ?? null;
+---
+
+<BaseLayout title="Consents — Account — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16">
+    <div class="max-w-4xl mx-auto px-4">
+      <AccountShell active="consents" title="Consents">
+        {selfMember ? (
+          <ManageConsent client:load familyMemberId={selfMember.id} />
+        ) : (
+          <div class="py-12 text-center text-ink-muted text-sm">
+            <p>No consent records on file yet.</p>
+            <p class="mt-1">
+              Consents are collected when you register for a program.
+            </p>
+          </div>
+        )}
+      </AccountShell>
+    </div>
+  </main>
+</BaseLayout>
