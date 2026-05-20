@@ -191,12 +191,29 @@ export function Button({
   children: ReactNode;
   variant?: "primary" | "outline";
 }) {
-  const style = variant === "outline" ? buttonOutlineStyle : buttonPrimaryStyle;
+  const tdStyle: CSSProperties =
+    variant === "outline" ? buttonOutlineTdStyle : buttonPrimaryTdStyle;
+  const linkStyle: CSSProperties =
+    variant === "outline" ? buttonOutlineLinkStyle : buttonPrimaryLinkStyle;
   return (
     <Section style={{ margin: "24px 0 8px" }}>
-      <Link href={href} style={style}>
-        {children}
-      </Link>
+      <table
+        width="100%"
+        cellPadding="0"
+        cellSpacing="0"
+        role="presentation"
+        style={{ borderCollapse: "collapse" }}
+      >
+        <tbody>
+          <tr>
+            <td style={tdStyle}>
+              <Link href={href} style={linkStyle}>
+                {children}
+              </Link>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </Section>
   );
 }
@@ -370,36 +387,42 @@ const detailPanelStyle: CSSProperties = {
   backgroundColor: tokens.cream2,
   border: `1px solid ${tokens.border}`,
   borderRadius: "6px",
-  padding: "4px 20px",
+  padding: "12px 20px",
   margin: "20px 0",
 };
 
-const buttonPrimaryStyle: CSSProperties = {
+const buttonPrimaryTdStyle: CSSProperties = {
   backgroundColor: tokens.primary,
   borderRadius: "6px",
+  padding: "15px 24px",
+  textAlign: "center",
+};
+
+const buttonPrimaryLinkStyle: CSSProperties = {
   color: tokens.paper,
   display: "block",
   fontFamily: fonts.body,
   fontSize: "15px",
   fontWeight: 600,
   letterSpacing: "0.01em",
-  padding: "15px 24px",
-  textAlign: "center",
   textDecoration: "none",
 };
 
-const buttonOutlineStyle: CSSProperties = {
+const buttonOutlineTdStyle: CSSProperties = {
   backgroundColor: "transparent",
   border: `1px solid ${tokens.ink}`,
   borderRadius: "6px",
+  padding: "15px 24px",
+  textAlign: "center",
+};
+
+const buttonOutlineLinkStyle: CSSProperties = {
   color: tokens.ink,
   display: "block",
   fontFamily: fonts.body,
   fontSize: "15px",
   fontWeight: 600,
   letterSpacing: "0.01em",
-  padding: "14px 24px",
-  textAlign: "center",
   textDecoration: "none",
 };
 

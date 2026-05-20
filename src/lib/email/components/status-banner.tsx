@@ -1,6 +1,6 @@
 // src/lib/email/components/status-banner.tsx
 import { Section, Text } from "@react-email/components";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { tokens, fonts } from "./email-layout";
 
 type Mood = "success" | "warning" | "problem";
@@ -20,7 +20,7 @@ export function StatusBanner({
   children,
 }: {
   mood: Mood;
-  children: string;
+  children: ReactNode;
 }) {
   const p = PALETTE[mood];
   return (
@@ -34,7 +34,6 @@ export function StatusBanner({
 
 const bannerStyle: CSSProperties = {
   padding: "10px 40px",
-  borderTop: `1px solid ${tokens.border}`,
   borderBottom: `1px solid ${tokens.border}`,
   textAlign: "center",
 };
