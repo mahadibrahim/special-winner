@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { newsletterSignups } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 const BodySchema = z.object({
   email: z.string().trim().toLowerCase().email().max(320),
@@ -12,12 +13,20 @@ const BodySchema = z.object({
   source: z.string().trim().max(50).optional(),
 });
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, clientAddress }) => {
   if (!db) {
     return new Response(
       JSON.stringify({ error: "Database unavailable" }),
       { status: 503, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // Per-IP burst limit — this is an unauthenticated public write endpoint;
+  // cap it so a script can't flood the signups table.
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`newsletter:ip:${ip}`, 5, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
   }
 
   let parsed;

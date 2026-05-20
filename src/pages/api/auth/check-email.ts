@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { rateLimit } from "@/lib/auth/rate-limit";
+import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 
 // Per-IP rate limit: 10 requests per 60s. The endpoint's only purpose is UX
 // hinting, and we fail-open if the limiter trips so the wizard never blocks.
@@ -37,11 +38,14 @@ export const GET: APIRoute = async ({ url, clientAddress }) => {
     });
   }
 
-  const normalized = parsed.data.toLowerCase().trim();
+  // Query the canonical form so Gmail dot/+tag variants resolve to the
+  // same row — otherwise an attacker can enumerate accounts by probing
+  // dot-permutations of an address that all hit one real inbox.
+  const canonical = normalizeForUniqueness(parsed.data);
   const found = await getDb()
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.email, normalized))
+    .where(eq(users.emailCanonical, canonical))
     .limit(1);
 
   return new Response(JSON.stringify({ exists: found.length > 0 }), {

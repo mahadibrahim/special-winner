@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { corporateInquiries } from "@/lib/db/schema";
 import { z } from "zod";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 const BodySchema = z.object({
   companyName: z.string().trim().min(1).max(255),
@@ -16,12 +17,20 @@ const BodySchema = z.object({
   notes: z.string().trim().max(2000).optional(),
 });
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, clientAddress }) => {
   if (!db) {
     return new Response(
       JSON.stringify({ error: "Database unavailable" }),
       { status: 503, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // Per-IP burst limit — this is an unauthenticated public write endpoint;
+  // cap it so a script can't flood the inquiries table.
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`corporate-inquiry:ip:${ip}`, 5, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
   }
 
   let parsed;

@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { TurnstileWidget } from "./turnstile-widget";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Turnstile CAPTCHA token. Empty until Cloudflare resolves the challenge.
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +25,7 @@ export function ForgotPasswordForm() {
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstileToken: turnstileToken || undefined }),
       });
 
       const data = await response.json();
@@ -90,6 +93,11 @@ export function ForgotPasswordForm() {
           className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
         />
       </div>
+
+      <TurnstileWidget
+        onToken={(t) => setTurnstileToken(t)}
+        onError={() => setTurnstileToken("")}
+      />
 
       <Button
         type="submit"
