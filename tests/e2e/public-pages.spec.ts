@@ -24,7 +24,7 @@ test.describe('Public Pages', () => {
   });
 
   test('forgot password page redirects to /signin', async ({ page }) => {
-    // /forgot-password → /email-link-signin → /signin (both 301).
+    // /forgot-password 301s straight to /signin.
     // /signin IS the magic-link form after the password-removal migration.
     await page.goto('/forgot-password');
 
