@@ -30,7 +30,10 @@ import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
-import { buildDropInCheckoutLineItems } from "@/lib/dropin/checkout-line-item";
+import {
+  buildDropInCheckoutLineItems,
+  dropInPaymentDescription,
+} from "@/lib/dropin/checkout-line-item";
 import { computeSurchargeCents } from "@/lib/payments/surcharge";
 import { organizations } from "@/lib/db/schema/organizations";
 
@@ -220,6 +223,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     ? Math.round((rate.amountCents * applicationFeePct) / 100) + surchargeCents
     : undefined;
 
+  // Human-readable description for the PaymentIntent — what shows in the
+  // Stripe dashboard payment list and on refunds (Stripe otherwise falls
+  // back to the raw pi_… id).
+  const paymentDescription = dropInPaymentDescription({
+    sportOrClassLabel: session.sportOrClassLabel,
+    formatLabel: session.formatLabel,
+    startsAt: session.startsAt,
+    venueName: venue?.name ?? null,
+    timezone: org?.timezone ?? null,
+  });
+
   const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
 
   const checkoutSession = await stripe.checkout.sessions.create({
@@ -245,12 +259,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       waiver_signed_at: waiverSignedAt.toISOString(),
       waiver_name: waiverName,
     },
-    payment_intent_data: partnerStripeAccountId
-      ? {
-          application_fee_amount: applicationFeeCents,
-          transfer_data: { destination: partnerStripeAccountId },
-        }
-      : undefined,
+    payment_intent_data: {
+      description: paymentDescription,
+      ...(partnerStripeAccountId
+        ? {
+            application_fee_amount: applicationFeeCents,
+            transfer_data: { destination: partnerStripeAccountId },
+          }
+        : {}),
+    },
     success_url: `${appUrl}/dropin/${sessionId}?booking=success`,
     cancel_url: `${appUrl}/dropin/${sessionId}?booking=cancelled`,
   });

@@ -28,6 +28,17 @@ export function dropInLineItemCopy(input: DropInLineItemInput): {
 }
 
 /**
+ * One-line human-readable description for the drop-in PaymentIntent — what
+ * shows in the Stripe dashboard's payment list and on a refund. Without it
+ * Stripe falls back to the raw `pi_…` id, which is useless when deciding
+ * whether to refund a payment.
+ */
+export function dropInPaymentDescription(input: DropInLineItemInput): string {
+  const copy = dropInLineItemCopy(input);
+  return `${copy.name} · ${copy.description}`;
+}
+
+/**
  * Assemble the Stripe Checkout line items for a drop-in booking: the
  * session at its base rate, plus a separate "Card processing fee" line
  * when a surcharge applies (mirrors the registration order summary, which

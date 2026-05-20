@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   dropInLineItemCopy,
   buildDropInCheckoutLineItems,
+  dropInPaymentDescription,
 } from "@/lib/dropin/checkout-line-item";
 
 describe("dropInLineItemCopy", () => {
@@ -76,5 +77,38 @@ describe("buildDropInCheckoutLineItems", () => {
   it("omits the fee line item when the surcharge is zero", () => {
     const items = buildDropInCheckoutLineItems({ ...base, surchargeCents: 0 });
     expect(items).toHaveLength(1);
+  });
+});
+
+describe("dropInPaymentDescription", () => {
+  it("combines session, format, timing and venue into one human-readable line", () => {
+    const desc = dropInPaymentDescription({
+      sportOrClassLabel: "Soccer",
+      formatLabel: "7v7",
+      startsAt: new Date("2026-05-25T22:00:00.000Z"),
+      venueName: "Field 1",
+      timezone: "America/New_York",
+    });
+
+    expect(desc).toContain("Soccer");
+    expect(desc).toContain("7v7");
+    expect(desc).toContain("Drop-in");
+    expect(desc).toContain("May 25");
+    expect(desc).toContain("Field 1");
+    // Must be readable on the Stripe payment, never a raw ISO timestamp.
+    expect(desc).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("works without a format label", () => {
+    const desc = dropInPaymentDescription({
+      sportOrClassLabel: "Pickleball",
+      formatLabel: null,
+      startsAt: new Date("2026-05-25T22:00:00.000Z"),
+      venueName: "Court 2",
+      timezone: "America/New_York",
+    });
+
+    expect(desc).toContain("Pickleball — Drop-in");
+    expect(desc).toContain("Court 2");
   });
 });
