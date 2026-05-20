@@ -3,7 +3,7 @@
  * organization's local timezone — never the server's (Netlify runs UTC).
  * Aspire Sports operates in Columbus, Ohio, so the default is US Eastern.
  */
-const DEFAULT_TIMEZONE = "America/New_York";
+export const DEFAULT_TIMEZONE = "America/New_York";
 
 /**
  * Parse a date value for formatting. Date-only ISO strings (YYYY-MM-DD) are
@@ -33,7 +33,16 @@ export function formatEmailDate(
   });
 }
 
-/** Format a date+time as e.g. "January 15, 2026, 5:00 PM EST". */
+/**
+ * Format a date+time as e.g. "January 15, 2026, 5:00 PM EST".
+ *
+ * @param date - A `Date` object or a full datetime ISO string (e.g.
+ *   `"2026-01-15T22:00:00Z"`). **Do not pass a date-only `YYYY-MM-DD` string**
+ *   — `parseDate` will parse it as local noon, producing a meaningless
+ *   "12:00 PM" / "8:00 AM" time component. Use `formatEmailDate` for
+ *   calendar-date-only values.
+ * @param timeZone - IANA timezone string. Defaults to America/New_York.
+ */
 export function formatEmailDateTime(
   date: Date | string,
   timeZone: string = DEFAULT_TIMEZONE,

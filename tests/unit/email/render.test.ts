@@ -11,7 +11,7 @@ describe("renderEmail", () => {
         expiresIn: "24 hours",
       }),
     );
-    expect(html).toContain("<");
+    expect(html).toContain("<body");
     expect(text.length).toBeGreaterThan(20);
     expect(text).not.toContain("<div");
     expect(text).toContain("Sarah");

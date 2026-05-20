@@ -6,6 +6,11 @@ describe("formatEmailDate", () => {
     // 2026-06-06 (date-only) — should read June 6 in ET.
     expect(formatEmailDate("2026-06-06")).toBe("June 6, 2026");
   });
+
+  it("accepts a Date object", () => {
+    // 16:00 UTC is safely mid-day in Eastern (12:00 PM EDT) — no off-by-one risk.
+    expect(formatEmailDate(new Date("2026-06-15T16:00:00Z"))).toBe("June 15, 2026");
+  });
 });
 
 describe("formatEmailDateTime", () => {
