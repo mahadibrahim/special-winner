@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { deriveDropInSuccessPhase } from "@/lib/dropin/success-phase";
 import { BookButton } from "./BookButton";
 
 interface DetailResponse {
@@ -64,23 +66,49 @@ export default function SessionDetail({
   const [data, setData] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pollExhausted, setPollExhausted] = useState(false);
 
   useEffect(() => {
-    const fetchDetail = async () => {
-      setLoading(true);
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    const POLL_INTERVAL_MS = 1500;
+    const pollDeadline = Date.now() + 20_000;
+
+    const load = async (isPoll: boolean) => {
       try {
         const res = await fetch(`/api/dropin/sessions/${sessionId}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = (await res.json()) as DetailResponse;
+        if (cancelled) return;
         setData(json);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load");
-      } finally {
         setLoading(false);
+
+        // A paid checkout redirects here, but the booking row is created
+        // asynchronously by the Stripe webhook. If we arrived first, poll
+        // until it lands (or give up and let the user refresh).
+        if (bannerKind === "success" && json.alreadyBookedStatus === null) {
+          if (Date.now() < pollDeadline) {
+            pollTimer = setTimeout(() => void load(true), POLL_INTERVAL_MS);
+          } else {
+            setPollExhausted(true);
+          }
+        }
+      } catch (err) {
+        if (cancelled) return;
+        // A failed poll is non-fatal — keep the last good data on screen.
+        if (!isPoll) {
+          setError(err instanceof Error ? err.message : "Failed to load");
+          setLoading(false);
+        }
       }
     };
-    void fetchDetail();
-  }, [sessionId]);
+
+    void load(false);
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, [sessionId, bannerKind]);
 
   if (loading) return <LoadingSkeleton />;
   if (error) return <ErrorBanner message={error} />;
@@ -92,12 +120,26 @@ export default function SessionDetail({
     100,
     Math.round((data.confirmedCount / Math.max(1, session.capacity)) * 100),
   );
+  const successPhase = deriveDropInSuccessPhase({
+    bannerKind,
+    bookingStatus: data.alreadyBookedStatus,
+    pollExhausted,
+  });
+  const finalizing =
+    successPhase === "finalizing" || successPhase === "finalizing-timed-out";
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {bannerKind === "success" && (
+      {successPhase === "confirmed" && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
           Booking confirmed. See it in your dashboard.
+        </div>
+      )}
+      {finalizing && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+          {successPhase === "finalizing"
+            ? "Payment received — finalizing your booking…"
+            : "Payment received. Your booking is taking a moment to finalize — refresh shortly to see it."}
         </div>
       )}
       {bannerKind === "cancelled" && (
@@ -163,13 +205,19 @@ export default function SessionDetail({
           </p>
         )}
 
-        <BookButton
-          sessionId={sessionId}
-          resolvedAmountCents={data.resolvedAmountCents}
-          isFull={isFull}
-          alreadyBookedStatus={data.alreadyBookedStatus}
-          isAuthenticated={isAuthenticated}
-        />
+        {finalizing ? (
+          <Button disabled size="lg" className="w-full">
+            Finalizing your booking…
+          </Button>
+        ) : (
+          <BookButton
+            sessionId={sessionId}
+            resolvedAmountCents={data.resolvedAmountCents}
+            isFull={isFull}
+            alreadyBookedStatus={data.alreadyBookedStatus}
+            isAuthenticated={isAuthenticated}
+          />
+        )}
 
         {data.resolvedPaymentMethod === "member_unlimited" && (
           <p className="text-xs text-emerald-700 text-center">
