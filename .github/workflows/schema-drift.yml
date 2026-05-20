@@ -27,9 +27,9 @@ name: Schema drift (staging vs prod)
 
 on:
   schedule:
-    # Mondays 12:00 UTC — start of the work week, before any planned
-    # releases, so we can investigate drift before merging more changes.
-    - cron: '0 12 * * 1'
+    # Daily at 12:00 UTC — catch schema drift within a day of it landing
+    # rather than letting it sit until the next Monday.
+    - cron: '0 12 * * *'
   workflow_dispatch:
 
 jobs:
