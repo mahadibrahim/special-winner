@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,111 @@ import {
   Filter,
   X,
 } from "lucide-react";
+
+/**
+ * Render a small markdown subset (h1-h3, bold, bullet/numbered lists,
+ * paragraphs) as React elements. Returns elements — never an HTML string —
+ * so DB-stored coach content cannot inject scripts: React escapes every
+ * text node. Replaces an earlier regex-to-HTML + dangerouslySetInnerHTML
+ * path that was a stored-XSS sink.
+ */
+function renderInline(text: string, keyPrefix: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  const boldRe = /\*\*([^*]+)\*\*/g;
+  let last = 0;
+  let i = 0;
+  let m: RegExpExecArray | null;
+  while ((m = boldRe.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(
+      <strong key={`${keyPrefix}-b${i}`} className="text-ink">
+        {m[1]}
+      </strong>,
+    );
+    last = m.index + m[0].length;
+    i++;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+function renderBasicMarkdown(content: string): ReactNode[] {
+  const blocks: ReactNode[] = [];
+  let listBuffer: string[] = [];
+  let paraBuffer: string[] = [];
+  let key = 0;
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    const items = listBuffer;
+    const k = key++;
+    blocks.push(
+      <ul key={`ul${k}`} className="list-disc ml-6 space-y-1">
+        {items.map((item, idx) => (
+          <li key={idx} className="text-ink/70">
+            {renderInline(item, `ul${k}-${idx}`)}
+          </li>
+        ))}
+      </ul>,
+    );
+    listBuffer = [];
+  };
+  const flushPara = () => {
+    if (paraBuffer.length === 0) return;
+    const k = key++;
+    blocks.push(
+      <p key={`p${k}`} className="text-ink/80 leading-relaxed whitespace-pre-wrap mt-3">
+        {renderInline(paraBuffer.join("\n"), `p${k}`)}
+      </p>,
+    );
+    paraBuffer = [];
+  };
+
+  for (const raw of content.split("\n")) {
+    const line = raw.trimEnd();
+    let m: RegExpMatchArray | null;
+    if ((m = line.match(/^# (.*)$/))) {
+      flushList();
+      flushPara();
+      const k = key++;
+      blocks.push(
+        <h1 key={`h${k}`} className="text-xl font-bold text-ink mt-6 mb-3">
+          {renderInline(m[1], `h${k}`)}
+        </h1>,
+      );
+    } else if ((m = line.match(/^## (.*)$/))) {
+      flushList();
+      flushPara();
+      const k = key++;
+      blocks.push(
+        <h2 key={`h${k}`} className="text-lg font-semibold text-ink mt-5 mb-2">
+          {renderInline(m[1], `h${k}`)}
+        </h2>,
+      );
+    } else if ((m = line.match(/^### (.*)$/))) {
+      flushList();
+      flushPara();
+      const k = key++;
+      blocks.push(
+        <h3 key={`h${k}`} className="text-md font-medium text-ink mt-4 mb-2">
+          {renderInline(m[1], `h${k}`)}
+        </h3>,
+      );
+    } else if ((m = line.match(/^[-*] (.*)$/)) || (m = line.match(/^\d+\. (.*)$/))) {
+      flushPara();
+      listBuffer.push(m[1]);
+    } else if (line.trim() === "") {
+      flushList();
+      flushPara();
+    } else {
+      flushList();
+      paraBuffer.push(line);
+    }
+  }
+  flushList();
+  flushPara();
+  return blocks;
+}
 
 interface Resource {
   id: string;
@@ -448,19 +553,9 @@ function ResourceDetailModal({
           {/* Content or External Link */}
           {resource.content ? (
             <div className="prose prose-invert max-w-none">
-              <div
-                className="text-ink/80 leading-relaxed whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{
-                  __html: resource.content
-                    .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold text-ink mt-6 mb-3">$1</h1>')
-                    .replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold text-ink mt-5 mb-2">$1</h2>')
-                    .replace(/^### (.*$)/gm, '<h3 class="text-md font-medium text-ink mt-4 mb-2">$1</h3>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-ink">$1</strong>')
-                    .replace(/^\- (.*$)/gm, '<li class="ml-4 text-ink/70">$1</li>')
-                    .replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4 text-ink/70">$2</li>')
-                    .replace(/\n\n/g, '</p><p class="mt-3">')
-                }}
-              />
+              <div className="text-ink/80 leading-relaxed">
+                {renderBasicMarkdown(resource.content)}
+              </div>
             </div>
           ) : resource.url ? (
             <div className="flex flex-col items-center py-8 gap-4">
