@@ -3,7 +3,15 @@ import { familyMembers } from "@/lib/db/schema";
 import type { getDb } from "@/lib/db";
 import type { FamilyMember } from "@/lib/db/schema/registrations";
 
-type Database = ReturnType<typeof getDb>;
+// Accept both the top-level db handle and a transaction handle, so callers
+// can run resolvePerson inside a db.transaction(...) block. The transaction
+// type is derived from the db's own transaction() signature.
+type Db = ReturnType<typeof getDb>;
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+type Database = Db | Tx;
+
+// Mirrors the `gender` pgEnum on family_members.
+type Gender = "male" | "female" | "other" | "prefer_not_to_say";
 
 export type ResolvePersonInput =
   | {
@@ -13,7 +21,7 @@ export type ResolvePersonInput =
         firstName: string;
         lastName: string;
         birthDate: string;
-        gender?: "male" | "female" | "other" | null;
+        gender?: Gender | null;
       };
     }
   | {
@@ -22,7 +30,8 @@ export type ResolvePersonInput =
       firstName: string;
       lastName: string;
       birthDate: string;
-      gender?: "male" | "female" | "other" | null;
+      gender?: Gender | null;
+      medicalNotes?: string | null;
     };
 
 /**
@@ -83,6 +92,7 @@ export async function resolvePerson(
       lastName: input.lastName,
       birthDate: input.birthDate,
       gender: input.gender ?? null,
+      medicalNotes: input.medicalNotes ?? null,
     })
     .returning();
   return created;
