@@ -26,7 +26,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
-import { familyMembers } from "@/lib/db/schema/registrations";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
 import { mintToken } from "@/lib/check-in/tokens-db";
 
@@ -167,30 +167,17 @@ export const POST: APIRoute = async ({ params, request }) => {
     bookerUserId = newUser.id;
   }
 
-  // --- For minors: create family_members row (parentUserId path) ---
+  // --- For minors: ensure a family_members row exists (parentUserId path) ---
+  // resolvePerson dedupes on (parentUserId, name, birthDate) and avoids the
+  // self/parent XOR constraint race — replaces the hand-rolled lookup.
   if (isMinor) {
-    // Check if this child already exists under this parent (by name + dob, case-insensitive)
-    const existingChildren = await db
-      .select()
-      .from(familyMembers)
-      .where(eq(familyMembers.parentUserId, bookerUserId));
-
-    const normalName = (s: string) => s.toLowerCase().trim();
-    const existing = existingChildren.find(
-      (fm) =>
-        normalName(fm.firstName) === normalName(contactFirstName) &&
-        normalName(fm.lastName) === normalName(contactLastName) &&
-        fm.birthDate === contactDob,
-    );
-
-    if (!existing) {
-      await db.insert(familyMembers).values({
-        parentUserId: bookerUserId,
-        firstName: contactFirstName,
-        lastName: contactLastName,
-        birthDate: contactDob,
-      });
-    }
+    await resolvePerson(db, {
+      kind: "dependent",
+      parentUserId: bookerUserId,
+      firstName: contactFirstName,
+      lastName: contactLastName,
+      birthDate: contactDob,
+    });
   }
 
   // --- Insert drop_in_bookings in pending_claim status ---
