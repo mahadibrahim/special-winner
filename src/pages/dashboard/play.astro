@@ -1,0 +1,72 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import DashboardShell from "@/components/dashboard/shell/DashboardShell.astro";
+import DashboardSection from "@/components/dashboard/shell/DashboardSection.astro";
+import PlayAttention from "@/components/dashboard/play/PlayAttention";
+import PlayUpcoming from "@/components/dashboard/play/PlayUpcoming";
+import PlayMembership from "@/components/dashboard/play/PlayMembership";
+import PlayExplore from "@/components/dashboard/play/PlayExplore";
+import MyDropInBookings from "@/components/dashboard/MyDropInBookings";
+import MyFieldRentals from "@/components/dashboard/MyFieldRentals";
+import { getDashboardDestinations } from "@/lib/dashboard/persona";
+import { writeLastVisited } from "@/lib/dashboard/last-visited";
+
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
+
+// Record last-visited destination
+writeLastVisited(Astro.cookies, "play");
+
+// Get current hour for greeting
+const hour = new Date().getHours();
+let greeting = "Good morning";
+if (hour >= 12 && hour < 17) greeting = "Good afternoon";
+else if (hour >= 17) greeting = "Good evening";
+
+// Destination tabs visibility
+const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
+---
+
+<BaseLayout title="My Play Dashboard — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 editorial-bg-radial">
+    <div class="max-w-7xl mx-auto">
+      <DashboardShell
+        user={user}
+        greeting={greeting}
+        active="play"
+        hasFamily={hasFamily}
+        hasPlay={hasPlay}
+      >
+        <div class="space-y-10 mt-8">
+
+          {/* ── 1 · Needs your attention (self-contained — no DashboardSection wrapper) ── */}
+          <PlayAttention client:load />
+
+          {/* ── 2 · What's coming up ── */}
+          <DashboardSection index={2} title="What's coming up" accent="default">
+            <div class="mt-1">
+              <PlayUpcoming client:visible />
+            </div>
+          </DashboardSection>
+
+          {/* ── 3 · What you're part of ── */}
+          <DashboardSection index={3} title="What you're part of" accent="default">
+            <div class="space-y-6 mt-1">
+              <PlayMembership client:visible />
+              <MyDropInBookings client:visible />
+              <MyFieldRentals client:visible />
+            </div>
+          </DashboardSection>
+
+          {/* ── 4 · Explore ── */}
+          <DashboardSection index={4} title="Explore" accent="explore">
+            <div class="mt-1">
+              <PlayExplore client:visible />
+            </div>
+          </DashboardSection>
+
+        </div>
+      </DashboardShell>
+    </div>
+  </main>
+</BaseLayout>

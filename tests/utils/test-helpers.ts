@@ -28,6 +28,33 @@ export const TEST_USERS = {
     firstName: "New",
     lastName: "User",
   },
+  player: {
+    email: "player@test.aspiresports.com",
+    password: "TestPlayer123!",
+    firstName: "Test",
+    lastName: "Player",
+  },
+  both: {
+    email: "both@test.aspiresports.com",
+    password: "TestBoth123!",
+    firstName: "Test",
+    lastName: "Both",
+  },
+  fresh: {
+    email: "fresh@test.aspiresports.com",
+    password: "TestFresh123!",
+    firstName: "Test",
+    lastName: "Fresh",
+  },
+  // Dedicated family-only account for dashboard-persona E2E tests.
+  // Has dependent family_members rows only; no self row, no drop-ins, no rentals.
+  // Never used by other specs so it cannot be polluted the way parent@ can be.
+  familyonly: {
+    email: "familyonly@test.aspiresports.com",
+    password: "TestFamily123!",
+    firstName: "Family",
+    lastName: "Only",
+  },
 };
 
 /**
