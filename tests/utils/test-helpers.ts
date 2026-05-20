@@ -28,6 +28,24 @@ export const TEST_USERS = {
     firstName: "New",
     lastName: "User",
   },
+  player: {
+    email: "player@test.aspiresports.com",
+    password: "TestPlayer123!",
+    firstName: "Test",
+    lastName: "Player",
+  },
+  both: {
+    email: "both@test.aspiresports.com",
+    password: "TestBoth123!",
+    firstName: "Test",
+    lastName: "Both",
+  },
+  fresh: {
+    email: "fresh@test.aspiresports.com",
+    password: "TestFresh123!",
+    firstName: "Test",
+    lastName: "Fresh",
+  },
 };
 
 /**

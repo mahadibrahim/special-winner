@@ -91,6 +91,30 @@ export const TEST_USERS = {
     // hidden and the existing Myself-card path keeps working.
     phone: "5555550199",
   },
+  // Dual-persona dashboard routing accounts (added for dashboard-persona E2E spec).
+  // player  — has a self family_members row (selfUserId) → hasPlay=true, hasFamily=false
+  // both    — has a dependent row (parentUserId) AND a self row (selfUserId) → hasFamily=true, hasPlay=true
+  // fresh   — no family_members rows at all → redirects to /dashboard/start
+  player: {
+    email: "player@test.aspiresports.com",
+    password: "TestPlayer123!",
+    firstName: "Test",
+    lastName: "Player",
+    birthDate: "1992-03-10",
+  },
+  both: {
+    email: "both@test.aspiresports.com",
+    password: "TestBoth123!",
+    firstName: "Test",
+    lastName: "Both",
+    birthDate: "1990-07-20",
+  },
+  fresh: {
+    email: "fresh@test.aspiresports.com",
+    password: "TestFresh123!",
+    firstName: "Test",
+    lastName: "Fresh",
+  },
 };
 
 /**
@@ -1264,6 +1288,177 @@ async function seedE2ETests() {
     }
     console.log(`   ✓ Tagger fixture session ${s.id.slice(0, 8)} with 6 assets`);
   }
+
+  // -------------------------------------------------------------------------
+  // Dual-persona dashboard routing accounts (Task 14 — dashboard-persona E2E)
+  // -------------------------------------------------------------------------
+  console.log("\n9. Setting up dual-persona dashboard routing accounts...");
+
+  // --- player account: self family_members row only → hasPlay=true, hasFamily=false ---
+  const playerPasswordHash = await hashPassword(TEST_USERS.player.password);
+  let [playerUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.player.email))
+    .limit(1);
+
+  if (!playerUser) {
+    [playerUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.player.email,
+        passwordHash: playerPasswordHash,
+        firstName: TEST_USERS.player.firstName,
+        lastName: TEST_USERS.player.lastName,
+        birthDate: TEST_USERS.player.birthDate,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db.update(users)
+      .set({ passwordHash: playerPasswordHash, emailVerified: true })
+      .where(eq(users.id, playerUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, playerUser.id));
+  await db.insert(userRoles).values({
+    userId: playerUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
+
+  // Ensure exactly one self family_members row for the player user.
+  // selfUserId has a UNIQUE constraint — only one row per user allowed.
+  const [playerSelfRow] = await db
+    .select()
+    .from(familyMembers)
+    .where(eq(familyMembers.selfUserId, playerUser.id))
+    .limit(1);
+
+  if (!playerSelfRow) {
+    await db.insert(familyMembers).values({
+      selfUserId: playerUser.id,
+      firstName: TEST_USERS.player.firstName,
+      lastName: TEST_USERS.player.lastName,
+      birthDate: TEST_USERS.player.birthDate!,
+    });
+  }
+  // Ensure no dependent rows exist for the player user (clean slate)
+  await db
+    .delete(familyMembers)
+    .where(eq(familyMembers.parentUserId, playerUser.id));
+  console.log(`   ✓ Player: ${playerUser.email} (self family_members row)`);
+
+  // --- both account: one dependent row + one self row → hasFamily=true, hasPlay=true ---
+  const bothPasswordHash = await hashPassword(TEST_USERS.both.password);
+  let [bothUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.both.email))
+    .limit(1);
+
+  if (!bothUser) {
+    [bothUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.both.email,
+        passwordHash: bothPasswordHash,
+        firstName: TEST_USERS.both.firstName,
+        lastName: TEST_USERS.both.lastName,
+        birthDate: TEST_USERS.both.birthDate,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db.update(users)
+      .set({ passwordHash: bothPasswordHash, emailVerified: true })
+      .where(eq(users.id, bothUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, bothUser.id));
+  await db.insert(userRoles).values({
+    userId: bothUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
+
+  // Self row (hasPlay)
+  const [bothSelfRow] = await db
+    .select()
+    .from(familyMembers)
+    .where(eq(familyMembers.selfUserId, bothUser.id))
+    .limit(1);
+
+  if (!bothSelfRow) {
+    await db.insert(familyMembers).values({
+      selfUserId: bothUser.id,
+      firstName: TEST_USERS.both.firstName,
+      lastName: TEST_USERS.both.lastName,
+      birthDate: TEST_USERS.both.birthDate!,
+    });
+  }
+
+  // Dependent row (hasFamily) — idempotent: at least one child must exist
+  const [bothDepRow] = await db
+    .select()
+    .from(familyMembers)
+    .where(
+      and(
+        eq(familyMembers.parentUserId, bothUser.id),
+        eq(familyMembers.firstName, "BothChild"),
+      )
+    )
+    .limit(1);
+
+  if (!bothDepRow) {
+    await db.insert(familyMembers).values({
+      parentUserId: bothUser.id,
+      firstName: "BothChild",
+      lastName: TEST_USERS.both.lastName,
+      birthDate: "2019-04-12",
+      gender: "female",
+    });
+  }
+  console.log(`   ✓ Both: ${bothUser.email} (self row + dependent row)`);
+
+  // --- fresh account: user with no family_members rows → /dashboard/start ---
+  const freshPasswordHash = await hashPassword(TEST_USERS.fresh.password);
+  let [freshUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.fresh.email))
+    .limit(1);
+
+  if (!freshUser) {
+    [freshUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.fresh.email,
+        passwordHash: freshPasswordHash,
+        firstName: TEST_USERS.fresh.firstName,
+        lastName: TEST_USERS.fresh.lastName,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db.update(users)
+      .set({ passwordHash: freshPasswordHash, emailVerified: true })
+      .where(eq(users.id, freshUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, freshUser.id));
+  await db.insert(userRoles).values({
+    userId: freshUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
+
+  // Delete any family_members rows that may have accumulated from prior runs
+  // (both self and dependent). This keeps the fresh account truly fresh.
+  await db.delete(familyMembers).where(eq(familyMembers.selfUserId, freshUser.id));
+  await db.delete(familyMembers).where(eq(familyMembers.parentUserId, freshUser.id));
+  console.log(`   ✓ Fresh: ${freshUser.email} (no family_members rows)`);
+
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
   console.log("─".repeat(50));
@@ -1272,6 +1467,9 @@ async function seedE2ETests() {
   console.log(`Coach:      ${TEST_USERS.coach.email} / ${TEST_USERS.coach.password}`);
   console.log(`Parent:     ${TEST_USERS.parent.email} / ${TEST_USERS.parent.password}`);
   console.log(`AdultSelf:  ${TEST_USERS.adultSelf.email} / ${TEST_USERS.adultSelf.password}`);
+  console.log(`Player:     ${TEST_USERS.player.email} / ${TEST_USERS.player.password}`);
+  console.log(`Both:       ${TEST_USERS.both.email} / ${TEST_USERS.both.password}`);
+  console.log(`Fresh:      ${TEST_USERS.fresh.email} / ${TEST_USERS.fresh.password}`);
   console.log(`MediaStaff: ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
   console.log(`MediaEditor:${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
   console.log("─".repeat(50));
