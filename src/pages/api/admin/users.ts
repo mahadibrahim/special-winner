@@ -158,27 +158,35 @@ export const GET: APIRoute = async (context) => {
       .where(and(...conditions));
     const totalCount = Number(countResult.count);
 
-    // Get roles for each user (only roles visible to this org)
-    const usersWithRoles = await Promise.all(
-      allUsers.map(async (u) => {
-        const userRolesData = await getDb()
-          .select({
-            id: userRoles.id,
-            roleId: userRoles.roleId,
-            scopeType: userRoles.scopeType,
-            scopeId: userRoles.scopeId,
-            roleName: roles.name,
-          })
-          .from(userRoles)
-          .leftJoin(roles, eq(userRoles.roleId, roles.id))
-          .where(eq(userRoles.userId, u.id));
+    // Get roles for all users in one query instead of one query per user.
+    const pageUserIds = allUsers.map((u) => u.id);
+    const allRoleRows =
+      pageUserIds.length > 0
+        ? await getDb()
+            .select({
+              userId: userRoles.userId,
+              id: userRoles.id,
+              roleId: userRoles.roleId,
+              scopeType: userRoles.scopeType,
+              scopeId: userRoles.scopeId,
+              roleName: roles.name,
+            })
+            .from(userRoles)
+            .leftJoin(roles, eq(userRoles.roleId, roles.id))
+            .where(inArray(userRoles.userId, pageUserIds))
+        : [];
 
-        return {
-          ...u,
-          roles: userRolesData,
-        };
-      })
-    );
+    const rolesByUser = new Map<string, Array<Omit<(typeof allRoleRows)[number], "userId">>>();
+    for (const { userId, ...role } of allRoleRows) {
+      const list = rolesByUser.get(userId) ?? [];
+      list.push(role);
+      rolesByUser.set(userId, list);
+    }
+
+    const usersWithRoles = allUsers.map((u) => ({
+      ...u,
+      roles: rolesByUser.get(u.id) ?? [],
+    }));
 
     return new Response(
       JSON.stringify({

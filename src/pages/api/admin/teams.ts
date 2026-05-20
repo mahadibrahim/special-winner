@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { teams, seasons, programs, users, rosters, registrations, familyMembers, locations } from "@/lib/db/schema";
-import { eq, asc, desc, and } from "drizzle-orm";
+import { eq, asc, desc, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
@@ -115,20 +115,27 @@ export const GET: APIRoute = async (context) => {
 
     const allTeams = await query.orderBy(asc(teams.name));
 
-    // Get roster counts for each team
-    const teamsWithCounts = await Promise.all(
-      allTeams.map(async (team) => {
-        const rosterCount = await getDb()
-          .select({ count: rosters.id })
-          .from(rosters)
-          .where(eq(rosters.teamId, team.id));
-
-        return {
-          ...team,
-          rosterCount: rosterCount.length,
-        };
-      })
+    // Roster counts in one grouped query instead of one query per team.
+    const teamIds = allTeams.map((t) => t.id);
+    const counts =
+      teamIds.length > 0
+        ? await getDb()
+            .select({
+              teamId: rosters.teamId,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(rosters)
+            .where(inArray(rosters.teamId, teamIds))
+            .groupBy(rosters.teamId)
+        : [];
+    const countByTeam = new Map(
+      counts.map((c) => [c.teamId, Number(c.count)]),
     );
+
+    const teamsWithCounts = allTeams.map((team) => ({
+      ...team,
+      rosterCount: countByTeam.get(team.id) ?? 0,
+    }));
 
     return new Response(JSON.stringify({ teams: teamsWithCounts }), {
       status: 200,
