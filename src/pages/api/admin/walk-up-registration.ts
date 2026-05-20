@@ -3,10 +3,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
-import {
-  familyMembers,
-  registrations,
-} from "@/lib/db/schema/registrations";
+import { registrations } from "@/lib/db/schema/registrations";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
@@ -337,54 +334,9 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "Invalid phone number" }, 400);
   }
 
-  // Create or find the parent user
   const emailNormalized = childInput.parent.email.toLowerCase().trim();
-  const [existingUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, emailNormalized))
-    .limit(1);
 
-  let parentUserId: string;
-
-  if (existingUser) {
-    parentUserId = existingUser.id;
-    // Update phone if missing
-    if (!existingUser.phone) {
-      await db
-        .update(users)
-        .set({ phone: normalizedPhone, updatedAt: new Date() })
-        .where(eq(users.id, parentUserId));
-    }
-  } else {
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        email: emailNormalized,
-        firstName: childInput.parent.firstName,
-        lastName: childInput.parent.lastName,
-        phone: normalizedPhone,
-        phoneVerified: false,
-        emailVerified: false,
-      })
-      .returning({ id: users.id });
-    parentUserId = newUser.id;
-  }
-
-  // Create the family member
-  const [familyMember] = await db
-    .insert(familyMembers)
-    .values({
-      parentUserId,
-      firstName: childInput.kid.firstName,
-      lastName: childInput.kid.lastName,
-      birthDate: childInput.kid.birthDate,
-      gender: childInput.kid.gender ?? null,
-      medicalNotes: childInput.kid.medicalNotes ?? null,
-    })
-    .returning({ id: familyMembers.id });
-
-  // Create the registration
+  // Derive pure values before opening the transaction.
   const registrationStatus: "pending" | "confirmed" =
     childInput.paymentStatus === "paid" || childInput.paymentStatus === "comped"
       ? "confirmed"
@@ -396,26 +348,85 @@ export const POST: APIRoute = async (context) => {
   const childWaiverSignedBy =
     childInput.waiverSignedBy ??
     `${childInput.parent.firstName} ${childInput.parent.lastName}`.trim();
-  const [registration] = await db
-    .insert(registrations)
-    .values({
-      seasonId: childInput.seasonId,
-      familyMemberId: familyMember.id,
-      registeredByUserId: adminUser.id,
-      status: registrationStatus,
-      paymentStatus,
-      amountPaidCents: childInput.amountPaidCents ?? 0,
-      amountDueCents: seasonInfo.season.priceCents,
-      waiverSigned: childInput.waiverSigned,
-      notes: childInput.notes ?? null,
-    })
-    .returning({ id: registrations.id });
+
+  // The parent-user upsert, family-member resolve, and registration insert
+  // must land together — a partial write leaves an orphaned user or a
+  // family member with no registration. Wrap the chain in one transaction.
+  const { parentUserId, familyMemberId, registrationId } = await db.transaction(
+    async (tx) => {
+      // Create or find the parent user
+      const [existingUser] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.email, emailNormalized))
+        .limit(1);
+
+      let parentUserId: string;
+
+      if (existingUser) {
+        parentUserId = existingUser.id;
+        // Update phone if missing
+        if (!existingUser.phone) {
+          await tx
+            .update(users)
+            .set({ phone: normalizedPhone, updatedAt: new Date() })
+            .where(eq(users.id, parentUserId));
+        }
+      } else {
+        const [newUser] = await tx
+          .insert(users)
+          .values({
+            email: emailNormalized,
+            firstName: childInput.parent.firstName,
+            lastName: childInput.parent.lastName,
+            phone: normalizedPhone,
+            phoneVerified: false,
+            emailVerified: false,
+          })
+          .returning({ id: users.id });
+        parentUserId = newUser.id;
+      }
+
+      // Find-or-create the family member (kid) via the shared helper, which
+      // dedupes on (parentUserId, name, birthDate) per the people model.
+      const familyMember = await resolvePerson(tx, {
+        kind: "dependent",
+        parentUserId,
+        firstName: childInput.kid.firstName,
+        lastName: childInput.kid.lastName,
+        birthDate: childInput.kid.birthDate,
+        gender: childInput.kid.gender ?? null,
+        medicalNotes: childInput.kid.medicalNotes ?? null,
+      });
+
+      const [registration] = await tx
+        .insert(registrations)
+        .values({
+          seasonId: childInput.seasonId,
+          familyMemberId: familyMember.id,
+          registeredByUserId: adminUser.id,
+          status: registrationStatus,
+          paymentStatus,
+          amountPaidCents: childInput.amountPaidCents ?? 0,
+          amountDueCents: seasonInfo.season.priceCents,
+          waiverSigned: childInput.waiverSigned,
+          notes: childInput.notes ?? null,
+        })
+        .returning({ id: registrations.id });
+
+      return {
+        parentUserId,
+        familyMemberId: familyMember.id,
+        registrationId: registration.id,
+      };
+    },
+  );
 
   if (childInput.waiverSigned) {
     const baseConsent = {
       db,
-      familyMemberId: familyMember.id,
-      registrationId: registration.id,
+      familyMemberId,
+      registrationId,
       organizationId,
       signedByUserId: parentUserId,
       signedByName: childWaiverSignedBy,
@@ -423,7 +434,7 @@ export const POST: APIRoute = async (context) => {
       userAgent: userAgent ?? null,
       notes: `walk-up: admin=${adminUser.id}`,
     };
-    if (!(await hasActiveConsent(db, familyMember.id, "parental"))) {
+    if (!(await hasActiveConsent(db, familyMemberId, "parental"))) {
       await recordConsent({ ...baseConsent, type: "parental" });
     }
     await recordConsent({ ...baseConsent, type: "liability" });
@@ -477,7 +488,7 @@ export const POST: APIRoute = async (context) => {
   sendRegistrationConfirmationEmail({
     userId: parentUserId,
     organizationId,
-    registrationId: registration.id,
+    registrationId,
     parentEmail: emailNormalized,
     parentName: childInput.parent.firstName,
     childName: `${childInput.kid.firstName} ${childInput.kid.lastName}`,
@@ -504,9 +515,9 @@ export const POST: APIRoute = async (context) => {
 
   return json({
     success: true,
-    registrationId: registration.id,
+    registrationId,
     parentUserId,
-    familyMemberId: familyMember.id,
+    familyMemberId,
     smsStatus: smsResult.ok ? "sent" : "failed",
     smsReason: smsResult.ok ? undefined : smsResult.reason,
   });

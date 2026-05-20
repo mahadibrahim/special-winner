@@ -76,27 +76,32 @@ export async function handleRegistrationPaymentSucceeded(
     paymentTypeValue = "full";
   }
 
-  await db
-    .update(registrations)
-    .set({
-      status: "confirmed",
-      paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
-      amountPaidCents: newAmountPaid,
-      amountDueCents: newAmountDue,
-      updatedAt: new Date(),
-    })
-    .where(eq(registrations.id, registrationId));
+  // The registration status update and the payment-ledger insert must land
+  // together — a partial write (status flipped but no payment row, or vice
+  // versa) corrupts the money trail. Wrap both in one transaction.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(registrations)
+      .set({
+        status: "confirmed",
+        paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
+        amountPaidCents: newAmountPaid,
+        amountDueCents: newAmountDue,
+        updatedAt: new Date(),
+      })
+      .where(eq(registrations.id, registrationId));
 
-  await db.insert(payments).values({
-    registrationId,
-    userId: registration.registeredByUserId,
-    amountCents: amountPaid,
-    paymentType: paymentTypeValue as "deposit" | "full" | "balance" | "refund" | "installment",
-    status: "succeeded",
-    stripePaymentIntentId: paymentIntent.id,
-    metadata: {
-      customerEmail: paymentIntent.receipt_email,
-    },
+    await tx.insert(payments).values({
+      registrationId,
+      userId: registration.registeredByUserId,
+      amountCents: amountPaid,
+      paymentType: paymentTypeValue as "deposit" | "full" | "balance" | "refund" | "installment",
+      status: "succeeded",
+      stripePaymentIntentId: paymentIntent.id,
+      metadata: {
+        customerEmail: paymentIntent.receipt_email,
+      },
+    });
   });
 
   try {
