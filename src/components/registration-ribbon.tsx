@@ -34,7 +34,6 @@ const HIDE_PREFIXES = [
   "/signin",
   "/signup",
   "/forgot-password",
-  "/email-link-signin",
   "/verify-email",
   "/auth",
 ]

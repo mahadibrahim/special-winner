@@ -66,10 +66,8 @@ test.describe("admin role routing", () => {
   });
 
   test("/forgot-password redirects through to /signin", async ({ page }) => {
-    // Two 301s in series: /forgot-password → /email-link-signin → /signin.
-    // The intermediate hop exists so old emails / bookmarks still land
-    // somewhere sensible; the canonical entry point is /signin (which is
-    // itself the magic-link form after the password-removal migration).
+    // /forgot-password is a legacy URL that 301s straight to /signin —
+    // the canonical magic-link page after the password-removal migration.
     await page.goto("/forgot-password", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/signin$/);
     await expect(

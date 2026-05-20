@@ -102,7 +102,7 @@ test.describe("Authentication Flow", { tag: "@critical" }, () => {
   test.describe("Magic-link sender", () => {
     test("/forgot-password redirects through to /signin", async ({ page }) => {
       await page.goto("/forgot-password");
-      // /forgot-password → /email-link-signin → /signin (both 301).
+      // /forgot-password 301s straight to /signin.
       await expect(page).toHaveURL(/\/signin$/);
       await expect(page.locator('input[type="email"]').first()).toBeVisible();
     });
