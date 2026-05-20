@@ -108,13 +108,25 @@ export const GET: APIRoute = async (context) => {
     const uniqueSeasonIds = [...new Set(allGames.map(g => g.seasonId))];
 
     if (uniqueTeamIds.length > 0) {
-      const teamsList = await getDb().select().from(teams);
-      teamsList.forEach(t => teamsMap.set(t.id, t));
+      // Scope teams by org via teams -> seasons -> programs -> locations
+      const teamsList = await getDb()
+        .select({ team: teams })
+        .from(teams)
+        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(eq(locations.organizationId, orgContext.organizationId));
+      teamsList.forEach(row => teamsMap.set(row.team.id, row.team));
     }
 
     if (uniqueVenueIds.length > 0) {
-      const venuesList = await getDb().select().from(venues);
-      venuesList.forEach(v => venuesMap.set(v.id, v));
+      // Scope venues by org via venues -> locations
+      const venuesList = await getDb()
+        .select({ venue: venues })
+        .from(venues)
+        .innerJoin(locations, eq(venues.locationId, locations.id))
+        .where(eq(locations.organizationId, orgContext.organizationId));
+      venuesList.forEach(row => venuesMap.set(row.venue.id, row.venue));
     }
 
     if (uniqueSeasonIds.length > 0) {
@@ -129,7 +141,9 @@ export const GET: APIRoute = async (context) => {
           },
         })
         .from(seasons)
-        .leftJoin(programs, eq(seasons.programId, programs.id));
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(eq(locations.organizationId, orgContext.organizationId));
       seasonsList.forEach(s => seasonsMap.set(s.id, s));
     }
 

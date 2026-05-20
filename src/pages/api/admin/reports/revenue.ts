@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { payments, registrations, seasons, programs, sports } from "@/lib/db/schema";
+import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 // GET - Get revenue reports
 export const GET: APIRoute = async (context) => {
@@ -10,6 +11,9 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) {
     return auth.response;
   }
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -24,15 +28,22 @@ export const GET: APIRoute = async (context) => {
       ? new Date(startDate)
       : new Date(end.getFullYear(), end.getMonth() - 11, 1);
 
-    // Total revenue
+    const orgScope = eq(locations.organizationId, orgContext.organizationId);
+
+    // Total revenue (org-scoped via payments -> registrations -> seasons -> programs -> locations)
     const totalRevenueResult = await getDb()
       .select({
         total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
         count: sql<number>`COUNT(*)`,
       })
       .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           eq(payments.status, "succeeded"),
           gte(payments.createdAt, start),
           lte(payments.createdAt, end)
@@ -62,8 +73,13 @@ export const GET: APIRoute = async (context) => {
         transactionCount: sql<number>`COUNT(*)`,
       })
       .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           eq(payments.status, "succeeded"),
           gte(payments.createdAt, start),
           lte(payments.createdAt, end)
@@ -80,8 +96,13 @@ export const GET: APIRoute = async (context) => {
         count: sql<number>`COUNT(*)`,
       })
       .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           eq(payments.status, "succeeded"),
           gte(payments.createdAt, start),
           lte(payments.createdAt, end)
@@ -101,9 +122,11 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(registrations, eq(payments.registrationId, registrations.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .where(
         and(
+          orgScope,
           eq(payments.status, "succeeded"),
           gte(payments.createdAt, start),
           lte(payments.createdAt, end)
@@ -122,8 +145,13 @@ export const GET: APIRoute = async (context) => {
         createdAt: payments.createdAt,
       })
       .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           eq(payments.status, "succeeded"),
           gte(payments.createdAt, start),
           lte(payments.createdAt, end)
@@ -142,8 +170,13 @@ export const GET: APIRoute = async (context) => {
         total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
       })
       .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           eq(payments.status, "succeeded"),
           gte(payments.createdAt, prevStart),
           lte(payments.createdAt, prevEnd)
@@ -162,8 +195,13 @@ export const GET: APIRoute = async (context) => {
         count: sql<number>`COUNT(*)`,
       })
       .from(payments)
+      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           eq(payments.paymentType, "refund"),
           gte(payments.createdAt, start),
           lte(payments.createdAt, end)
