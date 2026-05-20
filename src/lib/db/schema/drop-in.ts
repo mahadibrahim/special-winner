@@ -78,7 +78,7 @@ export const dropInSessions = pgTable(
     venueId: uuid("venue_id")
       .notNull()
       .references(() => venues.id, { onDelete: "restrict" }),
-    // TODO: add FK when bookable_resources ships from 2026-04-28 design
+    // Soft reference — no FK; the bookable_resources table does not exist yet.
     bookableResourceId: uuid("bookable_resource_id"),
     kind: dropInSessionKindEnum("kind").notNull(),
     sportOrClassLabel: text("sport_or_class_label").notNull(),
@@ -126,7 +126,7 @@ export const dropInBookings = pgTable(
     source: dropInBookingSourceEnum("source").notNull(),
     paymentMethod: dropInPaymentMethodEnum("payment_method").notNull(),
     amountPaidCents: integer("amount_paid_cents").notNull().default(0),
-    // TODO: add FK when memberships ships from 2026-04-28 design
+    // Soft reference — no FK; the memberships table does not exist yet.
     membershipId: uuid("membership_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     stripeRefundId: text("stripe_refund_id"),
