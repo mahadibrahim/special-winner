@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { verifyTurnstile } from "@/lib/auth/turnstile";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
 
@@ -25,6 +26,9 @@ import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
+  // Cloudflare Turnstile token from the client widget. Optional in the
+  // schema so the route validates it explicitly with a friendly error.
+  turnstileToken: z.string().optional(),
 });
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
@@ -48,8 +52,24 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       );
     }
 
-    const { email } = result.data;
+    const { email, turnstileToken } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
+
+    // CAPTCHA check. verifyTurnstile fails closed in prod when the secret
+    // is unset (so a misconfigured env var blocks requests instead of
+    // letting bots through) and fails open in dev/preview.
+    const turnstileOk = await verifyTurnstile(turnstileToken ?? "", {
+      secret: import.meta.env.TURNSTILE_SECRET_KEY as string | undefined,
+      isProd: Boolean(import.meta.env.PROD),
+    });
+    if (!turnstileOk) {
+      return new Response(
+        JSON.stringify({
+          error: "Please complete the CAPTCHA challenge before continuing.",
+        }),
+        { status: 400 },
+      );
+    }
 
     // Per-email hourly cap. Caps the volume of magic-link emails any single
     // address can generate even from rotating IPs (mailbox-bombing defense).
