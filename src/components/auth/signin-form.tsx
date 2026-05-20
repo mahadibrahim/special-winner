@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, AlertCircle, CheckCircle, Mail } from "lucide-react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { TurnstileWidget } from "./turnstile-widget";
 
 /**
  * Magic-link sign-in form. No password field — the customer enters their
@@ -22,6 +23,11 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  // Turnstile CAPTCHA token. The /api/auth/forgot-password endpoint this
+  // form posts to (the canonical magic-link issuer) verifies it
+  // server-side and fails closed in prod, so the widget must be rendered
+  // here just as it is on the signup form.
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +37,7 @@ export function SignInForm() {
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstileToken: turnstileToken || undefined }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -106,6 +112,13 @@ export function SignInForm() {
           aria-invalid={!!error}
           aria-describedby={error ? "signin-error" : undefined}
           className="bg-cream-2 border-border text-ink placeholder:text-ink-faint focus:border-primary focus:ring-primary/50"
+        />
+      </div>
+
+      <div className="flex justify-center">
+        <TurnstileWidget
+          onToken={(t) => setTurnstileToken(t)}
+          onError={() => setTurnstileToken("")}
         />
       </div>
 
