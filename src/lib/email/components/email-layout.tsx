@@ -191,15 +191,18 @@ export function Button({
   children: ReactNode;
   variant?: "primary" | "outline";
 }) {
-  const buttonInline =
-    variant === "outline" ? buttonOutlineStyle : buttonPrimaryStyle;
+  const style = variant === "outline" ? buttonOutlineStyle : buttonPrimaryStyle;
   return (
-    <Section style={{ textAlign: "center", margin: "32px 0" }}>
-      <Link href={href} style={buttonInline}>
+    <Section style={{ margin: "24px 0 8px" }}>
+      <Link href={href} style={style}>
         {children}
       </Link>
     </Section>
   );
+}
+
+export function DetailPanel({ children }: { children: ReactNode }) {
+  return <Section style={detailPanelStyle}>{children}</Section>;
 }
 
 export function StatusPill({
@@ -363,33 +366,41 @@ const detailValueCellStyle: CSSProperties = {
   verticalAlign: "top",
 };
 
+const detailPanelStyle: CSSProperties = {
+  backgroundColor: tokens.cream2,
+  border: `1px solid ${tokens.border}`,
+  borderRadius: "6px",
+  padding: "4px 20px",
+  margin: "20px 0",
+};
+
 const buttonPrimaryStyle: CSSProperties = {
   backgroundColor: tokens.primary,
-  borderRadius: "2px",
-  color: tokens.cream,
-  display: "inline-block",
+  borderRadius: "6px",
+  color: tokens.paper,
+  display: "block",
   fontFamily: fonts.body,
-  fontSize: "14px",
-  fontWeight: 500,
-  letterSpacing: "0.02em",
-  padding: "14px 32px",
+  fontSize: "15px",
+  fontWeight: 600,
+  letterSpacing: "0.01em",
+  padding: "15px 24px",
+  textAlign: "center",
   textDecoration: "none",
-  textTransform: "uppercase" as const,
 };
 
 const buttonOutlineStyle: CSSProperties = {
   backgroundColor: "transparent",
   border: `1px solid ${tokens.ink}`,
-  borderRadius: "2px",
+  borderRadius: "6px",
   color: tokens.ink,
-  display: "inline-block",
+  display: "block",
   fontFamily: fonts.body,
-  fontSize: "14px",
-  fontWeight: 500,
-  letterSpacing: "0.02em",
-  padding: "13px 32px",
+  fontSize: "15px",
+  fontWeight: 600,
+  letterSpacing: "0.01em",
+  padding: "14px 24px",
+  textAlign: "center",
   textDecoration: "none",
-  textTransform: "uppercase" as const,
 };
 
 const statusPillStyle: CSSProperties = {
