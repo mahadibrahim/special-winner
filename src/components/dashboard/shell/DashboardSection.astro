@@ -1,0 +1,23 @@
+---
+interface Props {
+  index: number;
+  title: string;
+  accent?: "default" | "attention" | "explore";
+}
+
+const { index, title, accent = "default" } = Astro.props;
+
+const headingClass = [
+  "text-[11px] font-semibold tracking-[0.15em] uppercase mb-4",
+  accent === "attention" ? "text-ochre" : "",
+  accent === "explore" ? "text-sage" : "",
+  accent === "default" || !accent ? "text-ink-muted" : "",
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<section>
+  <h2 class={headingClass}>{index} · {title}</h2>
+  <slot />
+</section>
