@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
-import { registrations, type Registration } from "@/lib/db/schema";
+import { registrations, familyMembers, type Registration } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   getAdminCookie,
@@ -20,16 +20,31 @@ describe("Admin Registration Detail API", () => {
   let adminCookie: string;
   let templateRegistration: Registration | null = null;
   const cleanupIds: string[] = [];
+  const cleanupMemberIds: string[] = [];
 
   async function createTestRegistration(overrides: Partial<typeof registrations.$inferInsert> = {}) {
     if (!templateRegistration) {
       throw new Error("No template registration available for tests");
     }
+    // Each throwaway registration gets its own family member —
+    // registrations_member_season_active_uniq forbids two *active*
+    // registrations sharing one (family_member, season) pair.
+    const [member] = await getDb()
+      .insert(familyMembers)
+      .values({
+        parentUserId: templateRegistration.registeredByUserId,
+        firstName: "Test",
+        lastName: `Registrant-${cleanupMemberIds.length + 1}`,
+        birthDate: "2015-01-01",
+      })
+      .returning();
+    cleanupMemberIds.push(member.id);
+
     const [row] = await getDb()
       .insert(registrations)
       .values({
         seasonId: templateRegistration.seasonId,
-        familyMemberId: templateRegistration.familyMemberId,
+        familyMemberId: member.id,
         registeredByUserId: templateRegistration.registeredByUserId,
         status: "pending",
         paymentStatus: "unpaid",
@@ -63,10 +78,12 @@ describe("Admin Registration Detail API", () => {
   });
 
   afterAll(async () => {
-    if (cleanupIds.length > 0) {
-      for (const id of cleanupIds) {
-        await getDb().delete(registrations).where(eq(registrations.id, id)).catch(() => {});
-      }
+    // Registrations first — family_members is referenced with onDelete restrict.
+    for (const id of cleanupIds) {
+      await getDb().delete(registrations).where(eq(registrations.id, id)).catch(() => {});
+    }
+    for (const id of cleanupMemberIds) {
+      await getDb().delete(familyMembers).where(eq(familyMembers.id, id)).catch(() => {});
     }
     resetCookies();
   });
