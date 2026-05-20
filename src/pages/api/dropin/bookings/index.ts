@@ -30,6 +30,9 @@ import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
+import { buildDropInCheckoutLineItems } from "@/lib/dropin/checkout-line-item";
+import { computeSurchargeCents } from "@/lib/payments/surcharge";
+import { organizations } from "@/lib/db/schema/organizations";
 
 export const prerender = false;
 
@@ -199,10 +202,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     .where(eq(venues.id, session.venueId))
     .limit(1);
 
+  const [org] = await db
+    .select({ timezone: organizations.timezone })
+    .from(organizations)
+    .where(eq(organizations.id, session.organizationId))
+    .limit(1);
+
+  // Drop-in checkout is card-only, so the card surcharge always applies.
+  const surchargeCents = computeSurchargeCents(rate.amountCents, "card");
+
   const partnerStripeAccountId = venue?.partnerStripeAccountId ?? null;
   const applicationFeePct = venue?.partnerApplicationFeePct ?? 0;
+  // The surcharge is our card-cost recovery, not partner revenue — when
+  // funds settle on a partner account, claw it back via the application
+  // fee on top of our usual percentage cut.
   const applicationFeeCents = partnerStripeAccountId
-    ? Math.round((rate.amountCents * applicationFeePct) / 100)
+    ? Math.round((rate.amountCents * applicationFeePct) / 100) + surchargeCents
     : undefined;
 
   const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
@@ -211,21 +226,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     mode: "payment",
     payment_method_types: ["card"],
     customer_email: locals.user.email,
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `${session.sportOrClassLabel} drop-in`,
-            description: `${new Date(session.startsAt).toISOString()} at ${
-              venue?.name ?? "venue"
-            }`,
-          },
-          unit_amount: rate.amountCents,
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: buildDropInCheckoutLineItems({
+      sportOrClassLabel: session.sportOrClassLabel,
+      formatLabel: session.formatLabel,
+      startsAt: session.startsAt,
+      venueName: venue?.name ?? null,
+      timezone: org?.timezone ?? null,
+      baseAmountCents: rate.amountCents,
+      surchargeCents,
+    }),
     metadata: {
       type: "dropin_booking",
       session_id: sessionId,

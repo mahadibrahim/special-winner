@@ -1,47 +1,16 @@
 import type { APIRoute } from "astro";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
-import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
-import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
-import { handleFieldRentalCheckoutComplete } from "@/lib/stripe/handle-field-rental-checkout-complete";
-import { handleDropInWalkUpPayment } from "@/lib/stripe/handle-dropin-walkup-payment";
-import { handleDropinWalkinPayment } from "@/lib/stripe/handle-dropin-walkin-payment";
-import { handleFieldRentalWalkUpPayment } from "@/lib/stripe/handle-field-rental-walkup-payment";
-import { handlePaymentFailed } from "@/lib/stripe/handle-payment-failed";
-import { handleRegistrationPaymentSucceeded } from "@/lib/stripe/handle-registration-payment-succeeded";
-import { getDb } from "@/lib/db";
-import { stripeEvents } from "@/lib/db/schema";
-import type Stripe from "stripe";
+import { handleStripeEvent } from "@/lib/stripe/handle-stripe-event";
 
 /**
- * Try to claim this Stripe event id in the stripe_events ledger.
- * Returns true if this is the first time we've seen the event (process it),
- * false if it was already processed (short-circuit).
+ * Stripe webhook endpoint.
  *
- * This is the canonical webhook idempotency mechanism. Per-handler dedupe
- * (e.g. handle-checkout-complete looking up payments by session id) is a
- * belt-and-braces secondary check.
+ * Verifies the signature, then hands the event to `handleStripeEvent`,
+ * which owns idempotency (the stripe_events ledger) and dispatch. A thrown
+ * handler error propagates here as a 500 so Stripe retries the delivery —
+ * `handleStripeEvent` has already released the ledger claim so the retry
+ * is not short-circuited as a duplicate.
  */
-async function claimStripeEvent(event: Stripe.Event): Promise<boolean> {
-  try {
-    const inserted = await getDb()
-      .insert(stripeEvents)
-      .values({
-        id: event.id,
-        eventId: event.id,
-        eventType: event.type,
-      })
-      .onConflictDoNothing({ target: stripeEvents.eventId })
-      .returning({ id: stripeEvents.id });
-    return inserted.length > 0;
-  } catch (err) {
-    // If the ledger insert blew up, fail open (process the event) so we
-    // don't silently drop legitimate webhooks. The per-handler dedupe will
-    // catch obvious dupes.
-    console.error("[stripe webhook] stripe_events insert failed:", err);
-    return true;
-  }
-}
-
 export const POST: APIRoute = async ({ request }) => {
   try {
     const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET;
@@ -71,90 +40,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const isFirstDelivery = await claimStripeEvent(event);
-    if (!isFirstDelivery) {
-      console.log(
-        `[stripe webhook] duplicate delivery for event ${event.id} (${event.type}), skipping`,
-      );
-      return new Response(JSON.stringify({ received: true, deduped: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        // Drop-in checkout sessions carry metadata.type = "dropin_booking";
-        // route those to the dropin handler, everything else to the
-        // registration handler.
-        if (session.metadata?.type === "dropin_booking") {
-          const result = await handleDropInCheckoutComplete(session);
-          console.log(
-            `[stripe webhook] checkout.session.completed (dropin) → ${result.status}`,
-            result,
-          );
-        } else if (session.metadata?.type === "field_rental") {
-          const result = await handleFieldRentalCheckoutComplete(session);
-          console.log(
-            `[stripe webhook] checkout.session.completed (field_rental) → ${result.status}`,
-            result,
-          );
-        } else {
-          const result = await handleCheckoutComplete(session);
-          console.log(
-            `[stripe webhook] checkout.session.completed → ${result.status}`,
-            result,
-          );
-        }
-        break;
-      }
-
-      case "payment_intent.succeeded": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        // Drop-in kiosk walk-in flow: PaymentIntent is created by
-        // POST /api/kiosk/[venueSlug]/walkin/payment; the pending_claim
-        // booking is flipped to confirmed here once Stripe confirms the charge.
-        if (paymentIntent.metadata?.type === "dropin_walkin") {
-          const result = await handleDropinWalkinPayment(paymentIntent);
-          console.log(
-            `[stripe webhook] payment_intent.succeeded (dropin walkin) → ${result.status}`,
-            result,
-          );
-        } else if (paymentIntent.metadata?.type === "field_rental_walk_up") {
-          const result = await handleFieldRentalWalkUpPayment(paymentIntent);
-          console.log(
-            `[stripe webhook] payment_intent.succeeded (field_rental walk-up) → ${result.status}`,
-            result,
-          );
-        } else if (paymentIntent.metadata?.type === "dropin_booking_walk_up") {
-          const result = await handleDropInWalkUpPayment(paymentIntent);
-          console.log(
-            `[stripe webhook] payment_intent.succeeded (dropin walk-up) → ${result.status}`,
-            result,
-          );
-        } else if (paymentIntent.metadata?.type === "registration_payment") {
-          const result = await handleRegistrationPaymentSucceeded(paymentIntent);
-          console.log(
-            `[stripe webhook] payment_intent.succeeded (registration) → ${result.status}`,
-            result,
-          );
-        } else {
-          console.log("Payment succeeded:", paymentIntent.id);
-        }
-        break;
-      }
-
-      case "payment_intent.payment_failed": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const result = await handlePaymentFailed(paymentIntent);
-        console.log(`[stripe webhook] payment_intent.payment_failed → ${result.status}`, result);
-        break;
-      }
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
-    }
+    await handleStripeEvent(event);
 
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
@@ -164,10 +50,6 @@ export const POST: APIRoute = async ({ request }) => {
     console.error("Webhook error:", error);
     try {
       const { getPostHogServer } = await import("@/lib/posthog-server");
-      // The `event` variable is scoped to the outer try and not visible
-      // here. The webhook signature verification + event metadata that
-      // landed in the event-handler branches above already log on their
-      // own; this catch is for anything that escapes those.
       getPostHogServer().captureException(error, "stripe-webhook");
     } catch {
       // Never fail a webhook because of analytics.
