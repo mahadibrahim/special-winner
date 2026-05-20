@@ -146,7 +146,7 @@ export default function Navigation() {
                   href="/programs"
                   className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-cream rounded-lg hover:bg-primary/90 shadow-sm shadow-primary/15 transition-all"
                 >
-                  Get Started
+                  Programs
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                 </a>
               </>
@@ -255,7 +255,7 @@ export default function Navigation() {
                           onClick={() => setMobileMenuOpen(false)}
                           className="flex items-center justify-center gap-2"
                         >
-                          Get Started
+                          Programs
                           <ArrowRight className="w-4 h-4" />
                         </a>
                       </Button>
