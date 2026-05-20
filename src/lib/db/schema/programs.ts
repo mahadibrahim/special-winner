@@ -10,6 +10,7 @@ import {
   jsonb,
   pgEnum,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { locations } from "./organizations";
@@ -65,6 +66,8 @@ export const programs = pgTable(
   (table) => [
     index("programs_location_idx").on(table.locationId),
     index("programs_sport_active_idx").on(table.sportId, table.active),
+    // Program slugs are unique within a location (slugs route public URLs).
+    uniqueIndex("programs_location_slug_uniq").on(table.locationId, table.slug),
   ],
 );
 
@@ -126,6 +129,8 @@ export const seasons = pgTable(
       table.status,
       table.registrationOpens,
     ),
+    // Season slugs are unique within a program.
+    uniqueIndex("seasons_program_slug_uniq").on(table.programId, table.slug),
   ],
 );
 

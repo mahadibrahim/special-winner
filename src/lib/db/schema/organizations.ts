@@ -10,8 +10,9 @@ import {
   jsonb,
   integer,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { users } from "./users";
 
 // ============================================
@@ -235,7 +236,12 @@ export const domainMappings = pgTable("domain_mappings", {
   // Metadata
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  // At most one primary domain mapping per organization.
+  uniqueIndex("domain_mappings_org_primary_uniq")
+    .on(table.organizationId)
+    .where(sql`is_primary = true`),
+]);
 
 // ============================================
 // RESOURCE TEMPLATES (Shareable across franchises)

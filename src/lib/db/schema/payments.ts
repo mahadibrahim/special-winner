@@ -9,8 +9,9 @@ import {
   jsonb,
   pgEnum,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { users } from "./users";
 import { registrations } from "./registrations";
 
@@ -70,8 +71,14 @@ export const payments = pgTable(
   (table) => [
     index("payments_registration_idx").on(table.registrationId),
     index("payments_user_idx").on(table.userId),
-    index("payments_stripe_payment_intent_idx").on(table.stripePaymentIntentId),
-    index("payments_stripe_charge_idx").on(table.stripeChargeId),
+    // A Stripe PaymentIntent / Charge maps to at most one payment row.
+    // Partial — NULL ids (e.g. comped registrations) are exempt.
+    uniqueIndex("payments_stripe_payment_intent_uniq")
+      .on(table.stripePaymentIntentId)
+      .where(sql`stripe_payment_intent_id IS NOT NULL`),
+    uniqueIndex("payments_stripe_charge_uniq")
+      .on(table.stripeChargeId)
+      .where(sql`stripe_charge_id IS NOT NULL`),
   ],
 );
 

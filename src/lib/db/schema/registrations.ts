@@ -10,6 +10,7 @@ import {
   jsonb,
   pgEnum,
   index,
+  uniqueIndex,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -155,6 +156,12 @@ export const registrations = pgTable(
       table.paymentStatus,
     ),
     index("registrations_season_status_idx").on(table.seasonId, table.status),
+    // A person can hold only one *active* registration per season. The
+    // partial filter intentionally excludes cancelled/refunded rows so a
+    // member can re-register after cancelling.
+    uniqueIndex("registrations_member_season_active_uniq")
+      .on(table.familyMemberId, table.seasonId)
+      .where(sql`status NOT IN ('cancelled', 'refunded')`),
   ],
 );
 
@@ -163,8 +170,10 @@ export const emailLogs = pgTable(
   "email_logs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").references(() => users.id),
-    registrationId: uuid("registration_id").references(() => registrations.id),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    registrationId: uuid("registration_id").references(() => registrations.id, {
+      onDelete: "set null",
+    }),
     emailType: varchar("email_type", { length: 50 }).notNull(),
     recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
     subject: varchar("subject", { length: 500 }),
