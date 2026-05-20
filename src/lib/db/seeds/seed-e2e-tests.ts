@@ -92,9 +92,12 @@ export const TEST_USERS = {
     phone: "5555550199",
   },
   // Dual-persona dashboard routing accounts (added for dashboard-persona E2E spec).
-  // player  — has a self family_members row (selfUserId) → hasPlay=true, hasFamily=false
-  // both    — has a dependent row (parentUserId) AND a self row (selfUserId) → hasFamily=true, hasPlay=true
-  // fresh   — no family_members rows at all → redirects to /dashboard/start
+  // player     — has a self family_members row (selfUserId) → hasPlay=true, hasFamily=false
+  // both       — has a dependent row (parentUserId) AND a self row (selfUserId) → hasFamily=true, hasPlay=true
+  // fresh      — no family_members rows at all → redirects to /dashboard/start
+  // familyonly — has dependent rows only, zero self rows, zero drop-ins, zero rentals → hasFamily=true, hasPlay=false
+  //              Used by dashboard-persona "parent account (family-only)" tests instead of the
+  //              shared parent@ account which other specs can pollute with bookings/rentals.
   player: {
     email: "player@test.aspiresports.com",
     password: "TestPlayer123!",
@@ -114,6 +117,12 @@ export const TEST_USERS = {
     password: "TestFresh123!",
     firstName: "Test",
     lastName: "Fresh",
+  },
+  familyonly: {
+    email: "familyonly@test.aspiresports.com",
+    password: "TestFamily123!",
+    firstName: "Family",
+    lastName: "Only",
   },
 };
 
@@ -1459,19 +1468,81 @@ async function seedE2ETests() {
   await db.delete(familyMembers).where(eq(familyMembers.parentUserId, freshUser.id));
   console.log(`   ✓ Fresh: ${freshUser.email} (no family_members rows)`);
 
+  // --- familyonly account: dependent rows only → hasFamily=true, hasPlay=false ---
+  // This is the DEDICATED account for dashboard-persona "family-only" tests.
+  // Never used by any other spec, so it cannot be polluted by field rental /
+  // drop-in booking tests the way the shared parent@ account can be.
+  const familyonlyPasswordHash = await hashPassword(TEST_USERS.familyonly.password);
+  let [familyonlyUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.familyonly.email))
+    .limit(1);
+
+  if (!familyonlyUser) {
+    [familyonlyUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.familyonly.email,
+        passwordHash: familyonlyPasswordHash,
+        firstName: TEST_USERS.familyonly.firstName,
+        lastName: TEST_USERS.familyonly.lastName,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db.update(users)
+      .set({ passwordHash: familyonlyPasswordHash, emailVerified: true })
+      .where(eq(users.id, familyonlyUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, familyonlyUser.id));
+  await db.insert(userRoles).values({
+    userId: familyonlyUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
+
+  // Defensively remove any self row — this account must never have hasPlay=true.
+  await db.delete(familyMembers).where(eq(familyMembers.selfUserId, familyonlyUser.id));
+
+  // Ensure at least one dependent row exists (hasFamily=true).
+  const [familyonlyDepRow] = await db
+    .select()
+    .from(familyMembers)
+    .where(
+      and(
+        eq(familyMembers.parentUserId, familyonlyUser.id),
+        eq(familyMembers.firstName, "FamilyChild"),
+      )
+    )
+    .limit(1);
+
+  if (!familyonlyDepRow) {
+    await db.insert(familyMembers).values({
+      parentUserId: familyonlyUser.id,
+      firstName: "FamilyChild",
+      lastName: TEST_USERS.familyonly.lastName,
+      birthDate: "2020-03-15",
+      gender: "female",
+    });
+  }
+  console.log(`   ✓ FamilyOnly: ${familyonlyUser.email} (dependent row only, no self row)`);
+
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
   console.log("─".repeat(50));
-  console.log(`Admin:      ${TEST_USERS.admin.email} / ${TEST_USERS.admin.password}`);
-  console.log(`AdminOrgB:  ${TEST_USERS.adminOrgB.email} / ${TEST_USERS.adminOrgB.password}`);
-  console.log(`Coach:      ${TEST_USERS.coach.email} / ${TEST_USERS.coach.password}`);
-  console.log(`Parent:     ${TEST_USERS.parent.email} / ${TEST_USERS.parent.password}`);
-  console.log(`AdultSelf:  ${TEST_USERS.adultSelf.email} / ${TEST_USERS.adultSelf.password}`);
-  console.log(`Player:     ${TEST_USERS.player.email} / ${TEST_USERS.player.password}`);
-  console.log(`Both:       ${TEST_USERS.both.email} / ${TEST_USERS.both.password}`);
-  console.log(`Fresh:      ${TEST_USERS.fresh.email} / ${TEST_USERS.fresh.password}`);
-  console.log(`MediaStaff: ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
-  console.log(`MediaEditor:${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
+  console.log(`Admin:       ${TEST_USERS.admin.email} / ${TEST_USERS.admin.password}`);
+  console.log(`AdminOrgB:   ${TEST_USERS.adminOrgB.email} / ${TEST_USERS.adminOrgB.password}`);
+  console.log(`Coach:       ${TEST_USERS.coach.email} / ${TEST_USERS.coach.password}`);
+  console.log(`Parent:      ${TEST_USERS.parent.email} / ${TEST_USERS.parent.password}`);
+  console.log(`AdultSelf:   ${TEST_USERS.adultSelf.email} / ${TEST_USERS.adultSelf.password}`);
+  console.log(`Player:      ${TEST_USERS.player.email} / ${TEST_USERS.player.password}`);
+  console.log(`Both:        ${TEST_USERS.both.email} / ${TEST_USERS.both.password}`);
+  console.log(`Fresh:       ${TEST_USERS.fresh.email} / ${TEST_USERS.fresh.password}`);
+  console.log(`FamilyOnly:  ${TEST_USERS.familyonly.email} / ${TEST_USERS.familyonly.password}`);
+  console.log(`MediaStaff:  ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
+  console.log(`MediaEditor: ${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
   console.log("─".repeat(50));
 }
 

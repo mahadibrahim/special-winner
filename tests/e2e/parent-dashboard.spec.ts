@@ -73,19 +73,21 @@ test.describe("Parent Dashboard", () => {
       await page.goto("/dashboard/family");
       await waitForPageLoad(page);
 
-      // Find add family member button
-      const addButton = page.locator(
-        'button:has-text("Add"), a:has-text("Add Child"), a:has-text("Add Family"), a:has-text("Add Member")'
-      );
+      // On /dashboard/family the "Add Child" affordance is rendered by the
+      // ChildrenOverview component (client:visible). It is an <a href="/programs">
+      // link — clicking it navigates to the programs listing where the
+      // registration wizard (and its firstName step) begins. Scope to the
+      // specific link text so the locator doesn't accidentally match other
+      // "Add"-containing elements elsewhere on the four-section page.
+      const addChildLink = page.getByRole("link", { name: "Add Child" });
 
-      if (await addButton.first().isVisible({ timeout: 5000 })) {
-        await addButton.first().click();
-        // Should show add family member form or modal
-        await expect(
-          page.locator('input[name="firstName"], input[name="first_name"], label:has-text("First Name")')
-        ).toBeVisible({ timeout: 10000 });
+      if (await addChildLink.first().isVisible({ timeout: 8000 })) {
+        await addChildLink.first().click();
+        // Should navigate to the programs listing page
+        await expect(page).toHaveURL(/\/programs/, { timeout: 10000 });
       } else {
-        // If no add button, just verify page loaded
+        // ChildrenOverview loads client:visible — if the component hasn't
+        // hydrated yet, just verify the family dashboard itself loaded.
         await expect(page.locator("body")).toBeVisible();
       }
     });

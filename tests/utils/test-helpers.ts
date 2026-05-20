@@ -46,6 +46,15 @@ export const TEST_USERS = {
     firstName: "Test",
     lastName: "Fresh",
   },
+  // Dedicated family-only account for dashboard-persona E2E tests.
+  // Has dependent family_members rows only; no self row, no drop-ins, no rentals.
+  // Never used by other specs so it cannot be polluted the way parent@ can be.
+  familyonly: {
+    email: "familyonly@test.aspiresports.com",
+    password: "TestFamily123!",
+    firstName: "Family",
+    lastName: "Only",
+  },
 };
 
 /**

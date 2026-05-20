@@ -5,16 +5,19 @@
  * correct destination based on their family_members rows.
  *
  * Personas covered:
- *   parent  → family-only  → /dashboard/family
- *   player  → play-only    → /dashboard/play
- *   both    → both tabs     → respects aspire_dash cookie
- *   fresh   → no data       → /dashboard/start
+ *   familyonly → family-only  → /dashboard/family
+ *   player     → play-only    → /dashboard/play
+ *   both       → both tabs     → respects aspire_dash cookie
+ *   fresh      → no data       → /dashboard/start
  *
  * Accounts seeded in src/lib/db/seeds/seed-e2e-tests.ts:
- *   parent@test.aspiresports.com  (pre-existing, has dependents Tommy + Sarah)
- *   player@test.aspiresports.com  (added for this feature — self family_members row)
- *   both@test.aspiresports.com    (added for this feature — dependent + self rows)
- *   fresh@test.aspiresports.com   (added for this feature — no family_members rows)
+ *   familyonly@test.aspiresports.com  (dedicated isolated account — dependent rows only,
+ *                                      no self row, no drop-ins, no rentals — guaranteed
+ *                                      family-only; NOT the shared parent@ account which
+ *                                      other specs can pollute with bookings/rentals)
+ *   player@test.aspiresports.com      (added for this feature — self family_members row)
+ *   both@test.aspiresports.com        (added for this feature — dependent + self rows)
+ *   fresh@test.aspiresports.com       (added for this feature — no family_members rows)
  */
 
 import { test, expect } from "@playwright/test";
@@ -22,10 +25,13 @@ import { TEST_USERS, signIn } from "../utils/test-helpers";
 
 test.describe("Dashboard persona routing", () => {
 
-  // ── 1. Parent (family-only) ──────────────────────────────────────────────
+  // ── 1. Family-only ──────────────────────────────────────────────────────
+  // Uses the dedicated familyonly@ account (not the shared parent@ account).
+  // parent@ is used by field-rental and drop-in specs which create bookings that
+  // set hasPlay=true, turning it into a "both" user and breaking these assertions.
   test.describe("parent account (family-only)", () => {
     test.beforeEach(async ({ page }) => {
-      await signIn(page, TEST_USERS.parent.email, TEST_USERS.parent.password);
+      await signIn(page, TEST_USERS.familyonly.email, TEST_USERS.familyonly.password);
     });
 
     test("redirects /dashboard to /dashboard/family", async ({ page }) => {
