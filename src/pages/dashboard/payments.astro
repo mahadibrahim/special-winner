@@ -1,15 +1,3 @@
 ---
-import BaseLayout from '@/layouts/BaseLayout.astro';
-import PaymentHistory from '../../components/dashboard/payment-history';
-
-// Middleware guarantees user is authenticated for /dashboard routes.
-const user = Astro.locals.user!;
+return Astro.redirect(`/account/invoices${Astro.url.search}`, 301);
 ---
-
-<BaseLayout title="Payment History — Aspire Sports">
-  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-    <div class="max-w-5xl mx-auto">
-      <PaymentHistory client:load />
-    </div>
-  </main>
-</BaseLayout>
