@@ -1,9 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Menu, X, ArrowRight, LogOut, LayoutDashboard } from "lucide-react"
+import { Menu, X, ArrowRight, LogOut, LayoutDashboard, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 
 interface MeUser {
   id: string
@@ -117,22 +124,37 @@ export default function Navigation() {
                   <LayoutDashboard className="w-4 h-4" />
                   Dashboard
                 </a>
-                <form action="/api/auth/signout" method="POST">
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign out
-                  </button>
-                </form>
-                <a
-                  href="/dashboard"
-                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-cream text-sm font-semibold shadow-sm shadow-primary/15 hover:bg-primary/90 transition-all"
-                  title={`${user.firstName ?? user.email}${user.lastName ? ` ${user.lastName}` : ""}`}
-                >
-                  {initials}
-                </a>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={`${user.firstName ?? user.email}${user.lastName ? ` ${user.lastName}` : ""} — open account menu`}
+                      className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-cream text-sm font-semibold shadow-sm shadow-primary/15 hover:bg-primary/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    >
+                      {initials}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44 bg-cream border-border shadow-sm">
+                    <DropdownMenuItem asChild>
+                      <a href="/account" className="flex items-center gap-2 cursor-pointer">
+                        <User className="w-4 h-4" />
+                        Account
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="p-0" onSelect={(e) => e.preventDefault()}>
+                      <form action="/api/auth/signout" method="POST" className="w-full">
+                        <button
+                          type="submit"
+                          className="flex w-full items-center gap-2 px-2 py-1.5 text-sm cursor-pointer"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sign out
+                        </button>
+                      </form>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             ) : (
               <>
@@ -222,6 +244,20 @@ export default function Navigation() {
                         >
                           <LayoutDashboard className="w-4 h-4" />
                           Dashboard
+                        </a>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full border-border text-ink hover:bg-cream-2"
+                        asChild
+                      >
+                        <a
+                          href="/account"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          <User className="w-4 h-4" />
+                          Account
                         </a>
                       </Button>
                       <form action="/api/auth/signout" method="POST" className="w-full">
