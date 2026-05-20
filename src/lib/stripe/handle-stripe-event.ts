@@ -2,7 +2,6 @@ import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { stripeEvents } from "@/lib/db/schema/stripe-events";
-import { handleCheckoutComplete } from "./handle-checkout-complete";
 import { handleDropInCheckoutComplete } from "./handle-dropin-checkout-complete";
 import { handleFieldRentalCheckoutComplete } from "./handle-field-rental-checkout-complete";
 import { handleDropInWalkUpPayment } from "./handle-dropin-walkup-payment";
@@ -57,14 +56,35 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
   }
 }
 
-/** Route a verified Stripe event to its handler. */
+/**
+ * Route a verified Stripe event to its handler.
+ *
+ * Aspire runs TWO separate Stripe payment systems, by design (not unified):
+ *
+ *   1. Registration (leagues / programs) — Stripe PaymentIntents + the
+ *      Payment Element. Finalized by `payment_intent.succeeded` with
+ *      metadata.type "registration_payment" → handleRegistrationPaymentSucceeded.
+ *      Supports bank (ACH) and card.
+ *
+ *   2. Drop-in bookings + field rentals — Stripe Checkout Sessions
+ *      (hosted). Finalized by `checkout.session.completed` with
+ *      metadata.type "dropin_booking" / "field_rental". Card only.
+ *
+ * Walk-up / kiosk flows add more `payment_intent.succeeded` variants
+ * (dropin_walkin, dropin_booking_walk_up, field_rental_walk_up).
+ *
+ * Consequence: the Stripe webhook endpoint MUST stay subscribed to BOTH
+ * `payment_intent.succeeded` AND `checkout.session.completed` — drop one
+ * and half the payment system silently stops recording.
+ */
 async function dispatch(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      // Drop-in checkout sessions carry metadata.type = "dropin_booking";
-      // field rentals carry "field_rental"; everything else routes to the
-      // registration handler.
+      // Checkout Sessions are used only by drop-in bookings and field
+      // rentals. Registration does NOT use Checkout Sessions (see the
+      // payment-systems note above) — any other metadata.type here is
+      // unexpected and ignored.
       if (session.metadata?.type === "dropin_booking") {
         const result = await handleDropInCheckoutComplete(session);
         console.log(
@@ -78,10 +98,10 @@ async function dispatch(event: Stripe.Event): Promise<void> {
           result,
         );
       } else {
-        const result = await handleCheckoutComplete(session);
         console.log(
-          `[stripe webhook] checkout.session.completed → ${result.status}`,
-          result,
+          `[stripe webhook] checkout.session.completed with unrecognized metadata.type=${
+            session.metadata?.type ?? "(none)"
+          } — ignored`,
         );
       }
       break;

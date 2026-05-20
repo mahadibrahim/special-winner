@@ -15,40 +15,39 @@ import {
   organizations,
   users,
 } from "@/lib/db/schema";
-import { handleCheckoutComplete } from "@/lib/stripe/handle-checkout-complete";
+import { handleRegistrationPaymentSucceeded } from "@/lib/stripe/handle-registration-payment-succeeded";
 
 /**
- * Build a realistic fake Checkout Session. Fields we assert on are always
- * present; unused fields are set to unsafe casts since our handler only reads
- * a small subset.
+ * Build a realistic fake registration PaymentIntent. Registration runs on
+ * Stripe PaymentIntents (not Checkout Sessions) — `payment_intent.succeeded`
+ * with metadata.type "registration_payment" is what finalizes a
+ * registration. Only the small subset of fields the handler reads is set.
  */
-function makeCheckoutSession(overrides: {
-  sessionId: string;
+function makeRegistrationPaymentIntent(overrides: {
   paymentIntentId: string;
   registrationId: string;
-  amountTotal: number;
-  customerEmail: string;
-}): Stripe.Checkout.Session {
+  amountReceived: number;
+  receiptEmail?: string;
+}): Stripe.PaymentIntent {
   return {
-    id: overrides.sessionId,
-    object: "checkout.session",
-    amount_total: overrides.amountTotal,
+    id: overrides.paymentIntentId,
+    object: "payment_intent",
+    amount: overrides.amountReceived,
+    amount_received: overrides.amountReceived,
     currency: "usd",
-    customer_email: overrides.customerEmail,
-    payment_intent: overrides.paymentIntentId,
+    status: "succeeded",
+    receipt_email: overrides.receiptEmail ?? "pat@test.example",
     metadata: {
       registrationId: overrides.registrationId,
       type: "registration_payment",
     },
-    payment_status: "paid",
-    status: "complete",
-    mode: "payment",
-  } as unknown as Stripe.Checkout.Session;
+  } as unknown as Stripe.PaymentIntent;
 }
 
 /**
- * Seed the minimum row graph needed to exercise handleCheckoutComplete. Returns
- * the registration id so tests can assert on state transitions.
+ * Seed the minimum row graph needed to exercise
+ * handleRegistrationPaymentSucceeded. Returns the registration id so tests
+ * can assert on state transitions.
  */
 async function seedPendingRegistration(opts: {
   amountDueCents: number;
@@ -148,7 +147,7 @@ async function seedPendingRegistration(opts: {
   return { registrationId: registration.id, userId: user.id };
 }
 
-describe("handleCheckoutComplete", () => {
+describe("handleRegistrationPaymentSucceeded", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -159,14 +158,12 @@ describe("handleCheckoutComplete", () => {
       amountDueCents: 12500,
     });
 
-    const result = await handleCheckoutComplete(
-      makeCheckoutSession({
-        sessionId: `cs_test_${Math.random().toString(36).slice(2)}`,
+    const result = await handleRegistrationPaymentSucceeded(
+      makeRegistrationPaymentIntent({
         paymentIntentId: `pi_test_${Math.random().toString(36).slice(2)}`,
         registrationId,
-        amountTotal: 12500,
-        customerEmail: "pat@test.example",
-      })
+        amountReceived: 12500,
+      }),
     );
 
     expect(result.status).toBe("processed");
@@ -192,30 +189,28 @@ describe("handleCheckoutComplete", () => {
   });
 
   it("skips non-registration payments", async () => {
-    const session = {
-      id: "cs_test_nonreg",
+    const paymentIntent = {
+      id: "pi_test_nonreg",
       metadata: { type: "something_else" },
-    } as unknown as Stripe.Checkout.Session;
-    const result = await handleCheckoutComplete(session);
+    } as unknown as Stripe.PaymentIntent;
+    const result = await handleRegistrationPaymentSucceeded(paymentIntent);
     expect(result.status).toBe("skipped");
   });
 
-  it("is idempotent when the same checkout session is delivered twice", async () => {
+  it("is idempotent when the same payment intent is delivered twice", async () => {
     const db = getDb();
     const { registrationId } = await seedPendingRegistration({
       amountDueCents: 10000,
     });
 
-    const session = makeCheckoutSession({
-      sessionId: `cs_test_idem_${Math.random().toString(36).slice(2)}`,
+    const paymentIntent = makeRegistrationPaymentIntent({
       paymentIntentId: `pi_test_idem_${Math.random().toString(36).slice(2)}`,
       registrationId,
-      amountTotal: 10000,
-      customerEmail: "pat@test.example",
+      amountReceived: 10000,
     });
 
-    const first = await handleCheckoutComplete(session);
-    const second = await handleCheckoutComplete(session);
+    const first = await handleRegistrationPaymentSucceeded(paymentIntent);
+    const second = await handleRegistrationPaymentSucceeded(paymentIntent);
 
     expect(first.status).toBe("processed");
     expect(second.status).toBe("skipped");
@@ -234,21 +229,19 @@ describe("handleCheckoutComplete", () => {
     expect(paymentRows).toHaveLength(1);
   });
 
-  it("flips to deposit_paid when amount_total matches depositCents", async () => {
+  it("flips to deposit_paid when the amount paid is a partial payment", async () => {
     const db = getDb();
     const { registrationId } = await seedPendingRegistration({
       amountDueCents: 20000,
       registrationType: "deposit",
     });
 
-    const result = await handleCheckoutComplete(
-      makeCheckoutSession({
-        sessionId: `cs_test_dep_${Math.random().toString(36).slice(2)}`,
+    const result = await handleRegistrationPaymentSucceeded(
+      makeRegistrationPaymentIntent({
         paymentIntentId: `pi_test_dep_${Math.random().toString(36).slice(2)}`,
         registrationId,
-        amountTotal: 5000,
-        customerEmail: "pat@test.example",
-      })
+        amountReceived: 5000,
+      }),
     );
 
     expect(result.status).toBe("processed");
@@ -282,14 +275,12 @@ describe("handleCheckoutComplete", () => {
       amountDueCents: 7500,
     });
 
-    await handleCheckoutComplete(
-      makeCheckoutSession({
-        sessionId: `cs_test_email_${Math.random().toString(36).slice(2)}`,
+    await handleRegistrationPaymentSucceeded(
+      makeRegistrationPaymentIntent({
         paymentIntentId: `pi_test_email_${Math.random().toString(36).slice(2)}`,
         registrationId,
-        amountTotal: 7500,
-        customerEmail: "pat@test.example",
-      })
+        amountReceived: 7500,
+      }),
     );
 
     expect(spy).toHaveBeenCalledTimes(1);
@@ -307,16 +298,14 @@ describe("handleCheckoutComplete", () => {
     const { registrationId } = await seedPendingRegistration({
       amountDueCents: 5000,
     });
-    const session = makeCheckoutSession({
-      sessionId: `cs_test_nodup_${Math.random().toString(36).slice(2)}`,
+    const paymentIntent = makeRegistrationPaymentIntent({
       paymentIntentId: `pi_test_nodup_${Math.random().toString(36).slice(2)}`,
       registrationId,
-      amountTotal: 5000,
-      customerEmail: "pat@test.example",
+      amountReceived: 5000,
     });
 
-    await handleCheckoutComplete(session);
-    await handleCheckoutComplete(session);
+    await handleRegistrationPaymentSucceeded(paymentIntent);
+    await handleRegistrationPaymentSucceeded(paymentIntent);
 
     expect(spy).toHaveBeenCalledTimes(1);
   });

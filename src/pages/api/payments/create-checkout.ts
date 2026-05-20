@@ -46,9 +46,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     discountCodeForLog = discountCode;
     const db = getDb();
 
-    // Capture GA4 client_id + ad-platform IDs to pass through Stripe session
-    // metadata so the webhook (handle-checkout-complete.ts) can fire a
-    // server-side GA4 Measurement Protocol purchase event.
+    // Capture GA4 client_id + ad-platform IDs to pass through the
+    // PaymentIntent metadata so the webhook
+    // (handle-registration-payment-succeeded.ts) can fire a server-side
+    // GA4 Measurement Protocol purchase event.
     const cookieHeader = request.headers.get("cookie");
     const gaClientId = parseGaClientId(cookieHeader);
     const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
