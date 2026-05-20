@@ -16,17 +16,19 @@
  * resource id so callers can use it without an extra query.
  */
 import { getDb } from "@/lib/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, inArray } from "drizzle-orm";
 import {
   programs,
   seasons,
   sports,
   registrations,
   teams,
+  userRoles,
 } from "@/lib/db/schema";
-import { locations } from "@/lib/db/schema/organizations";
+import { locations, userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { venues } from "@/lib/db/schema/teams";
 import { conversations } from "@/lib/db/schema/conversations";
+import { shootSessions } from "@/lib/db/schema/media";
 
 export type OwnershipResult<T> =
   | { ok: true; row: T }
@@ -209,6 +211,118 @@ export async function requireSameOrgConversation(
 
   if (!row) return NOT_FOUND;
   return { ok: true, row };
+}
+
+/**
+ * shootSessions.organizationId — direct
+ */
+export async function requireSameOrgShootSession(
+  orgId: string,
+  shootSessionId: string,
+): Promise<OwnershipResult<typeof shootSessions.$inferSelect>> {
+  const [row] = await getDb()
+    .select()
+    .from(shootSessions)
+    .where(
+      and(
+        eq(shootSessions.id, shootSessionId),
+        eq(shootSessions.organizationId, orgId),
+      ),
+    )
+    .limit(1);
+
+  if (!row) return NOT_FOUND;
+  return { ok: true, row };
+}
+
+/**
+ * Verify a target user is visible to the caller's org. Users are not
+ * org-scoped at the schema level, so membership is reconstructed from
+ * userRoles (org/location/program/team-scoped) plus userOrganizationAccess.
+ * Matches the visibility model used by /api/admin/users.
+ */
+export async function requireUserInOrg(
+  orgId: string,
+  userId: string,
+): Promise<OwnershipResult<{ userId: string }>> {
+  const db = getDb();
+
+  const [accessRow] = await db
+    .select({ userId: userOrganizationAccess.userId })
+    .from(userOrganizationAccess)
+    .where(
+      and(
+        eq(userOrganizationAccess.userId, userId),
+        eq(userOrganizationAccess.organizationId, orgId),
+      ),
+    )
+    .limit(1);
+  if (accessRow) return { ok: true, row: { userId } };
+
+  const [orgRole] = await db
+    .select({ id: userRoles.id })
+    .from(userRoles)
+    .where(
+      and(
+        eq(userRoles.userId, userId),
+        eq(userRoles.scopeType, "organization"),
+        eq(userRoles.scopeId, orgId),
+      ),
+    )
+    .limit(1);
+  if (orgRole) return { ok: true, row: { userId } };
+
+  const orgLocations = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(eq(locations.organizationId, orgId));
+  const locationIds = orgLocations.map((l) => l.id);
+
+  if (locationIds.length === 0) return NOT_FOUND;
+
+  const orgPrograms = await db
+    .select({ id: programs.id })
+    .from(programs)
+    .where(inArray(programs.locationId, locationIds));
+  const programIds = orgPrograms.map((p) => p.id);
+
+  const orgSeasons = programIds.length > 0
+    ? await db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .where(inArray(seasons.programId, programIds))
+    : [];
+  const seasonIds = orgSeasons.map((s) => s.id);
+
+  const orgTeams = seasonIds.length > 0
+    ? await db
+        .select({ id: teams.id })
+        .from(teams)
+        .where(inArray(teams.seasonId, seasonIds))
+    : [];
+  const teamIds = orgTeams.map((t) => t.id);
+
+  const [scopedRole] = await db
+    .select({ id: userRoles.id })
+    .from(userRoles)
+    .where(
+      and(
+        eq(userRoles.userId, userId),
+        or(
+          and(eq(userRoles.scopeType, "location"), inArray(userRoles.scopeId, locationIds)),
+          ...(programIds.length > 0
+            ? [and(eq(userRoles.scopeType, "program"), inArray(userRoles.scopeId, programIds))]
+            : []),
+          ...(teamIds.length > 0
+            ? [and(eq(userRoles.scopeType, "team"), inArray(userRoles.scopeId, teamIds))]
+            : []),
+        ),
+      ),
+    )
+    .limit(1);
+  if (scopedRole) return { ok: true, row: { userId } };
+
+  return NOT_FOUND;
 }
 
 /**

@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
+import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 // GET - Get registration reports
 export const GET: APIRoute = async (context) => {
@@ -10,6 +11,9 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) {
     return auth.response;
   }
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -23,15 +27,21 @@ export const GET: APIRoute = async (context) => {
       ? new Date(startDate)
       : new Date(end.getFullYear(), end.getMonth() - 11, 1);
 
-    // Total registrations by status
+    const orgScope = eq(locations.organizationId, orgContext.organizationId);
+
+    // Total registrations by status (org-scoped via registrations -> seasons -> programs -> locations)
     const registrationsByStatus = await getDb()
       .select({
         status: registrations.status,
         count: sql<number>`COUNT(*)`,
       })
       .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, start),
           lte(registrations.createdAt, end)
         )
@@ -69,8 +79,12 @@ export const GET: APIRoute = async (context) => {
         waitlisted: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'waitlisted')`,
       })
       .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, start),
           lte(registrations.createdAt, end)
         )
@@ -89,9 +103,11 @@ export const GET: APIRoute = async (context) => {
       .from(registrations)
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, start),
           lte(registrations.createdAt, end)
         )
@@ -111,9 +127,11 @@ export const GET: APIRoute = async (context) => {
       .from(registrations)
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, start),
           lte(registrations.createdAt, end)
         )
@@ -131,8 +149,12 @@ export const GET: APIRoute = async (context) => {
         totalAmountPaid: sql<number>`COALESCE(SUM(${registrations.amountPaidCents}), 0)`,
       })
       .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, start),
           lte(registrations.createdAt, end)
         )
@@ -161,8 +183,10 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, start),
           lte(registrations.createdAt, end)
         )
@@ -176,8 +200,12 @@ export const GET: APIRoute = async (context) => {
         count: sql<number>`COUNT(DISTINCT ${registrations.registeredByUserId})`,
       })
       .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, start),
           lte(registrations.createdAt, end)
         )
@@ -193,8 +221,12 @@ export const GET: APIRoute = async (context) => {
         count: sql<number>`COUNT(*)`,
       })
       .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
       .where(
         and(
+          orgScope,
           gte(registrations.createdAt, prevStart),
           lte(registrations.createdAt, prevEnd)
         )

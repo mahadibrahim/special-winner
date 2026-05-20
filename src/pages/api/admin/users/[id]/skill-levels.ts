@@ -13,8 +13,8 @@ import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { userSkillLevels } from "@/lib/db/schema/drop-in";
-import { users } from "@/lib/db/schema/users";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireUserInOrg } from "@/lib/auth/require-resource-ownership";
 
 export const prerender = false;
 
@@ -30,20 +30,18 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   const userId = context.params.id;
   if (!userId) return json({ error: "user id required" }, 400);
 
-  const db = getDb();
-  // Confirm user exists; we don't gate by org because users are not
-  // org-scoped at the schema level. This is consistent with other admin
-  // user endpoints.
-  const [u] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!u) return json({ error: "User not found" }, 404);
+  // Gate by org: the target user must be visible to the caller's org.
+  // 404 conflates "not yours" with "not found" to avoid existence leaks.
+  const ownership = await requireUserInOrg(orgContext.organizationId, userId);
+  if (!ownership.ok) return json({ error: "User not found" }, 404);
 
+  const db = getDb();
   const rows = await db
     .select()
     .from(userSkillLevels)
@@ -62,6 +60,9 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   const userId = context.params.id;
   if (!userId) return json({ error: "user id required" }, 400);
 
@@ -77,13 +78,12 @@ export const PUT: APIRoute = async (context) => {
   }
   const sport = body.sport.trim().toLowerCase();
 
+  // Gate writes by org: prevent an admin in org A from writing a skill
+  // level row for a user who only belongs to org B.
+  const ownership = await requireUserInOrg(orgContext.organizationId, userId);
+  if (!ownership.ok) return json({ error: "User not found" }, 404);
+
   const db = getDb();
-  const [u] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!u) return json({ error: "User not found" }, 404);
 
   if (body.remove) {
     await db

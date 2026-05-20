@@ -3,7 +3,11 @@ import { getDb } from "@/lib/db";
 import { shootSessions } from "@/lib/db/schema/media";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  requireSameOrgShootSession,
+  ownershipDeniedResponse,
+} from "@/lib/auth/require-resource-ownership";
 import { logMediaAction } from "@/lib/media/audit";
 import { notifyAssignment } from "@/lib/media/notifications";
 import {
@@ -40,15 +44,15 @@ const patchSchema = z.object({
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
   const id = context.params.id!;
-  const [row] = await getDb()
-    .select()
-    .from(shootSessions)
-    .where(eq(shootSessions.id, id))
-    .limit(1);
-  if (!row)
-    return new Response(JSON.stringify({ error: "Not found" }), { status: 404 });
-  return new Response(JSON.stringify({ session: row }), {
+  const ownership = await requireSameOrgShootSession(
+    orgContext.organizationId,
+    id,
+  );
+  if (!ownership.ok) return ownershipDeniedResponse();
+  return new Response(JSON.stringify({ session: ownership.row }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -57,6 +61,8 @@ export const GET: APIRoute = async (context) => {
 export const PATCH: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   const id = context.params.id!;
   const body = await context.request.json();
@@ -71,13 +77,12 @@ export const PATCH: APIRoute = async (context) => {
     );
   }
 
-  const [before] = await getDb()
-    .select()
-    .from(shootSessions)
-    .where(eq(shootSessions.id, id))
-    .limit(1);
-  if (!before)
-    return new Response(JSON.stringify({ error: "Not found" }), { status: 404 });
+  const ownership = await requireSameOrgShootSession(
+    orgContext.organizationId,
+    id,
+  );
+  if (!ownership.ok) return ownershipDeniedResponse();
+  const before = ownership.row;
 
   // Publish-time consent enforcement. When the admin transitions a session to
   // 'published', verify that every tagged participant has an active media
