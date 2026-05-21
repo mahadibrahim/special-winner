@@ -18,6 +18,11 @@ import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
 import { WAITLIST_PROMOTION_HOURS } from "@/lib/waitlist/processor";
 
+/** Clip a string to `max` chars for use inside an SMS body. */
+function clip(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
+}
+
 /**
  * Fire a short SMS nudge in ADDITION to a transactional email, for
  * time-sensitive messages only. Uses the messaging gateway forced to the
@@ -30,13 +35,16 @@ async function sendSmsNudge(opts: {
   body: string;
 }): Promise<void> {
   try {
-    await sendToParent({
+    const result = await sendToParent({
       parentUserId: opts.userId,
       organizationId: opts.organizationId,
       body: opts.body,
       forceChannel: "sms",
       senderType: "system",
     });
+    if (!result.ok) {
+      console.warn(`[email] SMS nudge not delivered: ${result.reason}`);
+    }
   } catch (err) {
     console.error("[email] SMS nudge failed:", err);
   }
@@ -278,7 +286,7 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
 
   const subject = `Action required: a spot opened for ${params.childName}`;
 
-  const smsBody = `A spot just opened for ${params.childName} in ${params.programName}! Confirm within ${params.hoursToComplete}h: ${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`;
+  const smsBody = `A spot just opened for ${clip(params.childName, 40)} in ${clip(params.programName, 40)}! Confirm within ${params.hoursToComplete}h: ${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`;
 
   return sendTransactionalEmail({
     userId: params.userId,
@@ -419,7 +427,7 @@ export async function sendPaymentFailedEmail(params: SendPaymentFailedParams) {
 
   const subject = `Payment failed — ${params.childName}'s ${params.programName} registration`;
 
-  const smsBody = `Heads up: your payment for ${params.childName}'s ${params.programName} registration didn't go through. Retry: ${params.retryUrl}`;
+  const smsBody = `Heads up: your payment for ${clip(params.childName, 40)}'s ${clip(params.programName, 40)} registration didn't go through. Retry: ${params.retryUrl}`;
 
   return sendTransactionalEmail({
     userId: params.userId,
@@ -518,7 +526,7 @@ export async function sendBalanceReminderEmail(
 
   const subject = `Balance due: ${formatCurrency(params.balanceCents)} — ${params.programName} ${params.seasonName}`;
 
-  const smsBody = `Reminder: ${formatCurrency(params.balanceCents)} balance due for ${params.childName} (${params.programName}). Pay: ${params.payBalanceUrl}`;
+  const smsBody = `Reminder: ${formatCurrency(params.balanceCents)} balance due for ${clip(params.childName, 40)} (${clip(params.programName, 40)}). Pay: ${params.payBalanceUrl}`;
 
   return sendTransactionalEmail({
     userId: params.userId,
