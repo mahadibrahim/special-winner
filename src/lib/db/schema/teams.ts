@@ -62,6 +62,11 @@ export const venues = pgTable(
       .notNull()
       .references(() => locations.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 255 }).notNull(),
+    // Human-friendly kiosk URL segment, e.g. `/kiosk/downtown`. Globally
+    // unique (the kiosk route is not org-scoped — it resolves the org from
+    // the venue). Null until a manager sets one; the venue UUID still works
+    // as the kiosk slug either way.
+    slug: varchar("slug", { length: 64 }),
     address: text("address"),
     fieldCount: integer("field_count").default(1),
     indoor: boolean("indoor").default(false),
@@ -89,6 +94,7 @@ export const venues = pgTable(
   },
   (table) => [
     index("venues_location_idx").on(table.locationId),
+    uniqueIndex("venues_slug_unique").on(table.slug),
   ],
 );
 

@@ -35,6 +35,7 @@ interface Venue {
   id: string
   locationId: string
   name: string
+  slug: string | null
   address: string | null
   fieldCount: number | null
   indoor: boolean | null
@@ -65,6 +66,7 @@ export function VenuesList({ locations }: VenuesListProps) {
   const [formData, setFormData] = useState({
     locationId: "",
     name: "",
+    slug: "",
     address: "",
     fieldCount: 1,
     indoor: false,
@@ -102,6 +104,7 @@ export function VenuesList({ locations }: VenuesListProps) {
     setFormData({
       locationId: locations[0]?.id || "",
       name: "",
+      slug: "",
       address: "",
       fieldCount: 1,
       indoor: false,
@@ -130,6 +133,7 @@ export function VenuesList({ locations }: VenuesListProps) {
     setFormData({
       locationId: venue.locationId,
       name: venue.name,
+      slug: venue.slug || "",
       address: venue.address || "",
       fieldCount: venue.fieldCount || 1,
       indoor: venue.indoor || false,
@@ -374,6 +378,20 @@ export function VenuesList({ locations }: VenuesListProps) {
                   placeholder="Main Field, Gym A, etc."
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="slug">Kiosk URL slug (optional)</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, slug: e.target.value }))}
+                  placeholder="downtown"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Sets the venue's kiosk address — e.g. <code>/kiosk/downtown</code>.
+                  Lowercase letters, numbers, and hyphens. Leave blank to use the venue ID.
+                </p>
               </div>
 
               <div className="space-y-2">
