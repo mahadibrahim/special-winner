@@ -203,7 +203,7 @@ export default function PlayAttention() {
         <span className={PANEL_ICON_CLASS.attention}>
           <TriangleAlert size={13} aria-hidden={true} />
         </span>
-        <span className={PANEL_LABEL_CLASS.attention}>Needs your attention</span>
+        <h2 className={PANEL_LABEL_CLASS.attention}>Needs your attention</h2>
         <span className="text-[10px] font-medium text-ink-faint ml-auto">
           {items.length} item{items.length === 1 ? "" : "s"}
         </span>

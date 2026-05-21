@@ -22,7 +22,7 @@ const { title, icon, accent = "default", count } = Astro.props;
            stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
            set:html={SECTION_ICONS[icon]} />
     </span>
-    <span class={PANEL_LABEL_CLASS[accent]}>{title}</span>
+    <h2 class={PANEL_LABEL_CLASS[accent]}>{title}</h2>
     {count && <span class="ml-auto text-[10px] font-medium tracking-wide text-ink-faint">{count}</span>}
   </div>
   <div class={PANEL_BODY_CLASS}>
