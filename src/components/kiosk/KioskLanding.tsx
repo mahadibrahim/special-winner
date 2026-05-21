@@ -8,26 +8,26 @@ import { WalkInWizard } from "./WalkInWizard";
 type Mode = "landing" | "find" | "walkin";
 
 export default function KioskLanding({
-  venueSlug,
-  venueName,
+  locationSlug,
+  locationName,
   publishableKey,
 }: {
-  venueSlug: string;
-  venueName: string;
+  locationSlug: string;
+  locationName: string;
   publishableKey: string;
 }) {
   useHydrationBeacon();
   const [mode, setMode] = useState<Mode>("landing");
 
   if (mode === "find") {
-    return <FindBooking venueSlug={venueSlug} venueName={venueName} onBack={() => setMode("landing")} />;
+    return <FindBooking locationSlug={locationSlug} locationName={locationName} onBack={() => setMode("landing")} />;
   }
 
   if (mode === "walkin") {
     return (
       <WalkInWizard
-        venueSlug={venueSlug}
-        venueName={venueName}
+        locationSlug={locationSlug}
+        locationName={locationName}
         publishableKey={publishableKey}
         onBack={() => setMode("landing")}
       />
@@ -41,7 +41,7 @@ export default function KioskLanding({
           Welcome
         </p>
         <h1 className="font-display text-5xl md:text-6xl font-medium italic leading-[0.95] text-ink">
-          {venueName}
+          {locationName}
         </h1>
         <div className="h-px bg-border w-16" />
         <p className="text-base text-ink-2 leading-relaxed max-w-md">
