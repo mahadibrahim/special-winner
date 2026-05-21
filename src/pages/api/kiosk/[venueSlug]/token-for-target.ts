@@ -64,8 +64,12 @@ export const POST: APIRoute = async ({ params, request }) => {
     createdByUserId: null,
   });
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
-  const url = `${appUrl}/self-serve/${token.token}`;
+  // Relative path on purpose: the kiosk tab redirects within the same
+  // origin it is served from. An absolute PUBLIC_APP_URL would send the
+  // customer to the wrong host in any non-prod environment (and force a
+  // needless apex/www hop in prod). Links delivered off-device — SMS or
+  // email — are built absolutely by the send-link endpoint instead.
+  const url = `/self-serve/${token.token}`;
 
   return json({ url, expiresAt: token.expiresAt }, 200);
 };

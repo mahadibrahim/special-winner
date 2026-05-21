@@ -142,7 +142,10 @@ export const POST: APIRoute = async ({ params, request }) => {
       {
         amount: amountCents,
         currency: "usd",
-        automatic_payment_methods: { enabled: true },
+        // Card only. A walk-in pays at the front desk to play right now;
+        // ACH and BNPL methods (the automatic_payment_methods default)
+        // don't settle in time and don't fit an in-person kiosk flow.
+        payment_method_types: ["card"],
         metadata: {
           type: "dropin_walkin",
           booking_id: booking.id,

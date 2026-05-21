@@ -27,6 +27,7 @@ export async function requireKioskVenue(slug: string) {
       active: venues.active,
       locationId: venues.locationId,
       organizationId: locations.organizationId,
+      timezone: locations.timezone,
     })
     .from(venues)
     .innerJoin(locations, eq(locations.id, venues.locationId))

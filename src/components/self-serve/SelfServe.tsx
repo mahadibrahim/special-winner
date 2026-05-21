@@ -50,7 +50,13 @@ export default function SelfServe({
     setTimeout(() => maybeConsume(waiverDone, true), 0);
   };
 
-  if (allDone) {
+  // Nothing left to do — either the customer just finished every card, or
+  // they opened the link with the waiver/photo already on file. Both cases
+  // show the confirmation rather than a bare, actionless header.
+  const nothingOutstanding =
+    !context.outstanding.waiver && !context.outstanding.photo;
+
+  if (allDone || nothingOutstanding) {
     return (
       <div className="p-6 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900">
         <h1 className="text-lg font-semibold mb-2">You're all set</h1>
