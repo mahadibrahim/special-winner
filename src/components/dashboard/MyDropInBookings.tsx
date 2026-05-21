@@ -218,7 +218,7 @@ export default function MyDropInBookings() {
                 {b.checkedInAt ? (
                   <Badge
                     variant="outline"
-                    className="bg-emerald-50 text-emerald-800 border-emerald-200"
+                    className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
                   >
                     Here
                   </Badge>

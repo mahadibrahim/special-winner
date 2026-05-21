@@ -56,7 +56,7 @@ function HoldCountdown({
       window.setTimeout(onExpire, 0);
     }
     return (
-      <Badge variant="outline" className="bg-stone-100 text-stone-500 border-stone-200">
+      <Badge variant="outline" className="bg-cream-3 text-ink-2 border-border">
         Hold expired
       </Badge>
     );
@@ -71,8 +71,8 @@ function HoldCountdown({
       variant="outline"
       className={
         urgent
-          ? "bg-rose-100 text-rose-900 border-rose-300"
-          : "bg-amber-50 text-amber-900 border-amber-200"
+          ? "bg-rose-500/10 text-rose-700 border-rose-500/20"
+          : "bg-amber-500/10 text-amber-700 border-amber-500/20"
       }
     >
       Pay within {display}
@@ -262,7 +262,7 @@ export default function MyFieldRentals() {
                     {r.checkedInAt ? (
                       <Badge
                         variant="outline"
-                        className="bg-emerald-50 text-emerald-800 border-emerald-200"
+                        className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
                       >
                         Here
                       </Badge>

@@ -184,7 +184,7 @@ export function Announcements() {
                 {formatDate(selectedAnnouncement?.publishedAt || null)}
               </span>
             </div>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div className="prose prose-sm max-w-none">
               <p className="whitespace-pre-wrap">{selectedAnnouncement?.content}</p>
             </div>
           </div>

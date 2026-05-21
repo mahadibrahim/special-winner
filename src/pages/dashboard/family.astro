@@ -99,7 +99,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
       >
         <div class="space-y-10 mt-8">
 
-          {/* ── 1 · Needs your attention ── */}
+          {/* ── Needs your attention ── */}
           {hasAttentionItems && (
             <DashboardSection title="Needs your attention" icon="attention" accent="attention">
               <div class="space-y-4 mt-1">
@@ -161,14 +161,14 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
             </DashboardSection>
           )}
 
-          {/* ── 2 · What's coming up ── */}
+          {/* ── What's coming up ── */}
           <DashboardSection title="What's coming up" icon="calendar" accent="default">
             <div class="mt-1">
               <UpcomingEvents client:visible />
             </div>
           </DashboardSection>
 
-          {/* ── 3 · What you're part of ── */}
+          {/* ── What you're part of ── */}
           <DashboardSection title="What you're part of" icon="shield" accent="default">
             <div class="space-y-6 mt-1">
               <ChildrenOverview client:visible />
@@ -179,7 +179,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
             </div>
           </DashboardSection>
 
-          {/* ── 4 · Explore ── */}
+          {/* ── Explore ── */}
           <DashboardSection title="Explore" icon="compass" accent="explore">
             <div class="grid gap-3 sm:grid-cols-3 mt-1">
               <ExploreCard
