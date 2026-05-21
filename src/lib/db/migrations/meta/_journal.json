@@ -232,6 +232,13 @@
       "when": 1779363343996,
       "tag": "0032_robust_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1779374602929,
+      "tag": "0033_bright_wither",
+      "breakpoints": true
     }
   ]
 }
