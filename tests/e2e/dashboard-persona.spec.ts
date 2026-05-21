@@ -46,13 +46,13 @@ test.describe("Dashboard persona routing", () => {
       // attention") is conditional on hasAttentionItems — assert it only when
       // it appears in the DOM so the test is robust to account state.
       await expect(
-        page.getByRole("heading", { name: /2 · What's coming up/i })
+        page.getByRole("heading", { name: /What's coming up/i })
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", { name: /3 · What you're part of/i })
+        page.getByRole("heading", { name: /What you're part of/i })
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", { name: /4 · Explore/i })
+        page.getByRole("heading", { name: /^Explore$/i })
       ).toBeVisible();
     });
 
@@ -85,7 +85,7 @@ test.describe("Dashboard persona routing", () => {
       // CI's seed seeds the player account without a roster row, so we assert
       // the section heading rather than the inner game card.
       await expect(
-        page.getByRole("heading", { name: /2 · What's coming up/i })
+        page.getByRole("heading", { name: /What's coming up/i })
       ).toBeVisible();
     });
 
