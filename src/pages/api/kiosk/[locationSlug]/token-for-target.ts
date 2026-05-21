@@ -1,14 +1,14 @@
 /**
- * POST /api/kiosk/[venueSlug]/token-for-target
+ * POST /api/kiosk/[locationSlug]/token-for-target
  * Body: { kind, targetId }
  *
- * Unauthenticated kiosk endpoint. Resolves the venue from the slug,
+ * Unauthenticated kiosk endpoint. Resolves the facility from the slug,
  * looks up who the signer is (via resolveSigner), mints (or reuses) a
  * self-service token, and returns the URL + expiry. The kiosk tab then
  * opens the URL for the customer to self-serve on.
  */
 import type { APIRoute } from "astro";
-import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { resolveSigner, type SelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { mintToken } from "@/lib/check-in/tokens-db";
 
@@ -27,10 +27,10 @@ const VALID_KINDS: SelfServiceKind[] = [
 ];
 
 export const POST: APIRoute = async ({ params, request }) => {
-  const slug = params.venueSlug ?? "";
-  const kioskResult = await requireKioskVenue(slug);
+  const slug = params.locationSlug ?? "";
+  const kioskResult = await requireKioskLocation(slug);
   if (!kioskResult.ok) return kioskResult.response;
-  const { venue } = kioskResult;
+  const { location } = kioskResult;
 
   let body: { kind?: string; targetId?: string };
   try {
@@ -55,8 +55,9 @@ export const POST: APIRoute = async ({ params, request }) => {
   const token = await mintToken({
     kind,
     targetId,
-    organizationId: venue.organizationId,
-    venueId: venue.id,
+    organizationId: location.organizationId,
+    // The kiosk is facility-scoped — the token carries no single venue.
+    venueId: null,
     sentVia: "kiosk_search",
     recipientUserId: signer.recipientUserId,
     recipientEmail: signer.recipientEmail,

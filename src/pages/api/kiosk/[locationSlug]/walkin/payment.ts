@@ -1,17 +1,17 @@
 /**
- * POST /api/kiosk/[venueSlug]/walkin/payment
+ * POST /api/kiosk/[locationSlug]/walkin/payment
  *
  * Creates a Stripe PaymentIntent for a walk-in booking that was initiated
  * by walkin/start. The kiosk wizard renders a PaymentElement using the
  * returned client_secret.
  *
  * Flow:
- *   1. requireKioskVenue(slug)
+ *   1. requireKioskLocation(slug) — authorize the kiosk facility
  *   2. verifyToken(token) — must be kind=walkin_session
  *   3. Load dropInBookings by tok.targetId — must still be pending_claim
  *   4. Load dropInSessions → dropInRateCard for amountDueCents
- *   5. Create Stripe PaymentIntent with Connect-aware transfer when
- *      venue.partnerStripeAccountId is set
+ *   5. Create Stripe PaymentIntent with Connect-aware transfer when the
+ *      session's venue has a partnerStripeAccountId set
  *   6. Return { clientSecret, amountCents }
  */
 import type { APIRoute } from "astro";
@@ -19,7 +19,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
-import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { stripe } from "@/lib/stripe/client";
 
@@ -32,10 +32,11 @@ const json = (body: unknown, status: number) =>
   });
 
 export const POST: APIRoute = async ({ params, request }) => {
-  const slug = params.venueSlug ?? "";
-  const venueResult = await requireKioskVenue(slug);
-  if (!venueResult.ok) return venueResult.response;
-  const { venue } = venueResult;
+  const slug = params.locationSlug ?? "";
+  // The kiosk facility only authorizes the request — the booking, session,
+  // and partner venue are all derived from the token's targetId below.
+  const locationResult = await requireKioskLocation(slug);
+  if (!locationResult.ok) return locationResult.response;
 
   let body: Record<string, unknown>;
   try {
@@ -92,14 +93,17 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   if (!sessionRow) return json({ error: "Session not found" }, 404);
 
-  // --- Load venue partner Stripe info (re-query venues to get partnerStripeAccountId) ---
+  // --- Load partner Stripe info for the session's venue ---
+  // Keyed off the session's venueId (not the kiosk param): the kiosk is now
+  // facility-scoped, and the partner Stripe split belongs to the specific
+  // space the session runs in.
   const [venueRow] = await db
     .select({
       partnerStripeAccountId: venues.partnerStripeAccountId,
       partnerApplicationFeePct: venues.partnerApplicationFeePct,
     })
     .from(venues)
-    .where(eq(venues.id, venue.id))
+    .where(eq(venues.id, sessionRow.venueId))
     .limit(1);
 
   // --- Resolve rate ---

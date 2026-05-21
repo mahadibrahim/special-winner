@@ -16,6 +16,7 @@ interface Session {
   startsAt: string;
   endsAt: string;
   title: string;
+  spaceName: string;
   format: string | null;
   capacity: number;
   booked: number;
@@ -71,8 +72,8 @@ function getStripePromise(publishableKey: string): Promise<StripeJs | null> {
 }
 
 interface Props {
-  venueSlug: string;
-  venueName: string;
+  locationSlug: string;
+  locationName: string;
   publishableKey: string;
   onBack: () => void;
 }
@@ -86,7 +87,7 @@ const PRIMARY_BTN =
 const GHOST_BTN =
   "text-sm text-ink-muted hover:text-ink transition-colors";
 
-export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: Props) {
+export function WalkInWizard({ locationSlug, locationName, publishableKey, onBack }: Props) {
   const [step, setStep] = useState<Step>("session");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
@@ -110,11 +111,11 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/kiosk/${venueSlug}/sessions`)
+    fetch(`/api/kiosk/${locationSlug}/sessions`)
       .then((r) => r.json())
       .then((b) => setSessions(b.sessions ?? []))
       .catch(() => setSessionsError("Could not load sessions. Please try again."));
-  }, [venueSlug]);
+  }, [locationSlug]);
 
   const minor = ageFromDob(contact.dob) < 18;
   const playerName = `${contact.firstName} ${contact.lastName}`.trim();
@@ -125,7 +126,7 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/kiosk/${venueSlug}/walkin/start`, {
+      const res = await fetch(`/api/kiosk/${locationSlug}/walkin/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,7 +188,7 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
         );
         return;
       }
-      const payRes = await fetch(`/api/kiosk/${venueSlug}/walkin/payment`, {
+      const payRes = await fetch(`/api/kiosk/${locationSlug}/walkin/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
@@ -219,7 +220,7 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
           </h1>
           <div className="h-px bg-border w-16" />
           <p className="text-base text-ink-2 leading-relaxed max-w-md">
-            Welcome to {venueName}. See you on the field — head over whenever you're ready.
+            Welcome to {locationName}. See you on the field — head over whenever you're ready.
           </p>
         </header>
         <button type="button" onClick={onBack} className={PRIMARY_BTN}>
@@ -364,6 +365,7 @@ function SessionStep({
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-ink truncate">{s.title}</div>
                 <div className="text-sm text-ink-muted mt-1">
+                  {s.spaceName} ·{" "}
                   {new Date(s.startsAt).toLocaleTimeString([], {
                     hour: "numeric",
                     minute: "2-digit",

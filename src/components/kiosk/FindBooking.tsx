@@ -13,12 +13,12 @@ interface Result {
 }
 
 interface Props {
-  venueSlug: string;
-  venueName: string;
+  locationSlug: string;
+  locationName: string;
   onBack: () => void;
 }
 
-export function FindBooking({ venueSlug, venueName, onBack }: Props) {
+export function FindBooking({ locationSlug, locationName, onBack }: Props) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,7 +32,7 @@ export function FindBooking({ venueSlug, venueName, onBack }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/kiosk/${venueSlug}/search?q=${encodeURIComponent(q.trim())}`);
+        const res = await fetch(`/api/kiosk/${locationSlug}/search?q=${encodeURIComponent(q.trim())}`);
         if (!res.ok) {
           if (alive) setError(`Search failed (${res.status})`);
           return;
@@ -46,13 +46,13 @@ export function FindBooking({ venueSlug, venueName, onBack }: Props) {
       }
     }, 250);
     return () => { alive = false; clearTimeout(t); };
-  }, [q, venueSlug]);
+  }, [q, locationSlug]);
 
   const openResult = async (r: Result) => {
     setOpening(true);
     setError(null);
     try {
-      const res = await fetch(`/api/kiosk/${venueSlug}/token-for-target`, {
+      const res = await fetch(`/api/kiosk/${locationSlug}/token-for-target`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: r.kind, targetId: r.targetId }),
@@ -88,7 +88,7 @@ export function FindBooking({ venueSlug, venueName, onBack }: Props) {
           Find your booking
         </p>
         <h1 className="font-display text-4xl md:text-5xl font-medium italic leading-[0.95] text-ink">
-          {venueName}
+          {locationName}
         </h1>
         <p className="text-sm text-ink-muted leading-relaxed pt-1">
           We'll look up today's reservations so you can finish anything left.

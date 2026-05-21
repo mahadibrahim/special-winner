@@ -1,17 +1,17 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import KioskLanding from "@/components/kiosk/KioskLanding";
-import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 
 export const prerender = false;
 
-const slug = Astro.params.venueSlug;
-let venueName: string | null = null;
+const slug = Astro.params.locationSlug;
+let locationName: string | null = null;
 let invalid = false;
 
 if (slug) {
-  const k = await requireKioskVenue(slug);
-  if (k.ok) venueName = k.venue.name;
+  const k = await requireKioskLocation(slug);
+  if (k.ok) locationName = k.location.name;
   else invalid = true;
 } else {
   invalid = true;
@@ -25,7 +25,7 @@ const today = new Date().toLocaleDateString("en-US", {
 });
 ---
 <BaseLayout
-  title={venueName ? `${venueName} kiosk — Aspire Sports` : "Kiosk — Aspire Sports"}
+  title={locationName ? `${locationName} kiosk — Aspire Sports` : "Kiosk — Aspire Sports"}
   navigation={false}
   footer={false}
 >
@@ -49,14 +49,14 @@ const today = new Date().toLocaleDateString("en-US", {
             Kiosk not configured
           </h1>
           <p class="text-sm text-ink-muted leading-relaxed">
-            This URL doesn't match an active venue. Ask the front desk for the correct kiosk URL.
+            This URL doesn't match an active facility. Ask the front desk for the correct kiosk URL.
           </p>
         </div>
       ) : (
         <KioskLanding
           client:load
-          venueSlug={slug!}
-          venueName={venueName!}
+          locationSlug={slug!}
+          locationName={locationName!}
           publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
         />
       )}
