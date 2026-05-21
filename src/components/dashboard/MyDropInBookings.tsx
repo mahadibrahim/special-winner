@@ -8,6 +8,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { toast } from "sonner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
+import { directionsUrl } from "@/lib/dashboard/maps";
+import type { StatusTone } from "@/lib/dashboard/dashboard-ui";
+import type { CardType } from "@/lib/dashboard/card-types";
 
 interface Booking {
   id: string;
@@ -42,18 +46,31 @@ function fmtDateTime(iso: string): string {
   });
 }
 
-function statusColor(status: Booking["status"]): string {
+function statusTone(status: Booking["status"]): StatusTone {
   switch (status) {
     case "confirmed":
-      return "bg-emerald-100 text-emerald-900 border-emerald-200";
-    case "waitlisted":
-      return "bg-stone-100 text-stone-700 border-stone-200";
+      return "confirmed";
     case "pending_claim":
-      return "bg-amber-100 text-amber-900 border-amber-200";
+      return "action";
+    case "waitlisted":
     case "cancelled":
-      return "bg-stone-50 text-stone-500 border-stone-200";
     case "no_show":
-      return "bg-rose-100 text-rose-900 border-rose-200";
+      return "pending";
+  }
+}
+
+function statusLabel(status: Booking["status"]): string {
+  switch (status) {
+    case "confirmed":
+      return "Confirmed";
+    case "waitlisted":
+      return "Waitlisted";
+    case "pending_claim":
+      return "Pending claim";
+    case "cancelled":
+      return "Cancelled";
+    case "no_show":
+      return "No show";
   }
 }
 
@@ -62,6 +79,9 @@ function isNearStart(startsAt: string): boolean {
   const diff = Math.abs(new Date(startsAt).getTime() - Date.now());
   return diff <= 2 * 60 * 60 * 1000;
 }
+
+const SUB_HEADER_CLS =
+  "text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2";
 
 export default function MyDropInBookings() {
   useHydrationBeacon();
@@ -147,142 +167,132 @@ export default function MyDropInBookings() {
   if (loading) return <LoadingSkeleton />;
   if (error) return <ErrorBanner message={error} />;
 
+  if (bookings.length === 0) {
+    return (
+      <EmptyState
+        title="No drop-in bookings yet"
+        description="Browse upcoming sessions and book your spot."
+      >
+        <Button asChild>
+          <a href="/dropin">Browse drop-in sessions</a>
+        </Button>
+      </EmptyState>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <header>
-        <h2 className="text-xl font-semibold text-stone-900">Drop-in bookings</h2>
-        <p className="text-sm text-stone-600 mt-1">
-          Pickup games and classes you've reserved.
-        </p>
-      </header>
+    <div className="space-y-4">
+      <h3 className={SUB_HEADER_CLS}>Drop-in bookings</h3>
 
-      {bookings.length === 0 ? (
-        <EmptyState
-          title="No drop-in bookings yet"
-          description="Browse upcoming sessions and book your spot."
-        >
-          <Button asChild>
-            <a href="/dropin">Browse drop-in sessions</a>
-          </Button>
-        </EmptyState>
-      ) : (
-        <>
-          <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-stone-500 mb-3">
-              Upcoming
-            </h3>
-            {upcoming.length === 0 ? (
-              <p className="text-sm text-stone-500">No upcoming bookings.</p>
-            ) : (
-              <ul className="space-y-3">
-                {upcoming.map((b) => (
-                  <li
-                    key={b.id}
-                    className="rounded-lg border border-stone-200 bg-white p-4 flex items-start justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium text-stone-900">
-                        {b.session.sportOrClassLabel}
-                        {b.session.formatLabel && (
-                          <span className="text-stone-500 font-normal">
-                            {" "}
-                            · {b.session.formatLabel}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-stone-600">
-                        {fmtDateTime(b.session.startsAt)}
-                      </div>
-                      {b.session.venueName && (
-                        <div className="text-xs text-stone-500">
-                          {b.session.venueName}
-                        </div>
-                      )}
-                      <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className={statusColor(b.status)}>
-                          {b.status.replace("_", " ")}
-                        </Badge>
-                        {b.teamAssignment && (
-                          <Badge variant="secondary">Team {b.teamAssignment}</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <a
-                        href={`/dropin/${b.sessionId}`}
-                        className="text-xs text-stone-700 underline"
-                      >
-                        Details
-                      </a>
-                      {b.checkedInAt ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-emerald-50 text-emerald-800 border-emerald-200"
-                        >
-                          Here
-                        </Badge>
-                      ) : isNearStart(b.session.startsAt) ? (
-                        <Button
-                          size="sm"
-                          disabled={checkingIn.has(b.id)}
-                          onClick={() => handleCheckIn(b.id)}
-                        >
-                          {checkingIn.has(b.id) ? "Checking in..." : "Check me in"}
-                        </Button>
-                      ) : null}
-                      {b.status === "confirmed" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => cancel(b.id)}
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                      {b.status === "waitlisted" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => cancel(b.id)}
-                        >
-                          Leave waitlist
-                        </Button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+      {upcoming.length > 0 && (
+        <section className="space-y-2">
+          <p className={SUB_HEADER_CLS}>Upcoming</p>
+          {upcoming.map((b) => {
+            const cardType: CardType =
+              b.session.formatLabel?.toLowerCase().includes("class") ||
+              b.session.sportOrClassLabel.toLowerCase().includes("class") ||
+              b.session.sportOrClassLabel.toLowerCase().includes("clinic")
+                ? "class"
+                : "pickup";
 
-          {past.length > 0 && (
-            <section>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-stone-500 mb-3">
-                Past
-              </h3>
-              <ul className="space-y-2">
-                {past.map((b) => (
-                  <li
-                    key={b.id}
-                    className="rounded-lg border border-stone-100 bg-stone-50 p-3 text-sm flex items-center justify-between"
+            const titleNode = (
+              <>
+                {b.session.sportOrClassLabel}
+                {b.session.formatLabel && (
+                  <span className="font-normal text-ink-2">
+                    {" "}
+                    · {b.session.formatLabel}
+                  </span>
+                )}
+              </>
+            );
+
+            const actionNode = (
+              <div className="flex flex-col items-end gap-1.5">
+                <a
+                  href={`/dropin/${b.sessionId}`}
+                  className="text-[11px] text-ink-2 underline"
+                >
+                  Details
+                </a>
+                {b.checkedInAt ? (
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-200"
                   >
-                    <div>
-                      <span className="font-medium text-stone-700">
-                        {b.session.sportOrClassLabel}
-                      </span>
-                      <span className="text-stone-500 ml-2">
-                        {fmtDateTime(b.session.startsAt)}
-                      </span>
-                    </div>
-                    <Badge variant="outline" className={statusColor(b.status)}>
-                      {b.status.replace("_", " ")}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </>
+                    Here
+                  </Badge>
+                ) : isNearStart(b.session.startsAt) ? (
+                  <Button
+                    size="sm"
+                    disabled={checkingIn.has(b.id)}
+                    onClick={() => handleCheckIn(b.id)}
+                  >
+                    {checkingIn.has(b.id) ? "Checking in..." : "Check me in"}
+                  </Button>
+                ) : null}
+                {b.status === "confirmed" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancel(b.id)}
+                  >
+                    Cancel
+                  </Button>
+                )}
+                {b.status === "waitlisted" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancel(b.id)}
+                  >
+                    Leave waitlist
+                  </Button>
+                )}
+              </div>
+            );
+
+            return (
+              <DashboardCard
+                key={b.id}
+                type={cardType}
+                title={titleNode}
+                meta={fmtDateTime(b.session.startsAt)}
+                venue={{
+                  label: b.session.venueName ?? "Venue TBD",
+                  mapsUrl: directionsUrl({ name: b.session.venueName ?? undefined }),
+                }}
+                status={{ label: statusLabel(b.status), tone: statusTone(b.status) }}
+                action={actionNode}
+              >
+                {b.teamAssignment && (
+                  <div className="mt-1">
+                    <Badge variant="secondary">Team {b.teamAssignment}</Badge>
+                  </div>
+                )}
+              </DashboardCard>
+            );
+          })}
+        </section>
+      )}
+
+      {upcoming.length === 0 && (
+        <p className="text-sm text-ink-2">No upcoming bookings.</p>
+      )}
+
+      {past.length > 0 && (
+        <section className="space-y-2">
+          <p className={SUB_HEADER_CLS}>Past</p>
+          {past.map((b) => (
+            <DashboardCard
+              key={b.id}
+              type="pickup"
+              title={b.session.sportOrClassLabel}
+              meta={fmtDateTime(b.session.startsAt)}
+              status={{ label: statusLabel(b.status), tone: statusTone(b.status) }}
+            />
+          ))}
+        </section>
       )}
     </div>
   );
