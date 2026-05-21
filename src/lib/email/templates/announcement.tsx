@@ -1,6 +1,7 @@
 import { Hr, Section, Text } from "@react-email/components";
 import {
   Button,
+  Content,
   EmailLayout,
   H1,
   P,
@@ -29,31 +30,29 @@ export function AnnouncementEmail({
   dashboardUrl,
 }: AnnouncementEmailProps) {
   return (
-    <EmailLayout
-      preview={`New announcement: ${announcementTitle}`}
-      sectionLabel="Announcement"
-      sectionMeta={publishedAt}
-    >
-      <H1>{announcementTitle}</H1>
-      <PMuted>
-        From {authorName} · {organizationName || "Aspire Sports"}
-      </PMuted>
+    <EmailLayout preview={`New announcement: ${announcementTitle}`}>
+      <Content>
+        <H1>{announcementTitle}</H1>
+        <PMuted>
+          From {authorName} · {organizationName || "Aspire Sports"}
+        </PMuted>
 
-      <Hr style={{ borderColor: tokens.border, margin: "16px 0 24px" }} />
+        <Hr style={{ borderColor: tokens.border, margin: "16px 0 24px" }} />
 
-      <P>Hi {recipientName || "there"},</P>
+        <P>Hi {recipientName || "there"},</P>
 
-      <Section style={quoteSectionStyle}>
-        <Text style={quoteTextStyle}>{announcementContent}</Text>
-      </Section>
+        <Section style={quoteSectionStyle}>
+          <Text style={quoteTextStyle}>{announcementContent}</Text>
+        </Section>
 
-      <Button href={dashboardUrl}>View in dashboard</Button>
+        <Button href={dashboardUrl}>View in dashboard →</Button>
 
-      <PMuted>
-        You're receiving this because you're subscribed to announcements from{" "}
-        {organizationName || "Aspire Sports"}. You can update your notification
-        preferences in your dashboard settings.
-      </PMuted>
+        <PMuted>
+          You're receiving this because you're subscribed to announcements from{" "}
+          {organizationName || "Aspire Sports"}. You can update your notification
+          preferences in your dashboard settings.
+        </PMuted>
+      </Content>
     </EmailLayout>
   );
 }
