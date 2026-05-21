@@ -84,28 +84,22 @@ function statusForSeason(start: string, end: string): "upcoming" | "active" | "c
   return "active"
 }
 
-const sportColors: Record<string, string> = {
-  Soccer: "from-emerald-500 to-green-600",
-  Basketball: "from-orange-500 to-amber-600",
-  Baseball: "from-red-500 to-rose-600",
-  Volleyball: "from-purple-500 to-violet-600",
-  Football: "from-amber-600 to-yellow-600",
-}
+// sportColors removed — avatars use flat design-system tokens
 
 function SkillBar({ level, trend }: { level: number; trend: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1.5 bg-cream-3 rounded-full overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-primary to-orange-500 rounded-full transition-all duration-500"
+          className="h-full bg-primary rounded-full transition-all duration-500"
           style={{ width: `${(level / 5) * 100}%` }}
         />
       </div>
       {trend === "up" && (
-        <TrendingUp className="w-3 h-3 text-emerald-400" />
+        <TrendingUp className="w-3 h-3 text-sage" />
       )}
       {trend === "new" && (
-        <Sparkles className="w-3 h-3 text-amber-400" />
+        <Sparkles className="w-3 h-3 text-ochre" />
       )}
     </div>
   )
@@ -113,25 +107,20 @@ function SkillBar({ level, trend }: { level: number; trend: string }) {
 
 function ChildCard({ child }: { child: Child }) {
   const [expanded, setExpanded] = useState(false)
-  const primarySport = child.programs[0]?.sport || "Sports"
-  const gradientClass = sportColors[primarySport] || "from-primary to-orange-500"
 
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-paper border border-border hover:border-border transition-all">
-      {/* Gradient accent bar */}
-      <div className={cn("absolute top-0 left-0 right-0 h-1 bg-gradient-to-r", gradientClass)} />
+      {/* Accent bar */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-primary" />
 
       <div className="p-5">
         {/* Header */}
         <div className="flex items-start gap-4 mb-4">
           {/* Avatar */}
-          <div className={cn(
-            "relative w-14 h-14 rounded-xl bg-gradient-to-br flex items-center justify-center text-white font-bold text-lg shadow-lg",
-            gradientClass
-          )}>
+          <div className="relative w-14 h-14 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-lg">
             {child.firstName[0]}{child.lastName[0]}
             {child.coachRating && child.coachRating >= 4.5 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center shadow-lg">
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-ochre rounded-full flex items-center justify-center">
                 <Star className="w-3 h-3 text-white fill-white" />
               </div>
             )}
@@ -179,7 +168,7 @@ function ChildCard({ child }: { child: Child }) {
               >
                 {program.team || program.name}
                 {program.status === "upcoming" && (
-                  <span className="ml-1 text-amber-400">• Soon</span>
+                  <span className="ml-1 text-ochre">• Soon</span>
                 )}
               </Badge>
             </a>
@@ -189,8 +178,8 @@ function ChildCard({ child }: { child: Child }) {
         {/* Achievement Banner */}
         {child.recentAchievement && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
-            <Award className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            <span className="text-sm text-amber-200">{child.recentAchievement}</span>
+            <Award className="w-4 h-4 text-ochre flex-shrink-0" />
+            <span className="text-sm text-ink-2">{child.recentAchievement}</span>
           </div>
         )}
 
@@ -232,7 +221,7 @@ function ChildCard({ child }: { child: Child }) {
               {child.skillAssessments.slice(0, 4).map((_, i) => (
                 <div key={i} className="flex-1 h-1 bg-cream-3 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-primary/60 to-orange-500/60 rounded-full"
+                    className="h-full bg-primary/60 rounded-full"
                     style={{ width: `${(child.skillAssessments[i].level / 5) * 100}%` }}
                   />
                 </div>

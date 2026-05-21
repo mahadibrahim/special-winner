@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
-import { Badge } from "@/components/ui/badge";
+import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
+import { directionsUrl } from "@/lib/dashboard/maps";
 
 interface Game {
   id: string;
@@ -16,6 +17,8 @@ interface Game {
   fieldNumber: string | null;
   opponentName: string | null;
   isHome: boolean;
+  venueName: string | null;
+  venueAddress: string | null;
 }
 
 interface Booking {
@@ -56,22 +59,22 @@ function fmtTime(iso: string): string {
   });
 }
 
-function gameStatusBadge(status: string) {
-  if (status === "cancelled") {
-    return (
-      <Badge variant="outline" className="bg-stone-50 text-stone-500 border-stone-200 text-xs">
-        Cancelled
-      </Badge>
-    );
-  }
-  if (status === "postponed") {
-    return (
-      <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-xs">
-        Postponed
-      </Badge>
-    );
-  }
-  return null;
+function venueLabel(
+  fieldNumber: string | null,
+  venueName: string | null,
+): string {
+  if (venueName && fieldNumber != null) return `Field ${fieldNumber} · ${venueName}`;
+  if (venueName) return venueName;
+  return "Venue TBD";
+}
+
+function gameStatus(
+  g: Pick<Game, "status" | "isHome">,
+): { label: string; tone: "confirmed" | "action" | "pending" } | undefined {
+  if (g.status === "cancelled") return { label: "Cancelled", tone: "pending" };
+  if (g.status === "postponed") return { label: "Postponed", tone: "pending" };
+  if (g.isHome) return { label: "Home", tone: "confirmed" };
+  return undefined;
 }
 
 export default function PlayUpcoming() {
@@ -150,71 +153,42 @@ export default function PlayUpcoming() {
       {errorGames && <ErrorBanner message={errorGames} />}
       {errorBookings && <ErrorBanner message={errorBookings} />}
 
-      {/* Next game — prominent card */}
+      {/* Next game — hero card */}
       {nextGame && (
-        <div className="rounded-xl border border-stone-200 bg-paper p-5 space-y-2">
-          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-            Next game
-          </p>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-ink">
-                {nextGame.opponentName ? (
-                  <>
-                    vs{" "}
-                    <span className="text-primary">{nextGame.opponentName}</span>
-                  </>
-                ) : (
-                  "Opponent TBD"
-                )}
-              </h3>
-              <p className="text-sm text-ink-2 mt-0.5">
-                {fmtDate(nextGame.scheduledAt)} · {fmtTime(nextGame.scheduledAt)}
-              </p>
-              {nextGame.fieldNumber != null && (
-                <p className="text-xs text-ink-muted mt-0.5">
-                  Field {nextGame.fieldNumber}
-                </p>
-              )}
-              <p className="text-xs text-ink-muted">
-                {nextGame.isHome ? "Home" : "Away"}
-              </p>
-            </div>
-            <div className="shrink-0">
-              {gameStatusBadge(nextGame.status)}
-            </div>
-          </div>
-        </div>
+        <DashboardCard
+          hero
+          type="league_game"
+          title={`vs ${nextGame.opponentName ?? "Opponent TBD"}`}
+          meta={`${fmtDate(nextGame.scheduledAt)} · ${fmtTime(nextGame.scheduledAt)}${nextGame.fieldNumber != null ? ` · Field ${nextGame.fieldNumber}` : ""}`}
+          venue={{
+            label: venueLabel(nextGame.fieldNumber, nextGame.venueName),
+            mapsUrl: directionsUrl({ name: nextGame.venueName, address: nextGame.venueAddress }),
+          }}
+          status={gameStatus(nextGame)}
+        />
       )}
 
-      {/* Remaining games — compact list */}
+      {/* Remaining games — compact cards */}
       {restGames.length > 0 && (
         <section>
           <h3 className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-3">
             More games
           </h3>
-          <ul className="space-y-2">
+          <div className="space-y-2">
             {restGames.map((g) => (
-              <li
+              <DashboardCard
                 key={g.id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-stone-100 bg-cream-2 px-3 py-2 text-sm"
-              >
-                <div className="min-w-0">
-                  <span className="font-medium text-ink">
-                    {g.opponentName ? `vs ${g.opponentName}` : "Opponent TBD"}
-                  </span>
-                  <span className="text-ink-muted ml-2">{fmtDateTime(g.scheduledAt)}</span>
-                  {g.fieldNumber != null && (
-                    <span className="text-ink-muted ml-1">· Field {g.fieldNumber}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs text-ink-muted">{g.isHome ? "Home" : "Away"}</span>
-                  {gameStatusBadge(g.status)}
-                </div>
-              </li>
+                type="league_game"
+                title={`vs ${g.opponentName ?? "Opponent TBD"}`}
+                meta={`${fmtDateTime(g.scheduledAt)}${g.fieldNumber != null ? ` · Field ${g.fieldNumber}` : ""}`}
+                venue={{
+                  label: venueLabel(g.fieldNumber, g.venueName),
+                  mapsUrl: directionsUrl({ name: g.venueName, address: g.venueAddress }),
+                }}
+                status={gameStatus(g)}
+              />
             ))}
-          </ul>
+          </div>
         </section>
       )}
 
@@ -224,35 +198,32 @@ export default function PlayUpcoming() {
           <h3 className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-3">
             Pickup sessions
           </h3>
-          <ul className="space-y-2">
+          <div className="space-y-2">
             {bookings.map((b) => (
-              <li
+              <DashboardCard
                 key={b.id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-stone-100 bg-cream-2 px-3 py-2 text-sm"
-              >
-                <div className="min-w-0">
-                  <span className="font-medium text-ink">
-                    {b.session.sportOrClassLabel}
-                    {b.session.formatLabel && (
-                      <span className="text-ink-muted font-normal"> · {b.session.formatLabel}</span>
-                    )}
-                  </span>
-                  <span className="text-ink-muted ml-2">
-                    {fmtDateTime(b.session.startsAt)}
-                  </span>
-                  {b.session.venueName && (
-                    <span className="text-ink-muted ml-1">· {b.session.venueName}</span>
-                  )}
-                </div>
-                <a
-                  href={`/dropin/${b.sessionId}`}
-                  className="text-xs text-primary underline shrink-0"
-                >
-                  Details
-                </a>
-              </li>
+                type="pickup"
+                title={
+                  b.session.formatLabel
+                    ? `${b.session.sportOrClassLabel} · ${b.session.formatLabel}`
+                    : b.session.sportOrClassLabel
+                }
+                meta={fmtDateTime(b.session.startsAt)}
+                venue={{
+                  label: b.session.venueName ?? "Venue TBD",
+                  mapsUrl: directionsUrl({ name: b.session.venueName }),
+                }}
+                action={
+                  <a
+                    href={`/dropin/${b.sessionId}`}
+                    className="text-xs text-primary underline shrink-0"
+                  >
+                    Details
+                  </a>
+                }
+              />
             ))}
-          </ul>
+          </div>
         </section>
       )}
     </div>

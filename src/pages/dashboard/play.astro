@@ -39,18 +39,18 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
       >
         <div class="space-y-10 mt-8">
 
-          {/* ── 1 · Needs your attention (self-contained — no DashboardSection wrapper) ── */}
+          {/* Needs your attention (self-contained — no DashboardSection wrapper) */}
           <PlayAttention client:load />
 
-          {/* ── 2 · What's coming up ── */}
-          <DashboardSection index={2} title="What's coming up" accent="default">
+          {/* What's coming up */}
+          <DashboardSection icon="calendar" title="What's coming up" accent="default">
             <div class="mt-1">
               <PlayUpcoming client:visible />
             </div>
           </DashboardSection>
 
-          {/* ── 3 · What you're part of ── */}
-          <DashboardSection index={3} title="What you're part of" accent="default">
+          {/* What you're part of */}
+          <DashboardSection icon="shield" title="What you're part of" accent="default">
             <div class="space-y-6 mt-1">
               <PlayMembership client:visible />
               <MyDropInBookings client:visible />
@@ -58,8 +58,8 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
             </div>
           </DashboardSection>
 
-          {/* ── 4 · Explore ── */}
-          <DashboardSection index={4} title="Explore" accent="explore">
+          {/* Explore */}
+          <DashboardSection icon="compass" title="Explore" accent="explore">
             <div class="mt-1">
               <PlayExplore client:visible />
             </div>

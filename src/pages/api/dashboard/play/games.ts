@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { games, teams } from "@/lib/db/schema/teams";
+import { games, teams, venues } from "@/lib/db/schema/teams";
 import { and, or, gte, inArray, asc } from "drizzle-orm";
 import { getPlayerTeamIds } from "@/lib/dashboard/play-teams";
 
@@ -56,11 +56,29 @@ export const GET: APIRoute = async ({ locals }) => {
     for (const t of teamRows) teamNameMap.set(t.id, t.name);
   }
 
+  // Collect venue ids → fetch name + address in one query (N+1-safe).
+  const venueIds = [...new Set(upcoming.map((g) => g.venueId).filter((v): v is string => v !== null))];
+  const venueMap = new Map<string, { name: string; address: string | null }>();
+  if (venueIds.length > 0) {
+    const venueRows = await db
+      .select({ id: venues.id, name: venues.name, address: venues.address })
+      .from(venues)
+      .where(inArray(venues.id, venueIds));
+    for (const v of venueRows) venueMap.set(v.id, { name: v.name, address: v.address });
+  }
+
   const result = upcoming.map((g) => {
     const isHome = g.homeTeamId !== null && teamIds.includes(g.homeTeamId);
     const opponentId = isHome ? g.awayTeamId : g.homeTeamId;
     const opponentName = opponentId ? (teamNameMap.get(opponentId) ?? null) : null;
-    return { ...g, isHome, opponentName };
+    const venue = g.venueId ? venueMap.get(g.venueId) : undefined;
+    return {
+      ...g,
+      isHome,
+      opponentName,
+      venueName: venue?.name ?? null,
+      venueAddress: venue?.address ?? null,
+    };
   });
 
   return json({ games: result });
