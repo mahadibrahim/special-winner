@@ -35,6 +35,17 @@ export const GET: APIRoute = async ({ params, url }) => {
   if (!kioskResult.ok) return kioskResult.response;
   const { venue } = kioskResult;
 
+  // Render times in the venue's local timezone — the kiosk and the customer
+  // are physically at the venue. Falls back to Eastern (the venues.timezone
+  // column default) if a location somehow has no timezone set.
+  const tz = venue.timezone ?? "America/New_York";
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: tz,
+    });
+
   const q = url.searchParams.get("q") ?? "";
   if (q.trim().length < 2) {
     return json({ results: [] }, 200);
@@ -128,7 +139,7 @@ export const GET: APIRoute = async ({ params, url }) => {
 
   for (const row of dropInRows) {
     const name = `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || "(unknown)";
-    const time = row.startsAt.toISOString().slice(11, 16) + " UTC";
+    const time = fmtTime(row.startsAt);
     results.push({
       kind: "drop_in_booking",
       targetId: row.bookingId,
@@ -140,7 +151,7 @@ export const GET: APIRoute = async ({ params, url }) => {
   }
 
   for (const row of rentalRows) {
-    const time = row.startsAt.toISOString().slice(11, 16) + " UTC";
+    const time = fmtTime(row.startsAt);
     results.push({
       kind: "field_rental",
       targetId: row.rentalId,

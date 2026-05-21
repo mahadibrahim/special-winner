@@ -10,8 +10,10 @@ import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
+import { locations } from "@/lib/db/schema/organizations";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner } from "@/lib/check-in/resolve-signer";
+import { formatEmailDateTime, DEFAULT_TIMEZONE } from "@/lib/email/format";
 
 export const prerender = false;
 
@@ -49,30 +51,34 @@ export const GET: APIRoute = async ({ params }) => {
       .select({
         startsAt: dropInSessions.startsAt,
         venueName: venues.name,
+        timezone: locations.timezone,
         sportLabel: dropInSessions.sportOrClassLabel,
         waiverSigned: dropInBookings.waiverSigned,
       })
       .from(dropInBookings)
       .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
       .innerJoin(venues, eq(venues.id, dropInSessions.venueId))
+      .innerJoin(locations, eq(locations.id, venues.locationId))
       .where(eq(dropInBookings.id, tok.targetId))
       .limit(1);
     if (!b) return json({ error: "Booking gone" }, 410);
-    summary = `${b.sportLabel} on ${b.startsAt.toISOString()} at ${b.venueName}`;
+    summary = `${b.sportLabel} on ${formatEmailDateTime(b.startsAt, b.timezone ?? DEFAULT_TIMEZONE)} at ${b.venueName}`;
     outstanding.waiver = !b.waiverSigned;
   } else if (tok.kind === "field_rental") {
     const [r] = await db
       .select({
         startsAt: fieldRentals.startsAt,
         venueName: venues.name,
+        timezone: locations.timezone,
         waiverSigned: fieldRentals.waiverSigned,
       })
       .from(fieldRentals)
       .innerJoin(venues, eq(venues.id, fieldRentals.venueId))
+      .innerJoin(locations, eq(locations.id, venues.locationId))
       .where(eq(fieldRentals.id, tok.targetId))
       .limit(1);
     if (!r) return json({ error: "Rental gone" }, 410);
-    summary = `Field rental on ${r.startsAt.toISOString()} at ${r.venueName}`;
+    summary = `Field rental on ${formatEmailDateTime(r.startsAt, r.timezone ?? DEFAULT_TIMEZONE)} at ${r.venueName}`;
     outstanding.waiver = !r.waiverSigned;
   } else if (tok.kind === "roster_entry") {
     summary = `Today's game`;
