@@ -45,26 +45,26 @@ const categoryConfig: Record<NoteCategory, {
 }> = {
   progress: {
     icon: TrendingUp,
-    color: "text-emerald-400",
+    color: "text-sage",
     bg: "bg-emerald-500/10 border-emerald-500/20",
     label: "Progress Update"
   },
   achievement: {
     icon: Award,
-    color: "text-amber-400",
+    color: "text-ochre",
     bg: "bg-amber-500/10 border-amber-500/20",
     label: "Achievement"
   },
   focus: {
     icon: Target,
     color: "text-primary",
-    bg: "bg-blue-500/10 border-blue-500/20",
+    bg: "bg-primary/10 border-primary/20",
     label: "Area of Focus"
   },
   encouragement: {
     icon: Heart,
-    color: "text-pink-400",
-    bg: "bg-pink-500/10 border-pink-500/20",
+    color: "text-ochre",
+    bg: "bg-amber-500/10 border-amber-500/20",
     label: "Encouragement"
   },
 }
@@ -91,7 +91,7 @@ function NoteCard({ note, featured = false }: { note: CoachNote; featured?: bool
       className={cn(
         "group relative rounded-xl border transition-all cursor-pointer",
         featured
-          ? "bg-gradient-to-br from-white/[0.04] to-transparent border-border p-5"
+          ? "bg-cream-2 border-border p-5"
           : "bg-paper border-border hover:border-border p-4"
       )}
     >
@@ -177,8 +177,8 @@ export default function CoachNotes() {
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 border border-violet-500/20 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-violet-400" />
+          <div className="w-10 h-10 rounded-xl bg-cream-3 border border-border flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 text-ink-muted" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
@@ -257,11 +257,10 @@ export default function CoachNotes() {
       )}
 
       {/* Development Philosophy */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-transparent border border-violet-500/20 p-5">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-        <div className="relative flex items-start gap-4">
-          <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-            <Star className="w-5 h-5 text-violet-400" />
+      <div className="rounded-xl bg-cream-2 border border-border p-5">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-lg bg-cream-3 border border-border flex items-center justify-center flex-shrink-0">
+            <Star className="w-5 h-5 text-primary" />
           </div>
           <div>
             <h4 className="font-medium text-ink mb-1">Development-First Approach</h4>

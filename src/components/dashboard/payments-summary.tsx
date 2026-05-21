@@ -40,26 +40,26 @@ const statusConfig: Record<PaymentStatus, {
 }> = {
   paid: {
     icon: CheckCircle2,
-    color: "text-emerald-400",
+    color: "text-emerald-700",
     bg: "bg-emerald-500/10",
     label: "Paid"
   },
   pending: {
     icon: Clock,
-    color: "text-amber-400",
+    color: "text-amber-700",
     bg: "bg-amber-500/10",
     label: "Due Soon"
   },
   overdue: {
     icon: AlertCircle,
-    color: "text-red-400",
-    bg: "bg-red-500/10",
+    color: "text-rose-700",
+    bg: "bg-rose-500/10",
     label: "Overdue"
   },
   processing: {
     icon: TrendingUp,
     color: "text-primary",
-    bg: "bg-blue-500/10",
+    bg: "bg-primary/10",
     label: "Processing"
   },
 }
@@ -95,7 +95,7 @@ export default function PaymentsSummary() {
     return (
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-emerald-400" />
+          <CreditCard className="w-5 h-5 text-primary" />
           Payments
         </h2>
         <div className="text-center py-10 px-6 rounded-2xl bg-paper border border-border">
@@ -114,8 +114,8 @@ export default function PaymentsSummary() {
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 border border-emerald-500/20 flex items-center justify-center">
-            <CreditCard className="w-5 h-5 text-emerald-400" />
+          <div className="w-10 h-10 rounded-xl bg-cream-3 border border-border flex items-center justify-center">
+            <CreditCard className="w-5 h-5 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-ink">Payments</h2>
@@ -138,7 +138,7 @@ export default function PaymentsSummary() {
           <div className="text-xs text-ink-muted mb-1">Pending</div>
           <div className="text-2xl font-bold text-ink">{formatCurrency(totalPending)}</div>
           {pendingPayments.length > 0 && (
-            <div className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+            <div className="text-xs text-ochre mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               Next due in {getDaysUntilDue(pendingPayments[0].dueDate!)} days
             </div>
@@ -147,7 +147,7 @@ export default function PaymentsSummary() {
         <div className="p-4 rounded-xl bg-paper border border-border">
           <div className="text-xs text-ink-muted mb-1">Paid This Season</div>
           <div className="text-2xl font-bold text-ink">{formatCurrency(totalPaid)}</div>
-          <div className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+          <div className="text-xs text-sage mt-1 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
             All caught up
           </div>
@@ -185,7 +185,7 @@ export default function PaymentsSummary() {
                         <Calendar className="w-3 h-3" />
                         Due {formatDate(payment.dueDate!)}
                         {daysUntil <= 7 && (
-                          <span className="text-amber-400 ml-1">({daysUntil}d)</span>
+                          <span className="text-ochre ml-1">({daysUntil}d)</span>
                         )}
                       </span>
                     </div>
@@ -214,7 +214,7 @@ export default function PaymentsSummary() {
                 className="group flex items-center gap-3 p-3 rounded-lg hover:bg-paper transition-all cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-ink-2 truncate">
