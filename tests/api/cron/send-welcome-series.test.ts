@@ -25,10 +25,12 @@ function runCron() {
 }
 
 /**
- * Seed a user who has one confirmed registration. Returns { userId }.
+ * Seed a user with one registration at the given status. Returns { userId }.
  * Mirrors the row graph in tests/api/webhooks/registration-payment.test.ts.
  */
-async function seedConfirmedRegistrationUser(): Promise<{ userId: string }> {
+async function seedRegistrationUser(
+  registrationStatus: "confirmed" | "pending" | "cancelled" = "confirmed",
+): Promise<{ userId: string }> {
   const db = getDb();
   const suffix = Math.random().toString(36).slice(2, 10);
 
@@ -109,10 +111,10 @@ async function seedConfirmedRegistrationUser(): Promise<{ userId: string }> {
       seasonId: season.id,
       familyMemberId: member.id,
       registeredByUserId: user.id,
-      status: "confirmed",
-      paymentStatus: "paid",
-      amountPaidCents: 10000,
-      amountDueCents: 0,
+      status: registrationStatus,
+      paymentStatus: registrationStatus === "confirmed" ? "paid" : "unpaid",
+      amountPaidCents: registrationStatus === "confirmed" ? 10000 : 0,
+      amountDueCents: registrationStatus === "confirmed" ? 0 : 10000,
       registrationType: "full",
       waiverSigned: true,
       waiverSignedAt: new Date(),
@@ -129,14 +131,14 @@ describe("send-welcome-series cron", () => {
   });
 
   it("enrolls a user who has a confirmed registration", async () => {
-    const { userId } = await seedConfirmedRegistrationUser();
+    const { userId } = await seedRegistrationUser();
     await runCron();
     const [u] = await getDb().select().from(users).where(eq(users.id, userId));
     expect(u.welcomeSeriesEnrolledAt).not.toBeNull();
   });
 
   it("sends step 1 once enrollment is >= 2 days old, and is idempotent", async () => {
-    const { userId } = await seedConfirmedRegistrationUser();
+    const { userId } = await seedRegistrationUser();
     // Backdate enrollment to 3 days ago.
     await getDb()
       .update(users)
@@ -159,7 +161,7 @@ describe("send-welcome-series cron", () => {
   });
 
   it("skips an opted-out user", async () => {
-    const { userId } = await seedConfirmedRegistrationUser();
+    const { userId } = await seedRegistrationUser();
     await getDb()
       .update(users)
       .set({
@@ -174,5 +176,12 @@ describe("send-welcome-series cron", () => {
       .from(emailLogs)
       .where(and(eq(emailLogs.userId, userId), eq(emailLogs.emailType, "welcome_series_1")));
     expect(logs.length).toBe(0);
+  });
+
+  it("does not enroll a user whose only registration is pending", async () => {
+    const { userId } = await seedRegistrationUser("pending");
+    await runCron();
+    const [u] = await getDb().select().from(users).where(eq(users.id, userId));
+    expect(u.welcomeSeriesEnrolledAt).toBeNull();
   });
 });

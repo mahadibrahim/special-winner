@@ -9,6 +9,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/send-welcome-series";
 
+// 14:00 UTC ≈ 10am US Eastern.
 export const handler = schedule("0 14 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,

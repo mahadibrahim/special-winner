@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { and, eq, isNull, isNotNull, gte, exists, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, isNotNull, gte, exists, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users, registrations, emailLogs } from "@/lib/db/schema";
 import { sendWelcomeSeriesEmail } from "@/lib/email/send";
@@ -90,21 +90,39 @@ export const POST: APIRoute = async ({ request }) => {
   let errored = 0;
 
   for (const u of candidates) {
+    let due: ReturnType<typeof dueWelcomeSeriesSteps>;
     try {
+      // A welcome-series step is logged once it is attempted (success OR
+      // failure); a failed send is not retried — one attempt per step, same
+      // as the other transactional crons. The drip is otherwise idempotent.
       const logs = await db
         .select({ emailType: emailLogs.emailType })
         .from(emailLogs)
-        .where(eq(emailLogs.userId, u.id));
+        .where(
+          and(
+            eq(emailLogs.userId, u.id),
+            inArray(
+              emailLogs.emailType,
+              WELCOME_SERIES_STEPS.map((s) => s.emailType),
+            ),
+          ),
+        );
       const sentTypes = new Set(logs.map((l) => l.emailType));
 
-      const due = dueWelcomeSeriesSteps({
+      due = dueWelcomeSeriesSteps({
         enrolledAt: u.enrolledAt!,
         optedOutAt: u.optedOutAt,
         sentEmailTypes: sentTypes,
         now,
       });
+    } catch (err) {
+      console.error(`[cron] welcome-series failed for user ${u.id}:`, err);
+      errored += 1;
+      continue;
+    }
 
-      for (const step of due) {
+    for (const step of due) {
+      try {
         const result = await sendWelcomeSeriesEmail({
           userId: u.id,
           step: step.step,
@@ -113,10 +131,10 @@ export const POST: APIRoute = async ({ request }) => {
         });
         if (result.success) sent += 1;
         else errored += 1;
+      } catch (err) {
+        console.error(`[cron] welcome-series step ${step.step} failed for user ${u.id}:`, err);
+        errored += 1;
       }
-    } catch (err) {
-      console.error(`[cron] welcome-series failed for user ${u.id}:`, err);
-      errored += 1;
     }
   }
 
