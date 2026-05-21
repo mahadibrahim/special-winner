@@ -651,13 +651,24 @@ export async function sendWelcomeSeriesEmail(params: {
   recipientEmail: string;
   recipientName: string;
 }) {
+  const meta = WELCOME_STEP_META[params.step];
+
   if (!isEmailConfigured()) {
     console.warn("Email not configured, skipping welcome-series email");
+    // Still record the attempt in email_logs so the drip cron stays
+    // idempotent (it gates on email_logs) — otherwise it would re-attempt
+    // this step on every run when email is unconfigured.
+    await logEmail({
+      userId: params.userId,
+      emailType: meta.emailType,
+      recipientEmail: params.recipientEmail,
+      subject: meta.subject,
+      status: "skipped",
+    });
     return { success: false, error: "Email not configured" };
   }
 
   const appUrl = env.PUBLIC_APP_URL;
-  const meta = WELCOME_STEP_META[params.step];
   const token = signUnsubscribeToken(params.userId, getUnsubscribeSecret());
   const unsubscribeUrl = `${appUrl}/api/marketing/unsubscribe?token=${encodeURIComponent(token)}`;
 
