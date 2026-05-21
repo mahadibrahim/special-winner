@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TriangleAlert, MapPin, CreditCard } from "lucide-react";
+import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
+import {
+  PANEL_CLASS,
+  PANEL_HEADER_CLASS,
+  PANEL_ICON_CLASS,
+  PANEL_LABEL_CLASS,
+  PANEL_BODY_CLASS,
+} from "@/lib/dashboard/dashboard-ui";
 
 interface FieldRental {
   id: string;
@@ -188,58 +196,69 @@ export default function PlayAttention() {
   // Nothing pending — render nothing so the play page can skip this section entirely
   if (items.length === 0) return null;
 
-  const kindIcon: Record<AttentionItem["kind"], string> = {
-    check_in: "📍",
-    expiring_hold: "⏳",
-    outstanding_balance: "💳",
-  };
-
-  const kindBadge: Record<AttentionItem["kind"], string> = {
-    check_in: "bg-emerald-100 text-emerald-900 border-emerald-200",
-    expiring_hold: "bg-amber-100 text-amber-900 border-amber-200",
-    outstanding_balance: "bg-rose-100 text-rose-900 border-rose-200",
-  };
-
-  const kindLabel: Record<AttentionItem["kind"], string> = {
-    check_in: "Check in",
-    expiring_hold: "Action needed",
-    outstanding_balance: "Balance due",
-  };
-
   return (
-    <section>
-      {/* Heading mirrors DashboardSection.astro accent="attention" — keep classes in sync */}
-      <h2 className="text-[11px] font-semibold tracking-[0.15em] uppercase mb-4 text-ochre">
-        1 · Needs your attention
-      </h2>
-      <div className="space-y-3">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-xl border border-stone-200 bg-paper px-4 py-3 flex items-start justify-between gap-3"
-        >
-          <div className="flex items-start gap-3 min-w-0">
-            <span className="mt-0.5 text-base leading-none">{kindIcon[item.kind]}</span>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-ink">{item.label}</p>
-              {item.sublabel && (
-                <p className="text-xs text-ink-muted mt-0.5">{item.sublabel}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge variant="outline" className={`text-xs ${kindBadge[item.kind]}`}>
-              {kindLabel[item.kind]}
-            </Badge>
-            {item.href && (
-              <Button asChild size="sm" variant="outline">
-                <a href={item.href} aria-label={`Go to: ${item.label}`}>Go</a>
-              </Button>
-            )}
-          </div>
-        </div>
-      ))}
+    <div className={PANEL_CLASS.attention}>
+      {/* Panel header */}
+      <div className={PANEL_HEADER_CLASS.attention}>
+        <span className={PANEL_ICON_CLASS.attention}>
+          <TriangleAlert size={13} aria-hidden={true} />
+        </span>
+        <span className={PANEL_LABEL_CLASS.attention}>Needs your attention</span>
+        <span className="text-[10px] font-medium text-ink-faint ml-auto">
+          {items.length} item{items.length === 1 ? "" : "s"}
+        </span>
       </div>
-    </section>
+
+      {/* Panel body */}
+      <div className={PANEL_BODY_CLASS}>
+        {items.map((item) => {
+          const action = item.href ? (
+            <Button asChild size="sm" variant="outline">
+              <a href={item.href} aria-label={`Go to: ${item.label}`}>Go</a>
+            </Button>
+          ) : undefined;
+
+          if (item.kind === "check_in") {
+            return (
+              <DashboardCard
+                key={item.label}
+                icon={MapPin}
+                eyebrow="Check in"
+                title={item.label}
+                meta={item.sublabel}
+                status={{ label: "Check in", tone: "confirmed" }}
+                action={action}
+              />
+            );
+          }
+
+          if (item.kind === "expiring_hold") {
+            return (
+              <DashboardCard
+                key={item.label}
+                type="field_rental"
+                title={item.label}
+                meta={item.sublabel}
+                status={{ label: "Action needed", tone: "action" }}
+                action={action}
+              />
+            );
+          }
+
+          // outstanding_balance
+          return (
+            <DashboardCard
+              key={item.label}
+              icon={CreditCard}
+              eyebrow="Balance due"
+              title={item.label}
+              meta={item.sublabel}
+              status={{ label: "Balance due", tone: "action" }}
+              action={action}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
