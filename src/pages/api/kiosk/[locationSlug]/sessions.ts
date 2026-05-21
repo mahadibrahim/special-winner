@@ -9,6 +9,7 @@ import type { APIRoute } from "astro";
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { venues } from "@/lib/db/schema/teams";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 
 export const prerender = false;
@@ -41,11 +42,13 @@ export const GET: APIRoute = async ({ params }) => {
       format: dropInSessions.formatLabel,
       capacity: dropInSessions.capacity,
       sessionRateCents: dropInSessions.sessionRateCents,
+      spaceName: venues.name,
     })
     .from(dropInSessions)
+    .innerJoin(venues, eq(venues.id, dropInSessions.venueId))
     .where(
       and(
-        eq(dropInSessions.venueId, k.location.id),
+        eq(venues.locationId, k.location.id),
         eq(dropInSessions.status, "scheduled"),
         gte(dropInSessions.startsAt, dayStart),
         lt(dropInSessions.startsAt, dayEnd),
@@ -86,6 +89,7 @@ export const GET: APIRoute = async ({ params }) => {
         booked: taken(s.id),
         available: Math.max(0, s.capacity - taken(s.id)),
         sessionRateCents: s.sessionRateCents,
+        spaceName: s.spaceName,
       })),
     },
     200,
