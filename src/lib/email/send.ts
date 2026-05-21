@@ -17,6 +17,75 @@ import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
 
 /**
+ * Fire a short SMS nudge in ADDITION to a transactional email, for
+ * time-sensitive messages only. Uses the messaging gateway forced to the
+ * SMS channel — it no-ops cleanly if the parent has no verified phone.
+ * Never throws into the caller; an SMS failure must not affect the email.
+ */
+async function sendSmsNudge(opts: {
+  userId: string;
+  organizationId: string;
+  body: string;
+}): Promise<void> {
+  try {
+    await sendToParent({
+      parentUserId: opts.userId,
+      organizationId: opts.organizationId,
+      body: opts.body,
+      forceChannel: "sms",
+      senderType: "system",
+    });
+  } catch (err) {
+    console.error("[email] SMS nudge failed:", err);
+  }
+}
+
+/**
+ * Send a transactional email. Email is the channel of record: the HTML
+ * email is always sent and always logged. For time-sensitive types the
+ * caller passes `smsNudge`, which fires an additional short SMS — never a
+ * replacement for the email.
+ */
+async function sendTransactionalEmail(opts: {
+  userId?: string;
+  registrationId?: string;
+  emailType: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  smsNudge?: { organizationId?: string; body: string };
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const result = await sendEmail({
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    text: opts.text,
+  });
+
+  await logEmail({
+    userId: opts.userId,
+    registrationId: opts.registrationId,
+    emailType: opts.emailType,
+    recipientEmail: opts.to,
+    subject: opts.subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  if (opts.smsNudge?.organizationId && opts.userId) {
+    // Fire-and-forget — SMS nudge never blocks or fails the email.
+    void sendSmsNudge({
+      userId: opts.userId,
+      organizationId: opts.smsNudge.organizationId,
+      body: opts.smsNudge.body,
+    });
+  }
+
+  return result;
+}
+
+/**
  * Helper: if organizationId is provided and we can route through the
  * messaging gateway (multi-channel SMS/email/telegram with opt-in enforcement),
  * use that. Otherwise fall back to direct email send. This lets legacy
