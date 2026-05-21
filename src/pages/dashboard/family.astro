@@ -102,7 +102,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
           {/* ── Needs your attention ── */}
           {hasAttentionItems && (
             <DashboardSection title="Needs your attention" icon="attention" accent="attention">
-              <div class="space-y-4 mt-1">
+              <div class="flex flex-col gap-4 mt-1">
                 {showPaymentSuccessBanner && (
                   <PaymentSuccessBanner registrationId={registrationIdParam!} client:load />
                 )}
@@ -170,7 +170,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
 
           {/* ── What you're part of ── */}
           <DashboardSection title="What you're part of" icon="shield" accent="default">
-            <div class="space-y-6 mt-1">
+            <div class="flex flex-col gap-6 mt-1">
               <ChildrenOverview client:visible />
               <CoachNotes client:visible />
               <Announcements client:visible />
