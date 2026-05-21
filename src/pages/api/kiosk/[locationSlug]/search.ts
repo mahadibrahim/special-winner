@@ -84,10 +84,11 @@ export const GET: APIRoute = async ({ params, url }) => {
     })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+    .innerJoin(venues, eq(venues.id, dropInSessions.venueId))
     .innerJoin(users, eq(users.id, dropInBookings.userId))
     .where(
       and(
-        eq(dropInSessions.venueId, venue.id),
+        eq(venues.locationId, location.id),
         eq(dropInBookings.status, "confirmed"),
         gte(dropInSessions.startsAt, todayStart),
         lt(dropInSessions.startsAt, todayEnd),
@@ -114,9 +115,10 @@ export const GET: APIRoute = async ({ params, url }) => {
       fieldNumber: fieldRentals.fieldNumber,
     })
     .from(fieldRentals)
+    .innerJoin(venues, eq(venues.id, fieldRentals.venueId))
     .where(
       and(
-        eq(fieldRentals.venueId, venue.id),
+        eq(venues.locationId, location.id),
         eq(fieldRentals.status, "confirmed"),
         gte(fieldRentals.startsAt, todayStart),
         lt(fieldRentals.startsAt, todayEnd),
