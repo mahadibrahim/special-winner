@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
 import { directionsUrl } from "@/lib/dashboard/maps";
+import { Button } from "@/components/ui/button";
 
 interface Game {
   id: string;
@@ -214,12 +215,9 @@ export default function PlayUpcoming() {
                   mapsUrl: directionsUrl({ name: b.session.venueName }),
                 }}
                 action={
-                  <a
-                    href={`/dropin/${b.sessionId}`}
-                    className="text-xs text-primary underline shrink-0"
-                  >
-                    Details
-                  </a>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={`/dropin/${b.sessionId}`}>Details</a>
+                  </Button>
                 }
               />
             ))}

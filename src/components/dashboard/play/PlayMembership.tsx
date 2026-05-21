@@ -6,6 +6,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
+import { Button } from "@/components/ui/button";
 import type { StatusTone } from "@/lib/dashboard/dashboard-ui";
 
 interface Team {
@@ -269,12 +270,9 @@ export default function PlayMembership() {
                   meta={`${reg.season.name} · ${reg.location.name}`}
                   status={{ label: reg.status, tone: regStatusTone(reg.status) }}
                   action={
-                    <a
-                      href={`/dashboard/registrations/${reg.id}`}
-                      className="text-xs text-primary underline"
-                    >
-                      View
-                    </a>
+                    <Button asChild variant="outline" size="sm">
+                      <a href={`/dashboard/registrations/${reg.id}`}>View</a>
+                    </Button>
                   }
                 />
               </li>

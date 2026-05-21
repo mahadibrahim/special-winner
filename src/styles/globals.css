@@ -376,13 +376,6 @@
 .fade-up:nth-child(4) { animation-delay: 240ms; }
 .fade-up:nth-child(5) { animation-delay: 320ms; }
 
-/* Subtle radial gradient backdrop — used on dashboard/detail hero areas. */
-.editorial-bg-radial {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(204, 68, 44, 0.08), transparent),
-    radial-gradient(circle at 80% 80%, rgba(204, 68, 44, 0.04), transparent);
-}
-
 /* Guide card hover interactions */
 .guide-card {
   transition: border-color 400ms ease, background-color 400ms ease;
