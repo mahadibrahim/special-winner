@@ -4,7 +4,8 @@ import {
   dueWelcomeSeriesSteps,
 } from "@/lib/marketing/welcome-series";
 
-const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
+const REF = new Date("2026-05-21T12:00:00Z");
+const daysAgo = (n: number) => new Date(REF.getTime() - n * 86_400_000);
 
 describe("dueWelcomeSeriesSteps", () => {
   it("returns no steps before the first offset", () => {
@@ -13,7 +14,7 @@ describe("dueWelcomeSeriesSteps", () => {
         enrolledAt: daysAgo(1),
         optedOutAt: null,
         sentEmailTypes: new Set(),
-        now: new Date(),
+        now: REF,
       }),
     ).toEqual([]);
   });
@@ -23,7 +24,7 @@ describe("dueWelcomeSeriesSteps", () => {
       enrolledAt: daysAgo(2),
       optedOutAt: null,
       sentEmailTypes: new Set(),
-      now: new Date(),
+      now: REF,
     });
     expect(due.map((s) => s.step)).toEqual([1]);
   });
@@ -33,7 +34,7 @@ describe("dueWelcomeSeriesSteps", () => {
       enrolledAt: daysAgo(6),
       optedOutAt: null,
       sentEmailTypes: new Set(["welcome_series_1"]),
-      now: new Date(),
+      now: REF,
     });
     expect(due.map((s) => s.step)).toEqual([2]);
   });
@@ -44,7 +45,7 @@ describe("dueWelcomeSeriesSteps", () => {
         enrolledAt: daysAgo(30),
         optedOutAt: daysAgo(1),
         sentEmailTypes: new Set(),
-        now: new Date(),
+        now: REF,
       }),
     ).toEqual([]);
   });
@@ -54,7 +55,7 @@ describe("dueWelcomeSeriesSteps", () => {
       enrolledAt: daysAgo(20),
       optedOutAt: null,
       sentEmailTypes: new Set(),
-      now: new Date(),
+      now: REF,
     });
     expect(due.map((s) => s.step)).toEqual([1, 2, 3]);
   });

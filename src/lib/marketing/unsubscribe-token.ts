@@ -24,6 +24,8 @@ export function verifyUnsubscribeToken(
   const userId = token.slice(0, dot);
   const provided = token.slice(dot + 1);
   const expected = sign(userId, secret);
+  // timingSafeEqual throws on a length mismatch — guard it so a malformed
+  // token returns null cleanly instead of throwing.
   if (provided.length !== expected.length) return null;
   if (
     !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected))
