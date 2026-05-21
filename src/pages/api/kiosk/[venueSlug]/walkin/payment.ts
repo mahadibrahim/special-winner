@@ -137,15 +137,25 @@ export const POST: APIRoute = async ({ params, request }) => {
   // Idempotency key mirrors rentals/bookings/index.ts convention
   const idempotencyKey = `${booking.id}:dropin-walkin:${amountCents}`;
 
+  // Kiosk payment is card-only — a walk-in pays at the front desk to play
+  // now. Prefer a Payment Method Configuration when STRIPE_KIOSK_PMC_ID is
+  // set: a PMC is the only thing that also suppresses Stripe Link, which
+  // `payment_method_types` cannot exclude. Link stays on everywhere else
+  // (registration, drop-in checkout, rentals) via the account default
+  // config. Without the env var, fall back to an explicit card-only
+  // `payment_method_types` so the kiosk still works — Link may appear until
+  // the PMC is configured.
+  const kioskPmcId = process.env.STRIPE_KIOSK_PMC_ID;
+  const methodSelection = kioskPmcId
+    ? { payment_method_configuration: kioskPmcId }
+    : { payment_method_types: ["card"] };
+
   try {
     const intent = await stripe.paymentIntents.create(
       {
         amount: amountCents,
         currency: "usd",
-        // Card only. A walk-in pays at the front desk to play right now;
-        // ACH and BNPL methods (the automatic_payment_methods default)
-        // don't settle in time and don't fit an in-person kiosk flow.
-        payment_method_types: ["card"],
+        ...methodSelection,
         metadata: {
           type: "dropin_walkin",
           booking_id: booking.id,
