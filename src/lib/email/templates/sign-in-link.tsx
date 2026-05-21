@@ -8,35 +8,36 @@ import {
   tokens,
 } from "@/lib/email/components/email-layout";
 
-interface EmailVerificationEmailProps {
+interface SignInLinkEmailProps {
   name: string;
-  verifyUrl: string;
+  signInUrl: string;
   expiresIn: string;
 }
 
-export function EmailVerificationEmail({
+export function SignInLinkEmail({
   name,
-  verifyUrl,
+  signInUrl,
   expiresIn,
-}: EmailVerificationEmailProps) {
+}: SignInLinkEmailProps) {
   return (
-    <EmailLayout preview="Verify your email address for Aspire Sports">
+    <EmailLayout preview="Tap the link to sign in to Aspire Sports">
       <Content>
-        <H1>Verify your email</H1>
+        <H1>Sign in to Aspire Sports</H1>
         <P>Hi {name || "there"},</P>
         <P>
-          Welcome to Aspire Sports! Please verify your email address by clicking
-          the button below.
+          Tap the button below to sign in to your Aspire Sports account. No
+          password needed — this is a one-tap, single-use link.
         </P>
-        <Button href={verifyUrl}>Verify email address →</Button>
+        <Button href={signInUrl}>Sign in</Button>
         <P>
           This link will expire in <strong>{expiresIn}</strong>. If you didn't
-          create an account with Aspire Sports, you can safely ignore this email.
+          request this email, you can safely ignore it — nobody can access your
+          account without tapping the link.
         </P>
         <P>If the button above doesn't work, copy and paste this link into your browser:</P>
         <Text style={linkLine}>
-          <Link href={verifyUrl} style={linkStyle}>
-            {verifyUrl}
+          <Link href={signInUrl} style={linkStyle}>
+            {signInUrl}
           </Link>
         </Text>
       </Content>
@@ -57,4 +58,4 @@ const linkStyle = {
   textDecoration: "underline",
 };
 
-export default EmailVerificationEmail;
+export default SignInLinkEmail;

@@ -9,6 +9,7 @@ import { handleDropinWalkinPayment } from "./handle-dropin-walkin-payment";
 import { handleFieldRentalWalkUpPayment } from "./handle-field-rental-walkup-payment";
 import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
+import { handleChargeRefunded } from "./handle-charge-refunded";
 
 /**
  * Try to claim this Stripe event id in the stripe_events ledger.
@@ -146,6 +147,13 @@ async function dispatch(event: Stripe.Event): Promise<void> {
         `[stripe webhook] payment_intent.payment_failed → ${result.status}`,
         result,
       );
+      break;
+    }
+
+    case "charge.refunded": {
+      const charge = event.data.object as Stripe.Charge;
+      const result = await handleChargeRefunded(charge);
+      console.log(`[stripe webhook] charge.refunded → ${result.status}`, result);
       break;
     }
 

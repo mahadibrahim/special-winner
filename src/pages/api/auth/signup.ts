@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { render } from "@react-email/components";
 import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth";
@@ -10,8 +9,8 @@ import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { verifyTurnstile } from "@/lib/auth/turnstile";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
-import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
+import { isEmailConfigured } from "@/lib/email";
+import { sendSignInLinkEmail } from "@/lib/email/send";
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -134,17 +133,12 @@ export const POST: APIRoute = async (context) => {
         deliveredTo: emailLower,
       });
       const signinUrl = buildMagicLinkUrl(token);
-      const html = await render(
-        PasswordResetEmail({
-          name: newUser.firstName || "",
-          resetUrl: signinUrl,
-          expiresIn: "15 minutes",
-        }),
-      );
-      await sendEmail({
-        to: emailLower,
-        subject: "Sign in to Aspire Sports",
-        html,
+      await sendSignInLinkEmail({
+        userId: newUser.id,
+        recipientEmail: emailLower,
+        name: newUser.firstName || "",
+        signInUrl: signinUrl,
+        expiresIn: "15 minutes",
       });
     } else {
       console.warn("Email not configured, sign-in link not sent");
