@@ -112,7 +112,18 @@ export const POST: APIRoute = async ({ params, request }) => {
     .limit(1);
 
   if (!session) return json({ error: "Session not found" }, 404);
-  if (session.venueId !== venue.id) return json({ error: "Session not at this venue" }, 422);
+
+  // The kiosk is facility-scoped: the chosen session may run in any space
+  // of this location. Confirm its venue belongs to the kiosk's facility.
+  const [sessionVenue] = await db
+    .select({ locationId: venues.locationId })
+    .from(venues)
+    .where(eq(venues.id, session.venueId))
+    .limit(1);
+  if (!sessionVenue || sessionVenue.locationId !== location.id) {
+    return json({ error: "Session is not at this facility" }, 422);
+  }
+
   if (session.status !== "scheduled") return json({ error: "Session is not open for registration" }, 422);
 
   // --- Resolve rate ---
@@ -206,7 +217,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     kind: "walkin_session",
     targetId: booking.id,
     organizationId: location.organizationId,
-    venueId: venue.id,
+    venueId: session.venueId,
     sentVia: "kiosk_search",
     recipientUserId: bookerUserId,
     recipientEmail,
