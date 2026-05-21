@@ -60,6 +60,8 @@ export const users = pgTable("users", {
   telegramChatId: varchar("telegram_chat_id", { length: 100 }),
   telegramUsername: varchar("telegram_username", { length: 100 }),
   alsoEmailCopy: boolean("also_email_copy").notNull().default(false),
+  welcomeSeriesEnrolledAt: timestamp("welcome_series_enrolled_at"),
+  marketingOptedOutAt: timestamp("marketing_opted_out_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -14,6 +14,13 @@ import {
 } from "./templates/payment-balance-reminder";
 import { SignInLinkEmail } from "./templates/sign-in-link";
 import { EmailVerificationEmail } from "./templates/email-verification";
+import { WelcomeEmail1 } from "./templates/welcome-1-welcome";
+import { WelcomeEmail2 } from "./templates/welcome-2-story";
+import { WelcomeEmail3 } from "./templates/welcome-3-activation";
+import {
+  signUnsubscribeToken,
+  getUnsubscribeSecret,
+} from "@/lib/marketing/unsubscribe-token";
 import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
@@ -612,4 +619,86 @@ export async function sendEmailVerificationEmail(
     html,
     text,
   });
+}
+
+// Welcome-series marketing email. Unlike sendTransactionalEmail this is
+// opt-out marketing: it carries a List-Unsubscribe header and a body
+// unsubscribe link. The caller (the cron) has already checked opt-out state.
+const WELCOME_STEP_META: Record<
+  1 | 2 | 3,
+  { subject: string; emailType: string; Component: typeof WelcomeEmail1 }
+> = {
+  1: {
+    subject: "Welcome to Aspire Sports",
+    emailType: "welcome_series_1",
+    Component: WelcomeEmail1,
+  },
+  2: {
+    subject: "What makes an Aspire league different",
+    emailType: "welcome_series_2",
+    Component: WelcomeEmail2,
+  },
+  3: {
+    subject: "Bring your people",
+    emailType: "welcome_series_3",
+    Component: WelcomeEmail3,
+  },
+};
+
+export async function sendWelcomeSeriesEmail(params: {
+  userId: string;
+  step: 1 | 2 | 3;
+  recipientEmail: string;
+  recipientName: string;
+}) {
+  const meta = WELCOME_STEP_META[params.step];
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping welcome-series email");
+    // Still record the attempt in email_logs so the drip cron stays
+    // idempotent (it gates on email_logs) — otherwise it would re-attempt
+    // this step on every run when email is unconfigured.
+    await logEmail({
+      userId: params.userId,
+      emailType: meta.emailType,
+      recipientEmail: params.recipientEmail,
+      subject: meta.subject,
+      status: "skipped",
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  const appUrl = env.PUBLIC_APP_URL;
+  const token = signUnsubscribeToken(params.userId, getUnsubscribeSecret());
+  const unsubscribeUrl = `${appUrl}/api/marketing/unsubscribe?token=${encodeURIComponent(token)}`;
+
+  const { html, text } = await renderEmail(
+    meta.Component({
+      recipientName: params.recipientName,
+      dashboardUrl: `${appUrl}/dashboard`,
+      unsubscribeUrl,
+    }),
+  );
+
+  const result = await sendEmail({
+    to: params.recipientEmail,
+    subject: meta.subject,
+    html,
+    text,
+    headers: {
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  });
+
+  await logEmail({
+    userId: params.userId,
+    emailType: meta.emailType,
+    recipientEmail: params.recipientEmail,
+    subject: meta.subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
 }
