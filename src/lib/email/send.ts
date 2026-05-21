@@ -12,6 +12,8 @@ import {
   PaymentBalanceReminderEmail,
   type BalanceReminderType,
 } from "./templates/payment-balance-reminder";
+import { SignInLinkEmail } from "./templates/sign-in-link";
+import { EmailVerificationEmail } from "./templates/email-verification";
 import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
@@ -537,5 +539,77 @@ export async function sendBalanceReminderEmail(
     html,
     text,
     smsNudge: { organizationId: params.organizationId, body: smsBody },
+  });
+}
+
+// Sign-in link email (magic-link for signup + forgot-password flows)
+export interface SendSignInLinkParams {
+  userId: string;
+  recipientEmail: string;
+  name: string;
+  signInUrl: string;
+  expiresIn?: string;
+}
+
+export async function sendSignInLinkEmail(params: SendSignInLinkParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping sign-in link email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    SignInLinkEmail({
+      name: params.name,
+      signInUrl: params.signInUrl,
+      expiresIn: params.expiresIn ?? "15 minutes",
+    }),
+  );
+
+  const subject = "Sign in to Aspire Sports";
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    emailType: "sign_in_link",
+    to: params.recipientEmail,
+    subject,
+    html,
+    text,
+  });
+}
+
+// Email verification email (sent after signup to confirm email ownership)
+export interface SendEmailVerificationParams {
+  userId: string;
+  recipientEmail: string;
+  name: string;
+  verifyUrl: string;
+  expiresIn?: string;
+}
+
+export async function sendEmailVerificationEmail(
+  params: SendEmailVerificationParams,
+) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping email verification email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    EmailVerificationEmail({
+      name: params.name,
+      verifyUrl: params.verifyUrl,
+      expiresIn: params.expiresIn ?? "24 hours",
+    }),
+  );
+
+  const subject = "Verify your email — Aspire Sports";
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    emailType: "email_verification",
+    to: params.recipientEmail,
+    subject,
+    html,
+    text,
   });
 }
