@@ -3,11 +3,13 @@ import {
   registrations,
   payments,
   organizations,
+  users,
   type Registration,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import type Stripe from "stripe";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
+import { sendRefundNotificationEmail } from "@/lib/email/send";
 
 export type AdminRefundResult =
   | {
@@ -29,7 +31,11 @@ export interface AdminRefundInput {
   reason?: string;
   adminUserId: string;
   organizationId: string;
-  /** Display strings used for the customer email. */
+  /**
+   * Display strings used by adminRefund on the synchronous-refund path's
+   * email (zero-amount or no payment intent). On the normal Stripe-refund
+   * path, the charge.refunded webhook sends the email and these are not used.
+   */
   childName: string;
   programName: string;
   seasonName: string;
@@ -52,8 +58,12 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
   const {
     registration,
     refundAmountCents,
+    reason,
     adminUserId,
     organizationId,
+    childName,
+    programName,
+    seasonName,
   } = input;
 
   if (refundAmountCents < 0) {
@@ -70,10 +80,14 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
   }
 
   // Look up payment record for the Stripe payment intent.
+  // Ordered so a payment-plan registration (multiple rows) deterministically
+  // returns the first payment rather than an arbitrary one.
   const [payment] = await getDb()
     .select()
     .from(payments)
-    .where(eq(payments.registrationId, registration.id));
+    .where(eq(payments.registrationId, registration.id))
+    .orderBy(asc(payments.createdAt))
+    .limit(1);
 
   const stripePaymentIntentId = payment?.stripePaymentIntentId ?? null;
 
@@ -131,10 +145,21 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
         details: stripeError instanceof Error ? stripeError.message : "Unknown error",
       };
     }
+
+    // Fix 1: persist the admin-provided reason to the payment row now.
+    // The webhook cannot carry the reason, so it must be written here while
+    // we have the Stripe refund ID confirming the refund was created.
+    if (payment && reason) {
+      await getDb()
+        .update(payments)
+        .set({ refundReason: reason, updatedAt: new Date() })
+        .where(eq(payments.id, payment.id));
+    }
   }
 
   // No Stripe refund was created (zero amount, or no payment intent on
-  // record) — there will be no webhook. Finalize synchronously.
+  // record) — there will be no webhook. Finalize synchronously and send the
+  // customer email here (no charge.refunded event will fire for this path).
   if (!stripeRefundId) {
     const [updated] = await getDb()
       .update(registrations)
@@ -147,6 +172,29 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
       })
       .where(eq(registrations.id, registration.id))
       .returning();
+
+    // Fix 2: send refund email on synchronous path (no webhook will fire).
+    const [parentUser] = await getDb()
+      .select()
+      .from(users)
+      .where(eq(users.id, registration.registeredByUserId));
+    if (parentUser) {
+      sendRefundNotificationEmail({
+        userId: parentUser.id,
+        organizationId,
+        registrationId: registration.id,
+        parentEmail: parentUser.email,
+        parentName: parentUser.firstName || parentUser.email.split("@")[0],
+        childName,
+        programName,
+        seasonName,
+        refundAmountCents,
+        refundStatus: "approved",
+      }).catch((err) =>
+        console.error("[admin-refund] synchronous-path refund email failed:", err),
+      );
+    }
+
     return { ok: true, registration: updated, stripeRefundId: null, isPartial: false };
   }
 

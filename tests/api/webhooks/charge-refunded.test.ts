@@ -171,6 +171,13 @@ describe("handleChargeRefunded", () => {
     expect(reg.refundStatus).toBe("processed");
     expect(reg.refundAmountCents).toBe(17500);
     expect(spy).toHaveBeenCalledOnce();
+
+    // Fix 4: assert payments row is also marked refunded
+    const [pmt] = await getDb()
+      .select()
+      .from(payments)
+      .where(eq(payments.registrationId, registrationId));
+    expect(pmt.status).toBe("refunded");
   });
 
   it("marks a partial refund without cancelling the registration", async () => {
@@ -190,6 +197,8 @@ describe("handleChargeRefunded", () => {
     expect(reg.paymentStatus).toBe("partial_refund");
     expect(reg.status).not.toBe("refunded");
     expect(reg.refundAmountCents).toBe(5000);
+    // Fix 3: assert recomputed amountPaidCents after partial refund
+    expect(reg.amountPaidCents).toBe(12500);
   });
 
   it("skips when no payment matches the payment intent", async () => {
@@ -201,5 +210,27 @@ describe("handleChargeRefunded", () => {
       }),
     );
     expect(result.status).toBe("skipped");
+  });
+
+  // Fix 5: idempotent re-delivery — a second webhook for the same charge must
+  // not fire a second email.
+  it("is idempotent on re-delivery — email fires only once", async () => {
+    const spy = vi
+      .spyOn(emailModule, "sendRefundNotificationEmail")
+      .mockResolvedValue({ success: true });
+    const { paymentIntentId } = await seedPaidRegistration(17500);
+    const charge = makeChargeRefunded({
+      paymentIntentId,
+      amount: 17500,
+      amountRefunded: 17500,
+    });
+
+    const first = await handleChargeRefunded(charge);
+    const second = await handleChargeRefunded(charge);
+
+    expect(first.status).toBe("processed");
+    expect(second.status).toBe("processed");
+    // Email must have been sent exactly once despite two deliveries.
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
