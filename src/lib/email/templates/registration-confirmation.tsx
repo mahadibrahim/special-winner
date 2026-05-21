@@ -53,6 +53,7 @@ export function RegistrationConfirmationEmail({
 }: RegistrationConfirmationEmailProps) {
   const isWaitlisted = registrationStatus === "waitlisted";
   const isPendingPayment = paymentStatus === "unpaid";
+  const isDepositPaid = paymentStatus === "deposit_paid";
   const resolvedPaymentUrl = paymentUrl ?? dashboardUrl;
   const resolvedClaimHours = waitlistClaimHours ?? 48;
 
@@ -99,6 +100,15 @@ export function RegistrationConfirmationEmail({
             </strong>{" "}
             is being held. Complete your payment to confirm it.
           </P>
+        ) : isDepositPaid ? (
+          <P>
+            <strong>{childName}</strong>'s spot in{" "}
+            <strong>
+              {programName} — {seasonName}
+            </strong>{" "}
+            is confirmed. Your deposit is paid — the remaining balance will be
+            due before the season starts.
+          </P>
         ) : (
           <P>
             <strong>{childName}</strong> is officially in for{" "}
@@ -132,8 +142,14 @@ export function RegistrationConfirmationEmail({
             <>
               <Detail label="Amount">{amountDue}</Detail>
               <Detail label="Status">
-                <StatusPill variant={isPendingPayment ? "pending" : "paid"}>
-                  {isPendingPayment ? "Payment required" : "Paid in full"}
+                <StatusPill
+                  variant={isPendingPayment ? "pending" : "paid"}
+                >
+                  {isPendingPayment
+                    ? "Payment required"
+                    : isDepositPaid
+                      ? "Deposit paid"
+                      : "Paid in full"}
                 </StatusPill>
               </Detail>
             </>
@@ -159,6 +175,12 @@ export function RegistrationConfirmationEmail({
               Complete your payment to secure {childName}'s spot. Once paid,
               you'll receive team assignments and schedule updates as they're
               posted.
+            </>
+          ) : isDepositPaid ? (
+            <>
+              Your deposit is in — {childName}'s spot is secured. We'll send
+              team assignments and schedule updates as they're posted. The
+              remaining balance will be collected before the season starts.
             </>
           ) : (
             <>

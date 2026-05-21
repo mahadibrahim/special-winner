@@ -482,9 +482,8 @@ export const POST: APIRoute = async (context) => {
     bypassOptInCheck: true,
   });
 
-  // Fire-and-forget registration confirmation email. Walk-up parents may not
-  // have an active session, so send directly via the email pipeline rather
-  // than the gateway (gateway routing is by-userId).
+  // Fire-and-forget registration confirmation email. Transactional email
+  // always sends the email directly; SMS (if any) is a separate additive nudge.
   sendRegistrationConfirmationEmail({
     userId: parentUserId,
     organizationId,
