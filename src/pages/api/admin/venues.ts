@@ -14,26 +14,6 @@ const venueSchema = z
   .object({
     locationId: z.string().uuid("Valid location ID is required"),
     name: z.string().min(1, "Name is required"),
-    // Optional kiosk URL slug. Empty / whitespace normalizes to null so the
-    // unique index doesn't trip over multiple "" venues. Format matches
-    // requireKioskVenue's SLUG_RX.
-    slug: z
-      .preprocess(
-        (v) => {
-          if (typeof v !== "string") return v;
-          const t = v.trim().toLowerCase();
-          return t === "" ? null : t;
-        },
-        z
-          .string()
-          .regex(
-            /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-            "Slug may contain only lowercase letters, numbers, and hyphens",
-          )
-          .max(64, "Slug must be 64 characters or fewer")
-          .nullable(),
-      )
-      .optional(),
     address: z.string().optional().nullable(),
     fieldCount: z.number().min(1).default(1),
     indoor: z.boolean().default(false),
@@ -104,7 +84,6 @@ export const GET: APIRoute = async (context) => {
           id: venues.id,
           locationId: venues.locationId,
           name: venues.name,
-          slug: venues.slug,
           address: venues.address,
           fieldCount: venues.fieldCount,
           indoor: venues.indoor,
@@ -150,7 +129,6 @@ export const GET: APIRoute = async (context) => {
         id: venues.id,
         locationId: venues.locationId,
         name: venues.name,
-        slug: venues.slug,
         address: venues.address,
         fieldCount: venues.fieldCount,
         indoor: venues.indoor,
@@ -226,12 +204,6 @@ export const POST: APIRoute = async (context) => {
     if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(JSON.stringify({ error: "Invalid location selected" }), { status: 400 });
     }
-    if (error.code === "23505" || error.cause?.code === "23505") {
-      return new Response(
-        JSON.stringify({ error: "That kiosk slug is already in use by another venue" }),
-        { status: 409 },
-      );
-    }
     return new Response(JSON.stringify({ error: "Failed to create venue" }), { status: 500 });
   }
 };
@@ -292,12 +264,6 @@ export const PUT: APIRoute = async (context) => {
     console.error("Error updating venue:", error);
     if (error.code === "23503" || error.cause?.code === "23503") {
       return new Response(JSON.stringify({ error: "Invalid location selected" }), { status: 400 });
-    }
-    if (error.code === "23505" || error.cause?.code === "23505") {
-      return new Response(
-        JSON.stringify({ error: "That kiosk slug is already in use by another venue" }),
-        { status: 409 },
-      );
     }
     return new Response(JSON.stringify({ error: "Failed to update venue" }), { status: 500 });
   }
