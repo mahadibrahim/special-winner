@@ -49,6 +49,7 @@ const envSchema = z.object({
   RESEND_FROM_EMAIL: z.string().min(1).optional(),
   RESEND_INBOUND_WEBHOOK_SECRET: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(1).optional(),
+  MARKETING_UNSUBSCRIBE_SECRET: z.string().min(1).optional(),
 
   // Optional everywhere
   TELEGRAM_BOT_TOKEN: z.string().optional(),
