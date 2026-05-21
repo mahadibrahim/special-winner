@@ -28,7 +28,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
 ---
 
 <BaseLayout title="My Play Dashboard — Aspire Sports">
-  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 editorial-bg-radial">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
     <div class="max-w-7xl mx-auto">
       <DashboardShell
         user={user}
@@ -51,7 +51,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
 
           {/* What you're part of */}
           <DashboardSection icon="shield" title="What you're part of" accent="default">
-            <div class="space-y-6 mt-1">
+            <div class="space-y-8 mt-1">
               <PlayMembership client:visible />
               <MyDropInBookings client:visible />
               <MyFieldRentals client:visible />

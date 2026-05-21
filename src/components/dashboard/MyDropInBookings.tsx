@@ -186,7 +186,7 @@ export default function MyDropInBookings() {
 
       {upcoming.length > 0 && (
         <section className="space-y-2">
-          <p className={SUB_HEADER_CLS}>Upcoming</p>
+          {past.length > 0 && <p className={SUB_HEADER_CLS}>Upcoming</p>}
           {upcoming.map((b) => {
             const cardType: CardType =
               b.session.formatLabel?.toLowerCase().includes("class") ||
@@ -209,12 +209,9 @@ export default function MyDropInBookings() {
 
             const actionNode = (
               <div className="flex flex-col items-end gap-1.5">
-                <a
-                  href={`/dropin/${b.sessionId}`}
-                  className="text-[11px] text-ink-2 underline"
-                >
-                  Details
-                </a>
+                <Button asChild variant="outline" size="sm">
+                  <a href={`/dropin/${b.sessionId}`}>Details</a>
+                </Button>
                 {b.checkedInAt ? (
                   <Badge
                     variant="outline"

@@ -252,7 +252,7 @@ export default function MyFieldRentals() {
       ) : (
         <>
           <section className="space-y-2">
-            <p className={SUB_HEADER_CLS}>Upcoming</p>
+            {pastOrCancelled.length > 0 && <p className={SUB_HEADER_CLS}>Upcoming</p>}
             {upcoming.length === 0 ? (
               <p className="text-sm text-ink-2">No upcoming rentals.</p>
             ) : (
