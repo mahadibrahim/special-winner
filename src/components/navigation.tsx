@@ -79,7 +79,7 @@ export default function Navigation() {
         Skip to main content
       </a>
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 bg-cream/95 backdrop-blur-md transition-all duration-500 ${
+      className={`fixed top-0 left-0 right-0 z-50 bg-cream transition-all duration-500 ${
         isScrolled
           ? "shadow-[0_1px_0_0_var(--border)]"
           : ""
