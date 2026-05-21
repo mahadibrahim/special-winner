@@ -34,7 +34,7 @@ export function AnnouncementEmail({
       <Content>
         <H1>{announcementTitle}</H1>
         <PMuted>
-          From {authorName} · {organizationName || "Aspire Sports"}
+          From {authorName} · {organizationName || "Aspire Sports"} · {publishedAt}
         </PMuted>
 
         <Hr style={{ borderColor: tokens.border, margin: "16px 0 24px" }} />
