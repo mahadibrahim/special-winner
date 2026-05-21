@@ -17,6 +17,7 @@ export interface EmailOptions {
   html: string;
   text?: string;
   replyTo?: string;
+  headers?: Record<string, string>;
 }
 
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
@@ -33,6 +34,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
       html: options.html,
       text: options.text,
       replyTo: options.replyTo,
+      headers: options.headers,
     });
 
     if (error) {
