@@ -1,11 +1,11 @@
 /**
- * POST /api/kiosk/[venueSlug]/walkin/start
+ * POST /api/kiosk/[locationSlug]/walkin/start
  *
  * Creates a walk-in registration slot for an adult or minor arriving at the
  * kiosk without a prior online booking. Flow:
  *
- *   1. requireKioskVenue(slug) — resolve venue + org
- *   2. Validate the target session (same venue, status=scheduled)
+ *   1. requireKioskLocation(slug) — resolve facility + org
+ *   2. Validate the target session (a space in this facility, status=scheduled)
  *   3. Validate contact / parent fields; reject minors without parent info
  *   4. Create or find the booker user record (parent for minors, self for adults)
  *   5. For minors: create a family_members row (parent_user_id path)
@@ -26,8 +26,9 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
+import { venues } from "@/lib/db/schema/teams";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
-import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { mintToken } from "@/lib/check-in/tokens-db";
 
 export const prerender = false;
@@ -50,10 +51,10 @@ function computeAge(dobStr: string): number {
 }
 
 export const POST: APIRoute = async ({ params, request }) => {
-  const slug = params.venueSlug ?? "";
-  const venueResult = await requireKioskVenue(slug);
-  if (!venueResult.ok) return venueResult.response;
-  const { venue } = venueResult;
+  const slug = params.locationSlug ?? "";
+  const locationResult = await requireKioskLocation(slug);
+  if (!locationResult.ok) return locationResult.response;
+  const { location } = locationResult;
 
   let body: Record<string, unknown>;
   try {
@@ -118,18 +119,18 @@ export const POST: APIRoute = async ({ params, request }) => {
   let [rateCard] = await db
     .select()
     .from(dropInRateCard)
-    .where(eq(dropInRateCard.organizationId, venue.organizationId))
+    .where(eq(dropInRateCard.organizationId, location.organizationId))
     .limit(1);
   if (!rateCard) {
     // Ensure a rate card exists (upsert)
     await db
       .insert(dropInRateCard)
-      .values({ organizationId: venue.organizationId })
+      .values({ organizationId: location.organizationId })
       .onConflictDoNothing();
     [rateCard] = await db
       .select()
       .from(dropInRateCard)
-      .where(eq(dropInRateCard.organizationId, venue.organizationId))
+      .where(eq(dropInRateCard.organizationId, location.organizationId))
       .limit(1);
   }
   const amountDueCents =
@@ -204,7 +205,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   const tok = await mintToken({
     kind: "walkin_session",
     targetId: booking.id,
-    organizationId: venue.organizationId,
+    organizationId: location.organizationId,
     venueId: venue.id,
     sentVia: "kiosk_search",
     recipientUserId: bookerUserId,

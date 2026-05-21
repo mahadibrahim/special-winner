@@ -1,9 +1,10 @@
 /**
- * GET /api/kiosk/[venueSlug]/search?q=<query>
+ * GET /api/kiosk/[locationSlug]/search?q=<query>
  *
- * Unauthenticated kiosk search. The venueSlug (venue UUID for v1) scopes
- * every query to one venue. Returns confirmed drop-in bookings and field
- * rentals at THIS venue for TODAY (UTC day bounds).
+ * Unauthenticated kiosk search. The locationSlug (location slug or UUID)
+ * scopes every query to one facility. Returns confirmed drop-in bookings
+ * and field rentals across every space in THIS facility for TODAY (UTC
+ * day bounds).
  *
  * Search matches:
  *  - Drop-in: user's first or last name (ilike) or last-4 of phone.
@@ -17,7 +18,8 @@ import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { users } from "@/lib/db/schema/users";
-import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
+import { venues } from "@/lib/db/schema/teams";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 
 export const prerender = false;
 
@@ -30,15 +32,15 @@ const json = (body: unknown, status: number) =>
 const MAX_RESULTS = 20;
 
 export const GET: APIRoute = async ({ params, url }) => {
-  const slug = params.venueSlug ?? "";
-  const kioskResult = await requireKioskVenue(slug);
+  const slug = params.locationSlug ?? "";
+  const kioskResult = await requireKioskLocation(slug);
   if (!kioskResult.ok) return kioskResult.response;
-  const { venue } = kioskResult;
+  const { location } = kioskResult;
 
-  // Render times in the venue's local timezone — the kiosk and the customer
-  // are physically at the venue. Falls back to Eastern (the venues.timezone
-  // column default) if a location somehow has no timezone set.
-  const tz = venue.timezone ?? "America/New_York";
+  // Render times in the facility's local timezone — the kiosk and the
+  // customer are physically at the facility. Falls back to Eastern (the
+  // locations.timezone column default) if it somehow has no timezone set.
+  const tz = location.timezone ?? "America/New_York";
   const fmtTime = (d: Date) =>
     d.toLocaleTimeString("en-US", {
       hour: "numeric",

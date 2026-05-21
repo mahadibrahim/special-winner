@@ -1,14 +1,15 @@
 /**
- * GET /api/kiosk/[venueSlug]/sessions
+ * GET /api/kiosk/[locationSlug]/sessions
  *
- * Returns today's scheduled drop-in sessions at this venue with computed
- * available capacity (capacity minus confirmed bookings).
+ * Returns today's scheduled drop-in sessions across every space in this
+ * facility with computed available capacity (capacity minus confirmed
+ * bookings).
  */
 import type { APIRoute } from "astro";
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
-import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 
 export const prerender = false;
 
@@ -19,10 +20,10 @@ const json = (b: unknown, s: number) =>
   });
 
 export const GET: APIRoute = async ({ params }) => {
-  const slug = params.venueSlug;
-  if (!slug) return json({ error: "venueSlug required" }, 400);
+  const slug = params.locationSlug;
+  if (!slug) return json({ error: "locationSlug required" }, 400);
 
-  const k = await requireKioskVenue(slug);
+  const k = await requireKioskLocation(slug);
   if (!k.ok) return k.response;
 
   const now = new Date();
@@ -44,7 +45,7 @@ export const GET: APIRoute = async ({ params }) => {
     .from(dropInSessions)
     .where(
       and(
-        eq(dropInSessions.venueId, k.venue.id),
+        eq(dropInSessions.venueId, k.location.id),
         eq(dropInSessions.status, "scheduled"),
         gte(dropInSessions.startsAt, dayStart),
         lt(dropInSessions.startsAt, dayEnd),

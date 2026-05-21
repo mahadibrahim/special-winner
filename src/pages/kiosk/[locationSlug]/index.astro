@@ -1,17 +1,17 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import KioskLanding from "@/components/kiosk/KioskLanding";
-import { requireKioskVenue } from "@/lib/check-in/kiosk-auth";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 
 export const prerender = false;
 
-const slug = Astro.params.venueSlug;
+const slug = Astro.params.locationSlug;
 let venueName: string | null = null;
 let invalid = false;
 
 if (slug) {
-  const k = await requireKioskVenue(slug);
-  if (k.ok) venueName = k.venue.name;
+  const k = await requireKioskLocation(slug);
+  if (k.ok) venueName = k.location.name;
   else invalid = true;
 } else {
   invalid = true;
