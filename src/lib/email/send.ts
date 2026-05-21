@@ -1,5 +1,6 @@
-import { render } from "@react-email/components";
 import { sendEmail, isEmailConfigured } from "./index";
+import { renderEmail } from "./render";
+import { formatEmailDate, formatEmailDateTime } from "./format";
 import { RegistrationConfirmationEmail } from "./templates/registration-confirmation";
 import { PaymentReceiptEmail } from "./templates/payment-receipt";
 import { WaitlistPromotionEmail } from "./templates/waitlist-promotion";
@@ -15,6 +16,7 @@ import { getDb } from "@/lib/db";
 import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
+import { WAITLIST_PROMOTION_HOURS } from "@/lib/waitlist/processor";
 
 /**
  * Fire a short SMS nudge in ADDITION to a transactional email, for
@@ -85,64 +87,6 @@ async function sendTransactionalEmail(opts: {
   return result;
 }
 
-/**
- * Helper: if organizationId is provided and we can route through the
- * messaging gateway (multi-channel SMS/email/telegram with opt-in enforcement),
- * use that. Otherwise fall back to direct email send. This lets legacy
- * callers keep working while new callers automatically get the Phase 1
- * multi-channel behavior by passing organizationId.
- */
-async function sendViaGatewayOrDirect(opts: {
-  userId?: string;
-  organizationId?: string;
-  to: string;
-  subject: string;
-  html: string;
-  text?: string;
-  smsBody?: string;
-}): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  if (opts.userId && opts.organizationId) {
-    const result = await sendToParent({
-      parentUserId: opts.userId,
-      organizationId: opts.organizationId,
-      body: opts.smsBody || opts.text || stripHtmlTags(opts.html),
-      bodyHtml: opts.html,
-      subject: opts.subject,
-      senderType: "system",
-    });
-
-    if (result.ok) {
-      return {
-        success: true,
-        messageId: result.externalMessageId ?? undefined,
-      };
-    }
-
-    // Gateway failed to send via all channels — fall back to direct email
-    // so the parent still gets the transactional notification.
-    console.warn(
-      `Gateway send failed (${result.reason}), falling back to direct email`,
-    );
-  }
-
-  return await sendEmail({
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
-    text: opts.text,
-  });
-}
-
-function stripHtmlTags(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 // Helper to log emails. Writes one row per send attempt to email_logs;
 // failures are swallowed so a logging error never blocks the email itself.
 async function logEmail(data: {
@@ -172,28 +116,6 @@ async function logEmail(data: {
 // Format currency from cents
 function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-// Format date
-function formatDate(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-// Format date with time
-function formatDateTime(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 // Registration confirmation email
@@ -226,14 +148,14 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
 
   const appUrl = env.PUBLIC_APP_URL;
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     RegistrationConfirmationEmail({
       parentName: params.parentName,
       childName: params.childName,
       programName: params.programName,
       seasonName: params.seasonName,
-      startDate: formatDate(params.startDate),
-      endDate: formatDate(params.endDate),
+      startDate: formatEmailDate(params.startDate),
+      endDate: formatEmailDate(params.endDate),
       scheduleNotes: params.scheduleNotes,
       locationName: params.locationName,
       locationAddress: params.locationAddress,
@@ -242,39 +164,25 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
       registrationStatus: params.registrationStatus,
       dashboardUrl: `${appUrl}/dashboard`,
       hasLinkedTelegram: params.hasLinkedTelegram ?? false,
-    })
+      paymentUrl: `${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`,
+      waitlistClaimHours: WAITLIST_PROMOTION_HOURS,
+    }),
   );
 
-  const subject = params.registrationStatus === "waitlisted"
-    ? `Waitlist Confirmation - ${params.childName} for ${params.programName}`
-    : `Registration Confirmed - ${params.childName} for ${params.programName}`;
-
-  // SMS-friendly version for multi-channel delivery
-  const smsBody =
+  const subject =
     params.registrationStatus === "waitlisted"
-      ? `${params.childName} is on the waitlist for ${params.programName}. We'll notify you if a spot opens up.`
-      : `${params.childName}'s registration for ${params.programName} is confirmed. First session: ${formatDate(params.startDate)}. Details: ${appUrl}/dashboard`;
+      ? `Waitlist confirmation — ${params.childName} for ${params.programName}`
+      : `Registration confirmed — ${params.childName} for ${params.programName}`;
 
-  const result = await sendViaGatewayOrDirect({
-    userId: params.userId,
-    organizationId: params.organizationId,
-    to: params.parentEmail,
-    subject,
-    html,
-    smsBody,
-  });
-
-  await logEmail({
+  return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
     emailType: "registration_confirmation",
-    recipientEmail: params.parentEmail,
+    to: params.parentEmail,
     subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
+    html,
+    text,
   });
-
-  return result;
 }
 
 // Payment receipt email
@@ -301,47 +209,34 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
 
   const appUrl = env.PUBLIC_APP_URL;
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     PaymentReceiptEmail({
       parentName: params.parentName,
       childName: params.childName,
       programName: params.programName,
       seasonName: params.seasonName,
       amountPaid: formatCurrency(params.amountPaidCents),
-      paymentDate: formatDate(new Date()),
+      paymentDate: formatEmailDate(new Date()),
       paymentType: params.paymentType,
       remainingBalance: params.remainingBalanceCents
         ? formatCurrency(params.remainingBalanceCents)
         : undefined,
       receiptNumber: params.receiptNumber,
       dashboardUrl: `${appUrl}/dashboard`,
-    })
+    }),
   );
 
-  const subject = `Payment Receipt - ${params.childName} - ${params.programName}`;
+  const subject = `Payment receipt — ${params.childName}, ${params.programName}`;
 
-  const smsBody = `Payment received: ${formatCurrency(params.amountPaidCents)} for ${params.childName}'s ${params.programName}. Receipt #${params.receiptNumber}.`;
-
-  const result = await sendViaGatewayOrDirect({
-    userId: params.userId,
-    organizationId: params.organizationId,
-    to: params.parentEmail,
-    subject,
-    html,
-    smsBody,
-  });
-
-  await logEmail({
+  return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
     emailType: "payment_receipt",
-    recipientEmail: params.parentEmail,
+    to: params.parentEmail,
     subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
+    html,
+    text,
   });
-
-  return result;
 }
 
 // Waitlist promotion email
@@ -367,44 +262,34 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
 
   const appUrl = env.PUBLIC_APP_URL;
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     WaitlistPromotionEmail({
       parentName: params.parentName,
       childName: params.childName,
       programName: params.programName,
       seasonName: params.seasonName,
       amountDue: formatCurrency(params.amountDueCents),
-      expiresAt: formatDateTime(params.expiresAt),
+      expiresAt: formatEmailDateTime(params.expiresAt),
       hoursToComplete: params.hoursToComplete,
-      registerUrl: `${appUrl}/dashboard`,
+      registerUrl: `${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`,
       dashboardUrl: `${appUrl}/dashboard`,
-    })
+    }),
   );
 
-  const subject = `ACTION REQUIRED: Spot Available for ${params.childName} - ${params.programName}`;
+  const subject = `Action required: a spot opened for ${params.childName}`;
 
-  const smsBody = `A spot just opened for ${params.childName} in ${params.programName}! Confirm within ${params.hoursToComplete}h: ${appUrl}/dashboard`;
+  const smsBody = `A spot just opened for ${params.childName} in ${params.programName}! Confirm within ${params.hoursToComplete}h: ${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`;
 
-  const result = await sendViaGatewayOrDirect({
-    userId: params.userId,
-    organizationId: params.organizationId,
-    to: params.parentEmail,
-    subject,
-    html,
-    smsBody,
-  });
-
-  await logEmail({
+  return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
     emailType: "waitlist_promotion",
-    recipientEmail: params.parentEmail,
+    to: params.parentEmail,
     subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
+    html,
+    text,
+    smsNudge: { organizationId: params.organizationId, body: smsBody },
   });
-
-  return result;
 }
 
 // Refund notification email
@@ -430,7 +315,7 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
 
   const appUrl = env.PUBLIC_APP_URL;
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     RefundNotificationEmail({
       parentName: params.parentName,
       childName: params.childName,
@@ -440,38 +325,23 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
       refundStatus: params.refundStatus,
       denialReason: params.denialReason,
       dashboardUrl: `${appUrl}/dashboard`,
-    })
+    }),
   );
 
-  const subject = params.refundStatus === "approved"
-    ? `Refund Approved - ${formatCurrency(params.refundAmountCents)} for ${params.childName}`
-    : `Refund Request Update - ${params.childName}`;
-
-  const smsBody =
+  const subject =
     params.refundStatus === "approved"
-      ? `Refund of ${formatCurrency(params.refundAmountCents)} for ${params.childName}'s ${params.programName} has been approved. Expect 5-10 business days.`
-      : `Refund request for ${params.childName}'s ${params.programName} was not approved. ${params.denialReason ?? "Check your dashboard for details."}`;
+      ? `Refund approved — ${formatCurrency(params.refundAmountCents)} for ${params.childName}`
+      : `Refund request update — ${params.childName}`;
 
-  const result = await sendViaGatewayOrDirect({
-    userId: params.userId,
-    organizationId: params.organizationId,
-    to: params.parentEmail,
-    subject,
-    html,
-    smsBody,
-  });
-
-  await logEmail({
+  return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
     emailType: params.refundStatus === "approved" ? "refund_approved" : "refund_denied",
-    recipientEmail: params.parentEmail,
+    to: params.parentEmail,
     subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
+    html,
+    text,
   });
-
-  return result;
 }
 
 // Magic-link login email (sent to guests after checkout to let them access their account)
@@ -493,7 +363,7 @@ export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) 
     return { success: false, error: "Email not configured" };
   }
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     MagicLinkLoginEmail({
       parentName: params.parentName,
       magicLinkUrl: params.magicLinkUrl,
@@ -506,29 +376,14 @@ export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) 
 
   const subject = "You're registered — finish setting up your account";
 
-  // magicLinkUrl contains a single-use, 15-minute login token. Routing it via
-  // SMS is the whole point of this email type — see /m/[token] for redemption.
-  const smsBody = `You're registered! Sign in to your Aspire Sports account: ${params.magicLinkUrl}`;
-
-  const result = await sendViaGatewayOrDirect({
+  return sendTransactionalEmail({
     userId: params.userId,
-    organizationId: params.organizationId,
+    emailType: "magic_link_login",
     to: params.parentEmail,
     subject,
     html,
-    smsBody,
+    text,
   });
-
-  await logEmail({
-    userId: params.userId,
-    emailType: "magic_link_login",
-    recipientEmail: params.parentEmail,
-    subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
-  });
-
-  return result;
 }
 
 // Payment-failed notification (Stripe payment_intent.payment_failed webhook)
@@ -551,7 +406,7 @@ export async function sendPaymentFailedEmail(params: SendPaymentFailedParams) {
     return { success: false, error: "Email not configured" };
   }
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     PaymentFailedEmail({
       parentName: params.parentName,
       childName: params.childName,
@@ -566,26 +421,16 @@ export async function sendPaymentFailedEmail(params: SendPaymentFailedParams) {
 
   const smsBody = `Heads up: your payment for ${params.childName}'s ${params.programName} registration didn't go through. Retry: ${params.retryUrl}`;
 
-  const result = await sendViaGatewayOrDirect({
-    userId: params.userId,
-    organizationId: params.organizationId,
-    to: params.parentEmail,
-    subject,
-    html,
-    smsBody,
-  });
-
-  await logEmail({
+  return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
     emailType: "payment_failed",
-    recipientEmail: params.parentEmail,
+    to: params.parentEmail,
     subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
+    html,
+    text,
+    smsNudge: { organizationId: params.organizationId, body: smsBody },
   });
-
-  return result;
 }
 
 // Announcement email — fire-and-forget per-recipient send used by the
@@ -609,7 +454,7 @@ export async function sendAnnouncementEmail(params: SendAnnouncementParams) {
     return { success: false, error: "Email not configured" };
   }
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     AnnouncementEmail({
       recipientName: params.recipientName,
       announcementTitle: params.announcementTitle,
@@ -623,32 +468,14 @@ export async function sendAnnouncementEmail(params: SendAnnouncementParams) {
 
   const subject = `${params.organizationName}: ${params.announcementTitle}`;
 
-  // Trim SMS body so a long announcement body doesn't blow past 160 chars.
-  const trimmed =
-    params.announcementContent.length > 100
-      ? `${params.announcementContent.slice(0, 100).trim()}…`
-      : params.announcementContent;
-  const smsBody = `${params.organizationName}: ${params.announcementTitle}. ${trimmed} ${params.dashboardUrl}`;
-
-  const result = await sendViaGatewayOrDirect({
+  return sendTransactionalEmail({
     userId: params.userId,
-    organizationId: params.organizationId,
+    emailType: "announcement",
     to: params.recipientEmail,
     subject,
     html,
-    smsBody,
+    text,
   });
-
-  await logEmail({
-    userId: params.userId,
-    emailType: "announcement",
-    recipientEmail: params.recipientEmail,
-    subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
-  });
-
-  return result;
 }
 
 // Balance reminder email — fired by /api/cron/send-balance-reminders
@@ -676,14 +503,14 @@ export async function sendBalanceReminderEmail(
     return { success: false, error: "Email not configured" };
   }
 
-  const html = await render(
+  const { html, text } = await renderEmail(
     PaymentBalanceReminderEmail({
       parentName: params.parentName,
       childName: params.childName,
       programName: params.programName,
       seasonName: params.seasonName,
       balanceAmount: formatCurrency(params.balanceCents),
-      seasonStartDate: formatDate(params.seasonStartDate),
+      seasonStartDate: formatEmailDate(params.seasonStartDate),
       payBalanceUrl: params.payBalanceUrl,
       reminderType: params.reminderType,
     }),
@@ -693,24 +520,14 @@ export async function sendBalanceReminderEmail(
 
   const smsBody = `Reminder: ${formatCurrency(params.balanceCents)} balance due for ${params.childName} (${params.programName}). Pay: ${params.payBalanceUrl}`;
 
-  const result = await sendViaGatewayOrDirect({
-    userId: params.userId,
-    organizationId: params.organizationId,
-    to: params.parentEmail,
-    subject,
-    html,
-    smsBody,
-  });
-
-  await logEmail({
+  return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
     emailType: `balance_reminder_${params.reminderType}`,
-    recipientEmail: params.parentEmail,
+    to: params.parentEmail,
     subject,
-    resendMessageId: result.messageId,
-    status: result.success ? "sent" : "failed",
+    html,
+    text,
+    smsNudge: { organizationId: params.organizationId, body: smsBody },
   });
-
-  return result;
 }
