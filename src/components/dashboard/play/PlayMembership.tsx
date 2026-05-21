@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Shield, ClipboardList } from "lucide-react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
-import { Badge } from "@/components/ui/badge";
+import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
+import type { StatusTone } from "@/lib/dashboard/dashboard-ui";
 
 interface Team {
   id: string;
@@ -40,18 +42,9 @@ function fmtRecord(record: { wins: number; losses: number; ties: number }): stri
   return record.ties > 0 ? `${base}-${record.ties}T` : base;
 }
 
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case "active":
-    case "confirmed":
-      return "bg-emerald-100 text-emerald-900 border-emerald-200";
-    case "waitlisted":
-      return "bg-amber-100 text-amber-900 border-amber-200";
-    case "cancelled":
-      return "bg-stone-50 text-stone-500 border-stone-200";
-    default:
-      return "bg-stone-100 text-stone-700 border-stone-200";
-  }
+function regStatusTone(status: string): StatusTone {
+  if (status === "active" || status === "confirmed") return "confirmed";
+  return "pending";
 }
 
 export default function PlayMembership() {
@@ -169,27 +162,28 @@ export default function PlayMembership() {
           </h3>
           <ul className="space-y-3">
             {teams.map((team) => (
-              <li
-                key={team.id}
-                className="rounded-xl border border-stone-200 bg-paper p-4 flex items-start justify-between gap-3"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    {team.color && (
-                      <span
-                        className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: team.color }}
-                      />
-                    )}
-                    <span className="font-semibold text-ink">{team.name}</span>
-                  </div>
-                  {team.division && (
-                    <p className="text-xs text-ink-muted mt-0.5">{team.division}</p>
-                  )}
-                  <p className="text-sm text-ink-2 mt-1 font-mono">
-                    {fmtRecord(team.record)}
-                  </p>
-                </div>
+              <li key={team.id}>
+                <DashboardCard
+                  icon={Shield}
+                  eyebrow="My team"
+                  title={
+                    <span className="flex items-center gap-2">
+                      {team.color && (
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: team.color }}
+                        />
+                      )}
+                      {team.name}
+                    </span>
+                  }
+                  meta={
+                    <>
+                      {team.division ? `${team.division} · ` : ""}
+                      <span className="font-mono">{fmtRecord(team.record)}</span>
+                    </>
+                  }
+                />
               </li>
             ))}
           </ul>
@@ -204,10 +198,10 @@ export default function PlayMembership() {
           </h3>
           <div className="space-y-4">
             {[...standingsBySeasonId.entries()].map(([seasonId, rows]) => (
-              <div key={seasonId} className="overflow-x-auto rounded-lg border border-stone-200">
+              <div key={seasonId} className="overflow-x-auto rounded-lg border border-border">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-cream-2 border-b border-stone-200">
+                    <tr className="bg-cream-2 border-b border-border">
                       <th className="text-left px-3 py-2 font-semibold text-ink-muted text-xs uppercase tracking-wide">
                         Team
                       </th>
@@ -232,7 +226,7 @@ export default function PlayMembership() {
                         <tr
                           key={row.teamId}
                           className={[
-                            i % 2 === 0 ? "bg-white" : "bg-cream-2",
+                            i % 2 === 0 ? "bg-paper" : "bg-cream-2",
                             isMyTeam ? "font-semibold" : "",
                           ]
                             .filter(Boolean)
@@ -265,31 +259,24 @@ export default function PlayMembership() {
           <h3 className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-3">
             Registrations
           </h3>
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {registrations.map((reg) => (
-              <li
-                key={reg.id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-stone-100 bg-cream-2 px-3 py-2.5 text-sm"
-              >
-                <div className="min-w-0">
-                  <span className="font-medium text-ink">{reg.program.name}</span>
-                  <span className="text-ink-muted ml-2">{reg.season.name}</span>
-                  <span className="text-ink-muted ml-1">· {reg.location.name}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${statusBadgeClass(reg.status)}`}
-                  >
-                    {reg.status}
-                  </Badge>
-                  <a
-                    href={`/dashboard/registrations/${reg.id}`}
-                    className="text-xs text-primary underline"
-                  >
-                    View
-                  </a>
-                </div>
+              <li key={reg.id}>
+                <DashboardCard
+                  icon={ClipboardList}
+                  eyebrow="League registration"
+                  title={reg.program.name}
+                  meta={`${reg.season.name} · ${reg.location.name}`}
+                  status={{ label: reg.status, tone: regStatusTone(reg.status) }}
+                  action={
+                    <a
+                      href={`/dashboard/registrations/${reg.id}`}
+                      className="text-xs text-primary underline"
+                    >
+                      View
+                    </a>
+                  }
+                />
               </li>
             ))}
           </ul>
