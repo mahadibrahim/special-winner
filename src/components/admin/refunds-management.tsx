@@ -86,7 +86,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
     icon: Clock,
   },
   processed: {
-    label: "Processed",
+    label: "Refunded",
     color: "bg-green-100 text-green-800 border-green-200",
     icon: CheckCircle2,
   },
