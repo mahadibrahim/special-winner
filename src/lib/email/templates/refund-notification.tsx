@@ -70,7 +70,7 @@ export function RefundNotificationEmail({
         ) : (
           <>
             <P>
-              We've reviewed your refund request for{" "}
+              Unfortunately, we were unable to approve your refund request for{" "}
               <strong>{childName}</strong>'s registration in{" "}
               <strong>{programName}</strong>.
             </P>

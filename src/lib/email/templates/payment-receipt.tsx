@@ -79,9 +79,6 @@ export function PaymentReceiptEmail({
           <Detail label="Amount paid">
             <strong style={amountStyle}>{amountPaid}</strong>
           </Detail>
-          {hasBalance && (
-            <Detail label="Remaining balance">{remainingBalance}</Detail>
-          )}
           <Detail label="Receipt #">{receiptNumber}</Detail>
         </DetailPanel>
 
