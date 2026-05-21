@@ -32,11 +32,16 @@ async function applyUnsubscribe(token: string | null): Promise<boolean> {
   if (!token) return false;
   const userId = verifyUnsubscribeToken(token, getUnsubscribeSecret());
   if (!userId) return false;
-  await getDb()
-    .update(users)
-    .set({ marketingOptedOutAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(users.id, userId), isNull(users.marketingOptedOutAt)));
-  return true;
+  try {
+    await getDb()
+      .update(users)
+      .set({ marketingOptedOutAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(users.id, userId), isNull(users.marketingOptedOutAt)));
+    return true;
+  } catch (err) {
+    console.error("[unsubscribe] DB error:", err);
+    return false;
+  }
 }
 
 // GET — the unsubscribe link clicked from an email.
