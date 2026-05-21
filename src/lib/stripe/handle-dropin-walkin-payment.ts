@@ -8,9 +8,9 @@
  * Flips the pending_claim walk-in booking to `confirmed`. Cancelled-guard
  * protects against late-arriving webhooks after a refund/cancel.
  *
- * The booking row is created by POST /api/kiosk/[venueSlug]/walkin/start
+ * The booking row is created by POST /api/kiosk/[locationSlug]/walkin/start
  * in `pending_claim` status; the PaymentIntent is attached by
- * POST /api/kiosk/[venueSlug]/walkin/payment. This handler completes
+ * POST /api/kiosk/[locationSlug]/walkin/payment. This handler completes
  * the flow once Stripe confirms the charge.
  */
 import type Stripe from "stripe";
