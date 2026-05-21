@@ -127,7 +127,7 @@ export const POST: APIRoute = async ({ request }) => {
           userId: u.id,
           step: step.step,
           recipientEmail: u.email,
-          recipientName: u.firstName || u.email.split("@")[0],
+          recipientName: u.firstName ?? "",
         });
         if (result.success) sent += 1;
         else errored += 1;
