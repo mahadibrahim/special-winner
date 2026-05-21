@@ -3,13 +3,11 @@ import {
   registrations,
   payments,
   organizations,
-  users,
   type Registration,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
-import { sendRefundNotificationEmail } from "@/lib/email/send";
 
 export type AdminRefundResult =
   | {
@@ -38,27 +36,24 @@ export interface AdminRefundInput {
 }
 
 /**
- * Issues a Stripe refund (Connect-aware) for a registration, updates the
- * registration + payment rows, and emails the customer.
+ * Issues a Stripe refund (Connect-aware) for a registration and marks the
+ * registration as in-flight (`refundStatus: "approved"`).
+ *
+ * The `charge.refunded` webhook is the single writer of refund tracking
+ * (DB updates for paymentStatus / status / refundAmountCents) and the
+ * customer email. This action only: validates, creates the Stripe refund,
+ * and marks the registration in-flight.
  *
  * Used by both the customer-initiated refund queue
  * (POST /api/admin/refunds/[id], action="approve") and the admin-direct
  * refund endpoint (POST /api/admin/registrations/[id]/refund).
- *
- * `refundStatus` is set to "processed" — callers should not pre-set it.
- * Partial vs full is detected by comparing `refundAmountCents` to the row's
- * `amountPaidCents`.
  */
 export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundResult> {
   const {
     registration,
     refundAmountCents,
-    reason,
     adminUserId,
     organizationId,
-    childName,
-    programName,
-    seasonName,
   } = input;
 
   if (refundAmountCents < 0) {
@@ -138,53 +133,36 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
     }
   }
 
-  const isPartial = refundAmountCents > 0 && refundAmountCents < previousAmountPaid;
-  const newAmountPaid = Math.max(0, previousAmountPaid - refundAmountCents);
+  // No Stripe refund was created (zero amount, or no payment intent on
+  // record) — there will be no webhook. Finalize synchronously.
+  if (!stripeRefundId) {
+    const [updated] = await getDb()
+      .update(registrations)
+      .set({
+        refundStatus: "processed",
+        status: "refunded",
+        paymentStatus: "refunded",
+        refundAmountCents,
+        updatedAt: new Date(),
+      })
+      .where(eq(registrations.id, registration.id))
+      .returning();
+    return { ok: true, registration: updated, stripeRefundId: null, isPartial: false };
+  }
 
+  // The charge.refunded webhook is the single writer of refund tracking and
+  // the customer email. Here we only mark the refund in-flight so the admin
+  // UI can show a "processing" state until Stripe confirms.
   const [updated] = await getDb()
     .update(registrations)
     .set({
-      refundStatus: "processed",
-      status: isPartial ? registration.status : "refunded",
-      amountPaidCents: newAmountPaid,
-      paymentStatus: isPartial ? "partial_refund" : "refunded",
-      refundAmountCents,
+      refundStatus: "approved",
       updatedAt: new Date(),
     })
     .where(eq(registrations.id, registration.id))
     .returning();
 
-  if (payment) {
-    await getDb()
-      .update(payments)
-      .set({
-        status: "refunded",
-        refundReason: reason ?? null,
-        updatedAt: new Date(),
-      })
-      .where(eq(payments.id, payment.id));
-  }
-
-  // Email the parent. Fail soft — never block the refund on email delivery.
-  const [parentUser] = await getDb()
-    .select()
-    .from(users)
-    .where(eq(users.id, registration.registeredByUserId));
-
-  if (parentUser) {
-    sendRefundNotificationEmail({
-      userId: parentUser.id,
-      organizationId,
-      registrationId: registration.id,
-      parentEmail: parentUser.email,
-      parentName: parentUser.firstName || parentUser.email.split("@")[0],
-      childName,
-      programName,
-      seasonName,
-      refundAmountCents,
-      refundStatus: "approved",
-    }).catch((err) => console.error("Error sending refund approval email:", err));
-  }
+  const isPartial = refundAmountCents > 0 && refundAmountCents < previousAmountPaid;
 
   return {
     ok: true,
