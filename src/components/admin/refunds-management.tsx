@@ -81,9 +81,9 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
     icon: Clock,
   },
   approved: {
-    label: "Approved",
+    label: "Approved — processing",
     color: "bg-blue-100 text-blue-800 border-blue-200",
-    icon: CheckCircle2,
+    icon: Clock,
   },
   processed: {
     label: "Processed",
@@ -233,13 +233,13 @@ export function RefundsManagement() {
           <Card className={statusFilter === "approved" ? "ring-2 ring-primary" : ""}>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                Approved
+                <Clock className="w-4 h-4 text-blue-600" />
+                Approved — processing
               </CardDescription>
               <CardTitle className="text-3xl">{summary.approved}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Awaiting processing</p>
+              <p className="text-sm text-muted-foreground">Stripe refund in progress</p>
             </CardContent>
           </Card>
 
