@@ -26,10 +26,10 @@ test("admin can open the check-in dashboard for the seed venue", async ({
     page.getByRole("heading", { name: /today.s check-in/i })
   ).toBeVisible();
 
-  // Venue select — the <label> wraps a <span>Venue</span> + <select>.
+  // Space select — the <label> wraps a <span>Space</span> + <select>.
   // Playwright getByLabel looks for aria-label or for= attributes; the
   // implicit-label-wrapping-span pattern requires a CSS/text approach instead.
-  const venueSelect = page.locator("label").filter({ hasText: /^Venue/ }).locator("select");
+  const venueSelect = page.locator("label").filter({ hasText: /^Space/ }).locator("select");
   await expect(venueSelect).toBeVisible();
 
   // Date input — same label pattern
@@ -63,7 +63,7 @@ test("check-in dashboard fetches day view without error for the seed venue", asy
   await waitForHydration(page);
 
   // Select the seed venue explicitly (same implicit-label selector as above)
-  const venueSelect = page.locator("label").filter({ hasText: /^Venue/ }).locator("select");
+  const venueSelect = page.locator("label").filter({ hasText: /^Space/ }).locator("select");
   await venueSelect.selectOption({ label: "E2E Rental Field Complex" });
 
   // Wait for the day-view fetch to complete. Two acceptable outcomes:
