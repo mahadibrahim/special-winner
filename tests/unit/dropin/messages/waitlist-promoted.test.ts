@@ -27,8 +27,8 @@ const ctx: WaitlistPromotedContext = {
 };
 
 describe("renderWaitlistPromoted", () => {
-  it("emits all three channels with a claim link containing the token", () => {
-    const v = renderWaitlistPromoted(ctx);
+  it("emits all three channels with a claim link containing the token", async () => {
+    const v = await renderWaitlistPromoted(ctx);
     const expectedLink = "https://aspire.test/dropin/claim/tok-abc-123";
     expect(v.email.html).toContain(expectedLink);
     expect(v.email.text).toContain(expectedLink);
@@ -37,15 +37,15 @@ describe("renderWaitlistPromoted", () => {
     expect(v.telegram.parse_mode).toBe("HTML");
   });
 
-  it("includes a countdown to the promotion expiry", () => {
-    const v = renderWaitlistPromoted(ctx);
+  it("includes a countdown to the promotion expiry", async () => {
+    const v = await renderWaitlistPromoted(ctx);
     expect(v.email.subject).toMatch(/A spot opened up/);
     expect(v.email.subject).toMatch(/\d+ min/);
     expect(v.sms.body).toMatch(/\d+ min/);
   });
 
-  it("addresses the recipient by first name when present", () => {
-    const v = renderWaitlistPromoted(ctx);
+  it("addresses the recipient by first name when present", async () => {
+    const v = await renderWaitlistPromoted(ctx);
     expect(v.email.html).toContain("Alex");
     expect(v.email.text).toContain("Alex");
   });
