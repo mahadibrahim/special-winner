@@ -107,6 +107,11 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
   });
   const [token, setToken] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentAmounts, setPaymentAmounts] = useState<{
+    baseAmountCents: number;
+    surchargeCents: number;
+    totalCents: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -201,7 +206,18 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
         );
         return;
       }
-      setClientSecret((payBody as { clientSecret: string }).clientSecret);
+      const pay = payBody as {
+        clientSecret: string;
+        amountCents: number;
+        baseAmountCents: number;
+        surchargeCents: number;
+      };
+      setClientSecret(pay.clientSecret);
+      setPaymentAmounts({
+        baseAmountCents: pay.baseAmountCents,
+        surchargeCents: pay.surchargeCents,
+        totalCents: pay.amountCents,
+      });
       setStep("payment");
     } finally {
       setBusy(false);
@@ -317,7 +333,11 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
           stripe={getStripePromise(publishableKey)}
           options={{ clientSecret, appearance: { theme: "stripe" } }}
         >
-          <PaymentStep session={selectedSession} onSuccess={() => setStep("done")} />
+          <PaymentStep
+            session={selectedSession}
+            amounts={paymentAmounts}
+            onSuccess={() => setStep("done")}
+          />
         </Elements>
       )}
     </div>
@@ -741,9 +761,15 @@ function PhotoStep({
 
 function PaymentStep({
   session,
+  amounts,
   onSuccess,
 }: {
   session: Session;
+  amounts: {
+    baseAmountCents: number;
+    surchargeCents: number;
+    totalCents: number;
+  } | null;
   onSuccess: () => void;
 }) {
   const stripe = useStripe();
@@ -769,20 +795,35 @@ function PaymentStep({
     onSuccess();
   };
 
-  const amount =
-    session.sessionRateCents != null ? `$${(session.sessionRateCents / 100).toFixed(2)}` : null;
+  const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const totalLabel = amounts ? fmt(amounts.totalCents) : null;
 
   return (
     <form onSubmit={onPay} className="space-y-4">
-      <div className="rounded-xl border border-border bg-paper p-5 flex items-center justify-between gap-4">
+      <div className="rounded-xl border border-border bg-paper p-5 space-y-3">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
             Today's session
           </p>
           <p className="text-base font-medium text-ink mt-1">{session.title}</p>
         </div>
-        {amount && (
-          <div className="font-display text-3xl italic text-ink shrink-0">{amount}</div>
+        {amounts && (
+          <div className="border-t border-border pt-3 space-y-1.5 text-sm">
+            <div className="flex justify-between text-ink-muted">
+              <span>Session</span>
+              <span>{fmt(amounts.baseAmountCents)}</span>
+            </div>
+            <div className="flex justify-between text-ink-muted">
+              <span>Card processing fee</span>
+              <span>{fmt(amounts.surchargeCents)}</span>
+            </div>
+            <div className="flex justify-between items-baseline pt-1.5 border-t border-border">
+              <span className="font-medium text-ink">Total</span>
+              <span className="font-display text-2xl italic text-ink">
+                {fmt(amounts.totalCents)}
+              </span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -797,7 +838,7 @@ function PaymentStep({
       )}
 
       <button type="submit" disabled={busy} className={PRIMARY_BTN}>
-        {busy ? "Processing…" : amount ? `Pay ${amount}` : "Pay"}
+        {busy ? "Processing…" : totalLabel ? `Pay ${totalLabel}` : "Pay"}
       </button>
     </form>
   );
