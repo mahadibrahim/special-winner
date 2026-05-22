@@ -9,6 +9,7 @@ import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { registrations } from "@/lib/db/schema/registrations";
 import { and, eq, ne, sql, desc, asc } from "drizzle-orm";
+import { BUSINESS_TIMEZONE, currentBusinessHour } from "@/lib/time/business-timezone";
 
 export const prerender = false;
 
@@ -83,16 +84,14 @@ if (orgId) {
   }
 }
 
+const businessHour = currentBusinessHour();
 const greeting =
-  new Date().getHours() < 12
-    ? "morning"
-    : new Date().getHours() < 17
-      ? "afternoon"
-      : "evening";
+  businessHour < 12 ? "morning" : businessHour < 17 ? "afternoon" : "evening";
 const niceDate = new Date().toLocaleDateString("en-US", {
   weekday: "long",
   month: "long",
   day: "numeric",
+  timeZone: BUSINESS_TIMEZONE,
 });
 ---
 

@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { db } from "@/lib/db";
 import { events, locations } from "@/lib/db/schema";
 import { eq, and, gte, asc } from "drizzle-orm";
+import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 
 // SSR — events come from the DB and are time-sensitive.
 
@@ -59,6 +60,7 @@ function formatEventDate(d: Date): string {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: BUSINESS_TIMEZONE,
   });
 }
 
@@ -66,6 +68,7 @@ function formatEventTime(d: Date): string {
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: BUSINESS_TIMEZONE,
   });
 }
 ---
