@@ -63,7 +63,9 @@ export function FindBooking({ locationSlug, locationName, onBack }: Props) {
         return;
       }
       const body = await res.json();
-      window.location.href = body.url;
+      // Carry the kiosk slug so the self-serve completion screen can show a
+      // "Done" link back to this kiosk for the next person.
+      window.location.href = `${body.url}?kiosk=${encodeURIComponent(locationSlug)}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
       setOpening(false);
