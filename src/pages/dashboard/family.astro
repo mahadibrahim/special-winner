@@ -10,6 +10,7 @@ import { EmailVerificationBanner } from "@/components/dashboard/email-verificati
 import { Announcements } from "@/components/dashboard/announcements";
 import { TeamGroupsPanel } from "@/components/dashboard/team-groups-panel";
 import { TelegramConnectBanner } from "@/components/dashboard/telegram-connect-banner";
+import { currentBusinessHour } from "@/lib/time/business-timezone";
 import { PaymentSuccessBanner } from "@/components/dashboard/payment-success-banner";
 import { ExploreCard } from "@/components/dashboard/shell/ExploreCard";
 import { BookOpen, CalendarPlus, ShoppingBag, MessageCircle } from "lucide-react";
@@ -77,8 +78,8 @@ const hasAttentionItems =
   telegramBannerActive ||
   !isPhoneVerified;
 
-// Get current hour for greeting
-const hour = new Date().getHours();
+// Greeting hour in the business timezone — this page renders server-side.
+const hour = currentBusinessHour();
 let greeting = "Good morning";
 if (hour >= 12 && hour < 17) greeting = "Good afternoon";
 else if (hour >= 17) greeting = "Good evening";

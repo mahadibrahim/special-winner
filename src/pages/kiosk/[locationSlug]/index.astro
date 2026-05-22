@@ -2,26 +2,38 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import KioskLanding from "@/components/kiosk/KioskLanding";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 
 export const prerender = false;
 
 const slug = Astro.params.locationSlug;
 let locationName: string | null = null;
+// Default to the business timezone; overridden below with the resolved
+// location's own timezone.
+let locationTimezone: string = BUSINESS_TIMEZONE;
 let invalid = false;
 
 if (slug) {
   const k = await requireKioskLocation(slug);
-  if (k.ok) locationName = k.location.name;
-  else invalid = true;
+  if (k.ok) {
+    locationName = k.location.name;
+    locationTimezone = k.location.timezone ?? locationTimezone;
+  } else {
+    invalid = true;
+  }
 } else {
   invalid = true;
 }
 
+// Format the masthead date in the facility's timezone. This page renders
+// server-side and Netlify runs in UTC — an unzoned format rolls over to
+// "tomorrow" late in the evening local time.
 const today = new Date().toLocaleDateString("en-US", {
   weekday: "long",
   month: "long",
   day: "numeric",
   year: "numeric",
+  timeZone: locationTimezone,
 });
 ---
 <BaseLayout

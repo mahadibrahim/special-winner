@@ -1,12 +1,13 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import CoachDashboardOverview from '../../components/coach/coach-dashboard-overview';
+import { BUSINESS_TIMEZONE, currentBusinessHour } from "@/lib/time/business-timezone";
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
 
-// Get current hour for greeting
-const hour = new Date().getHours();
+// Greeting hour in the business timezone — this page renders server-side.
+const hour = currentBusinessHour();
 let greeting = "Good morning";
 if (hour >= 12 && hour < 17) greeting = "Good afternoon";
 else if (hour >= 17) greeting = "Good evening";
@@ -20,7 +21,7 @@ else if (hour >= 17) greeting = "Good evening";
         <div class="flex items-center justify-between mb-2">
           <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">§ Coach Dashboard</p>
           <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: BUSINESS_TIMEZONE })}
           </p>
         </div>
         <div class="h-px bg-border mb-10"></div>

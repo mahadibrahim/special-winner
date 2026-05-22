@@ -10,6 +10,7 @@ import MyDropInBookings from "@/components/dashboard/MyDropInBookings";
 import MyFieldRentals from "@/components/dashboard/MyFieldRentals";
 import { getDashboardDestinations } from "@/lib/dashboard/persona";
 import { writeLastVisited } from "@/lib/dashboard/last-visited";
+import { currentBusinessHour } from "@/lib/time/business-timezone";
 
 // Middleware guarantees user is authenticated for /dashboard routes.
 const user = Astro.locals.user!;
@@ -17,8 +18,8 @@ const user = Astro.locals.user!;
 // Record last-visited destination
 writeLastVisited(Astro.cookies, "play");
 
-// Get current hour for greeting
-const hour = new Date().getHours();
+// Greeting hour in the business timezone — this page renders server-side.
+const hour = currentBusinessHour();
 let greeting = "Good morning";
 if (hour >= 12 && hour < 17) greeting = "Good afternoon";
 else if (hour >= 17) greeting = "Good evening";
