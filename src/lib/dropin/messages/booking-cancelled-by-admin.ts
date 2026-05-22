@@ -7,6 +7,8 @@ import {
   type BookingCancelledByAdminContext,
   type MessageVariants,
 } from "./types";
+import { renderEmail } from "@/lib/email/render";
+import { DropInBookingCancelledEmail } from "@/lib/email/templates/dropin-booking-cancelled";
 
 /**
  * Admin-cancelled / admin-refunded booking notice.
@@ -16,10 +18,13 @@ import {
  *     (weather, no instructor, etc.). Tone: apologetic, full refund.
  *   - reason === "admin_refund"     — booking-specific cancellation
  *     by staff (e.g. comp / overrode the cancel-window). Tone: neutral.
+ *
+ * The email channel renders the shared branded transactional template;
+ * SMS and Telegram stay plain-text.
  */
-export function renderBookingCancelledByAdmin(
+export async function renderBookingCancelledByAdmin(
   ctx: BookingCancelledByAdminContext,
-): MessageVariants {
+): Promise<MessageVariants> {
   const startStr = formatSessionTime(ctx.session.startsAt, ctx.venue.timezone);
   const sportLabel = ctx.session.formatLabel
     ? `${ctx.session.sportOrClassLabel} (${ctx.session.formatLabel})`
@@ -48,28 +53,18 @@ export function renderBookingCancelledByAdmin(
       ? `[Aspire] We had to cancel ${sportLabel} at ${ctx.venue.name} on ${startStr}. ${refundLine} Details: ${link}`
       : `[Aspire] Your booking for ${sportLabel} on ${startStr} has been cancelled. ${refundLine} Details: ${link}`;
 
-  const html = `
-    <h2>${escapeHtml(subject)}</h2>
-    <p>Hi ${escapeHtml(name)},</p>
-    <p>${escapeHtml(headline)}</p>
-    <p>${escapeHtml(refundLine)}</p>
-    ${
-      ctx.reason === "session_cancelled"
-        ? `<p>Sorry for the disruption — we'll see you next time.</p>`
-        : ""
-    }
-    <p><a href="${link}">View session details &rarr;</a></p>
-  `.trim();
-
-  const text = [
-    subject,
-    "",
-    `Hi ${name},`,
-    headline,
-    refundLine,
-    "",
-    `Details: ${link}`,
-  ].join("\n");
+  const { html, text } = await renderEmail(
+    DropInBookingCancelledEmail({
+      recipientName: name,
+      sportLabel,
+      venueName: ctx.venue.name,
+      whenLabel: startStr,
+      headline,
+      refundLine,
+      sessionUrl: link,
+      reason: ctx.reason,
+    }),
+  );
 
   const tg =
     `<b>${escapeHtml(subject)}</b>\n` +
