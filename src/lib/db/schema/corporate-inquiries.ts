@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { organizations } from "./organizations";
 
 /**
  * B2B sales lead capture for corporate-team registrations. Companies that
@@ -16,6 +17,11 @@ import {
  */
 export const corporateInquiries = pgTable("corporate_inquiries", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // NEW: tenant the inquiry belongs to. Nullable so historical rows
+  // (predating Phase 0) keep working; new rows always carry it.
+  organizationId: uuid("organization_id").references(() => organizations.id, {
+    onDelete: "set null",
+  }),
 
   companyName: varchar("company_name", { length: 255 }).notNull(),
   contactName: varchar("contact_name", { length: 200 }).notNull(),
