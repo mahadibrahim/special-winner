@@ -3,7 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../components/admin/admin-layout';
 import { GamesList } from '../../components/admin/games-list';
 import { getDb } from '../../lib/db';
-import { seasons, programs, teams, venues } from '../../lib/db/schema';
+import { seasons, programs, teams, venues, locations } from '../../lib/db/schema';
 import { eq, asc } from 'drizzle-orm';
 
 // Middleware guarantees user is an admin for /admin routes.
@@ -46,8 +46,10 @@ try {
       .select({
         id: venues.id,
         name: venues.name,
+        location: { name: locations.name },
       })
       .from(venues)
+      .innerJoin(locations, eq(venues.locationId, locations.id))
       .where(eq(venues.active, true))
       .orderBy(asc(venues.name)),
   ]);

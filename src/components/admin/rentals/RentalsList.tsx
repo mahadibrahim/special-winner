@@ -6,6 +6,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { groupSpacesByLocation } from "@/lib/admin/group-spaces";
 
 interface RentalRow {
   id: string;
@@ -71,7 +72,11 @@ function fmtCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-type VenueOption = { id: string; name: string }
+type VenueOption = {
+  id: string;
+  name: string;
+  location: { id: string; name: string };
+}
 
 export function RentalsList() {
   useHydrationBeacon();
@@ -94,10 +99,14 @@ export function RentalsList() {
     let alive = true;
     fetch("/api/admin/venues")
       .then((r) => (r.ok ? r.json() : { venues: [] }))
-      .then((data: { venues?: Array<{ id: string; name: string }> }) => {
+      .then((data: { venues?: VenueOption[] }) => {
         if (!alive) return;
         setVenues(
-          (data.venues ?? []).map((v) => ({ id: v.id, name: v.name })),
+          (data.venues ?? []).map((v) => ({
+            id: v.id,
+            name: v.name,
+            location: v.location,
+          })),
         );
       })
       .catch((err) => {
@@ -137,7 +146,7 @@ export function RentalsList() {
       <div className="flex flex-wrap gap-3 items-end">
         <div>
           <label className="block text-xs text-ink-muted mb-1" htmlFor="rentals-venue-filter">
-            Venue
+            Space
           </label>
           <select
             id="rentals-venue-filter"
@@ -145,11 +154,15 @@ export function RentalsList() {
             onChange={(e) => setVenueFilter(e.target.value)}
             className="rounded border border-border px-3 py-1.5 text-sm bg-cream w-56"
           >
-            <option value="">All venues</option>
-            {venues.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
+            <option value="">All spaces</option>
+            {groupSpacesByLocation(venues).map((group) => (
+              <optgroup key={group.locationName} label={group.locationName}>
+                {group.spaces.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -200,7 +213,7 @@ export function RentalsList() {
           <table className="w-full text-sm">
             <thead className="bg-cream border-b border-border">
               <tr className="text-left">
-                <th className="px-4 py-2 font-medium text-ink-muted">Venue / Field</th>
+                <th className="px-4 py-2 font-medium text-ink-muted">Space / Field</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">When</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Renter</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Party</th>

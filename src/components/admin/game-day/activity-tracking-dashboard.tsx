@@ -341,7 +341,7 @@ export function ActivityTrackingDashboard() {
       {allVenues.length > 0 && (
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <Label className="text-xs">Venue</Label>
+            <Label className="text-xs">Space</Label>
             {filters.venues.size > 0 && (
               <button
                 type="button"
@@ -564,7 +564,7 @@ function FlatTable({
           <tr>
             <th className="px-3 py-2 font-medium">Status</th>
             <th className="px-3 py-2 font-medium">Activity</th>
-            <th className="px-3 py-2 font-medium">Venue</th>
+            <th className="px-3 py-2 font-medium">Space</th>
             <th className="px-3 py-2 font-medium">Expected</th>
             <th className="px-3 py-2 font-medium">Responsible</th>
             <th className="px-3 py-2 font-medium" />
@@ -625,7 +625,7 @@ function CardList({
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
-                <div className="text-muted-foreground">Venue</div>
+                <div className="text-muted-foreground">Space</div>
                 <div className="font-medium">{r.venueName ?? "—"}</div>
               </div>
               <div>
