@@ -307,11 +307,8 @@ export async function dispatchBookingConfirmation(
     source: booking.source,
   };
 
-  return await dispatch(
-    user,
-    renderBookingConfirmation(ctx),
-    session.organizationId,
-  );
+  const variants = await renderBookingConfirmation(ctx);
+  return await dispatch(user, variants, session.organizationId);
 }
 
 export async function dispatchWaitlistPromoted(
