@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { groupSpacesByLocation } from "@/lib/admin/group-spaces";
 import { toast } from "sonner";
 
 interface VenueOption {
   id: string;
   name: string;
+  location: { id: string; name: string };
 }
 
 interface SessionFormProps {
@@ -187,7 +189,7 @@ export function SessionForm({ sessionId }: SessionFormProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="venue">Venue</Label>
+          <Label htmlFor="venue">Space</Label>
           <select
             id="venue"
             value={state.venueId}
@@ -195,11 +197,15 @@ export function SessionForm({ sessionId }: SessionFormProps) {
             required
             className="mt-1 w-full rounded border border-border px-3 py-2 bg-cream"
           >
-            <option value="">Select venue…</option>
-            {venues.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
+            <option value="">Select a space…</option>
+            {groupSpacesByLocation(venues).map((group) => (
+              <optgroup key={group.locationName} label={group.locationName}>
+                {group.spaces.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

@@ -7,10 +7,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { EventCard } from "./EventCard";
 import { Drawer } from "./Drawer";
+import { groupSpacesByLocation } from "@/lib/admin/group-spaces";
 
 interface Venue {
   id: string;
   name: string;
+  location: { name: string };
 }
 
 interface DayEvent {
@@ -81,8 +83,8 @@ export default function CheckInDashboard({ venues }: { venues: Venue[] }) {
   if (venues.length === 0) {
     return (
       <EmptyState
-        title="No venues yet"
-        description="Add at least one active venue at this organization to use check-in."
+        title="No spaces yet"
+        description="Add at least one active space at this organization to use check-in."
       />
     );
   }
@@ -93,16 +95,20 @@ export default function CheckInDashboard({ venues }: { venues: Venue[] }) {
         <h1 className="text-2xl font-semibold">Today&apos;s check-in</h1>
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
-            <span>Venue</span>
+            <span>Space</span>
             <select
               value={venueId}
               onChange={(e) => setVenueId(e.target.value)}
               className="border rounded px-2 py-1"
             >
-              {venues.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
+              {groupSpacesByLocation(venues).map((group) => (
+                <optgroup key={group.locationName} label={group.locationName}>
+                  {group.spaces.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>

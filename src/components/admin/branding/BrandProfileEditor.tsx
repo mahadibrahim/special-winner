@@ -287,10 +287,10 @@ export function BrandProfileEditor({ profileId }: BrandProfileEditorProps) {
             }
           />
 
-          <h3 className="font-medium text-ink mt-4">Featured venues</h3>
+          <h3 className="font-medium text-ink mt-4">Featured spaces</h3>
           {venues.length === 0 ? (
             <p className="text-sm text-ink-muted">
-              No venues to choose. Add venues under Admin → Venues first.
+              No spaces to choose. Add spaces under Admin → Spaces first.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">

@@ -96,7 +96,7 @@ export function SessionsList() {
               <tr className="text-left">
                 <th className="px-4 py-2 font-medium text-ink-muted">When</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Session</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Venue</th>
+                <th className="px-4 py-2 font-medium text-ink-muted">Space</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Roster</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Status</th>
                 <th className="px-4 py-2"></th>

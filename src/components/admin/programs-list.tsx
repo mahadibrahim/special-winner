@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { groupSpacesByLocation } from "@/lib/admin/group-spaces"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -429,16 +430,16 @@ export function ProgramsList({ isSuperAdmin = false }: { isSuperAdmin?: boolean 
 
               {venueOptions.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Venue (optional)</Label>
+                  <Label>Space (optional)</Label>
                   <Select
                     value={formData.venueId || "__none__"}
                     onValueChange={(v) => setFormData((prev) => ({ ...prev, venueId: v === "__none__" ? "" : v }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="No venue assigned" />
+                      <SelectValue placeholder="No space assigned" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">No venue assigned</SelectItem>
+                      <SelectItem value="__none__">No space assigned</SelectItem>
                       {isSuperAdmin ? (
                         // Group by organization for super_admin cross-org view
                         (() => {
@@ -458,8 +459,13 @@ export function ProgramsList({ isSuperAdmin = false }: { isSuperAdmin?: boolean 
                           ))
                         })()
                       ) : (
-                        venueOptions.map((v) => (
-                          <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                        groupSpacesByLocation(venueOptions).map((group) => (
+                          <SelectGroup key={group.locationName}>
+                            <SelectLabel>{group.locationName}</SelectLabel>
+                            {group.spaces.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                            ))}
+                          </SelectGroup>
                         ))
                       )}
                     </SelectContent>

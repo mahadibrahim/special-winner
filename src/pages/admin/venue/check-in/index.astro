@@ -14,10 +14,14 @@ const user = Astro.locals.user!;
 const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
 const orgId = Astro.locals.organization?.id;
 
-let venuesList: { id: string; name: string }[] = [];
+let venuesList: { id: string; name: string; location: { name: string } }[] = [];
 if (orgId) {
   const rows = await getDb()
-    .select({ id: venues.id, name: venues.name })
+    .select({
+      id: venues.id,
+      name: venues.name,
+      location: { name: locations.name },
+    })
     .from(venues)
     .innerJoin(locations, eq(venues.locationId, locations.id))
     .where(and(eq(locations.organizationId, orgId), eq(venues.active, true)))
