@@ -10,6 +10,7 @@ interface Context {
   displayName: string;
   signerName: string | null;
   summary: string;
+  spaceName?: string | null;
   outstanding: { waiver: boolean; photo: boolean; payment: boolean };
   expiresAt: string;
 }
@@ -17,9 +18,13 @@ interface Context {
 export default function SelfServe({
   token,
   context,
+  kioskSlug,
 }: {
   token: string;
   context: Context;
+  /** Set when this page was opened from a kiosk — enables a "Done" link
+   *  back to that kiosk's landing screen. */
+  kioskSlug?: string | null;
 }) {
   useHydrationBeacon();
 
@@ -58,9 +63,28 @@ export default function SelfServe({
 
   if (allDone || nothingOutstanding) {
     return (
-      <div className="p-6 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900">
-        <h1 className="text-lg font-semibold mb-2">You're all set</h1>
-        <p className="text-sm">See you at {context.summary}.</p>
+      <div className="space-y-4">
+        <div className="p-6 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900">
+          <h1 className="text-lg font-semibold mb-2">You're checked in</h1>
+          <p className="text-sm leading-relaxed">
+            {context.spaceName
+              ? `Head over to ${context.spaceName} — your game is on. Enjoy!`
+              : "You're all set — enjoy your game!"}
+          </p>
+          {context.summary && (
+            <p className="mt-2 text-xs text-emerald-800/70">
+              {context.summary}
+            </p>
+          )}
+        </div>
+        {kioskSlug && (
+          <a
+            href={`/kiosk/${kioskSlug}`}
+            className="block w-full rounded-lg bg-primary px-6 py-3 text-center text-sm font-medium text-cream transition-colors hover:bg-primary/90"
+          >
+            Done
+          </a>
+        )}
       </div>
     );
   }

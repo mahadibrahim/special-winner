@@ -7,6 +7,13 @@ export const prerender = false;
 const token = Astro.params.token;
 if (!token) return Astro.redirect("/");
 
+// When opened from a kiosk, ?kiosk=<location-slug> lets the completion
+// screen offer a "Done" link back. Validated to a slug shape — the value
+// is reflected into a /kiosk/ href.
+const rawKiosk = Astro.url.searchParams.get("kiosk");
+const kioskSlug =
+  rawKiosk && /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(rawKiosk) ? rawKiosk : null;
+
 let context: any = null;
 let error: string | null = null;
 
@@ -40,7 +47,7 @@ try {
           <p class="text-sm">{error}</p>
         </div>
       ) : (
-        <SelfServe client:load token={token} context={context} />
+        <SelfServe client:load token={token} context={context} kioskSlug={kioskSlug} />
       )}
     </div>
   </main>

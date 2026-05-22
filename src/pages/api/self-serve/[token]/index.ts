@@ -44,6 +44,8 @@ export const GET: APIRoute = async ({ params }) => {
 
   const db = getDb();
   let summary = "";
+  // The space (venue) name — lets the completion screen say "head to X".
+  let spaceName: string | null = null;
   const outstanding = { waiver: false, photo: false, payment: false };
 
   if (tok.kind === "drop_in_booking") {
@@ -63,6 +65,7 @@ export const GET: APIRoute = async ({ params }) => {
       .limit(1);
     if (!b) return json({ error: "Booking gone" }, 410);
     summary = `${b.sportLabel} on ${formatEmailDateTime(b.startsAt, b.timezone ?? DEFAULT_TIMEZONE)} at ${b.venueName}`;
+    spaceName = b.venueName;
     outstanding.waiver = !b.waiverSigned;
   } else if (tok.kind === "field_rental") {
     const [r] = await db
@@ -79,6 +82,7 @@ export const GET: APIRoute = async ({ params }) => {
       .limit(1);
     if (!r) return json({ error: "Rental gone" }, 410);
     summary = `Field rental on ${formatEmailDateTime(r.startsAt, r.timezone ?? DEFAULT_TIMEZONE)} at ${r.venueName}`;
+    spaceName = r.venueName;
     outstanding.waiver = !r.waiverSigned;
   } else if (tok.kind === "roster_entry") {
     summary = `Today's game`;
@@ -95,6 +99,7 @@ export const GET: APIRoute = async ({ params }) => {
       displayName: signer?.displayName ?? "Guest",
       signerName: signer?.signerName ?? null,
       summary,
+      spaceName,
       outstanding,
       expiresAt: tok.expiresAt,
     },

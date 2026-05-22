@@ -24,8 +24,8 @@ const baseCtx: BookingConfirmationContext = {
 };
 
 describe("renderBookingConfirmation", () => {
-  it("emits all three channel variants with the session detail link", () => {
-    const v = renderBookingConfirmation(baseCtx);
+  it("emits all three channel variants with the session detail link", async () => {
+    const v = await renderBookingConfirmation(baseCtx);
     expect(v.email.subject).toContain("Booking confirmed");
     expect(v.email.subject).toContain("Aspire Worthington");
     expect(v.email.html).toContain("https://aspire.test/dropin/s1");
@@ -37,14 +37,14 @@ describe("renderBookingConfirmation", () => {
     expect(v.telegram.parse_mode).toBe("HTML");
   });
 
-  it("includes team assignment when present", () => {
-    const v = renderBookingConfirmation(baseCtx);
+  it("includes team assignment when present", async () => {
+    const v = await renderBookingConfirmation(baseCtx);
     expect(v.email.html).toContain("orange");
     expect(v.telegram.body).toContain("orange");
   });
 
-  it("uses walk-up source label when source is walk_up", () => {
-    const v = renderBookingConfirmation({
+  it("uses walk-up source label when source is walk_up", async () => {
+    const v = await renderBookingConfirmation({
       ...baseCtx,
       source: "walk_up",
       booking: { ...baseCtx.booking, paymentMethod: "card_present" },
@@ -52,8 +52,8 @@ describe("renderBookingConfirmation", () => {
     expect(v.email.subject).toContain("Walk-up");
   });
 
-  it("notes membership inclusion when amountPaidCents is 0 and not card_present", () => {
-    const v = renderBookingConfirmation({
+  it("notes membership inclusion when amountPaidCents is 0 and not card_present", async () => {
+    const v = await renderBookingConfirmation({
       ...baseCtx,
       booking: {
         ...baseCtx.booking,
