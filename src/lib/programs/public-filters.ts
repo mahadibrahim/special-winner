@@ -1,11 +1,9 @@
 /**
  * Shared public-filter queries — the sports and locations that have at least
- * one open/active, non-test season attached. Used by the public filters API
- * route AND by the /sports and /locations index pages so neither has to make
- * an HTTP round-trip to itself.
- *
- * These are intentionally global (not tenant-scoped) — they mirror exactly
- * what /api/public/filters has always returned.
+ * one open/active, non-test season attached. Scoped to the resolved tenant
+ * (Phase 0 — 2026-05-22). Used by /api/public/filters AND by the /sports
+ * and /locations index pages so neither has to make an HTTP round-trip to
+ * itself.
  */
 import { db } from "@/lib/db";
 import { sports, locations, programs, seasons, organizations } from "@/lib/db/schema";
@@ -31,8 +29,8 @@ export interface PublicLocation {
   sortOrder: number | null;
 }
 
-/** Sports with at least one open/active, non-test season. Empty array on DB error. */
-export async function getPublicSports(): Promise<PublicSport[]> {
+/** Sports with at least one open/active, non-test season for the given org. */
+export async function getPublicSports(orgId: string): Promise<PublicSport[]> {
   try {
     if (!db) throw new Error("No DB");
     return await db
@@ -49,6 +47,7 @@ export async function getPublicSports(): Promise<PublicSport[]> {
       .innerJoin(seasons, eq(seasons.programId, programs.id))
       .where(
         and(
+          eq(organizations.id, orgId),
           eq(organizations.status, "active"),
           eq(programs.active, true),
           eq(programs.isTest, false),
@@ -62,8 +61,8 @@ export async function getPublicSports(): Promise<PublicSport[]> {
   }
 }
 
-/** Locations with at least one open/active, non-test season. Empty array on DB error. */
-export async function getPublicLocations(): Promise<PublicLocation[]> {
+/** Locations with at least one open/active, non-test season for the given org. */
+export async function getPublicLocations(orgId: string): Promise<PublicLocation[]> {
   try {
     if (!db) throw new Error("No DB");
     return await db
@@ -84,6 +83,7 @@ export async function getPublicLocations(): Promise<PublicLocation[]> {
       .innerJoin(seasons, eq(seasons.programId, programs.id))
       .where(
         and(
+          eq(organizations.id, orgId),
           eq(organizations.status, "active"),
           eq(locations.active, true),
           eq(programs.active, true),
