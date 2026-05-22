@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { apiFetch, expectJson } from "../setup/test-helpers";
 
 const LIST_ENDPOINT = "/api/public/seasons";
@@ -88,5 +88,77 @@ describe("Public Seasons API", () => {
       const json = await expectJson(res, 404);
       expect(json.error).toBeDefined();
     });
+  });
+});
+
+describe("GET /api/public/seasons — tenant scoping", () => {
+  let orgBSeasonId: string;
+  let orgBSportSlug: string;
+
+  beforeAll(async () => {
+    const fixtureRes = await apiFetch("/api/test/org-fixtures?slug=orgb");
+    expect(fixtureRes.status).toBe(200);
+    const fixture = await fixtureRes.json();
+    expect(fixture.seasonId).toBeTruthy();
+    expect(fixture.sportSlug).toBeTruthy();
+    orgBSeasonId = fixture.seasonId;
+    orgBSportSlug = fixture.sportSlug;
+  });
+
+  it("on the default (Org A) host, excludes Org B's season ids and sport slugs", async () => {
+    const res = await apiFetch("/api/public/seasons");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const ids = body.seasons.map((s: any) => s.id);
+    const sportSlugs = body.seasons.map((s: any) => s.sport?.slug);
+    // Positive existence so we know the endpoint isn't trivially empty:
+    // Org A is expected to have at least one open/active soccer season in the e2e seed.
+    expect(sportSlugs).toContain("soccer");
+    // No-leak assertions:
+    expect(ids).not.toContain(orgBSeasonId);
+    expect(sportSlugs).not.toContain(orgBSportSlug);
+  });
+
+  it("does not return mockSeasons when the DB filter yields zero rows", async () => {
+    // Force zero matches via a non-existent sport filter
+    const res = await apiFetch("/api/public/seasons?sport=this-sport-does-not-exist");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // mockSeasons used to surface a Powell U8 fixture row with id "1" — must not anymore.
+    const ids = body.seasons.map((s: any) => s.id);
+    expect(ids).not.toContain("1");
+    const slugs = body.seasons.map((s: any) => s.location?.slug);
+    expect(slugs).not.toContain("powell");
+  });
+});
+
+describe("GET /api/public/seasons/[id] — tenant scoping", () => {
+  let orgBSeasonId: string;
+  let orgASeasonId: string;
+
+  beforeAll(async () => {
+    const fixtureRes = await apiFetch("/api/test/org-fixtures?slug=orgb");
+    expect(fixtureRes.status).toBe(200);
+    const fixture = await fixtureRes.json();
+    expect(fixture.seasonId).toBeTruthy();
+    orgBSeasonId = fixture.seasonId;
+
+    // Find an Org A season id from the public seasons listing (which is now scoped to Org A by default).
+    const listRes = await apiFetch("/api/public/seasons");
+    const listBody = await listRes.json();
+    expect(listBody.seasons.length).toBeGreaterThan(0);
+    orgASeasonId = listBody.seasons[0].id;
+  });
+
+  it("returns 404 when requesting Org B's season id on the default (Org A) host", async () => {
+    const res = await apiFetch(`/api/public/seasons/${orgBSeasonId}`);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 200 when requesting an Org A season id on the default host", async () => {
+    const res = await apiFetch(`/api/public/seasons/${orgASeasonId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.season.id).toBe(orgASeasonId);
   });
 });
