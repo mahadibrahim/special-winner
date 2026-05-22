@@ -106,7 +106,9 @@ export const GET: APIRoute = async ({ url }) => {
     JSON.stringify({
       org: { id: org.id, slug: org.slug, name: org.name },
       locationId: location?.id ?? null,
+      locationSlug: location?.slug ?? null,
       sportId: sport?.id ?? null,
+      sportSlug: sport?.slug ?? null,
       programId: program?.id ?? null,
       seasonId: season?.id ?? null,
       venueId: venue?.id ?? null,
