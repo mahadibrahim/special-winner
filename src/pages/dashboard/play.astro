@@ -8,6 +8,7 @@ import PlayMembership from "@/components/dashboard/play/PlayMembership";
 import PlayExplore from "@/components/dashboard/play/PlayExplore";
 import MyDropInBookings from "@/components/dashboard/MyDropInBookings";
 import MyFieldRentals from "@/components/dashboard/MyFieldRentals";
+import MembershipCard from "@/components/dashboard/MembershipCard";
 import { getDashboardDestinations } from "@/lib/dashboard/persona";
 import { writeLastVisited } from "@/lib/dashboard/last-visited";
 import { currentBusinessHour } from "@/lib/time/business-timezone";
@@ -54,6 +55,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
           <DashboardSection icon="shield" title="What you're part of" accent="default">
             <div class="flex flex-col gap-8 mt-1">
               <PlayMembership client:visible />
+              <MembershipCard client:load />
               <MyDropInBookings client:visible />
               <MyFieldRentals client:visible />
             </div>
