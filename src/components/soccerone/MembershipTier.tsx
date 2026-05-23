@@ -23,6 +23,7 @@ interface MembershipTierProps {
   highlighted?: boolean;
   ctaLabel: string;
   accentColor?: string;
+  onCta?: () => void;
 }
 
 export function MembershipTier({
@@ -35,8 +36,13 @@ export function MembershipTier({
   highlighted = false,
   ctaLabel,
   accentColor = "#facc15",
+  onCta,
 }: MembershipTierProps) {
   const handleSignup = () => {
+    if (onCta) {
+      onCta();
+      return;
+    }
     toast("Demo only — memberships launching Q2 2026", {
       description: "Leave your email at the front desk to be first on the list.",
       duration: 5000,
