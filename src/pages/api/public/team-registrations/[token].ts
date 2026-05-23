@@ -17,7 +17,7 @@ import { eq } from "drizzle-orm";
  * joining players see what they're signing up for, and by the captain
  * status view to see who has joined.
  */
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, locals }) => {
   const token = params.token;
   if (!token) {
     return new Response(
@@ -58,6 +58,16 @@ export const GET: APIRoute = async ({ params }) => {
     }
 
     const t = teamRow[0]!;
+
+    // Cross-tenant guard: 404 (not 403) — hides existence of cross-tenant rows.
+    // Consistent with the seasons/[id] precedent (Task 6).
+    const organization = locals.organization;
+    if (!organization || t.team.organizationId !== organization.id) {
+      return new Response(
+        JSON.stringify({ error: "Not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     // Pull confirmed members + their registration status (no PII beyond first name + last initial).
     const members = await db

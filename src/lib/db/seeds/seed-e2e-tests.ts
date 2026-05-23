@@ -36,6 +36,7 @@ import {
 } from "../schema/media";
 import { rosters, games } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
+import { teamRegistrations } from "../schema/team-registrations";
 import { asc, eq, ne, and, or } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -105,6 +106,14 @@ export const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
  * Used by field-rental API tests to construct requests scoped to the right org.
  */
 export const E2E_ORG_ID = "04836321-9e38-430e-b6a1-4bf4e6ca1b62";
+
+/**
+ * Fixed invite tokens for team_registrations tenant-isolation tests.
+ * Org A token: belongs to aspire-sports. Org B token: belongs to orgb.
+ * Default-host middleware resolves Org A → Org A token → 200; Org B token → 404.
+ */
+export const E2E_TEAM_REG_TOKEN_ORG_A = "e2e-team-token-orga-fixture-0001";
+export const E2E_TEAM_REG_TOKEN_ORG_B = "e2e-team-token-orgb-fixture-0001";
 
 /**
  * Fixed UUID for the rental-enabled venue seeded for field-rental API tests.
@@ -1333,6 +1342,58 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Org B Event: ${orgBEvent.name} (${orgBEvent.id})`);
+
+  // -------------------------------------------------------------------------
+  // Team registrations — one per org for cross-tenant token isolation tests.
+  // Tokens are fixed strings so the test can look them up via org-fixtures.
+  // -------------------------------------------------------------------------
+  console.log("\n10. Setting up team_registrations (tenant-isolation fixtures)...");
+
+  // Org A team registration
+  let [orgATeamReg] = await db
+    .select()
+    .from(teamRegistrations)
+    .where(eq(teamRegistrations.inviteToken, E2E_TEAM_REG_TOKEN_ORG_A))
+    .limit(1);
+
+  if (!orgATeamReg) {
+    [orgATeamReg] = await db
+      .insert(teamRegistrations)
+      .values({
+        organizationId: org.id,
+        seasonId: season.id,
+        captainEmail: "captain-orga@test.aspiresports.com",
+        captainName: "Org A Captain",
+        teamName: "E2E Org A Team",
+        inviteToken: E2E_TEAM_REG_TOKEN_ORG_A,
+        status: "forming",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org A TeamReg: ${orgATeamReg.teamName} (token: ${orgATeamReg.inviteToken})`);
+
+  // Org B team registration
+  let [orgBTeamReg] = await db
+    .select()
+    .from(teamRegistrations)
+    .where(eq(teamRegistrations.inviteToken, E2E_TEAM_REG_TOKEN_ORG_B))
+    .limit(1);
+
+  if (!orgBTeamReg) {
+    [orgBTeamReg] = await db
+      .insert(teamRegistrations)
+      .values({
+        organizationId: orgB.id,
+        seasonId: orgBSeason.id,
+        captainEmail: "captain-orgb@test.aspiresports.com",
+        captainName: "Org B Captain",
+        teamName: "E2E Org B Team",
+        inviteToken: E2E_TEAM_REG_TOKEN_ORG_B,
+        status: "forming",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org B TeamReg: ${orgBTeamReg.teamName} (token: ${orgBTeamReg.inviteToken})`);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
