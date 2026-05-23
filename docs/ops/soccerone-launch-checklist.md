@@ -121,6 +121,58 @@ unmapped-host guard returns 404 for `www.gosoccerone.com`.
   ```
   Expected: same idempotent run as staging.
 
+## Stage 6.5 — Seed SoccerOne bookable inventory (prod)
+
+Goal: create SoccerOne's leagues, rentable fields, and drop-in sessions
+in prod so the marketing pages have something to show. Without this,
+`gosoccerone.com/leagues`, `/rent`, and `/pickup` render empty states.
+
+All steps below happen in the **production admin UI** signed in as a
+super-admin scoped to the SoccerOne org. None of this is required
+before flipping `domain_mappings.status` to `ssl_active` — empty
+states are acceptable for an early launch — but the experience is
+much better with at least one of each populated.
+
+- [ ] **Create at least one SoccerOne sport** (Soccer).
+- [ ] **Create at least one league program** at each location
+      (Downtown + Worthington), with `audienceType: "adult"` (or
+      whatever the launch sports are).
+- [ ] **Open a season** for each program: `status = "open"`, future
+      start date, set price + max participants. These are what the
+      leagues page will show.
+- [ ] **Create at least one rentable venue** at each location:
+      - `rentalEnabled: true`
+      - `rentalHourlyRateCents`, `rentalOpenMinute`, `rentalCloseMinute`
+      - `fieldCount` ≥ 1
+      - `partnerStripeAccountId` set to the facility's Stripe Connect
+        account id (required for rental revenue to route to SoccerOne)
+      - `partnerApplicationFeePct` set to Aspire's platform fee
+- [ ] **Create at least one upcoming drop-in session** per location:
+      `active: true`, future `startsAt`, `capacity`, `sessionRateCents`,
+      `skillLevel`, `audience`. Per the dropInSessions schema, no `slug`
+      and no `locationId` (location is inferred via the venueId).
+- [ ] **Onboard the SoccerOne Stripe Connect account** if not already
+      done — needed before rentals or memberships can route money to
+      the facility's bank. Use the existing Connect onboarding flow
+      in the admin UI.
+
+Verification:
+
+```bash
+curl -s "https://www.gosoccerone.com/api/public/seasons" | jq '.seasons | length'
+```
+Expected: at least one open season.
+
+```bash
+curl -s "https://www.gosoccerone.com/api/dropin/sessions" | jq '.sessions | length'
+```
+Expected: at least one upcoming session.
+
+```bash
+curl -s "https://www.gosoccerone.com/api/rentals/availability?venueId=<soccerone-venue-uuid>&date=$(date +%Y-%m-%d)" | jq
+```
+Expected: at least one field with non-empty `free` blocks.
+
 ## Stage 7 — Flip domain_mappings to ssl_active
 
 Goal: tell the resolver that the hostnames are live.
