@@ -29,6 +29,7 @@ import { resolveRate, type ResolvedRate } from "./pricing";
 import { checkMembersOnly, checkCapacity, checkGenderCap } from "./gates";
 import { assignTeam } from "./team-assignment";
 import { dispatchBookingConfirmation } from "./messages/dispatch";
+import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 
 export interface BookingError {
   code:
@@ -127,9 +128,14 @@ export async function createConfirmedBookingFreePath(opts: {
       };
     }
 
+    // Pass `tx` so the lookup reuses the transaction's connection — the
+    // free-path orchestrator holds `SELECT FOR UPDATE` on the session row,
+    // and grabbing a separate pool client here would contend / deadlock
+    // under a small pool. See get-active-membership.ts.
     const membership = await getActiveMembershipForUser(
       opts.userId,
       session.organizationId,
+      tx,
     );
 
     const [rateCard] = await tx
@@ -271,17 +277,18 @@ export async function createConfirmedBookingFreePath(opts: {
   });
 }
 
-// ---- Helper stubs ----------------------------------------------------------
-// These become real implementations once the memberships schema ships from
-// the 2026-04-28 design. Until then `getActiveMembershipForUser` always
-// returns null, which means resolveRate always returns the public session
-// rate (paid path) — the orchestrator's `non_free_rate` branch covers it.
+// ---- Helper -----------------------------------------------------------------
+// The memberships schema is live — delegate to the shared lookup. Keep this
+// re-export so existing call sites (the index endpoint, this orchestrator)
+// do not need to change their import.
 
 export async function getActiveMembershipForUser(
-  _userId: string,
-  _organizationId: string,
-): Promise<null> {
-  return null;
+  userId: string,
+  organizationId: string,
+  /** Optional Drizzle tx — pass it when calling inside `db.transaction(...)`. */
+  dbOrTx?: Parameters<typeof getActiveMembershipForOrg>[2],
+): Promise<import("./pricing").MembershipForPricing | null> {
+  return await getActiveMembershipForOrg(userId, organizationId, dbOrTx);
 }
 
 async function fetchGenderCounts(

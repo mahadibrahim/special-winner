@@ -26,6 +26,15 @@ import {
   membershipTiers,
 } from "@/lib/db/schema/memberships";
 
+// Drizzle's tx and the top-level db share a `.select().from(...)` surface,
+// so a caller inside a `db.transaction(async (tx) => …)` block can pass `tx`
+// here to reuse the transaction's connection. Without this, the inner
+// lookup would acquire a fresh pool client and contend with the
+// transaction's held connection — small pools then deadlock under load
+// (e.g. the dropin free-path orchestrator, which holds a SELECT FOR UPDATE
+// on `drop_in_sessions` while it resolves the booker's membership).
+type DbClient = ReturnType<typeof getDb> | Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
 export interface ActiveMembership {
   id: string;
   userId: string;
@@ -58,8 +67,10 @@ const ACTIVE_STATUSES = ["active", "paused", "past_due", "incomplete"] as const;
 export async function getActiveMembershipForOrg(
   userId: string,
   organizationId: string,
+  /** Optional Drizzle tx (or db) — pass `tx` from within `db.transaction(...)` to reuse the connection. */
+  dbOrTx?: DbClient,
 ): Promise<ActiveMembership | null> {
-  const db = getDb();
+  const db = dbOrTx ?? getDb();
   const rows = await db
     .select({
       m: memberships,
