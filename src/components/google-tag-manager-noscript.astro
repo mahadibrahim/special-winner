@@ -1,5 +1,8 @@
 ---
-const GTM_ID = "GTM-N35VVNXC";
+interface Props {
+  containerId?: string;
+}
+const GTM_ID = Astro.props.containerId ?? "GTM-N35VVNXC";
 ---
 <!-- Google Tag Manager (noscript) -->
 <noscript
