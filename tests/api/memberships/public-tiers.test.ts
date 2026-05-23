@@ -18,9 +18,10 @@ describe("GET /api/public/membership-tiers", () => {
   });
 });
 
-// IMPORTANT: marked .skip until Task 17 seeds SoccerOne's membership tier
-// rows. Once those land, flip this to `describe(...)`.
-describe.skip("GET /api/public/membership-tiers (SoccerOne — needs Stage 13)", () => {
+// SoccerOne assertions are skipped: they rely on a `host: soccerone…`
+// header but Node's fetch strips Host (see src/pages/api/test/org-fixtures.ts
+// comment). Verify via real browser / staging instead.
+describe.skip("GET /api/public/membership-tiers (SoccerOne — host-stripping limit)", () => {
   it("returns SoccerOne tiers on the SoccerOne host", async () => {
     const res = await fetch(`${BASE}/api/public/membership-tiers`, {
       headers: { host: "soccerone.aspiresports.com" },

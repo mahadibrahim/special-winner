@@ -113,8 +113,13 @@ describe("Phase 3 R4: Aspire baseline — no discount applied", () => {
   });
 });
 
-// Member-discount case (SoccerOne) — skipped until Stage 13 (Task 17) seeds
-// the SoccerOne membership tier + active membership for member@test.soccerone.com.
+// Member-discount case (SoccerOne) — skipped: this would assert that a
+// SoccerOne member receives the configured 10% discount, but the
+// assertion requires tenant resolution via `host: soccerone…` which Node's
+// fetch strips (see src/pages/api/test/org-fixtures.ts comment). Manual /
+// staging verification only. The Aspire baseline above is the R4
+// regression gate; the SoccerOne path is exercised via the lookup-helper
+// unit tests in tests/api/memberships/get-active-membership.test.ts.
 describe.skip("Phase 3 R4: SoccerOne member — rental_discount_pct applied", () => {
   it("posts a rental as a SoccerOne member and gets the configured discount", async () => {
     const db = getDb();

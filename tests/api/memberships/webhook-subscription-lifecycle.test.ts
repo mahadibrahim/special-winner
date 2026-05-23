@@ -49,7 +49,7 @@ afterEach(async () => {
   await db.delete(memberships).where(eq(memberships.userId, userId));
 });
 
-describe.skip("Connect webhook — subscription lifecycle", () => {
+describe("Connect webhook — subscription lifecycle", () => {
   it("creates a membership row on checkout.session.completed", async () => {
     const subId = `sub_test_${Date.now()}`;
     const event = {
