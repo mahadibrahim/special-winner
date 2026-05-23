@@ -37,6 +37,7 @@ import {
 import { rosters, games } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
+import { dropInSessions } from "../schema/drop-in";
 import { asc, eq, ne, and, or } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -1658,6 +1659,188 @@ async function seedE2ETests() {
     });
   }
   console.log(`   ✓ FamilyOnly: ${familyonlyUser.email} (dependent row only, no self row)`);
+
+  // -------------------------------------------------------------------------
+  // Stage 12 — SoccerOne booking fixtures (Phase 2).
+  // Idempotent. Skipped if SoccerOne org isn't provisioned yet (run
+  // scripts/seed-soccerone-org.ts first).
+  // -------------------------------------------------------------------------
+  console.log("\n12. Setting up SoccerOne booking fixtures...");
+
+  const [soccerOneOrg] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.slug, "soccerone"))
+    .limit(1);
+
+  if (!soccerOneOrg) {
+    console.log("   ⚠️  Skipping — SoccerOne org not provisioned. Run scripts/seed-soccerone-org.ts first.");
+  } else {
+    // 12a. SoccerOne Downtown location (provisioned by Phase 1).
+    const [soccerOneDowntown] = await db
+      .select()
+      .from(locations)
+      .where(
+        and(
+          eq(locations.organizationId, soccerOneOrg.id),
+          eq(locations.slug, "soccerone-downtown"),
+        ),
+      )
+      .limit(1);
+
+    if (!soccerOneDowntown) {
+      throw new Error("SoccerOne Downtown location missing — re-run scripts/seed-soccerone-org.ts");
+    }
+
+    // 12b. SoccerOne sport (Soccer — org-scoped row).
+    let [soccerOneSport] = await db
+      .select()
+      .from(sports)
+      .where(
+        and(
+          eq(sports.organizationId, soccerOneOrg.id),
+          eq(sports.slug, "soccer"),
+        ),
+      )
+      .limit(1);
+
+    if (!soccerOneSport) {
+      [soccerOneSport] = await db
+        .insert(sports)
+        .values({
+          organizationId: soccerOneOrg.id,
+          name: "Soccer",
+          slug: "soccer",
+          icon: "⚽",
+          color: "#22c55e",
+        })
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Sport: ${soccerOneSport.name}`);
+
+    // 12c. SoccerOne league program + open season.
+    let [soccerOneProgram] = await db
+      .select()
+      .from(programs)
+      .where(eq(programs.slug, "soccerone-adult-coed-league"))
+      .limit(1);
+
+    if (!soccerOneProgram) {
+      [soccerOneProgram] = await db
+        .insert(programs)
+        .values({
+          sportId: soccerOneSport.id,
+          locationId: soccerOneDowntown.id,
+          name: "Adult Coed League",
+          slug: "soccerone-adult-coed-league",
+          programType: "league",
+          audienceType: "adult",
+          active: true,
+          isTest: false,
+        })
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Program: ${soccerOneProgram.name}`);
+
+    let [soccerOneSeason] = await db
+      .select()
+      .from(seasons)
+      .where(eq(seasons.slug, "soccerone-adult-coed-spring-2026"))
+      .limit(1);
+
+    const sixWeeksOut = new Date(Date.now() + 6 * 7 * 24 * 60 * 60 * 1000);
+    const tenWeeksOut = new Date(Date.now() + 10 * 7 * 24 * 60 * 60 * 1000);
+
+    if (!soccerOneSeason) {
+      [soccerOneSeason] = await db
+        .insert(seasons)
+        .values({
+          programId: soccerOneProgram.id,
+          name: "Adult Coed — Spring 2026",
+          slug: "soccerone-adult-coed-spring-2026",
+          status: "open",
+          isTest: false,
+          startDate: sixWeeksOut.toISOString().slice(0, 10),
+          endDate: tenWeeksOut.toISOString().slice(0, 10),
+          priceCents: 18000,
+          maxParticipants: 80,
+        })
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Season: ${soccerOneSeason.name} (status=${soccerOneSeason.status})`);
+
+    // 12d. SoccerOne rental-enabled venue.
+    let [soccerOneVenue] = await db
+      .select()
+      .from(venues)
+      .where(eq(venues.slug, "soccerone-downtown-field-1"))
+      .limit(1);
+
+    if (!soccerOneVenue) {
+      [soccerOneVenue] = await db
+        .insert(venues)
+        .values({
+          locationId: soccerOneDowntown.id,
+          name: "Downtown — Field 1",
+          slug: "soccerone-downtown-field-1",
+          rentalEnabled: true,
+          rentalHourlyRateCents: 9000,
+          rentalOpenMinute: 7 * 60,    // 7am
+          rentalCloseMinute: 23 * 60,  // 11pm
+          fieldCount: 1,
+        })
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Venue: ${soccerOneVenue.name} (rentalEnabled=${soccerOneVenue.rentalEnabled})`);
+
+    // 12e. Drop-in session — one upcoming "Evening Coed Pickup."
+    // dropInSessions has no slug; use org+venue+sportOrClassLabel as the
+    // idempotency key. On re-seed, refresh startsAt/endsAt so it stays future.
+    const tomorrow6pm = new Date();
+    tomorrow6pm.setDate(tomorrow6pm.getDate() + 1);
+    tomorrow6pm.setHours(18, 0, 0, 0);
+    const tomorrow730pm = new Date(tomorrow6pm);
+    tomorrow730pm.setMinutes(tomorrow6pm.getMinutes() + 90);
+
+    let [soccerOneDropIn] = await db
+      .select()
+      .from(dropInSessions)
+      .where(
+        and(
+          eq(dropInSessions.organizationId, soccerOneOrg.id),
+          eq(dropInSessions.venueId, soccerOneVenue.id),
+          eq(dropInSessions.sportOrClassLabel, "Evening Coed Pickup"),
+        ),
+      )
+      .limit(1);
+
+    if (!soccerOneDropIn) {
+      [soccerOneDropIn] = await db
+        .insert(dropInSessions)
+        .values({
+          organizationId: soccerOneOrg.id,
+          venueId: soccerOneVenue.id,
+          kind: "pickup",
+          sportOrClassLabel: "Evening Coed Pickup",
+          formatLabel: "7v7 coed pickup soccer",
+          startsAt: tomorrow6pm,
+          endsAt: tomorrow730pm,
+          capacity: 14,
+          skillLevel: "intermediate",
+          audience: "adults",
+          sessionRateCents: 1200,
+        })
+        .returning();
+    } else {
+      // Refresh startsAt/endsAt so the session stays future on repeated seed runs.
+      [soccerOneDropIn] = await db
+        .update(dropInSessions)
+        .set({ startsAt: tomorrow6pm, endsAt: tomorrow730pm })
+        .where(eq(dropInSessions.id, soccerOneDropIn.id))
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Drop-In: ${soccerOneDropIn.sportOrClassLabel} (capacity=${soccerOneDropIn.capacity})`);
+  }
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
