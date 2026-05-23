@@ -13,7 +13,7 @@ const BodySchema = z.object({
   source: z.string().trim().max(50).optional(),
 });
 
-export const POST: APIRoute = async ({ request, clientAddress }) => {
+export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
   if (!db) {
     return new Response(
       JSON.stringify({ error: "Database unavailable" }),
@@ -47,6 +47,14 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     );
   }
 
+  const organization = locals.organization;
+  if (!organization) {
+    return new Response(
+      JSON.stringify({ error: "Organization context required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const { email, firstName, audience, locationInterest, source } = parsed.data;
 
   try {
@@ -59,6 +67,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
         audience,
         locationInterest,
         source: source ?? "footer",
+        organizationId: organization.id,
       })
       .onConflictDoUpdate({
         target: newsletterSignups.email,
@@ -67,6 +76,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
           audience: sql`COALESCE(EXCLUDED.audience, ${newsletterSignups.audience})`,
           locationInterest: sql`COALESCE(EXCLUDED.location_interest, ${newsletterSignups.locationInterest})`,
           source: sql`COALESCE(EXCLUDED.source, ${newsletterSignups.source})`,
+          organizationId: organization.id,
           updatedAt: new Date(),
         },
       });
