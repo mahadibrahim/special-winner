@@ -35,7 +35,7 @@ beforeAll(async () => {
   soccerOneUserId = s1user.id;
 });
 
-describe.skip("getActiveMembershipForOrg", () => {
+describe("getActiveMembershipForOrg", () => {
   it("returns null when the org has no membership tiers (Aspire)", async () => {
     const result = await getActiveMembershipForOrg(aspireUserId, aspireOrgId);
     expect(result).toBeNull();
