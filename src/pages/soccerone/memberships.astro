@@ -3,8 +3,18 @@ export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
-import { MembershipTier } from '@/components/soccerone/MembershipTier';
+import { MembershipTiersLive } from '@/components/soccerone/MembershipTiersLive';
 import { Toaster } from 'sonner';
+
+// Server-side fetch from the same host so the middleware resolves to the
+// SoccerOne org for the public-tiers endpoint.
+const host = Astro.url.host;
+const proto = Astro.url.protocol;
+const tiersRes = await fetch(`${proto}//${host}/api/public/membership-tiers`, {
+  headers: { host },
+});
+const { tiers = [] } = tiersRes.ok ? await tiersRes.json() : { tiers: [] };
+const authed = !!Astro.locals.user;
 ---
 
 <BaseLayout
@@ -130,82 +140,7 @@ import { Toaster } from 'sonner';
         </div>
 
         <div class="tiers-grid">
-          <MembershipTier
-            client:visible
-            name="Day Pass"
-            monthlyPrice="$15"
-            annualPrice="$15"
-            ctaLabel="Buy a Day Pass"
-            highlighted={false}
-            accentColor="#67e8f9"
-            benefits={[
-              { text: "Full facility access for the day", included: true },
-              { text: "Join any open pickup game", included: true },
-              { text: "Works at any SoccerOne location", included: true },
-              { text: "Locker room + amenities", included: true },
-              { text: "10% off hourly field rental", included: false },
-              { text: "Priority league registration", included: false },
-              { text: "Guest passes (per month)", included: false },
-              { text: "Members-only pickup events", included: false },
-            ]}
-            testimonial={{
-              quote: "Perfect for when I'm in town visiting. Walk in, play, done.",
-              author: "Derek T.",
-              since: "Day Pass regular"
-            }}
-          />
-
-          <MembershipTier
-            client:visible
-            name="Member"
-            monthlyPrice="$29"
-            annualPrice="$290"
-            annualSaving="17%"
-            ctaLabel="Start Member Plan"
-            highlighted={true}
-            accentColor="#a3e635"
-            benefits={[
-              { text: "All facilities — Worthington + Downtown + future", included: true },
-              { text: "Unlimited facility access", included: true },
-              { text: "Priority league registration (48h early)", included: true },
-              { text: "10% off hourly field rentals ($72/hr)", included: true },
-              { text: "Members-only pickup events", included: true },
-              { text: "Locker room + amenities", included: true },
-              { text: "1 guest pass per month", included: false },
-              { text: "Free pickup games included monthly", included: false },
-            ]}
-            testimonial={{
-              quote: "Pays for itself in two field rentals. The early league signup is clutch.",
-              author: "Maria C.",
-              since: "2025"
-            }}
-          />
-
-          <MembershipTier
-            client:visible
-            name="Founder"
-            monthlyPrice="$99"
-            annualPrice="$990"
-            annualSaving="17%"
-            ctaLabel="Join as a Founder"
-            highlighted={false}
-            accentColor="#fbbf24"
-            benefits={[
-              { text: "All facilities — chain-wide, forever", included: true },
-              { text: "Unlimited pickup games (free)", included: true },
-              { text: "First access to league registration (72h early)", included: true },
-              { text: "20% off hourly field rentals ($64/hr)", included: true },
-              { text: "Founder-only pickup events", included: true },
-              { text: "2 guest passes per month", included: true },
-              { text: "Name on the Founder wall (lobby)", included: true },
-              { text: "30-day advance booking window", included: true },
-            ]}
-            testimonial={{
-              quote: "I train here three times a week. Founder membership made this my second home.",
-              author: "James R.",
-              since: "2024 — Original Founder"
-            }}
-          />
+          <MembershipTiersLive client:load tiers={tiers} authed={authed} />
         </div>
       </div>
     </div>

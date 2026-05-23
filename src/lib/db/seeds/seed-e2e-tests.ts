@@ -38,6 +38,7 @@ import { rosters, games } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
 import { dropInSessions } from "../schema/drop-in";
+import { membershipTiers, memberships } from "../schema/memberships";
 import { asc, eq, ne, and, or } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -1840,6 +1841,119 @@ async function seedE2ETests() {
         .returning();
     }
     console.log(`   ✓ SoccerOne Drop-In: ${soccerOneDropIn.sportOrClassLabel} (capacity=${soccerOneDropIn.capacity})`);
+  }
+
+  // Stage 13 — SoccerOne membership tier + members (Phase 3).
+  // Idempotent. Mirrors Stage 12 — skipped if SoccerOne org isn't provisioned.
+  console.log("\n🏷  Stage 13 — SoccerOne membership tier + members…");
+  const [soccerOneOrgForMembership] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.slug, "soccerone"))
+    .limit(1);
+  if (!soccerOneOrgForMembership) {
+    console.log(
+      "   ⚠️  Skipping — SoccerOne org not provisioned. Run scripts/seed-soccerone-org.ts first.",
+    );
+  } else {
+    const soccerOneOrgId = soccerOneOrgForMembership.id;
+
+    // Tier: "Member" — $29/mo monthly, 10% rental discount.
+    let [memberTier] = await db
+      .select()
+      .from(membershipTiers)
+      .where(
+        and(
+          eq(membershipTiers.organizationId, soccerOneOrgId),
+          eq(membershipTiers.name, "Member"),
+        ),
+      )
+      .limit(1);
+    if (!memberTier) {
+      [memberTier] = await db
+        .insert(membershipTiers)
+        .values({
+          organizationId: soccerOneOrgId,
+          name: "Member",
+          monthlyPriceCents: 2900,
+          annualPriceCents: 29000,
+          benefits: { rental_discount_pct: 10 },
+          stripePriceIdMonthly: "price_test_soccerone_member_monthly",
+          stripePriceIdAnnual: "price_test_soccerone_member_annual",
+          displayOrder: 2,
+          isActive: true,
+        })
+        .returning();
+      console.log(`   ✓ Created tier "Member" (${memberTier.id})`);
+    } else {
+      console.log(`   ✓ Tier "Member" already exists`);
+    }
+
+    // Member + pending user. No upsertUser helper exists in this file; mirror
+    // the Stage 1 inline pattern (select-then-insert-or-update password).
+    const seededUserPasswordHash = await hashPassword("TestMember123!");
+
+    const ensureUser = async (
+      email: string,
+      firstName: string,
+      lastName: string,
+    ) => {
+      let [u] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+      if (!u) {
+        [u] = await db
+          .insert(users)
+          .values({
+            email,
+            passwordHash: seededUserPasswordHash,
+            firstName,
+            lastName,
+            emailVerified: true,
+          })
+          .returning();
+      } else {
+        await db
+          .update(users)
+          .set({ passwordHash: seededUserPasswordHash, emailVerified: true })
+          .where(eq(users.id, u.id));
+      }
+      return u;
+    };
+
+    const memberEmail = "member@test.soccerone.com";
+    const pendingEmail = "member-pending@test.soccerone.com";
+    const memberUser = await ensureUser(memberEmail, "Member", "SoccerOne");
+    await ensureUser(pendingEmail, "Pending", "SoccerOne");
+
+    const [existingMembership] = await db
+      .select()
+      .from(memberships)
+      .where(
+        and(
+          eq(memberships.userId, memberUser.id),
+          eq(memberships.organizationId, soccerOneOrgId),
+        ),
+      )
+      .limit(1);
+    if (!existingMembership) {
+      await db.insert(memberships).values({
+        userId: memberUser.id,
+        organizationId: soccerOneOrgId,
+        tierId: memberTier.id,
+        status: "active",
+        billingInterval: "month",
+        startedAt: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        stripeSubscriptionId: "sub_test_seeded_member",
+        stripeCustomerId: "cus_test_seeded_member",
+      });
+      console.log(`   ✓ Created active membership for ${memberEmail}`);
+    } else {
+      console.log(`   ✓ Active membership for ${memberEmail} already exists`);
+    }
   }
 
   console.log("\n✅ E2E test data seeded successfully!");

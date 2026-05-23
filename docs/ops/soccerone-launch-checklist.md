@@ -173,6 +173,79 @@ curl -s "https://www.gosoccerone.com/api/rentals/availability?venueId=<soccerone
 ```
 Expected: at least one field with non-empty `free` blocks.
 
+### 6.5.4 Create membership tiers + Stripe Prices (Phase 3)
+
+**Why:** until tiers exist in prod, `/memberships` shows no cards and the
+subscribe endpoint 404s. Until Stripe Prices exist, the subscribe call 422s
+on the billing-interval validation.
+
+**Steps:**
+
+1. **Create Stripe Prices in the live dashboard.** For each tier (Day Pass,
+   Member, Founder) create one or two recurring Prices in USD:
+   - Day Pass: one-time $15 (mode: payment) — skip for v1; the marketing
+     copy mentions "Day Pass" but the Stripe Subscription flow needs a
+     recurring Price. Treat Day Pass as a follow-up: ship Member + Founder
+     first.
+   - Member: monthly $29 (recurring, interval: month) — copy the
+     `price_…` id.
+   - Member: annual $290 (recurring, interval: year) — copy the
+     `price_…` id.
+   - Founder: monthly $99 (recurring) — copy the `price_…` id.
+   - Founder: annual $990 (recurring) — copy the `price_…` id.
+
+2. **Insert `membership_tiers` rows in prod.** Connect to prod DB and run:
+
+   ```sql
+   INSERT INTO membership_tiers (
+     organization_id, name, monthly_price_cents, annual_price_cents,
+     benefits, stripe_price_id_monthly, stripe_price_id_annual,
+     display_order, is_active
+   )
+   SELECT id, 'Member', 2900, 29000,
+          '{"rental_discount_pct": 10}'::jsonb,
+          '<price_member_monthly>', '<price_member_annual>',
+          2, true
+   FROM organizations WHERE slug = 'soccerone'
+   ON CONFLICT DO NOTHING;
+
+   INSERT INTO membership_tiers (
+     organization_id, name, monthly_price_cents, annual_price_cents,
+     benefits, stripe_price_id_monthly, stripe_price_id_annual,
+     display_order, is_active
+   )
+   SELECT id, 'Founder', 9900, 99000,
+          '{"rental_discount_pct": 20, "guest_passes_per_month": 2, "booking_window_days": 30, "founder_wall": true}'::jsonb,
+          '<price_founder_monthly>', '<price_founder_annual>',
+          3, true
+   FROM organizations WHERE slug = 'soccerone'
+   ON CONFLICT DO NOTHING;
+   ```
+
+3. **Smoke-check the public endpoint.**
+
+   ```bash
+   curl -s https://www.gosoccerone.com/api/public/membership-tiers | jq
+   ```
+   Expected: an array with at least Member + Founder, ordered by `displayOrder`.
+
+4. **Smoke-check subscribe end-to-end** with a Stripe test card in incognito
+   against the live site:
+   - Open https://www.gosoccerone.com/memberships
+   - Click "Start Member Plan"
+   - Sign in / sign up as a throwaway test email
+   - Complete Stripe Checkout with `4242 4242 4242 4242`
+   - Confirm the dashboard card on `/dashboard/play` shows "Active"
+   - Click "Pause"; confirm status flips to "Paused"
+   - Click "Cancel"; confirm status flips to "Cancelling"
+
+5. **Confirm the Connect webhook is receiving events.** In the Stripe
+   dashboard → Developers → Webhooks → the Connect endpoint pointing at
+   `https://aspiresportsohio.com/api/webhooks/stripe-connect` — verify the
+   four new event types (`checkout.session.completed`,
+   `customer.subscription.updated`, `customer.subscription.deleted`,
+   `invoice.payment_failed`) are enabled.
+
 ## Stage 7 — Flip domain_mappings to ssl_active
 
 Goal: tell the resolver that the hostnames are live.

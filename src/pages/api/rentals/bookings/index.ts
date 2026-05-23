@@ -26,6 +26,8 @@ import {
   createRentalHold,
   createConfirmedRentalNonStripe,
 } from "@/lib/rentals/booking";
+import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
+import { applyMemberRentalDiscount } from "@/lib/memberships/discount";
 
 export const prerender = false;
 
@@ -135,7 +137,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
     venue.rentalHourlyRateCents,
     rateCard.defaultHourlyRateCents,
   );
-  const amountDueCents = computeRentalPriceCents(startsAt, endsAt, hourlyRate);
+  const baseAmountDueCents = computeRentalPriceCents(startsAt, endsAt, hourlyRate);
+
+  // Member rental discount — gated on the lookup returning a membership.
+  // For Aspire (no tiers seeded), the lookup returns null and amountDueCents
+  // is byte-identical to baseAmountDueCents. The lookup never throws for
+  // membership-less users — a DB hiccup falls through at base price.
+  let amountDueCents = baseAmountDueCents;
+  let memberDiscountMembershipId: string | null = null;
+  try {
+    const membership = await getActiveMembershipForOrg(locals.user.id, orgId);
+    if (membership) {
+      amountDueCents = applyMemberRentalDiscount(
+        baseAmountDueCents,
+        membership.tier.benefits,
+      );
+      if (amountDueCents !== baseAmountDueCents) {
+        memberDiscountMembershipId = membership.id;
+      }
+    }
+  } catch (err) {
+    console.error("[rentals] membership lookup failed (continuing at base price)", err);
+  }
 
   if (amountDueCents === 0) {
     const result = await createConfirmedRentalNonStripe({
@@ -223,6 +246,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           type: "field_rental",
           rental_id: hold.rental.id,
           organization_id: orgId,
+          membership_id: memberDiscountMembershipId ?? "",
+          base_amount_cents: String(baseAmountDueCents),
         },
         payment_intent_data: partnerStripeAccountId
           ? {
