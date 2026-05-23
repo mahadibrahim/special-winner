@@ -1,0 +1,43 @@
+/**
+ * GET /api/public/membership-tiers
+ *
+ * Tenant-scoped active tier list. Returns [] when the resolved org has
+ * no tiers — that is the Aspire path. Sorted by displayOrder ascending.
+ */
+import type { APIRoute } from "astro";
+import { and, asc, eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { membershipTiers } from "@/lib/db/schema/memberships";
+
+export const prerender = false;
+
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+export const GET: APIRoute = async ({ locals }) => {
+  if (!locals.organization) return json({ tiers: [] }, 200);
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: membershipTiers.id,
+      name: membershipTiers.name,
+      monthlyPriceCents: membershipTiers.monthlyPriceCents,
+      annualPriceCents: membershipTiers.annualPriceCents,
+      benefits: membershipTiers.benefits,
+      displayOrder: membershipTiers.displayOrder,
+    })
+    .from(membershipTiers)
+    .where(
+      and(
+        eq(membershipTiers.organizationId, locals.organization.id),
+        eq(membershipTiers.isActive, true),
+      ),
+    )
+    .orderBy(asc(membershipTiers.displayOrder), asc(membershipTiers.name));
+
+  return json({ tiers: rows }, 200);
+};
