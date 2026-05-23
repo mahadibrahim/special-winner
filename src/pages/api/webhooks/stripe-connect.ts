@@ -2,6 +2,12 @@ import type { APIRoute } from "astro";
 import type Stripe from "stripe";
 import { stripe, updateOrganizationStripeStatus } from "@/lib/stripe/connect";
 import { getPostHogServer } from "@/lib/posthog-server";
+import {
+  handleCheckoutSessionCompleted,
+  handleSubscriptionUpdated,
+  handleSubscriptionDeleted,
+  handleInvoicePaymentFailed,
+} from "@/lib/memberships/webhook-handlers";
 
 const STRIPE_CONNECT_WEBHOOK_SECRET = import.meta.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
@@ -98,6 +104,33 @@ export const POST: APIRoute = async ({ request }) => {
         // A payout failed
         const payout = event.data.object as Stripe.Payout;
         console.error(`Payout failed: ${payout.id}`, payout.failure_message);
+        break;
+      }
+
+      case "checkout.session.completed": {
+        // Membership subscriptions — Aspire's payment Checkout sessions
+        // land on the primary `/api/webhooks/stripe` endpoint, not here.
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutSessionCompleted(session);
+        break;
+      }
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const sub = event.data.object as Stripe.Subscription;
+        await handleSubscriptionUpdated(sub);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        await handleSubscriptionDeleted(sub);
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        await handleInvoicePaymentFailed(invoice);
         break;
       }
 
