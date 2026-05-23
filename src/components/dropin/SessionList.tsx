@@ -155,7 +155,7 @@ export default function SessionList() {
             </select>
           </label>
           <label className="text-xs uppercase tracking-wider text-stone-500">
-            Venue
+            Space
             <select
               value={venueId}
               onChange={(e) => setVenueId(e.target.value)}

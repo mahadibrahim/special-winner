@@ -4,7 +4,7 @@ import { eq, and, asc, lt } from "drizzle-orm";
 import { sendWaitlistPromotionEmail } from "@/lib/email/send";
 
 // Waitlist promotion hours (how long they have to complete payment)
-const WAITLIST_PROMOTION_HOURS = 48;
+export const WAITLIST_PROMOTION_HOURS = 48;
 
 /**
  * Process expired waitlist promotions

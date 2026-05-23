@@ -307,11 +307,8 @@ export async function dispatchBookingConfirmation(
     source: booking.source,
   };
 
-  return await dispatch(
-    user,
-    renderBookingConfirmation(ctx),
-    session.organizationId,
-  );
+  const variants = await renderBookingConfirmation(ctx);
+  return await dispatch(user, variants, session.organizationId);
 }
 
 export async function dispatchWaitlistPromoted(
@@ -338,11 +335,8 @@ export async function dispatchWaitlistPromoted(
     promotionExpiresAt,
   };
 
-  return await dispatch(
-    user,
-    renderWaitlistPromoted(ctx),
-    session.organizationId,
-  );
+  const variants = await renderWaitlistPromoted(ctx);
+  return await dispatch(user, variants, session.organizationId);
 }
 
 export async function dispatchBookingCancelledByAdmin(
@@ -371,9 +365,6 @@ export async function dispatchBookingCancelledByAdmin(
     refunded: opts.refunded,
   };
 
-  return await dispatch(
-    user,
-    renderBookingCancelledByAdmin(ctx),
-    session.organizationId,
-  );
+  const variants = await renderBookingCancelledByAdmin(ctx);
+  return await dispatch(user, variants, session.organizationId);
 }

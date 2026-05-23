@@ -1,19 +1,18 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { render } from "@react-email/components";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { verifyTurnstile } from "@/lib/auth/turnstile";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
-import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
+import { isEmailConfigured } from "@/lib/email";
+import { sendSignInLinkEmail } from "@/lib/email/send";
 
 /**
  * Forgot-password / magic-link login handler.
  *
- * This endpoint used to create bespoke password-reset tokens. Phase 1
+ * This endpoint used to create bespoke one-time reset tokens. Phase 1
  * generalizes all out-of-band auth into the magic-link module, so this
  * route now creates a magic link with purpose `password_reset_login`
  * and emails the redemption URL.
@@ -113,19 +112,13 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
     // Send email with the redemption URL
     if (isEmailConfigured()) {
-      const resetUrl = buildMagicLinkUrl(token);
-      const html = await render(
-        PasswordResetEmail({
-          name: targetUser.firstName || "",
-          resetUrl,
-          expiresIn: "15 minutes",
-        }),
-      );
-
-      await sendEmail({
-        to: normalizedEmail,
-        subject: "Sign in to Aspire Sports",
-        html,
+      const signInUrl = buildMagicLinkUrl(token);
+      await sendSignInLinkEmail({
+        userId: targetUser.id,
+        recipientEmail: normalizedEmail,
+        name: targetUser.firstName || "",
+        signInUrl,
+        expiresIn: "15 minutes",
       });
     } else {
       console.warn("Email not configured, sign-in link not sent");

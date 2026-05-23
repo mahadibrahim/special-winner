@@ -1,0 +1,58 @@
+---
+import { DestinationTabs } from "./DestinationTabs";
+
+interface Props {
+  user: {
+    firstName: string | null;
+    lastName: string | null;
+    avatarUrl?: string | null;
+  };
+  greeting: string;
+  active: "family" | "play";
+  hasFamily: boolean;
+  hasPlay: boolean;
+}
+
+const { user, greeting, active, hasFamily, hasPlay } = Astro.props;
+
+const initials =
+  (user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "") || "U";
+---
+
+<div>
+  <!-- Header -->
+  <header class="mb-6">
+    <div class="flex items-center gap-4">
+      <!-- Avatar — simple initials, no status dot, no decorative ring -->
+      <div class="w-12 h-12 rounded-xl bg-cream-2 border border-border flex items-center justify-center flex-shrink-0">
+        {user.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt=""
+            class="w-full h-full rounded-xl object-cover"
+          />
+        ) : (
+          <span class="text-base font-semibold text-ink">{initials}</span>
+        )}
+      </div>
+
+      <div>
+        <p class="text-sm text-ink-faint mb-0.5">{greeting}</p>
+        <h1 class="text-2xl font-display text-ink">
+          {user.firstName || "there"}
+        </h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- Destination tabs (only shown when user has both destinations) -->
+  <DestinationTabs
+    client:load
+    active={active}
+    hasFamily={hasFamily}
+    hasPlay={hasPlay}
+  />
+
+  <!-- Page sections injected by the consuming page -->
+  <slot />
+</div>

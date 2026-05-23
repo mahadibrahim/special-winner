@@ -13,6 +13,7 @@ import { eq, desc, and, or, isNull, gte } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { sendAnnouncementEmail } from "@/lib/email/send";
+import { formatEmailDate } from "@/lib/email/format";
 import { env } from "@/lib/env";
 
 const announcementSchema = z.object({
@@ -215,10 +216,7 @@ async function fanOutAnnouncementEmails(
   const authorName =
     author.firstName ??
     (author.email ? author.email.split("@")[0] : "Aspire Sports");
-  const publishedAt = (announcement.publishedAt ?? new Date()).toLocaleDateString(
-    "en-US",
-    { month: "long", day: "numeric", year: "numeric" },
-  );
+  const publishedAt = formatEmailDate(announcement.publishedAt ?? new Date());
   const dashboardUrl = `${env.PUBLIC_APP_URL}/dashboard`;
 
   const BATCH_SIZE = 50;

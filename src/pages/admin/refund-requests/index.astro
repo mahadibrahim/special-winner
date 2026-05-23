@@ -6,6 +6,7 @@ import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, desc, inArray } from "drizzle-orm";
+import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 
 export const prerender = false;
 
@@ -137,7 +138,7 @@ const STATUS_STYLES: Record<string, string> = {
                   </td>
                   <td class="px-3 py-2 text-ink-muted">
                     {r.refundRequestedAt
-                      ? new Date(r.refundRequestedAt).toLocaleDateString()
+                      ? new Date(r.refundRequestedAt).toLocaleDateString("en-US", { timeZone: BUSINESS_TIMEZONE })
                       : "—"}
                   </td>
                 </tr>

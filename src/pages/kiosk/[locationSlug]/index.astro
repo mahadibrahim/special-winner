@@ -1,0 +1,77 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import KioskLanding from "@/components/kiosk/KioskLanding";
+import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
+
+export const prerender = false;
+
+const slug = Astro.params.locationSlug;
+let locationName: string | null = null;
+// Default to the business timezone; overridden below with the resolved
+// location's own timezone.
+let locationTimezone: string = BUSINESS_TIMEZONE;
+let invalid = false;
+
+if (slug) {
+  const k = await requireKioskLocation(slug);
+  if (k.ok) {
+    locationName = k.location.name;
+    locationTimezone = k.location.timezone ?? locationTimezone;
+  } else {
+    invalid = true;
+  }
+} else {
+  invalid = true;
+}
+
+// Format the masthead date in the facility's timezone. This page renders
+// server-side and Netlify runs in UTC — an unzoned format rolls over to
+// "tomorrow" late in the evening local time.
+const today = new Date().toLocaleDateString("en-US", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  timeZone: locationTimezone,
+});
+---
+<BaseLayout
+  title={locationName ? `${locationName} kiosk — Aspire Sports` : "Kiosk — Aspire Sports"}
+  navigation={false}
+  footer={false}
+>
+  <main class="min-h-screen bg-cream text-ink antialiased">
+    <!-- Editorial masthead -->
+    <div class="border-b border-border">
+      <div class="max-w-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+        <p class="text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
+          § The Front Desk
+        </p>
+        <p class="text-[11px] font-medium tracking-[0.08em] uppercase text-ink-faint">
+          {today}
+        </p>
+      </div>
+    </div>
+
+    <div class="max-w-2xl mx-auto px-6 py-10 md:py-14">
+      {invalid ? (
+        <div class="bg-paper border border-rose-200/70 rounded-xl p-6">
+          <h1 class="font-display text-2xl font-medium italic text-ink mb-2">
+            Kiosk not configured
+          </h1>
+          <p class="text-sm text-ink-muted leading-relaxed">
+            This URL doesn't match an active facility. Ask the front desk for the correct kiosk URL.
+          </p>
+        </div>
+      ) : (
+        <KioskLanding
+          client:load
+          locationSlug={slug!}
+          locationName={locationName!}
+          publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
+        />
+      )}
+    </div>
+  </main>
+</BaseLayout>

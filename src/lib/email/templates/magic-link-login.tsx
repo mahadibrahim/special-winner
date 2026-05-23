@@ -1,6 +1,7 @@
 import { Link, Text } from "@react-email/components";
 import {
   Button,
+  Content,
   EmailLayout,
   H1,
   P,
@@ -25,39 +26,37 @@ export function MagicLinkLoginEmail({
   seasonName,
 }: MagicLinkLoginEmailProps) {
   return (
-    <EmailLayout
-      preview="You're registered — sign in to your Aspire Sports account"
-      sectionLabel="Account"
-      sectionMeta="Sign in"
-    >
-      <H1>You're registered</H1>
-      <P>Hi {parentName || "there"},</P>
+    <EmailLayout preview="You're registered — sign in to your Aspire Sports account">
+      <Content>
+        <H1>You're registered</H1>
+        <P>Hi {parentName || "there"},</P>
 
-      {childName && programName && seasonName && (
+        {childName && programName && seasonName && (
+          <P>
+            {childName} is registered for <strong>{programName}</strong> ({seasonName}).
+          </P>
+        )}
+
         <P>
-          {childName} is registered for <strong>{programName}</strong> ({seasonName}).
+          Tap the button below to sign in to your Aspire Sports account. We
+          created an account for you so you can manage your registration, view
+          team info, and register for future programs.
         </P>
-      )}
 
-      <P>
-        Tap the button below to sign in to your Aspire Sports account. We
-        created an account for you so you can manage your registration, view
-        team info, and register for future programs.
-      </P>
+        <Button href={magicLinkUrl}>Sign in to your account →</Button>
 
-      <Button href={magicLinkUrl}>Sign in to your account</Button>
+        <P>
+          This link expires in <strong>{expiresIn}</strong> and can only be used
+          once. You can also set a password later from your account settings.
+        </P>
 
-      <P>
-        This link expires in <strong>{expiresIn}</strong> and can only be used
-        once. You can also set a password later from your account settings.
-      </P>
-
-      <P>If the button above doesn't work, copy and paste this link into your browser:</P>
-      <Text style={linkLine}>
-        <Link href={magicLinkUrl} style={linkStyle}>
-          {magicLinkUrl}
-        </Link>
-      </Text>
+        <P>If the button above doesn't work, copy and paste this link into your browser:</P>
+        <Text style={linkLine}>
+          <Link href={magicLinkUrl} style={linkStyle}>
+            {magicLinkUrl}
+          </Link>
+        </Text>
+      </Content>
     </EmailLayout>
   );
 }

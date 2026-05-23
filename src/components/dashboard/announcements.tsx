@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Bell,
 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -102,24 +101,24 @@ export function Announcements() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Megaphone className="h-5 w-5" />
+      <div className="rounded-2xl bg-paper border border-border">
+        <div className="px-5 pt-5 pb-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
+            <Megaphone className="h-5 w-5 text-ink-muted" />
             Announcements
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+          </h2>
+        </div>
+        <div className="px-5 pb-5 space-y-3">
           {announcements.slice(0, 5).map((announcement) => (
             <button
               key={announcement.id}
               onClick={() => setSelectedAnnouncement(announcement)}
               className={cn(
                 "w-full text-left p-4 rounded-lg border transition-colors",
-                "hover:bg-accent/50 hover:border-accent",
+                "hover:bg-cream-2 hover:border-border",
                 announcement.pinned
                   ? "bg-primary/5 border-primary/20"
-                  : "bg-card border-border"
+                  : "bg-paper border-border"
               )}
             >
               <div className="flex items-start gap-3">
@@ -128,12 +127,12 @@ export function Announcements() {
                     {announcement.pinned && (
                       <Pin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                     )}
-                    <h4 className="font-medium truncate">{announcement.title}</h4>
+                    <h4 className="font-medium text-ink truncate">{announcement.title}</h4>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-sm text-ink-muted line-clamp-2">
                     {announcement.content}
                   </p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 mt-2 text-xs text-ink-muted">
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
                       {getAuthorName(announcement.author)}
@@ -144,18 +143,18 @@ export function Announcements() {
                     </span>
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <ChevronRight className="h-5 w-5 text-ink-muted flex-shrink-0" />
               </div>
             </button>
           ))}
 
           {announcements.length > 5 && (
-            <p className="text-center text-sm text-muted-foreground pt-2">
+            <p className="text-center text-sm text-ink-muted pt-2">
               +{announcements.length - 5} more announcements
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Announcement Detail Dialog */}
       <Dialog
@@ -175,7 +174,7 @@ export function Announcements() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-4 text-sm text-ink-muted">
               <span className="flex items-center gap-1">
                 <User className="h-4 w-4" />
                 {selectedAnnouncement && getAuthorName(selectedAnnouncement.author)}
@@ -185,7 +184,7 @@ export function Announcements() {
                 {formatDate(selectedAnnouncement?.publishedAt || null)}
               </span>
             </div>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div className="prose prose-sm max-w-none">
               <p className="whitespace-pre-wrap">{selectedAnnouncement?.content}</p>
             </div>
           </div>

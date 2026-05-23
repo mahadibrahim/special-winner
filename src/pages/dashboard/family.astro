@@ -1,0 +1,228 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import DashboardShell from "@/components/dashboard/shell/DashboardShell.astro";
+import DashboardSection from "@/components/dashboard/shell/DashboardSection.astro";
+import UpcomingEvents from "@/components/dashboard/upcoming-events";
+import ChildrenOverview from "@/components/dashboard/children-overview";
+import CoachNotes from "@/components/dashboard/coach-notes";
+import PaymentsSummary from "@/components/dashboard/payments-summary";
+import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
+import { Announcements } from "@/components/dashboard/announcements";
+import { TeamGroupsPanel } from "@/components/dashboard/team-groups-panel";
+import { TelegramConnectBanner } from "@/components/dashboard/telegram-connect-banner";
+import { currentBusinessHour } from "@/lib/time/business-timezone";
+import { PaymentSuccessBanner } from "@/components/dashboard/payment-success-banner";
+import { ExploreCard } from "@/components/dashboard/shell/ExploreCard";
+import { BookOpen, CalendarPlus, ShoppingBag, MessageCircle } from "lucide-react";
+import { resolveExternalStore } from "@/lib/organization/external-store";
+import { getDb } from "@/lib/db";
+import { userNudgeState } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { getDashboardDestinations } from "@/lib/dashboard/persona";
+import { writeLastVisited } from "@/lib/dashboard/last-visited";
+
+// Middleware guarantees user is authenticated for /dashboard routes.
+const user = Astro.locals.user!;
+
+// Record last-visited destination
+writeLastVisited(Astro.cookies, "family");
+
+const paymentStatus = Astro.url.searchParams.get("payment");
+const registrationIdParam = Astro.url.searchParams.get("registration");
+const showPaymentSuccessBanner = paymentStatus === "success" && !!registrationIdParam;
+
+// Surface redirect error from middleware (e.g. ?error=unauthorized when a
+// user was bounced from /admin or /coach because they lack the required role).
+const errorParam = Astro.url.searchParams.get("error");
+const errorMessage =
+  errorParam === "unauthorized"
+    ? "You don't have permission to access that page."
+    : errorParam
+      ? `An error occurred: ${errorParam}`
+      : null;
+
+const organization = Astro.locals.organization;
+const externalStore = resolveExternalStore(null, organization as any);
+
+// Fetch nudge state for Telegram connect banner
+const db = getDb();
+const telegramNudge = await db.query.userNudgeState.findFirst({
+  where: and(
+    eq(userNudgeState.userId, user.id),
+    eq(userNudgeState.nudgeKey, "telegram_connect_banner"),
+  ),
+});
+const hasLinkedTelegram = !!(user as unknown as { telegramChatId?: string | null })
+  .telegramChatId;
+const telegramNudgeLastDismissedAt =
+  telegramNudge?.lastDismissedAt?.toISOString() ?? null;
+const isPhoneVerified = !!(user as unknown as { phoneVerified?: boolean })
+  .phoneVerified;
+
+// Replicate TelegramConnectBanner's 7-day snooze check on the server so we
+// don't show the "Needs your attention" heading when the only active item is
+// a Telegram banner the user dismissed within the last 7 days.
+const RESHOW_AFTER_DAYS = 7;
+const telegramBannerActive =
+  !hasLinkedTelegram &&
+  (!telegramNudge?.lastDismissedAt ||
+    Date.now() - telegramNudge.lastDismissedAt.getTime() >
+      RESHOW_AFTER_DAYS * 86_400_000);
+
+// Compute hasAttentionItems: true when at least one attention banner may show.
+// The banners themselves may also self-hide; this prevents an empty section heading.
+const hasAttentionItems =
+  showPaymentSuccessBanner ||
+  !!errorMessage ||
+  !user.emailVerified ||
+  telegramBannerActive ||
+  !isPhoneVerified;
+
+// Greeting hour in the business timezone — this page renders server-side.
+const hour = currentBusinessHour();
+let greeting = "Good morning";
+if (hour >= 12 && hour < 17) greeting = "Good afternoon";
+else if (hour >= 17) greeting = "Good evening";
+
+// Destination tabs visibility
+const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
+---
+
+<BaseLayout title="Family Dashboard — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-7xl mx-auto">
+      <DashboardShell
+        user={user}
+        greeting={greeting}
+        active="family"
+        hasFamily={hasFamily}
+        hasPlay={hasPlay}
+      >
+        <div class="space-y-10 mt-8">
+
+          {/* ── Needs your attention ── */}
+          {hasAttentionItems && (
+            <DashboardSection title="Needs your attention" icon="attention" accent="attention">
+              <div class="flex flex-col gap-4 mt-1">
+                {showPaymentSuccessBanner && (
+                  <PaymentSuccessBanner registrationId={registrationIdParam!} client:load />
+                )}
+                {errorMessage && (
+                  <div
+                    role="alert"
+                    class="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <p class="flex-1">{errorMessage}</p>
+                    <a
+                      href="/dashboard/family"
+                      class="shrink-0 text-xs font-medium uppercase tracking-wider hover:underline"
+                      aria-label="Dismiss error"
+                    >
+                      Dismiss
+                    </a>
+                  </div>
+                )}
+                <EmailVerificationBanner
+                  client:load
+                  email={user.email}
+                  emailVerified={user.emailVerified}
+                />
+                <TelegramConnectBanner
+                  client:load
+                  hasLinkedTelegram={hasLinkedTelegram}
+                  lastDismissedAt={telegramNudgeLastDismissedAt}
+                />
+                {!isPhoneVerified && (
+                  <a
+                    href="/dashboard/settings/verify-phone"
+                    class="block p-4 rounded-xl bg-ochre/[0.07] border border-ochre/30 hover:border-ochre/50 transition-all group"
+                  >
+                    <div class="flex items-center gap-4">
+                      <div class="w-10 h-10 rounded-lg bg-ochre text-cream flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold text-ink text-sm">Verify your phone for text updates</h3>
+                        <p class="text-xs text-ink-faint mt-0.5">
+                          Get schedule changes, reminders, and coach messages by text. Reply to us anytime — no app install needed.
+                        </p>
+                      </div>
+                      <span class="text-xs font-medium text-ochre flex-shrink-0 group-hover:translate-x-0.5 transition-transform">
+                        Verify →
+                      </span>
+                    </div>
+                  </a>
+                )}
+              </div>
+            </DashboardSection>
+          )}
+
+          {/* ── What's coming up ── */}
+          <DashboardSection title="What's coming up" icon="calendar" accent="default">
+            <div class="mt-1">
+              <UpcomingEvents client:visible />
+            </div>
+          </DashboardSection>
+
+          {/* ── What you're part of ── */}
+          <DashboardSection title="What you're part of" icon="shield" accent="default">
+            <div class="flex flex-col gap-6 mt-1">
+              <ChildrenOverview client:visible />
+              <CoachNotes client:visible />
+              <Announcements client:visible />
+              <TeamGroupsPanel client:load />
+              <PaymentsSummary client:visible />
+            </div>
+          </DashboardSection>
+
+          {/* ── Explore ── */}
+          <DashboardSection title="Explore" icon="compass" accent="explore">
+            <div class="grid gap-3 sm:grid-cols-3 mt-1">
+              <ExploreCard
+                client:visible
+                icon={BookOpen}
+                title="How we coach"
+                description="See our development framework for every sport — the philosophy, skill progressions, and standards every Aspire coach shares."
+                href="/guides"
+                cta="Read the coaching guides"
+              />
+              <ExploreCard
+                client:visible
+                icon={CalendarPlus}
+                title="Register for a season"
+                description="Browse upcoming programs and sign up for the next season."
+                href="/programs?audience=youth"
+                cta="Browse programs"
+              />
+              {externalStore && (
+                <ExploreCard
+                  client:visible
+                  icon={ShoppingBag}
+                  title={externalStore.label}
+                  description="Shop team gear and spirit-wear from our partner store."
+                  href={externalStore.url}
+                  cta="Shop now"
+                  target="_blank"
+                />
+              )}
+              <ExploreCard
+                client:visible
+                icon={MessageCircle}
+                title="Need Help?"
+                description="Questions about programs, schedules, or your account? We're here to help."
+                href="mailto:hello@aspiresports.com?subject=Parent%20Dashboard%20Support"
+                cta="Get in touch"
+              />
+            </div>
+          </DashboardSection>
+
+        </div>
+      </DashboardShell>
+    </div>
+  </main>
+</BaseLayout>

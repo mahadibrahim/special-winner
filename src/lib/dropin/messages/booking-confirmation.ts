@@ -7,27 +7,37 @@ import {
   type BookingConfirmationContext,
   type MessageVariants,
 } from "./types";
+import { renderEmail } from "@/lib/email/render";
+import { DropInBookingConfirmationEmail } from "@/lib/email/templates/dropin-booking-confirmation";
 
 /**
  * Booking confirmation — fired immediately after a confirmed booking row
- * lands (online free path, online paid via Stripe webhook, and walk-up
- * via PaymentIntent webhook). Same renderer for all three sources; only
- * the `source` field changes wording slightly.
+ * lands (online free path, online paid via Stripe webhook, kiosk walk-in,
+ * and admin walk-up via PaymentIntent webhook). Same renderer for all
+ * sources; only the `source` field changes wording slightly.
+ *
+ * The email channel renders the shared branded transactional template so it
+ * matches every other Aspire email; SMS and Telegram stay plain-text.
  */
-export function renderBookingConfirmation(
+export async function renderBookingConfirmation(
   ctx: BookingConfirmationContext,
-): MessageVariants {
+): Promise<MessageVariants> {
   const startStr = formatSessionTime(ctx.session.startsAt, ctx.venue.timezone);
   const sportLabel = ctx.session.formatLabel
     ? `${ctx.session.sportOrClassLabel} (${ctx.session.formatLabel})`
     : ctx.session.sportOrClassLabel;
   const link = sessionDetailLink(ctx);
   const name = recipientName(ctx);
+  // Plain-text payment line for SMS / Telegram.
   const amountStr = ctx.booking.amountPaidCents > 0
     ? `Paid: ${dollars(ctx.booking.amountPaidCents)}.`
     : ctx.booking.paymentMethod === "card_present"
       ? `Paid at venue: ${dollars(ctx.booking.amountPaidCents)}.`
       : "Included with your membership.";
+  // Label/value form for the email's detail panel.
+  const amountLabel = ctx.booking.amountPaidCents > 0
+    ? `${dollars(ctx.booking.amountPaidCents)} paid`
+    : "Included with membership";
   const teamLine = ctx.booking.teamAssignment
     ? ` Team: ${ctx.booking.teamAssignment}.`
     : "";
@@ -37,32 +47,17 @@ export function renderBookingConfirmation(
   const smsBody =
     `[Aspire] You're in for ${sportLabel} at ${ctx.venue.name} on ${startStr}.${teamLine} ${amountStr} Details: ${link}`;
 
-  const html = `
-    <h2>${escapeHtml(subject)}</h2>
-    <p>Hi ${escapeHtml(name)},</p>
-    <p>You're confirmed for <b>${escapeHtml(sportLabel)}</b> at <b>${escapeHtml(ctx.venue.name)}</b>.</p>
-    <ul>
-      <li><b>When:</b> ${escapeHtml(startStr)}</li>
-      ${ctx.booking.teamAssignment ? `<li><b>Team:</b> ${escapeHtml(ctx.booking.teamAssignment)}</li>` : ""}
-      <li><b>${escapeHtml(amountStr)}</b></li>
-    </ul>
-    <p><a href="${link}">View session details &rarr;</a></p>
-    <p style="color:#666; font-size:13px;">Need to cancel? You can do it from your dashboard up to the cancellation window.</p>
-  `.trim();
-
-  const text = [
-    subject,
-    "",
-    `Hi ${name},`,
-    `You're confirmed for ${sportLabel} at ${ctx.venue.name}.`,
-    `When: ${startStr}`,
-    ctx.booking.teamAssignment ? `Team: ${ctx.booking.teamAssignment}` : null,
-    amountStr,
-    "",
-    `Details: ${link}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const { html, text } = await renderEmail(
+    DropInBookingConfirmationEmail({
+      recipientName: name,
+      sportLabel,
+      venueName: ctx.venue.name,
+      whenLabel: startStr,
+      teamAssignment: ctx.booking.teamAssignment,
+      amountLabel,
+      sessionUrl: link,
+    }),
+  );
 
   const tg =
     `<b>${escapeHtml(subject)}</b>\n` +

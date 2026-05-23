@@ -55,3 +55,6 @@ netlify/blobs-serve/
 
 # Generated strategy PDFs
 pdfs/strategy/
+
+# Email render preview output (C11 verification pass)
+dist-preview/

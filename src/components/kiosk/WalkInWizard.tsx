@@ -16,6 +16,7 @@ interface Session {
   startsAt: string;
   endsAt: string;
   title: string;
+  spaceName: string;
   format: string | null;
   capacity: number;
   booked: number;
@@ -71,8 +72,8 @@ function getStripePromise(publishableKey: string): Promise<StripeJs | null> {
 }
 
 interface Props {
-  venueSlug: string;
-  venueName: string;
+  locationSlug: string;
+  locationName: string;
   publishableKey: string;
   onBack: () => void;
 }
@@ -86,7 +87,7 @@ const PRIMARY_BTN =
 const GHOST_BTN =
   "text-sm text-ink-muted hover:text-ink transition-colors";
 
-export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: Props) {
+export function WalkInWizard({ locationSlug, locationName, publishableKey, onBack }: Props) {
   const [step, setStep] = useState<Step>("session");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
@@ -106,15 +107,20 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
   });
   const [token, setToken] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentAmounts, setPaymentAmounts] = useState<{
+    baseAmountCents: number;
+    surchargeCents: number;
+    totalCents: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/kiosk/${venueSlug}/sessions`)
+    fetch(`/api/kiosk/${locationSlug}/sessions`)
       .then((r) => r.json())
       .then((b) => setSessions(b.sessions ?? []))
       .catch(() => setSessionsError("Could not load sessions. Please try again."));
-  }, [venueSlug]);
+  }, [locationSlug]);
 
   const minor = ageFromDob(contact.dob) < 18;
   const playerName = `${contact.firstName} ${contact.lastName}`.trim();
@@ -125,7 +131,7 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/kiosk/${venueSlug}/walkin/start`, {
+      const res = await fetch(`/api/kiosk/${locationSlug}/walkin/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,7 +193,7 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
         );
         return;
       }
-      const payRes = await fetch(`/api/kiosk/${venueSlug}/walkin/payment`, {
+      const payRes = await fetch(`/api/kiosk/${locationSlug}/walkin/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
@@ -200,7 +206,18 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
         );
         return;
       }
-      setClientSecret((payBody as { clientSecret: string }).clientSecret);
+      const pay = payBody as {
+        clientSecret: string;
+        amountCents: number;
+        baseAmountCents: number;
+        surchargeCents: number;
+      };
+      setClientSecret(pay.clientSecret);
+      setPaymentAmounts({
+        baseAmountCents: pay.baseAmountCents,
+        surchargeCents: pay.surchargeCents,
+        totalCents: pay.amountCents,
+      });
       setStep("payment");
     } finally {
       setBusy(false);
@@ -219,7 +236,7 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
           </h1>
           <div className="h-px bg-border w-16" />
           <p className="text-base text-ink-2 leading-relaxed max-w-md">
-            Welcome to {venueName}. See you on the field — head over whenever you're ready.
+            Welcome to {locationName}. See you on the field — head over whenever you're ready.
           </p>
         </header>
         <button type="button" onClick={onBack} className={PRIMARY_BTN}>
@@ -316,7 +333,11 @@ export function WalkInWizard({ venueSlug, venueName, publishableKey, onBack }: P
           stripe={getStripePromise(publishableKey)}
           options={{ clientSecret, appearance: { theme: "stripe" } }}
         >
-          <PaymentStep session={selectedSession} onSuccess={() => setStep("done")} />
+          <PaymentStep
+            session={selectedSession}
+            amounts={paymentAmounts}
+            onSuccess={() => setStep("done")}
+          />
         </Elements>
       )}
     </div>
@@ -364,6 +385,7 @@ function SessionStep({
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-ink truncate">{s.title}</div>
                 <div className="text-sm text-ink-muted mt-1">
+                  {s.spaceName} ·{" "}
                   {new Date(s.startsAt).toLocaleTimeString([], {
                     hour: "numeric",
                     minute: "2-digit",
@@ -739,9 +761,15 @@ function PhotoStep({
 
 function PaymentStep({
   session,
+  amounts,
   onSuccess,
 }: {
   session: Session;
+  amounts: {
+    baseAmountCents: number;
+    surchargeCents: number;
+    totalCents: number;
+  } | null;
   onSuccess: () => void;
 }) {
   const stripe = useStripe();
@@ -767,20 +795,35 @@ function PaymentStep({
     onSuccess();
   };
 
-  const amount =
-    session.sessionRateCents != null ? `$${(session.sessionRateCents / 100).toFixed(2)}` : null;
+  const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const totalLabel = amounts ? fmt(amounts.totalCents) : null;
 
   return (
     <form onSubmit={onPay} className="space-y-4">
-      <div className="rounded-xl border border-border bg-paper p-5 flex items-center justify-between gap-4">
+      <div className="rounded-xl border border-border bg-paper p-5 space-y-3">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
             Today's session
           </p>
           <p className="text-base font-medium text-ink mt-1">{session.title}</p>
         </div>
-        {amount && (
-          <div className="font-display text-3xl italic text-ink shrink-0">{amount}</div>
+        {amounts && (
+          <div className="border-t border-border pt-3 space-y-1.5 text-sm">
+            <div className="flex justify-between text-ink-muted">
+              <span>Session</span>
+              <span>{fmt(amounts.baseAmountCents)}</span>
+            </div>
+            <div className="flex justify-between text-ink-muted">
+              <span>Card processing fee</span>
+              <span>{fmt(amounts.surchargeCents)}</span>
+            </div>
+            <div className="flex justify-between items-baseline pt-1.5 border-t border-border">
+              <span className="font-medium text-ink">Total</span>
+              <span className="font-display text-2xl italic text-ink">
+                {fmt(amounts.totalCents)}
+              </span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -795,7 +838,7 @@ function PaymentStep({
       )}
 
       <button type="submit" disabled={busy} className={PRIMARY_BTN}>
-        {busy ? "Processing…" : amount ? `Pay ${amount}` : "Pay"}
+        {busy ? "Processing…" : totalLabel ? `Pay ${totalLabel}` : "Pay"}
       </button>
     </form>
   );

@@ -1,5 +1,5 @@
 {
-  "id": "963b3c44-81aa-4f09-bf98-6341ffe419c2",
+  "id": "2cf6657c-859d-4170-a05f-0f71f0c55d51",
   "prevId": "ebe80f66-8648-4407-a894-2ccaa0a706c2",
   "version": "7",
   "dialect": "postgresql",
@@ -3518,12 +3518,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "company_name": {
           "name": "company_name",
           "type": "varchar(255)",
@@ -3613,21 +3607,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "corporate_inquiries_organization_id_organizations_id_fk": {
-          "name": "corporate_inquiries_organization_id_organizations_id_fk",
-          "tableFrom": "corporate_inquiries",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -6865,6 +6845,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "welcome_series_enrolled_at": {
+          "name": "welcome_series_enrolled_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "marketing_opted_out_at": {
+          "name": "marketing_opted_out_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -14089,12 +14081,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "email": {
           "name": "email",
           "type": "varchar(320)",
@@ -14147,21 +14133,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "newsletter_signups_organization_id_organizations_id_fk": {
-          "name": "newsletter_signups_organization_id_organizations_id_fk",
-          "tableFrom": "newsletter_signups",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "newsletter_signups_email_unique": {

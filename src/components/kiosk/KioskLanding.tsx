@@ -1,33 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { KIOSK_RETURN_SLUG_KEY } from "@/lib/kiosk/return-slug";
 import { FindBooking } from "./FindBooking";
 import { WalkInWizard } from "./WalkInWizard";
 
 type Mode = "landing" | "find" | "walkin";
 
 export default function KioskLanding({
-  venueSlug,
-  venueName,
+  locationSlug,
+  locationName,
   publishableKey,
 }: {
-  venueSlug: string;
-  venueName: string;
+  locationSlug: string;
+  locationName: string;
   publishableKey: string;
 }) {
   useHydrationBeacon();
   const [mode, setMode] = useState<Mode>("landing");
 
+  // Remember which kiosk this browser tab belongs to. The "Find my booking"
+  // flow navigates the tab to a separate /self-serve route; stashing the slug
+  // here lets that page's completion screen return to this kiosk reliably
+  // (a query param can be lost across the multi-step flow; sessionStorage
+  // survives same-tab navigation).
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(KIOSK_RETURN_SLUG_KEY, locationSlug);
+    } catch {
+      /* sessionStorage unavailable — non-fatal, the ?kiosk= param still tries */
+    }
+  }, [locationSlug]);
+
   if (mode === "find") {
-    return <FindBooking venueSlug={venueSlug} venueName={venueName} onBack={() => setMode("landing")} />;
+    return <FindBooking locationSlug={locationSlug} locationName={locationName} onBack={() => setMode("landing")} />;
   }
 
   if (mode === "walkin") {
     return (
       <WalkInWizard
-        venueSlug={venueSlug}
-        venueName={venueName}
+        locationSlug={locationSlug}
+        locationName={locationName}
         publishableKey={publishableKey}
         onBack={() => setMode("landing")}
       />
@@ -41,7 +55,7 @@ export default function KioskLanding({
           Welcome
         </p>
         <h1 className="font-display text-5xl md:text-6xl font-medium italic leading-[0.95] text-ink">
-          {venueName}
+          {locationName}
         </h1>
         <div className="h-px bg-border w-16" />
         <p className="text-base text-ink-2 leading-relaxed max-w-md">

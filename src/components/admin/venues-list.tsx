@@ -86,11 +86,11 @@ export function VenuesList({ locations }: VenuesListProps) {
   async function fetchVenues() {
     try {
       const response = await fetch("/api/admin/venues")
-      if (!response.ok) throw new Error("Failed to fetch venues")
+      if (!response.ok) throw new Error("Failed to fetch spaces")
       const data = await response.json()
       setVenues(data.venues)
     } catch (err) {
-      setError("Failed to load venues")
+      setError("Failed to load spaces")
       console.error(err)
     } finally {
       setIsLoading(false)
@@ -193,7 +193,7 @@ export function VenuesList({ locations }: VenuesListProps) {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to save venue")
+        throw new Error(data.error || "Failed to save space")
       }
 
       await fetchVenues()
@@ -207,7 +207,7 @@ export function VenuesList({ locations }: VenuesListProps) {
 
   async function handleDelete(venue: Venue) {
     const ok = await confirm({
-      title: "Delete venue?",
+      title: "Delete space?",
       description: <>Delete <strong>{venue.name}</strong>? This cannot be undone.</>,
       confirmLabel: "Delete",
       destructive: true,
@@ -228,7 +228,7 @@ export function VenuesList({ locations }: VenuesListProps) {
       await fetchVenues()
       toast.success(`Deleted "${venue.name}"`)
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to delete venue")
+      toast.error(err.message ?? "Failed to delete space")
     }
   }
 
@@ -245,12 +245,12 @@ export function VenuesList({ locations }: VenuesListProps) {
       {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Venues</h1>
-          <p className="text-gray-600 mt-1">Manage the venues and facilities for your programs</p>
+          <h1 className="text-3xl font-bold text-gray-900">Spaces</h1>
+          <p className="text-gray-600 mt-1">Manage the spaces within your facilities</p>
         </div>
         <Button onClick={openCreateDialog} disabled={locations.length === 0}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Venue
+          Add Space
         </Button>
       </div>
 
@@ -258,7 +258,7 @@ export function VenuesList({ locations }: VenuesListProps) {
         <Card className="border-yellow-300 bg-yellow-50">
           <CardContent className="pt-6">
             <p className="text-yellow-800">
-              You need to create at least one location before adding venues.
+              You need to create at least one location before adding spaces.
             </p>
             <a href="/admin/locations" className="text-primary hover:underline text-sm mt-2 inline-block">
               Go to Locations &rarr;
@@ -270,10 +270,10 @@ export function VenuesList({ locations }: VenuesListProps) {
       {venues.length === 0 && locations.length > 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">No venues configured yet</p>
+            <p className="text-muted-foreground mb-4">No spaces configured yet</p>
             <Button onClick={openCreateDialog}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Your First Venue
+              Add Your First Space
             </Button>
           </CardContent>
         </Card>
@@ -332,9 +332,9 @@ export function VenuesList({ locations }: VenuesListProps) {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingVenue ? "Edit Venue" : "Add Venue"}</DialogTitle>
+            <DialogTitle>{editingVenue ? "Edit Space" : "Add Space"}</DialogTitle>
             <DialogDescription>
-              {editingVenue ? "Update the venue details" : "Add a new venue or facility"}
+              {editingVenue ? "Update the space details" : "Add a new space"}
             </DialogDescription>
           </DialogHeader>
 
@@ -366,7 +366,7 @@ export function VenuesList({ locations }: VenuesListProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Venue Name</Label>
+                <Label htmlFor="name">Space Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -415,7 +415,7 @@ export function VenuesList({ locations }: VenuesListProps) {
               <div className="space-y-2 border-t pt-4">
                 <Label className="text-sm font-medium">Operational flags</Label>
                 <p className="text-xs text-muted-foreground -mt-1">
-                  Drives which activity-tracking responsibilities apply at this venue.
+                  Drives which activity-tracking responsibilities apply at this space.
                 </p>
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center space-x-2">
@@ -457,7 +457,7 @@ export function VenuesList({ locations }: VenuesListProps) {
                   id="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Additional information about this venue"
+                  placeholder="Additional information about this space"
                   rows={2}
                 />
               </div>
@@ -472,7 +472,7 @@ export function VenuesList({ locations }: VenuesListProps) {
                       onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, rentalEnabled: checked === true }))}
                     />
                     <Label htmlFor="rentalEnabled" className="font-normal text-sm">
-                      Enable field rentals at this venue
+                      Enable field rentals at this space
                     </Label>
                   </div>
 
@@ -545,9 +545,9 @@ export function VenuesList({ locations }: VenuesListProps) {
                     Saving...
                   </>
                 ) : editingVenue ? (
-                  "Update Venue"
+                  "Update Space"
                 ) : (
-                  "Add Venue"
+                  "Add Space"
                 )}
               </Button>
             </DialogFooter>

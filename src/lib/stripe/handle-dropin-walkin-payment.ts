@@ -8,15 +8,16 @@
  * Flips the pending_claim walk-in booking to `confirmed`. Cancelled-guard
  * protects against late-arriving webhooks after a refund/cancel.
  *
- * The booking row is created by POST /api/kiosk/[venueSlug]/walkin/start
+ * The booking row is created by POST /api/kiosk/[locationSlug]/walkin/start
  * in `pending_claim` status; the PaymentIntent is attached by
- * POST /api/kiosk/[venueSlug]/walkin/payment. This handler completes
+ * POST /api/kiosk/[locationSlug]/walkin/payment. This handler completes
  * the flow once Stripe confirms the charge.
  */
 import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
 
 export async function handleDropinWalkinPayment(
   paymentIntent: Stripe.PaymentIntent,
@@ -67,8 +68,17 @@ export async function handleDropinWalkinPayment(
       })
       .where(eq(dropInBookings.id, bookingId));
 
-    // TODO(check-in): fire-and-forget walk-in confirmation email/SMS once
-    // a self-serve confirmation messaging module exists.
+    // Fire-and-forget booking confirmation (same renderer + channels as the
+    // online and admin walk-up paths). Messaging failures must not roll back
+    // the booking; dispatch logs its own errors.
+    queueMicrotask(() => {
+      void dispatchBookingConfirmation(bookingId).catch((err) => {
+        console.error(
+          "[dropin] walk-in booking-confirmation dispatch failed",
+          err,
+        );
+      });
+    });
 
     return { status: "processed", bookingId, paidCents };
   });

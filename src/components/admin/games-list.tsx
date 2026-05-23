@@ -10,10 +10,13 @@ import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { groupSpacesByLocation } from "@/lib/admin/group-spaces"
 import {
   Dialog,
   DialogContent,
@@ -39,6 +42,7 @@ interface Team {
 interface Venue {
   id: string
   name: string
+  location?: { name: string } | null
 }
 
 interface Game {
@@ -351,7 +355,7 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
                       </div>
                     </div>
 
-                    {/* Venue */}
+                    {/* Space */}
                     {game.venue && (
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4" />
@@ -488,20 +492,25 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Venue</Label>
+                  <Label>Space</Label>
                   <Select
                     value={formData.venueId}
                     onValueChange={(value) => setFormData((prev) => ({ ...prev, venueId: value === "none" ? "" : value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select venue" />
+                      <SelectValue placeholder="Select a space" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No venue</SelectItem>
-                      {venues.map((venue) => (
-                        <SelectItem key={venue.id} value={venue.id}>
-                          {venue.name}
-                        </SelectItem>
+                      <SelectItem value="none">No space</SelectItem>
+                      {groupSpacesByLocation(venues).map((group) => (
+                        <SelectGroup key={group.locationName}>
+                          <SelectLabel>{group.locationName}</SelectLabel>
+                          {group.spaces.map((venue) => (
+                            <SelectItem key={venue.id} value={venue.id}>
+                              {venue.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>

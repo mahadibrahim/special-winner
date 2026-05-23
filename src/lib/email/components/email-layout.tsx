@@ -45,16 +45,12 @@ const fontsHref =
 interface EmailLayoutProps {
   preview: string;
   appUrl?: string;
-  sectionLabel?: string;
-  sectionMeta?: string;
   children: ReactNode;
 }
 
 export function EmailLayout({
   preview,
-  appUrl = "https://www.aspiresportsohio.com",
-  sectionLabel,
-  sectionMeta,
+  appUrl = "https://aspiresportsohio.com",
   children,
 }: EmailLayoutProps) {
   return (
@@ -71,6 +67,8 @@ export function EmailLayout({
       <Preview>{preview}</Preview>
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
+          <div style={accentStripeStyle} />
+
           <Section style={logoSectionStyle}>
             <Img
               src={`${appUrl}/images/logo-black.png`}
@@ -81,28 +79,7 @@ export function EmailLayout({
             />
           </Section>
 
-          {sectionLabel && (
-            <>
-              <Section style={metaBarStyle}>
-                <table
-                  width="100%"
-                  cellPadding="0"
-                  cellSpacing="0"
-                  style={{ borderCollapse: "collapse" }}
-                >
-                  <tr>
-                    <td style={metaCellLeftStyle}>§ {sectionLabel}</td>
-                    {sectionMeta && (
-                      <td style={metaCellRightStyle}>{sectionMeta}</td>
-                    )}
-                  </tr>
-                </table>
-              </Section>
-              <Hr style={ruleStyle} />
-            </>
-          )}
-
-          <Section style={contentSectionStyle}>{children}</Section>
+          {children}
 
           <Hr style={ruleStyle} />
 
@@ -112,19 +89,17 @@ export function EmailLayout({
               3989 Presidential Pkwy &nbsp;·&nbsp; Powell, OH 43065
             </Text>
             <Text style={footerContactStyle}>
-              Questions? Reply to this email or write to{" "}
-              <Link
-                href="mailto:hello@aspiresportsohio.com"
-                style={footerLinkStyle}
-              >
-                hello@aspiresportsohio.com
-              </Link>
+              Questions? Just reply to this email — a real person reads it.
             </Text>
           </Section>
         </Container>
       </Body>
     </Html>
   );
+}
+
+export function Content({ children }: { children: ReactNode }) {
+  return <Section style={contentSectionStyle}>{children}</Section>;
 }
 
 export function H1({ children }: { children: ReactNode }) {
@@ -150,7 +125,7 @@ export function SectionLabel({
   children: ReactNode;
   style?: CSSProperties;
 }) {
-  return <Text style={{ ...sectionLabelStyle, ...style }}>§ {children}</Text>;
+  return <Text style={{ ...sectionLabelStyle, ...style }}>{children}</Text>;
 }
 
 export function InfoCard({
@@ -179,7 +154,7 @@ export function InfoCard({
         borderColor: palette.border,
       }}
     >
-      {label && <Text style={infoCardLabelStyle}>§ {label}</Text>}
+      {label && <Text style={infoCardLabelStyle}>{label}</Text>}
       {children}
     </Section>
   );
@@ -216,15 +191,35 @@ export function Button({
   children: ReactNode;
   variant?: "primary" | "outline";
 }) {
-  const buttonInline =
-    variant === "outline" ? buttonOutlineStyle : buttonPrimaryStyle;
+  const tdStyle: CSSProperties =
+    variant === "outline" ? buttonOutlineTdStyle : buttonPrimaryTdStyle;
+  const linkStyle: CSSProperties =
+    variant === "outline" ? buttonOutlineLinkStyle : buttonPrimaryLinkStyle;
   return (
-    <Section style={{ textAlign: "center", margin: "32px 0" }}>
-      <Link href={href} style={buttonInline}>
-        {children}
-      </Link>
+    <Section style={{ margin: "24px 0 8px" }}>
+      <table
+        width="100%"
+        cellPadding="0"
+        cellSpacing="0"
+        role="presentation"
+        style={{ borderCollapse: "collapse" }}
+      >
+        <tbody>
+          <tr>
+            <td style={tdStyle}>
+              <Link href={href} style={linkStyle}>
+                {children}
+              </Link>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </Section>
   );
+}
+
+export function DetailPanel({ children }: { children: ReactNode }) {
+  return <Section style={detailPanelStyle}>{children}</Section>;
 }
 
 export function StatusPill({
@@ -253,6 +248,13 @@ export function StatusPill({
     </span>
   );
 }
+
+const accentStripeStyle: CSSProperties = {
+  height: "4px",
+  backgroundColor: tokens.primary,
+  fontSize: "1px",
+  lineHeight: "4px",
+};
 
 const bodyStyle: CSSProperties = {
   backgroundColor: tokens.cream,
@@ -283,32 +285,6 @@ const logoImgStyle: CSSProperties = {
   margin: "0 auto",
   height: "34px",
   width: "auto",
-};
-
-const metaBarStyle: CSSProperties = {
-  padding: "20px 40px 8px",
-};
-
-const metaCellLeftStyle: CSSProperties = {
-  fontFamily: fonts.body,
-  fontSize: "11px",
-  fontWeight: 600,
-  letterSpacing: "0.15em",
-  textTransform: "uppercase",
-  color: tokens.inkMuted,
-  textAlign: "left",
-  padding: 0,
-};
-
-const metaCellRightStyle: CSSProperties = {
-  fontFamily: fonts.body,
-  fontSize: "11px",
-  fontWeight: 600,
-  letterSpacing: "0.15em",
-  textTransform: "uppercase",
-  color: tokens.inkMuted,
-  textAlign: "right",
-  padding: 0,
 };
 
 const ruleStyle: CSSProperties = {
@@ -407,33 +383,47 @@ const detailValueCellStyle: CSSProperties = {
   verticalAlign: "top",
 };
 
-const buttonPrimaryStyle: CSSProperties = {
-  backgroundColor: tokens.primary,
-  borderRadius: "2px",
-  color: tokens.cream,
-  display: "inline-block",
-  fontFamily: fonts.body,
-  fontSize: "14px",
-  fontWeight: 500,
-  letterSpacing: "0.02em",
-  padding: "14px 32px",
-  textDecoration: "none",
-  textTransform: "uppercase" as const,
+const detailPanelStyle: CSSProperties = {
+  backgroundColor: tokens.cream2,
+  border: `1px solid ${tokens.border}`,
+  borderRadius: "6px",
+  padding: "12px 20px",
+  margin: "20px 0",
 };
 
-const buttonOutlineStyle: CSSProperties = {
+const buttonPrimaryTdStyle: CSSProperties = {
+  backgroundColor: tokens.primary,
+  borderRadius: "6px",
+  textAlign: "center",
+};
+
+const buttonPrimaryLinkStyle: CSSProperties = {
+  color: tokens.paper,
+  display: "block",
+  fontFamily: fonts.body,
+  fontSize: "15px",
+  fontWeight: 600,
+  letterSpacing: "0.01em",
+  padding: "15px 24px",
+  textDecoration: "none",
+};
+
+const buttonOutlineTdStyle: CSSProperties = {
   backgroundColor: "transparent",
   border: `1px solid ${tokens.ink}`,
-  borderRadius: "2px",
+  borderRadius: "6px",
+  textAlign: "center",
+};
+
+const buttonOutlineLinkStyle: CSSProperties = {
   color: tokens.ink,
-  display: "inline-block",
+  display: "block",
   fontFamily: fonts.body,
-  fontSize: "14px",
-  fontWeight: 500,
-  letterSpacing: "0.02em",
-  padding: "13px 32px",
+  fontSize: "15px",
+  fontWeight: 600,
+  letterSpacing: "0.01em",
+  padding: "15px 24px",
   textDecoration: "none",
-  textTransform: "uppercase" as const,
 };
 
 const statusPillStyle: CSSProperties = {
@@ -475,9 +465,4 @@ const footerContactStyle: CSSProperties = {
   lineHeight: "1.5",
   color: tokens.inkMuted,
   margin: 0,
-};
-
-const footerLinkStyle: CSSProperties = {
-  color: tokens.primary,
-  textDecoration: "none",
 };

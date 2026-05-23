@@ -7,6 +7,8 @@ import {
   type MessageVariants,
   type WaitlistPromotedContext,
 } from "./types";
+import { renderEmail } from "@/lib/email/render";
+import { DropInWaitlistPromotedEmail } from "@/lib/email/templates/dropin-waitlist-promoted";
 
 /**
  * Waitlist promotion — fired when a confirmed booker cancels (or a
@@ -14,10 +16,13 @@ import {
  * `pending_claim`. The body includes the magic claim link with the
  * one-time `promotion_token` and a countdown to the expiry window
  * (default 30 min).
+ *
+ * The email channel renders the shared branded transactional template;
+ * SMS and Telegram stay plain-text.
  */
-export function renderWaitlistPromoted(
+export async function renderWaitlistPromoted(
   ctx: WaitlistPromotedContext,
-): MessageVariants {
+): Promise<MessageVariants> {
   const startStr = formatSessionTime(ctx.session.startsAt, ctx.venue.timezone);
   const minsLeft = Math.max(0, minutesUntil(ctx.promotionExpiresAt));
   const sportLabel = ctx.session.formatLabel
@@ -31,23 +36,16 @@ export function renderWaitlistPromoted(
     `[Aspire] A spot opened for ${sportLabel} at ${ctx.venue.name} on ${startStr}. ` +
     `Claim within ${minsLeft} min: ${link}`;
 
-  const html = `
-    <h2>${escapeHtml(subject)}</h2>
-    <p>Hi ${escapeHtml(name)},</p>
-    <p>Good news — a spot opened up for <b>${escapeHtml(sportLabel)}</b> at <b>${escapeHtml(ctx.venue.name)}</b> on ${escapeHtml(startStr)}.</p>
-    <p>Claim it within <b>${minsLeft} minutes</b> or it goes to the next person.</p>
-    <p><a href="${link}" style="display:inline-block; padding:12px 20px; background:#0a0a0a; color:#fff; border-radius:6px; text-decoration:none;">Claim my spot &rarr;</a></p>
-    <p style="color:#666; font-size:13px;">If the link expires, you'll automatically stay on the waitlist for the next opening.</p>
-  `.trim();
-
-  const text = [
-    subject,
-    "",
-    `Hi ${name},`,
-    `A spot opened up for ${sportLabel} at ${ctx.venue.name} on ${startStr}.`,
-    `Claim within ${minsLeft} minutes:`,
-    link,
-  ].join("\n");
+  const { html, text } = await renderEmail(
+    DropInWaitlistPromotedEmail({
+      recipientName: name,
+      sportLabel,
+      venueName: ctx.venue.name,
+      whenLabel: startStr,
+      minutesLeft: minsLeft,
+      claimUrl: link,
+    }),
+  );
 
   const tg =
     `<b>${escapeHtml(subject)}</b>\n` +

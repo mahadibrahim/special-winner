@@ -18,10 +18,10 @@ const tab: Tab = tabRaw === "venues" ? "venues" : "locations";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "locations", label: "Locations" },
-  { id: "venues", label: "Venues" },
+  { id: "venues", label: "Spaces" },
 ];
 
-// VenuesList needs the locations dropdown data on the Venues tab.
+// VenuesList needs the locations dropdown data on the Spaces tab.
 let locationsList: { id: string; name: string }[] = [];
 if (tab === "venues") {
   try {
@@ -35,7 +35,7 @@ if (tab === "venues") {
 }
 ---
 
-<BaseLayout title="Locations & venues — Admin — Aspire Sports" navigation={false} footer={false}>
+<BaseLayout title="Locations & spaces — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
@@ -43,7 +43,7 @@ if (tab === "venues") {
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
     <div class="space-y-4">
-      <h1 class="font-display text-3xl font-semibold text-ink">Locations & venues</h1>
+      <h1 class="font-display text-3xl font-semibold text-ink">Locations & spaces</h1>
 
       <div class="border-b border-border flex gap-4 overflow-x-auto">
         {

@@ -2,9 +2,8 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { users, emailVerificationTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { render } from "@react-email/components";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
-import { EmailVerificationEmail } from "@/lib/email/templates/email-verification";
+import { isEmailConfigured } from "@/lib/email";
+import { sendEmailVerificationEmail } from "@/lib/email/send";
 import { validateSession } from "@/lib/auth/session";
 import crypto from "crypto";
 
@@ -62,18 +61,12 @@ export const POST: APIRoute = async (context) => {
       const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:4321";
       const verifyUrl = `${appUrl}/verify-email/${token}`;
 
-      const html = await render(
-        EmailVerificationEmail({
-          name: userData[0].firstName || "",
-          verifyUrl,
-          expiresIn: "24 hours",
-        })
-      );
-
-      await sendEmail({
-        to: userData[0].email,
-        subject: "Verify Your Email - Aspire Sports",
-        html,
+      await sendEmailVerificationEmail({
+        userId: user.id,
+        recipientEmail: userData[0].email,
+        name: userData[0].firstName || "",
+        verifyUrl,
+        expiresIn: "24 hours",
       });
     } else {
       console.warn("Email not configured, verification email not sent");

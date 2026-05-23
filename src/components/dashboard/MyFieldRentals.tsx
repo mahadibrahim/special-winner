@@ -8,6 +8,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { toast } from "sonner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
+import { directionsUrl } from "@/lib/dashboard/maps";
+import type { StatusTone } from "@/lib/dashboard/dashboard-ui";
 
 interface FieldRental {
   id: string;
@@ -53,7 +56,7 @@ function HoldCountdown({
       window.setTimeout(onExpire, 0);
     }
     return (
-      <Badge variant="outline" className="bg-stone-100 text-stone-500 border-stone-200">
+      <Badge variant="outline" className="bg-cream-3 text-ink-2 border-border">
         Hold expired
       </Badge>
     );
@@ -68,8 +71,8 @@ function HoldCountdown({
       variant="outline"
       className={
         urgent
-          ? "bg-rose-100 text-rose-900 border-rose-300"
-          : "bg-amber-50 text-amber-900 border-amber-200"
+          ? "bg-rose-500/10 text-rose-700 border-rose-500/20"
+          : "bg-amber-500/10 text-amber-700 border-amber-500/20"
       }
     >
       Pay within {display}
@@ -96,18 +99,16 @@ function fmtDateTimeRange(startsAt: string, endsAt: string): string {
   return `${datePart} · ${startTime} – ${endTime}`;
 }
 
-function statusColor(status: FieldRental["status"]): string {
+function rentalStatusTone(status: FieldRental["status"]): StatusTone {
   switch (status) {
     case "confirmed":
-      return "bg-emerald-100 text-emerald-900 border-emerald-200";
-    case "pending_payment":
-      return "bg-amber-100 text-amber-900 border-amber-200";
-    case "cancelled":
-      return "bg-stone-50 text-stone-500 border-stone-200";
-    case "no_show":
-      return "bg-rose-100 text-rose-900 border-rose-200";
     case "completed":
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "confirmed";
+    case "pending_payment":
+      return "action";
+    case "cancelled":
+    case "no_show":
+      return "pending";
   }
 }
 
@@ -131,6 +132,9 @@ function isNearStart(startsAt: string): boolean {
   const diff = Math.abs(new Date(startsAt).getTime() - Date.now());
   return diff <= 2 * 60 * 60 * 1000;
 }
+
+const SUB_HEADER_CLS =
+  "text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2";
 
 export default function MyFieldRentals() {
   useHydrationBeacon();
@@ -224,13 +228,8 @@ export default function MyFieldRentals() {
   if (error) return <ErrorBanner message={error} />;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h2 className="text-xl font-semibold text-stone-900">Field rentals</h2>
-        <p className="text-sm text-stone-600 mt-1">
-          Fields you have reserved for private use.
-        </p>
-      </header>
+    <div className="space-y-4">
+      <h3 className={SUB_HEADER_CLS}>Field rentals</h3>
 
       {successBanner && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center justify-between text-sm text-emerald-900">
@@ -252,108 +251,95 @@ export default function MyFieldRentals() {
         />
       ) : (
         <>
-          <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-stone-500 mb-3">
-              Upcoming
-            </h3>
+          <section className="space-y-2">
+            {pastOrCancelled.length > 0 && <p className={SUB_HEADER_CLS}>Upcoming</p>}
             {upcoming.length === 0 ? (
-              <p className="text-sm text-stone-500">No upcoming rentals.</p>
+              <p className="text-sm text-ink-2">No upcoming rentals.</p>
             ) : (
-              <ul className="space-y-3">
-                {upcoming.map((r) => (
-                  <li
+              upcoming.map((r) => {
+                const actionNode = (
+                  <div className="flex flex-col items-end gap-1.5">
+                    {r.checkedInAt ? (
+                      <Badge
+                        variant="outline"
+                        className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
+                      >
+                        Here
+                      </Badge>
+                    ) : isNearStart(r.startsAt) ? (
+                      <Button
+                        size="sm"
+                        disabled={checkingIn.has(r.id)}
+                        onClick={() => handleCheckIn(r.id)}
+                      >
+                        {checkingIn.has(r.id) ? "Checking in..." : "Check me in"}
+                      </Button>
+                    ) : null}
+                    {canCancel(r) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => cancel(r.id)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                );
+
+                return (
+                  <DashboardCard
                     key={r.id}
-                    className="rounded-lg border border-stone-200 bg-white p-4 flex items-start justify-between gap-3"
+                    type="field_rental"
+                    title={`Field ${r.fieldNumber}`}
+                    meta={fmtDateTimeRange(r.startsAt, r.endsAt)}
+                    venue={{
+                      label: r.venueName,
+                      mapsUrl: directionsUrl({ name: r.venueName }),
+                    }}
+                    status={{
+                      label: statusLabel(r.status),
+                      tone: rentalStatusTone(r.status),
+                    }}
+                    action={actionNode}
                   >
-                    <div className="min-w-0">
-                      <div className="font-medium text-stone-900">
-                        {r.venueName}
-                        <span className="text-stone-500 font-normal">
-                          {" "}
-                          · Field {r.fieldNumber}
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      {r.status === "pending_payment" && r.paymentExpiresAt && (
+                        <HoldCountdown
+                          expiresAt={r.paymentExpiresAt}
+                          onExpire={() => void reload()}
+                        />
+                      )}
+                      <span className="text-[11px] text-ink-2">
+                        {r.partySize} {r.partySize === 1 ? "person" : "people"}
+                      </span>
+                      {r.paymentStatus && (
+                        <span className="text-[11px] text-ink-muted">
+                          · payment: {r.paymentStatus.replace(/_/g, " ")}
                         </span>
-                      </div>
-                      <div className="text-sm text-stone-600">
-                        {fmtDateTimeRange(r.startsAt, r.endsAt)}
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className={statusColor(r.status)}>
-                          {statusLabel(r.status)}
-                        </Badge>
-                        {r.status === "pending_payment" && r.paymentExpiresAt && (
-                          <HoldCountdown
-                            expiresAt={r.paymentExpiresAt}
-                            onExpire={() => void reload()}
-                          />
-                        )}
-                        <span className="text-xs text-stone-500">
-                          {r.partySize} {r.partySize === 1 ? "person" : "people"}
-                        </span>
-                        {r.paymentStatus && (
-                          <span className="text-xs text-stone-400">
-                            · payment: {r.paymentStatus.replace(/_/g, " ")}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      {r.checkedInAt ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-emerald-50 text-emerald-800 border-emerald-200"
-                        >
-                          Here
-                        </Badge>
-                      ) : isNearStart(r.startsAt) ? (
-                        <Button
-                          size="sm"
-                          disabled={checkingIn.has(r.id)}
-                          onClick={() => handleCheckIn(r.id)}
-                        >
-                          {checkingIn.has(r.id) ? "Checking in..." : "Check me in"}
-                        </Button>
-                      ) : null}
-                      {canCancel(r) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => cancel(r.id)}
-                        >
-                          Cancel
-                        </Button>
                       )}
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  </DashboardCard>
+                );
+              })
             )}
           </section>
 
           {pastOrCancelled.length > 0 && (
-            <section>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-stone-500 mb-3">
-                Past / Cancelled
-              </h3>
-              <ul className="space-y-2">
-                {pastOrCancelled.map((r) => (
-                  <li
-                    key={r.id}
-                    className="rounded-lg border border-stone-100 bg-stone-50 p-3 text-sm flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="font-medium text-stone-700">
-                        {r.venueName} · Field {r.fieldNumber}
-                      </span>
-                      <span className="text-stone-500 ml-2">
-                        {fmtDateTimeRange(r.startsAt, r.endsAt)}
-                      </span>
-                    </div>
-                    <Badge variant="outline" className={statusColor(r.status)}>
-                      {statusLabel(r.status)}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
+            <section className="space-y-2">
+              <p className={SUB_HEADER_CLS}>Past / Cancelled</p>
+              {pastOrCancelled.map((r) => (
+                <DashboardCard
+                  key={r.id}
+                  type="field_rental"
+                  title={`${r.venueName} · Field ${r.fieldNumber}`}
+                  meta={fmtDateTimeRange(r.startsAt, r.endsAt)}
+                  status={{
+                    label: statusLabel(r.status),
+                    tone: rentalStatusTone(r.status),
+                  }}
+                />
+              ))}
             </section>
           )}
         </>

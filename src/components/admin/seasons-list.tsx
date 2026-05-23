@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { groupSpacesByLocation } from "@/lib/admin/group-spaces"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -61,6 +62,7 @@ interface Venue {
   id: string
   name: string
   locationId: string
+  location: { id: string; name: string }
 }
 
 const statusOptions = [
@@ -516,18 +518,23 @@ export function SeasonsList() {
               </div>
 
               <div className="space-y-2">
-                <Label>Venue</Label>
+                <Label>Space</Label>
                 <Select
                   value={formData.venueId || "none"}
                   onValueChange={(v) => setFormData((prev) => ({ ...prev, venueId: v === "none" ? "" : v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select venue (optional)" />
+                    <SelectValue placeholder="Select a space (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No venue assigned</SelectItem>
-                    {venuesForProgram.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    <SelectItem value="none">No space assigned</SelectItem>
+                    {groupSpacesByLocation(venuesForProgram).map((group) => (
+                      <SelectGroup key={group.locationName}>
+                        <SelectLabel>{group.locationName}</SelectLabel>
+                        {group.spaces.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>

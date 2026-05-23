@@ -12,6 +12,7 @@ import { getDb } from "@/lib/db";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { sports } from "@/lib/db/schema/sports";
 import { locations } from "@/lib/db/schema/organizations";
+import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { teams, games, rosters } from "@/lib/db/schema/teams";
 import { payments } from "@/lib/db/schema/payments";
@@ -237,6 +238,7 @@ function registrationsPanel(): string {
           month: "short",
           day: "numeric",
           year: "numeric",
+          timeZone: BUSINESS_TIMEZONE,
         }),
       );
       const link = `/admin/registrations/${esc(r.id)}`;

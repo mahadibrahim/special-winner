@@ -1,0 +1,31 @@
+---
+import {
+  PANEL_CLASS, PANEL_HEADER_CLASS, PANEL_LABEL_CLASS, PANEL_ICON_CLASS,
+  PANEL_BODY_CLASS, SECTION_ICONS, type SectionAccent, type SectionIcon,
+} from "@/lib/dashboard/dashboard-ui";
+
+interface Props {
+  title: string;
+  icon: SectionIcon;
+  accent?: SectionAccent;
+  /** Optional right-aligned count, e.g. "3 events". */
+  count?: string;
+}
+
+const { title, icon, accent = "default", count } = Astro.props;
+---
+
+<section class={PANEL_CLASS[accent]}>
+  <div class={PANEL_HEADER_CLASS[accent]}>
+    <span class={PANEL_ICON_CLASS[accent]}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+           set:html={SECTION_ICONS[icon]} />
+    </span>
+    <h2 class={PANEL_LABEL_CLASS[accent]}>{title}</h2>
+    {count && <span class="ml-auto text-[10px] font-medium tracking-wide text-ink-faint">{count}</span>}
+  </div>
+  <div class={PANEL_BODY_CLASS}>
+    <slot />
+  </div>
+</section>
