@@ -1,13 +1,21 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { seasons, programs, sports, locations, ageGroups, registrations } from "@/lib/db/schema";
+import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, locals }) => {
   try {
     if (!db) {
       return new Response(JSON.stringify({ error: "Database not available" }), {
         status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const organization = locals.organization;
+    if (!organization) {
+      return new Response(JSON.stringify({ error: "Season not found" }), {
+        status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -20,7 +28,7 @@ export const GET: APIRoute = async ({ params }) => {
       });
     }
 
-    // Get season with related data
+    // Get season with related data, enforcing tenant scope via org join
     const [result] = await db
       .select({
         season: seasons,
@@ -32,6 +40,15 @@ export const GET: APIRoute = async ({ params }) => {
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
+      // NEW: enforce active org + matching tenant
+      .innerJoin(
+        organizations,
+        and(
+          eq(organizations.id, sports.organizationId),
+          eq(organizations.status, "active"),
+          eq(organizations.id, organization.id),
+        ),
+      )
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
       .where(eq(seasons.id, id));

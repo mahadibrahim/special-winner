@@ -1,0 +1,4 @@
+ALTER TABLE "corporate_inquiries" ADD COLUMN IF NOT EXISTS "organization_id" uuid;--> statement-breakpoint
+ALTER TABLE "newsletter_signups" ADD COLUMN IF NOT EXISTS "organization_id" uuid;--> statement-breakpoint
+ALTER TABLE "corporate_inquiries" ADD CONSTRAINT "corporate_inquiries_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "newsletter_signups" ADD CONSTRAINT "newsletter_signups_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE set null ON UPDATE no action;

@@ -1,10 +1,11 @@
 ---
 // SSR — queries the public sports list directly via the shared helper.
-// New page default per CLAUDE.md.
+// Scoped to Astro.locals.organization (Phase 0 — 2026-05-22).
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getPublicSports } from "@/lib/programs/public-filters";
 
-const sports = await getPublicSports();
+const orgId = Astro.locals.organization?.id ?? null;
+const sports = orgId ? await getPublicSports(orgId) : [];
 ---
 
 <BaseLayout

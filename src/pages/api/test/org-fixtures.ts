@@ -18,6 +18,7 @@ import { organizations, locations } from "@/lib/db/schema/organizations";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { sports } from "@/lib/db/schema/sports";
 import { venues } from "@/lib/db/schema/teams";
+import { teamRegistrations } from "@/lib/db/schema/team-registrations";
 import { eq, asc } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ url }) => {
@@ -102,14 +103,25 @@ export const GET: APIRoute = async ({ url }) => {
     venue = v;
   }
 
+  // Team registration invite token — first row for this org (oldest)
+  const [teamReg] = await db
+    .select({ id: teamRegistrations.id, inviteToken: teamRegistrations.inviteToken })
+    .from(teamRegistrations)
+    .where(eq(teamRegistrations.organizationId, org.id))
+    .orderBy(asc(teamRegistrations.createdAt))
+    .limit(1);
+
   return new Response(
     JSON.stringify({
       org: { id: org.id, slug: org.slug, name: org.name },
       locationId: location?.id ?? null,
+      locationSlug: location?.slug ?? null,
       sportId: sport?.id ?? null,
+      sportSlug: sport?.slug ?? null,
       programId: program?.id ?? null,
       seasonId: season?.id ?? null,
       venueId: venue?.id ?? null,
+      teamRegToken: teamReg?.inviteToken ?? null,
     }),
     {
       status: 200,

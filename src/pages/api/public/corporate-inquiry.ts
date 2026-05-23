@@ -17,7 +17,7 @@ const BodySchema = z.object({
   notes: z.string().trim().max(2000).optional(),
 });
 
-export const POST: APIRoute = async ({ request, clientAddress }) => {
+export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
   if (!db) {
     return new Response(
       JSON.stringify({ error: "Database unavailable" }),
@@ -51,9 +51,18 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     );
   }
 
+  const organization = locals.organization;
+  if (!organization) {
+    return new Response(
+      JSON.stringify({ error: "Organization context required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   try {
     await db.insert(corporateInquiries).values({
       ...parsed.data,
+      organizationId: organization.id,
       status: "new",
     });
 

@@ -1,0 +1,5 @@
+---
+// Redirect /account → /account/profile
+// Middleware guarantees the user is authenticated for /account routes.
+return Astro.redirect("/account/profile", 302);
+---

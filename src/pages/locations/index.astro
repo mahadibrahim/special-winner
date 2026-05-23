@@ -1,10 +1,9 @@
 ---
-// SSR — queries the public locations list directly via the shared helper.
-// New page default per CLAUDE.md.
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getPublicLocations } from "@/lib/programs/public-filters";
 
-const locations = await getPublicLocations();
+const orgId = Astro.locals.organization?.id ?? null;
+const locations = orgId ? await getPublicLocations(orgId) : [];
 ---
 
 <BaseLayout

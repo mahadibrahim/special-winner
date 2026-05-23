@@ -27,6 +27,7 @@ import {
   familyMembers,
   registrations,
   venues,
+  events,
 } from "../schema";
 import {
   mediaStaffProfiles,
@@ -35,6 +36,7 @@ import {
 } from "../schema/media";
 import { rosters, games } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
+import { teamRegistrations } from "../schema/team-registrations";
 import { asc, eq, ne, and, or } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -137,6 +139,14 @@ export const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
  * Used by field-rental API tests to construct requests scoped to the right org.
  */
 export const E2E_ORG_ID = "04836321-9e38-430e-b6a1-4bf4e6ca1b62";
+
+/**
+ * Fixed invite tokens for team_registrations tenant-isolation tests.
+ * Org A token: belongs to aspire-sports. Org B token: belongs to orgb.
+ * Default-host middleware resolves Org A → Org A token → 200; Org B token → 404.
+ */
+export const E2E_TEAM_REG_TOKEN_ORG_A = "e2e-team-token-orga-fixture-0001";
+export const E2E_TEAM_REG_TOKEN_ORG_B = "e2e-team-token-orgb-fixture-0001";
 
 /**
  * Fixed UUID for the rental-enabled venue seeded for field-rental API tests.
@@ -1297,6 +1307,126 @@ async function seedE2ETests() {
     }
     console.log(`   ✓ Tagger fixture session ${s.id.slice(0, 8)} with 6 assets`);
   }
+  // -------------------------------------------------------------------------
+  // Events — one per org for tenant-isolation tests.
+  // Slugs are stable so the upsert is idempotent across seed runs.
+  // -------------------------------------------------------------------------
+  console.log("\n10. Setting up events (tenant-isolation fixtures)...");
+
+  // Org A event — active, future startsAt, audience 'all'
+  const orgAEventStartsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // now + 30 days
+  let [orgAEvent] = await db
+    .select()
+    .from(events)
+    .where(eq(events.slug, "e2e-orga-event"))
+    .limit(1);
+
+  if (!orgAEvent) {
+    [orgAEvent] = await db
+      .insert(events)
+      .values({
+        organizationId: org.id,
+        locationId: location.id,
+        name: "E2E Org A Event",
+        slug: "e2e-orga-event",
+        description: "Org A event for tenant-isolation E2E tests",
+        audience: "all",
+        startsAt: orgAEventStartsAt,
+        active: true,
+      })
+      .returning();
+  } else {
+    // Refresh startsAt so it stays in the future on repeated seed runs
+    [orgAEvent] = await db
+      .update(events)
+      .set({ active: true, startsAt: orgAEventStartsAt })
+      .where(eq(events.id, orgAEvent.id))
+      .returning();
+  }
+  console.log(`   ✓ Org A Event: ${orgAEvent.name} (${orgAEvent.id})`);
+
+  // Org B event — same shape, scoped to orgB
+  const orgBEventStartsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  let [orgBEvent] = await db
+    .select()
+    .from(events)
+    .where(eq(events.slug, "e2e-orgb-event"))
+    .limit(1);
+
+  if (!orgBEvent) {
+    [orgBEvent] = await db
+      .insert(events)
+      .values({
+        organizationId: orgB.id,
+        locationId: orgBLocation.id,
+        name: "E2E Org B Event",
+        slug: "e2e-orgb-event",
+        description: "Org B event for tenant-isolation E2E tests",
+        audience: "all",
+        startsAt: orgBEventStartsAt,
+        active: true,
+      })
+      .returning();
+  } else {
+    [orgBEvent] = await db
+      .update(events)
+      .set({ active: true, startsAt: orgBEventStartsAt })
+      .where(eq(events.id, orgBEvent.id))
+      .returning();
+  }
+  console.log(`   ✓ Org B Event: ${orgBEvent.name} (${orgBEvent.id})`);
+
+  // -------------------------------------------------------------------------
+  // Team registrations — one per org for cross-tenant token isolation tests.
+  // Tokens are fixed strings so the test can look them up via org-fixtures.
+  // -------------------------------------------------------------------------
+  console.log("\n11. Setting up team_registrations (tenant-isolation fixtures)...");
+
+  // Org A team registration
+  let [orgATeamReg] = await db
+    .select()
+    .from(teamRegistrations)
+    .where(eq(teamRegistrations.inviteToken, E2E_TEAM_REG_TOKEN_ORG_A))
+    .limit(1);
+
+  if (!orgATeamReg) {
+    [orgATeamReg] = await db
+      .insert(teamRegistrations)
+      .values({
+        organizationId: org.id,
+        seasonId: season.id,
+        captainEmail: "captain-orga@test.aspiresports.com",
+        captainName: "Org A Captain",
+        teamName: "E2E Org A Team",
+        inviteToken: E2E_TEAM_REG_TOKEN_ORG_A,
+        status: "forming",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org A TeamReg: ${orgATeamReg.teamName} (token: ${orgATeamReg.inviteToken})`);
+
+  // Org B team registration
+  let [orgBTeamReg] = await db
+    .select()
+    .from(teamRegistrations)
+    .where(eq(teamRegistrations.inviteToken, E2E_TEAM_REG_TOKEN_ORG_B))
+    .limit(1);
+
+  if (!orgBTeamReg) {
+    [orgBTeamReg] = await db
+      .insert(teamRegistrations)
+      .values({
+        organizationId: orgB.id,
+        seasonId: orgBSeason.id,
+        captainEmail: "captain-orgb@test.aspiresports.com",
+        captainName: "Org B Captain",
+        teamName: "E2E Org B Team",
+        inviteToken: E2E_TEAM_REG_TOKEN_ORG_B,
+        status: "forming",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Org B TeamReg: ${orgBTeamReg.teamName} (token: ${orgBTeamReg.inviteToken})`);
 
   // -------------------------------------------------------------------------
   // Dual-persona dashboard routing accounts (Task 14 — dashboard-persona E2E)

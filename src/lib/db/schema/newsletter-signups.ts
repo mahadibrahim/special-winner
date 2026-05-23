@@ -6,6 +6,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
+import { organizations } from "./organizations";
 
 /**
  * Top-of-funnel email capture for visitors not yet ready to register.
@@ -19,6 +20,11 @@ export const newsletterSignups = pgTable(
   "newsletter_signups",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // NEW: tenant the signup belongs to. Nullable so historical rows
+    // (predating Phase 0) keep working; new rows always carry it.
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
     email: varchar("email", { length: 320 }).notNull(),
     firstName: varchar("first_name", { length: 100 }),
     audience: varchar("audience", { length: 20 }), // 'parent' | 'adult' | null

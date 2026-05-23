@@ -3,30 +3,15 @@ import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql, asc } from "drizzle-orm";
 
-// Mock data for preview when DB has no seasons
-const mockSeasons = [
-  {
-    id: "1",
-    name: "U8 Soccer - Fall 2024",
-    slug: "u8-soccer-fall-2024",
-    startDate: "2024-10-05",
-    endDate: "2024-12-15",
-    price: 150,
-    deposit: 25,
-    allowDeposit: true,
-    maxParticipants: 50,
-    registeredCount: 27,
-    spotsLeft: 23,
-    scheduleNotes: "Saturdays 9-10am",
-    status: "open",
-    program: { id: "1", name: "Youth Soccer League", slug: "youth-soccer-league", programType: "league" },
-    sport: { id: "1", name: "Soccer", slug: "soccer", icon: "⚽", color: "#22c55e" },
-    location: { id: "1", name: "Powell", slug: "powell", city: "Powell", state: "OH" },
-    ageGroup: { id: "1", name: "U8", minAge: 6, maxAge: 8 },
-  },
-];
+export const GET: APIRoute = async ({ url, locals }) => {
+  const organization = locals.organization;
+  if (!organization) {
+    return new Response(JSON.stringify({ seasons: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-export const GET: APIRoute = async ({ url }) => {
   const locationSlug = url.searchParams.get("location");
   const sportSlug = url.searchParams.get("sport");
   const status = url.searchParams.get("status");
@@ -37,6 +22,8 @@ export const GET: APIRoute = async ({ url }) => {
 
     // Build query conditions
     const conditions = [];
+    // Tenant scope — must be first.
+    conditions.push(eq(organizations.id, organization.id));
     if (status) {
       conditions.push(eq(seasons.status, status as typeof seasons.status.enumValues[number]));
     }
@@ -86,32 +73,26 @@ export const GET: APIRoute = async ({ url }) => {
       .innerJoin(organizations, eq(organizations.id, sports.organizationId))
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(asc(seasons.startDate));
-
-    if (rows.length === 0) {
-      // Fall back to mock data if DB has no seasons
-      return new Response(JSON.stringify({ seasons: mockSeasons }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
 
     // Get registration counts for all seasons
     const seasonIds = rows.map((r) => r.season.id);
-    const regCounts = await db
-      .select({
-        seasonId: registrations.seasonId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(registrations)
-      .where(
-        and(
-          sql`${registrations.seasonId} IN (${sql.join(seasonIds.map(id => sql`${id}`), sql`, `)})`,
-          sql`${registrations.status} IN ('pending', 'confirmed')`
-        )
-      )
-      .groupBy(registrations.seasonId);
+    const regCounts = seasonIds.length > 0
+      ? await db
+          .select({
+            seasonId: registrations.seasonId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(registrations)
+          .where(
+            and(
+              sql`${registrations.seasonId} IN (${sql.join(seasonIds.map(id => sql`${id}`), sql`, `)})`,
+              sql`${registrations.status} IN ('pending', 'confirmed')`
+            )
+          )
+          .groupBy(registrations.seasonId)
+      : [];
 
     const countMap = new Map(regCounts.map((r) => [r.seasonId, r.count]));
 
@@ -176,24 +157,7 @@ export const GET: APIRoute = async ({ url }) => {
     });
   } catch (err) {
     console.error("Error fetching seasons:", err);
-    // Fall back to mock data on any error
-    let filteredSeasons = mockSeasons;
-    if (locationSlug && locationSlug !== "all") {
-      filteredSeasons = filteredSeasons.filter((s) => s.location.slug === locationSlug);
-    }
-    if (sportSlug) {
-      filteredSeasons = filteredSeasons.filter((s) => s.sport.slug === sportSlug);
-    }
-    if (audience === "youth") {
-      filteredSeasons = filteredSeasons.filter(
-        (s) => s.ageGroup === null || s.ageGroup.minAge < 18
-      );
-    } else if (audience === "adult") {
-      filteredSeasons = filteredSeasons.filter(
-        (s) => s.ageGroup === null || s.ageGroup.minAge >= 18
-      );
-    }
-    return new Response(JSON.stringify({ seasons: filteredSeasons }), {
+    return new Response(JSON.stringify({ seasons: [] }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
