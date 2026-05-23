@@ -22,8 +22,11 @@ const json = (body: unknown, status: number) =>
 export const POST: APIRoute = async ({ locals }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
   if (!locals.organization) return json({ error: "No organization context" }, 400);
-  if (!stripe) return json({ error: "Stripe not configured" }, 503);
 
+  // Lookup BEFORE the Stripe-configured check — a membership-less user
+  // (Aspire) should get a clean 404 regardless of whether Stripe keys are
+  // wired in the current environment. Without this ordering, CI without
+  // STRIPE_SECRET_KEY masks 404s behind 503s.
   const membership = await getActiveMembershipForOrg(
     locals.user.id,
     locals.organization.id,
@@ -31,6 +34,8 @@ export const POST: APIRoute = async ({ locals }) => {
   if (!membership || !membership.stripeSubscriptionId) {
     return json({ error: "No active membership" }, 404);
   }
+
+  if (!stripe) return json({ error: "Stripe not configured" }, 503);
 
   try {
     await cancelSubscriptionAtPeriodEnd(membership.stripeSubscriptionId);

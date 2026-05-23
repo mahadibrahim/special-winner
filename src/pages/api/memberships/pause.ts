@@ -23,7 +23,6 @@ const json = (body: unknown, status: number) =>
 export const POST: APIRoute = async ({ request, locals }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
   if (!locals.organization) return json({ error: "No organization context" }, 400);
-  if (!stripe) return json({ error: "Stripe not configured" }, 503);
 
   let body: { resumesAt?: unknown };
   try {
@@ -32,6 +31,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     body = {};
   }
 
+  // Validate the body BEFORE membership lookup so a malformed payload gets
+  // a stable 422 (not gated on whether the user has a membership or whether
+  // Stripe is configured).
   let resumesAt: Date | null = null;
   if (body.resumesAt !== undefined && body.resumesAt !== null) {
     if (typeof body.resumesAt !== "string") {
@@ -44,6 +46,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     resumesAt = parsed;
   }
 
+  // Lookup BEFORE the Stripe-configured check — see cancel.ts for the same
+  // ordering rationale (CI without STRIPE_SECRET_KEY should still surface
+  // 404 for membership-less users instead of masking with 503).
   const membership = await getActiveMembershipForOrg(
     locals.user.id,
     locals.organization.id,
@@ -51,6 +56,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!membership || !membership.stripeSubscriptionId) {
     return json({ error: "No active membership" }, 404);
   }
+
+  if (!stripe) return json({ error: "Stripe not configured" }, 503);
 
   try {
     await pauseSubscription(membership.stripeSubscriptionId, { resumesAt });

@@ -26,9 +26,12 @@ async function signIn(email: string): Promise<string> {
   return await getAuthCookie(email, password);
 }
 
-let soccerOneOrgId: string;
-let aspireOrgId: string;
-let memberTierId: string;
+let soccerOneOrgId: string | undefined;
+let aspireOrgId: string | undefined;
+let memberTierId: string | undefined;
+// SoccerOne fixtures may be absent in CI when seed-soccerone-org.ts
+// hasn't been run against the staging DB. Skip tests dynamically.
+let hasSoccerOneFixtures = false;
 
 beforeAll(async () => {
   const db = getDb();
@@ -40,13 +43,16 @@ beforeAll(async () => {
     .select()
     .from(organizations)
     .where(eq(organizations.slug, "aspire-sports"));
-  soccerOneOrgId = s1.id;
-  aspireOrgId = aspire.id;
-  const [tier] = await db
-    .select()
-    .from(membershipTiers)
-    .where(eq(membershipTiers.organizationId, soccerOneOrgId));
-  memberTierId = tier?.id;
+  soccerOneOrgId = s1?.id;
+  aspireOrgId = aspire?.id;
+  if (soccerOneOrgId) {
+    const [tier] = await db
+      .select()
+      .from(membershipTiers)
+      .where(eq(membershipTiers.organizationId, soccerOneOrgId));
+    memberTierId = tier?.id;
+  }
+  hasSoccerOneFixtures = Boolean(soccerOneOrgId && memberTierId);
 });
 
 // IMPORTANT: marked .skip until Task 17 seeds the SoccerOne membership tier
@@ -65,7 +71,8 @@ describe("POST /api/memberships/subscribe", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects unknown tier ids", async () => {
+  it("rejects unknown tier ids", async (ctx) => {
+    if (!hasSoccerOneFixtures) return ctx.skip();
     const cookie = await signIn("member-pending@test.soccerone.com");
     const res = await fetch(`${BASE}/api/memberships/subscribe`, {
       method: "POST",
@@ -82,7 +89,8 @@ describe("POST /api/memberships/subscribe", () => {
     expect(res.status).toBe(404);
   });
 
-  it("rejects a tier that belongs to a different org (tenant guard)", async () => {
+  it("rejects a tier that belongs to a different org (tenant guard)", async (ctx) => {
+    if (!hasSoccerOneFixtures) return ctx.skip();
     const cookie = await signIn("parent@test.aspiresports.com");
     const res = await fetch(`${BASE}/api/memberships/subscribe`, {
       method: "POST",

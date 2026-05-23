@@ -39,7 +39,10 @@ describe("POST /api/memberships/pause", () => {
   });
 
   it("rejects a non-ISO `resumesAt`", async () => {
-    const cookie = await signIn("member@test.soccerone.com");
+    // Validation fires before any membership/Stripe check, so we can sign
+    // in as the always-present Aspire parent — avoids depending on the
+    // SoccerOne fixture being seeded in this environment.
+    const cookie = await signIn("parent@test.aspiresports.com");
     const res = await fetch(`${BASE}/api/memberships/pause`, {
       method: "POST",
       headers: { "Content-Type": "application/json", cookie, host: "soccerone.aspiresports.com" },
