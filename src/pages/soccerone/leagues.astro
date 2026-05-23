@@ -7,6 +7,35 @@ import { Toaster } from 'sonner';
 
 const facility = Astro.url.searchParams.get('facility') || 'all';
 const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 'downtown' ? 'Downtown' : 'All Locations';
+
+// Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
+// The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
+// so this page sees only SoccerOne seasons when rendered in SoccerOne context.
+// Optional ?facility=downtown|worthington filters by location slug — matches
+// the existing UI affordance.
+const locationSlug = facility === 'downtown'
+  ? 'soccerone-downtown'
+  : facility === 'worthington'
+    ? 'soccerone-worthington'
+    : null;
+
+let seasons: any[] = [];
+try {
+  const url = new URL('/api/public/seasons', Astro.url);
+  url.searchParams.set('audience', 'adult');
+  if (locationSlug) url.searchParams.set('location', locationSlug);
+  const res = await fetch(url, {
+    headers: { Host: Astro.request.headers.get('host') ?? '' },
+  });
+  if (res.ok) {
+    const body = await res.json();
+    seasons = body.seasons ?? [];
+  }
+} catch (err) {
+  console.error('[soccerone/leagues] failed to load seasons', err);
+}
+
+const firstSeasonId = seasons[0]?.id ?? null;
 ---
 
 <BaseLayout
@@ -117,7 +146,7 @@ const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 
             </div>
           </div>
           <div class="lfcta-right">
-            <a href="/register/season-adult-open-2026" class="lfcta-btn">
+            <a href={firstSeasonId ? `/register/${firstSeasonId}` : '#'} class="lfcta-btn">
               Register &amp; Pay Now
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
@@ -125,262 +154,72 @@ const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 
           </div>
         </div>
 
-        <!-- League cards grid -->
-        <div class="leagues-grid">
+        <!-- League cards grid — data-driven from /api/public/seasons -->
+        {seasons.length === 0 ? (
+          <div class="leagues-empty">
+            <p class="le-title">No open leagues right now</p>
+            <p class="le-body">Check back soon — new seasons open before each cycle.</p>
+          </div>
+        ) : (
+          <div class="leagues-grid">
+            {seasons.map((season: any) => {
+              const isDowntown = season.location.slug?.includes('downtown');
+              const statusKey = season.status === 'open' ? 'open' : season.status === 'filling' ? 'filling' : 'coming';
+              const cardMod = isDowntown ? 'league-card--downtown' : 'league-card--active';
+              const badgeMod = isDowntown ? 'lc-location-badge--downtown' : '';
+              const locationLabel = season.location.name.toUpperCase();
+              const statusLabel = season.status.toUpperCase();
+              const priceLabel = season.teamPrice
+                ? `$${season.price}/player · $${season.teamPrice}/team`
+                : `$${season.price}/player`;
+              return (
+                <div class={`league-card ${cardMod}`}>
+                  <div class={`lc-location-badge ${badgeMod}`}>{locationLabel}</div>
+                  <div class="lc-top">
+                    <div class="lc-division">
+                      <span class="lc-div-label">PROGRAM</span>
+                      <span class="lc-div-name">{season.program.name}</span>
+                    </div>
+                    <span class={`lc-status lc-status--${statusKey}`}>{statusLabel}</span>
+                  </div>
 
-          <!-- Adult Coed League -->
-          {(facility === 'all' || facility === 'worthington') && (
-            <div class="league-card league-card--active">
-              <div class="lc-location-badge">WORTHINGTON</div>
-              <div class="lc-top">
-                <div class="lc-division">
-                  <span class="lc-div-label">DIVISION</span>
-                  <span class="lc-div-name">Adult Coed</span>
-                </div>
-                <span class="lc-status lc-status--open">OPEN</span>
-              </div>
+                  <h3 class="lc-name">{season.name}</h3>
 
-              <h3 class="lc-name">Adult Coed League</h3>
-              <p class="lc-desc">Mixed men &amp; women, competitive but beginner-friendly. Most popular league across both facilities.</p>
+                  <div class="lc-details">
+                    {season.startDate && (
+                      <div class="lc-detail-row">
+                        <span class="lcd-label">STARTS</span>
+                        <span class="lcd-val">{new Date(season.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                    )}
+                    {season.scheduleNotes && (
+                      <div class="lc-detail-row">
+                        <span class="lcd-label">SCHEDULE</span>
+                        <span class="lcd-val">{season.scheduleNotes}</span>
+                      </div>
+                    )}
+                    <div class="lc-detail-row">
+                      <span class="lcd-label">SPOTS</span>
+                      <span class="lcd-val">
+                        {season.spotsLeft != null
+                          ? `${season.spotsLeft} left of ${season.maxParticipants}`
+                          : 'Open'}
+                      </span>
+                    </div>
+                    <div class="lc-detail-row">
+                      <span class="lcd-label">PRICE</span>
+                      <span class="lcd-val mono accent">{priceLabel}</span>
+                    </div>
+                  </div>
 
-              <div class="lc-details">
-                <div class="lc-detail-row">
-                  <span class="lcd-label">DAYS</span>
-                  <span class="lcd-val">Mon, Wed, Fri evenings</span>
+                  <a href={`/register/${season.id}`} class="lc-cta">
+                    Register Now →
+                  </a>
                 </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">TIMES</span>
-                  <span class="lcd-val mono">7:00 PM – 10:00 PM</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">SEASON</span>
-                  <span class="lcd-val">June 2 – Aug 1, 2026</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">ROSTER</span>
-                  <span class="lcd-val">8–14 players per team</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">PRICE</span>
-                  <span class="lcd-val mono accent">$180/player · $1,200/team</span>
-                </div>
-              </div>
-
-              <a href="/register/season-adult-open-2026" class="lc-cta">
-                Register Now →
-              </a>
-            </div>
-          )}
-
-          <!-- Adult Premier League -->
-          {(facility === 'all' || facility === 'worthington') && (
-            <div class="league-card league-card--active">
-              <div class="lc-location-badge">WORTHINGTON</div>
-              <div class="lc-top">
-                <div class="lc-division">
-                  <span class="lc-div-label">DIVISION</span>
-                  <span class="lc-div-name">Adult Premier</span>
-                </div>
-                <span class="lc-status lc-status--open">OPEN</span>
-              </div>
-
-              <h3 class="lc-name">Adult Premier League</h3>
-              <p class="lc-desc">High-level competitive play. Skilled players, fast tempo, refereed matches with official standings.</p>
-
-              <div class="lc-details">
-                <div class="lc-detail-row">
-                  <span class="lcd-label">DAYS</span>
-                  <span class="lcd-val">Tue, Thu evenings</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">TIMES</span>
-                  <span class="lcd-val mono">8:00 PM – 10:00 PM</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">SEASON</span>
-                  <span class="lcd-val">June 3 – Aug 2, 2026</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">ROSTER</span>
-                  <span class="lcd-val">8–12 players per team</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">PRICE</span>
-                  <span class="lcd-val mono accent">$220/player · $1,500/team</span>
-                </div>
-              </div>
-
-              <a href="/register/season-adult-open-2026" class="lc-cta">
-                Register Now →
-              </a>
-            </div>
-          )}
-
-          <!-- Women's Coed -->
-          {(facility === 'all' || facility === 'worthington') && (
-            <div class="league-card">
-              <div class="lc-location-badge">WORTHINGTON</div>
-              <div class="lc-top">
-                <div class="lc-division">
-                  <span class="lc-div-label">DIVISION</span>
-                  <span class="lc-div-name">Women's</span>
-                </div>
-                <span class="lc-status lc-status--filling">FILLING</span>
-              </div>
-
-              <h3 class="lc-name">Women's League</h3>
-              <p class="lc-desc">Women-only competitive division. All skill levels from recreational to premier. Season includes playoffs.</p>
-
-              <div class="lc-details">
-                <div class="lc-detail-row">
-                  <span class="lcd-label">DAYS</span>
-                  <span class="lcd-val">Saturday mornings</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">TIMES</span>
-                  <span class="lcd-val mono">9:00 AM – 12:00 PM</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">SEASON</span>
-                  <span class="lcd-val">June 7 – Aug 9, 2026</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">PRICE</span>
-                  <span class="lcd-val mono accent">$160/player</span>
-                </div>
-              </div>
-
-              <a href="/register/season-adult-open-2026" class="lc-cta">
-                Register Now →
-              </a>
-            </div>
-          )}
-
-          <!-- Corporate League — Downtown -->
-          {(facility === 'all' || facility === 'downtown') && (
-            <div class="league-card league-card--downtown">
-              <div class="lc-location-badge lc-location-badge--downtown">DOWNTOWN</div>
-              <div class="lc-top">
-                <div class="lc-division">
-                  <span class="lc-div-label">DIVISION</span>
-                  <span class="lc-div-name">Corporate Coed</span>
-                </div>
-                <span class="lc-status lc-status--open">OPEN</span>
-              </div>
-
-              <h3 class="lc-name">Corporate Coed League</h3>
-              <p class="lc-desc">Company vs company. Tuesday and Thursday evenings in the heart of downtown. Jerseys, referees, and trophies included.</p>
-
-              <div class="lc-details">
-                <div class="lc-detail-row">
-                  <span class="lcd-label">DAYS</span>
-                  <span class="lcd-val">Tue &amp; Thu evenings</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">TIMES</span>
-                  <span class="lcd-val mono">7:00 PM – 10:00 PM</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">SEASON</span>
-                  <span class="lcd-val">June 3 – Aug 7, 2026</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">TEAM SIZE</span>
-                  <span class="lcd-val">8–12 players</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">PRICE</span>
-                  <span class="lcd-val mono accent">$1,200/team (includes jerseys)</span>
-                </div>
-              </div>
-
-              <a href="/register/season-adult-open-2026" class="lc-cta">
-                Register Your Company →
-              </a>
-            </div>
-          )}
-
-          <!-- Downtown Pickup League -->
-          {(facility === 'all' || facility === 'downtown') && (
-            <div class="league-card league-card--downtown">
-              <div class="lc-location-badge lc-location-badge--downtown">DOWNTOWN</div>
-              <div class="lc-top">
-                <div class="lc-division">
-                  <span class="lc-div-label">DIVISION</span>
-                  <span class="lc-div-name">Weekday Coed</span>
-                </div>
-                <span class="lc-status lc-status--open">OPEN</span>
-              </div>
-
-              <h3 class="lc-name">Downtown Coed League</h3>
-              <p class="lc-desc">After-work league for downtown players. No commute. Competitive but social atmosphere. Monday evenings.</p>
-
-              <div class="lc-details">
-                <div class="lc-detail-row">
-                  <span class="lcd-label">DAYS</span>
-                  <span class="lcd-val">Monday evenings</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">TIMES</span>
-                  <span class="lcd-val mono">6:30 PM – 9:30 PM</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">SEASON</span>
-                  <span class="lcd-val">June 1 – Aug 3, 2026</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">PRICE</span>
-                  <span class="lcd-val mono accent">$175/player</span>
-                </div>
-              </div>
-
-              <a href="/register/season-adult-open-2026" class="lc-cta">
-                Register Now →
-              </a>
-            </div>
-          )}
-
-          <!-- Youth Academy -->
-          {(facility === 'all' || facility === 'worthington') && (
-            <div class="league-card league-card--youth">
-              <div class="lc-location-badge">WORTHINGTON</div>
-              <div class="lc-top">
-                <div class="lc-division">
-                  <span class="lc-div-label">DIVISION</span>
-                  <span class="lc-div-name">Youth U10–U18</span>
-                </div>
-                <span class="lc-status lc-status--coming">FALL 2026</span>
-              </div>
-
-              <h3 class="lc-name">Youth Indoor Academy</h3>
-              <p class="lc-desc">Age-grouped youth league with certified coaching. U10, U12, U14, U16, U18 divisions. Saturdays and Sundays.</p>
-
-              <div class="lc-details">
-                <div class="lc-detail-row">
-                  <span class="lcd-label">AGES</span>
-                  <span class="lcd-val">U10 · U12 · U14 · U16 · U18</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">DAYS</span>
-                  <span class="lcd-val">Saturdays &amp; Sundays</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">SEASON</span>
-                  <span class="lcd-val">Sept – Nov 2026</span>
-                </div>
-                <div class="lc-detail-row">
-                  <span class="lcd-label">PRICE</span>
-                  <span class="lcd-val mono accent">$140/player</span>
-                </div>
-              </div>
-
-              <button class="lc-cta lc-cta--notify" data-league="youth-2026">
-                Notify Me When Open
-              </button>
-            </div>
-          )}
-
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
 
@@ -392,8 +231,8 @@ const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 
           <h2 class="lbc-title">Register your team directly. No middleman.</h2>
         </div>
         <div class="lbc-buttons">
-          <a href="/register/season-adult-open-2026" class="lbc-btn-primary">Register a Team</a>
-          <a href="/register/season-adult-open-2026" class="lbc-btn-secondary">Register as Individual</a>
+          <a href={firstSeasonId ? `/register/${firstSeasonId}` : '#'} class="lbc-btn-primary">Register a Team</a>
+          <a href={firstSeasonId ? `/register/${firstSeasonId}` : '#'} class="lbc-btn-secondary">Register as Individual</a>
         </div>
       </div>
     </div>
@@ -702,6 +541,23 @@ const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 
     .lbc-btn-secondary { display: inline-block; background: rgba(10,10,13,0.1); color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; border: 1px solid rgba(10,10,13,0.25); transition: background 0.15s; white-space: nowrap; }
     .lbc-btn-secondary:hover { background: rgba(10,10,13,0.18); }
 
+    /* Empty state */
+    .leagues-empty {
+      padding: 4rem 0;
+      text-align: center;
+    }
+    .le-title {
+      font-family: 'Anton', sans-serif;
+      font-size: 1.5rem;
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.5rem;
+    }
+    .le-body {
+      font-size: 0.9375rem;
+      color: var(--muted);
+    }
+
     @media (max-width: 1100px) { .leagues-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) {
       .leagues-grid { grid-template-columns: 1fr; }
@@ -712,13 +568,4 @@ const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 
     }
   </style>
 
-  <script>
-    // Notify me buttons
-    document.querySelectorAll('.lc-cta--notify').forEach(btn => {
-      btn.addEventListener('click', () => {
-        (btn as HTMLElement).textContent = '✓ We\'ll notify you';
-        (btn as HTMLElement).style.color = '#a3e635';
-      });
-    });
-  </script>
 </BaseLayout>

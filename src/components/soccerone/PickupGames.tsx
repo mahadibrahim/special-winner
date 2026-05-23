@@ -1,181 +1,57 @@
 "use client";
 
-import React, { useState } from "react";
-import { toast } from "sonner";
+import React, { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { ErrorBanner } from "@/components/ui/error-banner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 
-interface PickupGame {
+// Shape returned by GET /api/dropin/sessions.
+// venueName is a flat field (left-joined from venues); confirmedCount is
+// computed inline so the UI can render the capacity bar without a follow-up.
+interface DropInSession {
   id: string;
-  name: string;
-  skillLevel: "Beginner" | "Intermediate" | "Competitive";
-  time: string;
-  date: string;
-  field: string;
-  totalSpots: number;
-  spotsLeft: number;
-  price: number;
-  isToday: boolean;
+  kind: "pickup" | "class";
+  sportOrClassLabel: string;
+  formatLabel: string | null;
+  startsAt: string; // ISO datetime
+  endsAt: string;   // ISO datetime
+  capacity: number;
+  skillLevel: "recreational" | "intermediate" | "advanced" | "all_levels";
+  audience: "adults" | "youth" | "all_ages";
+  membersOnly: boolean;
+  sessionRateCents: number;
+  memberRateCents: number | null;
+  venueId: string | null;
+  venueName: string | null;
+  confirmedCount: number;
 }
 
-const TODAY_GAMES: PickupGame[] = [
-  {
-    id: "t1",
-    name: "Evening Coed Pickup",
-    skillLevel: "Intermediate",
-    time: "6:00 PM",
-    date: "Today, Apr 27",
-    field: "Field 3",
-    totalSpots: 12,
-    spotsLeft: 3,
-    price: 12,
-    isToday: true,
-  },
-  {
-    id: "t2",
-    name: "Late Night Competitive",
-    skillLevel: "Competitive",
-    time: "9:00 PM",
-    date: "Today, Apr 27",
-    field: "Field 1",
-    totalSpots: 10,
-    spotsLeft: 7,
-    price: 12,
-    isToday: true,
-  },
-  {
-    id: "t3",
-    name: "Beginner Friendly",
-    skillLevel: "Beginner",
-    time: "7:30 PM",
-    date: "Today, Apr 27",
-    field: "Field 5",
-    totalSpots: 14,
-    spotsLeft: 10,
-    price: 12,
-    isToday: true,
-  },
-];
-
-const WEEK_GAMES: PickupGame[] = [
-  {
-    id: "w1",
-    name: "Morning Pickup",
-    skillLevel: "Intermediate",
-    time: "7:00 AM",
-    date: "Tue, Apr 28",
-    field: "Field 2",
-    totalSpots: 12,
-    spotsLeft: 9,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w2",
-    name: "Lunch Pickup",
-    skillLevel: "Beginner",
-    time: "12:00 PM",
-    date: "Tue, Apr 28",
-    field: "Field 4",
-    totalSpots: 12,
-    spotsLeft: 11,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w3",
-    name: "Competitive Midweek",
-    skillLevel: "Competitive",
-    time: "7:00 PM",
-    date: "Wed, Apr 29",
-    field: "Field 1",
-    totalSpots: 10,
-    spotsLeft: 2,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w4",
-    name: "Beginner Night",
-    skillLevel: "Beginner",
-    time: "6:30 PM",
-    date: "Wed, Apr 29",
-    field: "Field 7",
-    totalSpots: 14,
-    spotsLeft: 8,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w5",
-    name: "Thursday Intermediate",
-    skillLevel: "Intermediate",
-    time: "7:30 PM",
-    date: "Thu, Apr 30",
-    field: "Field 3",
-    totalSpots: 12,
-    spotsLeft: 5,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w6",
-    name: "Friday Night Pickup",
-    skillLevel: "Intermediate",
-    time: "8:00 PM",
-    date: "Fri, May 1",
-    field: "Field 2",
-    totalSpots: 12,
-    spotsLeft: 1,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w7",
-    name: "Saturday Morning All-Levels",
-    skillLevel: "Beginner",
-    time: "9:00 AM",
-    date: "Sat, May 2",
-    field: "Field 6",
-    totalSpots: 16,
-    spotsLeft: 12,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w8",
-    name: "Saturday Competitive",
-    skillLevel: "Competitive",
-    time: "6:00 PM",
-    date: "Sat, May 2",
-    field: "Field 1",
-    totalSpots: 10,
-    spotsLeft: 6,
-    price: 12,
-    isToday: false,
-  },
-  {
-    id: "w9",
-    name: "Sunday Morning Pickup",
-    skillLevel: "Intermediate",
-    time: "8:00 AM",
-    date: "Sun, May 3",
-    field: "Field 4",
-    totalSpots: 12,
-    spotsLeft: 10,
-    price: 12,
-    isToday: false,
-  },
-];
-
-interface ReserveModal {
-  game: PickupGame;
+interface SessionsResponse {
+  sessions: DropInSession[];
+  defaults: {
+    defaultSessionRateCents: number;
+    defaultMemberRateCents: number;
+  } | null;
 }
 
-function skillColor(level: PickupGame["skillLevel"]) {
+type DisplaySkill = "Recreational" | "Intermediate" | "Advanced" | "All Levels";
+
+function mapSkillLevel(level: DropInSession["skillLevel"]): DisplaySkill {
   switch (level) {
-    case "Beginner":     return { bg: "rgba(74,222,128,0.12)", border: "rgba(74,222,128,0.4)", text: "#86efac" };
-    case "Intermediate": return { bg: "rgba(250,204,21,0.1)",  border: "rgba(250,204,21,0.35)", text: "#fde047" };
-    case "Competitive":  return { bg: "rgba(251,113,133,0.1)", border: "rgba(251,113,133,0.4)", text: "#fda4af" };
+    case "recreational": return "Recreational";
+    case "intermediate": return "Intermediate";
+    case "advanced":     return "Advanced";
+    case "all_levels":   return "All Levels";
+  }
+}
+
+function skillColor(level: DropInSession["skillLevel"]) {
+  switch (level) {
+    case "recreational": return { bg: "rgba(74,222,128,0.12)",  border: "rgba(74,222,128,0.4)",  text: "#86efac" };
+    case "intermediate": return { bg: "rgba(250,204,21,0.1)",   border: "rgba(250,204,21,0.35)", text: "#fde047" };
+    case "advanced":     return { bg: "rgba(251,113,133,0.1)",  border: "rgba(251,113,133,0.4)", text: "#fda4af" };
+    case "all_levels":   return { bg: "rgba(139,92,246,0.1)",   border: "rgba(139,92,246,0.4)",  text: "#c4b5fd" };
   }
 }
 
@@ -186,22 +62,51 @@ function spotsUrgency(spotsLeft: number, total: number) {
   return { color: "rgba(255,255,255,0.45)", label: `${spotsLeft} spots left` };
 }
 
-function GameCard({ game, onReserve }: { game: PickupGame; onReserve: (g: PickupGame) => void }) {
-  const skillC = skillColor(game.skillLevel);
-  const spots = spotsUrgency(game.spotsLeft, game.totalSpots);
+function isStartingToday(iso: string): boolean {
+  const d = new Date(iso);
+  const today = new Date();
+  return (
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  );
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatDate(iso: string, today: boolean): string {
+  if (today) return "Today";
+  return new Date(iso).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function GameCard({ session }: { session: DropInSession }) {
+  const skillC = skillColor(session.skillLevel);
+  const spotsLeft = Math.max(0, session.capacity - session.confirmedCount);
+  const spots = spotsUrgency(spotsLeft, session.capacity);
+  const today = isStartingToday(session.startsAt);
+  const displayDate = formatDate(session.startsAt, today);
+  const displayTime = formatTime(session.startsAt);
+  const displaySkill = mapSkillLevel(session.skillLevel);
+  const priceDollars = session.sessionRateCents / 100;
 
   return (
     <div className="pickup-game-card" style={{ borderColor: skillC.border, background: skillC.bg }}>
       <div className="pgc-header">
         <span className="pgc-skill-badge" style={{ color: skillC.text, background: `${skillC.text}20` }}>
-          {game.skillLevel}
+          {displaySkill}
         </span>
-        {game.spotsLeft <= 2 && (
+        {spotsLeft <= 2 && (
           <span className="pgc-urgent-badge">Almost full</span>
         )}
       </div>
 
-      <div className="pgc-name">{game.name}</div>
+      <div className="pgc-name">{session.sportOrClassLabel}</div>
 
       <div className="pgc-meta">
         <div className="pgc-meta-item">
@@ -209,16 +114,18 @@ function GameCard({ game, onReserve }: { game: PickupGame; onReserve: (g: Pickup
             <circle cx="7" cy="7" r="6.25" stroke="rgba(255,255,255,0.4)" strokeWidth="1.25"/>
             <polyline points="7,3.5 7,7 9.5,8.75" stroke="rgba(255,255,255,0.5)" strokeWidth="1.25" strokeLinecap="round"/>
           </svg>
-          <span>{game.date} · {game.time}</span>
+          <span>{displayDate} · {displayTime}</span>
         </div>
-        <div className="pgc-meta-item">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <rect x="1" y="2.5" width="12" height="9" rx="1.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.25"/>
-            <line x1="1" y1="5.5" x2="13" y2="5.5" stroke="rgba(255,255,255,0.3)" strokeWidth="0.875"/>
-            <line x1="7" y1="2.5" x2="7" y2="11.5" stroke="rgba(255,255,255,0.2)" strokeWidth="0.875"/>
-          </svg>
-          <span>{game.field}</span>
-        </div>
+        {session.venueName && (
+          <div className="pgc-meta-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <rect x="1" y="2.5" width="12" height="9" rx="1.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.25"/>
+              <line x1="1" y1="5.5" x2="13" y2="5.5" stroke="rgba(255,255,255,0.3)" strokeWidth="0.875"/>
+              <line x1="7" y1="2.5" x2="7" y2="11.5" stroke="rgba(255,255,255,0.2)" strokeWidth="0.875"/>
+            </svg>
+            <span>{session.venueName}</span>
+          </div>
+        )}
       </div>
 
       <div className="pgc-footer">
@@ -226,17 +133,17 @@ function GameCard({ game, onReserve }: { game: PickupGame; onReserve: (g: Pickup
           <div className="pgc-spots-bar">
             <div
               className="pgc-spots-fill"
-              style={{ width: `${((game.totalSpots - game.spotsLeft) / game.totalSpots) * 100}%` }}
+              style={{ width: `${((session.capacity - spotsLeft) / session.capacity) * 100}%` }}
             ></div>
           </div>
           <span className="pgc-spots-label" style={{ color: spots.color }}>{spots.label}</span>
         </div>
 
         <div className="pgc-price-row">
-          <span className="pgc-price">${game.price}</span>
-          <button className="pgc-reserve-btn" onClick={() => onReserve(game)}>
-            Reserve a spot
-          </button>
+          <span className="pgc-price">${priceDollars}</span>
+          <a href={`/dropin/${session.id}`} className="pgc-book-btn">
+            Book Now
+          </a>
         </div>
       </div>
 
@@ -340,7 +247,7 @@ function GameCard({ game, onReserve }: { game: PickupGame; onReserve: (g: Pickup
           color: #facc15;
           letter-spacing: -0.03em;
         }
-        .pgc-reserve-btn {
+        .pgc-book-btn {
           background: #facc15;
           color: #0a1929;
           font-family: 'Space Grotesk', sans-serif;
@@ -353,8 +260,10 @@ function GameCard({ game, onReserve }: { game: PickupGame; onReserve: (g: Pickup
           padding: 0.5rem 1rem;
           cursor: pointer;
           transition: filter 0.15s, transform 0.1s;
+          text-decoration: none;
+          display: inline-block;
         }
-        .pgc-reserve-btn:hover {
+        .pgc-book-btn:hover {
           filter: brightness(1.08);
           transform: translateY(-1px);
         }
@@ -363,142 +272,90 @@ function GameCard({ game, onReserve }: { game: PickupGame; onReserve: (g: Pickup
   );
 }
 
-interface ModalState {
-  game: PickupGame;
-  name: string;
-  email: string;
-  submitting: boolean;
-}
-
 export default function PickupGames() {
-  const [modal, setModal] = useState<ModalState | null>(null);
+  const [sessions, setSessions] = useState<DropInSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleReserve = (game: PickupGame) => {
-    setModal({ game, name: "", email: "", submitting: false });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setModal((prev) => prev ? { ...prev, submitting: true } : null);
-    setTimeout(() => {
-      toast("Demo only — pickup reservations launching Q2 2026", {
-        description: "You can show up at the door and pay $12. We'll have spots.",
-        duration: 6000,
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch("/api/dropin/sessions")
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = (await res.json()) as SessionsResponse;
+        if (!cancelled) setSessions(body.sessions ?? []);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to load sessions");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-      setModal(null);
-    }, 600);
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const todaySessions = sessions.filter((s) => isStartingToday(s.startsAt));
+  const upcomingSessions = sessions.filter((s) => !isStartingToday(s.startsAt));
+
+  if (loading) {
+    return <LoadingSkeleton />;
+  }
+  if (error) {
+    return <ErrorBanner message={`Couldn't load pickup games: ${error}`} />;
+  }
+  if (sessions.length === 0) {
+    return (
+      <EmptyState
+        title="No pickup games scheduled"
+        description="Check back soon — new sessions go up weekly."
+      />
+    );
+  }
 
   return (
     <div className="pickup-games-root">
       {/* Today's games */}
-      <div className="games-section-wrap">
-        <div className="games-section-inner">
-          <div className="games-section-header">
-            <div className="games-section-title-row">
-              <span className="games-live-dot" aria-hidden="true"></span>
-              <h2 className="games-section-title">Today's Pickup Games</h2>
+      {todaySessions.length > 0 && (
+        <div className="games-section-wrap">
+          <div className="games-section-inner">
+            <div className="games-section-header">
+              <div className="games-section-title-row">
+                <span className="games-live-dot" aria-hidden="true"></span>
+                <h2 className="games-section-title">Today's Pickup Games</h2>
+              </div>
+              <p className="games-section-desc">
+                Show up 15 min early to check in.
+              </p>
             </div>
-            <p className="games-section-desc">
-              Mon Apr 27 — spots update in real time. Show up 15 min early to check in.
-            </p>
-          </div>
 
-          <div className="games-today-grid">
-            {TODAY_GAMES.map((g) => (
-              <GameCard key={g.id} game={g} onReserve={handleReserve} />
-            ))}
+            <div className="games-today-grid">
+              {todaySessions.map((s) => (
+                <GameCard key={s.id} session={s} />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* This week's scroll row */}
-      <div className="games-week-wrap">
-        <div className="games-section-inner">
-          <div className="games-section-header">
-            <h2 className="games-section-title">This Week's Pickup Games</h2>
-            <p className="games-section-desc">Scroll to see the full week. Reserve up to 7 days in advance.</p>
-          </div>
-
-          <div className="games-week-scroll">
-            {WEEK_GAMES.map((g) => (
-              <GameCard key={g.id} game={g} onReserve={handleReserve} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Reserve modal */}
-      {modal && (
-        <div
-          className="modal-overlay"
-          onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-        >
-          <div className="modal-panel">
-            <div className="modal-header">
-              <h2 id="modal-title" className="modal-title">Reserve a Spot</h2>
-              <button
-                className="modal-close"
-                onClick={() => setModal(null)}
-                aria-label="Close"
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="4" y1="4" x2="14" y2="14"/><line x1="14" y1="4" x2="4" y2="14"/>
-                </svg>
-              </button>
+      {/* Upcoming sessions scroll row */}
+      {upcomingSessions.length > 0 && (
+        <div className="games-week-wrap">
+          <div className="games-section-inner">
+            <div className="games-section-header">
+              <h2 className="games-section-title">Upcoming Pickup Games</h2>
+              <p className="games-section-desc">Scroll to see the full schedule. Book up to 7 days in advance.</p>
             </div>
 
-            <div className="modal-game-info">
-              <strong>{modal.game.name}</strong>
-              <span>{modal.game.date} · {modal.game.time} · {modal.game.field}</span>
-              <span className="modal-skill-tag">{modal.game.skillLevel}</span>
+            <div className="games-week-scroll">
+              {upcomingSessions.map((s) => (
+                <GameCard key={s.id} session={s} />
+              ))}
             </div>
-
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="modal-field">
-                <label htmlFor="pickup-name" className="modal-label">Your name</label>
-                <input
-                  id="pickup-name"
-                  type="text"
-                  className="modal-input"
-                  placeholder="Alex Garcia"
-                  required
-                  value={modal.name}
-                  onChange={(e) => setModal((prev) => prev ? { ...prev, name: e.target.value } : null)}
-                />
-              </div>
-
-              <div className="modal-field">
-                <label htmlFor="pickup-email" className="modal-label">Email address</label>
-                <input
-                  id="pickup-email"
-                  type="email"
-                  className="modal-input"
-                  placeholder="alex@example.com"
-                  required
-                  value={modal.email}
-                  onChange={(e) => setModal((prev) => prev ? { ...prev, email: e.target.value } : null)}
-                />
-                <p className="modal-input-hint">We'll text you field assignment 30 min before game time.</p>
-              </div>
-
-              <div className="modal-price-note">
-                <span className="price-note-label">Door price</span>
-                <span className="price-note-amount">${modal.game.price}</span>
-                <span className="price-note-detail">· Founders pay $0</span>
-              </div>
-
-              <button
-                type="submit"
-                className="modal-submit-btn"
-                disabled={modal.submitting}
-              >
-                {modal.submitting ? "Reserving…" : "Confirm reservation"}
-              </button>
-            </form>
           </div>
         </div>
       )}
@@ -574,160 +431,6 @@ export default function PickupGames() {
           flex-shrink: 0;
           width: 285px;
         }
-        /* Modal */
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(5,12,22,0.85);
-          backdrop-filter: blur(6px);
-          z-index: 200;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1.5rem;
-        }
-        .modal-panel {
-          background: #0d2035;
-          border: 1.5px solid rgba(250,204,21,0.4);
-          border-radius: 16px;
-          padding: 2rem;
-          width: 100%;
-          max-width: 440px;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-        .modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .modal-title {
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #ffffff;
-          margin: 0;
-        }
-        .modal-close {
-          background: none;
-          border: none;
-          color: rgba(255,255,255,0.4);
-          cursor: pointer;
-          padding: 4px;
-          border-radius: 4px;
-          transition: color 0.15s;
-        }
-        .modal-close:hover { color: white; }
-        .modal-game-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          padding: 1rem;
-          background: rgba(255,255,255,0.05);
-          border-radius: 8px;
-        }
-        .modal-game-info strong {
-          font-size: 1rem;
-          font-weight: 700;
-          color: white;
-        }
-        .modal-game-info span {
-          font-size: 0.875rem;
-          color: rgba(255,255,255,0.5);
-        }
-        .modal-skill-tag {
-          font-size: 0.75rem !important;
-          font-weight: 700;
-          color: #facc15 !important;
-          background: rgba(250,204,21,0.12);
-          padding: 2px 8px;
-          border-radius: 20px;
-          display: inline-block;
-          width: fit-content;
-          font-family: 'Space Grotesk', sans-serif;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-        }
-        .modal-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1.125rem;
-        }
-        .modal-field {
-          display: flex;
-          flex-direction: column;
-          gap: 0.375rem;
-        }
-        .modal-label {
-          font-size: 0.8125rem;
-          font-weight: 600;
-          color: rgba(255,255,255,0.6);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-        }
-        .modal-input {
-          background: rgba(255,255,255,0.05);
-          border: 1.5px solid rgba(255,255,255,0.15);
-          border-radius: 8px;
-          color: white;
-          font-size: 1rem;
-          padding: 0.75rem 1rem;
-          outline: none;
-          transition: border-color 0.15s;
-          font-family: 'Inter', sans-serif;
-        }
-        .modal-input::placeholder { color: rgba(255,255,255,0.25); }
-        .modal-input:focus { border-color: #facc15; }
-        .modal-input-hint {
-          font-size: 0.75rem;
-          color: rgba(255,255,255,0.3);
-          margin: 0;
-          line-height: 1.4;
-        }
-        .modal-price-note {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1rem;
-          background: rgba(250,204,21,0.08);
-          border: 1px solid rgba(250,204,21,0.2);
-          border-radius: 8px;
-        }
-        .price-note-label {
-          font-size: 0.8125rem;
-          color: rgba(255,255,255,0.45);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          font-weight: 600;
-        }
-        .price-note-amount {
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 1.25rem;
-          font-weight: 800;
-          color: #facc15;
-          letter-spacing: -0.03em;
-        }
-        .price-note-detail {
-          font-size: 0.8125rem;
-          color: rgba(255,255,255,0.35);
-        }
-        .modal-submit-btn {
-          background: #facc15;
-          color: #0a1929;
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 1rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          border: none;
-          border-radius: 8px;
-          padding: 1rem;
-          cursor: pointer;
-          transition: filter 0.15s;
-        }
-        .modal-submit-btn:hover:not(:disabled) { filter: brightness(1.08); }
-        .modal-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
       `}</style>
     </div>
   );

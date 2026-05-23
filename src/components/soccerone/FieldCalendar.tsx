@@ -1,77 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ErrorBanner } from "@/components/ui/error-banner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 
-// --- Mock data ---
+// --- Live availability types ---
 
-type SlotStatus = "available" | "booked" | "maintenance";
-
-interface BookedSlot {
-  hour: number; // 7 = 7am, 23 = 11pm
-  duration: number; // hours
-  label: string;
-  type: "league" | "rental" | "practice";
+/** A free time block returned by /api/rentals/availability. */
+interface FreeBlock {
+  startsAt: string; // ISO
+  endsAt: string;   // ISO
 }
 
-interface FieldSchedule {
-  [fieldNumber: number]: BookedSlot[];
+interface FieldAvailability {
+  fieldNumber: number;
+  free: FreeBlock[];
 }
 
-const MOCK_SCHEDULE: FieldSchedule = {
-  1: [
-    { hour: 7,  duration: 1, label: "Youth Academy Training",  type: "practice" },
-    { hour: 10, duration: 2, label: "Women's Coed League",     type: "league" },
-    { hour: 13, duration: 1, label: "Private Rental — Martinez", type: "rental" },
-    { hour: 19, duration: 1, label: "Adult Coed League",       type: "league" },
-    { hour: 21, duration: 1, label: "Adult Coed League",       type: "league" },
-  ],
-  2: [
-    { hour: 8,  duration: 1, label: "Futsal Camp — U10",       type: "practice" },
-    { hour: 11, duration: 1, label: "Private Rental — Johnson Fam.", type: "rental" },
-    { hour: 14, duration: 2, label: "Youth Skills Camp",        type: "practice" },
-    { hour: 18, duration: 1, label: "Adult Premier League",    type: "league" },
-    { hour: 20, duration: 1, label: "Adult Premier League",    type: "league" },
-  ],
-  3: [
-    { hour: 9,  duration: 1, label: "Morning Fitness",         type: "practice" },
-    { hour: 12, duration: 1, label: "Lunch Pickup",            type: "rental" },
-    { hour: 17, duration: 1, label: "Corporate Rental — Acme", type: "rental" },
-    { hour: 19, duration: 2, label: "Adult Coed League",       type: "league" },
-  ],
-  4: [
-    { hour: 7,  duration: 2, label: "Goalkeeper Training",     type: "practice" },
-    { hour: 16, duration: 1, label: "Youth U14 Practice",      type: "practice" },
-    { hour: 20, duration: 1, label: "Adult Premier League",    type: "league" },
-    { hour: 22, duration: 1, label: "Late Pickup",             type: "rental" },
-  ],
-  5: [
-    { hour: 8,  duration: 1, label: "Aspire Youth Clinic",     type: "practice" },
-    { hour: 14, duration: 1, label: "Birthday Party — Garcia", type: "rental" },
-    { hour: 18, duration: 1, label: "Women's League",          type: "league" },
-    { hour: 21, duration: 1, label: "Men's Over-35 League",    type: "league" },
-  ],
-  6: [
-    { hour: 9,  duration: 2, label: "Academy U12 Training",    type: "practice" },
-    { hour: 13, duration: 1, label: "Private Rental — Kim",    type: "rental" },
-    { hour: 19, duration: 1, label: "Adult Coed League",       type: "league" },
-    { hour: 21, duration: 1, label: "Pickup Soccer",           type: "rental" },
-  ],
-  7: [
-    { hour: 7,  duration: 1, label: "Morning Pickup",          type: "rental" },
-    { hour: 10, duration: 2, label: "Youth Camp Session",      type: "practice" },
-    { hour: 15, duration: 1, label: "Skills Training",         type: "practice" },
-    { hour: 20, duration: 1, label: "Men's Premier League",    type: "league" },
-    { hour: 22, duration: 1, label: "Late League",             type: "league" },
-  ],
-  8: [
-    { hour: 8,  duration: 1, label: "Strength & Conditioning", type: "practice" },
-    { hour: 11, duration: 1, label: "Rental — Chen Group",     type: "rental" },
-    { hour: 16, duration: 1, label: "Youth U10 Game Day",      type: "practice" },
-    { hour: 18, duration: 2, label: "Co-ed League Finals",     type: "league" },
-  ],
-};
+interface AvailabilityResponse {
+  venueName: string;
+  date: string;
+  fields: FieldAvailability[];
+}
 
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 7); // 7am to 11pm
 
@@ -81,12 +34,28 @@ function formatHour(h: number) {
   return `${h - 12}:00 PM`;
 }
 
-function getSlotColor(type: "league" | "rental" | "practice") {
-  switch (type) {
-    case "league":   return { bg: "rgba(14,165,233,0.25)", border: "rgba(14,165,233,0.7)", text: "#7dd3fc" };
-    case "rental":   return { bg: "rgba(250,204,21,0.15)", border: "rgba(250,204,21,0.6)", text: "#fde047" };
-    case "practice": return { bg: "rgba(74,222,128,0.15)", border: "rgba(74,222,128,0.5)", text: "#86efac" };
-  }
+/**
+ * True if the integer hour `h` (e.g. 19 = 7pm) is inside any free block
+ * for the given field on the selected date.
+ * NOTE: The availability API returns free blocks in UTC. The hour is treated
+ * as a wall-clock hour on the selected date (assumed local to the venue).
+ * For now we do a simple hour-in-block check using the date string directly.
+ */
+function isHourBookable(
+  field: FieldAvailability | undefined,
+  dateStr: string,
+  h: number,
+): boolean {
+  if (!field) return false;
+  const hourStart = new Date(
+    `${dateStr}T${String(h).padStart(2, "0")}:00:00.000Z`,
+  ).getTime();
+  const hourEnd = hourStart + 60 * 60 * 1000;
+  return field.free.some((b) => {
+    const blockStart = new Date(b.startsAt).getTime();
+    const blockEnd = new Date(b.endsAt).getTime();
+    return blockStart <= hourStart && blockEnd >= hourEnd;
+  });
 }
 
 interface SelectedSlot {
@@ -101,9 +70,21 @@ interface AddOn {
   checked: boolean;
 }
 
-export default function FieldCalendar() {
+export interface FieldCalendarProps {
+  /** UUID of the SoccerOne venue whose availability to show. When null/undefined the component shows an empty state. */
+  venueId: string | null;
+  /** Initial date (YYYY-MM-DD). Defaults to today. */
+  initialDate?: string;
+}
+
+export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(initialDate ?? today);
+  const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [selectedField, setSelectedField] = useState(1);
-  const [selectedDate, setSelectedDate] = useState("2026-04-28");
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
   const [addOns, setAddOns] = useState<AddOn[]>([
     { id: "balls",      label: "Rental Ball Set",           price: 10,  checked: false },
@@ -113,21 +94,42 @@ export default function FieldCalendar() {
   ]);
   const [isMember, setIsMember] = useState(false);
 
-  const schedule = MOCK_SCHEDULE[selectedField] ?? [];
-
-  // Build a lookup: hour → booked slot
-  const bookedByHour: Map<number, BookedSlot> = new Map();
-  for (const slot of schedule) {
-    for (let h = slot.hour; h < slot.hour + slot.duration; h++) {
-      bookedByHour.set(h, slot);
+  // Fetch availability whenever venueId or date changes
+  useEffect(() => {
+    if (!venueId) {
+      setAvailability(null);
+      return;
     }
-  }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(
+      `/api/rentals/availability?venueId=${encodeURIComponent(venueId)}&date=${encodeURIComponent(date)}`,
+    )
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = (await res.json()) as AvailabilityResponse;
+        if (!cancelled) {
+          setAvailability(body);
+          // Reset selected field to first available if current field no longer present
+          if (body.fields.length > 0 && !body.fields.find((f) => f.fieldNumber === selectedField)) {
+            setSelectedField(body.fields[0].fieldNumber);
+          }
+        }
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to load availability");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [venueId, date]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isBookedHour = (h: number) => bookedByHour.has(h);
-  const isFirstHourOfSlot = (h: number) => {
-    const slot = bookedByHour.get(h);
-    return slot ? slot.hour === h : false;
-  };
+  const currentField = availability?.fields.find((f) => f.fieldNumber === selectedField);
 
   const baseRate = 80;
   const memberRate = 72;
@@ -137,7 +139,7 @@ export default function FieldCalendar() {
   const totalCost = hourlyRate + addOnTotal;
 
   const handleSlotClick = (h: number) => {
-    if (isBookedHour(h)) return;
+    if (!isHourBookable(currentField, date, h)) return;
     setSelectedSlot({ field: selectedField, hour: h });
   };
 
@@ -151,9 +153,15 @@ export default function FieldCalendar() {
 
   const toggleAddOn = (id: string) => {
     setAddOns((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, checked: !a.checked } : a))
+      prev.map((a) => (a.id === id ? { ...a, checked: !a.checked } : a)),
     );
   };
+
+  // Field numbers to show in the selector
+  const fieldNumbers =
+    availability && availability.fields.length > 0
+      ? availability.fields.map((f) => f.fieldNumber)
+      : [selectedField];
 
   return (
     <div className="field-calendar-root">
@@ -167,7 +175,7 @@ export default function FieldCalendar() {
             value={selectedField}
             onChange={(e) => { setSelectedField(Number(e.target.value)); setSelectedSlot(null); }}
           >
-            {[1,2,3,4,5,6,7,8].map((n) => (
+            {fieldNumbers.map((n) => (
               <option key={n} value={n}>Field {n}</option>
             ))}
           </select>
@@ -179,9 +187,9 @@ export default function FieldCalendar() {
             id="date-pick"
             type="date"
             className="filter-input"
-            value={selectedDate}
-            min="2026-04-28"
-            onChange={(e) => setSelectedDate(e.target.value)}
+            value={date}
+            min={today}
+            onChange={(e) => { setDate(e.target.value); setSelectedSlot(null); }}
           />
         </div>
 
@@ -213,71 +221,81 @@ export default function FieldCalendar() {
         <div className="calendar-grid-wrapper">
           <div className="calendar-legend">
             <div className="legend-item">
-              <span className="legend-swatch legend-league"></span>League
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch legend-rental"></span>Rental
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch legend-practice"></span>Practice
-            </div>
-            <div className="legend-item">
               <span className="legend-swatch legend-available"></span>Available
             </div>
+            <div className="legend-item">
+              <span className="legend-swatch legend-booked"></span>Unavailable
+            </div>
           </div>
 
-          <div className="calendar-grid">
-            {HOURS.map((h) => {
-              const booked = isBookedHour(h);
-              const isFirst = isFirstHourOfSlot(h);
-              const slot = bookedByHour.get(h);
-              const colors = slot ? getSlotColor(slot.type) : null;
-              const isSelected = selectedSlot?.hour === h && selectedSlot?.field === selectedField;
+          {/* Loading / error / empty states */}
+          {loading && (
+            <LoadingSkeleton rows={8} className="calendar-loading" />
+          )}
+          {!loading && error && (
+            <ErrorBanner message={`Couldn't load availability: ${error}`} />
+          )}
+          {!loading && !error && !venueId && (
+            <EmptyState
+              title="Pick a facility"
+              description="Choose Downtown or Worthington above to see field availability."
+            />
+          )}
+          {!loading && !error && availability && availability.fields.length === 0 && (
+            <EmptyState
+              title="No rentable fields right now"
+              description="Try a different date."
+            />
+          )}
 
-              return (
-                <div
-                  key={h}
-                  className={cn(
-                    "calendar-row",
-                    booked && "calendar-row--booked",
-                    !booked && "calendar-row--available",
-                    isSelected && "calendar-row--selected"
-                  )}
-                  onClick={() => handleSlotClick(h)}
-                  role={booked ? undefined : "button"}
-                  tabIndex={booked ? -1 : 0}
-                  aria-label={booked ? undefined : `Select ${formatHour(h)} slot on Field ${selectedField}`}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleSlotClick(h); }}
-                  style={colors ? {
-                    background: colors.bg,
-                    borderLeft: `3px solid ${colors.border}`,
-                  } : {}}
-                >
-                  <span className="row-time">{formatHour(h)}</span>
-                  {booked && isFirst && slot && (
-                    <div className="row-event" style={colors ? { color: colors.text } : {}}>
-                      <span className="event-name">{slot.label}</span>
-                      <span className="event-duration">{slot.duration}h</span>
-                    </div>
-                  )}
-                  {booked && !isFirst && (
-                    <div className="row-continuation" style={colors ? { color: colors.text } : {}}>
-                      &mdash;
-                    </div>
-                  )}
-                  {!booked && (
-                    <div className="row-available-label">
-                      <span>Available — click to select</span>
-                      <span className="available-rate">${hourlyRate}/hr</span>
-                    </div>
-                  )}
-                  {isSelected && (
-                    <span className="row-selected-badge">Selected</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {!loading && !error && availability && availability.fields.length > 0 && (
+            <div className="calendar-grid">
+              {HOURS.map((h) => {
+                const bookable = isHourBookable(currentField, date, h);
+                const isSelected =
+                  selectedSlot?.hour === h && selectedSlot?.field === selectedField;
+
+                return (
+                  <div
+                    key={h}
+                    className={cn(
+                      "calendar-row",
+                      !bookable && "calendar-row--booked",
+                      bookable && "calendar-row--available",
+                      isSelected && "calendar-row--selected",
+                    )}
+                    onClick={() => handleSlotClick(h)}
+                    role={bookable ? "button" : undefined}
+                    tabIndex={bookable ? 0 : -1}
+                    aria-label={
+                      bookable
+                        ? `Select ${formatHour(h)} slot on Field ${selectedField}`
+                        : undefined
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") handleSlotClick(h);
+                    }}
+                  >
+                    <span className="row-time">{formatHour(h)}</span>
+                    {!bookable && (
+                      <div className="row-event">
+                        <span className="event-name">Unavailable</span>
+                      </div>
+                    )}
+                    {bookable && (
+                      <div className="row-available-label">
+                        <span>Available — click to select</span>
+                        <span className="available-rate">${hourlyRate}/hr</span>
+                      </div>
+                    )}
+                    {isSelected && (
+                      <span className="row-selected-badge">Selected</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Side panel */}
@@ -453,6 +471,9 @@ export default function FieldCalendar() {
         .calendar-grid-wrapper {
           min-width: 0;
         }
+        .calendar-loading {
+          padding: 1rem 0;
+        }
         .calendar-legend {
           display: flex;
           gap: 1.25rem;
@@ -472,10 +493,8 @@ export default function FieldCalendar() {
           height: 12px;
           border-radius: 2px;
         }
-        .legend-league    { background: rgba(14,165,233,0.6); }
-        .legend-rental    { background: rgba(250,204,21,0.55); }
-        .legend-practice  { background: rgba(74,222,128,0.5); }
         .legend-available { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); }
+        .legend-booked    { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
         .calendar-grid {
           display: flex;
           flex-direction: column;
@@ -491,6 +510,12 @@ export default function FieldCalendar() {
           border-left: 3px solid transparent;
           transition: background 0.15s, border-color 0.15s;
           position: relative;
+        }
+        .calendar-row--booked {
+          background: rgba(255,255,255,0.02);
+          border-left-color: rgba(255,255,255,0.06);
+          opacity: 0.5;
+          cursor: default;
         }
         .calendar-row--available {
           background: rgba(255,255,255,0.04);
@@ -528,17 +553,7 @@ export default function FieldCalendar() {
         .event-name {
           font-size: 0.9375rem;
           font-weight: 600;
-        }
-        .event-duration {
-          font-size: 0.75rem;
-          opacity: 0.7;
-          white-space: nowrap;
-        }
-        .row-continuation {
-          font-size: 0.75rem;
-          opacity: 0.4;
-          flex: 1;
-          padding-left: 0.25rem;
+          color: rgba(255,255,255,0.3);
         }
         .row-available-label {
           display: flex;
@@ -782,3 +797,5 @@ export default function FieldCalendar() {
     </div>
   );
 }
+
+export default FieldCalendar;
