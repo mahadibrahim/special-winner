@@ -3,12 +3,19 @@ export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
-import FieldCalendar from '@/components/soccerone/FieldCalendar';
 import { Toaster } from 'sonner';
+import { FieldCalendar } from '@/components/soccerone/FieldCalendar';
+import { getSoccerOneVenuesByLocation } from '@/lib/soccerone/venues';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
 const fieldCount = facility === 'downtown' ? '1 field' : '3 fields';
+
+const locationSlug =
+  facility === 'worthington' ? 'soccerone-worthington' : 'soccerone-downtown';
+
+const venueList = await getSoccerOneVenuesByLocation(locationSlug);
+const venueId = venueList.length > 0 ? venueList[0].id : null;
 ---
 
 <BaseLayout
@@ -124,19 +131,9 @@ const fieldCount = facility === 'downtown' ? '1 field' : '3 fields';
             <span class="section-num-sm">01.</span>
             <h2 class="cal-title">Select a Time Slot</h2>
           </div>
-          <div class="cal-legend">
-            <span class="cl-item"><span class="cl-dot cl-open"></span>Available</span>
-            <span class="cl-item"><span class="cl-dot cl-league"></span>League</span>
-            <span class="cl-item"><span class="cl-dot cl-rental"></span>Rental</span>
-            <span class="cl-item"><span class="cl-dot cl-practice"></span>Training</span>
-          </div>
         </div>
 
-        <div class="cal-desc">
-          Green = available to book. Blue = league. Yellow = private rental. Purple = training. Click any open slot to book.
-        </div>
-
-        <FieldCalendar client:visible />
+        <FieldCalendar client:load venueId={venueId} />
       </div>
     </div>
 
