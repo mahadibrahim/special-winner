@@ -27,6 +27,7 @@ import {
   familyMembers,
   registrations,
   venues,
+  events,
 } from "../schema";
 import {
   mediaStaffProfiles,
@@ -1264,6 +1265,75 @@ async function seedE2ETests() {
     }
     console.log(`   ✓ Tagger fixture session ${s.id.slice(0, 8)} with 6 assets`);
   }
+  // -------------------------------------------------------------------------
+  // Events — one per org for tenant-isolation tests.
+  // Slugs are stable so the upsert is idempotent across seed runs.
+  // -------------------------------------------------------------------------
+  console.log("\n9. Setting up events (tenant-isolation fixtures)...");
+
+  // Org A event — active, future startsAt, audience 'all'
+  const orgAEventStartsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // now + 30 days
+  let [orgAEvent] = await db
+    .select()
+    .from(events)
+    .where(eq(events.slug, "e2e-orga-event"))
+    .limit(1);
+
+  if (!orgAEvent) {
+    [orgAEvent] = await db
+      .insert(events)
+      .values({
+        organizationId: org.id,
+        locationId: location.id,
+        name: "E2E Org A Event",
+        slug: "e2e-orga-event",
+        description: "Org A event for tenant-isolation E2E tests",
+        audience: "all",
+        startsAt: orgAEventStartsAt,
+        active: true,
+      })
+      .returning();
+  } else {
+    // Refresh startsAt so it stays in the future on repeated seed runs
+    [orgAEvent] = await db
+      .update(events)
+      .set({ active: true, startsAt: orgAEventStartsAt })
+      .where(eq(events.id, orgAEvent.id))
+      .returning();
+  }
+  console.log(`   ✓ Org A Event: ${orgAEvent.name} (${orgAEvent.id})`);
+
+  // Org B event — same shape, scoped to orgB
+  const orgBEventStartsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  let [orgBEvent] = await db
+    .select()
+    .from(events)
+    .where(eq(events.slug, "e2e-orgb-event"))
+    .limit(1);
+
+  if (!orgBEvent) {
+    [orgBEvent] = await db
+      .insert(events)
+      .values({
+        organizationId: orgB.id,
+        locationId: orgBLocation.id,
+        name: "E2E Org B Event",
+        slug: "e2e-orgb-event",
+        description: "Org B event for tenant-isolation E2E tests",
+        audience: "all",
+        startsAt: orgBEventStartsAt,
+        active: true,
+      })
+      .returning();
+  } else {
+    [orgBEvent] = await db
+      .update(events)
+      .set({ active: true, startsAt: orgBEventStartsAt })
+      .where(eq(events.id, orgBEvent.id))
+      .returning();
+  }
+  console.log(`   ✓ Org B Event: ${orgBEvent.name} (${orgBEvent.id})`);
+
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
   console.log("─".repeat(50));

@@ -5,10 +5,19 @@ import { eq, and, gte, asc, sql } from "drizzle-orm";
 
 /**
  * Public events feed — upcoming, active events only. Optional `audience`
- * filter ('youth' | 'adult' | 'all'). No auth required.
+ * filter ('youth' | 'adult' | 'all'). No auth required. Scoped to the
+ * resolved tenant (locals.organization).
  */
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   if (!db) {
+    return new Response(JSON.stringify({ events: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const organization = locals.organization;
+  if (!organization) {
     return new Response(JSON.stringify({ events: [] }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -19,7 +28,12 @@ export const GET: APIRoute = async ({ url }) => {
 
   try {
     const now = new Date();
-    const conditions = [eq(events.active, true), gte(events.startsAt, now)];
+    const conditions = [
+      // Tenant scope first
+      eq(events.organizationId, organization.id),
+      eq(events.active, true),
+      gte(events.startsAt, now),
+    ];
     if (audience === "youth" || audience === "adult") {
       conditions.push(
         sql`(${events.audience} IS NULL OR ${events.audience} = ${audience} OR ${events.audience} = 'all')`,
@@ -29,6 +43,7 @@ export const GET: APIRoute = async ({ url }) => {
     const rows = await db
       .select({
         id: events.id,
+        organizationId: events.organizationId, // surfaced for tests + clients
         name: events.name,
         slug: events.slug,
         description: events.description,
