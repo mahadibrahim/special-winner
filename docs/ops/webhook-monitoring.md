@@ -62,12 +62,6 @@ For the "Stripe stopped delivering" failure mode, build a second alert on `strip
 3. If our response was a 4xx (Stripe will NOT retry), use the dashboard's **"Resend"** button after the fix is deployed.
 4. If our handler returned 200 but threw post-response (rare — the `handleStripeEvent` dispatcher releases the ledger claim on throw so this shouldn't happen for the main endpoint), use the Stripe dashboard's resend.
 
-## Known follow-up (out of scope here)
-
-`src/pages/api/webhooks/stripe-connect.ts` returns **400** on caught internal errors. This tells Stripe NOT to retry, so a transient internal failure permanently drops the event. The main `/api/webhooks/stripe` endpoint returns **500** on the same shape of error, which is correct (transient → Stripe retries).
-
-The fix is a one-line change but it's a webhook semantic change and warrants its own PR + smoke. Tracked alongside the launch readiness sweep; see `docs/launch-readiness-2026-summer.md` engineering hardening section.
-
 ## Local testing
 
 PostHog server-side capture works in any environment that has `POSTHOG_PROJECT_TOKEN` set. To verify telemetry locally:

@@ -178,14 +178,13 @@ export const POST: APIRoute = async ({ request }) => {
         error: error instanceof Error ? error.message : "Webhook processing failed",
       }),
       {
-        // NOTE: returns 400 — preserves the pre-existing behavior of
-        // this endpoint. A 400 tells Stripe NOT to retry, so a
-        // transient internal error here permanently drops the event.
-        // Probably a bug (the main `/api/webhooks/stripe` endpoint
-        // returns 500 on the same shape of error so Stripe DOES retry).
-        // Out of scope for this monitoring-focused PR; flagged in
-        // docs/ops/webhook-monitoring.md as a known follow-up.
-        status: 400,
+        // 500 — a thrown error inside the try (post-signature-verify) is
+        // an internal failure, not a bad request from Stripe. Returning
+        // 5xx tells Stripe to retry the delivery with exponential backoff
+        // (up to ~3 days), so a transient blip self-heals instead of
+        // permanently dropping the event. Matches the main
+        // /api/webhooks/stripe endpoint.
+        status: 500,
         headers: { "Content-Type": "application/json" },
       }
     );
