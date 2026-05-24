@@ -11,6 +11,7 @@ import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
 import { handleChargeRefunded } from "./handle-charge-refunded";
 import { handleChargeDispute } from "./handle-charge-dispute";
+import { captureWebhookOutcome } from "@/lib/observability/webhook-telemetry";
 
 /**
  * Try to claim this Stripe event id in the stripe_events ledger.
@@ -197,6 +198,14 @@ export async function handleStripeEvent(
     console.log(
       `[stripe webhook] duplicate delivery for event ${event.id} (${event.type}), skipping`,
     );
+    // Telemetry: deduped delivery. Fire-and-forget — never blocks the
+    // webhook on PostHog availability.
+    void captureWebhookOutcome({
+      webhook: "stripe",
+      outcome: "deduped",
+      eventType: event.type,
+      eventId: event.id,
+    });
     return { status: "deduped" };
   }
 
@@ -206,5 +215,14 @@ export async function handleStripeEvent(
     await releaseStripeEvent(event.id);
     throw err;
   }
+
+  // Telemetry: successful processing — dashboards need positive signal
+  // to distinguish "all quiet" from "Stripe stopped delivering."
+  void captureWebhookOutcome({
+    webhook: "stripe",
+    outcome: "processed",
+    eventType: event.type,
+    eventId: event.id,
+  });
   return { status: "processed" };
 }
