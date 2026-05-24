@@ -164,24 +164,34 @@ export const POST: APIRoute = async (context) => {
     ? Math.round((rate.amountCents * applicationFeePct) / 100)
     : undefined;
 
-  const intent = await stripe.paymentIntents.create({
-    amount: rate.amountCents,
-    currency: "usd",
-    payment_method_types: ["card_present"],
-    capture_method: "automatic",
-    metadata: {
-      type: "dropin_booking_walk_up",
-      session_id: sessionId,
-      user_id: userId,
-      payment_method: rate.paymentMethod,
-      membership_id: rate.membershipId ?? "",
-      organization_id: session.organizationId,
+  const intent = await stripe.paymentIntents.create(
+    {
+      amount: rate.amountCents,
+      currency: "usd",
+      payment_method_types: ["card_present"],
+      capture_method: "automatic",
+      metadata: {
+        type: "dropin_booking_walk_up",
+        session_id: sessionId,
+        user_id: userId,
+        payment_method: rate.paymentMethod,
+        membership_id: rate.membershipId ?? "",
+        organization_id: session.organizationId,
+      },
+      application_fee_amount: applicationFeeCents,
+      transfer_data: partnerStripeAccountId
+        ? { destination: partnerStripeAccountId }
+        : undefined,
     },
-    application_fee_amount: applicationFeeCents,
-    transfer_data: partnerStripeAccountId
-      ? { destination: partnerStripeAccountId }
-      : undefined,
-  });
+    {
+      // Idempotency key derived from session + user + amount so a
+      // double-tap on the front-desk "process walk-up" button doesn't
+      // create two PaymentIntents (and risk a double Terminal charge).
+      // A genuinely different intent — e.g. price-tier switched between
+      // attempts — gets a fresh key because amount changes.
+      idempotencyKey: `${sessionId}:dropin-walkup-pi:${userId}:${rate.amountCents}`,
+    },
+  );
 
   // Note: the booking row gets inserted on PaymentIntent.succeeded webhook.
   // We expose a metadata payload here so the front-desk panel can render
