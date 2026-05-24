@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { sendDayBeforeReminders } from "@/lib/messaging/notifications";
+import { captureServerException } from "@/lib/observability/server-error";
 
 /**
  * POST /api/cron/day-before-reminders
@@ -61,6 +62,9 @@ export const POST: APIRoute = async ({ request }) => {
     );
   } catch (err) {
     console.error("[cron] Day-before reminder job failed:", err);
+    void captureServerException(err, {
+      component: "cron/day-before-reminders",
+    });
     return new Response(
       JSON.stringify({ error: "Cron job failed" }),
       { status: 500, headers: { "Content-Type": "application/json" } },

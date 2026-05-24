@@ -8,6 +8,7 @@ import {
   WELCOME_SERIES_WINDOW_DAYS,
   dueWelcomeSeriesSteps,
 } from "@/lib/marketing/welcome-series";
+import { captureServerException } from "@/lib/observability/server-error";
 
 /**
  * POST /api/cron/send-welcome-series
@@ -117,6 +118,10 @@ export const POST: APIRoute = async ({ request }) => {
       });
     } catch (err) {
       console.error(`[cron] welcome-series failed for user ${u.id}:`, err);
+      void captureServerException(err, {
+        component: "cron/send-welcome-series",
+        metadata: { userId: u.id, phase: "user-loop" },
+      });
       errored += 1;
       continue;
     }
@@ -133,6 +138,10 @@ export const POST: APIRoute = async ({ request }) => {
         else errored += 1;
       } catch (err) {
         console.error(`[cron] welcome-series step ${step.step} failed for user ${u.id}:`, err);
+        void captureServerException(err, {
+          component: "cron/send-welcome-series",
+          metadata: { userId: u.id, step: step.step, phase: "step-send" },
+        });
         errored += 1;
       }
     }

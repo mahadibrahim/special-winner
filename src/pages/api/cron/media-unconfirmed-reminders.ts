@@ -6,6 +6,7 @@ import {
   notifyUnconfirmedReminder,
   notifyAdminUnconfirmedEscalation,
 } from "@/lib/media/notifications";
+import { captureServerException } from "@/lib/observability/server-error";
 
 /**
  * POST /api/cron/media-unconfirmed-reminders
@@ -114,6 +115,9 @@ export const POST: APIRoute = async ({ request }) => {
     );
   } catch (err) {
     console.error("[cron] media-unconfirmed-reminders failed:", err);
+    void captureServerException(err, {
+      component: "cron/media-unconfirmed-reminders",
+    });
     return new Response(
       JSON.stringify({ error: "Cron job failed" }),
       { status: 500, headers: { "Content-Type": "application/json" } },

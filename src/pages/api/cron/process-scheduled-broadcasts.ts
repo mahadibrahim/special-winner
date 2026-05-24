@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db"
 import { scheduledBroadcasts } from "@/lib/db/schema"
 import { and, eq, lte } from "drizzle-orm"
 import { composeBroadcast } from "@/lib/messaging/broadcast"
+import { captureServerException } from "@/lib/observability/server-error"
 
 /**
  * POST /api/cron/process-scheduled-broadcasts
@@ -103,6 +104,9 @@ export const POST: APIRoute = async ({ request }) => {
     })
   } catch (err) {
     console.error("[cron] process-scheduled-broadcasts failed:", err)
+    void captureServerException(err, {
+      component: "cron/process-scheduled-broadcasts",
+    })
     return new Response(
       JSON.stringify({ error: "Cron job failed" }),
       { status: 500, headers: { "Content-Type": "application/json" } },

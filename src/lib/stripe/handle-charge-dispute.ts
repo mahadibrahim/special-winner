@@ -10,6 +10,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { sendDisputeAlertEmail } from "@/lib/email/send";
+import { captureServerException } from "@/lib/observability/server-error";
 
 export type ChargeDisputeEventType =
   | "charge.dispute.created"
@@ -114,9 +115,16 @@ export async function handleChargeDispute(
         evidenceDueBy: (dispute as any).evidence_details?.due_by
           ? new Date((dispute as any).evidence_details.due_by * 1000)
           : null,
-      }).catch((err) =>
-        console.error("[stripe webhook] dispute alert email send failed:", err),
-      );
+      }).catch((err) => {
+        console.error("[stripe webhook] dispute alert email send failed:", err);
+        void captureServerException(err, {
+          component: "stripe-handler/dispute-alert-email",
+          metadata: {
+            disputeId: dispute.id,
+            registrationId: row.registrationId,
+          },
+        });
+      });
     }
   }
 

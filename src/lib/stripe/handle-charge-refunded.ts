@@ -11,6 +11,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
+import { captureServerException } from "@/lib/observability/server-error";
 
 /**
  * Handler for `charge.refunded`. The webhook is the single source of truth
@@ -121,9 +122,13 @@ export async function handleChargeRefunded(
     seasonName: row.season.name,
     refundAmountCents: refundedCents,
     refundStatus: "approved",
-  }).catch((err) =>
-    console.error("[stripe webhook] refund email send failed:", err),
-  );
+  }).catch((err) => {
+    console.error("[stripe webhook] refund email send failed:", err);
+    void captureServerException(err, {
+      component: "stripe-handler/refund-email",
+      metadata: { registrationId: row.registration.id, refundedCents },
+    });
+  });
 
   return { status: "processed", registrationId: row.registration.id, refundedCents };
 }

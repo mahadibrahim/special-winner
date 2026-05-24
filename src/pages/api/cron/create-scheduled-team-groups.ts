@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro"
 import { processScheduledGroupCreations } from "@/lib/messaging/group-lifecycle"
+import { captureServerException } from "@/lib/observability/server-error"
 
 /**
  * POST /api/cron/create-scheduled-team-groups
@@ -47,6 +48,9 @@ export const POST: APIRoute = async ({ request }) => {
     })
   } catch (err) {
     console.error("[cron] create-scheduled-team-groups failed:", err)
+    void captureServerException(err, {
+      component: "cron/create-scheduled-team-groups",
+    })
     return new Response(
       JSON.stringify({ error: "Cron job failed" }),
       { status: 500, headers: { "Content-Type": "application/json" } },

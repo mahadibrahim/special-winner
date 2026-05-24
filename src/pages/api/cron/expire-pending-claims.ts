@@ -11,6 +11,7 @@
  */
 import type { APIRoute } from "astro";
 import { expireOverduePromotions } from "@/lib/dropin/promotion";
+import { captureServerException } from "@/lib/observability/server-error";
 
 export const prerender = false;
 
@@ -50,6 +51,9 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (err) {
     console.error("[cron] Expire pending claims failed:", err);
+    void captureServerException(err, {
+      component: "cron/expire-pending-claims",
+    });
     return new Response(JSON.stringify({ error: "Cron job failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
