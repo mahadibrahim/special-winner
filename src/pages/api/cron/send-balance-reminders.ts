@@ -16,6 +16,7 @@ import {
   buildMagicLinkUrl,
 } from "@/lib/auth/magic-link";
 import { env } from "@/lib/env";
+import { captureServerException } from "@/lib/observability/server-error";
 
 /**
  * POST /api/cron/send-balance-reminders
@@ -191,6 +192,14 @@ export const POST: APIRoute = async ({ request }) => {
             `[cron] balance reminder ${window.type} failed for registration ${row.registrationId}:`,
             rowErr,
           );
+          void captureServerException(rowErr, {
+            component: "cron/send-balance-reminders",
+            metadata: {
+              window: window.type,
+              registrationId: row.registrationId,
+              phase: "row",
+            },
+          });
           result.errored += 1;
         }
       }
@@ -199,6 +208,10 @@ export const POST: APIRoute = async ({ request }) => {
         `[cron] balance reminder ${window.type} window query failed:`,
         windowErr,
       );
+      void captureServerException(windowErr, {
+        component: "cron/send-balance-reminders",
+        metadata: { window: window.type, phase: "window-query" },
+      });
       // Window-level failure: log + continue with other windows.
       result.errored += 1;
     }

@@ -15,6 +15,7 @@
  */
 import type { APIRoute } from "astro";
 import { runActivityTrackerTick } from "@/lib/activity-tracking/tick";
+import { captureServerException } from "@/lib/observability/server-error";
 
 export const prerender = false;
 
@@ -54,6 +55,9 @@ export const POST: APIRoute = async ({ request }) => {
     );
   } catch (err) {
     console.error("[cron] Activity tracker tick failed:", err);
+    void captureServerException(err, {
+      component: "cron/tick-activity-tracker",
+    });
     return new Response(JSON.stringify({ error: "Cron job failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

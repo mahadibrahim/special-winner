@@ -22,20 +22,21 @@ Exceptions are ALSO captured via PostHog's `captureException` so they show up in
 
 The two layers cover different failure modes; set up both.
 
-### Layer 1 — Stripe dashboard email alerts (zero code)
+### Layer 1 — Stripe-side notifications
 
 Catches the case where our endpoint returns 4xx/5xx, or doesn't respond at all, on a delivery Stripe tried to send.
 
+**Per-endpoint email alerts are NOT a Stripe feature in 2026.** (Earlier drafts of this doc said they were — they're not, the dashboard reorganized.) What Stripe does provide:
+
+1. **Auto-disable email.** Stripe automatically emails the account owner when an endpoint is disabled after sustained failures (~3 days of retries). This is the floor — it's "you've already lost 3 days of events" notification, not a leading indicator.
+2. **Account-level operational emails.** `Settings → Communication preferences` lets you opt into general health/operational notifications. Coarse, account-wide, but the only Stripe-native push channel.
+3. **Workbench → Health → Alerts.** In-app surface (not push) showing detected issues including webhook latency. Bookmark for periodic checking — not an alert mechanism.
+
 Founder action:
+- Enable everything in **Settings → Communication preferences** so the auto-disable + general health emails land.
+- Bookmark **Workbench → Health** for both prod webhook endpoints; glance during weekly ops checks.
 
-1. Stripe dashboard → **Developers → Webhooks → [your prod endpoint]**.
-2. Top right, click **... → Edit details**.
-3. Under **Email alerts**, add the founder's email (or an alias that fans out).
-4. Save.
-
-Stripe will email when a delivery attempt fails. By default it covers any 4xx/5xx response. The alert fires after Stripe's first retry too — you won't get pinged on a one-off blip.
-
-Repeat for `/api/webhooks/stripe` AND `/api/webhooks/stripe-connect`.
+Because Stripe doesn't push per-endpoint failure alerts, **the PostHog rules in Layer 2 are the primary near-real-time signal**, not the secondary.
 
 ### Layer 2 — PostHog alert on `stripe_webhook_exception`
 
