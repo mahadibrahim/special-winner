@@ -17,6 +17,7 @@ import { EmailVerificationEmail } from "./templates/email-verification";
 import { WelcomeEmail1 } from "./templates/welcome-1-welcome";
 import { WelcomeEmail2 } from "./templates/welcome-2-story";
 import { WelcomeEmail3 } from "./templates/welcome-3-activation";
+import { DisputeAlertEmail } from "./templates/dispute-alert";
 import {
   signUnsubscribeToken,
   getUnsubscribeSecret,
@@ -696,6 +697,93 @@ export async function sendWelcomeSeriesEmail(params: {
     emailType: meta.emailType,
     recipientEmail: params.recipientEmail,
     subject: meta.subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// ---- Dispute alert (founder-only operational email) ----
+
+export interface SendDisputeAlertParams {
+  /** Stripe dispute id, used in the email body + link to the dashboard. */
+  stripeDisputeId: string;
+  /** For email_logs association — the registration the charge belongs to. */
+  registrationId: string;
+  /** "First Last" of the player on the registration. */
+  playerName: string;
+  /** Program + season the registration is in (for context in the alert). */
+  programName: string;
+  seasonName: string;
+  /** Customer-of-record email — surfaced so the founder can reach out. */
+  parentEmail: string;
+  /** Dispute amount in cents (formatted to USD in the email). */
+  amountCents: number;
+  /** Stripe reason code verbatim (e.g. "fraudulent", "duplicate"). */
+  reasonCode: string;
+  /** Stripe evidence deadline. Null when Stripe didn't supply one. */
+  evidenceDueBy: Date | null;
+}
+
+/**
+ * Founder-only operational alert when a Stripe dispute is filed against
+ * a registration charge. Goes to `FOUNDER_ALERT_EMAIL` (required for
+ * delivery — handler is fail-soft if the env var is missing).
+ *
+ * Deliberately not a customer-facing email: the response surface is the
+ * Stripe dashboard, and we don't want to confuse the cardholder about
+ * who is processing the dispute.
+ */
+export async function sendDisputeAlertEmail(
+  params: SendDisputeAlertParams,
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping dispute alert email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const founderEmail = env.FOUNDER_ALERT_EMAIL;
+  if (!founderEmail) {
+    console.error(
+      "[email] FOUNDER_ALERT_EMAIL is not set — dispute alert for " +
+        `${params.stripeDisputeId} was not sent`,
+    );
+    return { success: false, error: "FOUNDER_ALERT_EMAIL not set" };
+  }
+
+  const stripeUrl = `https://dashboard.stripe.com/disputes/${params.stripeDisputeId}`;
+
+  const { html, text } = await renderEmail(
+    DisputeAlertEmail({
+      stripeDisputeId: params.stripeDisputeId,
+      playerName: params.playerName,
+      programName: params.programName,
+      seasonName: params.seasonName,
+      parentEmail: params.parentEmail,
+      amount: formatCurrency(params.amountCents),
+      reasonCode: params.reasonCode,
+      evidenceDueBy: params.evidenceDueBy
+        ? formatEmailDateTime(params.evidenceDueBy)
+        : null,
+      stripeUrl,
+    }),
+  );
+
+  const subject = `[ACTION REQUIRED] Stripe dispute on ${params.playerName} — respond before deadline`;
+
+  const result = await sendEmail({
+    to: founderEmail,
+    subject,
+    html,
+    text,
+  });
+
+  await logEmail({
+    registrationId: params.registrationId,
+    emailType: "dispute_alert",
+    recipientEmail: founderEmail,
+    subject,
     resendMessageId: result.messageId,
     status: result.success ? "sent" : "failed",
   });

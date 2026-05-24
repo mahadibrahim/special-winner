@@ -10,6 +10,7 @@ import { handleFieldRentalWalkUpPayment } from "./handle-field-rental-walkup-pay
 import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
 import { handleChargeRefunded } from "./handle-charge-refunded";
+import { handleChargeDispute } from "./handle-charge-dispute";
 
 /**
  * Try to claim this Stripe event id in the stripe_events ledger.
@@ -77,6 +78,15 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
  * Consequence: the Stripe webhook endpoint MUST stay subscribed to BOTH
  * `payment_intent.succeeded` AND `checkout.session.completed` — drop one
  * and half the payment system silently stops recording.
+ *
+ * Full event-subscription list the prod webhook must carry:
+ *   - checkout.session.completed
+ *   - payment_intent.succeeded
+ *   - payment_intent.payment_failed
+ *   - charge.refunded
+ *   - charge.dispute.created
+ *   - charge.dispute.funds_withdrawn
+ *   - charge.dispute.closed
  */
 async function dispatch(event: Stripe.Event): Promise<void> {
   switch (event.type) {
@@ -154,6 +164,15 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       const charge = event.data.object as Stripe.Charge;
       const result = await handleChargeRefunded(charge);
       console.log(`[stripe webhook] charge.refunded → ${result.status}`, result);
+      break;
+    }
+
+    case "charge.dispute.created":
+    case "charge.dispute.funds_withdrawn":
+    case "charge.dispute.closed": {
+      const dispute = event.data.object as Stripe.Dispute;
+      const result = await handleChargeDispute(dispute, event.type);
+      console.log(`[stripe webhook] ${event.type} → ${result.status}`, result);
       break;
     }
 

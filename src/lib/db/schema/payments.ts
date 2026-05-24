@@ -47,6 +47,20 @@ export const scheduledPaymentStatusEnum = pgEnum("scheduled_payment_status", [
   "cancelled",
 ]);
 
+// Stripe dispute statuses, taken verbatim from
+// https://stripe.com/docs/api/disputes/object#dispute_object-status .
+// Adding new values: append; do not reorder (Postgres enum ordering is
+// physical, but our code only reads the string value).
+export const disputeStatusEnum = pgEnum("dispute_status", [
+  "warning_needs_response",
+  "warning_under_review",
+  "warning_closed",
+  "needs_response",
+  "under_review",
+  "won",
+  "lost",
+]);
+
 // Payments table
 export const payments = pgTable(
   "payments",
@@ -64,6 +78,15 @@ export const payments = pgTable(
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
     stripeChargeId: varchar("stripe_charge_id", { length: 255 }),
     refundReason: text("refund_reason"),
+    // Stripe dispute tracking — populated by the charge.dispute.* webhook
+    // handler. NULL until/unless the card-holder disputes the charge.
+    // `dispute_reason_code` stores Stripe's reason verbatim (e.g.
+    // "fraudulent", "duplicate", "subscription_canceled") — kept as a
+    // varchar rather than an enum because Stripe adds reason codes over
+    // time and we don't want a migration every time they do.
+    stripeDisputeId: varchar("stripe_dispute_id", { length: 255 }),
+    disputeStatus: disputeStatusEnum("dispute_status"),
+    disputeReasonCode: varchar("dispute_reason_code", { length: 64 }),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -79,6 +102,10 @@ export const payments = pgTable(
     uniqueIndex("payments_stripe_charge_uniq")
       .on(table.stripeChargeId)
       .where(sql`stripe_charge_id IS NOT NULL`),
+    // A Stripe dispute maps to at most one payment row. NULL ids exempt.
+    uniqueIndex("payments_stripe_dispute_uniq")
+      .on(table.stripeDisputeId)
+      .where(sql`stripe_dispute_id IS NOT NULL`),
   ],
 );
 

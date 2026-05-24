@@ -50,6 +50,7 @@ const envSchema = z.object({
   RESEND_INBOUND_WEBHOOK_SECRET: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(1).optional(),
   MARKETING_UNSUBSCRIBE_SECRET: z.string().min(1).optional(),
+  FOUNDER_ALERT_EMAIL: z.string().email().optional(),
 
   // Optional everywhere
   TELEGRAM_BOT_TOKEN: z.string().optional(),
@@ -106,6 +107,7 @@ const SOFT_REQUIRED_IN_PROD = [
   "RESEND_INBOUND_WEBHOOK_SECRET",
   "CRON_SECRET",
   "MARKETING_UNSUBSCRIBE_SECRET",
+  "FOUNDER_ALERT_EMAIL",
   "GA4_MEASUREMENT_ID",
   "GA4_API_SECRET",
 ] as const;
