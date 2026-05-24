@@ -1,25 +1,45 @@
 import type { APIRoute } from "astro";
+import type Stripe from "stripe";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
 import { handleStripeEvent } from "@/lib/stripe/handle-stripe-event";
+import { captureWebhookException } from "@/lib/observability/webhook-telemetry";
 
 /**
  * Stripe webhook endpoint.
  *
  * Verifies the signature, then hands the event to `handleStripeEvent`,
- * which owns idempotency (the stripe_events ledger) and dispatch. A thrown
- * handler error propagates here as a 500 so Stripe retries the delivery —
+ * which owns idempotency (the stripe_events ledger), dispatch, and the
+ * `stripe_webhook_outcome` PostHog telemetry. A thrown handler error
+ * propagates here as a 500 so Stripe retries the delivery —
  * `handleStripeEvent` has already released the ledger claim so the retry
  * is not short-circuited as a duplicate.
+ *
+ * Observability:
+ *   - Exceptions land in PostHog via `captureWebhookException` so the
+ *     PostHog UI can alert on `stripe_webhook_exception`.
+ *   - Successful + deduped outcomes are recorded by `handleStripeEvent`
+ *     as `stripe_webhook_outcome` so dashboards distinguish "all good"
+ *     from "Stripe stopped delivering."
+ *
+ * See docs/ops/webhook-monitoring.md for the founder-side alert setup.
  */
 export const POST: APIRoute = async ({ request }) => {
+  // Best-effort event metadata for telemetry — both are still unknown if
+  // signature verification fails, in which case the helper falls back to
+  // "(unknown)".
+  let event: Stripe.Event | null = null;
+
   try {
     const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
       console.error("Stripe webhook secret not configured");
-      return new Response(JSON.stringify({ error: "Webhook not configured" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Webhook not configured" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     const payload = await request.text();
@@ -32,7 +52,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const event = verifyWebhookSignature(payload, signature, webhookSecret);
+    event = verifyWebhookSignature(payload, signature, webhookSecret);
     if (!event) {
       return new Response(JSON.stringify({ error: "Invalid signature" }), {
         status: 400,
@@ -48,12 +68,11 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (error) {
     console.error("Webhook error:", error);
-    try {
-      const { getPostHogServer } = await import("@/lib/posthog-server");
-      getPostHogServer().captureException(error, "stripe-webhook");
-    } catch {
-      // Never fail a webhook because of analytics.
-    }
+    void captureWebhookException(error, {
+      webhook: "stripe",
+      eventType: event?.type,
+      eventId: event?.id,
+    });
     return new Response(JSON.stringify({ error: "Webhook handler failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

@@ -3,6 +3,10 @@ import type Stripe from "stripe";
 import { stripe, updateOrganizationStripeStatus } from "@/lib/stripe/connect";
 import { getPostHogServer } from "@/lib/posthog-server";
 import {
+  captureWebhookException,
+  captureWebhookOutcome,
+} from "@/lib/observability/webhook-telemetry";
+import {
   handleCheckoutSessionCompleted,
   handleSubscriptionUpdated,
   handleSubscriptionDeleted,
@@ -28,10 +32,14 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  // Best-effort event metadata for telemetry — both stay null if
+  // constructEvent throws, in which case the helper falls back to "(unknown)".
+  let event: Stripe.Event | null = null;
+
   try {
     const body = await request.text();
 
-    const event = stripe.webhooks.constructEvent(
+    event = stripe.webhooks.constructEvent(
       body,
       signature,
       STRIPE_CONNECT_WEBHOOK_SECRET
@@ -136,19 +144,47 @@ export const POST: APIRoute = async ({ request }) => {
 
       default:
         console.log(`Unhandled Stripe Connect event: ${event.type}`);
+        void captureWebhookOutcome({
+          webhook: "stripe-connect",
+          outcome: "unhandled",
+          eventType: event.type,
+          eventId: event.id,
+        });
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
     }
 
+    void captureWebhookOutcome({
+      webhook: "stripe-connect",
+      outcome: "processed",
+      eventType: event.type,
+      eventId: event.id,
+    });
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Error processing Stripe Connect webhook:", error);
+    void captureWebhookException(error, {
+      webhook: "stripe-connect",
+      eventType: event?.type,
+      eventId: event?.id,
+    });
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Webhook processing failed",
       }),
       {
+        // NOTE: returns 400 — preserves the pre-existing behavior of
+        // this endpoint. A 400 tells Stripe NOT to retry, so a
+        // transient internal error here permanently drops the event.
+        // Probably a bug (the main `/api/webhooks/stripe` endpoint
+        // returns 500 on the same shape of error so Stripe DOES retry).
+        // Out of scope for this monitoring-focused PR; flagged in
+        // docs/ops/webhook-monitoring.md as a known follow-up.
         status: 400,
         headers: { "Content-Type": "application/json" },
       }
