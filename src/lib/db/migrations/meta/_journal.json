@@ -253,6 +253,13 @@
       "when": 1779556283244,
       "tag": "0035_bitter_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779656166205,
+      "tag": "0036_last_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }
