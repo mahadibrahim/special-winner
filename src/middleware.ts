@@ -3,6 +3,10 @@ import { resolveOrganizationFromHost } from "./lib/organization/domain-resolver"
 import { resolveBrandProfile } from "./lib/branding/resolver";
 import { lucia } from "./lib/auth/lucia";
 import { getUserRoles, getCoachTeamIds } from "./lib/auth/roles";
+import {
+  ACTIVE_VENUE_COOKIE,
+  validateActiveVenue,
+} from "./lib/admin/active-venue";
 import { ensureEnvValidated } from "./lib/env";
 import {
   SOCCERONE_HOSTS,
@@ -81,6 +85,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.isAdmin = false;
   context.locals.isCoach = false;
   context.locals.brand = null;
+  context.locals.activeLocationId = null;
 
   // Resolve organization from domain (non-blocking — if it fails, we just
   // proceed without organization context and the page handles it).
@@ -152,6 +157,31 @@ export const onRequest = defineMiddleware(async (context, next) => {
             (role) => role.name === "super_admin" || role.name === "location_admin"
           );
           context.locals.isCoach = coachTeamIds.length > 0;
+
+          // Resolve the admin venue picker selection. Cookie value is a
+          // location UUID; we validate it against the caller's scope so
+          // a stale cookie (e.g. user lost access to that location)
+          // silently falls back to "no pin" instead of bleeding access.
+          // Only worth checking for admins — non-admins don't surface
+          // the picker.
+          if (context.locals.isAdmin) {
+            try {
+              const cookieValue = context.cookies.get(ACTIVE_VENUE_COOKIE)?.value;
+              context.locals.activeLocationId = await validateActiveVenue(
+                cookieValue,
+                {
+                  userId: user.id,
+                  userRoles: roles,
+                  organizationId: context.locals.organization?.id ?? null,
+                },
+              );
+            } catch {
+              // Bad cookie or DB hiccup — treat as no pin, don't fail the
+              // request. The next page render will surface the picker
+              // again so the user can re-pick.
+              context.locals.activeLocationId = null;
+            }
+          }
         } catch (error) {
           console.log("Middleware: Error fetching user roles");
         }

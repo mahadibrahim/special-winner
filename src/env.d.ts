@@ -23,6 +23,12 @@ declare global {
       isAdmin: boolean;
       isCoach: boolean;
       brand: BrandProfile | null;
+      // Active venue pinned by the admin via the venue picker. Always
+      // validated against the caller's scope in middleware — a cookie
+      // value that doesn't belong to a location the user can access is
+      // discarded (treated as if no venue is pinned). null means
+      // "no pin", i.e. show every location the user is scoped to.
+      activeLocationId: string | null;
     }
   }
 }

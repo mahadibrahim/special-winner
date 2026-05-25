@@ -8,7 +8,7 @@ import { locations } from "@/lib/db/schema/organizations";
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 import { getPrimaryRoleName } from "@/lib/auth";
-import { getLocationIdsForUser } from "@/lib/auth/location-scope";
+import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { resolveVenueLabel } from "@/lib/admin/venue-label";
 
 export const prerender = false;
@@ -48,12 +48,17 @@ if (orgId) {
   const orgFilter = eq(locations.organizationId, orgId);
 
   // Build the WHERE incrementally so the location-scope clause stays a
-  // hard filter, not an OR fallback. Non-super-admins with zero assigned
-  // locations get an empty result without hitting the DB.
+  // hard filter, not an OR fallback. Picker-aware: a super-admin with no
+  // pin sees org-wide; everyone else narrows to their effective set
+  // (full scope, or the single pinned venue).
   let where = and(statusFilter, orgFilter);
   let shouldQuery = true;
-  if (!isSuperAdmin) {
-    const allowedLocationIds = await getLocationIdsForUser(user.id);
+  const allowedLocationIds = await getEffectiveLocationIds({
+    userId: user.id,
+    userRoles,
+    activeLocationId: Astro.locals.activeLocationId,
+  });
+  if (allowedLocationIds !== null) {
     if (allowedLocationIds.length === 0) {
       shouldQuery = false;
     } else {

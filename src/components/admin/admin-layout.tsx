@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getSidebarForRole } from "@/lib/admin/sidebar-for-role"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
+import { VenuePicker } from "@/components/admin/venue-picker"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -167,6 +168,7 @@ export function AdminLayout({
               <Menu className="h-6 w-6" />
             </button>
             <div className="flex items-center gap-4">
+              <VenuePicker />
               <a
                 href="/"
                 className="text-sm text-ink-muted hover:text-ink transition-colors"
