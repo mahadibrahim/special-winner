@@ -4,14 +4,17 @@ import {
   UserPlus,
   Inbox,
   Search,
-  Users2,
   Megaphone,
   ListOrdered,
-  BarChart3,
   RefreshCcw,
 } from "lucide-react";
 import type { NavGroup } from "./nav-super-admin";
 
+// Two earlier nav entries — "Rosters" → /admin/venue/rosters and
+// "Reports" → /admin/reports/venue — pointed at routes that don't exist.
+// They've been dropped from the sidebar; the work to build venue-scoped
+// rosters and reports surfaces lives in the launch-readiness backlog
+// (see docs/post-launch-backlog-dnd.md → "Venue-manager surface").
 export const VENUE_MANAGER_NAV: NavGroup[] = [
   {
     name: null,
@@ -26,7 +29,6 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
     items: [
       { name: "Inbox", href: "/messages", icon: Inbox, badgeKey: "inbox" },
       { name: "Look up", href: "/admin/lookup", icon: Search },
-      { name: "Rosters", href: "/admin/venue/rosters", icon: Users2 },
       { name: "Announcements", href: "/admin/announcements", icon: Megaphone },
       { name: "Waitlist", href: "/admin/waitlist", icon: ListOrdered },
     ],
@@ -34,7 +36,6 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
   {
     name: null,
     items: [
-      { name: "Reports", href: "/admin/reports/venue", icon: BarChart3 },
       { name: "Refund requests", href: "/admin/refund-requests", icon: RefreshCcw },
     ],
   },

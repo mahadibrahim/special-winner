@@ -10,13 +10,21 @@ import { locations } from "@/lib/db/schema/organizations";
 import { registrations } from "@/lib/db/schema/registrations";
 import { and, eq, ne, sql, desc, asc } from "drizzle-orm";
 import { BUSINESS_TIMEZONE, currentBusinessHour } from "@/lib/time/business-timezone";
+import { getPrimaryRoleName } from "@/lib/auth";
 
 export const prerender = false;
 
 const user = Astro.locals.user!;
 const orgId = Astro.locals.organization?.id;
 const userRoles = Astro.locals.userRoles ?? [];
-const primaryRole = userRoles[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(userRoles);
+
+// Non-super-admins land on their venue-manager surface, not the org-wide
+// home — that page renders all-venue widgets they shouldn't see and a
+// sidebar that already treats /admin/venue as home for them.
+if (primaryRole !== "super_admin") {
+  return Astro.redirect("/admin/venue", 302);
+}
 
 // Pull the latest seasons (any non-cancelled status) for the SeasonsGrid.
 let seasonCards: SeasonCard[] = [];

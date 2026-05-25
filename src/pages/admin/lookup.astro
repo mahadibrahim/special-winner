@@ -1,18 +1,22 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { resolveVenueLabel } from "@/lib/admin/venue-label";
 import { LookupSearch } from "@/components/admin/lookup-search";
 
 export const prerender = false;
 
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const venueLabel = primaryRole === "super_admin" ? undefined : await resolveVenueLabel(user.id);
 ---
 
 <BaseLayout title="Look up — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
+    venueLabel={venueLabel}
     currentPath="/admin/lookup"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >

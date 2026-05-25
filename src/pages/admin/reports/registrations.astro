@@ -1,12 +1,13 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
 import { RegistrationReport } from "@/components/admin/registration-report";
 
 export const prerender = false;
 
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 ---
 
 <BaseLayout title="Registrations — Reports — Admin — Aspire Sports" navigation={false} footer={false}>

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../../../layouts/BaseLayout.astro";
 import { AdminLayout } from "../../../../components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
 import { RoleAssignmentsList } from "../../../../components/admin/venues/role-assignments-list";
 import { db } from "../../../../lib/db";
 import { venues } from "../../../../lib/db/schema";
@@ -12,7 +13,7 @@ import { eq } from "drizzle-orm";
 // look up the venue's display name. (If the id is cross-tenant, the API
 // fetches will return 404 and the UI will show empty state.)
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 const { id } = Astro.params;
 
 let venue: { id: string; name: string; locationName: string } | null = null;

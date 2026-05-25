@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
 import { SkillLevelsEditor } from '../../../components/admin/users/SkillLevelsEditor';
 import { getDb } from '../../../lib/db';
 import { users } from '../../../lib/db/schema/users';
@@ -8,7 +9,7 @@ import { eq } from 'drizzle-orm';
 
 export const prerender = false;
 const adminUser = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 const userId = Astro.params.id!;
 
 const db = getDb();

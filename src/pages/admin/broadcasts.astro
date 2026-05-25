@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
 import { SentAnnouncementsList } from '../../components/admin/sent-announcements-list';
 
 // Middleware guarantees user is an admin for /admin routes.
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 ---
 
 <BaseLayout title="Sent Announcements — Admin — Aspire Sports" navigation={false} footer={false}>

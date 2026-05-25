@@ -1,13 +1,14 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
 import { RosterManager } from '../../../components/admin/roster-manager';
 import { TeamBroadcastSection } from '../../../components/admin/team-broadcast-section';
 import { TeamGroupManagementSection } from '../../../components/admin/team-group-management-section';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 
 const { id } = Astro.params;
 if (!id) {

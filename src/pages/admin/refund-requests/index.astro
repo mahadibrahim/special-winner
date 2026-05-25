@@ -5,20 +5,27 @@ import { getDb } from "@/lib/db";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
-import { eq, desc, inArray } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { getLocationIdsForUser } from "@/lib/auth/location-scope";
+import { resolveVenueLabel } from "@/lib/admin/venue-label";
 
 export const prerender = false;
 
 const user = Astro.locals.user!;
 const userRoles = Astro.locals.userRoles ?? [];
-const primaryRole = userRoles[0]?.name ?? "parent";
-const isSuperAdmin = userRoles.some((r) => r.name === "super_admin");
+const primaryRole = getPrimaryRoleName(userRoles);
+const isSuperAdmin = primaryRole === "super_admin";
+const venueLabel = isSuperAdmin ? undefined : await resolveVenueLabel(user.id);
 
-// Venue managers see only their own submitted requests, super-admins see
-// the org-wide queue. The super-admin's primary refund-approval surface is
-// still /admin/refunds; this page is mostly for venue-managers to see
-// what they've submitted and the status.
+// Super-admins see the org-wide queue; venue managers see every request
+// for a registration at one of *their* locations, regardless of who
+// submitted it (e.g. a coach files a request, the manager approves it
+// upstream). Previously this filtered by `refundRequestedByUserId`, which
+// silently hid teammates' requests — out of sync with the POST endpoint
+// at /api/admin/refund-requests, which already scopes by
+// `getLocationIdsForUser`.
 const orgId = Astro.locals.organization?.id;
 let requests: Array<{
   id: string;
@@ -32,47 +39,60 @@ let requests: Array<{
 }> = [];
 
 if (orgId) {
-  const baseQuery = getDb()
-    .select({
-      id: registrations.id,
-      playerName: familyMembers.firstName,
-      playerLast: familyMembers.lastName,
-      programName: programs.name,
-      seasonName: seasons.name,
-      refundStatus: registrations.refundStatus,
-      refundAmountCents: registrations.refundAmountCents,
-      refundRequestReason: registrations.refundRequestReason,
-      refundRequestedAt: registrations.refundRequestedAt,
-      refundRequestedByUserId: registrations.refundRequestedByUserId,
-    })
-    .from(registrations)
-    .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-    .innerJoin(programs, eq(seasons.programId, programs.id))
-    .innerJoin(locations, eq(programs.locationId, locations.id))
-    .where(
-      isSuperAdmin
-        ? inArray(registrations.refundStatus, [
-            "pending_approval",
-            "approved",
-            "denied",
-            "processed",
-          ])
-        : eq(registrations.refundRequestedByUserId, user.id),
-    )
-    .orderBy(desc(registrations.refundRequestedAt));
+  const statusFilter = inArray(registrations.refundStatus, [
+    "pending_approval",
+    "approved",
+    "denied",
+    "processed",
+  ]);
+  const orgFilter = eq(locations.organizationId, orgId);
 
-  const rows = await baseQuery;
-  requests = rows.map((r) => ({
-    id: r.id,
-    playerName: `${r.playerName ?? ""} ${r.playerLast ?? ""}`.trim(),
-    programName: r.programName,
-    seasonName: r.seasonName,
-    refundStatus: r.refundStatus,
-    refundAmountCents: r.refundAmountCents,
-    refundRequestReason: r.refundRequestReason,
-    refundRequestedAt: r.refundRequestedAt,
-  }));
+  // Build the WHERE incrementally so the location-scope clause stays a
+  // hard filter, not an OR fallback. Non-super-admins with zero assigned
+  // locations get an empty result without hitting the DB.
+  let where = and(statusFilter, orgFilter);
+  let shouldQuery = true;
+  if (!isSuperAdmin) {
+    const allowedLocationIds = await getLocationIdsForUser(user.id);
+    if (allowedLocationIds.length === 0) {
+      shouldQuery = false;
+    } else {
+      where = and(where, inArray(locations.id, allowedLocationIds));
+    }
+  }
+
+  if (shouldQuery) {
+    const rows = await getDb()
+      .select({
+        id: registrations.id,
+        playerName: familyMembers.firstName,
+        playerLast: familyMembers.lastName,
+        programName: programs.name,
+        seasonName: seasons.name,
+        refundStatus: registrations.refundStatus,
+        refundAmountCents: registrations.refundAmountCents,
+        refundRequestReason: registrations.refundRequestReason,
+        refundRequestedAt: registrations.refundRequestedAt,
+      })
+      .from(registrations)
+      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(where)
+      .orderBy(desc(registrations.refundRequestedAt));
+
+    requests = rows.map((r) => ({
+      id: r.id,
+      playerName: `${r.playerName ?? ""} ${r.playerLast ?? ""}`.trim(),
+      programName: r.programName,
+      seasonName: r.seasonName,
+      refundStatus: r.refundStatus,
+      refundAmountCents: r.refundAmountCents,
+      refundRequestReason: r.refundRequestReason,
+      refundRequestedAt: r.refundRequestedAt,
+    }));
+  }
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -88,6 +108,7 @@ const STATUS_STYLES: Record<string, string> = {
   <AdminLayout
     client:load
     role={primaryRole}
+    venueLabel={venueLabel}
     currentPath="/admin/refund-requests"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
@@ -97,7 +118,7 @@ const STATUS_STYLES: Record<string, string> = {
         <p class="text-sm text-ink-muted">
           {isSuperAdmin
             ? "All refund requests across the org. Approve / deny via /admin/refunds."
-            : "Refund requests you've submitted. Status updates when a super-admin processes them."}
+            : "Refund requests for registrations at your venue(s). Status updates when a super-admin processes them."}
         </p>
       </div>
 
