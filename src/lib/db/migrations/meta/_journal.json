@@ -260,6 +260,13 @@
       "when": 1779656166205,
       "tag": "0036_last_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1779711201046,
+      "tag": "0037_lean_genesis",
+      "breakpoints": true
     }
   ]
 }

@@ -343,11 +343,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
         "/admin/games",
         "/admin/payments",
         "/admin/reports",
-        // Announcements has no per-location field on the row, so
-        // venue-scoping the listing isn't possible without a schema
-        // change. Locking the surface to super-admin until that's
-        // designed; removed from venue-manager sidebar in the same PR.
-        "/admin/announcements",
+        // /admin/announcements was super-only between #26 and #28
+        // because announcements had no per-location field. Backlog #28
+        // added `announcements.location_id`: NULL = org-wide
+        // (super-only), non-null = venue-scoped. The endpoint enforces
+        // the tiered write permission itself, so the URL is now
+        // venue-visible again.
         "/admin/broadcasts",
         // Added in backlog #30 closeout: three more URL-reachable
         // admin surfaces that were super-admin-by-intent but had no

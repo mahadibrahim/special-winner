@@ -81,6 +81,43 @@ export async function getEffectiveLocationIds(opts: {
 }
 
 /**
+ * Resolve every location the caller can act at, regardless of count.
+ *
+ *   - super_admin → every location in the current org.
+ *   - non-super   → the caller's `getLocationIdsForUser` set (may be []
+ *                    if they have no assigned locations).
+ *
+ * Used wherever the UI needs the caller's full set, not the picker's
+ * "len > 1" view: the announcements scope selector pre-fills from
+ * this (a single-venue manager still needs to know which venue), and
+ * the picker itself derives from this with a `> 1` filter.
+ */
+export async function getCallerLocations(opts: {
+  userId: string;
+  userRoles: ReadonlyArray<Pick<UserRole, "name">>;
+  organizationId: string | null;
+}): Promise<Array<{ id: string; name: string }>> {
+  if (!opts.organizationId) return [];
+  const isSuper = opts.userRoles.some((r) => r.name === "super_admin");
+
+  if (isSuper) {
+    return getDb()
+      .select({ id: locations.id, name: locations.name })
+      .from(locations)
+      .where(eq(locations.organizationId, opts.organizationId))
+      .orderBy(locations.name);
+  }
+
+  const ids = await getLocationIdsForUser(opts.userId);
+  if (ids.length === 0) return [];
+  return getDb()
+    .select({ id: locations.id, name: locations.name })
+    .from(locations)
+    .where(inArray(locations.id, ids))
+    .orderBy(locations.name);
+}
+
+/**
  * Resolve every location the picker should offer. Returns an empty list
  * for callers with nothing to pick (single-venue location_admin, or an
  * unauthenticated request); the UI hides the picker in that case.
@@ -90,26 +127,6 @@ export async function getPickableVenues(opts: {
   userRoles: ReadonlyArray<Pick<UserRole, "name">>;
   organizationId: string | null;
 }): Promise<Array<{ id: string; name: string }>> {
-  if (!opts.organizationId) return [];
-  const isSuper = opts.userRoles.some((r) => r.name === "super_admin");
-
-  if (isSuper) {
-    const rows = await getDb()
-      .select({ id: locations.id, name: locations.name })
-      .from(locations)
-      .where(eq(locations.organizationId, opts.organizationId))
-      .orderBy(locations.name);
-    // Show the picker for super-admins only if the org actually has
-    // more than one location — otherwise there's nothing to pick.
-    return rows.length > 1 ? rows : [];
-  }
-
-  const ids = await getLocationIdsForUser(opts.userId);
-  if (ids.length < 2) return [];
-  const rows = await getDb()
-    .select({ id: locations.id, name: locations.name })
-    .from(locations)
-    .where(inArray(locations.id, ids))
-    .orderBy(locations.name);
-  return rows;
+  const all = await getCallerLocations(opts);
+  return all.length > 1 ? all : [];
 }
