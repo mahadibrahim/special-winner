@@ -6,7 +6,7 @@ import {
 } from "@/lib/db/schema/media";
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { logMediaAction } from "@/lib/media/audit";
 import { notifyAssignment } from "@/lib/media/notifications";
 
@@ -24,7 +24,7 @@ const createSchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const org = await requireOrganizationContext(context);
   if (!org.hasOrganization) return org.response;
@@ -58,7 +58,7 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const org = await requireOrganizationContext(context);
   if (!org.hasOrganization) return org.response;

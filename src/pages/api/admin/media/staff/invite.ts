@@ -5,7 +5,7 @@ import { mediaStaffProfiles } from "@/lib/db/schema/media";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
-  requireAdminAccess,
+  requireSuperAdminAccess,
   requireOrganizationContext,
 } from "@/lib/auth";
 import { logMediaAction } from "@/lib/media/audit";
@@ -18,7 +18,7 @@ const schema = z.object({
 });
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const org = await requireOrganizationContext(context);
   if (!org.hasOrganization) return org.response;

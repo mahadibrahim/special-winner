@@ -17,7 +17,7 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { activityCompletions } from "@/lib/db/schema/activity-tracking";
 import { and, eq, ne } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { getActivityFromCatalog } from "@/lib/activity-tracking/catalog-cache";
 
 const json = (body: unknown, status: number) =>
@@ -27,7 +27,7 @@ const json = (body: unknown, status: number) =>
   });
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

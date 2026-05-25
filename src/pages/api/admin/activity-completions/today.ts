@@ -26,7 +26,7 @@ import { activityCompletions } from "@/lib/db/schema/activity-tracking";
 import { games, venues } from "@/lib/db/schema/teams";
 import { organizations } from "@/lib/db/schema/organizations";
 import { and, asc, between, eq, notInArray } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { tzDayBoundsUtc } from "@/lib/activity-tracking/tz-day";
 
 const json = (body: unknown, status: number) =>
@@ -39,7 +39,7 @@ const CLOSED_STATUSES = ["completed", "canceled", "skipped_by_handoff"] as const
 type CompletionStatus = (typeof CLOSED_STATUSES)[number] | "pending" | "in_progress" | "overdue";
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

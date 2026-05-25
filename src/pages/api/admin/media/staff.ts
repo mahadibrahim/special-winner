@@ -4,10 +4,10 @@ import { users, userRoles, roles } from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import { mediaStaffProfiles } from "@/lib/db/schema/media";
 import { and, eq, or } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const org = await requireOrganizationContext(context);
   if (!org.hasOrganization) return org.response;

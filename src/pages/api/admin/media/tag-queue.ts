@@ -4,12 +4,12 @@ import { shootSessions, mediaAssets } from "@/lib/db/schema/media";
 import { games, teams } from "@/lib/db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 export const prerender = false;
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgCtx = await requireOrganizationContext(context);

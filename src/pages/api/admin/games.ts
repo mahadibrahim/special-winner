@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { games, teams, venues, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, asc, desc, and, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import {
   notifyScheduleChange,
   notifyEventCancellation,
@@ -30,7 +30,7 @@ const gameSchema = z.object({
 
 // GET - List all games (optionally filtered)
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -176,7 +176,7 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new game
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -288,7 +288,7 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update game
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -459,7 +459,7 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete game
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
