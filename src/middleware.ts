@@ -319,6 +319,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
         // designed; removed from venue-manager sidebar in the same PR.
         "/admin/announcements",
         "/admin/broadcasts",
+        // Added in backlog #30 closeout: three more URL-reachable
+        // admin surfaces that were super-admin-by-intent but had no
+        // gate. game-day + activity-completions are the super-admin
+        // oversight view of curriculum tracking (coaches use the
+        // separate /coach/* surface for the same data). /admin/media
+        // is the super-admin management UI for the media program;
+        // media_staff/media_editor users access the customer-facing
+        // /media surface, not /admin/media.
+        "/admin/game-day",
+        "/admin/activity-completions",
+        "/admin/media",
       ];
       if (
         isLocationAdmin &&

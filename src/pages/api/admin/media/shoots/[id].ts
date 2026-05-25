@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { shootSessions } from "@/lib/db/schema/media";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import {
   requireSameOrgShootSession,
   ownershipDeniedResponse,
@@ -42,7 +42,7 @@ const patchSchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const orgContext = await requireOrganizationContext(context);
   if (!orgContext.hasOrganization) return orgContext.response;
@@ -59,7 +59,7 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const PATCH: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const orgContext = await requireOrganizationContext(context);
   if (!orgContext.hasOrganization) return orgContext.response;

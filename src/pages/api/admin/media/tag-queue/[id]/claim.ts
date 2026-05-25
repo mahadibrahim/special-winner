@@ -2,13 +2,13 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { shootSessions } from "@/lib/db/schema/media";
 import { and, eq } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { logMediaAction } from "@/lib/media/audit";
 
 export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const orgCtx = await requireOrganizationContext(context);
   if (!orgCtx.hasOrganization) return orgCtx.response;
