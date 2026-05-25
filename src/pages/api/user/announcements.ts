@@ -1,9 +1,27 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { announcements, users, userOrganizationAccess } from "@/lib/db/schema";
+import {
+  announcements,
+  users,
+  userOrganizationAccess,
+  registrations,
+  familyMembers,
+  seasons,
+  programs,
+} from "@/lib/db/schema";
 import { eq, desc, and, or, isNull, gte, inArray } from "drizzle-orm";
 
 // GET - Get announcements for the current user
+//
+// Returns the union of:
+//   - org-wide announcements (locationId IS NULL) for orgs the user
+//     belongs to
+//   - venue-scoped announcements at locations where the user has at
+//     least one active or historical registration
+//
+// Backlog #28 added the location_id column. Before that, every
+// announcement was effectively org-wide (NULL locationId), so behavior
+// for pre-#28 rows is unchanged.
 export const GET: APIRoute = async ({ locals }) => {
   const user = locals.user;
   if (!user) {
@@ -16,8 +34,8 @@ export const GET: APIRoute = async ({ locals }) => {
   try {
     const db = getDb();
 
-    // Get organizations the user belongs to
-    const userOrgs = await getDb()
+    // Organizations the user belongs to.
+    const userOrgs = await db
       .select({ organizationId: userOrganizationAccess.organizationId })
       .from(userOrganizationAccess)
       .where(
@@ -31,15 +49,40 @@ export const GET: APIRoute = async ({ locals }) => {
     if (orgIds.length === 0) {
       return new Response(
         JSON.stringify({ announcements: [] }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    // Fetch published, non-expired announcements targeting parents or all
-    const userAnnouncements = await getDb()
+    // Locations the user has any registration at — for filtering
+    // venue-scoped announcements. Joins through family_members to cover
+    // both parent-of-child and self-as-adult registrations.
+    const regLocations = await db
+      .selectDistinct({ locationId: programs.locationId })
+      .from(registrations)
+      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .where(
+        or(
+          eq(familyMembers.parentUserId, user.id),
+          eq(familyMembers.selfUserId, user.id),
+        )!,
+      );
+    const userLocationIds = regLocations
+      .map((r) => r.locationId)
+      .filter((id): id is string => !!id);
+
+    // Scope clause: always include org-wide rows, plus venue-scoped
+    // rows at locations the user is registered at.
+    const scopeClause =
+      userLocationIds.length > 0
+        ? or(
+            isNull(announcements.locationId),
+            inArray(announcements.locationId, userLocationIds),
+          )!
+        : isNull(announcements.locationId);
+
+    const userAnnouncements = await db
       .select({
         id: announcements.id,
         title: announcements.title,
@@ -67,7 +110,8 @@ export const GET: APIRoute = async ({ locals }) => {
           or(
             isNull(announcements.expiresAt),
             gte(announcements.expiresAt, new Date())
-          )
+          ),
+          scopeClause,
         )
       )
       .orderBy(desc(announcements.pinned), desc(announcements.publishedAt))
@@ -75,10 +119,7 @@ export const GET: APIRoute = async ({ locals }) => {
 
     return new Response(
       JSON.stringify({ announcements: userAnnouncements }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Error fetching announcements:", error);

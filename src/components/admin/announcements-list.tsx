@@ -34,6 +34,11 @@ interface Author {
   email: string
 }
 
+interface AnnouncementLocation {
+  id: string
+  name: string
+}
+
 interface Announcement {
   id: string
   title: string
@@ -47,8 +52,18 @@ interface Announcement {
   expiresAt: string | null
   pinned: boolean
   createdAt: string
+  locationId: string | null
+  location: AnnouncementLocation | null
   author: Author | null
 }
+
+interface ScopeOptions {
+  canPostOrgWide: boolean
+  locations: AnnouncementLocation[]
+  activeLocationId: string | null
+}
+
+const ORG_WIDE_SCOPE = "__org_wide__"
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-800",
@@ -67,6 +82,7 @@ const targetLabels: Record<string, string> = {
 export function AnnouncementsList() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [scopeOptions, setScopeOptions] = useState<ScopeOptions | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -82,11 +98,30 @@ export function AnnouncementsList() {
     pinned: false,
     sendEmail: false,
     expiresAt: "",
+    // Scope: ORG_WIDE_SCOPE sentinel for org-wide (locationId === null)
+    // because the Select primitive can't store null values. Translated
+    // back to null at submit time.
+    scope: ORG_WIDE_SCOPE,
   })
 
   useEffect(() => {
     fetchAnnouncements()
   }, [filterStatus])
+
+  // One-shot fetch of scope options on mount — they don't change as the
+  // user filters or edits. Server is the source of truth on validation;
+  // this drives UI defaults only.
+  useEffect(() => {
+    fetch("/api/admin/announcements/scope-options")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: ScopeOptions | null) => {
+        if (data) setScopeOptions(data)
+      })
+      .catch(() => {
+        // Non-essential — without scope options the user can still
+        // read announcements; we just hide the create button below.
+      })
+  }, [])
 
   async function fetchAnnouncements() {
     setIsLoading(true)
@@ -106,6 +141,17 @@ export function AnnouncementsList() {
     }
   }
 
+  function defaultScope(): string {
+    // Pick a sensible default for "new announcement". Picker selection
+    // wins (the user just told us which venue they care about); else
+    // org-wide for super-admins; else the first available venue for a
+    // venue manager.
+    if (!scopeOptions) return ORG_WIDE_SCOPE
+    if (scopeOptions.activeLocationId) return scopeOptions.activeLocationId
+    if (scopeOptions.canPostOrgWide) return ORG_WIDE_SCOPE
+    return scopeOptions.locations[0]?.id ?? ORG_WIDE_SCOPE
+  }
+
   function openCreateDialog() {
     setEditingAnnouncement(null)
     setFormData({
@@ -116,6 +162,7 @@ export function AnnouncementsList() {
       pinned: false,
       sendEmail: false,
       expiresAt: "",
+      scope: defaultScope(),
     })
     setIsDialogOpen(true)
   }
@@ -130,6 +177,7 @@ export function AnnouncementsList() {
       pinned: announcement.pinned,
       sendEmail: announcement.sendEmail,
       expiresAt: announcement.expiresAt ? new Date(announcement.expiresAt).toISOString().slice(0, 16) : "",
+      scope: announcement.locationId ?? ORG_WIDE_SCOPE,
     })
     setIsDialogOpen(true)
   }
@@ -142,9 +190,12 @@ export function AnnouncementsList() {
     try {
       const url = "/api/admin/announcements"
       const method = editingAnnouncement ? "PUT" : "POST"
+      const { scope, ...rest } = formData
       const body = {
         ...(editingAnnouncement ? { id: editingAnnouncement.id } : {}),
-        ...formData,
+        ...rest,
+        // Translate sentinel back to null for the API contract.
+        locationId: scope === ORG_WIDE_SCOPE ? null : scope,
         expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : null,
       }
 
@@ -268,6 +319,9 @@ export function AnnouncementsList() {
                         {announcement.status}
                       </Badge>
                       <Badge variant="outline">{targetLabels[announcement.target]}</Badge>
+                      <Badge variant="outline" className="font-normal">
+                        {announcement.location?.name ?? "Org-wide"}
+                      </Badge>
                     </div>
                     <p className="text-muted-foreground text-sm line-clamp-2 mb-2">
                       {announcement.content}
@@ -348,6 +402,35 @@ export function AnnouncementsList() {
                   required
                 />
               </div>
+
+              {scopeOptions && (
+                <div className="space-y-2">
+                  <Label>Scope</Label>
+                  <Select
+                    value={formData.scope}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, scope: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {scopeOptions.canPostOrgWide && (
+                        <SelectItem value={ORG_WIDE_SCOPE}>Org-wide</SelectItem>
+                      )}
+                      {scopeOptions.locations.map((loc) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {formData.scope === ORG_WIDE_SCOPE
+                      ? "Visible to every family in the org."
+                      : "Visible only to families with a registration at this venue."}
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
