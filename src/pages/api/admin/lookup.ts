@@ -27,7 +27,7 @@ import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
-import { getLocationIdsForUser } from "@/lib/auth/location-scope";
+import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 
 export const prerender = false;
 
@@ -52,29 +52,38 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    // Scope the cascade to the caller's locations for non-super-admins:
-    // everything (programs → seasons → teams → role rows → people) flows
-    // from `locationIds`, so narrowing here is sufficient. Super-admins
-    // still see every location in the org. Note we deliberately keep the
-    // org/global role-scope membership unchanged below, so the super-admin
-    // who supports a venue manager remains findable.
-    const isSuper = auth.roles.some((r) => r.name === "super_admin");
+    // Scope the cascade to the caller's effective location set:
+    //
+    //   - super_admin with no pin → every location in the current org
+    //   - super_admin with pin    → just the pinned location
+    //   - non-super, no pin       → caller's full assigned location set
+    //   - non-super, pinned       → just the pinned location
+    //
+    // Everything (programs → seasons → teams → role rows → people)
+    // flows from `locationIds`, so narrowing here is sufficient. We
+    // deliberately keep the org/global role-scope membership unchanged
+    // below so the super-admin who supports a venue manager remains
+    // findable regardless of picker state.
+    const effectiveIds = await getEffectiveLocationIds({
+      userId: auth.user.id,
+      userRoles: auth.roles,
+      activeLocationId: context.locals.activeLocationId,
+    });
     let locationIds: string[];
-    if (isSuper) {
+    if (effectiveIds === null) {
+      // Super-admin with no pin: show every location in the current org.
       const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
         .where(eq(locations.organizationId, orgContext.organizationId));
       locationIds = orgLocations.map((l) => l.id);
+    } else if (effectiveIds.length === 0) {
+      return new Response(
+        JSON.stringify({ users: [], people: [] }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
     } else {
-      const scoped = await getLocationIdsForUser(auth.user.id);
-      if (scoped.length === 0) {
-        return new Response(
-          JSON.stringify({ users: [], people: [] }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      }
-      locationIds = scoped;
+      locationIds = effectiveIds;
     }
 
     const orgPrograms = locationIds.length > 0

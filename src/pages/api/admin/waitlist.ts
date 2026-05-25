@@ -4,6 +4,14 @@ import { registrations, familyMembers, seasons, programs, sports, users, locatio
 import { eq, asc, and, inArray, isNull, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
+import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
+
+// GET respects the venue picker (it's a view filter), POST/PUT use the
+// caller's full underlying scope (the picker is presentation, not a
+// permission gate). A multi-venue admin in "Downtown" picker mode can
+// still promote a Worthington waitlist entry if a stale tab gave them
+// the ID; the page-level filter is what keeps that from happening in
+// practice.
 
 // GET - List all waitlisted registrations
 export const GET: APIRoute = async (context) => {
@@ -17,19 +25,19 @@ export const GET: APIRoute = async (context) => {
     const url = new URL(context.request.url);
     const seasonId = url.searchParams.get("seasonId");
 
-    // Non-super-admins see only registrations at locations they're scoped
-    // to. Zero assigned locations → empty result (don't fall through to
-    // an org-wide query).
-    const isSuper = auth.roles.some((r) => r.name === "super_admin");
-    let scopedLocationIds: string[] | null = null;
-    if (!isSuper) {
-      scopedLocationIds = await getLocationIdsForUser(auth.user.id);
-      if (scopedLocationIds.length === 0) {
-        return new Response(
-          JSON.stringify({ waitlist: [], seasons: [] }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      }
+    // Effective scope = caller's allowed locations narrowed by the
+    // venue picker. null = no filter (super-admin, no pin); [] = no
+    // matches (non-super with no assigned locations).
+    const scopedLocationIds = await getEffectiveLocationIds({
+      userId: auth.user.id,
+      userRoles: auth.roles,
+      activeLocationId: context.locals.activeLocationId,
+    });
+    if (scopedLocationIds && scopedLocationIds.length === 0) {
+      return new Response(
+        JSON.stringify({ waitlist: [], seasons: [] }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     const conditions = [

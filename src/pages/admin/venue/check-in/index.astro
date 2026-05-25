@@ -2,7 +2,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { AdminLayout } from '@/components/admin/admin-layout';
 import { getPrimaryRoleName } from "@/lib/auth";
-import { getLocationIdsForUser } from "@/lib/auth/location-scope";
+import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { resolveVenueLabel } from "@/lib/admin/venue-label";
 import CheckInDashboard from '@/components/admin/check-in/CheckInDashboard';
 import { getDb } from '@/lib/db';
@@ -14,20 +14,24 @@ export const prerender = false;
 
 // Middleware guarantees admin for /admin/**
 const user = Astro.locals.user!;
-const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const userRoles = Astro.locals.userRoles ?? [];
+const primaryRole = getPrimaryRoleName(userRoles);
 const isSuperAdmin = primaryRole === "super_admin";
 const venueLabel = isSuperAdmin ? undefined : await resolveVenueLabel(user.id);
 const orgId = Astro.locals.organization?.id;
 
-// Super-admins see every active venue in the org. Venue managers see only
-// venues at locations they're scoped to — a Downtown manager shouldn't be
-// able to mark Worthington check-ins.
+// Super-admin with no pin sees every active venue in the org. Anyone
+// else (or super-admin with a pin) narrows to their effective set.
 let venuesList: { id: string; name: string; location: { name: string } }[] = [];
 if (orgId) {
   const conditions = [eq(locations.organizationId, orgId), eq(venues.active, true)];
   let shouldQuery = true;
-  if (!isSuperAdmin) {
-    const allowedLocationIds = await getLocationIdsForUser(user.id);
+  const allowedLocationIds = await getEffectiveLocationIds({
+    userId: user.id,
+    userRoles,
+    activeLocationId: Astro.locals.activeLocationId,
+  });
+  if (allowedLocationIds !== null) {
     if (allowedLocationIds.length === 0) {
       shouldQuery = false;
     } else {
