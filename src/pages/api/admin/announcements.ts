@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, desc, and, or, isNull, gte } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { sendAnnouncementEmail } from "@/lib/email/send";
 import { formatEmailDate } from "@/lib/email/format";
 import { env } from "@/lib/env";
@@ -29,7 +29,7 @@ const announcementSchema = z.object({
 
 // GET - List announcements
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   // Get organization context for multi-tenant filtering
@@ -102,7 +102,7 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create announcement
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   // Get organization context for multi-tenant filtering
@@ -248,7 +248,7 @@ async function fanOutAnnouncementEmails(
 
 // PUT - Update announcement
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -312,7 +312,7 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete announcement
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

@@ -12,6 +12,7 @@ export {
   isAdmin,
   validateAdminAccess,
   requireAdminAccess,
+  requireSuperAdminAccess,
   isPlayerOnCoachTeam,
   getCoachPlayerIds,
   requireCoachAccess,

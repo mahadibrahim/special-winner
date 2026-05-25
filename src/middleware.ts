@@ -278,6 +278,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
       // location_admin is blocked from super-admin-only path prefixes.
       // /admin/unauthorized is exempt so the 403 page itself stays reachable.
+      //
+      // The list errs on the side of "lock by default" — anything URL-
+      // reachable that hasn't been deliberately scoped per-location at the
+      // query layer belongs here. Re-opening a surface to location_admins
+      // requires both (a) removing it from this list and (b) confirming the
+      // page + its backing API filter by `getLocationIdsForUser`.
       const SUPER_ADMIN_ONLY_PREFIXES = [
         "/admin/seasons",
         "/admin/programs",
@@ -299,6 +305,20 @@ export const onRequest = defineMiddleware(async (context, next) => {
         "/admin/re-registration-campaign",
         "/admin/locations",
         "/admin/venues",
+        // Added 2026-05-24 (backlog #26): URL-reachable surfaces that
+        // weren't in venue-manager nav but had no role gate, so a
+        // location_admin typing the URL got org-wide data.
+        "/admin/registrations",
+        "/admin/teams",
+        "/admin/games",
+        "/admin/payments",
+        "/admin/reports",
+        // Announcements has no per-location field on the row, so
+        // venue-scoping the listing isn't possible without a schema
+        // change. Locking the surface to super-admin until that's
+        // designed; removed from venue-manager sidebar in the same PR.
+        "/admin/announcements",
+        "/admin/broadcasts",
       ];
       if (
         isLocationAdmin &&

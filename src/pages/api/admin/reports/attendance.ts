@@ -2,11 +2,11 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { attendance, teams, rosters, seasons, programs, sports, familyMembers, registrations } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireSuperAdminAccess } from "@/lib/auth";
 
 // GET - Get attendance reports
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) {
     return auth.response;
   }

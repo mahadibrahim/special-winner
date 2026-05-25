@@ -11,7 +11,7 @@ import {
   sports,
 } from "@/lib/db/schema"
 import { and, eq, ne } from "drizzle-orm"
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth"
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth"
 import {
   requireSameOrgTeam,
   ownershipDeniedResponse,
@@ -25,7 +25,7 @@ const PromoteSchema = z.object({
 })
 
 export const POST: APIRoute = async (context) => {
-  const adminAuth = await requireAdminAccess(context)
+  const adminAuth = await requireSuperAdminAccess(context)
   if (!adminAuth.authorized) return adminAuth.response
 
   const orgContext = await requireOrganizationContext(context)

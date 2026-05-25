@@ -3,11 +3,11 @@ import { getDb } from "@/lib/db";
 import { payments, registrations, familyMembers, seasons, programs, users } from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 // GET - List all payments with filters
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

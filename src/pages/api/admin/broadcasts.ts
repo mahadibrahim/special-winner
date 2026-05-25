@@ -5,7 +5,7 @@ import { broadcastLog, teams, seasons, programs, locations } from "@/lib/db/sche
 import { eq, desc } from "drizzle-orm"
 import { composeBroadcast } from "@/lib/messaging/broadcast"
 import {
-  requireAdminAccess,
+  requireSuperAdminAccess,
   requireCoachAccess,
   requireCoachAccessToTeam,
   requireOrganizationContext,
@@ -71,7 +71,7 @@ export const POST: APIRoute = async (context) => {
   const input = parsed.data
 
   // Try admin auth first; fall back to coach auth
-  const adminAuth = await requireAdminAccess(context)
+  const adminAuth = await requireSuperAdminAccess(context)
   const isAdminUser = adminAuth.authorized
 
   let initiatorId: string
@@ -159,7 +159,7 @@ export const POST: APIRoute = async (context) => {
 
 // GET — list sent broadcasts for the current organization
 export const GET: APIRoute = async (context) => {
-  const adminAuth = await requireAdminAccess(context)
+  const adminAuth = await requireSuperAdminAccess(context)
   if (!adminAuth.authorized) {
     // Also allow coaches to list broadcasts
     const coachAuth = await requireCoachAccess(context)

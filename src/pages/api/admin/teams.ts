@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { teams, seasons, programs, users, rosters, registrations, familyMembers, locations } from "@/lib/db/schema";
 import { eq, asc, desc, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 const teamSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -17,7 +17,7 @@ const teamSchema = z.object({
 
 // GET - List all teams (optionally filtered by season)
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -149,7 +149,7 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new team
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -203,7 +203,7 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update team
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -284,7 +284,7 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete team
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

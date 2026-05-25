@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import {
-  requireAdminAccess,
+  requireSuperAdminAccess,
   requireOrganizationContext,
 } from "@/lib/auth";
 import { toCsvRow } from "@/lib/csv/to-csv-row";
@@ -48,7 +48,7 @@ const HEADER = [
 ];
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
