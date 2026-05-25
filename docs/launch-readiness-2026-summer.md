@@ -85,6 +85,17 @@ These run in parallel with engineering; tracked in the ops repo's `<domain>/curr
 
 ---
 
+## Post-launch backlog
+
+Items deferred until after public registration opens. Captured here so they don't get lost; not on the launch critical path.
+
+| # | Item | Status | Owner | Notes |
+|---|---|---|---|---|
+| 23 | Drag-drop rental booking UI | □ | Eng | Skedda/CourtReserve-style time-grid for `/rentals` — click-drag across a field × time grid to select a rental window, snap to 30-min increments. Data layer already exists (`/api/rentals/availability` returns `free[]` blocks per field). Implementation: plain pointer events on a CSS grid (no DnD lib needed) inside a React island; reuse existing booking POST. Real complexity is server-side concurrency hardening on the booking POST — needed regardless of UI. Estimate: 2-3 days. Trigger to prioritize: rental conversion friction in real customer data, or competitor parity coming up in sales convos. |
+| 24 | Drag-drop admin league scheduler | □ | Eng | Drag teams onto court × time slots for week schedules. Saves real founder time once leagues hit 8 teams × 6 weeks × 2 courts. `@dnd-kit/core` is the right lib (modern, accessible, touch-friendly, ~10kb). Independent from #23 — different surface, different data shape (games table, not rental blocks). Estimate: 3-5 days incl. conflict detection. Trigger to prioritize: first full season of league play where manual scheduling becomes painful. |
+
+---
+
 ## Proposed sequence (revised post-audit)
 
 The audit collapsed several "build" items into "configure" items. Engineering surface is much smaller than the original tracker implied.
@@ -124,3 +135,4 @@ As remaining Tier 1/2 build items get worked, link plans here:
 - **2026-05-24 (initial)** — Doc created. Initial first-pass audit found #1, #2, #3, #6, #7, #9 as real gaps; admin registration management UI confirmed already shipped; idempotency + PostHog error tracking partially in place.
 - **2026-05-24 (refined)** — Deeper audit + parallel agent investigation revealed substantial "memory was wrong" pattern: #1 `charge.refunded` is fully done in code (only Stripe dashboard event needed); #6 marketing welcome series is fully done (only Netlify env + founder copy approval needed); #7 SoccerOne checklist doc exists. Real remaining engineering gaps narrowed to #2 (dispute), #3 (webhook monitoring), #9 (CSV export), #11 (PostHog coverage extension). #13 hygiene cleanup completed in this session (27 Finder duplicates removed, commit `edc377a`).
 - **2026-05-24 (execution)** — #9 CSV export shipped (PR #131); #2 dispute flow minimal scope implemented in this PR (handler + schema + alert email + dispatcher wiring + 4 tests). Real engineering surface narrows further: #3 webhook delivery monitoring and #11 PostHog coverage extension are the remaining items.
+- **2026-05-24 (post-launch backlog)** — Added post-launch section with #23 drag-drop rental booking UI and #24 drag-drop admin league scheduler. Both deferred from a feasibility convo; neither is on the launch critical path.
