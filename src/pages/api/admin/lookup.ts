@@ -27,6 +27,7 @@ import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 
 export const prerender = false;
 
@@ -51,13 +52,30 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    // Same org-membership shape as /api/admin/users — see the comment there
-    // for why globals + access rows both count.
-    const orgLocations = await getDb()
-      .select({ id: locations.id })
-      .from(locations)
-      .where(eq(locations.organizationId, orgContext.organizationId));
-    const locationIds = orgLocations.map((l) => l.id);
+    // Scope the cascade to the caller's locations for non-super-admins:
+    // everything (programs → seasons → teams → role rows → people) flows
+    // from `locationIds`, so narrowing here is sufficient. Super-admins
+    // still see every location in the org. Note we deliberately keep the
+    // org/global role-scope membership unchanged below, so the super-admin
+    // who supports a venue manager remains findable.
+    const isSuper = auth.roles.some((r) => r.name === "super_admin");
+    let locationIds: string[];
+    if (isSuper) {
+      const orgLocations = await getDb()
+        .select({ id: locations.id })
+        .from(locations)
+        .where(eq(locations.organizationId, orgContext.organizationId));
+      locationIds = orgLocations.map((l) => l.id);
+    } else {
+      const scoped = await getLocationIdsForUser(auth.user.id);
+      if (scoped.length === 0) {
+        return new Response(
+          JSON.stringify({ users: [], people: [] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      locationIds = scoped;
+    }
 
     const orgPrograms = locationIds.length > 0
       ? await getDb()

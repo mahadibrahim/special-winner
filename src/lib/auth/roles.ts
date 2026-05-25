@@ -196,6 +196,38 @@ export async function requireAdminAccess(context: APIContext): Promise<
 }
 
 /**
+ * Stricter sibling of `requireAdminAccess` — only super_admins pass.
+ *
+ * Use on API endpoints whose data is org-wide and not per-location
+ * (registrations roll-ups, teams catalog, payment ledger, announcements
+ * write surface, etc.). The corresponding pages are locked to
+ * super-admin in middleware (`SUPER_ADMIN_ONLY_PREFIXES`), but APIs
+ * skip the middleware route rules and have to enforce the same tier
+ * themselves — otherwise a `location_admin`'s session token alone is
+ * enough to fetch the data via `curl`.
+ */
+export async function requireSuperAdminAccess(context: APIContext): Promise<
+  | { authorized: false; response: Response }
+  | { authorized: true; user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>; roles: UserRole[] }
+> {
+  const adminResult = await requireAdminAccess(context);
+  if (!adminResult.authorized) return adminResult;
+
+  const hasSuper = adminResult.roles.some((r) => r.name === "super_admin");
+  if (!hasSuper) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: Super-admin access required" }),
+        { status: 403 },
+      ),
+    };
+  }
+
+  return adminResult;
+}
+
+/**
  * Check if a player (familyMember) is on one of the coach's teams
  * This checks via rosters -> registrations -> familyMembers
  */

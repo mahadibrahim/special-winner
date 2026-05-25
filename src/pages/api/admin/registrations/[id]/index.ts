@@ -11,7 +11,7 @@ import {
   payments,
 } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 /**
  * Admin detail view for a single registration. Returns the registration with
@@ -22,7 +22,7 @@ import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
  * not match the caller's org context — matches the list endpoint pattern.
  */
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -131,7 +131,7 @@ export const GET: APIRoute = async (context) => {
  * flow is refund first, then delete.
  */
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

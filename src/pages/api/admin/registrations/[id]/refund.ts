@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { adminRefund } from "@/lib/payments/admin-refund";
 
 const refundSchema = z.object({
@@ -28,7 +28,7 @@ const refundSchema = z.object({
  * `adminRefund()` helper.
  */
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db"
 import { teamGroups } from "@/lib/db/schema"
 import { and, eq, ne } from "drizzle-orm"
 import {
-  requireAdminAccess,
+  requireSuperAdminAccess,
   requireCoachAccessToTeam,
   requireOrganizationContext,
 } from "@/lib/auth"
@@ -32,7 +32,7 @@ export const GET: APIRoute = async (context) => {
   // Allow admin access OR coach-of-this-team access. We also verify the team
   // belongs to the caller's organization for admin paths (coach path is already
   // pinned by team via requireCoachAccessToTeam).
-  const adminAuth = await requireAdminAccess(context)
+  const adminAuth = await requireSuperAdminAccess(context)
   if (adminAuth.authorized) {
     const orgContext = await requireOrganizationContext(context)
     if (!orgContext.hasOrganization) return orgContext.response

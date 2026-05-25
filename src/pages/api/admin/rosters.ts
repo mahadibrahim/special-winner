@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { rosters, teams, teamGroups, games, registrations, familyMembers, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, and, isNull, or, asc, isNotNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { scheduleGroupCreation } from "@/lib/messaging/group-lifecycle";
 import { syncTeamGroupMembership } from "@/lib/messaging/team-group-sync";
 
@@ -18,7 +18,7 @@ const rosterSchema = z.object({
 
 // GET - Get available players for a team (unassigned registrations for the season)
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -105,7 +105,7 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Add player to roster
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -198,7 +198,7 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update roster entry
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -253,7 +253,7 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Remove player from roster
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

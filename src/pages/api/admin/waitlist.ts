@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users, locations } from "@/lib/db/schema";
-import { eq, asc, and, isNull, sql } from "drizzle-orm";
+import { eq, asc, and, inArray, isNull, sql } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 
 // GET - List all waitlisted registrations
 export const GET: APIRoute = async (context) => {
@@ -16,10 +17,28 @@ export const GET: APIRoute = async (context) => {
     const url = new URL(context.request.url);
     const seasonId = url.searchParams.get("seasonId");
 
+    // Non-super-admins see only registrations at locations they're scoped
+    // to. Zero assigned locations → empty result (don't fall through to
+    // an org-wide query).
+    const isSuper = auth.roles.some((r) => r.name === "super_admin");
+    let scopedLocationIds: string[] | null = null;
+    if (!isSuper) {
+      scopedLocationIds = await getLocationIdsForUser(auth.user.id);
+      if (scopedLocationIds.length === 0) {
+        return new Response(
+          JSON.stringify({ waitlist: [], seasons: [] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     const conditions = [
       eq(registrations.status, "waitlisted"),
       eq(locations.organizationId, orgContext.organizationId),
     ];
+    if (scopedLocationIds) {
+      conditions.push(inArray(locations.id, scopedLocationIds));
+    }
     if (seasonId) {
       conditions.push(eq(registrations.seasonId, seasonId));
     }
@@ -66,7 +85,15 @@ export const GET: APIRoute = async (context) => {
       .where(and(...conditions))
       .orderBy(asc(registrations.waitlistPosition), asc(registrations.createdAt));
 
-    // Get season options for filter - only seasons for this organization
+    // Get season options for filter — same scope as the listing above so
+    // the dropdown matches what's actually visible.
+    const seasonConditions = [
+      eq(seasons.status, "active"),
+      eq(locations.organizationId, orgContext.organizationId),
+    ];
+    if (scopedLocationIds) {
+      seasonConditions.push(inArray(locations.id, scopedLocationIds));
+    }
     const seasonOptions = await getDb()
       .select({
         id: seasons.id,
@@ -76,7 +103,7 @@ export const GET: APIRoute = async (context) => {
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(and(eq(seasons.status, "active"), eq(locations.organizationId, orgContext.organizationId)));
+      .where(and(...seasonConditions));
 
     return new Response(JSON.stringify({ waitlist: waitlistedRegs, seasons: seasonOptions }), {
       status: 200,
@@ -104,17 +131,28 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Registration ID is required" }), { status: 400 });
     }
 
-    // Verify registration belongs to this organization
+    // Verify registration belongs to this organization AND, for non-
+    // super-admins, to a location the caller is scoped to. Otherwise a
+    // Downtown manager could promote a Worthington waitlist row by ID.
+    const isSuper = auth.roles.some((r) => r.name === "super_admin");
+    const regConditions = [
+      eq(registrations.id, registrationId),
+      eq(locations.organizationId, orgContext.organizationId),
+    ];
+    if (!isSuper) {
+      const allowed = await getLocationIdsForUser(auth.user.id);
+      if (allowed.length === 0) {
+        return new Response(JSON.stringify({ error: "Registration not found" }), { status: 404 });
+      }
+      regConditions.push(inArray(locations.id, allowed));
+    }
     const [regResult] = await getDb()
       .select({ registration: registrations })
       .from(registrations)
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(and(
-        eq(registrations.id, registrationId),
-        eq(locations.organizationId, orgContext.organizationId)
-      ));
+      .where(and(...regConditions));
 
     const reg = regResult?.registration;
 
@@ -213,17 +251,27 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Registration ID and new position are required" }), { status: 400 });
     }
 
-    // Verify registration belongs to this organization
+    // Same org + location scope as POST — a Downtown manager must not be
+    // able to reorder Worthington's waitlist by passing a known ID.
+    const isSuper = auth.roles.some((r) => r.name === "super_admin");
+    const regConditions = [
+      eq(registrations.id, registrationId),
+      eq(locations.organizationId, orgContext.organizationId),
+    ];
+    if (!isSuper) {
+      const allowed = await getLocationIdsForUser(auth.user.id);
+      if (allowed.length === 0) {
+        return new Response(JSON.stringify({ error: "Registration not found or not on waitlist" }), { status: 404 });
+      }
+      regConditions.push(inArray(locations.id, allowed));
+    }
     const [regResult] = await getDb()
       .select({ registration: registrations })
       .from(registrations)
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(and(
-        eq(registrations.id, registrationId),
-        eq(locations.organizationId, orgContext.organizationId)
-      ));
+      .where(and(...regConditions));
 
     const reg = regResult?.registration;
 
