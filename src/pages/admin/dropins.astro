@@ -1,13 +1,14 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
 import { SessionsList } from "@/components/admin/dropin/SessionsList";
 import { RateCardEditor } from "@/components/admin/dropin/RateCardEditor";
 
 export const prerender = false;
 
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 
 type Tab = "sessions" | "rate-card";
 const tabRaw = Astro.url.searchParams.get("tab");

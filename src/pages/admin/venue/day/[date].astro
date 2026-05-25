@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
 import { VenueDayPage } from "@/components/admin/venue/venue-day-page";
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getDb } from "@/lib/db";
@@ -12,7 +13,7 @@ export const prerender = false;
 
 const user = Astro.locals.user!;
 const userRoles = Astro.locals.userRoles ?? [];
-const primaryRole = userRoles[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(userRoles);
 const isSuperAdmin = userRoles.some((r) => r.name === "super_admin");
 
 const dateParam = Astro.params.date as string;

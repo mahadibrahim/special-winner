@@ -1,6 +1,7 @@
 export { lucia } from "./lucia";
 export { hashPassword, verifyPassword } from "./password";
 export { validateSession, createSession, invalidateSession } from "./session";
+export { getPrimaryRoleName } from "./primary-role";
 export {
   getUserRoles,
   hasRole,

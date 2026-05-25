@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
 import { GamesList } from '../../components/admin/games-list';
 import { getDb } from '../../lib/db';
 import { seasons, programs, teams, venues, locations } from '../../lib/db/schema';
@@ -8,7 +9,7 @@ import { eq, asc } from 'drizzle-orm';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 
 // Fetch data for dropdowns
 let seasonsList: any[] = [];

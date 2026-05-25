@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
 import {
   SeasonHubLayout,
   type SeasonHeader,
@@ -22,7 +23,7 @@ export const prerender = false;
 
 const user = Astro.locals.user!;
 const userRoles = Astro.locals.userRoles ?? [];
-const primaryRole = userRoles[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(userRoles);
 const organization = Astro.locals.organization;
 const seasonId = Astro.params.id;
 

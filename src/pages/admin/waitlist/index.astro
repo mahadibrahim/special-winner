@@ -1,17 +1,21 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
+import { resolveVenueLabel } from "@/lib/admin/venue-label";
 import { WaitlistManager } from '../../../components/admin/waitlist-manager';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const venueLabel = primaryRole === "super_admin" ? undefined : await resolveVenueLabel(user.id);
 ---
 
 <BaseLayout title="Waitlist Management — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
+    venueLabel={venueLabel}
     currentPath="/admin/waitlist"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >

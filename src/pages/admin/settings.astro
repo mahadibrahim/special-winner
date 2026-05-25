@@ -1,11 +1,12 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
 import { AdminSettings } from '../../components/admin/admin-settings';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
-const primaryRole = (Astro.locals.userRoles ?? [])[0]?.name ?? "parent";
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 const organizationName = Astro.locals.organization?.name ?? null;
 ---
 
