@@ -16,7 +16,6 @@ import {
   Camera,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { TelegramConnectStep } from "./telegram-connect-step"
 import { WhoStep } from "./who-step"
 import { GuestInfoStep, type GuestRegistrationMode } from "./guest-info-step"
 import { WaiverStep } from "./waiver-step"
@@ -93,7 +92,6 @@ interface AuthedUser {
 
 interface RegistrationWizardProps {
   seasonId: string
-  hasLinkedTelegram?: boolean
   wasCancelled?: boolean
   user: AuthedUser | null
   /** URL ?audience= param forwarded from the Astro page ("adult" | "child" | null) */
@@ -110,7 +108,6 @@ const STEPS = [
 
 export default function RegistrationWizard({
   seasonId,
-  hasLinkedTelegram = false,
   wasCancelled = false,
   user,
   audienceHint,
@@ -120,7 +117,6 @@ export default function RegistrationWizard({
 
   // ── Step / flow state ────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(1)
-  const [showTelegramStep, setShowTelegramStep] = useState(false)
 
   // ── Remote data ──────────────────────────────────────────────────────────
   const [season, setSeason] = useState<Season | null>(null)
@@ -515,11 +511,7 @@ export default function RegistrationWizard({
   const handlePaymentSuccess = (_paymentIntentId: string) => {
     setRegistrationComplete(true)
     setPaymentClientSecret(null)
-    if (!hasLinkedTelegram) {
-      setShowTelegramStep(true)
-    } else {
-      setCurrentStep(5)
-    }
+    setCurrentStep(5)
   }
 
   const handlePaymentCancel = () => {
@@ -756,11 +748,7 @@ export default function RegistrationWizard({
           // If Stripe isn't configured, show success without payment
           if (checkoutData.error === "Payment processing is not configured") {
             setRegistrationComplete(true)
-            if (!hasLinkedTelegram) {
-              setShowTelegramStep(true)
-            } else {
-              setCurrentStep(5)
-            }
+            setCurrentStep(5)
             return
           }
           throw new Error(
@@ -804,13 +792,9 @@ export default function RegistrationWizard({
         }
       }
 
-      // Waitlisted or no payment required — show Telegram step first (if not already linked)
+      // Waitlisted or no payment required — go straight to confirmation
       setRegistrationComplete(true)
-      if (!hasLinkedTelegram) {
-        setShowTelegramStep(true)
-      } else {
-        setCurrentStep(5)
-      }
+      setCurrentStep(5)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to complete registration")
     } finally {
@@ -1256,22 +1240,8 @@ export default function RegistrationWizard({
           />
         )}
 
-        {/* Telegram Connect Step (between payment and confirmation) */}
-        {showTelegramStep && (
-          <TelegramConnectStep
-            onComplete={() => {
-              setShowTelegramStep(false)
-              setCurrentStep(5)
-            }}
-            onSkip={() => {
-              setShowTelegramStep(false)
-              setCurrentStep(5)
-            }}
-          />
-        )}
-
         {/* Step 5: Confirmation */}
-        {currentStep === 5 && !showTelegramStep && registrationComplete && (
+        {currentStep === 5 && registrationComplete && (
           <ConfirmationStep
             seasonName={season.name}
             registrantDisplayName={selectedDisplayName}
@@ -1280,7 +1250,7 @@ export default function RegistrationWizard({
       </div>
 
       {/* Navigation */}
-      {currentStep < 5 && !showTelegramStep && !paymentClientSecret && (
+      {currentStep < 5 && !paymentClientSecret && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"
