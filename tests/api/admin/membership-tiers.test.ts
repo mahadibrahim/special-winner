@@ -52,3 +52,15 @@ describe("POST /api/admin/memberships/tiers", () => {
     expect(body.tier.stripeProductId).toMatch(/^prod_/);
   });
 });
+
+describe("PUT/DELETE /api/admin/memberships/tiers/[id]", () => {
+  it("404 on a tier id outside the active org", async () => {
+    const cookie = await adminCookie();
+    const res = await fetch(`${BASE}/api/admin/memberships/tiers/00000000-0000-0000-0000-000000000000`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ name: "X", monthlyDollars: 10, annualDollars: null, benefits: {}, displayOrder: 0, isActive: true }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
