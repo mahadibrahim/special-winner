@@ -11,6 +11,12 @@ import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
 import { handleChargeRefunded } from "./handle-charge-refunded";
 import { handleChargeDispute } from "./handle-charge-dispute";
+import {
+  handleCheckoutSessionCompleted as handleMembershipCheckoutComplete,
+  handleSubscriptionUpdated,
+  handleSubscriptionDeleted,
+  handleInvoicePaymentFailed,
+} from "@/lib/memberships/webhook-handlers";
 import { captureWebhookOutcome } from "@/lib/observability/webhook-telemetry";
 
 /**
@@ -76,6 +82,13 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
  * Walk-up / kiosk flows add more `payment_intent.succeeded` variants
  * (dropin_walkin, dropin_booking_walk_up, field_rental_walk_up).
  *
+ *   3. Memberships (recurring) — Stripe Checkout in subscription mode.
+ *      Created on the PLATFORM account (the second brand shares one Stripe
+ *      account, no Connect), so their lifecycle events land HERE, not on the
+ *      Connect endpoint. `checkout.session.completed` (metadata.type
+ *      "membership_subscription") inserts the row; `customer.subscription.*`
+ *      and `invoice.payment_failed` keep its status in sync.
+ *
  * Consequence: the Stripe webhook endpoint MUST stay subscribed to BOTH
  * `payment_intent.succeeded` AND `checkout.session.completed` — drop one
  * and half the payment system silently stops recording.
@@ -88,6 +101,10 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
  *   - charge.dispute.created
  *   - charge.dispute.funds_withdrawn
  *   - charge.dispute.closed
+ *   - customer.subscription.created
+ *   - customer.subscription.updated
+ *   - customer.subscription.deleted
+ *   - invoice.payment_failed
  */
 async function dispatch(event: Stripe.Event): Promise<void> {
   switch (event.type) {
@@ -109,6 +126,19 @@ async function dispatch(event: Stripe.Event): Promise<void> {
           `[stripe webhook] checkout.session.completed (field_rental) → ${result.status}`,
           result,
         );
+      } else if (session.metadata?.type === "membership_subscription") {
+        // Membership subscriptions settle on the platform account (no Connect
+        // for the second brand), so their checkout.session.completed lands
+        // HERE, not on the Connect endpoint. The shared handler is idempotent
+        // and re-checks mode + metadata.type before inserting the row.
+        await handleMembershipCheckoutComplete(session);
+        console.log(
+          `[stripe webhook] checkout.session.completed (membership) → sub=${
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription?.id ?? "(none)"
+          }`,
+        );
       } else {
         console.log(
           `[stripe webhook] checkout.session.completed with unrecognized metadata.type=${
@@ -116,6 +146,31 @@ async function dispatch(event: Stripe.Event): Promise<void> {
           } — ignored`,
         );
       }
+      break;
+    }
+
+    case "customer.subscription.created":
+    case "customer.subscription.updated": {
+      // Membership subscription lifecycle on the platform account. Idempotent;
+      // keyed on stripeSubscriptionId. (Connected-account subscriptions, if any
+      // ever exist, are handled on the Connect endpoint with the same handler.)
+      const sub = event.data.object as Stripe.Subscription;
+      await handleSubscriptionUpdated(sub);
+      console.log(`[stripe webhook] ${event.type} (membership) → ${sub.id}`);
+      break;
+    }
+
+    case "customer.subscription.deleted": {
+      const sub = event.data.object as Stripe.Subscription;
+      await handleSubscriptionDeleted(sub);
+      console.log(`[stripe webhook] customer.subscription.deleted (membership) → ${sub.id}`);
+      break;
+    }
+
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as Stripe.Invoice;
+      await handleInvoicePaymentFailed(invoice);
+      console.log(`[stripe webhook] invoice.payment_failed (membership) → ${invoice.id}`);
       break;
     }
 
