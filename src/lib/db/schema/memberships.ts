@@ -60,6 +60,7 @@ export const membershipTiers = pgTable(
     benefits: jsonb("benefits").notNull().default(sql`'{}'::jsonb`),
     stripePriceIdMonthly: text("stripe_price_id_monthly"),
     stripePriceIdAnnual: text("stripe_price_id_annual"),
+    stripeProductId: text("stripe_product_id"),
     displayOrder: integer("display_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
