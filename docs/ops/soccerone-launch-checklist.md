@@ -173,63 +173,33 @@ curl -s "https://www.gosoccerone.com/api/rentals/availability?venueId=<soccerone
 ```
 Expected: at least one field with non-empty `free` blocks.
 
-### 6.5.4 Create membership tiers + Stripe Prices (Phase 3)
+### 6.5.4 Create membership tiers (Phase 3)
 
 **Why:** until tiers exist in prod, `/memberships` shows no cards and the
-subscribe endpoint 404s. Until Stripe Prices exist, the subscribe call 422s
-on the billing-interval validation.
+subscribe endpoint 404s.
 
 **Steps:**
 
-1. **Create Stripe Prices in the live dashboard.** For each tier (Day Pass,
-   Member, Founder) create one or two recurring Prices in USD:
-   - Day Pass: one-time $15 (mode: payment) — skip for v1; the marketing
-     copy mentions "Day Pass" but the Stripe Subscription flow needs a
-     recurring Price. Treat Day Pass as a follow-up: ship Member + Founder
-     first.
-   - Member: monthly $29 (recurring, interval: month) — copy the
-     `price_…` id.
-   - Member: annual $290 (recurring, interval: year) — copy the
-     `price_…` id.
-   - Founder: monthly $99 (recurring) — copy the `price_…` id.
-   - Founder: annual $990 (recurring) — copy the `price_…` id.
+1. **Create the tiers in the admin UI.** Open
+   `https://www.gosoccerone.com/admin/memberships` signed in as a super-admin
+   scoped to the SoccerOne org and click "New tier" for each. The form creates
+   the recurring Stripe Prices **and** the tier rows together — no Stripe
+   dashboard work, no SQL. (Prices are created on the platform account; per the
+   one-shared-account decision SoccerOne has no Connect account.)
+   - **Member** — monthly $29, annual $290; benefit `rental_discount_pct: 10`.
+   - **Founder** — monthly $99, annual $990; benefits `rental_discount_pct: 20`,
+     `guest_passes_per_month: 2`, `booking_window_days: 30`.
+   - Skip Day Pass — non-members just pay the non-member price for pickup /
+     leagues / rentals; there is nothing to subscribe to.
 
-2. **Insert `membership_tiers` rows in prod.** Connect to prod DB and run:
-
-   ```sql
-   INSERT INTO membership_tiers (
-     organization_id, name, monthly_price_cents, annual_price_cents,
-     benefits, stripe_price_id_monthly, stripe_price_id_annual,
-     display_order, is_active
-   )
-   SELECT id, 'Member', 2900, 29000,
-          '{"rental_discount_pct": 10}'::jsonb,
-          '<price_member_monthly>', '<price_member_annual>',
-          2, true
-   FROM organizations WHERE slug = 'soccerone'
-   ON CONFLICT DO NOTHING;
-
-   INSERT INTO membership_tiers (
-     organization_id, name, monthly_price_cents, annual_price_cents,
-     benefits, stripe_price_id_monthly, stripe_price_id_annual,
-     display_order, is_active
-   )
-   SELECT id, 'Founder', 9900, 99000,
-          '{"rental_discount_pct": 20, "guest_passes_per_month": 2, "booking_window_days": 30, "founder_wall": true}'::jsonb,
-          '<price_founder_monthly>', '<price_founder_annual>',
-          3, true
-   FROM organizations WHERE slug = 'soccerone'
-   ON CONFLICT DO NOTHING;
-   ```
-
-3. **Smoke-check the public endpoint.**
+2. **Smoke-check the public endpoint.**
 
    ```bash
    curl -s https://www.gosoccerone.com/api/public/membership-tiers | jq
    ```
-   Expected: an array with at least Member + Founder, ordered by `displayOrder`.
+   Expected: an array with Member + Founder, ordered by `displayOrder`.
 
-4. **Smoke-check subscribe end-to-end** with a Stripe test card in incognito
+3. **Smoke-check subscribe end-to-end** with a Stripe test card in incognito
    against the live site:
    - Open https://www.gosoccerone.com/memberships
    - Click "Start Member Plan"
@@ -239,12 +209,14 @@ on the billing-interval validation.
    - Click "Pause"; confirm status flips to "Paused"
    - Click "Cancel"; confirm status flips to "Cancelling"
 
-5. **Confirm the Connect webhook is receiving events.** In the Stripe
-   dashboard → Developers → Webhooks → the Connect endpoint pointing at
-   `https://aspiresportsohio.com/api/webhooks/stripe-connect` — verify the
-   four new event types (`checkout.session.completed`,
-   `customer.subscription.updated`, `customer.subscription.deleted`,
-   `invoice.payment_failed`) are enabled.
+4. **Confirm subscription webhooks fulfill.** ⚠️ With the single shared Stripe
+   account (no Connect), subscription lifecycle events fire on the **platform**
+   webhook, not the Connect endpoint. The Phase 3 subscription handlers
+   (`checkout.session.completed`, `customer.subscription.*`,
+   `invoice.payment_failed`) were authored in `webhooks/stripe-connect.ts`,
+   which only receives *connected-account* events. If the membership row does
+   not flip to "Active" in step 3, this routing mismatch is why — track it as
+   an open follow-up before depending on live membership fulfillment.
 
 ## Stage 7 — Flip domain_mappings to ssl_active
 
