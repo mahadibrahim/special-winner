@@ -14,7 +14,7 @@ interface TiersListProps {
 
 function formatCents(cents: number | null | undefined): string {
   if (cents == null) return "—";
-  return `$${Math.round(cents / 100)}`;
+  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
 export default function TiersList({ tiers: initialTiers }: TiersListProps) {

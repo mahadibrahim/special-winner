@@ -71,7 +71,7 @@ export default function TierForm({ tier }: TierFormProps) {
     ];
     for (const [key, raw] of numericFields) {
       const n = Number(raw);
-      if (raw !== "" && n > 0) b[key] = n;
+      if (raw !== "" && !Number.isNaN(n) && n >= 0) b[key] = n;
     }
     if (unlimitedPickup) b.unlimited_pickup = true;
     if (membersOnlyPickup) b.members_only_pickup = true;
