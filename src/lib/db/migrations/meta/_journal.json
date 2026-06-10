@@ -267,6 +267,13 @@
       "when": 1779711201046,
       "tag": "0037_lean_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781130024023,
+      "tag": "0038_brief_maverick",
+      "breakpoints": true
     }
   ]
 }

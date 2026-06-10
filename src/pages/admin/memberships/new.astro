@@ -1,0 +1,22 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import TierForm from '@/components/admin/memberships/tier-form';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+---
+
+<BaseLayout title="New Membership Tier — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/memberships"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <TierForm client:load />
+  </AdminLayout>
+</BaseLayout>

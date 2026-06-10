@@ -1,0 +1,1 @@
+ALTER TABLE "membership_tiers" ADD COLUMN "stripe_product_id" text;

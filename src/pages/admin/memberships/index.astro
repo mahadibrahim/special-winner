@@ -1,0 +1,34 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { membershipTiers } from '@/lib/db/schema/memberships';
+import { eq, asc } from 'drizzle-orm';
+import TiersList from '@/components/admin/memberships/tiers-list';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+
+const tiers = orgId
+  ? await getDb()
+      .select()
+      .from(membershipTiers)
+      .where(eq(membershipTiers.organizationId, orgId))
+      .orderBy(asc(membershipTiers.displayOrder), asc(membershipTiers.createdAt))
+  : [];
+---
+
+<BaseLayout title="Membership Tiers — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/memberships"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <TiersList client:load tiers={tiers} />
+  </AdminLayout>
+</BaseLayout>
