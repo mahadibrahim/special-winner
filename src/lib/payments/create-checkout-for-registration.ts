@@ -253,9 +253,13 @@ export async function createCheckoutForRegistration(
     ? await getOrganizationPaymentConfig(orgId)
     : null;
 
+  // Stamp the resolving org onto the payment metadata so every registration
+  // charge is brand-attributable in the Stripe dashboard (Aspire vs SoccerOne)
+  // without a DB join — mirrors how drop-in/rentals/memberships already do it.
   const merged = {
     registrationId,
     type: "registration_payment",
+    organization_id: orgId ?? "",
     ...(appliedDiscountCode ? { discount_code: appliedDiscountCode.code } : {}),
     ...(extraMetadata ?? {}),
   };
@@ -286,14 +290,16 @@ export async function createCheckoutForRegistration(
     };
   }
 
-  // Platform-direct (HQ, or franchise without a connected account yet)
+  // Platform-direct (HQ, or franchise without a connected account yet).
+  // Carry organization_id through so the platform-account charge is
+  // brand-attributable too, matching the Connect path above.
   const session = await createCheckoutSession({
     registrationId,
     seasonName: `${program.name} - ${season.name}`,
     playerName: `${familyMember.firstName} ${familyMember.lastName}`,
     amountCents: amountDue,
     customerEmail,
-    extraMetadata,
+    extraMetadata: { ...(extraMetadata ?? {}), organization_id: orgId ?? "" },
     paymentMethodCategory,
   });
 
