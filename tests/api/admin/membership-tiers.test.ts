@@ -64,3 +64,24 @@ describe("PUT/DELETE /api/admin/memberships/tiers/[id]", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("PUT /api/admin/memberships/tiers/reorder", () => {
+  it("400 when ids is not an array", async () => {
+    const cookie = await adminCookie();
+    const res = await fetch(`${BASE}/api/admin/memberships/tiers/reorder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ ids: "nope" }),
+    });
+    expect(res.status).toBe(400);
+  });
+  it("rejects ids outside the active org (404)", async () => {
+    const cookie = await adminCookie();
+    const res = await fetch(`${BASE}/api/admin/memberships/tiers/reorder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ ids: ["00000000-0000-0000-0000-000000000000"] }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
