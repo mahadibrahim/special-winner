@@ -93,9 +93,11 @@ describe("POST /api/payments/create-checkout — embedded checkout shape", () =>
   );
 
   // Test 2: assert that a _ga cookie in the request is parsed and forwarded
-  // as ga_client_id in Stripe session metadata.
+  // as ga_client_id in Stripe session metadata, and that the resolving org is
+  // stamped as organization_id so every registration charge is
+  // brand-attributable (Aspire vs SoccerOne) in the Stripe dashboard.
   itWithStripe(
-    "_ga cookie round-trips as ga_client_id in Stripe session metadata",
+    "_ga cookie round-trips as ga_client_id, and organization_id is stamped, in Stripe session metadata",
     async () => {
       const seasonId = await fetchOpenSeasonId();
 
@@ -132,6 +134,12 @@ describe("POST /api/payments/create-checkout — embedded checkout shape", () =>
 
       // The parsed client_id (everything after GA1.1.) should be in metadata.
       expect(session.metadata?.ga_client_id).toBe(gaClientId);
+
+      // The resolving org must be stamped so the charge is brand-attributable
+      // without a DB join. localhost resolves to the default (Aspire) org, so
+      // we assert a non-empty org id rather than a specific value.
+      expect(typeof session.metadata?.organization_id).toBe("string");
+      expect(session.metadata.organization_id.length).toBeGreaterThan(0);
     },
   );
 });
