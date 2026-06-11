@@ -193,7 +193,7 @@ export function PaymentsList() {
       {/* Filters */}
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Status" />
@@ -218,6 +218,18 @@ export function PaymentsList() {
                 <SelectItem value="installment">Installment</SelectItem>
               </SelectContent>
             </Select>
+            {/* Server streams the CSV with the same filter params the
+                list uses — what you see filtered is what you export. */}
+            <a
+              href={`/api/admin/payments/export.csv?${new URLSearchParams({
+                ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+                ...(typeFilter !== "all" ? { paymentType: typeFilter } : {}),
+              }).toString()}`}
+              className="ml-auto inline-flex items-center px-3 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors"
+              download
+            >
+              Export CSV
+            </a>
           </div>
         </CardHeader>
         <CardContent>

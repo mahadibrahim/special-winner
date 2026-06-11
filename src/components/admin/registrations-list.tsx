@@ -253,6 +253,18 @@ export function RegistrationsList() {
                 <SelectItem value="deposit_paid">Deposit Paid</SelectItem>
               </SelectContent>
             </Select>
+            {/* Server streams the CSV with the same filter params the
+                list uses (search is client-side only and not applied). */}
+            <a
+              href={`/api/admin/registrations/export.csv?${new URLSearchParams({
+                ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+                ...(paymentFilter !== "all" ? { paymentStatus: paymentFilter } : {}),
+              }).toString()}`}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors whitespace-nowrap"
+              download
+            >
+              Export CSV
+            </a>
           </div>
         </CardHeader>
         <CardContent>
