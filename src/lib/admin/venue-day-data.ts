@@ -23,6 +23,7 @@ import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
+import { venueResources, resourceBlocks } from "@/lib/db/schema/scheduling";
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
 
 export type ActivityType =
@@ -31,7 +32,9 @@ export type ActivityType =
   | "drop_in"
   | "class"
   | "camp"
-  | "rental";
+  | "rental"
+  | "external"
+  | "maintenance";
 
 export type ActivityBlock = {
   id: string;
@@ -47,6 +50,19 @@ export type ActivityBlock = {
   // Deep-link target for the primary action on this block (e.g. check-in
   // for a roster, view details for a rental). Caller can override.
   href: string | null;
+  // Field-time ledger attribution. resourceName groups the calendar by
+  // field; blockId is set ONLY for manual (external/maintenance) holds —
+  // it's the deletion handle.
+  resourceName: string | null;
+  blockId: string | null;
+};
+
+export type VenueResourceSummary = {
+  id: string;
+  venueId: string;
+  venueName: string;
+  name: string;
+  fieldNumber: number;
 };
 
 export type VenueDayData = {
@@ -54,6 +70,8 @@ export type VenueDayData = {
   locationId: string;
   locationName: string;
   blocks: ActivityBlock[];
+  /** The location's fields — the calendar's columns and the Add Hold picker. */
+  resources: VenueResourceSummary[];
   closeAt: string | null;
 };
 
@@ -148,6 +166,8 @@ export async function getVenueDayData(
       capacityCurrent: null,
       capacityMax: null,
       href: `/admin/games/${g.id}`,
+      resourceName: g.fieldNumber ? `Field ${g.fieldNumber}` : null,
+      blockId: null,
     };
   });
 
@@ -162,9 +182,14 @@ export async function getVenueDayData(
       endsAt: dropInSessions.endsAt,
       capacity: dropInSessions.capacity,
       venueName: venues.name,
+      resourceName: venueResources.name,
     })
     .from(dropInSessions)
     .innerJoin(venues, eq(dropInSessions.venueId, venues.id))
+    .leftJoin(
+      venueResources,
+      eq(dropInSessions.bookableResourceId, venueResources.id),
+    )
     .where(
       and(
         eq(venues.locationId, locationId),
@@ -185,6 +210,8 @@ export async function getVenueDayData(
     capacityCurrent: null, // TODO: count active bookings; Phase-3 enhancement
     capacityMax: s.capacity,
     href: `/admin/dropin/sessions/${s.id}`,
+    resourceName: s.resourceName ?? null,
+    blockId: null,
   }));
 
   // --- Field rentals ---
@@ -219,17 +246,81 @@ export async function getVenueDayData(
     capacityCurrent: null,
     capacityMax: null,
     href: `/admin/rentals/${r.id}`,
+    resourceName: `Field ${r.fieldNumber}`,
+    blockId: null,
   }));
 
-  const blocks = [...gameBlocks, ...dropInBlocks, ...rentalBlocks].sort((a, b) =>
-    a.startAt.localeCompare(b.startAt),
+  // --- Field resources + manual holds (field-time ledger) ---
+  const resourceRows = await db
+    .select({
+      id: venueResources.id,
+      venueId: venueResources.venueId,
+      venueName: venues.name,
+      name: venueResources.name,
+      fieldNumber: venueResources.fieldNumber,
+    })
+    .from(venueResources)
+    .innerJoin(venues, eq(venueResources.venueId, venues.id))
+    .where(and(eq(venues.locationId, locationId), eq(venueResources.active, true)))
+    .orderBy(venues.name, venueResources.sortOrder);
+
+  const resourceIds = resourceRows.map((r) => r.id);
+  const resourceNameById = new Map(resourceRows.map((r) => [r.id, r.name]));
+  const venueNameByResourceId = new Map(
+    resourceRows.map((r) => [r.id, r.venueName]),
   );
+
+  // External (Good Rec / email) + maintenance holds live ONLY in the
+  // ledger — this is where the partner's bookings become visible.
+  const manualRows =
+    resourceIds.length > 0
+      ? await db
+          .select()
+          .from(resourceBlocks)
+          .where(
+            and(
+              inArray(resourceBlocks.resourceId, resourceIds),
+              inArray(resourceBlocks.sourceType, ["external", "maintenance"]),
+              lt(resourceBlocks.startsAt, dayEnd),
+              gte(resourceBlocks.endsAt, dayStart),
+            ),
+          )
+      : [];
+
+  const manualBlocks: ActivityBlock[] = manualRows.map((m) => ({
+    id: m.id,
+    type: m.sourceType === "maintenance" ? "maintenance" : "external",
+    startAt: m.startsAt.toISOString(),
+    endAt: m.endsAt.toISOString(),
+    title: m.label,
+    subtitle: [
+      resourceNameById.get(m.resourceId),
+      m.sourceType === "maintenance" ? "Maintenance" : "External booking",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    venueName: venueNameByResourceId.get(m.resourceId) ?? null,
+    refAssigned: null,
+    capacityCurrent: null,
+    capacityMax: null,
+    href: null,
+    resourceName: resourceNameById.get(m.resourceId) ?? null,
+    blockId: m.id,
+  }));
+
+  const blocks = [
+    ...gameBlocks,
+    ...dropInBlocks,
+    ...rentalBlocks,
+    ...manualBlocks,
+  ].sort((a, b) => a.startAt.localeCompare(b.startAt));
 
   return {
     date,
     locationId: loc.id,
     locationName: loc.name,
     blocks,
+    resources: resourceRows,
     closeAt: null,
   };
 }

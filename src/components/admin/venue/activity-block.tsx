@@ -11,6 +11,8 @@ const STYLES: Record<ActivityType, StyleSet> = {
   class:           { bg: "bg-blue-100",    border: "border-blue-500",    icon: "🏫", label: "Class" },
   camp:            { bg: "bg-blue-100",    border: "border-blue-500",    icon: "🏕", label: "Camp" },
   rental:          { bg: "bg-amber-100",   border: "border-amber-500",   icon: "🔑", label: "Rental" },
+  external:        { bg: "bg-slate-100",   border: "border-slate-500",   icon: "🤝", label: "External" },
+  maintenance:     { bg: "bg-stone-200",   border: "border-stone-500",   icon: "🔧", label: "Maintenance" },
 }
 
 type Props = {
@@ -23,6 +25,8 @@ type Props = {
   primaryActionLabel?: string
   href?: string
   onPrimary?: () => void
+  /** Manual (external/maintenance) holds only — renders a remove control. */
+  onDelete?: () => void
 }
 
 export function ActivityBlock(props: Props) {
@@ -57,6 +61,16 @@ export function ActivityBlock(props: Props) {
           </div>
         </div>
       </div>
+      {props.onDelete && (
+        <button
+          onClick={props.onDelete}
+          aria-label="Remove hold"
+          title="Remove hold"
+          className="sm:self-center px-3 py-2 border border-border text-ink-muted hover:text-red-600 hover:border-red-300 rounded text-sm font-medium min-h-[44px]"
+        >
+          Remove
+        </button>
+      )}
       {props.primaryActionLabel &&
         (props.href ? (
           <a

@@ -290,3 +290,59 @@ export async function getBlocksForVenueDay(
     .filter((r) => !(r.block.expiresAt && r.block.expiresAt < now))
     .map((r) => ({ ...r.block, resourceName: r.resourceName }));
 }
+
+/** Manual hold input — external (Good Rec / email) or maintenance. */
+export interface ManualBlockInput extends BlockWindow {
+  sourceType: Extract<BlockSource, "external" | "maintenance">;
+  label: string;
+  notes?: string | null;
+  createdByUserId: string;
+}
+
+/**
+ * Create an external/maintenance hold. Family-conflict-checked like any
+ * other claim. Returns the created block; throws BlockConflictError when
+ * the slot is taken.
+ */
+export async function createManualBlock(
+  input: ManualBlockInput,
+): Promise<ResourceBlock> {
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    await assertNoBlockConflict(tx, input);
+    const [block] = await tx
+      .insert(resourceBlocks)
+      .values({
+        resourceId: input.resourceId,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        sourceType: input.sourceType,
+        sourceId: null,
+        label: input.label.slice(0, 200),
+        notes: input.notes ?? null,
+        createdByUserId: input.createdByUserId,
+      })
+      .returning();
+    return block;
+  });
+}
+
+/**
+ * Delete a manual hold. Refuses source-backed blocks (game/rental/
+ * drop-in) — those release through their source's lifecycle, never
+ * directly. Returns the deleted block or null when absent/not-manual.
+ */
+export async function deleteManualBlock(
+  blockId: string,
+): Promise<ResourceBlock | null> {
+  const [deleted] = await getDb()
+    .delete(resourceBlocks)
+    .where(
+      and(
+        eq(resourceBlocks.id, blockId),
+        inArray(resourceBlocks.sourceType, ["external", "maintenance"]),
+      ),
+    )
+    .returning();
+  return deleted ?? null;
+}
