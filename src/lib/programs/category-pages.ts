@@ -45,8 +45,13 @@ export function scopeSeasons(
 /** Soonest registration deadline first; seasons without a deadline last,
  *  ties broken by start date. Keeps "about to close" inventory on top. */
 export function byRegistrationCloses(a: ApiSeason, b: ApiSeason): number {
-  const aT = a.registrationCloses ? Date.parse(a.registrationCloses) : Number.POSITIVE_INFINITY
-  const bT = b.registrationCloses ? Date.parse(b.registrationCloses) : Number.POSITIVE_INFINITY
+  const parseDeadline = (s: ApiSeason): number => {
+    if (!s.registrationCloses) return Number.POSITIVE_INFINITY
+    const t = Date.parse(s.registrationCloses)
+    return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t
+  }
+  const aT = parseDeadline(a)
+  const bT = parseDeadline(b)
   if (aT !== bT) return aT - bT
   return Date.parse(a.startDate) - Date.parse(b.startDate)
 }

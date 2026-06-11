@@ -50,8 +50,8 @@ describe("scopeSeasons", () => {
   const seasons = [
     makeSeason({ id: "adult-league", programType: "league", audienceType: "adults" }),
     makeSeason({ id: "adult-tourney", programType: "tournament", audienceType: "adults" }),
-    makeSeason({ id: "youth-league", programType: "league", audienceType: "youth", minAge: 6, maxAge: 8 }),
-    makeSeason({ id: "youth-camp", programType: "camp", audienceType: "youth", minAge: 6, maxAge: 12 }),
+    makeSeason({ id: "youth-league", programType: "league", audienceType: "parents", minAge: 6, maxAge: 8 }),
+    makeSeason({ id: "youth-camp", programType: "camp", audienceType: "parents", minAge: 6, maxAge: 12 }),
   ]
 
   it("filters by audience AND program type", () => {
@@ -71,13 +71,13 @@ describe("scopeSeasons", () => {
 
 describe("inAgeBand", () => {
   it("matches on range overlap", () => {
-    const u8 = makeSeason({ id: "u8", programType: "league", audienceType: "youth", minAge: 6, maxAge: 8 })
+    const u8 = makeSeason({ id: "u8", programType: "league", audienceType: "parents", minAge: 6, maxAge: 8 })
     expect(inAgeBand(u8, 4, 8)).toBe(true)
     expect(inAgeBand(u8, 9, 12)).toBe(false)
   })
 
   it("a season without an age group matches every band", () => {
-    const open = makeSeason({ id: "open", programType: "league", audienceType: "youth" })
+    const open = makeSeason({ id: "open", programType: "league", audienceType: "parents" })
     for (const band of AGE_BAND_CHIPS) expect(inAgeBand(open, band.min, band.max)).toBe(true)
   })
 })
@@ -91,5 +91,32 @@ describe("byRegistrationCloses", () => {
       makeSeason({ id: "none-earlier", programType: "league", audienceType: "adults", registrationCloses: null, startDate: "2026-07-15" }),
     ].sort(byRegistrationCloses)
     expect(sorted.map((s) => s.id)).toEqual(["soon", "late", "none-earlier", "none"])
+  })
+
+  it("equal deadlines are broken by startDate (earlier start first)", () => {
+    const sorted = [
+      makeSeason({ id: "same-later-start", programType: "league", audienceType: "adults", registrationCloses: "2026-08-01", startDate: "2026-09-15" }),
+      makeSeason({ id: "same-earlier-start", programType: "league", audienceType: "adults", registrationCloses: "2026-08-01", startDate: "2026-09-01" }),
+    ].sort(byRegistrationCloses)
+    expect(sorted.map((s) => s.id)).toEqual(["same-earlier-start", "same-later-start"])
+  })
+
+  it("treats an unparseable registrationCloses string as no deadline (sorts last)", () => {
+    const sorted = [
+      makeSeason({ id: "bad-date", programType: "league", audienceType: "adults", registrationCloses: "not-a-date" }),
+      makeSeason({ id: "real-date", programType: "league", audienceType: "adults", registrationCloses: "2026-07-01" }),
+    ].sort(byRegistrationCloses)
+    expect(sorted.map((s) => s.id)).toEqual(["real-date", "bad-date"])
+  })
+})
+
+describe("deriveAudience tolerance branch (via scopeSeasons)", () => {
+  it('treats audienceType "adult" (singular, non-canonical) as adult when ageGroup is null', () => {
+    const seasons = [
+      makeSeason({ id: "singular-adult", programType: "league", audienceType: "adult" }),
+    ]
+    // No ageGroup — deriveAudience falls through to the audienceType check.
+    // The tolerance branch must accept "adult" as well as the canonical "adults".
+    expect(scopeSeasons(seasons, "adult", ["league"]).map((s) => s.id)).toEqual(["singular-adult"])
   })
 })
