@@ -7,6 +7,7 @@ import {
   getAspireToSoccerOneRedirect,
   isSoccerOneHost,
   brandFromHost,
+  originForBrand,
 } from "@/lib/organization/soccerone-routing";
 
 describe("soccerone-routing — constants", () => {
@@ -128,5 +129,18 @@ describe("brandFromHost()", () => {
     expect(brandFromHost("aspiresportsohio.com")).toBe("aspire");
     expect(brandFromHost("localhost:4321")).toBe("aspire");
     expect(brandFromHost("")).toBe("aspire");
+  });
+});
+
+describe("originForBrand()", () => {
+  it("returns the canonical SoccerOne origin for 'soccerone'", () => {
+    expect(originForBrand("soccerone")).toBe("https://www.gosoccerone.com");
+  });
+
+  it("returns null for any other brand (callers fall back to PUBLIC_APP_URL)", () => {
+    expect(originForBrand("aspire")).toBeNull();
+    expect(originForBrand(null)).toBeNull();
+    expect(originForBrand(undefined)).toBeNull();
+    expect(originForBrand("")).toBeNull();
   });
 });

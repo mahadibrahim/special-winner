@@ -62,6 +62,15 @@ export function brandFromHost(host: string): "soccerone" | "aspire" {
 }
 
 /**
+ * Canonical origin for a brand label, for contexts with no request to
+ * derive it from (Stripe webhooks, cron). Returns null for any non-SoccerOne
+ * brand — callers fall back to PUBLIC_APP_URL (the Aspire origin).
+ */
+export function originForBrand(brand: string | null | undefined): string | null {
+  return brand === "soccerone" ? `https://${SOCCERONE_CANONICAL_HOST}` : null;
+}
+
+/**
  * If the pathname is a SoccerOne marketing root, return the path inside
  * `src/pages/soccerone/*` that should render it. Otherwise null.
  *

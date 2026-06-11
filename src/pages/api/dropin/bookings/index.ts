@@ -100,7 +100,7 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, locals, url }) => {
   if (!locals.user) {
     return json({ error: "Unauthorized" }, 401);
   }
@@ -204,6 +204,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     waiverName,
     // Storefront brand — host-derived, since both brands share one org.
     extraMetadata: { brand: brandFromHost(request.headers.get("host") ?? "") },
+    // Stripe success/cancel redirects return to the booking domain.
+    origin: url.origin,
   });
 
   return json(

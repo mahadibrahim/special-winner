@@ -236,6 +236,8 @@ export const POST: APIRoute = async (context) => {
       // Storefront brand — host-derived, since both brands share one org.
       brand: brandFromHost(request.headers.get("host") ?? ""),
     },
+    // Stripe success/cancel redirects return to the booking domain.
+    origin: context.url.origin,
   });
 
   // Account-takeover prevention: only set a session for genuinely new users.

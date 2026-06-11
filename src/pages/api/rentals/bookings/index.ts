@@ -69,7 +69,7 @@ export const GET: APIRoute = async ({ locals }) => {
   return json({ rentals: rows }, 200);
 };
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, locals, url }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
 
   let body: Record<string, unknown>;
@@ -222,7 +222,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const applicationFeeCents = partnerStripeAccountId
     ? Math.round((amountDueCents * applicationFeePct) / 100)
     : undefined;
-  const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
+  // Request origin, not PUBLIC_APP_URL — Stripe success/cancel redirects
+  // must return to the domain the customer booked from (brand host).
+  const appUrl = url.origin;
 
   try {
     const checkoutSession = await stripe.checkout.sessions.create(
