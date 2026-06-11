@@ -11,6 +11,7 @@ import {
   resetCookies,
 } from "../setup/test-helpers";
 import { resolveDefaultOrgForHttpTests } from "../../utils/dropin-helpers";
+import { E2E_RENTAL_VENUE_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 const ENDPOINT = "/api/admin/venue-day/holds";
 
@@ -218,5 +219,60 @@ describe("venue-day holds", () => {
       waiverSignedBy: "Ledger Test",
     });
     expect(after.ok).toBe(true);
+  });
+
+  it("external hold subtracts from the public rentals availability (ledger cutover)", async () => {
+    // The e2e seed guarantees resources for the rental-enabled venue.
+    const db = getDb();
+    const [field1] = await db
+      .select({ id: venueResources.id })
+      .from(venueResources)
+      .where(
+        and(
+          eq(venueResources.venueId, E2E_RENTAL_VENUE_ID),
+          eq(venueResources.fieldNumber, 1),
+          isNull(venueResources.parentResourceId),
+        ),
+      )
+      .limit(1);
+    if (!field1) return; // seed not run in this environment — skip
+
+    const d = day(3);
+    const hold = await apiFetch(ENDPOINT, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        resourceId: field1.id,
+        startsAt: `${d}T14:00:00.000Z`,
+        endsAt: `${d}T16:00:00.000Z`,
+        sourceType: "external",
+        label: "Good Rec — availability test",
+      }),
+    });
+    expect(hold.status).toBe(201);
+
+    const res = await apiFetch(
+      `/api/rentals/availability?venueId=${E2E_RENTAL_VENUE_ID}&date=${d}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const f1 = body.fields.find((f: { fieldNumber: number }) => f.fieldNumber === 1);
+    expect(f1).toBeTruthy();
+    // No free block may overlap the held window.
+    const holdStart = new Date(`${d}T14:00:00.000Z`).getTime();
+    const holdEnd = new Date(`${d}T16:00:00.000Z`).getTime();
+    for (const block of f1.free) {
+      const s = new Date(block.startsAt).getTime();
+      const e = new Date(block.endsAt).getTime();
+      expect(s < holdEnd && holdStart < e).toBe(false);
+    }
+
+    // Clean up the hold so the seeded venue's availability stays pristine.
+    const { hold: createdHold } = await hold.json();
+    const del = await apiFetch(`${ENDPOINT}/${createdHold.id}`, {
+      method: "DELETE",
+      cookie: adminCookie,
+    });
+    expect(del.status).toBe(200);
   });
 });

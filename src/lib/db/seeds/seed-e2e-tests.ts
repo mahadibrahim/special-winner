@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 
 import { getDb } from "../index";
 import { hashPassword } from "../../auth/password";
+import { ensureVenueResources } from "../../scheduling/blocks";
 import {
   users,
   roles,
@@ -602,6 +603,11 @@ async function seedE2ETests() {
         fieldCount: 3,
       },
     });
+
+  // Field-time ledger: the rental venue's fields must exist as resources
+  // so availability + conflict paths exercise the real ledger in CI (the
+  // migration only seeded venues that existed at migrate time).
+  await ensureVenueResources(E2E_RENTAL_VENUE_ID);
   console.log(`   ✓ Rental venue: E2E Rental Field Complex (${E2E_RENTAL_VENUE_ID})`);
 
   // Rate card for the main e2e org — one row per org, idempotent.

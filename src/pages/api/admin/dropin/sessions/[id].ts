@@ -11,6 +11,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
+import { venueResources } from "@/lib/db/schema/scheduling";
 import { BlockConflictError, removeSourceBlock } from "@/lib/scheduling/blocks";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
@@ -107,6 +108,7 @@ interface PutBody {
   startsAt?: string;
   endsAt?: string;
   venueId?: string;
+  bookableResourceId?: string | null;
 }
 
 export const PUT: APIRoute = async (context) => {
@@ -145,6 +147,25 @@ export const PUT: APIRoute = async (context) => {
   if (body.formatLabel !== undefined) updates.formatLabel = body.formatLabel;
   if (body.startsAt !== undefined) updates.startsAt = new Date(body.startsAt);
   if (body.endsAt !== undefined) updates.endsAt = new Date(body.endsAt);
+  if (body.bookableResourceId !== undefined) {
+    if (body.bookableResourceId) {
+      // The field must belong to the session's venue (tenant + sanity).
+      const targetVenueId =
+        body.venueId !== undefined ? body.venueId : session.venueId;
+      const [res] = await db
+        .select({ id: venueResources.id })
+        .from(venueResources)
+        .where(
+          and(
+            eq(venueResources.id, body.bookableResourceId),
+            eq(venueResources.venueId, targetVenueId),
+          ),
+        )
+        .limit(1);
+      if (!res) return json({ error: "Field not found at this venue" }, 404);
+    }
+    updates.bookableResourceId = body.bookableResourceId;
+  }
   if (body.venueId !== undefined) updates.venueId = body.venueId;
 
   const [updated] = await db
