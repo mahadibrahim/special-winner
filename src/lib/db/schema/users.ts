@@ -20,6 +20,7 @@ export const roleNameEnum = pgEnum("role_name", [
   "player",
   "media_staff",
   "media_editor",
+  "referee",
 ]);
 
 export const scopeTypeEnum = pgEnum("scope_type", [

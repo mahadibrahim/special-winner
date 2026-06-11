@@ -197,6 +197,45 @@ export const games = pgTable(
   ],
 );
 
+// Game officials — referee/AR assignments per game. Fee + paymentStatus
+// track what each official is owed for the assignment; payouts are
+// manual (Stripe dashboard transfers) for v1, so paymentStatus is a
+// bookkeeping flag, not a payment-system pointer.
+export const officialPaymentStatusEnum = pgEnum("official_payment_status", [
+  "unpaid",
+  "paid",
+]);
+
+export const gameOfficials = pgTable(
+  "game_officials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // Free-text-ish slot label; "referee" for the single-ref MVP, room
+    // for "ar1"/"ar2"/"fourth" later without a schema change.
+    position: varchar("position", { length: 50 }).default("referee").notNull(),
+    feeCents: integer("fee_cents").default(0).notNull(),
+    paymentStatus: officialPaymentStatusEnum("payment_status")
+      .default("unpaid")
+      .notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // One assignment per (game, official) — re-assigning updates the row.
+    uniqueIndex("game_officials_game_user_uniq").on(table.gameId, table.userId),
+    index("game_officials_game_idx").on(table.gameId),
+    index("game_officials_user_idx").on(table.userId),
+    check("game_officials_non_negative_fee", sql`${table.feeCents} >= 0`),
+  ],
+);
+
 // Standings (calculated/cached)
 export const standings = pgTable(
   "standings",
@@ -397,6 +436,8 @@ export type Roster = typeof rosters.$inferSelect;
 export type NewRoster = typeof rosters.$inferInsert;
 export type Game = typeof games.$inferSelect;
 export type NewGame = typeof games.$inferInsert;
+export type GameOfficial = typeof gameOfficials.$inferSelect;
+export type NewGameOfficial = typeof gameOfficials.$inferInsert;
 export type Standing = typeof standings.$inferSelect;
 export type NewStanding = typeof standings.$inferInsert;
 export type CoachNote = typeof coachNotes.$inferSelect;

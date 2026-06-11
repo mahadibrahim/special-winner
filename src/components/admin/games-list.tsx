@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2, Calendar, MapPin, Clock } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, Calendar, MapPin, Clock, UserCheck } from "lucide-react"
+import { GameOfficialsDialog } from "./game-officials-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -93,6 +94,8 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
   const [editingGame, setEditingGame] = useState<Game | null>(null)
   const [filterSeasonId, setFilterSeasonId] = useState<string>("all")
   const [error, setError] = useState<string | null>(null)
+  // Game whose referee assignments are being managed (null = closed).
+  const [officialsGame, setOfficialsGame] = useState<Game | null>(null)
 
   const [formData, setFormData] = useState({
     seasonId: "",
@@ -369,6 +372,15 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
                     <Badge className={statusColors[game.status]}>
                       {statusLabels[game.status]}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setOfficialsGame(game)}
+                      title="Manage referees"
+                    >
+                      <UserCheck className="h-4 w-4 mr-1" />
+                      Refs
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(game)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -590,6 +602,17 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Referee assignment dialog */}
+      <GameOfficialsDialog
+        gameId={officialsGame?.id ?? null}
+        gameLabel={
+          officialsGame
+            ? `${officialsGame.homeTeam?.name ?? "TBD"} vs ${officialsGame.awayTeam?.name ?? "TBD"}`
+            : ""
+        }
+        onClose={() => setOfficialsGame(null)}
+      />
     </div>
   )
 }

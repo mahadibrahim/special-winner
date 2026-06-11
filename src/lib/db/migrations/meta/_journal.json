@@ -274,6 +274,13 @@
       "when": 1781130024023,
       "tag": "0038_brief_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1781193641522,
+      "tag": "0039_careless_gamma_corps",
+      "breakpoints": true
     }
   ]
 }

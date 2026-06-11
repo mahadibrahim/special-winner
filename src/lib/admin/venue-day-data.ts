@@ -18,12 +18,12 @@
  */
 
 import { getDb } from "@/lib/db";
-import { games, teams, venues } from "@/lib/db/schema/teams";
+import { games, teams, venues, gameOfficials } from "@/lib/db/schema/teams";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt } from "drizzle-orm";
 
 export type ActivityType =
   | "league_game"
@@ -118,6 +118,17 @@ export async function getVenueDayData(
     awayTeamRows.map((r) => [r.gameId, r.name]),
   );
 
+  // Ref assignments for the day's games — one query, set lookup.
+  const gameIds = gameRows.map((g) => g.id);
+  const officialRows =
+    gameIds.length > 0
+      ? await db
+          .select({ gameId: gameOfficials.gameId })
+          .from(gameOfficials)
+          .where(inArray(gameOfficials.gameId, gameIds))
+      : [];
+  const gamesWithRef = new Set(officialRows.map((r) => r.gameId));
+
   const gameBlocks: ActivityBlock[] = gameRows.map((g) => {
     const duration = g.durationMinutes ?? 60;
     const endAt = new Date(g.scheduledAt.getTime() + duration * 60_000);
@@ -133,7 +144,7 @@ export async function getVenueDayData(
       title: `${home} vs ${away}`,
       subtitle: g.fieldNumber ? `Field ${g.fieldNumber}` : (g.venueName ?? ""),
       venueName: g.venueName,
-      refAssigned: null, // schema has no ref assignment column yet
+      refAssigned: gamesWithRef.has(g.id),
       capacityCurrent: null,
       capacityMax: null,
       href: `/admin/games/${g.id}`,

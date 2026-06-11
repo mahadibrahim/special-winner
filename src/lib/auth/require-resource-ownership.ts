@@ -23,6 +23,7 @@ import {
   sports,
   registrations,
   teams,
+  games,
   userRoles,
 } from "@/lib/db/schema";
 import { locations, userOrganizationAccess } from "@/lib/db/schema/organizations";
@@ -75,6 +76,30 @@ export async function requireSameOrgSeason(
     .innerJoin(programs, eq(seasons.programId, programs.id))
     .innerJoin(locations, eq(programs.locationId, locations.id))
     .where(and(eq(seasons.id, seasonId), eq(locations.organizationId, orgId)))
+    .limit(1);
+
+  if (!row) return NOT_FOUND;
+  return { ok: true, row };
+}
+
+/**
+ * games -> seasons -> programs -> locations.organizationId
+ */
+export async function requireSameOrgGame(
+  orgId: string,
+  gameId: string,
+): Promise<OwnershipResult<{ id: string; seasonId: string; organizationId: string }>> {
+  const [row] = await getDb()
+    .select({
+      id: games.id,
+      seasonId: games.seasonId,
+      organizationId: locations.organizationId,
+    })
+    .from(games)
+    .innerJoin(seasons, eq(games.seasonId, seasons.id))
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(and(eq(games.id, gameId), eq(locations.organizationId, orgId)))
     .limit(1);
 
   if (!row) return NOT_FOUND;
