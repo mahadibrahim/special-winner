@@ -26,6 +26,11 @@ export const GET: APIRoute = async ({ locals }) => {
 
   return new Response(JSON.stringify({ sports, locations }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // Sports/locations are near-static; 5 min browser cache (see
+      // /api/public/seasons for rationale).
+      "Cache-Control": "public, max-age=300",
+    },
   });
 };

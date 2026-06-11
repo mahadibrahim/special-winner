@@ -19,28 +19,16 @@ export async function getDashboardDestinations(
 ): Promise<DashboardDestinations> {
   const db = getDb();
 
-  const [[dependent], [self]] = await Promise.all([
+  // All four signals are independent point lookups — run them in one
+  // round-trip batch. This runs on every dashboard redirect, so the
+  // previous sequential fallback chain (self → booking → rental) added
+  // up to two extra serial round trips per login.
+  const [[dependent], [self], [booking], [rental]] = await Promise.all([
     db.select({ id: familyMembers.id }).from(familyMembers).where(eq(familyMembers.parentUserId, userId)).limit(1),
     db.select({ id: familyMembers.id }).from(familyMembers).where(eq(familyMembers.selfUserId, userId)).limit(1),
+    db.select({ id: dropInBookings.id }).from(dropInBookings).where(eq(dropInBookings.userId, userId)).limit(1),
+    db.select({ id: fieldRentals.id }).from(fieldRentals).where(eq(fieldRentals.renterUserId, userId)).limit(1),
   ]);
 
-  let hasPlay = !!self;
-  if (!hasPlay) {
-    const [booking] = await db
-      .select({ id: dropInBookings.id })
-      .from(dropInBookings)
-      .where(eq(dropInBookings.userId, userId))
-      .limit(1);
-    hasPlay = !!booking;
-  }
-  if (!hasPlay) {
-    const [rental] = await db
-      .select({ id: fieldRentals.id })
-      .from(fieldRentals)
-      .where(eq(fieldRentals.renterUserId, userId))
-      .limit(1);
-    hasPlay = !!rental;
-  }
-
-  return { hasFamily: !!dependent, hasPlay };
+  return { hasFamily: !!dependent, hasPlay: !!self || !!booking || !!rental };
 }

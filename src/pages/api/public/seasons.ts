@@ -153,7 +153,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     return new Response(JSON.stringify({ seasons: formatted }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Catalog changes a few times per season; let browsers reuse it
+        // across page views for 5 min instead of refetching on every
+        // marketing-page visit. Cache key is the full URL incl. host, so
+        // tenants never share entries.
+        "Cache-Control": "public, max-age=300",
+      },
     });
   } catch (err) {
     console.error("Error fetching seasons:", err);

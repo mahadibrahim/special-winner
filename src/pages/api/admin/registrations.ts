@@ -39,6 +39,22 @@ export const GET: APIRoute = async (context) => {
       conditions.push(eq(registrations.seasonId, seasonId));
     }
 
+    // Search on player name or parent name/email — in the WHERE clause,
+    // not post-fetch: filtering in JS after LIMIT both wasted the fetch
+    // and silently dropped matches beyond the first page.
+    if (search) {
+      const pattern = `%${search}%`;
+      conditions.push(
+        or(
+          ilike(familyMembers.firstName, pattern),
+          ilike(familyMembers.lastName, pattern),
+          ilike(users.email, pattern),
+          ilike(users.firstName, pattern),
+          ilike(users.lastName, pattern),
+        )!,
+      );
+    }
+
     // Get registrations with related data
     const registrationData = await getDb()
       .select({
@@ -88,20 +104,6 @@ export const GET: APIRoute = async (context) => {
       .limit(limit)
       .offset(offset);
 
-    // Filter by search if provided (on player name or parent email)
-    let filteredData = registrationData;
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredData = registrationData.filter(
-        (r) =>
-          r.familyMember.firstName.toLowerCase().includes(searchLower) ||
-          r.familyMember.lastName.toLowerCase().includes(searchLower) ||
-          r.registeredBy.email.toLowerCase().includes(searchLower) ||
-          (r.registeredBy.firstName?.toLowerCase().includes(searchLower)) ||
-          (r.registeredBy.lastName?.toLowerCase().includes(searchLower))
-      );
-    }
-
     // Get summary counts — also org-scoped
     const summaryResult = await getDb()
       .select({
@@ -122,7 +124,7 @@ export const GET: APIRoute = async (context) => {
 
     return new Response(
       JSON.stringify({
-        registrations: filteredData,
+        registrations: registrationData,
         summary: summaryResult[0],
         pagination: {
           limit,
