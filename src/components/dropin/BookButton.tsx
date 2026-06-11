@@ -43,10 +43,20 @@ export function BookButton({
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [waiverName, setWaiverName] = useState("");
 
-  if (!isAuthenticated) {
+  // Guest-mode contact fields — drop-ins are impulse purchases, so
+  // anonymous visitors book with name + email instead of bouncing to
+  // /signin (see /api/dropin/guest-checkout). Waitlist still requires an
+  // account: joining one is a commitment to come back later.
+  const [guestFirstName, setGuestFirstName] = useState("");
+  const [guestLastName, setGuestLastName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+
+  if (!isAuthenticated && isFull) {
     return (
       <Button asChild size="lg" className="w-full">
-        <a href={`/signin?redirect=/dropin/${sessionId}`}>Sign in to book</a>
+        <a href={`/signin?redirect=/dropin/${sessionId}`}>
+          Sign in to join waitlist
+        </a>
       </Button>
     );
   }
@@ -77,14 +87,27 @@ export function BookButton({
     setBusy(true);
     setShowWaiver(false);
     try {
-      const res = await fetch("/api/dropin/bookings", {
+      const endpoint = isAuthenticated
+        ? "/api/dropin/bookings"
+        : "/api/dropin/guest-checkout";
+      const payload = isAuthenticated
+        ? {
+            sessionId,
+            waiverAccepted: true,
+            waiverName: waiverName.trim(),
+          }
+        : {
+            sessionId,
+            firstName: guestFirstName.trim(),
+            lastName: guestLastName.trim(),
+            email: guestEmail.trim(),
+            waiverAccepted: true,
+            waiverName: waiverName.trim(),
+          };
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          waiverAccepted: true,
-          waiverName: waiverName.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -104,7 +127,15 @@ export function BookButton({
           ? `Booked — Team ${json.teamAssignment}`
           : "Booked",
       );
-      window.location.href = "/dashboard/bookings?booking=success";
+      if (isAuthenticated || json.wasNewUser) {
+        // New guest users get a session cookie from the endpoint, so the
+        // dashboard works for them too.
+        window.location.href = "/dashboard/bookings?booking=success";
+      } else {
+        // Existing account booked as guest — no session cookie was set
+        // (account-takeover prevention). Point them at sign-in.
+        window.location.href = `/dropin/${sessionId}?booking=success`;
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Network error");
     } finally {
@@ -118,7 +149,14 @@ export function BookButton({
     setShowWaiver(true);
   };
 
-  const canConfirm = waiverAccepted && waiverName.trim().length > 0;
+  const guestFieldsValid =
+    isAuthenticated ||
+    (guestFirstName.trim().length > 0 &&
+      guestLastName.trim().length > 0 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim()));
+
+  const canConfirm =
+    waiverAccepted && waiverName.trim().length > 0 && guestFieldsValid;
 
   const label = isFull
     ? "Join waitlist"
@@ -139,6 +177,58 @@ export function BookButton({
           <DialogHeader>
             <DialogTitle>Waiver &amp; Assumption of Risk</DialogTitle>
           </DialogHeader>
+
+          {!isAuthenticated && (
+            <div className="space-y-3 pb-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="guest-first-name" className="text-sm">
+                    First name
+                  </Label>
+                  <Input
+                    id="guest-first-name"
+                    value={guestFirstName}
+                    onChange={(e) => setGuestFirstName(e.target.value)}
+                    autoComplete="given-name"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="guest-last-name" className="text-sm">
+                    Last name
+                  </Label>
+                  <Input
+                    id="guest-last-name"
+                    value={guestLastName}
+                    onChange={(e) => setGuestLastName(e.target.value)}
+                    autoComplete="family-name"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-email" className="text-sm">
+                  Email
+                </Label>
+                <Input
+                  id="guest-email"
+                  type="email"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  autoComplete="email"
+                  placeholder="you@email.com"
+                />
+              </div>
+              <p className="text-xs text-stone-500">
+                Already have an account?{" "}
+                <a
+                  href={`/signin?redirect=/dropin/${sessionId}`}
+                  className="underline hover:text-stone-700"
+                >
+                  Sign in
+                </a>{" "}
+                to use your saved details and member pricing.
+              </p>
+            </div>
+          )}
 
           <p className="text-sm text-stone-700 leading-relaxed">{WAIVER_TEXT}</p>
 
