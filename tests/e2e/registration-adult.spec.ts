@@ -106,13 +106,12 @@ test.describe("Adult self registration", { tag: "@critical" }, () => {
       .locator('input');
     await sigField.fill("Adult Self");
 
-    // Advance to Step 3 (Media authorization — defaults grant all 3 scopes)
+    // Advance to the Payment step. The waiver and the (optional, collapsed)
+    // media-consent section now share one "Agreements" step, so this is a
+    // single Continue rather than two.
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Advance to Step 4 (Payment)
-    await page.getByRole("button", { name: /continue/i }).click();
-
-    // 5. Step 4: Payment — verify order summary shows the registrant's name
+    // 5. Payment step — verify order summary shows the registrant's name
     // "Registration for" row contains the registrant display name
     await expect(page.getByText(/Payment Option/i)).toBeVisible({ timeout: 10_000 });
 

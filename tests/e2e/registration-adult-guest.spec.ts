@@ -117,13 +117,12 @@ test.describe("Anonymous adult guest checkout", { tag: "@critical" }, () => {
       .locator("input");
     await sigField.fill("Floor Walker");
 
-    // Advance to Step 3 (Media authorization — defaults grant all 3 scopes)
+    // Advance to the Payment step — waiver + optional media share one
+    // "Agreements" step now, so it's a single Continue. Don't submit (no real
+    // Stripe in test env).
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Advance to Step 4 (Payment) — but don't submit (no real Stripe in test env)
-    await page.getByRole("button", { name: /continue/i }).click();
-
-    // ── Step 4: Payment step confirms registrant name ──
+    // ── Payment step confirms registrant name ──
     await expect(page.getByText(/Payment Option/i)).toBeVisible({ timeout: 10_000 });
 
     // Order summary should show "Floor Walker" not a child name

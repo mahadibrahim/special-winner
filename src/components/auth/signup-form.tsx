@@ -57,6 +57,14 @@ export function SignUpForm() {
     try {
       const sessionId = (window as any).posthog?.get_session_id?.() || undefined;
 
+      // Carry the ?redirect= param through sign-up so a customer creating an
+      // account mid-registration returns to /register/<season> after tapping
+      // their magic link (validated server-side as a safe relative path).
+      const redirectTo =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("redirect")
+          : null;
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
@@ -69,6 +77,7 @@ export function SignUpForm() {
           lastName: formData.lastName,
           phone: formData.phone || undefined,
           turnstileToken: turnstileToken || undefined,
+          redirectTo: redirectTo || undefined,
         }),
       });
 

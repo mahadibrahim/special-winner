@@ -1,6 +1,7 @@
 "use client"
 
-import { Camera } from "lucide-react"
+import { useState } from "react"
+import { Camera, ChevronDown } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 
@@ -47,6 +48,11 @@ export function MediaAuthStep({
   optOutScopes,
   onOptOutScopesChange,
 }: MediaAuthStepProps) {
+  // Media consent is non-blocking and grants all three scopes by default, so
+  // it sits below the waiver as a collapsed, clearly-optional section — there
+  // when a customer wants it, out of the way when they don't.
+  const [expanded, setExpanded] = useState(false)
+
   function toggle(scope: MediaAuthScope) {
     const next = new Set(optOutScopes)
     if (next.has(scope)) {
@@ -61,53 +67,78 @@ export function MediaAuthStep({
     ? "your photos and videos"
     : `photos and videos of ${participantName}`
 
+  const grantedCount = SCOPES.length - optOutScopes.size
+  const summary =
+    optOutScopes.size === 0
+      ? "All uses allowed"
+      : grantedCount === 0
+        ? "No uses allowed"
+        : `${grantedCount} of ${SCOPES.length} uses allowed`
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-ink mb-2">Media Authorization</h3>
-        <p className="text-ink-muted text-sm">
-          Choose how Aspire Sports may use {subjectLabel}. All three are
-          enabled by default — uncheck any you don't want to allow. You can
-          change these at any time from your dashboard.
-        </p>
-      </div>
+    <div className="rounded-xl border border-border bg-cream-2 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((o) => !o)}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+      >
+        <Camera className="w-4 h-4 text-primary flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-ink">
+            Photo &amp; video permissions{" "}
+            <span className="text-ink-faint font-normal">(optional)</span>
+          </p>
+          <p className="text-xs text-ink-muted">{summary} · tap to adjust</p>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-ink-muted transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
 
-      <div className="space-y-3">
-        {SCOPES.map((scope) => {
-          const isGranted = !optOutScopes.has(scope.id)
-          return (
-            <div
-              key={scope.id}
-              className="p-4 rounded-xl border border-border bg-cream-2 flex items-start gap-3"
-            >
-              <Checkbox
-                id={`media-auth-${scope.id}`}
-                checked={isGranted}
-                onCheckedChange={() => toggle(scope.id)}
-                className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-              />
-              <div className="flex-1">
-                <Label
-                  htmlFor={`media-auth-${scope.id}`}
-                  className="text-sm font-medium text-ink cursor-pointer flex items-center gap-2"
-                >
-                  <Camera className="w-4 h-4 text-primary" />
-                  {scope.title}
-                </Label>
-                <p className="text-xs text-ink-muted mt-1 leading-relaxed">
-                  {scope.description}
-                </p>
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-border pt-3 space-y-3">
+          <p className="text-xs text-ink-muted">
+            Choose how Aspire Sports may use {subjectLabel}. All three are
+            enabled by default — uncheck any you don't want to allow. You can
+            change these at any time from your dashboard.
+          </p>
+
+          {SCOPES.map((scope) => {
+            const isGranted = !optOutScopes.has(scope.id)
+            return (
+              <div
+                key={scope.id}
+                className="p-3 rounded-lg border border-border bg-paper flex items-start gap-3"
+              >
+                <Checkbox
+                  id={`media-auth-${scope.id}`}
+                  checked={isGranted}
+                  onCheckedChange={() => toggle(scope.id)}
+                  className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <div className="flex-1">
+                  <Label
+                    htmlFor={`media-auth-${scope.id}`}
+                    className="text-sm font-medium text-ink cursor-pointer"
+                  >
+                    {scope.title}
+                  </Label>
+                  <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                    {scope.description}
+                  </p>
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
 
-      <div className="text-xs text-ink-faint">
-        Aspire Sports will not use {subjectLabel} for any purpose you've
-        unchecked. To withdraw consent later, visit your dashboard and use
-        "Manage consent" on the participant's profile.
-      </div>
+          <p className="text-xs text-ink-faint">
+            Aspire Sports will not use {subjectLabel} for any purpose you've
+            unchecked. To withdraw consent later, visit your dashboard and use
+            "Manage consent" on the participant's profile.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

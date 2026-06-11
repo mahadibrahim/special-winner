@@ -13,7 +13,6 @@ import {
   Users,
   Loader2,
   AlertCircle,
-  Camera,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WhoStep } from "./who-step"
@@ -98,13 +97,33 @@ interface RegistrationWizardProps {
   audienceHint?: string | null
 }
 
+// Step ids — named so the renumber (media folded into Agreements) stays
+// readable everywhere the wizard branches on the current step.
+const STEP_PLAYER = 1
+const STEP_AGREEMENTS = 2
+const STEP_PAYMENT = 3
+const STEP_CONFIRM = 4
+
 const STEPS = [
-  { id: 1, name: "Select Player", icon: User },
-  { id: 2, name: "Sign Waiver", icon: FileCheck },
-  { id: 3, name: "Media", icon: Camera },
-  { id: 4, name: "Payment", icon: CreditCard },
-  { id: 5, name: "Confirm", icon: CheckCircle2 },
+  { id: STEP_PLAYER, name: "Player", icon: User },
+  { id: STEP_AGREEMENTS, name: "Agreements", icon: FileCheck },
+  { id: STEP_PAYMENT, name: "Payment", icon: CreditCard },
+  { id: STEP_CONFIRM, name: "Confirm", icon: CheckCircle2 },
 ]
+
+// localStorage draft schema version. Bump to invalidate older shapes.
+const DRAFT_VERSION = 1
+
+interface WizardDraft {
+  v: number
+  currentStep: number
+  selectedKey: string | null
+  waiverAccepted: boolean
+  waiverSignature: string
+  mediaOptOuts: MediaAuthScope[]
+  paymentOption: "full" | "deposit"
+  lookingForTeam: boolean
+}
 
 export default function RegistrationWizard({
   seasonId,
@@ -196,6 +215,19 @@ export default function RegistrationWizard({
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
 
+  // ── Draft-restore state (authed only) ────────────────────────────────────
+  // A saved draft surfaced on return; the user explicitly resumes or starts
+  // over rather than having state silently reappear.
+  const [restorable, setRestorable] = useState<WizardDraft | null>(null)
+
+  // Once the user commits to a payment method we create the registration with
+  // its chosen type, so the full/deposit option locks for the rest of the
+  // wizard (the row's amount is fixed; changing it would need a new flow).
+  const [paymentStarted, setPaymentStarted] = useState(false)
+
+  // localStorage key for this user's in-progress draft of this season.
+  const draftKey = user ? `aspire:reg:${seasonId}:${user.id}` : null
+
   // ── Embedded payment state ───────────────────────────────────────────────
   const [paymentClientSecret, setPaymentClientSecret] = useState<string | null>(null)
   const [paymentPublishableKey, setPaymentPublishableKey] = useState<string | null>(null)
@@ -248,6 +280,98 @@ export default function RegistrationWizard({
     }
   }, [wasCancelled, seasonId, isGuest])
 
+  // ── Draft persistence (authed only) ───────────────────────────────────────
+  // We persist non-sensitive wizard progress (selection key, signed-waiver
+  // flag + the user's own typed name, media opt-outs, payment option) to the
+  // browser so an interrupted registration can be resumed instead of restarted.
+  // Guests are intentionally excluded — their step-1 form carries child PII we
+  // don't want to leave in localStorage.
+  const clearDraft = () => {
+    if (typeof window === "undefined" || !draftKey) return
+    try {
+      window.localStorage.removeItem(draftKey)
+    } catch {
+      // storage disabled/full — non-fatal
+    }
+  }
+
+  const applyDraft = (d: WizardDraft) => {
+    setSelectedKey(d.selectedKey ?? null)
+    setWaiverAccepted(Boolean(d.waiverAccepted))
+    setWaiverSignature(d.waiverSignature ?? "")
+    setMediaAuthOptOuts(new Set(d.mediaOptOuts ?? []))
+    setPaymentOption(d.paymentOption === "deposit" ? "deposit" : "full")
+    setLookingForTeam(Boolean(d.lookingForTeam))
+    // Don't restore onto the payment step — the registration row isn't created
+    // until a method is picked, so land them on Agreements to continue cleanly.
+    setCurrentStep(Math.min(Math.max(d.currentStep ?? 1, 1), STEP_AGREEMENTS))
+    setRestorable(null)
+  }
+
+  // Surface a saved draft on mount. We don't auto-apply — the user chooses.
+  useEffect(() => {
+    if (isGuest || !draftKey || typeof window === "undefined") return
+    try {
+      const raw = window.localStorage.getItem(draftKey)
+      if (!raw) return
+      const d = JSON.parse(raw) as WizardDraft
+      if (d?.v !== DRAFT_VERSION) {
+        window.localStorage.removeItem(draftKey)
+        return
+      }
+      // Only offer resume when there's meaningful progress past step 1.
+      const hasProgress =
+        (d.currentStep ?? 1) >= STEP_AGREEMENTS || Boolean(d.selectedKey)
+      if (hasProgress) setRestorable(d)
+    } catch {
+      // corrupt draft — ignore
+    }
+  }, [draftKey, isGuest])
+
+  // Write the draft as the user advances. Paused while a restore prompt is
+  // pending (so the live, empty state can't clobber the saved draft) and after
+  // completion.
+  useEffect(() => {
+    if (
+      isGuest ||
+      !draftKey ||
+      isLoading ||
+      restorable !== null ||
+      registrationComplete ||
+      typeof window === "undefined"
+    ) {
+      return
+    }
+    const draft: WizardDraft = {
+      v: DRAFT_VERSION,
+      currentStep,
+      selectedKey,
+      waiverAccepted,
+      waiverSignature,
+      mediaOptOuts: Array.from(mediaAuthOptOuts),
+      paymentOption,
+      lookingForTeam,
+    }
+    try {
+      window.localStorage.setItem(draftKey, JSON.stringify(draft))
+    } catch {
+      // storage disabled/full — non-fatal
+    }
+  }, [
+    isGuest,
+    draftKey,
+    isLoading,
+    restorable,
+    registrationComplete,
+    currentStep,
+    selectedKey,
+    waiverAccepted,
+    waiverSignature,
+    mediaAuthOptOuts,
+    paymentOption,
+    lookingForTeam,
+  ])
+
   // Compute whether the season's audience is unambiguous. When it is, the
   // mode is "locked": the wizard forces the value and hides the radio toggle.
   // Otherwise both options stay available.
@@ -276,9 +400,9 @@ export default function RegistrationWizard({
     // If no lock, leave at the "child" default
   }, [isGuest, season, lockedGuestMode])
 
-  // Fire view_item once when entering step 4 (the payment step)
+  // Fire view_item once when entering the payment step
   useEffect(() => {
-    if (currentStep === 4 && season) {
+    if (currentStep === STEP_PAYMENT && season) {
       import("@/lib/analytics/datalayer").then(({ trackViewItem }) => {
         trackViewItem({
           id: season.id,
@@ -509,9 +633,10 @@ export default function RegistrationWizard({
   }
 
   const handlePaymentSuccess = (_paymentIntentId: string) => {
+    clearDraft()
     setRegistrationComplete(true)
     setPaymentClientSecret(null)
-    setCurrentStep(5)
+    setCurrentStep(STEP_CONFIRM)
   }
 
   const handlePaymentCancel = () => {
@@ -574,8 +699,9 @@ export default function RegistrationWizard({
         return
       }
       // No clientSecret + ok → discount zeroed the bill; treat as complete.
+      clearDraft()
       setRegistrationComplete(true)
-      setCurrentStep(5)
+      setCurrentStep(STEP_CONFIRM)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start payment")
     } finally {
@@ -583,8 +709,11 @@ export default function RegistrationWizard({
     }
   }
 
-  const handleSubmitGuestCheckout = async () => {
+  const handleSubmitGuestCheckout = async (categoryOverride?: "bank" | "card") => {
     if (!season || !waiverAccepted || !waiverSignature) return
+    // The selected method is passed in directly because setState hasn't
+    // flushed yet when the method button fires this.
+    const category = categoryOverride ?? selectedPaymentCategory
     setIsSubmitting(true)
     setError(null)
     try {
@@ -607,7 +736,7 @@ export default function RegistrationWizard({
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
-              paymentMethodCategory: selectedPaymentCategory,
+              paymentMethodCategory: category,
             }
           : {
               seasonId,
@@ -628,7 +757,7 @@ export default function RegistrationWizard({
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
-              paymentMethodCategory: selectedPaymentCategory,
+              paymentMethodCategory: category,
             }
 
       const res = await fetch("/api/registrations/guest-checkout", {
@@ -687,9 +816,11 @@ export default function RegistrationWizard({
     }
   }
 
-  const handleSubmitRegistration = async () => {
+  const handleSubmitRegistration = async (categoryOverride?: "bank" | "card") => {
     if (!selectedKey || !waiverAccepted || !waiverSignature) return
 
+    // Passed in directly from the method button (setState hasn't flushed).
+    const category = categoryOverride ?? selectedPaymentCategory
     setIsSubmitting(true)
     setError(null)
 
@@ -739,7 +870,7 @@ export default function RegistrationWizard({
           body: JSON.stringify({
             registrationId: regData.registration.id,
             discountCode: discountCode || undefined,
-            paymentMethodCategory: selectedPaymentCategory,
+            paymentMethodCategory: category,
           }),
         })
 
@@ -747,8 +878,9 @@ export default function RegistrationWizard({
           const checkoutData = await checkoutResponse.json()
           // If Stripe isn't configured, show success without payment
           if (checkoutData.error === "Payment processing is not configured") {
+            clearDraft()
             setRegistrationComplete(true)
-            setCurrentStep(5)
+            setCurrentStep(STEP_CONFIRM)
             return
           }
           throw new Error(
@@ -793,12 +925,25 @@ export default function RegistrationWizard({
       }
 
       // Waitlisted or no payment required — go straight to confirmation
+      clearDraft()
       setRegistrationComplete(true)
-      setCurrentStep(5)
+      setCurrentStep(STEP_CONFIRM)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to complete registration")
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // Selecting a payment method is the single commit action: lock the option,
+  // remember the choice, and create the registration + Stripe session for it.
+  const handleMethodSelected = (category: "bank" | "card") => {
+    setSelectedPaymentCategory(category)
+    setPaymentStarted(true)
+    if (isGuest) {
+      handleSubmitGuestCheckout(category)
+    } else {
+      handleSubmitRegistration(category)
     }
   }
 
@@ -823,11 +968,11 @@ export default function RegistrationWizard({
           )
         }
         return selectedKey !== null
-      case 2:
+      case STEP_AGREEMENTS:
+        // Waiver is the gate; media consent below it is optional. The full
+        // legal text being collapsed doesn't change what's required.
         return waiverAccepted && waiverSignature.length >= 2
-      case 3:
-        return true
-      case 4:
+      case STEP_PAYMENT:
         return true
       default:
         return false
@@ -933,6 +1078,36 @@ export default function RegistrationWizard({
               variant="ghost"
               onClick={() => setResumableRegistrationId(null)}
               disabled={isResumingPayment}
+            >
+              Start over
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Draft-restore early return ─────────────────────────────────────────────
+  // Shown only when there's no further-along cancelled-payment registration to
+  // resume (that card takes precedence).
+
+  if (restorable && !resumableRegistrationId) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm">
+          <h2 className="text-2xl font-medium text-ink mb-2">Welcome back</h2>
+          <p className="text-ink/80 mb-6">
+            We saved your progress for this registration. Pick up where you left
+            off, or start fresh.
+          </p>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => applyDraft(restorable)}>Resume</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                clearDraft()
+                setRestorable(null)
+              }}
             >
               Start over
             </Button>
@@ -1141,55 +1316,53 @@ export default function RegistrationWizard({
           />
         )}
 
-        {/* Step 2: Waiver */}
-        {currentStep === 2 && (
-          <WaiverStep
-            isSelf={selectedKey === "self"}
-            isGuest={isGuest}
-            guestMode={guestMode}
-            registrantName={
-              isGuest
-                ? guestMode === "adult"
-                  ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+        {/* Step 2: Agreements — waiver (required) + media consent (optional) */}
+        {currentStep === STEP_AGREEMENTS && (
+          <div className="space-y-6">
+            <WaiverStep
+              isSelf={selectedKey === "self"}
+              isGuest={isGuest}
+              guestMode={guestMode}
+              registrantName={
+                isGuest
+                  ? guestMode === "adult"
+                    ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+                    : selectedDisplayName
                   : selectedDisplayName
-                : selectedDisplayName
-            }
-            guestChildFullName={
-              isGuest && guestMode === "child"
-                ? `${guestChildFirstName} ${guestChildLastName}`.trim()
-                : undefined
-            }
-            waiverAccepted={waiverAccepted}
-            waiverSignature={waiverSignature}
-            lookingForTeam={lookingForTeam}
-            onWaiverAcceptedChange={setWaiverAccepted}
-            onWaiverSignatureChange={setWaiverSignature}
-            onLookingForTeamChange={setLookingForTeam}
-          />
+              }
+              guestChildFullName={
+                isGuest && guestMode === "child"
+                  ? `${guestChildFirstName} ${guestChildLastName}`.trim()
+                  : undefined
+              }
+              waiverAccepted={waiverAccepted}
+              waiverSignature={waiverSignature}
+              lookingForTeam={lookingForTeam}
+              onWaiverAcceptedChange={setWaiverAccepted}
+              onWaiverSignatureChange={setWaiverSignature}
+              onLookingForTeamChange={setLookingForTeam}
+            />
+            <MediaAuthStep
+              isSelf={
+                isGuest
+                  ? guestMode === "adult"
+                  : selectedKey === "self"
+              }
+              participantName={
+                isGuest
+                  ? guestMode === "adult"
+                    ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+                    : `${guestChildFirstName} ${guestChildLastName}`.trim()
+                  : selectedDisplayName
+              }
+              optOutScopes={mediaAuthOptOuts}
+              onOptOutScopesChange={setMediaAuthOptOuts}
+            />
+          </div>
         )}
 
-        {/* Step 3: Media Authorization */}
-        {currentStep === 3 && (
-          <MediaAuthStep
-            isSelf={
-              isGuest
-                ? guestMode === "adult"
-                : selectedKey === "self"
-            }
-            participantName={
-              isGuest
-                ? guestMode === "adult"
-                  ? `${guestParentFirstName} ${guestParentLastName}`.trim()
-                  : `${guestChildFirstName} ${guestChildLastName}`.trim()
-                : selectedDisplayName
-            }
-            optOutScopes={mediaAuthOptOuts}
-            onOptOutScopesChange={setMediaAuthOptOuts}
-          />
-        )}
-
-        {/* Step 4: Payment */}
-        {currentStep === 4 && (
+        {/* Step 3: Payment */}
+        {currentStep === STEP_PAYMENT && (
           <PaymentStep
             seasonName={season.name}
             seasonPrice={season.price}
@@ -1199,7 +1372,9 @@ export default function RegistrationWizard({
             allowDeposit={season.allowDeposit}
             paymentOption={paymentOption}
             paymentMethodCategory={selectedPaymentCategory}
-            onPaymentMethodCategoryChange={setSelectedPaymentCategory}
+            onMethodSelected={handleMethodSelected}
+            isCreatingSession={isSubmitting}
+            optionLocked={paymentStarted}
             appliedSurchargeCents={appliedSurchargeCents}
             registrantName={
               isGuest
@@ -1240,8 +1415,8 @@ export default function RegistrationWizard({
           />
         )}
 
-        {/* Step 5: Confirmation */}
-        {currentStep === 5 && registrationComplete && (
+        {/* Step 4: Confirmation */}
+        {currentStep === STEP_CONFIRM && registrationComplete && (
           <ConfirmationStep
             seasonName={season.name}
             registrantDisplayName={selectedDisplayName}
@@ -1249,20 +1424,21 @@ export default function RegistrationWizard({
         )}
       </div>
 
-      {/* Navigation */}
-      {currentStep < 5 && !paymentClientSecret && (
+      {/* Navigation — on the payment step there's no forward button; selecting
+          a payment method is what advances the flow. */}
+      {currentStep < STEP_CONFIRM && !paymentClientSecret && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"
             onClick={() => setCurrentStep(currentStep - 1)}
-            disabled={currentStep === 1}
+            disabled={currentStep === STEP_PLAYER || isSubmitting}
             className="text-ink-muted hover:text-ink"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back
           </Button>
 
-          {currentStep < 4 ? (
+          {currentStep < STEP_PAYMENT && (
             <Button
               onClick={() => setCurrentStep(currentStep + 1)}
               disabled={!canProceed()}
@@ -1270,24 +1446,6 @@ export default function RegistrationWizard({
             >
               Continue
               <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          ) : (
-            <Button
-              onClick={isGuest ? handleSubmitGuestCheckout : handleSubmitRegistration}
-              disabled={isSubmitting}
-              className="bg-primary hover:bg-primary/90"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Continue to payment
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </>
-              )}
             </Button>
           )}
         </div>

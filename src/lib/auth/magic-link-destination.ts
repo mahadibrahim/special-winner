@@ -1,6 +1,24 @@
 import type { MagicLinkPurpose } from "@/lib/db/schema/magic-links";
 
 /**
+ * Open-redirect guard. A redirect target is only safe to honor if it's a
+ * site-relative path beginning with a single "/" — scheme-relative ("//host")
+ * and absolute ("https://host") URLs are rejected so a crafted ?redirect=
+ * can't bounce a freshly-authenticated session off-site.
+ *
+ * Shared by the magic-link issuers (which validate before storing the value
+ * in purposeContext) and destinationFor (which validates again at redeem
+ * time — defense in depth).
+ */
+export function isSafeRelativePath(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.startsWith("/") &&
+    !value.startsWith("//")
+  );
+}
+
+/**
  * Maps a redeemed magic-link to its post-login destination path.
  *
  * Pure function — testable in isolation. The consumer at /m/[token]
@@ -22,9 +40,8 @@ export function destinationFor(
   switch (purpose) {
     case "login":
     case "password_reset_login": {
-      const redirectTo = typeof ctx.redirectTo === "string" ? ctx.redirectTo : null;
-      if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
-        return redirectTo;
+      if (isSafeRelativePath(ctx.redirectTo)) {
+        return ctx.redirectTo;
       }
       return opts.isAdminRole ? "/admin" : "/dashboard";
     }

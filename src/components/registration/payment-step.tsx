@@ -29,7 +29,21 @@ export interface PaymentStepProps {
 
   // Payment-method category (the bank-vs-card choice that drives surcharge).
   paymentMethodCategory: "bank" | "card"
-  onPaymentMethodCategoryChange: (v: "bank" | "card") => void
+  /**
+   * Commit to a payment method. Selecting a method is the single action that
+   * creates the registration + Stripe session and reveals the inline payment
+   * form below — there's no separate "continue" step. Re-selecting the other
+   * method recreates the session for that method.
+   */
+  onMethodSelected: (category: "bank" | "card") => void
+  /** True while the registration + Stripe session is being created. */
+  isCreatingSession: boolean
+  /**
+   * Locks the full/deposit choice once the registration has been created
+   * (its amount is fixed for the rest of the wizard). Stays locked even after
+   * the customer hits "Change" on the method, since the row already exists.
+   */
+  optionLocked: boolean
   /** Server-confirmed surcharge applied to the active session, in cents. */
   appliedSurchargeCents: number
 
@@ -45,8 +59,8 @@ export interface PaymentStepProps {
   onRemoveDiscount: () => void
 
   // Embedded-payment props — when clientSecret is set, renders the
-  // payment form below the order summary. When null, only the order
-  // configuration UI shows (4a state).
+  // payment form below the order summary. When null, the method picker
+  // shows instead.
   clientSecret: string | null
   publishableKey: string | null
   seasonItem: SeasonItem | null
@@ -66,7 +80,9 @@ export function PaymentStep({
   allowDeposit,
   paymentOption,
   paymentMethodCategory,
-  onPaymentMethodCategoryChange,
+  onMethodSelected,
+  isCreatingSession,
+  optionLocked,
   appliedSurchargeCents,
   registrantName,
   discountCodeInput,
@@ -86,8 +102,10 @@ export function PaymentStep({
   onPaymentSuccess,
   onPaymentCancel,
 }: PaymentStepProps) {
-  // Once we have a clientSecret, the customer has committed to a category
-  // and we hide the picker (changing would require recreating the session).
+  // Once we have a clientSecret the payment form is mounted; the picker
+  // collapses to a one-line summary (the customer changes method via "Change",
+  // which recreates the session). The amount is fixed for the live session, so
+  // the payment option + discount are locked until they go back.
   const sessionLocked = clientSecret !== null
 
   // Compute a preview surcharge for each method group so the picker can show
@@ -120,17 +138,23 @@ export function PaymentStep({
         </p>
       </div>
 
-      <RadioGroup value={paymentOption} onValueChange={(v) => onPaymentOptionChange(v as "full" | "deposit")}>
+      <RadioGroup
+        value={paymentOption}
+        onValueChange={(v) => onPaymentOptionChange(v as "full" | "deposit")}
+        disabled={optionLocked}
+      >
         <div className="space-y-3">
           <Label
             htmlFor="pay-full"
-            className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
+            className={`flex items-center p-4 rounded-xl border transition-all ${
+              optionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+            } ${
               paymentOption === "full"
                 ? "border-primary bg-primary/10"
                 : "border-border hover:border-ink-faint bg-paper"
             }`}
           >
-            <RadioGroupItem value="full" id="pay-full" className="mr-4" />
+            <RadioGroupItem value="full" id="pay-full" className="mr-4" disabled={optionLocked} />
             <div className="flex-1">
               <p className="font-medium text-ink">Pay in Full</p>
               <p className="text-sm text-ink-muted">Complete payment now</p>
@@ -141,13 +165,15 @@ export function PaymentStep({
           {allowDeposit && seasonDeposit && (
             <Label
               htmlFor="pay-deposit"
-              className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
+              className={`flex items-center p-4 rounded-xl border transition-all ${
+                optionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+              } ${
                 paymentOption === "deposit"
                   ? "border-primary bg-primary/10"
                   : "border-border hover:border-ink-faint bg-paper"
               }`}
             >
-              <RadioGroupItem value="deposit" id="pay-deposit" className="mr-4" />
+              <RadioGroupItem value="deposit" id="pay-deposit" className="mr-4" disabled={optionLocked} />
               <div className="flex-1">
                 <p className="font-medium text-ink">Pay Deposit</p>
                 <p className="text-sm text-ink-muted">
@@ -159,70 +185,6 @@ export function PaymentStep({
           )}
         </div>
       </RadioGroup>
-
-      {/* Payment-method category — bank vs card. Surcharge applies to card. */}
-      {!sessionLocked && (
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-lg font-semibold text-ink mb-1">Payment Method</h3>
-            <p className="text-ink-muted text-sm">
-              Bank transfer is free. Card payments include the processor fee.
-            </p>
-          </div>
-          <RadioGroup
-            value={paymentMethodCategory}
-            onValueChange={(v) => onPaymentMethodCategoryChange(v as "bank" | "card")}
-          >
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Label
-                htmlFor="method-bank"
-                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
-                  paymentMethodCategory === "bank"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-ink-faint bg-paper"
-                }`}
-              >
-                <RadioGroupItem value="bank" id="method-bank" className="mt-1" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Landmark className="w-4 h-4 text-primary" />
-                    <p className="font-medium text-ink">Bank transfer</p>
-                    <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      No fee
-                    </span>
-                  </div>
-                  <p className="text-sm text-ink-muted">
-                    Pay ${(previewBankTotal / 100).toFixed(2)} from your checking account (ACH).
-                  </p>
-                </div>
-              </Label>
-              <Label
-                htmlFor="method-card"
-                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
-                  paymentMethodCategory === "card"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-ink-faint bg-paper"
-                }`}
-              >
-                <RadioGroupItem value="card" id="method-card" className="mt-1" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <CreditCard className="w-4 h-4 text-ink-2" />
-                    <p className="font-medium text-ink">Card or wallet</p>
-                    <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
-                      +${(previewCardSurcharge / 100).toFixed(2)} fee
-                    </span>
-                  </div>
-                  <p className="text-sm text-ink-muted">
-                    Pay ${(previewCardTotal / 100).toFixed(2)} by Visa, Mastercard, Apple Pay, or
-                    Google Pay.
-                  </p>
-                </div>
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-      )}
 
       {/* Discount Code */}
       <div className="space-y-3">
@@ -239,13 +201,15 @@ export function PaymentStep({
                 (-${(appliedDiscount.discountAmountCents / 100).toFixed(2)})
               </span>
             </div>
-            <button
-              type="button"
-              onClick={onRemoveDiscount}
-              className="text-ink-muted hover:text-ink p-1"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            {!sessionLocked && (
+              <button
+                type="button"
+                onClick={onRemoveDiscount}
+                className="text-ink-muted hover:text-ink p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex gap-2">
@@ -255,13 +219,14 @@ export function PaymentStep({
                 onDiscountCodeInputChange(e.target.value.toUpperCase())
               }}
               placeholder="Enter code"
+              disabled={sessionLocked}
               className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint uppercase"
             />
             <Button
               type="button"
               variant="outline"
               onClick={onApplyDiscount}
-              disabled={!discountCodeInput.trim() || isValidatingDiscount}
+              disabled={!discountCodeInput.trim() || isValidatingDiscount || sessionLocked}
               className="border-border text-ink-2 hover:text-ink hover:bg-cream-2 px-6"
             >
               {isValidatingDiscount ? (
@@ -293,7 +258,78 @@ export function PaymentStep({
         paymentMethodCategory={paymentMethodCategory}
       />
 
-      {/* Step 4b: Embedded payment (rendered once Continue-to-Payment fires) */}
+      {/* Payment method — selecting one creates the session and reveals the
+          inline payment form. No separate "continue to payment" step. */}
+      {!sessionLocked && (
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-lg font-semibold text-ink mb-1">Payment Method</h3>
+            <p className="text-ink-muted text-sm">
+              Pick a method to enter your payment details. Bank transfer is free;
+              card payments include the processor fee.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => onMethodSelected("bank")}
+              disabled={isCreatingSession}
+              aria-pressed={paymentMethodCategory === "bank"}
+              className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
+                paymentMethodCategory === "bank"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-ink-faint bg-paper"
+              }`}
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Landmark className="w-4 h-4 text-primary" />
+                  <p className="font-medium text-ink">Bank transfer</p>
+                  <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                    No fee
+                  </span>
+                </div>
+                <p className="text-sm text-ink-muted">
+                  Pay ${(previewBankTotal / 100).toFixed(2)} from your checking account (ACH).
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMethodSelected("card")}
+              disabled={isCreatingSession}
+              aria-pressed={paymentMethodCategory === "card"}
+              className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
+                paymentMethodCategory === "card"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-ink-faint bg-paper"
+              }`}
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <CreditCard className="w-4 h-4 text-ink-2" />
+                  <p className="font-medium text-ink">Card or wallet</p>
+                  <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
+                    +${(previewCardSurcharge / 100).toFixed(2)} fee
+                  </span>
+                </div>
+                <p className="text-sm text-ink-muted">
+                  Pay ${(previewCardTotal / 100).toFixed(2)} by Visa, Mastercard, Apple Pay, or
+                  Google Pay.
+                </p>
+              </div>
+            </button>
+          </div>
+          {isCreatingSession && (
+            <div className="flex items-center gap-2 text-sm text-ink-muted">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Starting secure payment…
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Embedded payment — mounted once a method is selected. */}
       {clientSecret && publishableKey && seasonItem && (
         <div className="mt-6 pt-6 border-t border-border">
           <div className="flex items-center justify-between mb-4">
