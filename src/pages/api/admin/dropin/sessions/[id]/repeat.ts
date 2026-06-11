@@ -15,6 +15,8 @@ import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
+import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
+import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { requireAdminAccess } from "@/lib/auth/roles";
 
 export const prerender = false;
@@ -109,11 +111,28 @@ export const POST: APIRoute = async (context) => {
     .values(newRows)
     .returning({ id: dropInSessions.id, startsAt: dropInSessions.startsAt });
 
+  // Claim each repeat's slot in the field-time ledger. Conflicting weeks
+  // are reported back (rows stay; the admin moves or cancels them) —
+  // a holiday-week rental shouldn't abort the whole series.
+  const conflicts: Array<{ id: string; warning: string }> = [];
+  for (const row of created) {
+    try {
+      await syncDropInSessionBlock(row.id);
+    } catch (err) {
+      if (err instanceof BlockConflictError) {
+        conflicts.push({ id: row.id, warning: err.message });
+      } else {
+        throw err;
+      }
+    }
+  }
+
   return json(
     {
       ok: true,
       count: created.length,
       created,
+      ...(conflicts.length > 0 ? { conflicts } : {}),
     },
     201,
   );

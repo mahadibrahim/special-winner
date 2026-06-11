@@ -10,9 +10,12 @@
  * createConfirmedRentalNonStripe: inserts a `confirmed` row directly for
  * cash/comp admin bookings (no Stripe object).
  */
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals, type FieldRental } from "@/lib/db/schema/field-rentals";
 import { assertNoRentalConflict } from "./conflicts";
+import { BlockConflictError } from "@/lib/scheduling/blocks";
+import { syncRentalBlock } from "@/lib/scheduling/sync";
 
 // Window the field is held for the customer after they POST the booking
 // and before Stripe Checkout confirms. Short enough that an abandoned
@@ -46,11 +49,34 @@ export type RentalHoldResult =
   | { ok: true; rental: FieldRental }
   | { ok: false; error: string };
 
+/**
+ * Write the rental's field-time-ledger block after creation. A ledger
+ * conflict (e.g. an external Good Rec hold the rentals conflict check
+ * can't see) cancels the just-created rental and converts to ok:false —
+ * the customer sees the same 409 path as a plain rental conflict.
+ */
+async function withLedgerSync(result: RentalHoldResult): Promise<RentalHoldResult> {
+  if (!result.ok) return result;
+  try {
+    await syncRentalBlock(result.rental.id);
+    return result;
+  } catch (err) {
+    if (err instanceof BlockConflictError) {
+      await getDb()
+        .update(fieldRentals)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(fieldRentals.id, result.rental.id));
+      return { ok: false, error: err.message };
+    }
+    throw err;
+  }
+}
+
 export async function createRentalHold(
   input: RentalHoldInput,
 ): Promise<RentalHoldResult> {
   const db = getDb();
-  return await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const conflict = await assertNoRentalConflict(tx, {
       venueId: input.venueId,
       fieldNumber: input.fieldNumber,
@@ -89,6 +115,7 @@ export async function createRentalHold(
       .returning();
     return { ok: true as const, rental };
   });
+  return withLedgerSync(created);
 }
 
 export interface ConfirmedRentalInput
@@ -100,7 +127,7 @@ export async function createConfirmedRentalNonStripe(
   input: ConfirmedRentalInput,
 ): Promise<RentalHoldResult> {
   const db = getDb();
-  return await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const conflict = await assertNoRentalConflict(tx, {
       venueId: input.venueId,
       fieldNumber: input.fieldNumber,
@@ -139,4 +166,5 @@ export async function createConfirmedRentalNonStripe(
       .returning();
     return { ok: true as const, rental };
   });
+  return withLedgerSync(created);
 }

@@ -11,6 +11,7 @@
 import { and, ne, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals, type FieldRental } from "@/lib/db/schema/field-rentals";
+import { removeSourceBlock } from "@/lib/scheduling/blocks";
 import { stripe } from "@/lib/stripe/client";
 
 export async function refundFieldRental(
@@ -18,7 +19,8 @@ export async function refundFieldRental(
   reason: "user_request" | "admin_override" | "venue_unavailable",
 ): Promise<{ ok: true; rental: FieldRental } | { ok: false; error: string }> {
   const db = getDb();
-  return await db.transaction(async (tx) => {
+  const result: { ok: true; rental: FieldRental } | { ok: false; error: string } =
+    await db.transaction(async (tx) => {
     const [rental] = await tx
       .select()
       .from(fieldRentals)
@@ -70,4 +72,10 @@ export async function refundFieldRental(
     }
     return { ok: true, rental: updated };
   });
+
+  // Cancelled → free its field-time-ledger block.
+  if (result.ok) {
+    await removeSourceBlock("rental", rentalId);
+  }
+  return result;
 }
