@@ -36,6 +36,19 @@ try {
 }
 
 const firstSeasonId = seasons[0]?.id ?? null;
+
+// Featured season = first open season (the API already sorts by startDate).
+// All featured-CTA copy derives from it; the block renders only when one
+// exists — no more hardcoded season names/dates/prices over a dead button.
+const featured = seasons[0] ?? null;
+const featuredStart = featured?.startDate
+  ? new Date(featured.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  : null;
+const featuredPrice = featured
+  ? (featured.teamPrice
+      ? `$${featured.price}/player · $${featured.teamPrice}/team`
+      : `$${featured.price}/player`)
+  : null;
 ---
 
 <BaseLayout
@@ -77,18 +90,18 @@ const firstSeasonId = seasons[0]?.id ?? null;
           </div>
           <div class="lh-stats">
             <div class="lhs-item">
-              <span class="lhs-num">16</span>
-              <span class="lhs-label">Active leagues</span>
-            </div>
-            <div class="lhs-div" aria-hidden="true"></div>
-            <div class="lhs-item">
-              <span class="lhs-num">8</span>
-              <span class="lhs-label">Week seasons</span>
+              <span class="lhs-num">4</span>
+              <span class="lhs-label">Indoor fields</span>
             </div>
             <div class="lhs-div" aria-hidden="true"></div>
             <div class="lhs-item">
               <span class="lhs-num">2</span>
               <span class="lhs-label">Locations</span>
+            </div>
+            <div class="lhs-div" aria-hidden="true"></div>
+            <div class="lhs-item">
+              <span class="lhs-num">7–11</span>
+              <span class="lhs-label">Open daily</span>
             </div>
           </div>
         </div>
@@ -121,38 +134,50 @@ const firstSeasonId = seasons[0]?.id ?? null;
     <div class="leagues-section">
       <div class="leagues-inner">
 
-        <!-- REGISTRATION CTA - featured row -->
-        <div class="leagues-featured-cta">
-          <div class="lfcta-left">
-            <span class="lfcta-eyebrow">NOW REGISTERING</span>
-            <h2 class="lfcta-title">Adult Open Soccer 2026</h2>
-            <div class="lfcta-meta">
-              <span class="lm-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/><path d="M7 4v3l2 2" stroke="rgba(163,230,53,0.7)" stroke-width="1.2" stroke-linecap="round"/></svg>
-                Starts June 2, 2026
-              </span>
-              <span class="lm-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="10" rx="1.5" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/><line x1="1" y1="6" x2="13" y2="6" stroke="rgba(163,230,53,0.3)" stroke-width="1"/></svg>
-                8-week season + playoffs
-              </span>
-              <span class="lm-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.5 5H13L9.5 7.5 11 12 7 9.5 3 12 4.5 7.5 1 5H5.5z" stroke="rgba(163,230,53,0.5)" stroke-width="1.1" fill="none"/></svg>
-                Worthington · Field 1
-              </span>
-              <span class="lm-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7h6M7 4l3 3-3 3" stroke="rgba(163,230,53,0.5)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                $180/player · $1,200/team
-              </span>
+        <!-- REGISTRATION CTA — featured row. Data-driven from the first
+             open season; hidden entirely when the catalog is empty so we
+             never show a dead pay button over the empty state. -->
+        {featured && (
+          <div class="leagues-featured-cta">
+            <div class="lfcta-left">
+              <span class="lfcta-eyebrow">NOW REGISTERING</span>
+              <h2 class="lfcta-title">{featured.name}</h2>
+              <div class="lfcta-meta">
+                {featuredStart && (
+                  <span class="lm-item">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/><path d="M7 4v3l2 2" stroke="rgba(163,230,53,0.7)" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    Starts {featuredStart}
+                  </span>
+                )}
+                {featured.scheduleNotes && (
+                  <span class="lm-item">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="10" rx="1.5" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/><line x1="1" y1="6" x2="13" y2="6" stroke="rgba(163,230,53,0.3)" stroke-width="1"/></svg>
+                    {featured.scheduleNotes}
+                  </span>
+                )}
+                {featured.location?.name && (
+                  <span class="lm-item">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.5 5H13L9.5 7.5 11 12 7 9.5 3 12 4.5 7.5 1 5H5.5z" stroke="rgba(163,230,53,0.5)" stroke-width="1.1" fill="none"/></svg>
+                    {featured.location.name}
+                  </span>
+                )}
+                {featuredPrice && (
+                  <span class="lm-item">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7h6M7 4l3 3-3 3" stroke="rgba(163,230,53,0.5)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {featuredPrice}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div class="lfcta-right">
+              <a href={`/register/${featured.id}`} class="lfcta-btn">
+                Register &amp; Pay Now
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+              <span class="lfcta-note">Secure checkout via Aspire Sports</span>
             </div>
           </div>
-          <div class="lfcta-right">
-            <a href={firstSeasonId ? `/register/${firstSeasonId}` : '#'} class="lfcta-btn">
-              Register &amp; Pay Now
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>
-            <span class="lfcta-note">Secure checkout via Aspire Sports</span>
-          </div>
-        </div>
+        )}
 
         <!-- League cards grid — data-driven from /api/public/seasons -->
         {seasons.length === 0 ? (
@@ -239,7 +264,9 @@ const firstSeasonId = seasons[0]?.id ?? null;
       </div>
     </div>
 
-    <!-- Bottom CTA -->
+    <!-- Bottom CTA — only when there is a season to register for; dead
+         '#' buttons are worse than no banner. -->
+    {firstSeasonId && (
     <div class="leagues-bottom-cta">
       <div class="lbc-inner">
         <div class="lbc-text">
@@ -247,11 +274,12 @@ const firstSeasonId = seasons[0]?.id ?? null;
           <h2 class="lbc-title">Register your team directly. No middleman.</h2>
         </div>
         <div class="lbc-buttons">
-          <a href={firstSeasonId ? `/register/${firstSeasonId}` : '#'} class="lbc-btn-primary">Register a Team</a>
-          <a href={firstSeasonId ? `/register/${firstSeasonId}` : '#'} class="lbc-btn-secondary">Register as Individual</a>
+          <a href={`/register/${firstSeasonId}`} class="lbc-btn-primary">Register a Team</a>
+          <a href={`/register/${firstSeasonId}`} class="lbc-btn-secondary">Register as Individual</a>
         </div>
       </div>
     </div>
+    )}
 
   </main>
 

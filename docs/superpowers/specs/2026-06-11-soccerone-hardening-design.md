@@ -75,3 +75,4 @@ Nothing in PR 3 ships without explicit founder approval per item.
 - Real social URLs once Zernio-managed accounts exist.
 - Theme-driven `brand_profiles` migration (post-launch decision, separate project; PR 2's tokens are its input).
 - Live data for pickup schedule / rental rates on facility pages (needs product decision on source of truth).
+- **Wire FieldCalendar's Book button to the real rental flow** — `POST /api/rentals/bookings` (auth + Stripe) already exists and powers the Aspire `/rentals` page; the SoccerOne `/rent` calendar shows real availability but hands off to email (PR 1 interim fix replaced its demo toast + fake phone). Needs a design decision: in-place auth+checkout vs. handoff with slot preselection.
