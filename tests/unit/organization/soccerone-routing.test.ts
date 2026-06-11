@@ -5,7 +5,8 @@ import {
   SOCCERONE_CANONICAL_HOST,
   rewriteSoccerOnePath,
   getAspireToSoccerOneRedirect,
-  isUnmappedSoccerOneHost,
+  isSoccerOneHost,
+  brandFromHost,
 } from "@/lib/organization/soccerone-routing";
 
 describe("soccerone-routing — constants", () => {
@@ -97,27 +98,35 @@ describe("getAspireToSoccerOneRedirect()", () => {
   });
 });
 
-describe("isUnmappedSoccerOneHost()", () => {
-  it("returns true when the host is a SoccerOne domain but the resolved org's slug is not 'soccerone'", () => {
-    expect(isUnmappedSoccerOneHost("gosoccerone.com", null)).toBe(true);
-    expect(isUnmappedSoccerOneHost("www.gosoccerone.com", null)).toBe(true);
-    expect(isUnmappedSoccerOneHost("gosoccerone.com", "aspire-sports")).toBe(true);
-    expect(isUnmappedSoccerOneHost("www.gosoccerone.com", "orgb")).toBe(true);
+describe("isSoccerOneHost()", () => {
+  it("recognizes both SoccerOne domains", () => {
+    expect(isSoccerOneHost("gosoccerone.com")).toBe(true);
+    expect(isSoccerOneHost("www.gosoccerone.com")).toBe(true);
   });
 
-  it("returns false when the SoccerOne host resolves to the SoccerOne org", () => {
-    expect(isUnmappedSoccerOneHost("gosoccerone.com", "soccerone")).toBe(false);
-    expect(isUnmappedSoccerOneHost("www.gosoccerone.com", "soccerone")).toBe(false);
-  });
-
-  it("returns false for non-SoccerOne hosts regardless of resolved org", () => {
-    expect(isUnmappedSoccerOneHost("aspiresports.com", null)).toBe(false);
-    expect(isUnmappedSoccerOneHost("localhost", "aspire-sports")).toBe(false);
-    expect(isUnmappedSoccerOneHost("powell.aspiresports.com", null)).toBe(false);
+  it("rejects non-SoccerOne hosts", () => {
+    expect(isSoccerOneHost("aspiresports.com")).toBe(false);
+    expect(isSoccerOneHost("localhost")).toBe(false);
+    expect(isSoccerOneHost("powell.aspiresports.com")).toBe(false);
+    expect(isSoccerOneHost("")).toBe(false);
   });
 
   it("normalizes the hostname (strips port, lowercases)", () => {
-    expect(isUnmappedSoccerOneHost("Gosoccerone.com:443", null)).toBe(true);
-    expect(isUnmappedSoccerOneHost("WWW.GoSoccerOne.com", "soccerone")).toBe(false);
+    expect(isSoccerOneHost("Gosoccerone.com:443")).toBe(true);
+    expect(isSoccerOneHost("WWW.GoSoccerOne.com")).toBe(true);
+    expect(isSoccerOneHost("localhost:4321")).toBe(false);
+  });
+});
+
+describe("brandFromHost()", () => {
+  it("labels SoccerOne hosts 'soccerone'", () => {
+    expect(brandFromHost("gosoccerone.com")).toBe("soccerone");
+    expect(brandFromHost("www.gosoccerone.com:443")).toBe("soccerone");
+  });
+
+  it("labels everything else 'aspire' (default brand)", () => {
+    expect(brandFromHost("aspiresportsohio.com")).toBe("aspire");
+    expect(brandFromHost("localhost:4321")).toBe("aspire");
+    expect(brandFromHost("")).toBe("aspire");
   });
 });

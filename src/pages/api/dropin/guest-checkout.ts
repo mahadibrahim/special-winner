@@ -43,6 +43,7 @@ import {
 import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
 import { createSession } from "@/lib/auth";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 export const prerender = false;
 
@@ -230,7 +231,11 @@ export const POST: APIRoute = async (context) => {
     rate,
     waiverSignedAt,
     waiverName: data.waiverName,
-    extraMetadata: { via_guest_checkout: "true" },
+    extraMetadata: {
+      via_guest_checkout: "true",
+      // Storefront brand — host-derived, since both brands share one org.
+      brand: brandFromHost(request.headers.get("host") ?? ""),
+    },
   });
 
   // Account-takeover prevention: only set a session for genuinely new users.

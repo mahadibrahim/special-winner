@@ -76,6 +76,9 @@ export async function createSubscriptionCheckoutSession(opts: {
   partnerStripeAccountId: string | null;
   successUrl: string;
   cancelUrl: string;
+  /** Storefront brand ("aspire" | "soccerone") — host-derived by the caller,
+   *  since both brands share one org and one Stripe account. */
+  brand: string;
 }): Promise<{ url: string; sessionId: string }> {
   const s = membershipsStripe();
 
@@ -86,6 +89,7 @@ export async function createSubscriptionCheckoutSession(opts: {
       organization_id: opts.organizationId,
       tier_id: opts.tierId,
       billing_interval: opts.billingInterval,
+      brand: opts.brand,
     },
     ...(opts.partnerStripeAccountId
       ? {
@@ -107,6 +111,7 @@ export async function createSubscriptionCheckoutSession(opts: {
         organization_id: opts.organizationId,
         tier_id: opts.tierId,
         billing_interval: opts.billingInterval,
+        brand: opts.brand,
       },
       success_url: opts.successUrl,
       cancel_url: opts.cancelUrl,

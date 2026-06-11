@@ -6,7 +6,7 @@ import RegistrationRibbon from '@/components/registration-ribbon';
 import PostHog from '@/components/posthog.astro';
 import GoogleTagManager from '@/components/google-tag-manager.astro';
 import GoogleTagManagerNoscript from '@/components/google-tag-manager-noscript.astro';
-import { SOCCERONE_ORG_SLUG } from "@/lib/organization/soccerone-routing";
+import { isSoccerOneHost } from "@/lib/organization/soccerone-routing";
 
 interface Props {
   title: string;
@@ -30,16 +30,16 @@ const {
   footer = true,
 } = Astro.props;
 
-// GTM container — per-brand. Aspire is the default (preserves byte-identical
-// behavior on every non-SoccerOne request). SoccerOne uses a separate
-// container when PUBLIC_GTM_CONTAINER_SOCCERONE is set; otherwise it also
-// falls back to Aspire's container.
+// GTM container — per-brand, keyed off the request host (brands share one
+// org, so the org slug can't distinguish them). Aspire is the default
+// (preserves byte-identical behavior on every non-SoccerOne request).
+// SoccerOne uses a separate container when PUBLIC_GTM_CONTAINER_SOCCERONE
+// is set; otherwise it also falls back to Aspire's container.
 const ASPIRE_GTM_CONTAINER = "GTM-N35VVNXC";
 const SOCCERONE_GTM_CONTAINER = import.meta.env.PUBLIC_GTM_CONTAINER_SOCCERONE || ASPIRE_GTM_CONTAINER;
-const gtmContainerId =
-  Astro.locals.organization?.slug === SOCCERONE_ORG_SLUG
-    ? SOCCERONE_GTM_CONTAINER
-    : ASPIRE_GTM_CONTAINER;
+const gtmContainerId = isSoccerOneHost(Astro.url.hostname)
+  ? SOCCERONE_GTM_CONTAINER
+  : ASPIRE_GTM_CONTAINER;
 ---
 <!DOCTYPE html>
 <html lang="en">

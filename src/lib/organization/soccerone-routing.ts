@@ -2,14 +2,19 @@
  * SoccerOne routing — the single source of truth for "what's a SoccerOne
  * host" and "what does it rewrite to."
  *
- * Phase 1 of the SoccerOne / gosoccerone.com project. Spec §6.
+ * SoccerOne is a *brand skin*, not a tenant: gosoccerone.com resolves to
+ * the same Aspire org as the main site and serves the same inventory
+ * (programs, drop-ins, rentals, memberships). Everything brand-specific is
+ * keyed off the request host — the org slug plays no role in routing.
+ * (Single-org cutover, 2026-06-11. Phase 1 spec §6 originally modeled
+ * SoccerOne as a separate org; that model is retired.)
  *
  * All functions are pure (no DB, no I/O) so they can be unit-tested without
  * the dev server. The middleware composes their outputs into real
  * `context.rewrite()` / `context.redirect()` calls.
  */
 
-/** Hostnames that should resolve to the SoccerOne tenant. */
+/** Hostnames that get the SoccerOne brand skin. */
 export const SOCCERONE_HOSTS: readonly string[] = [
   "gosoccerone.com",
   "www.gosoccerone.com",
@@ -17,9 +22,6 @@ export const SOCCERONE_HOSTS: readonly string[] = [
 
 /** Canonical SoccerOne host (apex 308-redirects to this). */
 export const SOCCERONE_CANONICAL_HOST = "www.gosoccerone.com" as const;
-
-/** Org slug that identifies the SoccerOne tenant in the `organizations` table. */
-export const SOCCERONE_ORG_SLUG = "soccerone" as const;
 
 /**
  * Marketing-root paths on a SoccerOne host that get rewritten into the
@@ -42,11 +44,29 @@ function normalizeHost(host: string): string {
 }
 
 /**
+ * True if the request host (raw `Host` header — port suffix tolerated) is
+ * one of the SoccerOne brand domains. This is THE brand check: routing,
+ * GTM container selection, and charge brand-attribution all key off it.
+ */
+export function isSoccerOneHost(host: string): boolean {
+  return SOCCERONE_HOSTS.includes(normalizeHost(host));
+}
+
+/**
+ * Brand label for Stripe charge metadata, derived from the request host.
+ * Both brands charge into the one shared Stripe account; this is the only
+ * signal distinguishing them now that they share a single org.
+ */
+export function brandFromHost(host: string): "soccerone" | "aspire" {
+  return isSoccerOneHost(host) ? "soccerone" : "aspire";
+}
+
+/**
  * If the pathname is a SoccerOne marketing root, return the path inside
  * `src/pages/soccerone/*` that should render it. Otherwise null.
  *
- * Caller responsibility: gate this on the resolved org being SoccerOne
- * (so non-SoccerOne hosts hitting the same path are unaffected).
+ * Caller responsibility: gate this on `isSoccerOneHost(host)` (so
+ * non-SoccerOne hosts hitting the same path are unaffected).
  */
 export function rewriteSoccerOnePath(pathname: string): string | null {
   return SOCCERONE_MARKETING_REWRITES[pathname] ?? null;
@@ -72,19 +92,8 @@ export function getAspireToSoccerOneRedirect(pathname: string): string | null {
   return null;
 }
 
-/**
- * True if the request host is a known SoccerOne domain but the resolver
- * returned a different org (or nothing). This catches the case where the
- * SoccerOne `domain_mappings` row is missing or `status` ≠ `ssl_active`
- * — the resolver falls back to the default org (Aspire) and silently
- * serves Aspire content on the SoccerOne domain. The middleware uses this
- * to serve a 404 / holding page instead.
- */
-export function isUnmappedSoccerOneHost(
-  host: string,
-  resolvedOrgSlug: string | null | undefined,
-): boolean {
-  const normalized = normalizeHost(host);
-  if (!SOCCERONE_HOSTS.includes(normalized)) return false;
-  return resolvedOrgSlug !== SOCCERONE_ORG_SLUG;
-}
+// NOTE: the Phase-1 `isUnmappedSoccerOneHost` 404-guard is gone. It existed
+// to stop a SoccerOne host from silently serving Aspire content when the
+// SoccerOne org's domain mapping was missing — under the single-org model,
+// Aspire content on a SoccerOne host IS the design (same inventory, brand
+// skin applied by host), so there is no wrong-content state left to guard.
