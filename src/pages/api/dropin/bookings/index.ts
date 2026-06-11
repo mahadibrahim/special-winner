@@ -31,6 +31,7 @@ import {
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
 import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 export const prerender = false;
 
@@ -201,6 +202,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     rate,
     waiverSignedAt,
     waiverName,
+    // Storefront brand — host-derived, since both brands share one org.
+    extraMetadata: { brand: brandFromHost(request.headers.get("host") ?? "") },
   });
 
   return json(

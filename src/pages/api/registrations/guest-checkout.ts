@@ -22,6 +22,7 @@ import {
 import { createSession } from "@/lib/auth";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import {
   recordConsent,
   recordDefaultMediaAuth,
@@ -110,7 +111,12 @@ export const POST: APIRoute = async (context) => {
     const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
     const fbclid = readQueryOrCookie(url, cookieHeader, "fbclid");
 
-    const analyticsMetadata: Record<string, string> = { via_guest_checkout: "true" };
+    const analyticsMetadata: Record<string, string> = {
+      via_guest_checkout: "true",
+      // Storefront the charge came through — brands share one org and one
+      // Stripe account, so the request host is the only brand signal.
+      brand: brandFromHost(request.headers.get("host") ?? ""),
+    };
     if (gaClientId) analyticsMetadata.ga_client_id = gaClientId;
     if (gclid) analyticsMetadata.gclid = gclid;
     if (fbclid) analyticsMetadata.fbclid = fbclid;

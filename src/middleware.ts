@@ -9,11 +9,9 @@ import {
 } from "./lib/admin/active-venue";
 import { ensureEnvValidated } from "./lib/env";
 import {
-  SOCCERONE_HOSTS,
-  SOCCERONE_ORG_SLUG,
+  isSoccerOneHost,
   rewriteSoccerOnePath,
   getAspireToSoccerOneRedirect,
-  isUnmappedSoccerOneHost,
 } from "./lib/organization/soccerone-routing";
 
 // Env validation runs on the first request, not at module load. Validating
@@ -194,45 +192,30 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   // ---------------------------------------------------------------------
-  // SoccerOne routing (Phase 1).
+  // SoccerOne routing — brand skin keyed purely off the request host.
   //
-  // Three branches, each returns a Response directly. For any non-SoccerOne
-  // request, all three are null/false and we fall through to the existing
-  // Aspire middleware logic — byte-identical behavior.
+  // SoccerOne shares the Aspire org and inventory (single-org cutover,
+  // 2026-06-11); the resolver scopes data identically on every host. The
+  // two branches below only decide which chrome renders where. For any
+  // non-SoccerOne request, both are null and we fall through unchanged.
   // ---------------------------------------------------------------------
   const soccerOneHost = context.request.headers.get("host") ?? "";
   const soccerOneUrl = new URL(context.request.url);
-  const soccerOneOrgSlug = context.locals.organization?.slug ?? null;
 
-  // Branch 1 — Unmapped SoccerOne host guard.
-  // If the request host is a SoccerOne domain but the resolver returned
-  // something other than the SoccerOne org (default fallback to Aspire, or
-  // null), DO NOT serve Aspire content silently. Serve a 404 instead.
-  if (isUnmappedSoccerOneHost(soccerOneHost, soccerOneOrgSlug)) {
-    return new Response("Not Found", {
-      status: 404,
-      headers: { "Content-Type": "text/plain" },
-    });
-  }
-
-  // Branch 2 — Aspire-host /soccerone/* → 301 to canonical gosoccerone.com.
+  // Branch 1 — Aspire-host /soccerone/* → 301 to canonical gosoccerone.com.
   // Avoids duplicate-content SEO split. The /soccerone/* page files exist
-  // as the rewrite target for Branch 3, not as a public surface on Aspire.
-  if (
-    soccerOneOrgSlug !== SOCCERONE_ORG_SLUG &&
-    !SOCCERONE_HOSTS.includes(soccerOneHost.split(":")[0].toLowerCase())
-  ) {
+  // as the rewrite target for Branch 2, not as a public surface on Aspire.
+  if (!isSoccerOneHost(soccerOneHost)) {
     const target = getAspireToSoccerOneRedirect(soccerOneUrl.pathname);
     if (target) {
       return context.redirect(target, 301);
     }
   }
 
-  // Branch 3 — SoccerOne-host marketing root → rewrite into soccerone/* subtree.
-  // Only fires when the resolved org IS SoccerOne, so shared routes
-  // (/register, /rentals, /dropin, /api/*) pass through unchanged and the
-  // resolver scopes them.
-  if (soccerOneOrgSlug === SOCCERONE_ORG_SLUG) {
+  // Branch 2 — SoccerOne-host marketing root → rewrite into soccerone/* subtree.
+  // Shared routes (/register, /rentals, /dropin, /api/*) pass through
+  // unchanged and serve the same org-scoped data as the Aspire site.
+  if (isSoccerOneHost(soccerOneHost)) {
     const rewriteTarget = rewriteSoccerOnePath(soccerOneUrl.pathname);
     if (rewriteTarget) {
       // Compose the full URL for context.rewrite() — preserve query + hash.

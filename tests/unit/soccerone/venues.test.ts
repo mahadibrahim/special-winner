@@ -1,11 +1,15 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { getDb } from "@/lib/db";
-import { organizations, locations, venues } from "@/lib/db/schema";
+import { organizations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { getSoccerOneVenuesByLocation } from "@/lib/soccerone/venues";
+import { getRentalVenuesByLocation } from "@/lib/soccerone/venues";
 
-describe("getSoccerOneVenuesByLocation()", () => {
-  let soccerOneOrgId: string;
+// Uses the seeded "soccerone" fixture org (an org with rental-enabled
+// venues) purely as test data — in prod the brands share the Aspire org
+// and callers pass `Astro.locals.organization.id`.
+describe("getRentalVenuesByLocation()", () => {
+  let fixtureOrgId: string;
+  let otherOrgId: string;
 
   beforeAll(async () => {
     const [org] = await getDb()
@@ -14,13 +18,20 @@ describe("getSoccerOneVenuesByLocation()", () => {
       .where(eq(organizations.slug, "soccerone"))
       .limit(1);
     if (!org) {
-      throw new Error("SoccerOne org missing — run scripts/seed-soccerone-org.ts + npm run db:seed:e2e");
+      throw new Error("SoccerOne fixture org missing — run scripts/seed-soccerone-org.ts + npm run db:seed:e2e");
     }
-    soccerOneOrgId = org.id;
+    fixtureOrgId = org.id;
+
+    const [other] = await getDb()
+      .select()
+      .from(organizations)
+      .where(eq(organizations.slug, "aspire-sports"))
+      .limit(1);
+    otherOrgId = other?.id ?? "00000000-0000-0000-0000-000000000000";
   });
 
-  it("returns only SoccerOne Downtown's rental-enabled venues when called with 'soccerone-downtown'", async () => {
-    const result = await getSoccerOneVenuesByLocation("soccerone-downtown");
+  it("returns only the org's rental-enabled venues at the given location slug", async () => {
+    const result = await getRentalVenuesByLocation(fixtureOrgId, "soccerone-downtown");
     expect(result.length).toBeGreaterThan(0);
     for (const v of result) {
       expect(v.rentalEnabled).toBe(true);
@@ -28,13 +39,13 @@ describe("getSoccerOneVenuesByLocation()", () => {
   });
 
   it("returns an empty array for a non-existent location slug", async () => {
-    const result = await getSoccerOneVenuesByLocation("never-existed");
+    const result = await getRentalVenuesByLocation(fixtureOrgId, "never-existed");
     expect(result).toEqual([]);
   });
 
-  it("does not return non-SoccerOne venues even if the location slug exists for another org", async () => {
-    // Aspire's existing "powell" location is a non-SoccerOne location.
-    const result = await getSoccerOneVenuesByLocation("powell");
+  it("does not return venues when the location slug belongs to a different org", async () => {
+    // "soccerone-downtown" exists under the fixture org, not under `otherOrgId`.
+    const result = await getRentalVenuesByLocation(otherOrgId, "soccerone-downtown");
     expect(result).toEqual([]);
   });
 });

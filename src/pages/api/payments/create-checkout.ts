@@ -7,6 +7,7 @@ import {
 } from "@/lib/payments/create-checkout-for-registration";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { parseGaClientId, readQueryOrCookie } from "@/lib/analytics/parse-cookies";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 const checkoutSchema = z.object({
   registrationId: z.string().uuid("Invalid registration ID"),
@@ -55,7 +56,11 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
     const fbclid = readQueryOrCookie(url, cookieHeader, "fbclid");
 
-    const extraMetadata: Record<string, string> = {};
+    // Storefront the charge came through — the brands share one org and
+    // one Stripe account, so the request host is the only brand signal.
+    const extraMetadata: Record<string, string> = {
+      brand: brandFromHost(request.headers.get("host") ?? ""),
+    };
     if (gaClientId) extraMetadata.ga_client_id = gaClientId;
     if (gclid) extraMetadata.gclid = gclid;
     if (fbclid) extraMetadata.fbclid = fbclid;

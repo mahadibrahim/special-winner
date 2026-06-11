@@ -28,6 +28,7 @@ import {
 } from "@/lib/rentals/booking";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import { applyMemberRentalDiscount } from "@/lib/memberships/discount";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 export const prerender = false;
 
@@ -248,6 +249,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           organization_id: orgId,
           membership_id: memberDiscountMembershipId ?? "",
           base_amount_cents: String(baseAmountDueCents),
+          // Storefront brand — host-derived, since both brands share one org.
+          brand: brandFromHost(request.headers.get("host") ?? ""),
         },
         payment_intent_data: partnerStripeAccountId
           ? {

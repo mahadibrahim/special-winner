@@ -1,23 +1,23 @@
 /**
- * One-off provisioning script: create the SoccerOne organization, its
- * locations, and domain_mappings rows.
+ * TEST-FIXTURE provisioning script: create the "soccerone" fixture
+ * organization, its locations, and domain_mappings rows.
+ *
+ * ⚠️ Single-org cutover (2026-06-11): in prod, SoccerOne is a brand skin
+ * over the Aspire org — NOT a tenant — and gosoccerone.com's
+ * domain_mappings point at the Aspire org. Do NOT run this against prod.
+ * The script survives only because test fixtures depend on the
+ * "soccerone" slug org as "an org with tiers/venues configured" for
+ * multi-tenant coverage (seed-e2e Stages 12/13, membership API tests,
+ * tests/unit/soccerone/venues.test.ts).
  *
  * Idempotent — safe to re-run. Each insert is "select-by-slug,
  * insert-if-missing." No deletes.
  *
- * Usage (staging / switchyard):
+ * Usage (staging / switchyard / local only):
  *   npx tsx scripts/seed-soccerone-org.ts
  *
- * Usage (prod):
- *   npx tsx scripts/seed-soccerone-org.ts --prod
- *
- * The `--prod` flag is required to target a prod DB. Without it, the
- * script refuses to run unless DATABASE_URL contains "staging",
- * "switchyard", or "localhost".
- *
- * Per CLAUDE.md "Database write surface" — this is a branch-specific
- * one-off. Delete the file after the SoccerOne launch is confirmed
- * stable in prod.
+ * Refuses to run unless DATABASE_URL contains "staging", "switchyard",
+ * or "localhost" (legacy --prod override retained but should not be used).
  */
 import "dotenv/config";
 import { getDb } from "../src/lib/db";

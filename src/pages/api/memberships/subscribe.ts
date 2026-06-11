@@ -20,6 +20,7 @@ import {
   createSubscriptionCheckoutSession,
 } from "@/lib/memberships/stripe";
 import { stripe } from "@/lib/stripe/client";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 export const prerender = false;
 
@@ -122,6 +123,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       partnerStripeAccountId,
       successUrl: `${appUrl}/dashboard/play?membership=success`,
       cancelUrl: `${appUrl}/memberships?membership=cancelled`,
+      // Storefront brand — host-derived, since both brands share one org.
+      brand: brandFromHost(request.headers.get("host") ?? ""),
     });
     return json(
       { checkoutUrl: result.url, checkoutSessionId: result.sessionId },

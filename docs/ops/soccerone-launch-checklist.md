@@ -1,5 +1,34 @@
 # SoccerOne launch checklist
 
+> ## ⚠️ SUPERSEDED IN PART — single-org cutover (2026-06-11)
+>
+> **SoccerOne is a brand skin, not a tenant.** Aspire powers SoccerOne:
+> both domains serve the **same Aspire org and the same inventory**
+> (programs, drop-ins, rentals, memberships). The middleware keys the
+> SoccerOne chrome purely off the request host; the org slug plays no
+> role in routing, and the unmapped-host 404 guard is gone.
+>
+> What this changes in the checklist below:
+> - **Stage 6 / 6.5 (per-org SoccerOne catalog) is obsolete.** Do NOT
+>   provision a SoccerOne tenant or duplicate inventory. In prod, both
+>   `gosoccerone.com` domain_mappings rows point at the **Aspire org**.
+>   `scripts/seed-soccerone-org.ts` is retained as a **test fixture
+>   only** — never run it against prod.
+> - **Stripe Connect steps are obsolete** — one shared Stripe account;
+>   charges carry a host-derived `brand` metadata field
+>   (`aspire` | `soccerone`) for brand attribution.
+> - **Membership tiers** are created once, under the Aspire org, and
+>   serve both brands.
+> - **Rollback:** repoint the domain_mappings rows or remove the Netlify
+>   aliases; there is no 404-guard state anymore.
+>
+> Remaining shared-inventory work (applies to both brands equally):
+> enable `rentalEnabled` + rental rate card on real venues; create
+> membership tiers via `/admin/memberships`.
+>
+> Stages 1–5 (Netlify/DNS/SSL) and Stage 8 (smoke) remain accurate and
+> are complete as of 2026-06-10/11.
+
 Step-by-step ops sequence to take `www.gosoccerone.com` from "code merged"
 to "real traffic served." Run in order — no step can be skipped without
 risking either silent Aspire content on the SoccerOne domain (the regression

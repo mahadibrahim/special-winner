@@ -5,16 +5,20 @@ import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { Toaster } from 'sonner';
 import { FieldCalendar } from '@/components/soccerone/FieldCalendar';
-import { getSoccerOneVenuesByLocation } from '@/lib/soccerone/venues';
+import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
 const fieldCount = facility === 'downtown' ? '1 field' : '3 fields';
 
-const locationSlug =
-  facility === 'worthington' ? 'soccerone-worthington' : 'soccerone-downtown';
+// Brands share one org — the facility param maps straight onto the org's
+// location slugs ('downtown' / 'worthington').
+const locationSlug = facility === 'worthington' ? 'worthington' : 'downtown';
 
-const venueList = await getSoccerOneVenuesByLocation(locationSlug);
+const organizationId = Astro.locals.organization?.id ?? null;
+const venueList = organizationId
+  ? await getRentalVenuesByLocation(organizationId, locationSlug)
+  : [];
 const venueId = venueList.length > 0 ? venueList[0].id : null;
 ---
 
