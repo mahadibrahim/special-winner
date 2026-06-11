@@ -1,0 +1,50 @@
+---
+// SSR like /adult — the island fetches host-scoped public endpoints
+// client-side; keep request-time rendering (no prerender flag).
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import CategoryFinder from "@/components/landing/category-finder.tsx";
+import CTABanner from "@/components/cta-banner";
+---
+
+<BaseLayout
+  title="Adult Tournaments — Aspire Sports"
+  description="One-day adult sports tournaments in Columbus and central Ohio. Bring a full team or sign up solo and get placed."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/adult/tournaments`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-12">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+          <a href="/adult" class="hover:underline">Adult Sports</a> · Central Ohio
+        </p>
+        <h1
+          class="font-display max-w-3xl"
+          style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          Adult tournaments.
+        </h1>
+        <p class="mt-4 text-lg text-cream/85 max-w-2xl">
+          One-day events — a full bracket, fair refs, and a winner by sundown.
+          Bring a team or sign up and get placed.
+        </p>
+        <p class="mt-3 text-sm text-cream/60">
+          Want season-long play instead? <a href="/adult/leagues" class="underline hover:text-cream">Adult leagues</a>.
+        </p>
+      </div>
+    </section>
+
+    <CategoryFinder
+      client:load
+      audience="adult"
+      programTypes={["tournament"]}
+      title="Open now"
+      descriptor="Bring a team or sign up and get placed."
+      sectionId="adult-tournaments"
+    />
+
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>

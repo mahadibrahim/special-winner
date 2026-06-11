@@ -1,0 +1,50 @@
+---
+// SSR like /adult — the island fetches host-scoped public endpoints
+// client-side; keep request-time rendering (no prerender flag).
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import CategoryFinder from "@/components/landing/category-finder.tsx";
+import CTABanner from "@/components/cta-banner";
+---
+
+<BaseLayout
+  title="Adult Leagues — Aspire Sports"
+  description="Adult sports leagues in Columbus and central Ohio. Organized seasons, fair refs, team and free-agent signup — find your league night."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/adult/leagues`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-12">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+          <a href="/adult" class="hover:underline">Adult Sports</a> · Central Ohio
+        </p>
+        <h1
+          class="font-display max-w-3xl"
+          style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          Adult leagues.
+        </h1>
+        <p class="mt-4 text-lg text-cream/85 max-w-2xl">
+          Season-long play with fair refs, reliable scheduling, and a post-game
+          scene worth staying for. Sign up a full team or join as a free agent.
+        </p>
+        <p class="mt-3 text-sm text-cream/60">
+          Looking for <a href="/youth/leagues" class="underline hover:text-cream">youth leagues</a>?
+        </p>
+      </div>
+    </section>
+
+    <CategoryFinder
+      client:load
+      audience="adult"
+      programTypes={["league"]}
+      title="Open now"
+      descriptor="Sign up a full team or join as a free agent."
+      sectionId="adult-leagues"
+    />
+
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>
