@@ -21,6 +21,7 @@ import {
   Settings,
   BarChart3,
   type LucideIcon,
+  CalendarDays,
 } from "lucide-react";
 
 export type NavItem = {
@@ -46,6 +47,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
   {
     name: "Plan",
     items: [
+      { name: "Venue calendar", href: "/admin/venue", icon: CalendarDays },
       { name: "Seasons", href: "/admin/seasons", icon: Calendar },
       { name: "Programs", href: "/admin/programs", icon: Dumbbell },
       { name: "Drop-ins", href: "/admin/dropins", icon: Zap },
