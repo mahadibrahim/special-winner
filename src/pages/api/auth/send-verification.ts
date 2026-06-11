@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { isEmailConfigured } from "@/lib/email";
 import { sendEmailVerificationEmail } from "@/lib/email/send";
 import { validateSession } from "@/lib/auth/session";
+import { hashToken } from "@/lib/auth/token-hash";
 import crypto from "crypto";
 
 export const POST: APIRoute = async (context) => {
@@ -44,13 +45,15 @@ export const POST: APIRoute = async (context) => {
       .delete(emailVerificationTokens)
       .where(eq(emailVerificationTokens.userId, user.id));
 
-    // Generate secure token
+    // Generate secure token. Only the SHA-256 digest is stored — the
+    // plaintext goes into the email link and is hashed again on
+    // consumption (see /api/auth/verify-email).
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Store token
+    // Store token digest
     await getDb().insert(emailVerificationTokens).values({
-      id: token,
+      id: hashToken(token),
       userId: user.id,
       email: userData[0].email,
       expiresAt,

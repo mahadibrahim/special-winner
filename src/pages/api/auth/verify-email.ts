@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { users, emailVerificationTokens, sessions } from "@/lib/db/schema";
 import { eq, and, gt } from "drizzle-orm";
+import { hashToken } from "@/lib/auth/token-hash";
 
 const verifyEmailSchema = z.object({
   token: z.string().min(1, "Token is required"),
@@ -28,13 +29,15 @@ export const POST: APIRoute = async ({ request }) => {
 
     const { token } = result.data;
 
-    // Find valid token
+    // Find valid token — rows store the SHA-256 digest, never the
+    // plaintext (see /api/auth/send-verification), so hash the presented
+    // token before lookup.
     const verificationToken = await getDb()
       .select()
       .from(emailVerificationTokens)
       .where(
         and(
-          eq(emailVerificationTokens.id, token),
+          eq(emailVerificationTokens.id, hashToken(token)),
           gt(emailVerificationTokens.expiresAt, new Date())
         )
       )

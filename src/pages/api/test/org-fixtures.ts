@@ -4,8 +4,11 @@
  * Test-only endpoint that returns the first program, season, venue, sport
  * and location belonging to the org identified by `slug`.
  *
- * ONLY available when the DISABLE_RATE_LIMIT env var is set (CI / local
- * test runs). Returns 404 in production builds.
+ * ONLY available when E2E_TEST_ENDPOINTS=yes (CI / local test runs).
+ * Returns 404 otherwise. Deliberately NOT keyed off DISABLE_RATE_LIMIT —
+ * that flag exists to relax rate limiting and someone setting it for that
+ * purpose should not silently open a fixture endpoint that dumps an org's
+ * resource IDs and team registration tokens.
  *
  * Used by admin-tenant-scoping.test.ts to discover Org B resource IDs
  * without requiring Host header routing (which Node.js fetch does not
@@ -22,8 +25,8 @@ import { teamRegistrations } from "@/lib/db/schema/team-registrations";
 import { eq, asc } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ url }) => {
-  // Only available in test/dev environments
-  if (!process.env.DISABLE_RATE_LIMIT) {
+  // Only available in test/dev environments — explicit opt-in.
+  if (process.env.E2E_TEST_ENDPOINTS !== "yes") {
     return new Response(JSON.stringify({ error: "Not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },

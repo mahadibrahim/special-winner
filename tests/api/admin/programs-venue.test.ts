@@ -8,7 +8,7 @@
  *   4. Location-admin cannot use a cross-org venue_id (gets 404)
  *
  * Relies on Org B fixture data (seeded by seed-e2e-tests.ts):
- *   GET /api/test/org-fixtures?slug=orgb  (only enabled when DISABLE_RATE_LIMIT=1)
+ *   GET /api/test/org-fixtures?slug=orgb  (only enabled when E2E_TEST_ENDPOINTS=yes)
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -49,7 +49,7 @@ beforeAll(async () => {
   if (orgBFixtureRes.status !== 200) {
     throw new Error(
       `Could not load Org B fixtures (status ${orgBFixtureRes.status}). ` +
-        "Ensure DISABLE_RATE_LIMIT=1 is set and the e2e seed has been run.",
+        "Ensure E2E_TEST_ENDPOINTS=yes is set and the e2e seed has been run.",
     );
   }
   const orgBFixtures = await orgBFixtureRes.json();
