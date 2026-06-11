@@ -35,7 +35,7 @@ export function MembershipTier({
   testimonial,
   highlighted = false,
   ctaLabel,
-  accentColor = "#facc15",
+  accentColor = "var(--so-tier-gold)",
   onCta,
 }: MembershipTierProps) {
   const handleSignup = () => {
@@ -123,15 +123,15 @@ export function MembershipTier({
 
       <style>{`
         .membership-tier {
-          background: #0d2035;
+          background: var(--so-navy-raised);
           border: 1.5px solid rgba(255,255,255,0.1);
-          border-radius: 12px;
+          border-radius: var(--so-radius-xl);
           padding: 2rem;
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
           position: relative;
-          font-family: 'Inter', sans-serif;
+          font-family: var(--so-font-body);
           transition: border-color 0.2s, transform 0.2s;
         }
         .membership-tier:hover {
@@ -148,15 +148,15 @@ export function MembershipTier({
           top: -14px;
           left: 50%;
           transform: translateX(-50%);
-          background: var(--tier-accent, #facc15);
-          color: #0a1929;
-          font-family: 'Space Grotesk', sans-serif;
+          background: var(--tier-accent, var(--so-tier-gold));
+          color: var(--so-navy);
+          font-family: var(--so-font-body);
           font-size: 0.6875rem;
           font-weight: 700;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           padding: 4px 14px;
-          border-radius: 20px;
+          border-radius: var(--so-radius-pill);
           white-space: nowrap;
         }
         .tier-header {
@@ -165,7 +165,7 @@ export function MembershipTier({
           gap: 0.75rem;
         }
         .tier-name {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 1.375rem;
           font-weight: 700;
           color: #ffffff;
@@ -183,10 +183,10 @@ export function MembershipTier({
           gap: 2px;
         }
         .price-amount {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 2.5rem;
           font-weight: 800;
-          color: var(--tier-accent, #facc15);
+          color: var(--tier-accent, var(--so-tier-gold));
           letter-spacing: -0.04em;
           line-height: 1;
         }
@@ -210,7 +210,7 @@ export function MembershipTier({
           color: #4ade80;
           background: rgba(74,222,128,0.1);
           padding: 2px 8px;
-          border-radius: 20px;
+          border-radius: var(--so-radius-pill);
         }
         .tier-benefits {
           list-style: none;
@@ -238,14 +238,14 @@ export function MembershipTier({
         .benefit-icon {
           flex-shrink: 0;
           margin-top: 1px;
-          color: var(--tier-accent, #facc15);
+          color: var(--tier-accent, var(--so-tier-gold));
         }
         .benefit-text {
           flex: 1;
         }
         .tier-testimonial {
           background: rgba(255,255,255,0.04);
-          border-left: 3px solid var(--tier-accent, #facc15);
+          border-left: 3px solid var(--tier-accent, var(--so-tier-gold));
           border-radius: 0 6px 6px 0;
           padding: 0.875rem 1rem;
           margin: 0;
@@ -265,15 +265,15 @@ export function MembershipTier({
         .tier-cta {
           display: block;
           width: 100%;
-          background: var(--tier-accent, #facc15);
-          color: #0a1929;
-          font-family: 'Space Grotesk', sans-serif;
+          background: var(--tier-accent, var(--so-tier-gold));
+          color: var(--so-navy);
+          font-family: var(--so-font-body);
           font-size: 0.9375rem;
           font-weight: 700;
           letter-spacing: 0.02em;
           text-transform: uppercase;
           border: none;
-          border-radius: 6px;
+          border-radius: var(--so-radius-md);
           padding: 0.875rem;
           cursor: pointer;
           transition: filter 0.15s, transform 0.1s;

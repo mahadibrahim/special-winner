@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- SoccerOne favicon — ink tile, lime "S1" wordmark fragment.
+       Matches --so-ink / --so-lime from src/styles/soccerone-tokens.css. -->
+  <rect width="128" height="128" rx="24" fill="#0a0a0d"/>
+  <text x="64" y="88" text-anchor="middle"
+        font-family="Arial Black, Arial, sans-serif" font-weight="900"
+        font-size="64" letter-spacing="-2" fill="#a3e635">S1</text>
+  <rect x="20" y="100" width="88" height="6" rx="3" fill="#a3e635"/>
+</svg>

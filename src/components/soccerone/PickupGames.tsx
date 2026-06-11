@@ -151,7 +151,7 @@ function GameCard({ session }: { session: DropInSession }) {
         .pickup-game-card {
           border-width: 1.5px;
           border-style: solid;
-          border-radius: 12px;
+          border-radius: var(--so-radius-xl);
           padding: 1.25rem;
           display: flex;
           flex-direction: column;
@@ -159,7 +159,7 @@ function GameCard({ session }: { session: DropInSession }) {
           min-width: 260px;
           max-width: 340px;
           transition: transform 0.2s;
-          font-family: 'Inter', sans-serif;
+          font-family: var(--so-font-body);
         }
         .pickup-game-card:hover {
           transform: translateY(-2px);
@@ -171,13 +171,13 @@ function GameCard({ session }: { session: DropInSession }) {
           gap: 0.5rem;
         }
         .pgc-skill-badge {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 0.6875rem;
           font-weight: 700;
           letter-spacing: 0.09em;
           text-transform: uppercase;
           padding: 3px 10px;
-          border-radius: 20px;
+          border-radius: var(--so-radius-pill);
         }
         .pgc-urgent-badge {
           font-size: 0.6875rem;
@@ -186,11 +186,11 @@ function GameCard({ session }: { session: DropInSession }) {
           color: #f97316;
           background: rgba(249,115,22,0.15);
           padding: 3px 8px;
-          border-radius: 20px;
+          border-radius: var(--so-radius-pill);
           text-transform: uppercase;
         }
         .pgc-name {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 1rem;
           font-weight: 700;
           color: #ffffff;
@@ -221,13 +221,13 @@ function GameCard({ session }: { session: DropInSession }) {
         .pgc-spots-bar {
           height: 4px;
           background: rgba(255,255,255,0.1);
-          border-radius: 2px;
+          border-radius: var(--so-radius-xs);
           overflow: hidden;
         }
         .pgc-spots-fill {
           height: 100%;
           background: rgba(255,255,255,0.35);
-          border-radius: 2px;
+          border-radius: var(--so-radius-xs);
           transition: width 0.3s;
         }
         .pgc-spots-label {
@@ -241,7 +241,7 @@ function GameCard({ session }: { session: DropInSession }) {
           gap: 0.5rem;
         }
         .pgc-price {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 1.375rem;
           font-weight: 800;
           color: #facc15;
@@ -249,14 +249,14 @@ function GameCard({ session }: { session: DropInSession }) {
         }
         .pgc-book-btn {
           background: #facc15;
-          color: #0a1929;
-          font-family: 'Space Grotesk', sans-serif;
+          color: var(--so-navy);
+          font-family: var(--so-font-body);
           font-size: 0.8125rem;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.04em;
           border: none;
-          border-radius: 6px;
+          border-radius: var(--so-radius-md);
           padding: 0.5rem 1rem;
           cursor: pointer;
           transition: filter 0.15s, transform 0.1s;
@@ -362,11 +362,11 @@ export default function PickupGames() {
 
       <style>{`
         .pickup-games-root {
-          font-family: 'Inter', sans-serif;
+          font-family: var(--so-font-body);
         }
         .games-section-wrap {
           padding: 3.5rem 0 2rem;
-          background: #0a1929;
+          background: var(--so-navy);
         }
         .games-section-inner {
           max-width: 1280px;
@@ -396,7 +396,7 @@ export default function PickupGames() {
           50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(74,222,128,0); }
         }
         .games-section-title {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 1.5rem;
           font-weight: 700;
           color: #ffffff;
@@ -415,7 +415,7 @@ export default function PickupGames() {
         }
         .games-week-wrap {
           padding: 2rem 0 4rem;
-          background: #0d2035;
+          background: var(--so-navy-raised);
           border-top: 1px solid rgba(255,255,255,0.06);
         }
         .games-week-scroll {

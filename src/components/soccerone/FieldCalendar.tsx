@@ -394,7 +394,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
 
       <style>{`
         .field-calendar-root {
-          font-family: 'Inter', sans-serif;
+          font-family: var(--so-font-body);
           color: rgba(255,255,255,0.85);
         }
         .calendar-filters {
@@ -421,9 +421,9 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           color: rgba(250,204,21,0.8);
         }
         .filter-select, .filter-input {
-          background: #0a1929;
+          background: var(--so-navy);
           border: 1.5px solid rgba(255,255,255,0.15);
-          border-radius: 6px;
+          border-radius: var(--so-radius-md);
           color: white;
           font-size: 0.9375rem;
           padding: 0.5rem 0.875rem;
@@ -439,7 +439,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           border-color: #facc15;
         }
         .filter-select option {
-          background: #0a1929;
+          background: var(--so-navy);
           color: white;
         }
         .member-toggle-group {
@@ -496,7 +496,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           display: inline-block;
           width: 12px;
           height: 12px;
-          border-radius: 2px;
+          border-radius: var(--so-radius-xs);
         }
         .legend-available { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); }
         .legend-booked    { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
@@ -510,7 +510,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           align-items: center;
           gap: 1rem;
           padding: 0.625rem 1rem;
-          border-radius: 6px;
+          border-radius: var(--so-radius-md);
           min-height: 48px;
           border-left: 3px solid transparent;
           transition: background 0.15s, border-color 0.15s;
@@ -582,16 +582,16 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           letter-spacing: 0.08em;
           text-transform: uppercase;
           background: #facc15;
-          color: #0a1929;
+          color: var(--so-navy);
           padding: 2px 8px;
-          border-radius: 20px;
+          border-radius: var(--so-radius-pill);
           flex-shrink: 0;
         }
         /* Booking panel */
         .booking-panel {
-          background: #0d2035;
+          background: var(--so-navy-raised);
           border: 1.5px solid rgba(255,255,255,0.12);
-          border-radius: 12px;
+          border-radius: var(--so-radius-xl);
           padding: 1.5rem;
           position: sticky;
           top: 88px;
@@ -610,7 +610,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           justify-content: space-between;
         }
         .panel-title {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 1.125rem;
           font-weight: 700;
           color: white;
@@ -622,7 +622,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           color: rgba(255,255,255,0.4);
           cursor: pointer;
           padding: 4px;
-          border-radius: 4px;
+          border-radius: var(--so-radius-sm);
           transition: color 0.15s;
         }
         .panel-close:hover { color: white; }
@@ -631,7 +631,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           flex-direction: column;
           gap: 0.5rem;
           background: rgba(255,255,255,0.04);
-          border-radius: 8px;
+          border-radius: var(--so-radius-lg);
           padding: 1rem;
         }
         .slot-info-row {
@@ -662,7 +662,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           background: rgba(74,222,128,0.15);
           color: #86efac;
           padding: 2px 7px;
-          border-radius: 20px;
+          border-radius: var(--so-radius-pill);
           letter-spacing: 0.04em;
         }
         .member-upsell {
@@ -734,7 +734,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           font-weight: 600;
         }
         .total-amount {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: var(--so-font-body);
           font-size: 1.75rem;
           font-weight: 800;
           color: #facc15;
@@ -742,14 +742,14 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
         }
         .panel-book-btn {
           background: #facc15;
-          color: #0a1929;
-          font-family: 'Space Grotesk', sans-serif;
+          color: var(--so-navy);
+          font-family: var(--so-font-body);
           font-size: 1rem;
           font-weight: 700;
           letter-spacing: 0.02em;
           text-transform: uppercase;
           border: none;
-          border-radius: 8px;
+          border-radius: var(--so-radius-lg);
           padding: 0.875rem;
           cursor: pointer;
           width: 100%;
