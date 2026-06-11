@@ -19,7 +19,9 @@ const organizationId = Astro.locals.organization?.id ?? null;
 const venueList = organizationId
   ? await getRentalVenuesByLocation(organizationId, locationSlug)
   : [];
-const venueId = venueList.length > 0 ? venueList[0].id : null;
+// Venues are modeled one-per-physical-field; the calendar's Field selector
+// switches between them.
+const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
 ---
 
 <BaseLayout
@@ -138,7 +140,7 @@ const venueId = venueList.length > 0 ? venueList[0].id : null;
           </div>
         </div>
 
-        <FieldCalendar client:load venueId={venueId} />
+        <FieldCalendar client:load venues={calendarVenues} />
       </div>
     </div>
 
