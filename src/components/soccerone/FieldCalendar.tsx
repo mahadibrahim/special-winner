@@ -63,16 +63,28 @@ interface SelectedSlot {
   hour: number;
 }
 
+export interface FieldCalendarVenue {
+  id: string;
+  name: string;
+}
+
 export interface FieldCalendarProps {
-  /** UUID of the SoccerOne venue whose availability to show. When null/undefined the component shows an empty state. */
-  venueId: string | null;
+  /**
+   * Rental-enabled venues at the current facility. Venues are modeled
+   * one-per-physical-field (fieldCount=1), so when there are multiple the
+   * "Field" selector switches venues; a single venue with fieldCount > 1
+   * falls back to switching field numbers within it. Empty array shows an
+   * empty state.
+   */
+  venues: FieldCalendarVenue[];
   /** Initial date (YYYY-MM-DD). Defaults to today. */
   initialDate?: string;
 }
 
-export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
+export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(initialDate ?? today);
+  const [venueId, setVenueId] = useState<string | null>(venues[0]?.id ?? null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -189,11 +201,19 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
     }
   };
 
-  // Field numbers to show in the selector
+  // Field numbers to show in the selector (single-venue mode)
   const fieldNumbers =
     availability && availability.fields.length > 0
       ? availability.fields.map((f) => f.fieldNumber)
       : [selectedField];
+
+  // Label for the currently selected bookable unit. Venues are modeled
+  // one-per-field, so with multiple venues the venue NAME ("Field 2") is
+  // the user-facing field label; within a single venue the field number is.
+  const selectedUnitLabel =
+    venues.length > 1
+      ? (venues.find((v) => v.id === venueId)?.name ?? "Field")
+      : `Field ${selectedField}`;
 
   return (
     <div className="field-calendar-root">
@@ -201,16 +221,33 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
       <div className="calendar-filters">
         <div className="filter-group">
           <label htmlFor="field-select" className="filter-label">Field</label>
-          <select
-            id="field-select"
-            className="filter-select"
-            value={selectedField}
-            onChange={(e) => { setSelectedField(Number(e.target.value)); setSelectedSlot(null); }}
-          >
-            {fieldNumbers.map((n) => (
-              <option key={n} value={n}>Field {n}</option>
-            ))}
-          </select>
+          {venues.length > 1 ? (
+            <select
+              id="field-select"
+              className="filter-select"
+              value={venueId ?? ""}
+              onChange={(e) => {
+                setVenueId(e.target.value);
+                setSelectedField(1);
+                setSelectedSlot(null);
+              }}
+            >
+              {venues.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          ) : (
+            <select
+              id="field-select"
+              className="filter-select"
+              value={selectedField}
+              onChange={(e) => { setSelectedField(Number(e.target.value)); setSelectedSlot(null); }}
+            >
+              {fieldNumbers.map((n) => (
+                <option key={n} value={n}>Field {n}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="filter-group">
@@ -268,8 +305,8 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
           )}
           {!loading && !error && !venueId && (
             <EmptyState
-              title="Pick a facility"
-              description="Choose Downtown or Worthington above to see field availability."
+              title="No rentable fields at this facility"
+              description="Try the other facility, or check back soon."
             />
           )}
           {!loading && !error && availability && availability.fields.length === 0 && (
@@ -300,7 +337,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
                     tabIndex={bookable ? 0 : -1}
                     aria-label={
                       bookable
-                        ? `Select ${formatHour(h)} slot on Field ${selectedField}`
+                        ? `Select ${formatHour(h)} slot on ${selectedUnitLabel}`
                         : undefined
                     }
                     onKeyDown={(e) => {
@@ -345,7 +382,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
               <div className="panel-slot-info">
                 <div className="slot-info-row">
                   <span className="slot-info-label">Field</span>
-                  <span className="slot-info-value">Field {selectedSlot.field}</span>
+                  <span className="slot-info-value">{selectedUnitLabel}</span>
                 </div>
                 <div className="slot-info-row">
                   <span className="slot-info-label">Time</span>
@@ -432,7 +469,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
                   <path d="M16 24h16M24 16v16" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round"/>
                 </svg>
               </div>
-              <p className="panel-empty-text">Select an available time slot on the calendar to book Field {selectedField}.</p>
+              <p className="panel-empty-text">Select an available time slot on the calendar to book {selectedUnitLabel}.</p>
               <p className="panel-empty-rate">
                 From <strong>$80/hr</strong> · members from $72/hr
               </p>
