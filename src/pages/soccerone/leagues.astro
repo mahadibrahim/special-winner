@@ -460,9 +460,10 @@ const featuredPrice = featured
     }
 
     .league-card {
-      background: rgba(255,255,255,0.02);
-      border: 1px solid var(--border);
-      border-radius: var(--so-radius-md);
+      background: var(--so-surface);
+      border: 1px solid var(--so-lime-a20);
+      border-left: 3px solid var(--so-lime);
+      border-radius: var(--so-radius-lg);
       padding: 1.75rem;
       display: flex;
       flex-direction: column;
@@ -470,11 +471,11 @@ const featuredPrice = featured
       position: relative;
       transition: border-color 0.2s, transform 0.2s;
     }
-    .league-card:hover { border-color: var(--so-lime-a25); transform: translateY(-4px); }
+    .league-card:hover { border-color: var(--so-lime-a40); border-left-color: var(--so-lime); transform: translateY(-4px); }
     .league-card--active { border-color: var(--so-lime-a15); }
-    .league-card--downtown { border-color: rgba(100,160,255,0.12); }
-    .league-card--downtown:hover { border-color: rgba(100,160,255,0.3); }
-    .league-card--youth { border-color: rgba(192,132,252,0.1); }
+    .league-card--downtown { border-color: rgba(100,160,255,0.2); border-left-color: rgba(100,160,255,0.8); }
+    .league-card--downtown:hover { border-color: rgba(100,160,255,0.4); border-left-color: rgba(100,160,255,1); }
+    .league-card--youth { border-color: rgba(192,132,252,0.2); border-left-color: rgba(192,132,252,0.8); }
 
     .lc-location-badge {
       font-family: var(--so-font-mono);

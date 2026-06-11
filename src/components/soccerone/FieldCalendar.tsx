@@ -63,13 +63,6 @@ interface SelectedSlot {
   hour: number;
 }
 
-interface AddOn {
-  id: string;
-  label: string;
-  price: number;
-  checked: boolean;
-}
-
 export interface FieldCalendarProps {
   /** UUID of the SoccerOne venue whose availability to show. When null/undefined the component shows an empty state. */
   venueId: string | null;
@@ -86,13 +79,15 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
 
   const [selectedField, setSelectedField] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
-  const [addOns, setAddOns] = useState<AddOn[]>([
-    { id: "balls",      label: "Rental Ball Set",           price: 10,  checked: false },
-    { id: "scoreboard", label: "Scoreboard / Timer",        price: 15,  checked: false },
-    { id: "ref",        label: "Certified Referee (1 hr)",  price: 55,  checked: false },
-    { id: "bibs",       label: "Bib Set (20 pcs)",          price: 8,   checked: false },
-  ]);
-  const [isMember, setIsMember] = useState(false);
+
+  // Real booking state — this panel drives the same flow as the Aspire
+  // /rentals page: waiver → POST /api/rentals/bookings → Stripe Checkout.
+  const [partySize, setPartySize] = useState(8);
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [waiverName, setWaiverName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Fetch availability whenever venueId or date changes
   useEffect(() => {
@@ -131,35 +126,67 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
 
   const currentField = availability?.fields.find((f) => f.fieldNumber === selectedField);
 
+  // Display rate only — the server prices the booking (rate card +
+  // member discount) when the Checkout Session is created.
   const baseRate = 80;
-  const memberRate = 72;
-  const hourlyRate = isMember ? memberRate : baseRate;
-
-  const addOnTotal = addOns.filter((a) => a.checked).reduce((sum, a) => sum + a.price, 0);
-  const totalCost = hourlyRate + addOnTotal;
+  const hourlyRate = baseRate;
 
   const handleSlotClick = (h: number) => {
     if (!isHourBookable(currentField, date, h)) return;
     setSelectedSlot({ field: selectedField, hour: h });
+    setSubmitError(null);
+    setNeedsSignIn(false);
   };
 
-  // Online checkout for this calendar isn't wired yet (the real rental
-  // booking flow exists at POST /api/rentals/bookings — wiring it here is
-  // tracked in the SoccerOne hardening spec). Until then, hand off to
-  // email instead of a dead end: no fake phone numbers, no stale dates.
-  const handleBook = () => {
-    toast("Email us to lock in this slot", {
-      description:
-        "Online field booking is almost here. Email play@gosoccerone.com with your date and time and we'll reserve it.",
-      duration: 8000,
-    });
-    setSelectedSlot(null);
-  };
-
-  const toggleAddOn = (id: string) => {
-    setAddOns((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, checked: !a.checked } : a)),
-    );
+  // Same booking flow as the Aspire /rentals page (RentalBooking.tsx):
+  // POST creates a 10-minute hold and returns a Stripe Checkout URL.
+  // Pricing, member discounts, and conflicts are all server-side.
+  const handleBook = async () => {
+    if (!venueId || !selectedSlot) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const startsAt = new Date(
+        `${date}T${String(selectedSlot.hour).padStart(2, "0")}:00:00.000Z`,
+      );
+      const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+      const res = await fetch("/api/rentals/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          venueId,
+          fieldNumber: selectedSlot.field,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+          partySize,
+          waiverName: waiverName.trim(),
+          waiverAccepted: true,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) {
+          setNeedsSignIn(true);
+          return;
+        }
+        const msg =
+          typeof body.error === "string" ? body.error : `Error ${res.status}`;
+        setSubmitError(msg);
+        return;
+      }
+      if (body.paymentRequired && body.checkoutUrl) {
+        toast.success("Slot held — redirecting to payment…", { duration: 1200 });
+        window.setTimeout(() => {
+          window.location.href = body.checkoutUrl as string;
+        }, 800);
+      } else {
+        window.location.href = "/dashboard/bookings?rental=success";
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Field numbers to show in the selector
@@ -200,24 +227,23 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
 
         <div className="filter-group">
           <label htmlFor="party-size" className="filter-label">Players</label>
-          <select id="party-size" className="filter-select">
+          <select
+            id="party-size"
+            className="filter-select"
+            value={partySize}
+            onChange={(e) => setPartySize(Number(e.target.value))}
+          >
             {[2,4,5,6,7,8,10,12,14].map((n) => (
               <option key={n} value={n}>{n} players</option>
             ))}
           </select>
         </div>
 
+        {/* Member discounts apply automatically at checkout (priced
+            server-side from the signed-in account) — no self-declared
+            toggle. */}
         <div className="member-toggle-group">
-          <label className="member-toggle-label">
-            <input
-              type="checkbox"
-              className="member-toggle-check"
-              checked={isMember}
-              onChange={(e) => setIsMember(e.target.checked)}
-            />
-            <span>I'm a member</span>
-          </label>
-          <span className="member-note">Members save $8/hr</span>
+          <span className="member-note">Members save $8/hr — applied automatically at checkout</span>
         </div>
       </div>
 
@@ -333,45 +359,69 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
                 </div>
                 <div className="slot-info-row">
                   <span className="slot-info-label">Rate</span>
-                  <span className="slot-info-value slot-rate">
-                    ${hourlyRate}/hr
-                    {isMember && <span className="member-badge">Member rate</span>}
-                  </span>
+                  <span className="slot-info-value slot-rate">${hourlyRate}/hr</span>
                 </div>
-                {!isMember && (
-                  <p className="member-upsell">
-                    Members pay $72/hr — <button className="upsell-link" onClick={() => setIsMember(true)}>apply discount</button>
-                  </p>
-                )}
+                <p className="member-upsell">
+                  Members save $8/hr — discount applies automatically at checkout.
+                </p>
               </div>
 
+              {/* Waiver — required by POST /api/rentals/bookings, same as
+                  the Aspire rentals flow. */}
               <div className="panel-addons">
-                <h4 className="addons-heading">Add-ons</h4>
-                {addOns.map((addon) => (
-                  <label key={addon.id} className="addon-row">
-                    <input
-                      type="checkbox"
-                      className="addon-check"
-                      checked={addon.checked}
-                      onChange={() => toggleAddOn(addon.id)}
-                    />
-                    <span className="addon-label">{addon.label}</span>
-                    <span className="addon-price">+${addon.price}</span>
-                  </label>
-                ))}
+                <h4 className="addons-heading">Liability waiver</h4>
+                <label className="addon-row">
+                  <input
+                    type="checkbox"
+                    className="addon-check"
+                    checked={waiverAccepted}
+                    onChange={(e) => setWaiverAccepted(e.target.checked)}
+                  />
+                  <span className="addon-label">
+                    I accept the liability waiver: I understand indoor soccer
+                    involves physical activity and inherent risk of injury, and
+                    I release SoccerOne and Aspire Sports from liability for
+                    injury arising from my rental.
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  className="filter-input waiver-name-input"
+                  placeholder="Full name (typed signature)"
+                  value={waiverName}
+                  onChange={(e) => setWaiverName(e.target.value)}
+                  aria-label="Full name (typed signature)"
+                />
               </div>
 
               <div className="panel-total">
-                <span className="total-label">Estimated Total</span>
-                <span className="total-amount">${totalCost}</span>
+                <span className="total-label">Total</span>
+                <span className="total-amount">${hourlyRate}</span>
               </div>
+              <p className="panel-note">Final price at checkout — member discounts apply there.</p>
 
-              <button className="panel-book-btn" onClick={handleBook}>
-                Book this slot
-              </button>
+              {needsSignIn ? (
+                <a
+                  className="panel-book-btn panel-book-link"
+                  href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/soccerone/rent")}`}
+                >
+                  Sign in to book
+                </a>
+              ) : (
+                <button
+                  className="panel-book-btn"
+                  onClick={handleBook}
+                  disabled={submitting || !waiverAccepted || !waiverName.trim()}
+                >
+                  {submitting ? "Holding slot…" : "Book this slot"}
+                </button>
+              )}
+
+              {submitError && <p className="panel-error" role="alert">{submitError}</p>}
 
               <p className="panel-note">
-                No charge until confirmed. Cancellations 24h+ in advance receive a full refund.
+                Your slot is held for 10 minutes while you pay. Cancellations
+                24h+ in advance receive a full refund.
               </p>
             </>
           ) : (
@@ -384,8 +434,7 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
               </div>
               <p className="panel-empty-text">Select an available time slot on the calendar to book Field {selectedField}.</p>
               <p className="panel-empty-rate">
-                From <strong>${isMember ? 72 : 80}/hr</strong>
-                {isMember ? " (member rate)" : " · members from $72/hr"}
+                From <strong>$80/hr</strong> · members from $72/hr
               </p>
             </div>
           )}
@@ -758,6 +807,29 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
         .panel-book-btn:hover {
           filter: brightness(1.08);
           transform: translateY(-1px);
+        }
+        .panel-book-btn:disabled {
+          opacity: 0.45;
+          cursor: default;
+          transform: none;
+          filter: none;
+        }
+        .panel-book-link {
+          display: block;
+          text-align: center;
+          text-decoration: none;
+          box-sizing: border-box;
+        }
+        .waiver-name-input {
+          width: 100%;
+          margin-top: 0.625rem;
+          box-sizing: border-box;
+        }
+        .panel-error {
+          font-size: 0.8125rem;
+          color: #f87171;
+          margin: 0.5rem 0 0;
+          text-align: center;
         }
         .panel-note {
           font-size: 0.75rem;

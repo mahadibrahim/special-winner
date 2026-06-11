@@ -208,8 +208,8 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
     .sg-title { font-family: var(--so-font-display); font-size: clamp(2rem, 4vw, 3rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 2.5rem; display: flex; align-items: baseline; gap: 1rem; }
     .section-num-sm { font-family: var(--so-font-display); font-size: 2.5rem; color: var(--so-lime-a15); line-height: 1; }
     .sg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
-    .sg-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--so-radius-md); padding: 1.75rem; display: flex; flex-direction: column; gap: 0.875rem; transition: border-color 0.2s; }
-    .sg-card:hover { border-color: var(--so-lime-a20); }
+    .sg-card { background: var(--so-surface); border: 1px solid var(--so-lime-a20); border-left: 3px solid var(--so-lime); border-radius: var(--so-radius-lg); padding: 1.75rem; display: flex; flex-direction: column; gap: 0.875rem; transition: border-color 0.2s; }
+    .sg-card:hover { border-color: var(--so-lime-a40); border-left-color: var(--so-lime); }
     .sg-card--featured { border-color: var(--so-lime-a20); background: var(--so-lime-a03); }
     .sg-level { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; padding: 3px 8px; border-radius: 3px; display: inline-block; width: fit-content; }
     .sg-level--beginner { background: rgba(100,200,100,0.1); color: #86efac; border: 1px solid rgba(100,200,100,0.2); }
