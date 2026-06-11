@@ -155,6 +155,7 @@ export default function AdultFinder() {
         descriptor="Season-long play. Sign up a full team or join as a free agent."
         seasons={leagues}
         loading={seasonsLoading}
+        emptyCtaAudience="adult"
       />
 
       <PickupFinderSection
