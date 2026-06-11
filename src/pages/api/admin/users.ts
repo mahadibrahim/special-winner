@@ -34,77 +34,58 @@ export const GET: APIRoute = async (context) => {
     const limit = parseInt(url.searchParams.get("limit") || "20");
     const offset = (page - 1) * limit;
 
-    // Get locations, programs, and teams for this organization to determine valid scope IDs
-    const orgLocations = await getDb()
+    // Org entity scope IDs as lazy subqueries — these used to be four
+    // sequential round trips (locations → programs → seasons → teams)
+    // before the role query could even start. As subqueries they ship
+    // inside the role query and Postgres resolves the chain in one trip.
+    const db2 = getDb();
+    const locationIdsQ = db2
       .select({ id: locations.id })
       .from(locations)
       .where(eq(locations.organizationId, orgContext.organizationId));
-    const locationIds = orgLocations.map((l) => l.id);
+    const programIdsQ = db2
+      .select({ id: programs.id })
+      .from(programs)
+      .where(inArray(programs.locationId, locationIdsQ));
+    const seasonIdsQ = db2
+      .select({ id: seasons.id })
+      .from(seasons)
+      .where(inArray(seasons.programId, programIdsQ));
+    const teamIdsQ = db2
+      .select({ id: teams.id })
+      .from(teams)
+      .where(inArray(teams.seasonId, seasonIdsQ));
 
-    const orgPrograms = locationIds.length > 0
-      ? await getDb()
-          .select({ id: programs.id })
-          .from(programs)
-          .where(inArray(programs.locationId, locationIds))
-      : [];
-    const programIds = orgPrograms.map((p) => p.id);
-
-    const orgSeasons = programIds.length > 0
-      ? await getDb()
-          .select({ id: seasons.id })
-          .from(seasons)
-          .where(inArray(seasons.programId, programIds))
-      : [];
-    const seasonIds = orgSeasons.map((s) => s.id);
-
-    const orgTeams = seasonIds.length > 0
-      ? await getDb()
-          .select({ id: teams.id })
-          .from(teams)
-          .where(inArray(teams.seasonId, seasonIds))
-      : [];
-    const teamIds = orgTeams.map((t) => t.id);
-
-    // Get user IDs who have roles tied to this organization or its entities.
-    // Includes:
-    //   - global-scoped role-holders (super-admins are visible in every org)
-    //   - org-scoped roles for this org
-    //   - location/program/team-scoped roles for entities under this org
-    const orgUserRoles = await getDb()
-      .select({ userId: userRoles.userId })
-      .from(userRoles)
-      .where(
-        or(
-          // Global-scoped roles (super-admins) — they belong to every org's
-          // view since they administer the whole platform.
-          eq(userRoles.scopeType, "global"),
-          // Organization-scoped roles
-          and(
-            eq(userRoles.scopeType, "organization"),
-            eq(userRoles.scopeId, orgContext.organizationId)
-          ),
-          // Location-scoped roles
-          ...(locationIds.length > 0
-            ? [and(eq(userRoles.scopeType, "location"), inArray(userRoles.scopeId, locationIds))]
-            : []),
-          // Program-scoped roles
-          ...(programIds.length > 0
-            ? [and(eq(userRoles.scopeType, "program"), inArray(userRoles.scopeId, programIds))]
-            : []),
-          // Team-scoped roles
-          ...(teamIds.length > 0
-            ? [and(eq(userRoles.scopeType, "team"), inArray(userRoles.scopeId, teamIds))]
-            : [])
-        )
-      );
-
-    // Also include users explicitly granted access to this org via
-    // user_organization_access (the legitimate non-role membership signal,
-    // used for parents and players who have no role but belong to the org).
-    const orgAccessRows = await getDb()
-      .select({ userId: userOrganizationAccess.userId })
-      .from(userOrganizationAccess)
-      .where(eq(userOrganizationAccess.organizationId, orgContext.organizationId));
+    // Get user IDs who have roles tied to this organization or its entities,
+    // and users explicitly granted access via user_organization_access (the
+    // legitimate non-role membership signal, used for parents and players
+    // who have no role but belong to the org). Independent — run in parallel.
+    const [orgUserRoles, orgAccessRows] = await Promise.all([
+      // Role-holders:
+      //   - global-scoped (super-admins are visible in every org's view
+      //     since they administer the whole platform)
+      //   - org-scoped roles for this org
+      //   - location/program/team-scoped roles for entities under this org
+      getDb()
+        .select({ userId: userRoles.userId })
+        .from(userRoles)
+        .where(
+          or(
+            eq(userRoles.scopeType, "global"),
+            and(
+              eq(userRoles.scopeType, "organization"),
+              eq(userRoles.scopeId, orgContext.organizationId)
+            ),
+            and(eq(userRoles.scopeType, "location"), inArray(userRoles.scopeId, locationIdsQ)),
+            and(eq(userRoles.scopeType, "program"), inArray(userRoles.scopeId, programIdsQ)),
+            and(eq(userRoles.scopeType, "team"), inArray(userRoles.scopeId, teamIdsQ))
+          )
+        ),
+      getDb()
+        .select({ userId: userOrganizationAccess.userId })
+        .from(userOrganizationAccess)
+        .where(eq(userOrganizationAccess.organizationId, orgContext.organizationId)),
+    ]);
 
     const userIdsInOrg = [
       ...new Set([
