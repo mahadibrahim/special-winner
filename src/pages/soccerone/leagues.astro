@@ -52,6 +52,7 @@ const featuredPrice = featured
 ---
 
 <BaseLayout
+  favicon="/soccerone-favicon.svg"
   title={`Leagues — SoccerOne | ${facilityLabel}`}
   description="Adult coed, premier, and corporate indoor soccer leagues at SoccerOne Columbus. Worthington (3 fields) and Downtown (1 field). Register now for the upcoming season."
   navigation={false}
@@ -288,28 +289,28 @@ const featuredPrice = featured
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --accent: #a3e635;
-      --bg: #0a0a0d;
-      --bg-2: #0e0e10;
+      --accent: var(--so-lime);
+      --bg: var(--so-ink);
+      --bg-2: var(--so-surface);
       --muted: rgba(255,255,255,0.45);
       --border: rgba(255,255,255,0.08);
     }
-    .mono { font-family: 'JetBrains Mono', monospace; }
-    .accent { color: #a3e635; }
+    .mono { font-family: var(--so-font-mono); }
+    .accent { color: var(--so-lime); }
 
-    .leagues-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+    .leagues-main { flex: 1; font-family: var(--so-font-body); }
 
     /* ---- HEADER ---- */
     .leagues-header {
-      background: #0a0a0d;
-      border-bottom: 1px solid rgba(163,230,53,0.1);
+      background: var(--so-ink);
+      border-bottom: 1px solid var(--so-lime-a10);
       padding: 4rem 0 0;
     }
     .lh-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 
     .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
-    .bc-link { font-size: 0.8125rem; color: rgba(163,230,53,0.6); text-decoration: none; font-weight: 500; transition: color 0.15s; }
-    .bc-link:hover { color: #a3e635; }
+    .bc-link { font-size: 0.8125rem; color: var(--so-lime-a60); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+    .bc-link:hover { color: var(--so-lime); }
     .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
     .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
 
@@ -323,7 +324,7 @@ const featuredPrice = featured
     }
 
     .lh-title {
-      font-family: 'Anton', sans-serif;
+      font-family: var(--so-font-display);
       font-size: clamp(4rem, 10vw, 9rem);
       color: #ffffff;
       line-height: 0.9;
@@ -342,15 +343,15 @@ const featuredPrice = featured
       display: flex;
       align-items: center;
       gap: 1.5rem;
-      background: rgba(163,230,53,0.04);
-      border: 1px solid rgba(163,230,53,0.15);
-      border-radius: 6px;
+      background: var(--so-lime-a04);
+      border: 1px solid var(--so-lime-a15);
+      border-radius: var(--so-radius-md);
       padding: 1.25rem 1.75rem;
       flex-shrink: 0;
     }
     .lhs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
-    .lhs-num { font-family: 'Anton', sans-serif; font-size: 2.25rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
-    .lhs-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .lhs-num { font-family: var(--so-font-display); font-size: 2.25rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
+    .lhs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
     .lhs-div { width: 1px; height: 40px; background: rgba(255,255,255,0.08); }
 
     /* Facility filter tabs */
@@ -361,7 +362,7 @@ const featuredPrice = featured
     }
 
     .ff-tab {
-      font-family: 'DM Sans', sans-serif;
+      font-family: var(--so-font-body);
       font-size: 0.8125rem;
       font-weight: 600;
       letter-spacing: 0.06em;
@@ -373,7 +374,7 @@ const featuredPrice = featured
       white-space: nowrap;
     }
     .ff-tab:hover { color: rgba(255,255,255,0.7); }
-    .ff-tab--active { color: #a3e635; border-bottom-color: #a3e635; }
+    .ff-tab--active { color: var(--so-lime); border-bottom-color: var(--so-lime); }
 
     /* ---- LEAGUES SECTION ---- */
     .leagues-section { background: var(--bg); padding: 4rem 0; }
@@ -381,9 +382,9 @@ const featuredPrice = featured
 
     /* Featured CTA */
     .leagues-featured-cta {
-      background: rgba(163,230,53,0.06);
-      border: 1px solid rgba(163,230,53,0.25);
-      border-radius: 8px;
+      background: var(--so-lime-a06);
+      border: 1px solid var(--so-lime-a25);
+      border-radius: var(--so-radius-lg);
       padding: 1.75rem 2rem;
       display: flex;
       align-items: center;
@@ -395,16 +396,16 @@ const featuredPrice = featured
 
     .lfcta-eyebrow {
       display: block;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--so-font-mono);
       font-size: 0.5625rem;
       font-weight: 600;
       letter-spacing: 0.14em;
-      color: #a3e635;
+      color: var(--so-lime);
       margin-bottom: 0.5rem;
     }
 
     .lfcta-title {
-      font-family: 'Anton', sans-serif;
+      font-family: var(--so-font-display);
       font-size: clamp(1.5rem, 3vw, 2.25rem);
       color: #ffffff;
       letter-spacing: 0.01em;
@@ -436,19 +437,19 @@ const featuredPrice = featured
       display: inline-flex;
       align-items: center;
       gap: 0.625rem;
-      background: #a3e635;
-      color: #0a0a0d;
-      font-family: 'DM Sans', sans-serif;
+      background: var(--so-lime);
+      color: var(--so-ink);
+      font-family: var(--so-font-body);
       font-size: 0.9375rem;
       font-weight: 700;
       letter-spacing: 0.04em;
       text-decoration: none;
       padding: 0.875rem 1.75rem;
-      border-radius: 4px;
+      border-radius: var(--so-radius-sm);
       transition: background 0.15s;
       white-space: nowrap;
     }
-    .lfcta-btn:hover { background: #bef264; }
+    .lfcta-btn:hover { background: var(--so-lime-bright); }
     .lfcta-note { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
 
     /* League cards */
@@ -461,7 +462,7 @@ const featuredPrice = featured
     .league-card {
       background: rgba(255,255,255,0.02);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: var(--so-radius-md);
       padding: 1.75rem;
       display: flex;
       flex-direction: column;
@@ -469,20 +470,20 @@ const featuredPrice = featured
       position: relative;
       transition: border-color 0.2s, transform 0.2s;
     }
-    .league-card:hover { border-color: rgba(163,230,53,0.25); transform: translateY(-4px); }
-    .league-card--active { border-color: rgba(163,230,53,0.15); }
+    .league-card:hover { border-color: var(--so-lime-a25); transform: translateY(-4px); }
+    .league-card--active { border-color: var(--so-lime-a15); }
     .league-card--downtown { border-color: rgba(100,160,255,0.12); }
     .league-card--downtown:hover { border-color: rgba(100,160,255,0.3); }
     .league-card--youth { border-color: rgba(192,132,252,0.1); }
 
     .lc-location-badge {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--so-font-mono);
       font-size: 0.5rem;
       font-weight: 600;
       letter-spacing: 0.12em;
-      background: rgba(163,230,53,0.08);
-      color: rgba(163,230,53,0.6);
-      border: 1px solid rgba(163,230,53,0.15);
+      background: var(--so-lime-a08);
+      color: var(--so-lime-a60);
+      border: 1px solid var(--so-lime-a15);
       padding: 2px 7px;
       border-radius: 3px;
       display: inline-block;
@@ -497,11 +498,11 @@ const featuredPrice = featured
     .lc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
 
     .lc-division { display: flex; flex-direction: column; gap: 2px; }
-    .lc-div-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); }
+    .lc-div-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); }
     .lc-div-name { font-size: 0.875rem; font-weight: 600; color: rgba(255,255,255,0.7); }
 
     .lc-status {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--so-font-mono);
       font-size: 0.5rem;
       font-weight: 600;
       letter-spacing: 0.1em;
@@ -509,12 +510,12 @@ const featuredPrice = featured
       border-radius: 3px;
       flex-shrink: 0;
     }
-    .lc-status--open { background: rgba(163,230,53,0.12); color: #a3e635; border: 1px solid rgba(163,230,53,0.2); }
+    .lc-status--open { background: var(--so-lime-a12); color: var(--so-lime); border: 1px solid var(--so-lime-a20); }
     .lc-status--filling { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
     .lc-status--coming { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
 
     .lc-name {
-      font-family: 'Anton', sans-serif;
+      font-family: var(--so-font-display);
       font-size: 1.75rem;
       color: #ffffff;
       letter-spacing: 0.01em;
@@ -535,10 +536,10 @@ const featuredPrice = featured
       gap: 0.625rem;
       align-items: start;
     }
-    .lcd-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(163,230,53,0.5); padding-top: 2px; }
+    .lcd-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: var(--so-lime-a50); padding-top: 2px; }
     .lcd-val { font-size: 0.875rem; color: rgba(255,255,255,0.65); line-height: 1.4; }
-    .lcd-val.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; }
-    .lcd-val.accent { color: #a3e635; }
+    .lcd-val.mono { font-family: var(--so-font-mono); font-size: 0.8125rem; }
+    .lcd-val.accent { color: var(--so-lime); }
 
     .lc-cta {
       display: inline-flex;
@@ -546,10 +547,10 @@ const featuredPrice = featured
       font-size: 0.875rem;
       font-weight: 700;
       letter-spacing: 0.04em;
-      color: #a3e635;
+      color: var(--so-lime);
       text-decoration: none;
       padding: 0.625rem 0;
-      border-bottom: 1px solid rgba(163,230,53,0.25);
+      border-bottom: 1px solid var(--so-lime-a25);
       transition: border-color 0.15s;
       width: fit-content;
       cursor: pointer;
@@ -558,13 +559,13 @@ const featuredPrice = featured
       border-right: none;
       border-top: none;
     }
-    .lc-cta:hover { border-bottom-color: #a3e635; }
+    .lc-cta:hover { border-bottom-color: var(--so-lime); }
     .lc-cta--notify { color: rgba(255,255,255,0.5); border-bottom-color: rgba(255,255,255,0.15); }
     .lc-cta--notify:hover { color: rgba(255,255,255,0.7); border-bottom-color: rgba(255,255,255,0.3); }
 
     /* ---- BOTTOM CTA ---- */
     .leagues-bottom-cta {
-      background: #a3e635;
+      background: var(--so-lime);
       padding: 3rem 0;
     }
     .lbc-inner {
@@ -577,12 +578,12 @@ const featuredPrice = featured
       gap: 2rem;
       flex-wrap: wrap;
     }
-    .lbc-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(10,10,13,0.5); display: block; margin-bottom: 0.375rem; }
-    .lbc-title { font-family: 'Anton', sans-serif; font-size: clamp(1.5rem, 3vw, 2.25rem); color: #0a0a0d; letter-spacing: 0.01em; }
+    .lbc-label { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(10,10,13,0.5); display: block; margin-bottom: 0.375rem; }
+    .lbc-title { font-family: var(--so-font-display); font-size: clamp(1.5rem, 3vw, 2.25rem); color: var(--so-ink); letter-spacing: 0.01em; }
     .lbc-buttons { display: flex; gap: 0.875rem; flex-wrap: wrap; flex-shrink: 0; }
-    .lbc-btn-primary { display: inline-block; background: #0a0a0d; color: #a3e635; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; transition: background 0.15s; white-space: nowrap; }
+    .lbc-btn-primary { display: inline-block; background: var(--so-ink); color: var(--so-lime); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: var(--so-radius-sm); transition: background 0.15s; white-space: nowrap; }
     .lbc-btn-primary:hover { background: #1a1a1e; }
-    .lbc-btn-secondary { display: inline-block; background: rgba(10,10,13,0.1); color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: 4px; border: 1px solid rgba(10,10,13,0.25); transition: background 0.15s; white-space: nowrap; }
+    .lbc-btn-secondary { display: inline-block; background: rgba(10,10,13,0.1); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: var(--so-radius-sm); border: 1px solid rgba(10,10,13,0.25); transition: background 0.15s; white-space: nowrap; }
     .lbc-btn-secondary:hover { background: rgba(10,10,13,0.18); }
 
     /* Empty state */
@@ -603,37 +604,37 @@ const featuredPrice = featured
       padding: 0.75rem 1rem;
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 0.375rem;
+      border-radius: var(--so-radius-md);
       color: #ffffff;
       font-size: 0.9375rem;
     }
     .le-input::placeholder { color: rgba(255, 255, 255, 0.4); }
     .le-input:focus {
       outline: none;
-      border-color: #a3e635;
+      border-color: var(--so-lime);
     }
     .le-btn {
       padding: 0.75rem 1.25rem;
-      background: #a3e635;
-      color: #0a0a0d;
-      font-family: 'Anton', sans-serif;
+      background: var(--so-lime);
+      color: var(--so-ink);
+      font-family: var(--so-font-display);
       font-size: 0.9375rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       border: none;
-      border-radius: 0.375rem;
+      border-radius: var(--so-radius-md);
       cursor: pointer;
     }
-    .le-btn:hover { background: #bef264; }
+    .le-btn:hover { background: var(--so-lime-bright); }
     .le-btn:disabled { opacity: 0.6; cursor: default; }
     .le-msg {
       margin-top: 0.75rem;
       font-size: 0.9375rem;
-      color: #a3e635;
+      color: var(--so-lime);
     }
     .le-msg.le-msg--error { color: #f87171; }
     .le-title {
-      font-family: 'Anton', sans-serif;
+      font-family: var(--so-font-display);
       font-size: 1.5rem;
       color: #ffffff;
       letter-spacing: 0.01em;

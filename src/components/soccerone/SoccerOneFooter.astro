@@ -115,13 +115,13 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 <style>
   .so-footer {
     background: #060608;
-    border-top: 1px solid rgba(163,230,53,0.15);
-    font-family: 'DM Sans', sans-serif;
+    border-top: 1px solid var(--so-lime-a15);
+    font-family: var(--so-font-body);
   }
 
   /* Accent bar */
   .footer-accent-bar {
-    background: #a3e635;
+    background: var(--so-lime);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -151,15 +151,15 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
   }
 
   .as-num {
-    font-family: 'Anton', sans-serif;
+    font-family: var(--so-font-display);
     font-size: 1.875rem;
-    color: #0a0a0d;
+    color: var(--so-ink);
     line-height: 1;
     letter-spacing: 0.02em;
   }
 
   .as-label {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--so-font-mono);
     font-size: 0.5625rem;
     font-weight: 600;
     letter-spacing: 0.1em;
@@ -173,16 +173,16 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 
   .accent-btn {
     display: inline-block;
-    background: #0a0a0d;
-    color: #a3e635;
-    font-family: 'DM Sans', sans-serif;
+    background: var(--so-ink);
+    color: var(--so-lime);
+    font-family: var(--so-font-body);
     font-size: 0.875rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     text-decoration: none;
     padding: 0.625rem 1.5rem;
-    border-radius: 4px;
+    border-radius: var(--so-radius-sm);
     transition: background 0.15s;
     white-space: nowrap;
   }
@@ -200,14 +200,14 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 
   /* Brand column */
   .brand-wordmark {
-    font-family: 'Anton', sans-serif;
+    font-family: var(--so-font-display);
     font-size: 2.25rem;
     letter-spacing: 0.02em;
     margin-bottom: 0.75rem;
     line-height: 1;
   }
   .bw-soccer { color: #ffffff; }
-  .bw-one { color: #a3e635; }
+  .bw-one { color: var(--so-lime); }
 
   .brand-sub {
     font-size: 0.9375rem;
@@ -230,17 +230,17 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     font-size: 0.8125rem;
     font-weight: 500;
     padding: 0.4rem 0.75rem;
-    border-radius: 4px;
+    border-radius: var(--so-radius-sm);
     text-decoration: none;
     transition: background 0.15s;
     width: fit-content;
   }
   .loc-chip--live {
-    background: rgba(163,230,53,0.08);
-    color: rgba(163,230,53,0.8);
-    border: 1px solid rgba(163,230,53,0.2);
+    background: var(--so-lime-a08);
+    color: var(--so-lime-a80);
+    border: 1px solid var(--so-lime-a20);
   }
-  .loc-chip--live:hover { background: rgba(163,230,53,0.14); color: #a3e635; }
+  .loc-chip--live:hover { background: var(--so-lime-a14); color: var(--so-lime); }
   .loc-chip--soon {
     background: rgba(255,255,255,0.03);
     color: rgba(255,255,255,0.25);
@@ -254,8 +254,8 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #a3e635;
-    box-shadow: 0 0 6px #a3e635;
+    background: var(--so-lime);
+    box-shadow: 0 0 6px var(--so-lime);
     flex-shrink: 0;
   }
 
@@ -266,7 +266,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
   .social-icon {
     width: 36px;
     height: 36px;
-    border-radius: 4px;
+    border-radius: var(--so-radius-sm);
     border: 1px solid rgba(255,255,255,0.12);
     display: flex;
     align-items: center;
@@ -275,18 +275,18 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     text-decoration: none;
     transition: border-color 0.15s, color 0.15s;
   }
-  .social-icon:hover { border-color: #a3e635; color: #a3e635; }
+  .social-icon:hover { border-color: var(--so-lime); color: var(--so-lime); }
 
   /* Columns */
   .footer-col { display: flex; flex-direction: column; }
 
   .fcol-heading {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--so-font-mono);
     font-size: 0.5625rem;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #a3e635;
+    color: var(--so-lime);
     margin: 0 0 1rem;
   }
 
@@ -343,8 +343,8 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
   }
   .footer-copy { font-size: 0.8125rem; color: rgba(255,255,255,0.25); }
   .footer-powered { font-size: 0.8125rem; color: rgba(255,255,255,0.25); }
-  .footer-powered a { color: rgba(163,230,53,0.5); text-decoration: none; transition: color 0.15s; }
-  .footer-powered a:hover { color: #a3e635; }
+  .footer-powered a { color: var(--so-lime-a50); text-decoration: none; transition: color 0.15s; }
+  .footer-powered a:hover { color: var(--so-lime); }
 
   @media (max-width: 1100px) {
     .footer-main { grid-template-columns: 1.5fr 1fr 1fr; gap: 2rem; }

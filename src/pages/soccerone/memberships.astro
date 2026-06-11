@@ -18,6 +18,7 @@ const authed = !!Astro.locals.user;
 ---
 
 <BaseLayout
+  favicon="/soccerone-favicon.svg"
   title="Memberships | SoccerOne Columbus"
   description="One SoccerOne membership works at every location — Worthington, Downtown, and all future facilities. Day Pass, Member ($29/mo), or Founder ($99/mo). All-access, chain-wide."
   navigation={false}
@@ -271,32 +272,32 @@ const authed = !!Astro.locals.user;
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --accent: #a3e635;
-      --bg: #0a0a0d;
-      --bg-2: #0e0e10;
+      --accent: var(--so-lime);
+      --bg: var(--so-ink);
+      --bg-2: var(--so-surface);
       --muted: rgba(255,255,255,0.45);
       --border: rgba(255,255,255,0.08);
     }
-    .mono { font-family: 'JetBrains Mono', monospace; }
+    .mono { font-family: var(--so-font-mono); }
 
-    .mem-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+    .mem-main { flex: 1; font-family: var(--so-font-body); }
 
     /* ---- HEADER ---- */
-    .mem-header { background: #0a0a0d; border-bottom: 1px solid rgba(163,230,53,0.1); padding: 4rem 0 0; }
+    .mem-header { background: var(--so-ink); border-bottom: 1px solid var(--so-lime-a10); padding: 4rem 0 0; }
     .mh-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 
     .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
-    .bc-link { font-size: 0.8125rem; color: rgba(163,230,53,0.6); text-decoration: none; font-weight: 500; transition: color 0.15s; }
-    .bc-link:hover { color: #a3e635; }
+    .bc-link { font-size: 0.8125rem; color: var(--so-lime-a60); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+    .bc-link:hover { color: var(--so-lime); }
     .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
     .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
 
     .mh-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap; }
 
-    .mh-title { font-family: 'Anton', sans-serif; font-size: clamp(4rem, 10vw, 9rem); color: #ffffff; line-height: 0.9; letter-spacing: 0.01em; margin-bottom: 1rem; }
+    .mh-title { font-family: var(--so-font-display); font-size: clamp(4rem, 10vw, 9rem); color: #ffffff; line-height: 0.9; letter-spacing: 0.01em; margin-bottom: 1rem; }
     .mh-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 500px; }
 
-    .chain-callout { display: flex; align-items: flex-start; gap: 1rem; background: rgba(163,230,53,0.06); border: 1px solid rgba(163,230,53,0.2); border-radius: 6px; padding: 1.25rem; flex-shrink: 0; max-width: 300px; }
+    .chain-callout { display: flex; align-items: flex-start; gap: 1rem; background: var(--so-lime-a06); border: 1px solid var(--so-lime-a20); border-radius: var(--so-radius-md); padding: 1.25rem; flex-shrink: 0; max-width: 300px; }
     .cc-text { display: flex; flex-direction: column; gap: 2px; }
     .cc-text strong { font-size: 0.9375rem; font-weight: 700; color: #ffffff; }
     .cc-text span { font-size: 0.8125rem; color: rgba(255,255,255,0.5); }
@@ -317,27 +318,27 @@ const authed = !!Astro.locals.user;
     .cab-item--live .cab-name { color: #ffffff; }
     .cab-item--coming .cab-name { color: rgba(255,255,255,0.3); }
     .cab-name { font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.375rem; }
-    .cab-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.08em; }
-    .cab-item--live .cab-sub { color: rgba(163,230,53,0.6); }
+    .cab-sub { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.08em; }
+    .cab-item--live .cab-sub { color: var(--so-lime-a60); }
     .cab-item--coming .cab-sub { color: rgba(255,255,255,0.2); }
-    .cab-dot { width: 6px; height: 6px; border-radius: 50%; background: #a3e635; box-shadow: 0 0 6px #a3e635; display: inline-block; }
+    .cab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--so-lime); box-shadow: 0 0 6px var(--so-lime); display: inline-block; }
     .cab-div { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
 
     /* ---- KEY HEADLINE ---- */
-    .mem-headline-section { background: #0e0e10; border-bottom: 1px solid var(--border); padding: 4rem 0; overflow: hidden; position: relative; }
-    .mem-headline-section::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 5px; background: #a3e635; }
+    .mem-headline-section { background: var(--so-surface); border-bottom: 1px solid var(--border); padding: 4rem 0; overflow: hidden; position: relative; }
+    .mem-headline-section::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 5px; background: var(--so-lime); }
 
     .mhs-inner { max-width: 1400px; margin: 0 auto; padding: 0 3rem; }
     .mhs-title { display: flex; flex-direction: column; gap: 0; margin-bottom: 1.5rem; }
     .mhs-line-1, .mhs-line-2, .mhs-line-3 {
-      font-family: 'Anton', sans-serif;
+      font-family: var(--so-font-display);
       line-height: 0.95;
       letter-spacing: 0.01em;
       display: block;
     }
     .mhs-line-1 { font-size: clamp(2.5rem, 6vw, 5.5rem); color: rgba(255,255,255,0.5); }
     .mhs-line-2 { font-size: clamp(3rem, 7vw, 6.5rem); color: #ffffff; }
-    .mhs-line-3 { font-size: clamp(1.75rem, 4vw, 3.5rem); color: #a3e635; }
+    .mhs-line-3 { font-size: clamp(1.75rem, 4vw, 3.5rem); color: var(--so-lime); }
     .mhs-sub { font-size: 1.0625rem; color: var(--muted); max-width: 560px; line-height: 1.6; }
 
     /* ---- TIERS ---- */
@@ -346,9 +347,9 @@ const authed = !!Astro.locals.user;
 
     .tier-stats-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 4rem; flex-wrap: wrap; }
     .ts-item { display: flex; flex-direction: column; gap: 2px; }
-    .ts-num { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
-    .ts-num.mono { font-family: 'JetBrains Mono', monospace; font-size: 2rem; }
-    .ts-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); }
+    .ts-num { font-family: var(--so-font-display); font-size: 2.5rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
+    .ts-num.mono { font-family: var(--so-font-mono); font-size: 2rem; }
+    .ts-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); }
     .ts-div { width: 1px; height: 48px; background: var(--border); flex-shrink: 0; }
 
     .tiers-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
@@ -357,14 +358,14 @@ const authed = !!Astro.locals.user;
     .comparison-section { background: var(--bg-2); border-top: 1px solid var(--border); padding: 5rem 0; }
     .comp-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
     .comp-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
-    .section-num-sm { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: rgba(163,230,53,0.15); line-height: 1; }
-    .comp-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .section-num-sm { font-family: var(--so-font-display); font-size: 2.5rem; color: var(--so-lime-a15); line-height: 1; }
+    .comp-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
 
-    .comp-table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    .comp-table-wrap { overflow-x: auto; border-radius: var(--so-radius-lg); border: 1px solid var(--border); }
     .comp-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
 
     .comp-table thead th {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--so-font-mono);
       font-weight: 600;
       font-size: 0.5625rem;
       letter-spacing: 0.1em;
@@ -375,31 +376,31 @@ const authed = !!Astro.locals.user;
       border-bottom: 1px solid var(--border);
     }
     .ct-tier-featured {
-      background: rgba(163,230,53,0.06) !important;
-      color: #a3e635 !important;
-      border-left: 1px solid rgba(163,230,53,0.15);
-      border-right: 1px solid rgba(163,230,53,0.15);
+      background: var(--so-lime-a06) !important;
+      color: var(--so-lime) !important;
+      border-left: 1px solid var(--so-lime-a15);
+      border-right: 1px solid var(--so-lime-a15);
     }
     .ct-feature-col { width: 35%; }
     .ct-tier-col { text-align: center; }
 
     .ct-section-header td {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--so-font-mono);
       font-size: 0.5rem;
       font-weight: 600;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: rgba(163,230,53,0.5);
+      color: var(--so-lime-a50);
       padding: 0.75rem 1.25rem 0.25rem;
-      background: rgba(163,230,53,0.03);
-      border-top: 1px solid rgba(163,230,53,0.08);
+      background: var(--so-lime-a03);
+      border-top: 1px solid var(--so-lime-a08);
     }
 
     .ct-row td { padding: 0.875rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
     .ct-row:last-child td { border-bottom: none; }
     .ct-feature { color: rgba(255,255,255,0.65); }
     .ct-val { text-align: center; color: rgba(255,255,255,0.55); }
-    .ct-featured { background: rgba(163,230,53,0.04); color: rgba(255,255,255,0.75); border-left: 1px solid rgba(163,230,53,0.08); border-right: 1px solid rgba(163,230,53,0.08); }
+    .ct-featured { background: var(--so-lime-a04); color: rgba(255,255,255,0.75); border-left: 1px solid var(--so-lime-a08); border-right: 1px solid var(--so-lime-a08); }
     .ct-good { color: #86efac; font-weight: 600; }
     .ct-none { color: rgba(255,255,255,0.2); }
     .ct-na { color: rgba(255,255,255,0.2); }
@@ -408,10 +409,10 @@ const authed = !!Astro.locals.user;
     .faq-section { background: var(--bg); border-top: 1px solid var(--border); padding: 5rem 0; }
     .faq-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
     .faq-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
-    .faq-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .faq-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
     .faq-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
-    .faq-item { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem; }
-    .fq { font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 700; color: #ffffff; margin-bottom: 0.625rem; }
+    .faq-item { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--so-radius-md); padding: 1.5rem; }
+    .fq { font-family: var(--so-font-body); font-size: 1rem; font-weight: 700; color: #ffffff; margin-bottom: 0.625rem; }
     .fa { font-size: 0.9375rem; color: var(--muted); line-height: 1.6; }
 
     @media (max-width: 1100px) { .tiers-grid { grid-template-columns: 1fr; } }

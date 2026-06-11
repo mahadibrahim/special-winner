@@ -1,0 +1,105 @@
+/**
+ * SoccerOne design tokens — the single source of truth for the brand's
+ * look. Values are EXACTLY what the live site rendered on 2026-06-11
+ * (locked in by founder decision; see
+ * docs/superpowers/specs/2026-06-11-soccerone-hardening-design.md).
+ *
+ * Rules:
+ *  - Page/component <style> blocks reference var(--so-*) — never raw
+ *    hex/rgba for brand colors, never raw font-family strings.
+ *  - New shades require a new token here, not an inline value.
+ *  - This file is the input to the future brand_profiles theme work
+ *    (multi-brand decision 2026-06-10): each token maps 1:1 to a
+ *    brand_profiles key when that lands.
+ *
+ * Custom properties cascade into Astro scoped styles, so defining them
+ * on :root here works everywhere the sheet is imported.
+ */
+:root {
+  /* ── Brand color ───────────────────────────────────────────────── */
+  --so-lime: #a3e635;          /* primary accent (lime-400) */
+  --so-lime-bright: #bef264;   /* hover/active accent (lime-300) */
+  --so-ink: #0a0a0d;           /* page background */
+  --so-surface: #0e0e10;       /* raised cards / panels */
+  --so-white: #ffffff;
+
+  /* Lime alpha steps — exact observed values, lowest to highest.
+     Use the nearest existing step; do not invent new opacities. */
+  --so-lime-a04: rgba(163, 230, 53, 0.04);
+  --so-lime-a08: rgba(163, 230, 53, 0.08);
+  --so-lime-a10: rgba(163, 230, 53, 0.1);
+  --so-lime-a12: rgba(163, 230, 53, 0.12);
+  --so-lime-a15: rgba(163, 230, 53, 0.15);
+  --so-lime-a20: rgba(163, 230, 53, 0.2);
+  --so-lime-a25: rgba(163, 230, 53, 0.25);
+  --so-lime-a30: rgba(163, 230, 53, 0.3);
+  --so-lime-a40: rgba(163, 230, 53, 0.4);
+  --so-lime-a50: rgba(163, 230, 53, 0.5);
+  --so-lime-a60: rgba(163, 230, 53, 0.6);
+  --so-lime-a70: rgba(163, 230, 53, 0.7);
+
+  /* Legacy alpha steps — present in pre-token styles; do NOT use in new
+     code (pick from the canonical scale above; see
+     docs/design-system-soccerone.md). Kept so tokenization changed
+     nothing visually. */
+  --so-lime-a02: rgba(163, 230, 53, 0.02);
+  --so-lime-a03: rgba(163, 230, 53, 0.03);
+  --so-lime-a05: rgba(163, 230, 53, 0.05);
+  --so-lime-a06: rgba(163, 230, 53, 0.06);
+  --so-lime-a07: rgba(163, 230, 53, 0.07);
+  --so-lime-a14: rgba(163, 230, 53, 0.14);
+  --so-lime-a35: rgba(163, 230, 53, 0.35);
+  --so-lime-a80: rgba(163, 230, 53, 0.8);
+
+  /* Downtown facility accent — the deliberate navy cast used on
+     downtown-branded cards, badges, and map art. NOT interchangeable
+     with the ink/surface scale. */
+  --so-navy-deep: #080c18;
+  --so-navy: #0a1929;
+  --so-navy-raised: #0d2035;
+
+  /* Membership tier accents (one per tier card) */
+  --so-tier-day: #67e8f9;       /* Day Pass — cyan */
+  --so-tier-member: var(--so-lime);
+  --so-tier-founder: #fbbf24;   /* Founder — amber */
+  --so-tier-gold: #facc15;      /* legacy default tier accent */
+
+  /* ── Type ──────────────────────────────────────────────────────── */
+  --so-font-display: 'Anton', sans-serif;
+  --so-font-body: 'DM Sans', sans-serif;
+  --so-font-mono: 'JetBrains Mono', monospace;
+
+  /* Letter-spacing scale (uppercase display text trends wide) */
+  --so-track-tight: 0.01em;
+  --so-track-base: 0.04em;
+  --so-track-wide: 0.08em;
+  --so-track-caps: 0.12em;
+
+  /* ── Shape ─────────────────────────────────────────────────────── */
+  --so-radius-xs: 2px;   /* chips, hairline elements */
+  --so-radius-sm: 4px;   /* buttons, inputs, small cards */
+  --so-radius-md: 6px;   /* standard cards */
+  --so-radius-lg: 8px;   /* feature cards, panels */
+  --so-radius-xl: 12px;  /* hero/CTA containers */
+  --so-radius-pill: 20px;
+
+  /* Standard lime glow (badges, live indicators) */
+  --so-glow-lime: 0 0 8px var(--so-lime);
+}
+
+/* ── A11y baseline ─────────────────────────────────────────────────
+   Visible keyboard focus on every interactive element across the
+   SoccerOne surface. The dark theme hid default rings on several
+   browsers; this guarantees a consistent lime ring without affecting
+   mouse users (:focus-visible only). */
+.so-header a:focus-visible,
+.so-header button:focus-visible,
+.so-footer a:focus-visible,
+main a:focus-visible,
+main button:focus-visible,
+main input:focus-visible,
+main select:focus-visible {
+  outline: 2px solid var(--so-lime);
+  outline-offset: 2px;
+  border-radius: var(--so-radius-xs);
+}

@@ -76,7 +76,7 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
         annualPrice={fmtDollars(dayPass?.annualPriceCents ?? dayPass?.monthlyPriceCents ?? null)}
         ctaLabel={submitting === dayPass?.id ? "Starting…" : "Buy a Day Pass"}
         highlighted={false}
-        accentColor="#67e8f9"
+        accentColor="var(--so-tier-day)"
         benefits={[
           { text: "Full facility access for the day", included: true },
           { text: "Join any open pickup game", included: true },
@@ -102,7 +102,7 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
         annualSaving="17%"
         ctaLabel={submitting === member?.id ? "Starting…" : "Start Member Plan"}
         highlighted={true}
-        accentColor="#a3e635"
+        accentColor="var(--so-tier-member)"
         benefits={[
           { text: "All facilities — Worthington + Downtown + future", included: true },
           { text: "Unlimited facility access", included: true },
@@ -128,7 +128,7 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
         annualSaving="17%"
         ctaLabel={submitting === founder?.id ? "Starting…" : "Join as a Founder"}
         highlighted={false}
-        accentColor="#fbbf24"
+        accentColor="var(--so-tier-founder)"
         benefits={[
           { text: "All facilities — chain-wide, forever", included: true },
           { text: "Unlimited pickup games (free)", included: true },

@@ -19,6 +19,7 @@ const venueId = venueList.length > 0 ? venueList[0].id : null;
 ---
 
 <BaseLayout
+  favicon="/soccerone-favicon.svg"
   title={`Field Rentals — SoccerOne | ${facilityLabel}`}
   description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). $80/hr standard, members from $64/hr. Open 7am–11pm daily."
   navigation={false}
@@ -233,77 +234,77 @@ const venueId = venueList.length > 0 ? venueList[0].id : null;
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --accent: #a3e635;
-      --bg: #0a0a0d;
-      --bg-2: #0e0e10;
+      --accent: var(--so-lime);
+      --bg: var(--so-ink);
+      --bg-2: var(--so-surface);
       --muted: rgba(255,255,255,0.45);
       --border: rgba(255,255,255,0.08);
     }
-    .mono { font-family: 'JetBrains Mono', monospace; }
+    .mono { font-family: var(--so-font-mono); }
 
-    .rent-main { flex: 1; font-family: 'DM Sans', sans-serif; }
+    .rent-main { flex: 1; font-family: var(--so-font-body); }
 
-    .rent-header { background: #0a0a0d; border-bottom: 1px solid rgba(163,230,53,0.1); padding: 4rem 0 0; }
+    .rent-header { background: var(--so-ink); border-bottom: 1px solid var(--so-lime-a10); padding: 4rem 0 0; }
     .rh-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 
     .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
-    .bc-link { font-size: 0.8125rem; color: rgba(163,230,53,0.6); text-decoration: none; font-weight: 500; transition: color 0.15s; }
-    .bc-link:hover { color: #a3e635; }
+    .bc-link { font-size: 0.8125rem; color: var(--so-lime-a60); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+    .bc-link:hover { color: var(--so-lime); }
     .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
     .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
 
     .rh-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
 
-    .rh-title { font-family: 'Anton', sans-serif; font-size: clamp(3.5rem, 8vw, 7.5rem); color: #ffffff; line-height: 0.92; letter-spacing: 0.01em; margin-bottom: 1rem; }
+    .rh-title { font-family: var(--so-font-display); font-size: clamp(3.5rem, 8vw, 7.5rem); color: #ffffff; line-height: 0.92; letter-spacing: 0.01em; margin-bottom: 1rem; }
     .rh-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 440px; }
 
     .rates-block {
       display: flex;
       align-items: center;
       gap: 1.25rem;
-      background: rgba(163,230,53,0.04);
-      border: 1px solid rgba(163,230,53,0.15);
-      border-radius: 6px;
+      background: var(--so-lime-a04);
+      border: 1px solid var(--so-lime-a15);
+      border-radius: var(--so-radius-md);
       padding: 1.25rem 1.5rem;
       flex-shrink: 0;
       flex-wrap: wrap;
     }
 
     .rate-item { display: flex; flex-direction: column; gap: 2px; min-width: 70px; }
-    .ri-amount { font-family: 'Anton', sans-serif; font-size: 2.25rem; color: #a3e635; letter-spacing: 0.02em; line-height: 1; }
-    .ri-unit { font-family: 'JetBrains Mono', monospace; font-size: 0.625rem; color: rgba(163,230,53,0.6); letter-spacing: 0.06em; }
-    .ri-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
-    .ri-save { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; color: #86efac; letter-spacing: 0.06em; }
-    .ri-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; color: rgba(255,255,255,0.3); letter-spacing: 0.04em; }
+    .ri-amount { font-family: var(--so-font-display); font-size: 2.25rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
+    .ri-unit { font-family: var(--so-font-mono); font-size: 0.625rem; color: var(--so-lime-a60); letter-spacing: 0.06em; }
+    .ri-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .ri-save { font-family: var(--so-font-mono); font-size: 0.5rem; color: #86efac; letter-spacing: 0.06em; }
+    .ri-sub { font-family: var(--so-font-mono); font-size: 0.5rem; color: rgba(255,255,255,0.3); letter-spacing: 0.04em; }
     .rate-div { width: 1px; height: 48px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
 
     .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); }
-    .ff-tab { font-family: 'DM Sans', sans-serif; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .ff-tab { font-family: var(--so-font-body); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
     .ff-tab:hover { color: rgba(255,255,255,0.7); }
-    .ff-tab--active { color: #a3e635; border-bottom-color: #a3e635; }
+    .ff-tab--active { color: var(--so-lime); border-bottom-color: var(--so-lime); }
 
     /* Facility context bar */
-    .facility-context-bar { background: rgba(163,230,53,0.05); border-bottom: 1px solid rgba(163,230,53,0.1); padding: 0.875rem 0; }
+    .facility-context-bar { background: var(--so-lime-a05); border-bottom: 1px solid var(--so-lime-a10); padding: 0.875rem 0; }
     .fcb-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
     .fcb-left { display: flex; align-items: center; gap: 0.75rem; }
-    .fcb-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(163,230,53,0.5); }
-    .fcb-name { font-family: 'Anton', sans-serif; font-size: 1.25rem; color: #ffffff; letter-spacing: 0.02em; line-height: 1; }
-    .fcb-fields { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: rgba(163,230,53,0.6); }
+    .fcb-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.14em; color: var(--so-lime-a50); }
+    .fcb-name { font-family: var(--so-font-display); font-size: 1.25rem; color: #ffffff; letter-spacing: 0.02em; line-height: 1; }
+    .fcb-fields { font-family: var(--so-font-mono); font-size: 0.75rem; color: var(--so-lime-a60); }
     .fcb-right { display: flex; align-items: center; gap: 1.5rem; }
     .fcb-addr { font-size: 0.875rem; color: rgba(255,255,255,0.5); }
-    .fcb-hours { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: rgba(163,230,53,0.6); }
+    .fcb-hours { font-family: var(--so-font-mono); font-size: 0.75rem; color: var(--so-lime-a60); }
 
     /* Calendar */
     .calendar-section { background: var(--bg); padding: 4rem 0; }
     .cal-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
     .cal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
     .cal-header-left { display: flex; align-items: baseline; gap: 1rem; }
-    .section-num-sm { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: rgba(163,230,53,0.15); line-height: 1; }
-    .cal-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .section-num-sm { font-family: var(--so-font-display); font-size: 2.5rem; color: var(--so-lime-a15); line-height: 1; }
+    .cal-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
     .cal-legend { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
     .cl-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: rgba(255,255,255,0.4); }
     .cl-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .cl-open { background: #a3e635; }
+    .cl-open { background: var(--so-lime); }
     .cl-league { background: #67e8f9; }
     .cl-rental { background: #fbbf24; }
     .cl-practice { background: #c4b5fd; }
@@ -313,29 +314,29 @@ const venueId = venueList.length > 0 ? venueList[0].id : null;
     .includes-section { background: var(--bg-2); border-top: 1px solid var(--border); padding: 4rem 0; }
     .includes-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
     .inc-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
-    .inc-title { font-family: 'Anton', sans-serif; font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
+    .inc-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
     .includes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2.5rem; }
-    .inc-item { display: flex; align-items: flex-start; gap: 0.875rem; padding: 1.25rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; }
-    .inc-check { font-size: 1rem; color: #a3e635; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+    .inc-item { display: flex; align-items: flex-start; gap: 0.875rem; padding: 1.25rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--so-radius-md); }
+    .inc-check { font-size: 1rem; color: var(--so-lime); font-weight: 700; flex-shrink: 0; margin-top: 2px; }
     .inc-text { display: flex; flex-direction: column; gap: 3px; }
     .inc-text strong { font-size: 0.9375rem; font-weight: 600; color: rgba(255,255,255,0.85); }
     .inc-text span { font-size: 0.8125rem; color: rgba(255,255,255,0.4); line-height: 1.4; }
 
-    .addons-section { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem; }
-    .addons-label { font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: rgba(163,230,53,0.5); margin-bottom: 1rem; }
+    .addons-section { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--so-radius-md); padding: 1.5rem; }
+    .addons-label { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: var(--so-lime-a50); margin-bottom: 1rem; }
     .addons-list { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; }
     .addon-item { display: flex; align-items: center; gap: 0.75rem; }
     .addon-name { font-size: 0.9375rem; color: rgba(255,255,255,0.6); }
-    .addon-price { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: rgba(163,230,53,0.7); }
+    .addon-price { font-family: var(--so-font-mono); font-size: 0.875rem; color: var(--so-lime-a70); }
 
     /* Memberships CTA */
     .rent-mem-cta { background: var(--bg); border-top: 1px solid var(--border); padding: 3.5rem 0; }
     .rmc-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
-    .rmc-eyebrow { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: rgba(163,230,53,0.6); margin-bottom: 0.5rem; }
-    .rmc-title { font-family: 'Anton', sans-serif; font-size: clamp(1.25rem, 3vw, 2rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 0.5rem; }
+    .rmc-eyebrow { display: block; font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: var(--so-lime-a60); margin-bottom: 0.5rem; }
+    .rmc-title { font-family: var(--so-font-display); font-size: clamp(1.25rem, 3vw, 2rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 0.5rem; }
     .rmc-sub { font-size: 0.9375rem; color: var(--muted); max-width: 480px; line-height: 1.55; }
-    .rmc-btn { display: inline-block; background: #a3e635; color: #0a0a0d; font-family: 'DM Sans', sans-serif; font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: 4px; transition: background 0.15s; flex-shrink: 0; white-space: nowrap; }
-    .rmc-btn:hover { background: #bef264; }
+    .rmc-btn { display: inline-block; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: var(--so-radius-sm); transition: background 0.15s; flex-shrink: 0; white-space: nowrap; }
+    .rmc-btn:hover { background: var(--so-lime-bright); }
 
     @media (max-width: 1100px) { .includes-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) {

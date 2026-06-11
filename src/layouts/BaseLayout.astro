@@ -12,6 +12,9 @@ interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  /** Per-brand favicon path. Defaults to the Aspire mark; SoccerOne
+   *  pages pass "/soccerone-favicon.svg". */
+  favicon?: string;
   bodyClass?: string;
   navigation?: boolean;
   footer?: boolean;
@@ -21,6 +24,7 @@ const {
   title,
   description = "Aspire Sports — evidence-based youth and adult sports in Central Ohio.",
   ogImage,
+  favicon = "/favicon.svg",
   bodyClass = "min-h-screen flex flex-col bg-cream text-ink antialiased",
   navigation = true,
   footer = true,
@@ -47,7 +51,7 @@ const gtmContainerId =
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     {ogImage && <meta property="og:image" content={ogImage} />}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href={favicon} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
