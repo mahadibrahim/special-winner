@@ -22,7 +22,13 @@ vi.mock("@/lib/db", () => ({
           leftJoin: () => ({
             where: () => Promise.resolve([]),
           }),
-          where: () => Promise.resolve([]),
+          // venue_resources fetch ends .where(...).orderBy(...) — the
+          // chain must be both awaitable (other call sites) and
+          // orderBy-able (this one).
+          where: () =>
+            Object.assign(Promise.resolve([]), {
+              orderBy: () => Promise.resolve([]),
+            }),
         }),
         where: () => ({
           limit: () => locationSelectMock(),
