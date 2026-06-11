@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import CoachMessageComposer from '../../components/coach/coach-message-composer';
+
+// Middleware guarantees user is authenticated + coach/admin for /coach routes.
+---
+
+<BaseLayout title="Message Parents — Aspire Sports">
+
+    <main id="main-content" class="flex-1 pt-28 pb-16 px-4">
+      <div class="max-w-7xl mx-auto">
+        <!-- Section label -->
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">§ Coach Dashboard</p>
+          <a href="/coach" class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hover:text-ink transition-colors">← Back</a>
+        </div>
+        <div class="h-px bg-border mb-10"></div>
+
+        <header class="mb-8">
+          <h1 class="text-2xl sm:text-3xl font-display font-semibold text-ink">Message parents</h1>
+          <p class="text-ink-muted mt-1 text-sm">
+            Send a note to your roster — schedule changes, reminders, shout-outs.
+          </p>
+        </header>
+
+        <CoachMessageComposer client:load />
+      </div>
+    </main>
+
+</BaseLayout>
