@@ -16,6 +16,7 @@ import { organizations } from "./organizations";
 import { venues } from "./teams";
 import { users } from "./users";
 import { mediaAssets } from "./media";
+import { venueResources } from "./scheduling";
 
 // === enums ===
 
@@ -78,8 +79,14 @@ export const dropInSessions = pgTable(
     venueId: uuid("venue_id")
       .notNull()
       .references(() => venues.id, { onDelete: "restrict" }),
-    // Soft reference — no FK; the bookable_resources table does not exist yet.
-    bookableResourceId: uuid("bookable_resource_id"),
+    // Which field the session occupies — feeds the field-time ledger
+    // (resource_blocks). Required for NEW sessions at the API layer;
+    // nullable in the DB for pre-ledger rows (backfilled to the venue's
+    // Field 1 by migration; founder corrects per session in the admin).
+    bookableResourceId: uuid("bookable_resource_id").references(
+      () => venueResources.id,
+      { onDelete: "set null" },
+    ),
     kind: dropInSessionKindEnum("kind").notNull(),
     sportOrClassLabel: text("sport_or_class_label").notNull(),
     formatLabel: text("format_label"),

@@ -14,6 +14,7 @@ import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { syncRentalBlock } from "@/lib/scheduling/sync";
 
 export async function handleFieldRentalWalkUpPayment(
   paymentIntent: Stripe.PaymentIntent,
@@ -28,7 +29,10 @@ export async function handleFieldRentalWalkUpPayment(
   const paidCents = paymentIntent.amount_received ?? paymentIntent.amount ?? 0;
   const db = getDb();
 
-  return await db.transaction(async (tx) => {
+  const result:
+    | { status: "skipped"; reason: string }
+    | { status: "processed"; rentalId: string; paidCents: number } =
+    await db.transaction(async (tx) => {
     const [rental] = await tx
       .select()
       .from(fieldRentals)
@@ -66,4 +70,19 @@ export async function handleFieldRentalWalkUpPayment(
     // handle-field-rental-checkout-complete.ts.
     return { status: "processed", rentalId, paidCents };
   });
+
+  // Confirmed — refresh the ledger block AFTER the row-lock transaction
+  // commits (the pg pool is max:1; opening the ledger's own transaction
+  // inside this one deadlocks). Never fail the webhook over a ledger
+  // conflict: the payment already happened, and a rare
+  // hold-expired-then-resold race must surface on the admin calendar,
+  // not poison Stripe deliveries.
+  if (result.status === "processed") {
+    try {
+      await syncRentalBlock(result.rentalId);
+    } catch (err) {
+      console.error("[rentals] ledger sync after confirm failed", result.rentalId, err);
+    }
+  }
+  return result;
 }

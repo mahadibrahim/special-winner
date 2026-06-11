@@ -70,6 +70,9 @@ export * from "./team-registrations";
 // Activity tracking engine (game-day operational completions)
 export * from "./activity-tracking";
 
+// Field-time ledger — venue resources (fields) + occupancy blocks
+export * from "./scheduling";
+
 // Drop-in booking (pickup + classes per-seat) + brand profiles + skill levels
 export * from "./drop-in";
 

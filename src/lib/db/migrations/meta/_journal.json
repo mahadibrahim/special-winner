@@ -281,6 +281,13 @@
       "when": 1781193641522,
       "tag": "0039_careless_gamma_corps",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1781201285994,
+      "tag": "0040_cloudy_maverick",
+      "breakpoints": true
     }
   ]
 }

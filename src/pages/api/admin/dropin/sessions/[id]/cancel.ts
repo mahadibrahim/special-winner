@@ -9,6 +9,7 @@ import type { APIRoute } from "astro";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { removeSourceBlock } from "@/lib/scheduling/blocks";
 import { requireAdminAccess } from "@/lib/auth/roles";
 import { processCancelRefund } from "@/lib/dropin/refund";
 
@@ -84,6 +85,9 @@ export const POST: APIRoute = async (context) => {
     .update(dropInSessions)
     .set({ status: "cancelled", updatedAt: new Date() })
     .where(eq(dropInSessions.id, id));
+
+  // Cancelled → free its field-time-ledger block.
+  await removeSourceBlock("drop_in", id);
 
   return json(
     {

@@ -13,6 +13,8 @@ import {
   rescheduleActivityCompletions,
   cancelActivityCompletions,
 } from "@/lib/activity-tracking/lifecycle";
+import { syncGameBlock } from "@/lib/scheduling/sync";
+import { removeSourceBlock, BlockConflictError } from "@/lib/scheduling/blocks";
 
 const gameSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -272,6 +274,21 @@ export const POST: APIRoute = async (context) => {
       console.error("[bootstrap] failed for game", newGame.id, err);
     });
 
+    // Field-time ledger: claim the slot. A conflict (another game, a
+    // rental, an external Good Rec hold) comes back as a 409 with the
+    // blocking label; the game row stays so the admin can move it.
+    try {
+      await syncGameBlock(newGame.id);
+    } catch (err) {
+      if (err instanceof BlockConflictError) {
+        return new Response(
+          JSON.stringify({ game: newGame, warning: err.message }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      throw err;
+    }
+
     return new Response(JSON.stringify({ game: newGame }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
@@ -409,6 +426,20 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Game not found" }), { status: 404 });
     }
 
+    // Field-time ledger: re-sync (handles move, venue/field change, and
+    // cancel/postpone which release the slot). Conflict → 409 + label.
+    try {
+      await syncGameBlock(updatedGame.id);
+    } catch (err) {
+      if (err instanceof BlockConflictError) {
+        return new Response(
+          JSON.stringify({ game: updatedGame, warning: err.message }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      throw err;
+    }
+
     // Fire notifications if the schedule moved or the game was cancelled /
     // postponed. These run async — admin response is not blocked on delivery.
     const scheduleChanged =
@@ -496,6 +527,7 @@ export const DELETE: APIRoute = async (context) => {
     });
 
     await getDb().delete(games).where(eq(games.id, id));
+    await removeSourceBlock("game", id);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

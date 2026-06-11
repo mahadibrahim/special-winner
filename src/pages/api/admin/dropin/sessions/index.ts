@@ -6,9 +6,12 @@
  * Tenant-scoped via locals.organization. Director or venue manager only.
  */
 import type { APIRoute } from "astro";
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { venueResources } from "@/lib/db/schema/scheduling";
+import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
+import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
 
@@ -77,6 +80,8 @@ export const GET: APIRoute = async (context) => {
 
 interface CreateBody {
   venueId: string;
+  /** Which field the session occupies — feeds the field-time ledger. */
+  bookableResourceId?: string;
   kind: "pickup" | "class";
   sportOrClassLabel: string;
   formatLabel?: string | null;
@@ -129,6 +134,37 @@ export const POST: APIRoute = async (context) => {
     .limit(1);
   if (!venue) return json({ error: "Venue not found" }, 404);
 
+  // Field attribution: the ledger tracks per field. Default to the
+  // venue's Field 1 when omitted so existing admin clients keep working
+  // until the field picker ships (chunk 3).
+  let resourceId = body.bookableResourceId ?? null;
+  if (resourceId) {
+    const [res] = await db
+      .select({ id: venueResources.id })
+      .from(venueResources)
+      .where(
+        and(
+          eq(venueResources.id, resourceId),
+          eq(venueResources.venueId, body.venueId),
+        ),
+      )
+      .limit(1);
+    if (!res) return json({ error: "Field not found at this venue" }, 404);
+  } else {
+    const [res] = await db
+      .select({ id: venueResources.id })
+      .from(venueResources)
+      .where(
+        and(
+          eq(venueResources.venueId, body.venueId),
+          eq(venueResources.fieldNumber, 1),
+          isNull(venueResources.parentResourceId),
+        ),
+      )
+      .limit(1);
+    resourceId = res?.id ?? null;
+  }
+
   const [created] = await db
     .insert(dropInSessions)
     .values({
@@ -149,9 +185,21 @@ export const POST: APIRoute = async (context) => {
       memberRateCents: body.memberRateCents ?? null,
       teamCount: body.teamCount ?? 0,
       teamColors: body.teamColors ?? [],
+      bookableResourceId: resourceId,
       createdByUserId: auth.user.id,
     })
     .returning();
+
+  // Claim the slot in the field-time ledger. Conflict → 409 with the
+  // blocking label; the session row stays so the admin can move it.
+  try {
+    await syncDropInSessionBlock(created.id);
+  } catch (err) {
+    if (err instanceof BlockConflictError) {
+      return json({ session: created, warning: err.message }, 409);
+    }
+    throw err;
+  }
 
   return json({ session: created }, 201);
 };

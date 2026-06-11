@@ -6,6 +6,7 @@
 import { and, eq, lt, isNotNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { removeSourceBlock } from "@/lib/scheduling/blocks";
 
 export async function expirePendingRentals(): Promise<{ expired: number }> {
   const now = new Date();
@@ -25,5 +26,12 @@ export async function expirePendingRentals(): Promise<{ expired: number }> {
       ),
     )
     .returning({ id: fieldRentals.id });
+
+  // Free the field-time-ledger blocks for the expired holds. (The
+  // scheduling library also treats expired hold-blocks as free, so a
+  // missed sweep can't squat on a slot — this is the tidy-up.)
+  for (const row of rows) {
+    await removeSourceBlock("rental", row.id);
+  }
   return { expired: rows.length };
 }

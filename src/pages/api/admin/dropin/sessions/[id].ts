@@ -10,6 +10,8 @@ import type { APIRoute } from "astro";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
+import { BlockConflictError, removeSourceBlock } from "@/lib/scheduling/blocks";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
@@ -151,6 +153,17 @@ export const PUT: APIRoute = async (context) => {
     .where(eq(dropInSessions.id, id))
     .returning();
 
+  // Field-time ledger re-sync (time/field moves, cancels). Conflict →
+  // 409 with the blocking label; the row stays so the admin can adjust.
+  try {
+    await syncDropInSessionBlock(id);
+  } catch (err) {
+    if (err instanceof BlockConflictError) {
+      return json({ session: updated, warning: err.message }, 409);
+    }
+    throw err;
+  }
+
   return json({ session: updated }, 200);
 };
 
@@ -186,5 +199,6 @@ export const DELETE: APIRoute = async (context) => {
   }
 
   await db.delete(dropInSessions).where(eq(dropInSessions.id, id));
+  await removeSourceBlock("drop_in", id);
   return json({ ok: true }, 200);
 };
