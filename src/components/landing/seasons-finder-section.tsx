@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import ProgramCardV2 from "@/components/programs/program-card-v2"
 import { FilterChips, type ChipOption } from "./filter-chips"
+import { EmptyNotifyForm } from "./empty-notify-form"
 import type { ApiSeason } from "./adult-finder"
 
 const PAGE_SIZE = 6
@@ -67,6 +68,13 @@ interface SeasonsFinderSectionProps {
   descriptor: string
   seasons: ApiSeason[]
   loading: boolean
+  /**
+   * When set, the "nothing open" empty state includes an email-capture form
+   * (newsletter audience segment). Pass it on ONE section per page — the
+   * first — so a fully-empty catalog leads with a working next step instead
+   * of a dead end, without repeating the form in every empty section.
+   */
+  emptyCtaAudience?: "parent" | "adult"
 }
 
 export function SeasonsFinderSection({
@@ -76,6 +84,7 @@ export function SeasonsFinderSection({
   descriptor,
   seasons,
   loading,
+  emptyCtaAudience,
 }: SeasonsFinderSectionProps) {
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
@@ -166,8 +175,16 @@ export function SeasonsFinderSection({
             <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
               <p className="font-display text-lg text-ink">Nothing open right now.</p>
               <p className="text-ink-muted mt-1 text-sm">
-                New programs are added each season — check back soon.
+                {emptyCtaAudience
+                  ? "New programs are added each season — leave your email and you'll hear the moment one opens."
+                  : "New programs are added each season — check back soon."}
               </p>
+              {emptyCtaAudience && (
+                <EmptyNotifyForm
+                  audience={emptyCtaAudience}
+                  source={`empty-finder-${id}`}
+                />
+              )}
             </div>
           ) : filtered.length === 0 ? (
             <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">

@@ -121,7 +121,7 @@ export default function YouthFinder() {
     <div>
       <SectionNav items={NAV_ITEMS} active={activeSection} />
 
-      {AGE_BANDS.map((band) => (
+      {AGE_BANDS.map((band, i) => (
         <SeasonsFinderSection
           key={band.id}
           id={band.id}
@@ -129,6 +129,7 @@ export default function YouthFinder() {
           descriptor={band.descriptor}
           seasons={youthSeasons.filter((s) => inBand(s, band.min, band.max))}
           loading={loading}
+          emptyCtaAudience={i === 0 ? "parent" : undefined}
         />
       ))}
     </div>

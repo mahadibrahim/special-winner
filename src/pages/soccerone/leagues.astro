@@ -158,7 +158,23 @@ const firstSeasonId = seasons[0]?.id ?? null;
         {seasons.length === 0 ? (
           <div class="leagues-empty">
             <p class="le-title">No open leagues right now</p>
-            <p class="le-body">Check back soon — new seasons open before each cycle.</p>
+            <p class="le-body">
+              New seasons open before each cycle — leave your email and you'll
+              hear the moment registration opens.
+            </p>
+            <form id="le-notify-form" class="le-form" novalidate>
+              <label class="sr-only" for="le-notify-email">Email address</label>
+              <input
+                id="le-notify-email"
+                class="le-input"
+                type="email"
+                required
+                autocomplete="email"
+                placeholder="you@email.com"
+              />
+              <button type="submit" class="le-btn">Notify me</button>
+            </form>
+            <p id="le-notify-msg" class="le-msg" role="status" hidden></p>
           </div>
         ) : (
           <div class="leagues-grid">
@@ -546,6 +562,48 @@ const firstSeasonId = seasons[0]?.id ?? null;
       padding: 4rem 0;
       text-align: center;
     }
+    .le-form {
+      margin: 1.5rem auto 0;
+      display: flex;
+      gap: 0.5rem;
+      max-width: 26rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .le-input {
+      flex: 1 1 14rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 0.375rem;
+      color: #ffffff;
+      font-size: 0.9375rem;
+    }
+    .le-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+    .le-input:focus {
+      outline: none;
+      border-color: #a3e635;
+    }
+    .le-btn {
+      padding: 0.75rem 1.25rem;
+      background: #a3e635;
+      color: #0a0a0d;
+      font-family: 'Anton', sans-serif;
+      font-size: 0.9375rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+    }
+    .le-btn:hover { background: #bef264; }
+    .le-btn:disabled { opacity: 0.6; cursor: default; }
+    .le-msg {
+      margin-top: 0.75rem;
+      font-size: 0.9375rem;
+      color: #a3e635;
+    }
+    .le-msg.le-msg--error { color: #f87171; }
     .le-title {
       font-family: 'Anton', sans-serif;
       font-size: 1.5rem;
@@ -567,5 +625,48 @@ const firstSeasonId = seasons[0]?.id ?? null;
       .lbc-inner { flex-direction: column; align-items: flex-start; }
     }
   </style>
+
+  <script>
+    // Empty-state email capture — posts to the org-scoped newsletter
+    // endpoint (rate-limited, upserts by email). Only present when the
+    // page rendered with zero open seasons.
+    const form = document.getElementById("le-notify-form") as HTMLFormElement | null;
+    const input = document.getElementById("le-notify-email") as HTMLInputElement | null;
+    const msg = document.getElementById("le-notify-msg");
+    const btn = form?.querySelector("button");
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!input || !msg || !input.value.trim()) return;
+      if (btn) btn.disabled = true;
+      msg.hidden = true;
+      try {
+        const res = await fetch("/api/public/newsletter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: input.value.trim(),
+            audience: "adult",
+            source: "soccerone-leagues-empty",
+          }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error ?? "Could not save your email");
+        }
+        msg.textContent =
+          "You're on the list — we'll email you the moment registration opens.";
+        msg.classList.remove("le-msg--error");
+        msg.hidden = false;
+        form.hidden = true;
+      } catch (err) {
+        msg.textContent =
+          err instanceof Error ? err.message : "Could not save your email";
+        msg.classList.add("le-msg--error");
+        msg.hidden = false;
+        if (btn) btn.disabled = false;
+      }
+    });
+  </script>
 
 </BaseLayout>
