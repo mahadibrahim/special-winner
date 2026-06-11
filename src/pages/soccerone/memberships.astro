@@ -116,13 +116,9 @@ const authed = !!Astro.locals.user;
     <div class="tiers-section">
       <div class="tiers-inner">
 
-        <!-- Stats above tiers -->
+        <!-- Stats above tiers. Only facts that can't drift — no invented
+             member counts. -->
         <div class="tier-stats-row">
-          <div class="ts-item">
-            <span class="ts-num">400+</span>
-            <span class="ts-label">Active members</span>
-          </div>
-          <div class="ts-div" aria-hidden="true"></div>
           <div class="ts-item">
             <span class="ts-num mono">$8–$16</span>
             <span class="ts-label">Saved per rental hour</span>

@@ -3,6 +3,7 @@ export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 ---
 
 <BaseLayout
@@ -136,9 +137,9 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
           </div>
           <div class="stat-divider" aria-hidden="true"></div>
           <div class="stat-block">
-            <div class="stat-num">16</div>
-            <div class="stat-name">Active Leagues</div>
-            <div class="stat-sub">Adult · Youth · Coed</div>
+            <div class="stat-num">3</div>
+            <div class="stat-name">Ways to Play</div>
+            <div class="stat-sub">Leagues · Pickup · Rentals</div>
           </div>
           <div class="stat-divider" aria-hidden="true"></div>
           <div class="stat-block">
@@ -333,15 +334,15 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
             <p class="pc-desc">Coed, Premier, and Women's divisions. 8-week seasons with playoffs.</p>
             <div class="pc-detail">
               <span class="pc-detail-item">
-                <span class="detail-label">NEXT SEASON</span>
-                <span class="detail-val">June 2026</span>
+                <span class="detail-label">SEASONS</span>
+                <span class="detail-val">Year-round cycles</span>
               </span>
               <span class="pc-detail-item">
                 <span class="detail-label">BOTH FACILITIES</span>
                 <span class="detail-val">Available</span>
               </span>
             </div>
-            <a href="/register/season-adult-open-2026" class="pc-cta">Register Now</a>
+            <a href="/soccerone/leagues" class="pc-cta">See Leagues</a>
           </a>
 
           <!-- Pickup -->
@@ -387,7 +388,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
           </a>
 
           <!-- Youth -->
-          <a href="/soccerone#programs" class="play-card">
+          <a href="/soccerone/leagues" class="play-card">
             <div class="pc-num">04</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -451,13 +452,13 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
     <section class="cta-band" aria-label="League registration CTA">
       <div class="cta-band-inner">
         <div class="cta-band-left">
-          <div class="cta-band-label">NOW OPEN</div>
-          <h2 class="cta-band-heading">Adult Open Soccer<br />2026 — Register Now</h2>
-          <p class="cta-band-sub">Coed adult pickup league at Worthington. 8-week season. All levels.</p>
+          <div class="cta-band-label">LEAGUES</div>
+          <h2 class="cta-band-heading">Coed adult leagues<br />at both facilities</h2>
+          <p class="cta-band-sub">Season-long play, all levels. See what's open and grab your spot.</p>
         </div>
         <div class="cta-band-right">
-          <a href="/register/season-adult-open-2026" class="cta-band-btn">
-            Register &amp; Pay
+          <a href="/soccerone/leagues" class="cta-band-btn">
+            See Open Leagues
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
               <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -527,7 +528,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
         </div>
         <div class="contact-divider" aria-hidden="true"></div>
         <div class="contact-action">
-          <a href="mailto:play@soccerone.com" class="contact-email">play@soccerone.com</a>
+          <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`} class="contact-email">{SOCCERONE_CONTACT_EMAIL}</a>
           <a href="/soccerone/rent" class="contact-book-btn">Book a Field</a>
         </div>
       </div>

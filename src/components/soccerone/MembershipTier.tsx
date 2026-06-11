@@ -43,9 +43,12 @@ export function MembershipTier({
       onCta();
       return;
     }
-    toast("Demo only — memberships launching Q2 2026", {
-      description: "Leave your email at the front desk to be first on the list.",
-      duration: 5000,
+    // Fallback when the tier has no live Stripe price yet (no onCta) —
+    // evergreen copy, real contact path.
+    toast("This plan isn't open for signup yet", {
+      description:
+        "Email play@gosoccerone.com and we'll let you know the moment it opens.",
+      duration: 6000,
     });
   };
 

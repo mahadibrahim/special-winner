@@ -143,10 +143,15 @@ export function FieldCalendar({ venueId, initialDate }: FieldCalendarProps) {
     setSelectedSlot({ field: selectedField, hour: h });
   };
 
+  // Online checkout for this calendar isn't wired yet (the real rental
+  // booking flow exists at POST /api/rentals/bookings — wiring it here is
+  // tracked in the SoccerOne hardening spec). Until then, hand off to
+  // email instead of a dead end: no fake phone numbers, no stale dates.
   const handleBook = () => {
-    toast("Demo only — bookings launching Q2 2026", {
-      description: "Visit the front desk or call (614) 555-0181 to reserve your slot.",
-      duration: 6000,
+    toast("Email us to lock in this slot", {
+      description:
+        "Online field booking is almost here. Email play@gosoccerone.com with your date and time and we'll reserve it.",
+      duration: 8000,
     });
     setSelectedSlot(null);
   };
