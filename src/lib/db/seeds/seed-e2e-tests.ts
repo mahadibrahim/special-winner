@@ -1741,7 +1741,7 @@ async function seedE2ETests() {
           name: "Adult Coed League",
           slug: "soccerone-adult-coed-league",
           programType: "league",
-          audienceType: "adult",
+          audienceType: "adults",
           active: true,
           isTest: false,
         })

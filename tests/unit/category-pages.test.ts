@@ -48,8 +48,8 @@ function makeSeason(over: {
 
 describe("scopeSeasons", () => {
   const seasons = [
-    makeSeason({ id: "adult-league", programType: "league", audienceType: "adult" }),
-    makeSeason({ id: "adult-tourney", programType: "tournament", audienceType: "adult" }),
+    makeSeason({ id: "adult-league", programType: "league", audienceType: "adults" }),
+    makeSeason({ id: "adult-tourney", programType: "tournament", audienceType: "adults" }),
     makeSeason({ id: "youth-league", programType: "league", audienceType: "youth", minAge: 6, maxAge: 8 }),
     makeSeason({ id: "youth-camp", programType: "camp", audienceType: "youth", minAge: 6, maxAge: 12 }),
   ]
@@ -85,10 +85,10 @@ describe("inAgeBand", () => {
 describe("byRegistrationCloses", () => {
   it("sorts soonest deadline first, no-deadline last, ties by startDate", () => {
     const sorted = [
-      makeSeason({ id: "none", programType: "league", audienceType: "adult", registrationCloses: null, startDate: "2026-08-01" }),
-      makeSeason({ id: "late", registrationCloses: "2026-08-20", programType: "league", audienceType: "adult" }),
-      makeSeason({ id: "soon", registrationCloses: "2026-07-01", programType: "league", audienceType: "adult" }),
-      makeSeason({ id: "none-earlier", programType: "league", audienceType: "adult", registrationCloses: null, startDate: "2026-07-15" }),
+      makeSeason({ id: "none", programType: "league", audienceType: "adults", registrationCloses: null, startDate: "2026-08-01" }),
+      makeSeason({ id: "late", registrationCloses: "2026-08-20", programType: "league", audienceType: "adults" }),
+      makeSeason({ id: "soon", registrationCloses: "2026-07-01", programType: "league", audienceType: "adults" }),
+      makeSeason({ id: "none-earlier", programType: "league", audienceType: "adults", registrationCloses: null, startDate: "2026-07-15" }),
     ].sort(byRegistrationCloses)
     expect(sorted.map((s) => s.id)).toEqual(["soon", "late", "none-earlier", "none"])
   })
