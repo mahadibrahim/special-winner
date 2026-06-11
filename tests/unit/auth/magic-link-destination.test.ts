@@ -1,7 +1,32 @@
 import { describe, it, expect } from "vitest";
-import { destinationFor } from "@/lib/auth/magic-link-destination";
+import {
+  destinationFor,
+  isSafeRelativePath,
+} from "@/lib/auth/magic-link-destination";
 
 const ORIGIN = "http://localhost:4321";
+
+describe("isSafeRelativePath", () => {
+  it("accepts site-relative paths", () => {
+    expect(isSafeRelativePath("/register/abc")).toBe(true);
+    expect(isSafeRelativePath("/dashboard/payments?x=1")).toBe(true);
+    expect(isSafeRelativePath("/")).toBe(true);
+  });
+
+  it("rejects scheme-relative and absolute URLs", () => {
+    expect(isSafeRelativePath("//evil.example.com")).toBe(false);
+    expect(isSafeRelativePath("https://evil.example.com")).toBe(false);
+    expect(isSafeRelativePath("http://localhost/x")).toBe(false);
+  });
+
+  it("rejects non-path and non-string values", () => {
+    expect(isSafeRelativePath("register/abc")).toBe(false);
+    expect(isSafeRelativePath("")).toBe(false);
+    expect(isSafeRelativePath(undefined)).toBe(false);
+    expect(isSafeRelativePath(null)).toBe(false);
+    expect(isSafeRelativePath(42)).toBe(false);
+  });
+});
 
 describe("destinationFor — login purpose", () => {
   it("sends admin users to /admin on plain login", () => {

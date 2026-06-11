@@ -86,7 +86,7 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
 
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Step 2 — waiver
+    // Step 2 — Agreements (waiver required; media consent optional & collapsed)
     // The waiver checkbox has id="waiver" with a matching htmlFor on Label
     await page.locator('#waiver').check();
 
@@ -99,14 +99,11 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
 
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Step 3 — Media authorization: defaults grant all 3 scopes; just Continue
-    await page.getByRole("button", { name: /continue/i }).click();
-
-    // Step 4 — Payment: keep "Pay in Full" + the default "Bank transfer"
-    // method (preselected, no surcharge) and click the submit button. The
-    // button label was renamed from "Complete Registration" to "Continue
-    // to payment" when the bank/card method picker was introduced.
-    await page.getByRole("button", { name: /continue to payment|complete registration/i }).click();
+    // Step 3 — Payment: keep "Pay in Full", then commit to the free "Bank
+    // transfer" method. Selecting a method is the action that creates the
+    // registration + Stripe session and mounts the inline payment form — there
+    // is no separate "continue to payment" button anymore.
+    await page.getByRole("button", { name: /bank transfer/i }).click();
 
     // Outcome: with embedded checkout, the contract is "Stripe Elements iframe mounted
     // inline" instead of "navigated to checkout.stripe.com". Other valid outcomes:
@@ -116,13 +113,14 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
     // Strategy: wait up to 30s for any of the concrete outcome signals to appear.
     // We first wait for the submit button to go into "Processing..." state so
     // we know the click registered, then wait for resolution.
-    const processingButtonLocator = page.getByRole("button", { name: /processing/i });
+    const startingLocator = page.getByText(/starting secure payment/i);
     const errorBannerLocator = page.locator("[class*='destructive']");
 
-    // Wait for the "Processing..." state to appear (confirms the click registered)
-    await processingButtonLocator.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {
-      // If it never shows "Processing...", the form may not have been ready.
-      // Proceed anyway — might have already navigated.
+    // Wait for the "Starting secure payment…" state to appear (confirms the
+    // method click registered). It can resolve straight to the iframe, so this
+    // is best-effort.
+    await startingLocator.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {
+      // Proceed anyway — might have already mounted the form or navigated.
     });
 
     const stripeIframeLocator = page.locator('iframe[name^="__privateStripeFrame"]').first();

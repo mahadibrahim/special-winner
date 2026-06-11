@@ -24,6 +24,9 @@ export default function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [user, setUser] = useState<MeUser | null>(null)
   const [authResolved, setAuthResolved] = useState(false)
+  // Count of started-but-unpaid registrations, surfaced as a badge on the
+  // Dashboard link so a saved registration is discoverable from anywhere.
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -53,6 +56,30 @@ export default function Navigation() {
       cancelled = true
     }
   }, [])
+
+  // Once we know who the user is, fetch their incomplete-registration count.
+  useEffect(() => {
+    if (!user) {
+      setPendingCount(0)
+      return
+    }
+    let cancelled = false
+    fetch("/api/registrations", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : { registrations: [] }))
+      .then((data: { registrations?: Array<{ status: string; paymentStatus: string }> }) => {
+        if (cancelled) return
+        const count = (data.registrations ?? []).filter(
+          (r) => r.status === "pending" && r.paymentStatus === "unpaid",
+        ).length
+        setPendingCount(count)
+      })
+      .catch(() => {
+        if (!cancelled) setPendingCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   const initials = user
     ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
@@ -123,6 +150,14 @@ export default function Navigation() {
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   Dashboard
+                  {pendingCount > 0 && (
+                    <span
+                      className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-cream text-xs font-semibold"
+                      aria-label={`${pendingCount} registration${pendingCount === 1 ? "" : "s"} awaiting payment`}
+                    >
+                      {pendingCount}
+                    </span>
+                  )}
                 </a>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -244,6 +279,14 @@ export default function Navigation() {
                         >
                           <LayoutDashboard className="w-4 h-4" />
                           Dashboard
+                          {pendingCount > 0 && (
+                            <span
+                              className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-cream text-primary text-xs font-semibold"
+                              aria-label={`${pendingCount} registration${pendingCount === 1 ? "" : "s"} awaiting payment`}
+                            >
+                              {pendingCount}
+                            </span>
+                          )}
                         </a>
                       </Button>
                       <Button

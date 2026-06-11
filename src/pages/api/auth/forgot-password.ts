@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
+import { isSafeRelativePath } from "@/lib/auth/magic-link-destination";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { verifyTurnstile } from "@/lib/auth/turnstile";
 import { isEmailConfigured } from "@/lib/email";
@@ -28,6 +29,11 @@ const forgotPasswordSchema = z.object({
   // Cloudflare Turnstile token from the client widget. Optional in the
   // schema so the route validates it explicitly with a friendly error.
   turnstileToken: z.string().optional(),
+  // Where to land after the magic link is redeemed. Carried through the
+  // sign-in roundtrip so a customer interrupted mid-registration returns
+  // to /register/<season> instead of the generic /dashboard. Validated as
+  // a safe relative path before it's trusted (see isSafeRelativePath).
+  redirectTo: z.string().optional(),
 });
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
@@ -51,7 +57,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       );
     }
 
-    const { email, turnstileToken } = result.data;
+    const { email, turnstileToken, redirectTo } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
 
     // CAPTCHA check. verifyTurnstile fails closed in prod when the secret
@@ -102,12 +108,15 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
     const targetUser = user[0];
 
-    // Create a magic-link-based login token
+    // Create a magic-link-based login token. Stash a validated return path
+    // in purposeContext so destinationFor sends the user back where they
+    // started after redemption.
     const { token } = await createMagicLink({
       userId: targetUser.id,
       purpose: "password_reset_login",
       deliveredChannel: "email",
       deliveredTo: normalizedEmail,
+      purposeContext: isSafeRelativePath(redirectTo) ? { redirectTo } : undefined,
     });
 
     // Send email with the redemption URL

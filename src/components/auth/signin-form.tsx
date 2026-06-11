@@ -34,10 +34,21 @@ export function SignInForm() {
     setError(null);
     setIsLoading(true);
     try {
+      // Carry the ?redirect= param (set by middleware bounces and the
+      // registration flow's "Sign in" link) through to the magic-link issuer
+      // so redemption returns the user to where they started.
+      const redirectTo =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("redirect")
+          : null;
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, turnstileToken: turnstileToken || undefined }),
+        body: JSON.stringify({
+          email,
+          turnstileToken: turnstileToken || undefined,
+          redirectTo: redirectTo || undefined,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {

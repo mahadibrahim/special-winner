@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
+import { isSafeRelativePath } from "@/lib/auth/magic-link-destination";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { eq } from "drizzle-orm";
 import { getPostHogServer } from "@/lib/posthog-server";
@@ -26,6 +27,10 @@ const signupSchema = z.object({
   // schema so the route can validate it explicitly (and return a friendly
   // error) rather than failing on the zod boundary.
   turnstileToken: z.string().optional(),
+  // Post-redemption return path, carried through the sign-up roundtrip so a
+  // customer who creates an account mid-registration lands back on
+  // /register/<season>. Validated as a safe relative path before use.
+  redirectTo: z.string().optional(),
 });
 
 export const POST: APIRoute = async (context) => {
@@ -52,7 +57,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const { email, password, firstName, lastName, phone, turnstileToken } = result.data;
+    const { email, password, firstName, lastName, phone, turnstileToken, redirectTo } = result.data;
     const emailLower = email.toLowerCase();
     const emailCanonical = normalizeForUniqueness(email);
 
@@ -131,6 +136,7 @@ export const POST: APIRoute = async (context) => {
         purpose: "password_reset_login",
         deliveredChannel: "email",
         deliveredTo: emailLower,
+        purposeContext: isSafeRelativePath(redirectTo) ? { redirectTo } : undefined,
       });
       const signinUrl = buildMagicLinkUrl(token);
       await sendSignInLinkEmail({

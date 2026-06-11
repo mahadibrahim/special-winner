@@ -309,6 +309,10 @@ export default function RegistrationsCard() {
     }
   }
 
+  const pendingUnpaidCount = registrations.filter(
+    (r) => r.status === "pending" && r.paymentStatus === "unpaid",
+  ).length
+
   return (
     <div className="bg-paper border border-border rounded-2xl overflow-hidden">
       <div className="p-6 border-b border-border">
@@ -321,6 +325,12 @@ export default function RegistrationsCard() {
               <h3 className="font-semibold text-ink">My Registrations</h3>
               <p className="text-sm text-ink-muted">
                 {registrations.length} {registrations.length === 1 ? "registration" : "registrations"}
+                {pendingUnpaidCount > 0 && (
+                  <span className="text-yellow-600 font-medium">
+                    {" · "}
+                    {pendingUnpaidCount} awaiting payment
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -338,6 +348,17 @@ export default function RegistrationsCard() {
           <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2 text-destructive text-sm">
             <AlertCircle className="w-4 h-4" />
             {error}
+          </div>
+        )}
+
+        {!isLoading && pendingUnpaidCount > 0 && (
+          <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2 text-sm">
+            <Clock className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+            <span className="text-yellow-700">
+              {pendingUnpaidCount === 1
+                ? "You have a registration awaiting payment. Complete payment to secure the spot."
+                : `You have ${pendingUnpaidCount} registrations awaiting payment. Complete payment to secure the spots.`}
+            </span>
           </div>
         )}
 
