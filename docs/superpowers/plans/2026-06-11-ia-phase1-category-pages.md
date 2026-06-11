@@ -16,7 +16,6 @@
 |---|---|
 | `src/lib/programs/category-pages.ts` (create) | Pure helpers: audience/type scoping, age-band overlap, deadline sort, age-band chip constants. Unit-testable, no React. |
 | `tests/unit/category-pages.test.ts` (create) | Unit tests for the helpers. |
-| `src/components/landing/category-empty-state.tsx` (create) | Whole-catalog-empty state with inline newsletter capture (spec: PR #154 pattern). |
 | `src/components/landing/category-finder.tsx` (create) | Top-level island for seasons-backed category pages. Fetch → scope → sort → optional Age chips → `SeasonsFinderSection`. |
 | `src/components/landing/pickup-page-finder.tsx` (create) | Top-level island for `/adult/pickup`. Fetch drop-ins → adult filter → `PickupFinderSection`. |
 | `src/pages/adult/leagues.astro`, `src/pages/adult/tournaments.astro`, `src/pages/adult/pickup.astro`, `src/pages/youth/leagues.astro`, `src/pages/youth/camps.astro` (create) | The five category pages. |
@@ -253,118 +252,13 @@ git add src/lib/programs/category-pages.ts tests/unit/category-pages.test.ts
 git commit -m "feat(ia): category-page scoping helpers"
 ```
 
-### Task 3: CategoryEmptyState (newsletter capture)
+### Task 3: ~~CategoryEmptyState~~ — SUPERSEDED, skip
 
-**Files:**
-- Create: `src/components/landing/category-empty-state.tsx`
-
-No unit test — repo unit tests are pure functions only; this component is exercised by the `/youth/camps` e2e test in Task 8 (the seed has no camps, so the empty state is the rendered path).
-
-- [ ] **Step 1: Write the component**
-
-```tsx
-// src/components/landing/category-empty-state.tsx
-"use client"
-
-import { useState } from "react"
-
-interface CategoryEmptyStateProps {
-  /** Maps to the newsletter `audience` column: youth pages → "parent". */
-  audience: "adult" | "youth"
-  /** e.g. "category-youth-camps" — recorded on the signup row. */
-  source: string
-}
-
-/**
- * Whole-catalog-empty state for a category page. Instead of dead-ending
- * ("check back soon"), capture the visit: inline email signup into
- * newsletter_signups via the existing public endpoint (same pattern as the
- * SoccerOne empty states / footer form).
- */
-export function CategoryEmptyState({ audience, source }: CategoryEmptyStateProps) {
-  const [email, setEmail] = useState("")
-  const [status, setStatus] = useState<"idle" | "submitting" | "ok" | "error">("idle")
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) return
-    setStatus("submitting")
-    try {
-      const res = await fetch("/api/public/newsletter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          audience: audience === "youth" ? "parent" : "adult",
-          source,
-        }),
-      })
-      if (!res.ok) throw new Error()
-      setStatus("ok")
-    } catch {
-      setStatus("error")
-    }
-  }
-
-  return (
-    <section className="py-16 lg:py-20">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-paper border border-border rounded-2xl py-14 px-6 text-center max-w-2xl mx-auto">
-          <p className="font-display text-2xl text-ink">Nothing open right now.</p>
-          {status === "ok" ? (
-            <p className="text-ink-muted mt-3">
-              You're on the list — we'll email you when registration opens.
-            </p>
-          ) : (
-            <>
-              <p className="text-ink-muted mt-3">
-                New programs are added each season. Leave your email and we'll tell you
-                the day registration opens.
-              </p>
-              <form onSubmit={submit} className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  aria-label="Email address"
-                  className="border border-border rounded-lg px-4 py-3 text-sm bg-cream text-ink w-full sm:w-72"
-                />
-                <button
-                  type="submit"
-                  disabled={status === "submitting"}
-                  className="inline-flex items-center justify-center px-7 py-3 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors disabled:opacity-60"
-                  style={{ letterSpacing: "0.08em" }}
-                >
-                  Notify me
-                </button>
-              </form>
-              {status === "error" && (
-                <p className="text-sm text-red-600 mt-3">
-                  Couldn't save that — please try again.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </section>
-  )
-}
-```
-
-- [ ] **Step 2: Type-check**
-
-Run: `npx tsc --noEmit`
-Expected: 0 errors
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add src/components/landing/category-empty-state.tsx
-git commit -m "feat(ia): category-page empty state with newsletter capture"
-```
+Commit `8a2705ea` (merged to main 2026-06-11, after this plan was drafted) already added
+`src/components/landing/empty-notify-form.tsx` and an `emptyCtaAudience` prop on
+`SeasonsFinderSection`: when set, the "nothing open" empty state renders the email-capture
+form with `source={'empty-finder-' + id}`. CategoryFinder reuses that instead of a new
+component (see Task 4). No work in this task.
 
 ### Task 4: CategoryFinder island
 
@@ -388,7 +282,6 @@ import {
 } from "@/lib/programs/category-pages"
 import { SeasonsFinderSection } from "./seasons-finder-section"
 import { FilterChips, type ChipOption } from "./filter-chips"
-import { CategoryEmptyState } from "./category-empty-state"
 import type { ApiSeason } from "./adult-finder"
 
 /**
@@ -396,9 +289,10 @@ import type { ApiSeason } from "./adult-finder"
  * /youth/camps, …). Fetches the open-seasons catalog once, scopes it to
  * this page's audience + program types, sorts soonest-deadline-first, and
  * renders the existing SeasonsFinderSection (which owns the Format/Sport/
- * Venue chips, pagination, and per-filter empty state). Youth pages add an
- * Age chip row above the section — on category pages age is a filter, not
- * a page axis.
+ * Venue chips, pagination, and the empty states — including the
+ * email-capture form via emptyCtaAudience when the whole catalog is empty).
+ * Youth pages add an Age chip row above the section — on category pages age
+ * is a filter, not a page axis.
  */
 
 interface CategoryFinderProps {
@@ -409,8 +303,9 @@ interface CategoryFinderProps {
   descriptor: string
   /** Show the Age chip row (youth pages). */
   ageChips?: boolean
-  /** newsletter_signups source tag for the catalog-empty state. */
-  emptyStateSource: string
+  /** Section anchor id, e.g. "adult-leagues". Also drives the empty-state
+   *  signup attribution: newsletter source = "empty-finder-<sectionId>". */
+  sectionId: string
 }
 
 export default function CategoryFinder({
@@ -419,7 +314,7 @@ export default function CategoryFinder({
   title,
   descriptor,
   ageChips = false,
-  emptyStateSource,
+  sectionId,
 }: CategoryFinderProps) {
   useHydrationBeacon()
 
@@ -467,11 +362,6 @@ export default function CategoryFinder({
     return scoped.filter((s) => inAgeBand(s, band.min, band.max))
   }, [scoped, ageChips, activeBand])
 
-  // Whole catalog empty (not just a chip combination): capture the visit.
-  if (!loading && scoped.length === 0) {
-    return <CategoryEmptyState audience={audience} source={emptyStateSource} />
-  }
-
   return (
     <div>
       {ageChips && !loading && (
@@ -480,11 +370,12 @@ export default function CategoryFinder({
         </div>
       )}
       <SeasonsFinderSection
-        id="programs"
+        id={sectionId}
         title={title}
         descriptor={descriptor}
         seasons={visible}
         loading={loading}
+        emptyCtaAudience={audience === "youth" ? "parent" : "adult"}
       />
     </div>
   )
@@ -556,7 +447,7 @@ import CTABanner from "@/components/cta-banner";
       programTypes={["league"]}
       title="Open now"
       descriptor="Sign up a full team or join as a free agent."
-      emptyStateSource="category-adult-leagues"
+      sectionId="adult-leagues"
     />
 
     <CTABanner client:visible />
@@ -613,7 +504,7 @@ import CTABanner from "@/components/cta-banner";
       programTypes={["tournament"]}
       title="Open now"
       descriptor="Bring a team or sign up and get placed."
-      emptyStateSource="category-adult-tournaments"
+      sectionId="adult-tournaments"
     />
 
     <CTABanner client:visible />
@@ -823,7 +714,7 @@ import CTABanner from "@/components/cta-banner";
       title="Open now"
       descriptor="Leagues, classes, and clinics — filter by age, sport, and venue."
       ageChips
-      emptyStateSource="category-youth-leagues"
+      sectionId="youth-leagues"
     />
 
     <CTABanner client:visible />
@@ -881,7 +772,7 @@ import CTABanner from "@/components/cta-banner";
       title="Open now"
       descriptor="School-break and summer camps, filterable by age and venue."
       ageChips
-      emptyStateSource="category-youth-camps"
+      sectionId="youth-camps"
     />
 
     <CTABanner client:visible />
@@ -920,7 +811,7 @@ git commit -m "feat(ia): /youth/leagues and /youth/camps category pages"
 **Files:**
 - Create: `tests/e2e/category-pages.spec.ts`
 
-Seed facts this spec relies on (`src/lib/db/seeds/seed-e2e-tests.ts`): an open adult league season "Adult Open Soccer 2026" and an open youth league season "E2E Test Spring 2026" exist; **no camp programs exist**, so `/youth/camps` deterministically renders the `CategoryEmptyState`.
+Seed facts this spec relies on (`src/lib/db/seeds/seed-e2e-tests.ts`): an open adult league season "Adult Open Soccer 2026" and an open youth league season "E2E Test Spring 2026" exist; **no camp programs exist**, so `/youth/camps` deterministically renders the empty state with the `EmptyNotifyForm` capture.
 
 - [ ] **Step 1: Write the spec**
 
@@ -985,7 +876,7 @@ test.describe("Category pages", () => {
     await page.goto("/youth/camps", { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
 
-    // Seed has no camp programs → CategoryEmptyState renders.
+    // Seed has no camp programs → empty state with EmptyNotifyForm renders.
     await expect(page.getByText(/nothing open right now/i)).toBeVisible();
     await page.getByLabel("Email address").fill("camps-waitlist-e2e@test.aspiresports.com");
     await page.getByRole("button", { name: /notify me/i }).click();
@@ -1052,3 +943,4 @@ Expected: all checks pass. The task is not done until CI is green (note: Netlify
 - **Spec coverage:** Phase 1 scope only — five category pages ✓, finder reuse ✓, Age-chip flip for youth ✓, deadline-first sort ✓, empty-state newsletter capture ✓, SSR policy ✓, no nav/redirect/schema changes ✓. Hub slimming, nav dropdowns, `/sports` retirement are Phases 2–3 by design.
 - **Type consistency:** `CategoryFinder` props match all five page usages; `inAgeBand`/`scopeSeasons`/`byRegistrationCloses` signatures match tests and call sites; `ApiSeason` imported from its real home (`adult-finder.tsx`).
 - **Placeholders:** none — every code step contains complete code; the one conditional instruction (worktree vs switch) has exact commands for both arms.
+- **Amended at execution time:** Task 3 superseded by commit `8a2705ea` on main (EmptyNotifyForm + emptyCtaAudience); CategoryFinder passes `sectionId` + `emptyCtaAudience` instead of a bespoke empty state. Task 1 done by controller (branch `feat/ia-category-pages`, docs committed).
