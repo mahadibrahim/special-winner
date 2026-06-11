@@ -212,12 +212,23 @@ export async function purgeOldMagicLinks(olderThanDays = 30): Promise<number> {
 
 /**
  * Build the full URL a parent taps to redeem a magic link.
- * Honors MAGIC_LINK_BASE_URL override if set, else uses `${PUBLIC_APP_URL}/m`.
+ *
+ * Pass `origin` (e.g. `Astro.url.origin` from the requesting route) whenever
+ * the link is minted in request context: session cookies are per-domain, so
+ * a link minted for a gosoccerone.com visitor MUST redeem on gosoccerone.com
+ * or they land signed-in on the wrong domain. Honors MAGIC_LINK_BASE_URL
+ * override if set; falls back to `${PUBLIC_APP_URL}/m` when no origin is
+ * available (webhooks, cron).
  */
-export function buildMagicLinkUrl(plaintextToken: string): string {
+export function buildMagicLinkUrl(
+  plaintextToken: string,
+  opts?: { origin?: string | null },
+): string {
   const base =
     import.meta.env.MAGIC_LINK_BASE_URL ||
-    `${import.meta.env.PUBLIC_APP_URL || "http://localhost:4321"}/m`;
+    (opts?.origin
+      ? `${opts.origin}/m`
+      : `${import.meta.env.PUBLIC_APP_URL || "http://localhost:4321"}/m`);
   return `${base.replace(/\/$/, "")}/${plaintextToken}`;
 }
 

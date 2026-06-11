@@ -32,6 +32,9 @@ export async function createDropInCheckoutSession(opts: {
   waiverSignedAt: Date;
   waiverName: string;
   extraMetadata?: Record<string, string>;
+  /** Request origin (e.g. `url.origin`) — success/cancel redirects return to
+   *  the domain the customer booked from. Falls back to PUBLIC_APP_URL. */
+  origin?: string;
 }): Promise<{ checkoutUrl: string | null; checkoutSessionId: string }> {
   const { db, session, user, rate, waiverSignedAt, waiverName } = opts;
 
@@ -71,7 +74,7 @@ export async function createDropInCheckoutSession(opts: {
     timezone: org?.timezone ?? null,
   });
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
+  const appUrl = opts.origin ?? import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",

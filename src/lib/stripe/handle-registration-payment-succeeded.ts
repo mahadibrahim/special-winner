@@ -17,6 +17,7 @@ import {
   sendPaymentReceiptEmail,
 } from "@/lib/email/send";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
+import { originForBrand } from "@/lib/organization/soccerone-routing";
 import { sendPurchaseEvent } from "@/lib/analytics/ga4-measurement-protocol";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
@@ -176,7 +177,12 @@ export async function handleRegistrationPaymentSucceeded(
             organizationId: row.location.organizationId ?? undefined,
             parentEmail: row.user.email,
             parentName: row.user.firstName || row.user.email.split("@")[0],
-            magicLinkUrl: buildMagicLinkUrl(link.token),
+            // No request context in a webhook — derive the redemption domain
+            // from the charge's brand metadata so a gosoccerone.com purchase
+            // signs the customer in on gosoccerone.com.
+            magicLinkUrl: buildMagicLinkUrl(link.token, {
+              origin: originForBrand(paymentIntent.metadata?.brand),
+            }),
             expiresIn: "15 minutes",
             programName: row.program.name,
             childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,

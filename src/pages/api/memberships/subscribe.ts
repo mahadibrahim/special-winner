@@ -30,7 +30,7 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, locals, url }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
   if (!locals.organization)
     return json({ error: "No organization context" }, 400);
@@ -111,7 +111,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: "Could not create Stripe customer" }, 502);
   }
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
+  // Request origin, not PUBLIC_APP_URL — Stripe success/cancel redirects
+  // must return to the domain the customer subscribed from (brand host).
+  const appUrl = url.origin;
   try {
     const result = await createSubscriptionCheckoutSession({
       customerId,

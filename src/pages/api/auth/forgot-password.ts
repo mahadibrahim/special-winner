@@ -36,7 +36,7 @@ const forgotPasswordSchema = z.object({
   redirectTo: z.string().optional(),
 });
 
-export const POST: APIRoute = async ({ request, clientAddress }) => {
+export const POST: APIRoute = async ({ request, clientAddress, url }) => {
   try {
     const ip = clientAddress || "unknown";
 
@@ -121,7 +121,9 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
     // Send email with the redemption URL
     if (isEmailConfigured()) {
-      const signInUrl = buildMagicLinkUrl(token);
+      // Origin-aware: the link must redeem on the domain the user requested
+      // it from (session cookies are per-domain across the two brand hosts).
+      const signInUrl = buildMagicLinkUrl(token, { origin: url.origin });
       await sendSignInLinkEmail({
         userId: targetUser.id,
         recipientEmail: normalizedEmail,

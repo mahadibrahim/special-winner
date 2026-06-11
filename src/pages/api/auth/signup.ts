@@ -138,7 +138,9 @@ export const POST: APIRoute = async (context) => {
         deliveredTo: emailLower,
         purposeContext: isSafeRelativePath(redirectTo) ? { redirectTo } : undefined,
       });
-      const signinUrl = buildMagicLinkUrl(token);
+      // Origin-aware: the link must redeem on the domain the user signed up
+      // from (session cookies are per-domain across the two brand hosts).
+      const signinUrl = buildMagicLinkUrl(token, { origin: context.url.origin });
       await sendSignInLinkEmail({
         userId: newUser.id,
         recipientEmail: emailLower,
