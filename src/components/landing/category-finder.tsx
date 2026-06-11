@@ -70,18 +70,21 @@ export default function CategoryFinder({
   }, [])
 
   const scoped = useMemo(
-    () => [...scopeSeasons(seasons, audience, programTypes)].sort(byRegistrationCloses),
+    // scopeSeasons returns a fresh array (.filter), so in-place sort is safe.
+    () => scopeSeasons(seasons, audience, programTypes).sort(byRegistrationCloses),
     [seasons, audience, programTypes],
   )
 
   const bandOptions: ChipOption[] = useMemo(
     () =>
-      AGE_BAND_CHIPS.map((b) => ({
-        value: b.value,
-        label: b.label,
-        count: scoped.filter((s) => inAgeBand(s, b.min, b.max)).length,
-      })).filter((o) => o.count > 0),
-    [scoped],
+      !ageChips
+        ? []
+        : AGE_BAND_CHIPS.map((b) => ({
+            value: b.value,
+            label: b.label,
+            count: scoped.filter((s) => inAgeBand(s, b.min, b.max)).length,
+          })).filter((o) => o.count > 0),
+    [scoped, ageChips],
   )
 
   const visible = useMemo(() => {
@@ -93,12 +96,13 @@ export default function CategoryFinder({
 
   return (
     <div>
-      {ageChips && !loading && (
+      {ageChips && !loading && bandOptions.length > 1 && (
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 -mb-4">
           <FilterChips label="Age" options={bandOptions} active={activeBand} onChange={setActiveBand} />
         </div>
       )}
       <SeasonsFinderSection
+        key={activeBand ?? "all"}
         id={sectionId}
         title={title}
         descriptor={descriptor}
