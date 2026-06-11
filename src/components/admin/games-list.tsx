@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Plus, Pencil, Trash2, Loader2, Calendar, MapPin, Clock, UserCheck } from "lucide-react"
 import { GameOfficialsDialog } from "./game-officials-dialog"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -84,6 +85,10 @@ const statusLabels: Record<string, string> = {
   completed: "Completed",
   postponed: "Postponed",
   cancelled: "Cancelled",
+}
+
+function alertConflict(warning: string) {
+  toast.warning("Schedule conflict", { description: warning, duration: 10000 })
 }
 
 export function GamesList({ seasons, teams, venues }: GamesListProps) {
@@ -205,6 +210,17 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
       })
 
       const data = await response.json()
+
+      if (response.status === 409 && data.warning) {
+        // Saved, but the slot conflicts in the field-time ledger (another
+        // game, a rental, or an external hold). Keep the row, surface the
+        // blocking label, let the admin move it.
+        await fetchGames()
+        setIsDialogOpen(false)
+        setError(null)
+        alertConflict(data.warning)
+        return
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to save game")

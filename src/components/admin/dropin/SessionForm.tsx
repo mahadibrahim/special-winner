@@ -22,6 +22,7 @@ interface SessionFormProps {
 
 interface FormState {
   venueId: string;
+  bookableResourceId: string;
   kind: "pickup" | "class";
   sportOrClassLabel: string;
   formatLabel: string;
@@ -41,6 +42,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   venueId: "",
+  bookableResourceId: "",
   kind: "pickup",
   sportOrClassLabel: "",
   formatLabel: "",
@@ -69,6 +71,9 @@ export function SessionForm({ sessionId }: SessionFormProps) {
 
   const [state, setState] = useState<FormState>(EMPTY);
   const [venues, setVenues] = useState<VenueOption[]>([]);
+  const [resources, setResources] = useState<
+    Array<{ id: string; name: string; fieldNumber: number }>
+  >([]);
   const [loading, setLoading] = useState(!!sessionId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +98,7 @@ export function SessionForm({ sessionId }: SessionFormProps) {
           const s = json.session;
           setState({
             venueId: s.venueId,
+            bookableResourceId: s.bookableResourceId ?? "",
             kind: s.kind,
             sportOrClassLabel: s.sportOrClassLabel,
             formatLabel: s.formatLabel ?? "",
@@ -121,6 +127,28 @@ export function SessionForm({ sessionId }: SessionFormProps) {
     })();
   }, [sessionId]);
 
+  // Field options follow the selected venue.
+  useEffect(() => {
+    if (!state.venueId) {
+      setResources([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/venues/${state.venueId}/resources`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) setResources(json.resources ?? []);
+      } catch {
+        /* picker degrades to default field */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.venueId]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -128,6 +156,7 @@ export function SessionForm({ sessionId }: SessionFormProps) {
     try {
       const body = {
         venueId: state.venueId,
+        bookableResourceId: state.bookableResourceId || undefined,
         kind: state.kind,
         sportOrClassLabel: state.sportOrClassLabel,
         formatLabel: state.formatLabel || null,
@@ -163,6 +192,13 @@ export function SessionForm({ sessionId }: SessionFormProps) {
         body: JSON.stringify(body),
       });
       const json = await res.json();
+      if (res.status === 409 && json.warning) {
+        // Saved, but the slot conflicts in the field-time ledger —
+        // surface the blocking label so the admin can move it.
+        setError(`Saved with a conflict: ${json.warning}`);
+        toast.warning(json.warning);
+        return;
+      }
       if (!res.ok) {
         setError(json.error ?? "Save failed");
         return;
@@ -193,7 +229,7 @@ export function SessionForm({ sessionId }: SessionFormProps) {
           <select
             id="venue"
             value={state.venueId}
-            onChange={(e) => setState({ ...state, venueId: e.target.value })}
+            onChange={(e) => setState({ ...state, venueId: e.target.value, bookableResourceId: "" })}
             required
             className="mt-1 w-full rounded border border-border px-3 py-2 bg-cream"
           >
@@ -208,6 +244,30 @@ export function SessionForm({ sessionId }: SessionFormProps) {
               </optgroup>
             ))}
           </select>
+        </div>
+        <div>
+          <Label htmlFor="field">Field</Label>
+          <select
+            id="field"
+            value={state.bookableResourceId}
+            onChange={(e) =>
+              setState({ ...state, bookableResourceId: e.target.value })
+            }
+            className="mt-1 w-full rounded border border-border px-3 py-2 bg-cream"
+            disabled={!state.venueId || resources.length === 0}
+          >
+            <option value="">
+              {resources.length === 0 ? "Field 1 (default)" : "Select a field…"}
+            </option>
+            {resources.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-ink-muted">
+            The session blocks this field for rentals and games.
+          </p>
         </div>
         <div>
           <Label htmlFor="kind">Kind</Label>

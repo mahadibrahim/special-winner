@@ -2,17 +2,22 @@
  * Computes free rental blocks for a venue on a given calendar date.
  *
  * Free = the venue's rental window (rentalOpenMinute..rentalCloseMinute)
- * minus scheduled/in-progress games on that (venueId, fieldNumber) minus
- * confirmed + non-expired pending_payment rentals on that field.
+ * minus the FIELD-TIME LEDGER's blocks for each field — games, drop-in
+ * sessions, other rentals (confirmed + unexpired holds), external
+ * partner bookings (Good Rec / email), and maintenance, all in one
+ * subtraction. The ledger (resource_blocks) is the single source of
+ * truth; see docs/superpowers/specs/2026-06-11-field-time-ledger-design.md.
  *
- * Drop-in sessions are intentionally excluded from the v1 conflict net —
- * they carry no field number. See the spec's "Availability + conflict
- * detection" section.
+ * Field enumeration prefers venue_resources rows (created with the venue
+ * and kept in lockstep with fieldCount); venues that somehow lack
+ * resource rows fall back to a bare 1..fieldCount enumeration with no
+ * busy blocks rather than erroring.
  */
-import { and, eq, gte, lt, inArray, isNull, or, gt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { venues, games } from "@/lib/db/schema/teams";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { venues } from "@/lib/db/schema/teams";
+import { resourceBlocks, venueResources } from "@/lib/db/schema/scheduling";
+import { expandFamily } from "@/lib/scheduling/blocks";
 import { subtractBusyBlocks, type TimeBlock } from "./overlap";
 
 export interface FieldAvailability {
@@ -48,85 +53,77 @@ export async function getVenueRentalAvailability(
       ? new Date(dayStart.getTime() + venue.rentalCloseMinute * 60_000)
       : dayEnd;
 
-  // Games on this venue overlapping the day. A game overlaps the day when it
-  // starts before dayEnd AND its computed end (scheduledAt + durationMinutes)
-  // is after dayStart. COALESCE(durationMinutes, 0) handles the nullable column
-  // so games without a duration are treated as zero-length and are not silently
-  // dropped from the overlap test.
-  // NOTE: games.fieldNumber is a varchar column; the loop integer is converted
-  // to a string for comparison (fieldKey = String(fieldNumber)). fieldRentals
-  // .fieldNumber is an integer column, so that comparison stays numeric.
-  const gameRows = await db
+  // The venue's resource tree (all rows — family expansion needs
+  // children even when only top-level fields are rentable units).
+  const resourceRows = await db
     .select({
-      fieldNumber: games.fieldNumber,
-      scheduledAt: games.scheduledAt,
-      durationMinutes: games.durationMinutes,
+      id: venueResources.id,
+      fieldNumber: venueResources.fieldNumber,
+      parentResourceId: venueResources.parentResourceId,
+      active: venueResources.active,
     })
-    .from(games)
-    .where(
-      and(
-        eq(games.venueId, venueId),
-        inArray(games.status, ["scheduled", "in_progress"]),
-        lt(games.scheduledAt, dayEnd),
-        gt(
-          sql`${games.scheduledAt} + (COALESCE(${games.durationMinutes}, 0) * interval '1 minute')`,
-          // A JS Date passed into a raw sql() context loses its pg type and must be cast explicitly.
-          sql`${dayStart.toISOString()}::timestamptz`,
-        ),
-      ),
-    );
+    .from(venueResources)
+    .where(eq(venueResources.venueId, venueId));
 
-  // Confirmed + non-expired pending_payment rentals overlapping the day.
-  // status and paymentExpiresAt are used only in the WHERE clause below;
-  // they are not needed in the select projection.
+  // Unexpired ledger blocks overlapping the day, across all the venue's
+  // resources. One query; bucketing happens in memory (small sets).
+  const resourceIds = resourceRows.map((r) => r.id);
   const now = new Date();
-  const rentalRows = await db
-    .select({
-      fieldNumber: fieldRentals.fieldNumber,
-      startsAt: fieldRentals.startsAt,
-      endsAt: fieldRentals.endsAt,
-    })
-    .from(fieldRentals)
-    .where(
-      and(
-        eq(fieldRentals.venueId, venueId),
-        lt(fieldRentals.startsAt, dayEnd),
-        gt(fieldRentals.endsAt, dayStart),
-        or(
-          eq(fieldRentals.status, "confirmed"),
-          and(
-            eq(fieldRentals.status, "pending_payment"),
-            or(
-              isNull(fieldRentals.paymentExpiresAt),
-              gte(fieldRentals.paymentExpiresAt, now),
+  const blockRows =
+    resourceIds.length > 0
+      ? await db
+          .select({
+            resourceId: resourceBlocks.resourceId,
+            startsAt: resourceBlocks.startsAt,
+            endsAt: resourceBlocks.endsAt,
+          })
+          .from(resourceBlocks)
+          .where(
+            and(
+              inArray(resourceBlocks.resourceId, resourceIds),
+              lt(resourceBlocks.startsAt, dayEnd),
+              gt(resourceBlocks.endsAt, dayStart),
+              or(
+                isNull(resourceBlocks.expiresAt),
+                gt(resourceBlocks.expiresAt, now),
+              ),
             ),
-          ),
-        ),
-      ),
-    );
+          )
+      : [];
+
+  const blocksByResource = new Map<string, TimeBlock[]>();
+  for (const b of blockRows) {
+    const list = blocksByResource.get(b.resourceId) ?? [];
+    list.push({ startsAt: b.startsAt, endsAt: b.endsAt });
+    blocksByResource.set(b.resourceId, list);
+  }
+
+  const topLevel = resourceRows
+    .filter((r) => r.parentResourceId === null && r.active)
+    .sort((a, b) => a.fieldNumber - b.fieldNumber);
 
   const fields: FieldAvailability[] = [];
-  for (let fieldNumber = 1; fieldNumber <= fieldCount; fieldNumber++) {
-    const fieldKey = String(fieldNumber);
-    const busy: TimeBlock[] = [];
-    for (const g of gameRows) {
-      // games.fieldNumber is varchar (see comment above); compare as string.
-      if ((g.fieldNumber ?? "1") !== fieldKey) continue;
-      busy.push({
-        startsAt: g.scheduledAt,
-        endsAt: new Date(
-          g.scheduledAt.getTime() + (g.durationMinutes ?? 0) * 60_000,
-        ),
+  if (topLevel.length > 0) {
+    for (const field of topLevel) {
+      // Busy = blocks on the field OR anything in its family (a booked
+      // half blocks the full field for rental purposes).
+      const familyIds = expandFamily(field.id, resourceRows);
+      const busy: TimeBlock[] = familyIds.flatMap(
+        (id) => blocksByResource.get(id) ?? [],
+      );
+      fields.push({
+        fieldNumber: field.fieldNumber,
+        free: subtractBusyBlocks(windowStart, windowEnd, busy),
       });
     }
-    for (const r of rentalRows) {
-      if (r.fieldNumber !== fieldNumber) continue;
-      busy.push({ startsAt: r.startsAt, endsAt: r.endsAt });
+  } else {
+    // No resource rows (legacy/test venue) — enumerate bare fields.
+    for (let fieldNumber = 1; fieldNumber <= fieldCount; fieldNumber++) {
+      fields.push({
+        fieldNumber,
+        free: subtractBusyBlocks(windowStart, windowEnd, []),
+      });
     }
-    fields.push({
-      fieldNumber,
-      free: subtractBusyBlocks(windowStart, windowEnd, busy),
-    });
   }
 
   return { venueName: venue.name, fields };

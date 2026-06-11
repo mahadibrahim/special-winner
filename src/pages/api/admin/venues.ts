@@ -9,6 +9,7 @@ import {
   requireSameOrgVenue,
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
+import { ensureVenueResources } from "@/lib/scheduling/blocks";
 
 const venueSchema = z
   .object({
@@ -195,6 +196,9 @@ export const POST: APIRoute = async (context) => {
       })
       .returning();
 
+    // Field-time ledger: every venue's fields exist as resources.
+    await ensureVenueResources(newVenue.id);
+
     return new Response(JSON.stringify({ venue: newVenue }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
@@ -255,6 +259,9 @@ export const PUT: APIRoute = async (context) => {
     if (!updatedVenue) {
       return new Response(JSON.stringify({ error: "Venue not found" }), { status: 404 });
     }
+
+    // Keep field resources in lockstep with fieldCount changes.
+    await ensureVenueResources(updatedVenue.id);
 
     return new Response(JSON.stringify({ venue: updatedVenue }), {
       status: 200,

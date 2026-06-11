@@ -15,7 +15,7 @@
  * Expired hold-blocks (expiresAt < now — abandoned rental checkouts) are
  * treated as free and deleted on the next write that touches their range.
  */
-import { and, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   resourceBlocks,
@@ -23,6 +23,7 @@ import {
   type BlockSource,
   type ResourceBlock,
 } from "@/lib/db/schema/scheduling";
+import { venues } from "@/lib/db/schema/teams";
 
 export class BlockConflictError extends Error {
   readonly conflict: { label: string; startsAt: Date; endsAt: Date; sourceType: string };
@@ -345,4 +346,50 @@ export async function deleteManualBlock(
     )
     .returning();
   return deleted ?? null;
+}
+
+/**
+ * Keep venue_resources in lockstep with venues.field_count: create
+ * missing top-level "Field N" rows, deactivate extras on shrink
+ * (blocks/history stay attached). Called on venue create/update and by
+ * the e2e seed; idempotent.
+ */
+export async function ensureVenueResources(venueId: string): Promise<void> {
+  const db = getDb();
+  const [venue] = await db
+    .select({ fieldCount: venues.fieldCount })
+    .from(venues)
+    .where(eq(venues.id, venueId))
+    .limit(1);
+  if (!venue) return;
+  const count = Math.max(venue.fieldCount ?? 1, 1);
+
+  for (let n = 1; n <= count; n++) {
+    await db
+      .insert(venueResources)
+      .values({ venueId, name: `Field ${n}`, fieldNumber: n, sortOrder: n })
+      .onConflictDoNothing();
+  }
+  // Reactivate any previously-shrunk fields back inside the count, then
+  // deactivate the ones beyond it.
+  await db
+    .update(venueResources)
+    .set({ active: true, updatedAt: new Date() })
+    .where(
+      and(
+        eq(venueResources.venueId, venueId),
+        isNull(venueResources.parentResourceId),
+        lte(venueResources.fieldNumber, count),
+      ),
+    );
+  await db
+    .update(venueResources)
+    .set({ active: false, updatedAt: new Date() })
+    .where(
+      and(
+        eq(venueResources.venueId, venueId),
+        isNull(venueResources.parentResourceId),
+        gt(venueResources.fieldNumber, count),
+      ),
+    );
 }
