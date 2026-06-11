@@ -2,7 +2,10 @@
 // Adult-leagues hub — explains the three sign-up paths and routes
 // the visitor into the catalog. No DB query required at the page level
 // (the catalog page does its own filtering).
-export const prerender = true;
+// SSR (not prerendered): middleware rewrites /leagues per-host for branded
+// tenants (gosoccerone.com/leagues → /soccerone/leagues). A static page would
+// bypass middleware and serve Aspire on every brand domain.
+export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 ---
 
