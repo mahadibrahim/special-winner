@@ -67,19 +67,25 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .where(eq(dropInRateCard.organizationId, row.session.organizationId))
     .limit(1);
 
-  // Resolve per-user rate when authenticated.
+  // Resolve the rate. For anonymous visitors this is the public session
+  // rate (resolveRate with no user/membership) so the guest booking CTA
+  // can show a real price; for authenticated users it's their personal
+  // (possibly member) rate.
   let resolvedAmountCents: number | null = null;
   let resolvedPaymentMethod: string | null = null;
   let alreadyBookedStatus: string | null = null;
-  if (locals.user && rateCard) {
-    const membership = await getActiveMembershipForUser(
-      locals.user.id,
-      row.session.organizationId,
-    );
+  if (rateCard) {
+    const membership = locals.user
+      ? await getActiveMembershipForUser(
+          locals.user.id,
+          row.session.organizationId,
+        )
+      : null;
     const rate = resolveRate(row.session, locals.user, membership, rateCard);
     resolvedAmountCents = rate.amountCents;
     resolvedPaymentMethod = rate.paymentMethod;
-
+  }
+  if (locals.user) {
     // Active booking lookup so the UI can switch the CTA from "Book" to
     // "View / Cancel".
     const [existing] = await db

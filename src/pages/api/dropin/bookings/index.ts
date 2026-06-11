@@ -30,12 +30,7 @@ import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
-import {
-  buildDropInCheckoutLineItems,
-  dropInPaymentDescription,
-} from "@/lib/dropin/checkout-line-item";
-import { computeSurchargeCents } from "@/lib/payments/surcharge";
-import { organizations } from "@/lib/db/schema/organizations";
+import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
 
 export const prerender = false;
 
@@ -199,84 +194,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: "Stripe not configured" }, 500);
   }
 
-  const [venue] = await db
-    .select()
-    .from(venues)
-    .where(eq(venues.id, session.venueId))
-    .limit(1);
-
-  const [org] = await db
-    .select({ timezone: organizations.timezone })
-    .from(organizations)
-    .where(eq(organizations.id, session.organizationId))
-    .limit(1);
-
-  // Drop-in checkout is card-only, so the card surcharge always applies.
-  const surchargeCents = computeSurchargeCents(rate.amountCents, "card");
-
-  const partnerStripeAccountId = venue?.partnerStripeAccountId ?? null;
-  const applicationFeePct = venue?.partnerApplicationFeePct ?? 0;
-  // The surcharge is our card-cost recovery, not partner revenue — when
-  // funds settle on a partner account, claw it back via the application
-  // fee on top of our usual percentage cut.
-  const applicationFeeCents = partnerStripeAccountId
-    ? Math.round((rate.amountCents * applicationFeePct) / 100) + surchargeCents
-    : undefined;
-
-  // Human-readable description for the PaymentIntent — what shows in the
-  // Stripe dashboard payment list and on refunds (Stripe otherwise falls
-  // back to the raw pi_… id).
-  const paymentDescription = dropInPaymentDescription({
-    sportOrClassLabel: session.sportOrClassLabel,
-    formatLabel: session.formatLabel,
-    startsAt: session.startsAt,
-    venueName: venue?.name ?? null,
-    timezone: org?.timezone ?? null,
-  });
-
-  const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
-
-  const checkoutSession = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    customer_email: locals.user.email,
-    line_items: buildDropInCheckoutLineItems({
-      sportOrClassLabel: session.sportOrClassLabel,
-      formatLabel: session.formatLabel,
-      startsAt: session.startsAt,
-      venueName: venue?.name ?? null,
-      timezone: org?.timezone ?? null,
-      baseAmountCents: rate.amountCents,
-      surchargeCents,
-    }),
-    metadata: {
-      type: "dropin_booking",
-      session_id: sessionId,
-      user_id: locals.user.id,
-      payment_method: rate.paymentMethod,
-      membership_id: rate.membershipId ?? "",
-      organization_id: session.organizationId,
-      waiver_signed_at: waiverSignedAt.toISOString(),
-      waiver_name: waiverName,
-    },
-    payment_intent_data: {
-      description: paymentDescription,
-      ...(partnerStripeAccountId
-        ? {
-            application_fee_amount: applicationFeeCents,
-            transfer_data: { destination: partnerStripeAccountId },
-          }
-        : {}),
-    },
-    success_url: `${appUrl}/dropin/${sessionId}?booking=success`,
-    cancel_url: `${appUrl}/dropin/${sessionId}?booking=cancelled`,
+  const checkout = await createDropInCheckoutSession({
+    db,
+    session,
+    user: { id: locals.user.id, email: locals.user.email },
+    rate,
+    waiverSignedAt,
+    waiverName,
   });
 
   return json(
     {
       paymentRequired: true,
-      checkoutUrl: checkoutSession.url,
-      checkoutSessionId: checkoutSession.id,
+      checkoutUrl: checkout.checkoutUrl,
+      checkoutSessionId: checkout.checkoutSessionId,
     },
     200,
   );
