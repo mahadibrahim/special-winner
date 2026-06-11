@@ -335,6 +335,7 @@ export function UsersList() {
                   <SelectItem value="coach">Coach</SelectItem>
                   <SelectItem value="parent">Parent</SelectItem>
                   <SelectItem value="player">Player</SelectItem>
+                  <SelectItem value="referee">Referee</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -14,7 +14,7 @@ const updateUserSchema = z.object({
 
 const assignRoleSchema = z.object({
   userId: z.string().uuid(),
-  roleName: z.enum(["super_admin", "location_admin", "coach", "parent", "player"]),
+  roleName: z.enum(["super_admin", "location_admin", "coach", "parent", "player", "referee"]),
   scopeType: z.enum(["global", "organization", "location", "program", "team"]).default("global"),
   scopeId: z.string().uuid().optional().nullable(),
 });
@@ -362,11 +362,26 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    // Find the role by name — explicit orderBy for CI determinism
-    const role = await getDb().query.roles.findFirst({
+    // Find the role by name — explicit orderBy for CI determinism.
+    // Roles rows are created lazily on first assignment (there is no
+    // roles-table seed migration; newer enum values like "referee" won't
+    // have a row until someone assigns them). The enum constrains the
+    // value, so the insert can't create junk roles.
+    let role = await getDb().query.roles.findFirst({
       where: eq(roles.name, result.data.roleName),
       orderBy: (t, { asc }) => asc(t.id),
     });
+
+    if (!role) {
+      await getDb()
+        .insert(roles)
+        .values({ name: result.data.roleName })
+        .onConflictDoNothing({ target: roles.name });
+      role = await getDb().query.roles.findFirst({
+        where: eq(roles.name, result.data.roleName),
+        orderBy: (t, { asc }) => asc(t.id),
+      });
+    }
 
     if (!role) {
       return new Response(JSON.stringify({ error: "Role not found" }), { status: 404 });
