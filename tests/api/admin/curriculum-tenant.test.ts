@@ -40,13 +40,13 @@ let orgBSportId: string;
 beforeAll(async () => {
   adminCookie = await getAdminCookie();
 
-  // Org B fixtures — only available when DISABLE_RATE_LIMIT=1 (CI/test env).
+  // Org B fixtures — only available when E2E_TEST_ENDPOINTS=yes (CI/test env).
   const orgBRes = await apiFetch("/api/test/org-fixtures?slug=orgb", {
     method: "GET",
   });
   if (orgBRes.status !== 200) {
     throw new Error(
-      `Could not load Org B fixtures (status ${orgBRes.status}) — set DISABLE_RATE_LIMIT=1 and run npm run db:seed:e2e.`,
+      `Could not load Org B fixtures (status ${orgBRes.status}) — set E2E_TEST_ENDPOINTS=yes and run npm run db:seed:e2e.`,
     );
   }
   orgBSportId = (await orgBRes.json()).sportId;

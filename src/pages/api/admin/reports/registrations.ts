@@ -4,6 +4,7 @@ import { registrations, familyMembers, seasons, programs, sports, users } from "
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { periodBucket } from "@/lib/admin/report-period";
 
 // GET - Get registration reports
 export const GET: APIRoute = async (context) => {
@@ -55,23 +56,13 @@ export const GET: APIRoute = async (context) => {
 
     const totalRegistrations = Object.values(statusCounts).reduce((a, b) => a + b, 0);
 
-    // Registrations by time period
-    let dateFormat = "";
-    switch (groupBy) {
-      case "day":
-        dateFormat = "YYYY-MM-DD";
-        break;
-      case "week":
-        dateFormat = "IYYY-IW";
-        break;
-      case "month":
-      default:
-        dateFormat = "YYYY-MM";
-    }
+    // Registrations by time period — bucket expression comes from a
+    // closed map (never request input); see periodBucket for why.
+    const periodExpr = periodBucket(registrations.createdAt, groupBy);
 
     const registrationsByPeriod = await getDb()
       .select({
-        period: sql<string>`TO_CHAR(${registrations.createdAt}, ${sql.raw(`'${dateFormat}'`)})`,
+        period: periodExpr,
         total: sql<number>`COUNT(*)`,
         confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
         pending: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'pending')`,
@@ -89,8 +80,8 @@ export const GET: APIRoute = async (context) => {
           lte(registrations.createdAt, end)
         )
       )
-      .groupBy(sql`TO_CHAR(${registrations.createdAt}, ${sql.raw(`'${dateFormat}'`)})`)
-      .orderBy(sql`TO_CHAR(${registrations.createdAt}, ${sql.raw(`'${dateFormat}'`)})`);
+      .groupBy(periodExpr)
+      .orderBy(periodExpr);
 
     // Registrations by sport
     const registrationsBySport = await getDb()

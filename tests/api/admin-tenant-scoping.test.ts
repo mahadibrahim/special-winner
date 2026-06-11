@@ -14,7 +14,7 @@
  *   Org B ("orgb")          — seeded by seed-e2e-tests.ts. Its resource IDs
  *     are discovered at test startup via the test-only endpoint
  *     GET /api/test/org-fixtures?slug=orgb (only enabled when
- *     DISABLE_RATE_LIMIT=1, i.e., the CI/test environment).
+ *     E2E_TEST_ENDPOINTS=yes, i.e., the CI/test environment).
  *
  * Cross-tenant attack pattern tested here:
  *   Org A admin (super_admin) obtains Org B resource IDs, then submits them
@@ -59,7 +59,7 @@ beforeAll(async () => {
   ]);
 
   // Fetch Org B resource IDs via test-only fixture endpoint.
-  // This endpoint is only enabled when DISABLE_RATE_LIMIT=1 (CI/test env).
+  // This endpoint is only enabled when E2E_TEST_ENDPOINTS=yes (CI/test env).
   const orgBFixtureRes = await apiFetch("/api/test/org-fixtures?slug=orgb", {
     method: "GET",
   });
@@ -67,7 +67,7 @@ beforeAll(async () => {
   if (orgBFixtureRes.status !== 200) {
     throw new Error(
       `Could not load Org B fixtures (status ${orgBFixtureRes.status}). ` +
-        "Ensure DISABLE_RATE_LIMIT=1 is set and the e2e seed has been run.",
+        "Ensure E2E_TEST_ENDPOINTS=yes is set and the e2e seed has been run.",
     );
   }
 

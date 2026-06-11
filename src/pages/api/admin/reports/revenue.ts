@@ -4,6 +4,7 @@ import { payments, registrations, seasons, programs, sports } from "@/lib/db/sch
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { periodBucket } from "@/lib/admin/report-period";
 
 // GET - Get revenue reports
 export const GET: APIRoute = async (context) => {
@@ -52,23 +53,13 @@ export const GET: APIRoute = async (context) => {
 
     const totalRevenue = totalRevenueResult[0];
 
-    // Revenue by time period
-    let dateFormat = "";
-    switch (groupBy) {
-      case "day":
-        dateFormat = "YYYY-MM-DD";
-        break;
-      case "week":
-        dateFormat = "IYYY-IW";
-        break;
-      case "month":
-      default:
-        dateFormat = "YYYY-MM";
-    }
+    // Revenue by time period — bucket expression comes from a closed
+    // map (never request input); see periodBucket for why.
+    const periodExpr = periodBucket(payments.createdAt, groupBy);
 
     const revenueByPeriod = await getDb()
       .select({
-        period: sql<string>`TO_CHAR(${payments.createdAt}, ${sql.raw(`'${dateFormat}'`)})`,
+        period: periodExpr,
         revenue: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
         transactionCount: sql<number>`COUNT(*)`,
       })
@@ -85,8 +76,8 @@ export const GET: APIRoute = async (context) => {
           lte(payments.createdAt, end)
         )
       )
-      .groupBy(sql`TO_CHAR(${payments.createdAt}, ${sql.raw(`'${dateFormat}'`)})`)
-      .orderBy(sql`TO_CHAR(${payments.createdAt}, ${sql.raw(`'${dateFormat}'`)})`);
+      .groupBy(periodExpr)
+      .orderBy(periodExpr);
 
     // Revenue by payment type
     const revenueByType = await getDb()

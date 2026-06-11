@@ -1,8 +1,10 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { attendance, teams, rosters, seasons, programs, sports, familyMembers, registrations } from "@/lib/db/schema";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
-import { requireSuperAdminAccess } from "@/lib/auth";
+import { locations } from "@/lib/db/schema/organizations";
+import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { periodBucket } from "@/lib/admin/report-period";
 
 // GET - Get attendance reports
 export const GET: APIRoute = async (context) => {
@@ -10,6 +12,9 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) {
     return auth.response;
   }
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -26,10 +31,23 @@ export const GET: APIRoute = async (context) => {
       ? new Date(startDate)
       : new Date(end.getFullYear(), end.getMonth() - 2, 1);
 
+    // Org-scoped team set — attendance has no direct org column, so every
+    // query in this report filters teamId through the org's teams
+    // (team -> season -> program -> location -> organization). Without
+    // this the report aggregated attendance across ALL tenants.
+    const orgTeamIds = db
+      .select({ id: teams.id })
+      .from(teams)
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(locations.organizationId, orgContext.organizationId));
+
     // Build base conditions
     const conditions = [
       gte(attendance.eventDate, start),
       lte(attendance.eventDate, end),
+      inArray(attendance.teamId, orgTeamIds),
     ];
 
     if (teamId) {
@@ -53,23 +71,13 @@ export const GET: APIRoute = async (context) => {
       ? Math.round(((summary.present + summary.late) / summary.totalRecords) * 100)
       : 0;
 
-    // Attendance by time period
-    let dateFormat = "";
-    switch (groupBy) {
-      case "day":
-        dateFormat = "YYYY-MM-DD";
-        break;
-      case "week":
-        dateFormat = "IYYY-IW";
-        break;
-      case "month":
-      default:
-        dateFormat = "YYYY-MM";
-    }
+    // Attendance by time period — bucket expression comes from a closed
+    // map (never request input); see periodBucket for why.
+    const periodExpr = periodBucket(attendance.eventDate, groupBy);
 
     const attendanceByPeriod = await getDb()
       .select({
-        period: sql<string>`TO_CHAR(${attendance.eventDate}, ${sql.raw(`'${dateFormat}'`)})`,
+        period: periodExpr,
         totalRecords: sql<number>`COUNT(*)`,
         present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
         absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
@@ -78,8 +86,8 @@ export const GET: APIRoute = async (context) => {
       })
       .from(attendance)
       .where(and(...conditions))
-      .groupBy(sql`TO_CHAR(${attendance.eventDate}, ${sql.raw(`'${dateFormat}'`)})`)
-      .orderBy(sql`TO_CHAR(${attendance.eventDate}, ${sql.raw(`'${dateFormat}'`)})`);
+      .groupBy(periodExpr)
+      .orderBy(periodExpr);
 
     // Attendance by event type
     const attendanceByEventType = await getDb()
@@ -153,13 +161,15 @@ export const GET: APIRoute = async (context) => {
       .orderBy(desc(attendance.eventDate))
       .limit(20);
 
-    // Get list of teams for filter dropdown
+    // Get list of teams for filter dropdown — org-scoped, same as the
+    // report queries above.
     const teamsList = await getDb()
       .select({
         id: teams.id,
         name: teams.name,
       })
       .from(teams)
+      .where(inArray(teams.id, orgTeamIds))
       .orderBy(teams.name);
 
     return new Response(

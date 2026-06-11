@@ -52,6 +52,10 @@ env:
   # Disable the auth/OTP rate limiter — the shared CI runner IP trips it
   # across dozens of sign-ins per suite and cascades into timeouts.
   DISABLE_RATE_LIMIT: '1'
+  # Enable the /api/test/** fixture endpoints (tenant-scoping suites use
+  # them to discover Org B resource IDs). Explicit opt-in, separate from
+  # the rate-limit switch so neither can accidentally enable the other.
+  E2E_TEST_ENDPOINTS: 'yes'
   # Literal CI value so cron endpoints enforce auth and the dev server +
   # test runner agree on it. Not a real secret.
   CRON_SECRET: ci-cron-test-secret
