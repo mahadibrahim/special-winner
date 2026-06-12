@@ -8,9 +8,9 @@
  *  - Page/component <style> blocks reference var(--so-*) — never raw
  *    hex/rgba for brand colors, never raw font-family strings.
  *  - New shades require a new token here, not an inline value.
- *  - This file is the input to the future brand_profiles theme work
- *    (multi-brand decision 2026-06-10): each token maps 1:1 to a
- *    brand_profiles key when that lands.
+ *  - Shared booking surfaces consume these values via the typed theme
+ *    in src/lib/branding/themes.ts (brand-skinned booking flows,
+ *    2026-06-11). Change a value here FIRST, then mirror it there.
  *
  * Custom properties cascade into Astro scoped styles, so defining them
  * on :root here works everywhere the sheet is imported.
