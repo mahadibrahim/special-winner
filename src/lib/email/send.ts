@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { sendEmail, isEmailConfigured, fromForBrand } from "./index";
 import { renderEmail } from "./render";
 import { formatEmailDate, formatEmailDateTime } from "./format";
@@ -778,8 +778,10 @@ export async function sendCaptureIncentiveEmail(params: {
   const amount = formatIncentiveAmount(CAPTURE_INCENTIVE.amountCents);
   const subject = `Your ${amount} code for Aspire Sports`;
 
-  // Existence check — any matching row means we already handled this address
-  // (sent, failed, or skipped), so no orderBy is needed on the limit(1).
+  // Existence check — a sent/skipped row means we already handled this
+  // address, so no orderBy is needed on the limit(1). Failed sends are
+  // excluded on purpose: the band told the visitor the code is on the way,
+  // so a resubmit after a transient Resend error must retry, not dedupe.
   const [already] = await getDb()
     .select({ id: emailLogs.id })
     .from(emailLogs)
@@ -787,6 +789,7 @@ export async function sendCaptureIncentiveEmail(params: {
       and(
         eq(emailLogs.emailType, emailType),
         eq(emailLogs.recipientEmail, params.recipientEmail),
+        ne(emailLogs.status, "failed"),
       ),
     )
     .limit(1);

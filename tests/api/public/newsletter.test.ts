@@ -75,6 +75,10 @@ describe("POST /api/public/newsletter — capture incentive email", () => {
     expect(afterFirst).toHaveLength(1);
     // "sent" when RESEND_API_KEY is configured, "skipped" otherwise — both
     // mean the endpoint took the incentive path and the dedupe gate is set.
+    // CI TRAP: if RESEND_API_KEY is ever added to CI secrets, this test will
+    // attempt a real send to a bounce-bound @example.com address (reputation
+    // cost) and a restricted key yields "failed" — gate the key out of the
+    // test env or relax this assertion to the dedupe invariant before adding.
     expect(["sent", "skipped"]).toContain(afterFirst[0].status);
 
     const res2 = await submit();
