@@ -126,7 +126,12 @@ export function deriveDayBucket(s: SeasonForDerive): string {
 export function deriveAudience(s: SeasonForDerive): "youth" | "adult" {
   if (s.ageGroup?.minAge != null && s.ageGroup.minAge >= 18) return "adult";
   if (s.ageGroup?.minAge != null && s.ageGroup.maxAge < 18) return "youth";
-  return s.program.audienceType === "adults" ? "adult" : "youth";
+  // audience_type is free-text varchar(20) with no enum constraint; tolerate
+  // both "adults" (canonical, per migration 0022) and "adult" (seen in old
+  // fixtures) as cheap insurance against data drift.
+  return s.program.audienceType === "adults" || s.program.audienceType === "adult"
+    ? "adult"
+    : "youth";
 }
 
 /** Format a deadline for display with a near-deadline urgency flag.
