@@ -18,7 +18,6 @@ import {
 import { env } from "@/lib/env";
 import { captureServerException } from "@/lib/observability/server-error";
 import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
-import type { BrandId } from "@/lib/branding/themes";
 
 /**
  * POST /api/cron/send-balance-reminders
@@ -151,7 +150,7 @@ export const POST: APIRoute = async ({ request }) => {
             continue;
           }
 
-          const brand = normalizeBrand(row.registrationBrand) as BrandId;
+          const brand = normalizeBrand(row.registrationBrand);
           const brandAppUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
 
           // Guest-checkout users have no password; mint a magic-link so the
@@ -170,7 +169,7 @@ export const POST: APIRoute = async ({ request }) => {
               deliveredChannel: "email",
               deliveredTo: row.parentEmail,
             });
-            payBalanceUrl = buildMagicLinkUrl(link.token);
+            payBalanceUrl = buildMagicLinkUrl(link.token, { origin: brandAppUrl });
           } else {
             payBalanceUrl = `${brandAppUrl}/dashboard/registrations/${row.registrationId}/pay-balance`;
           }

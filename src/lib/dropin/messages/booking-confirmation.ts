@@ -10,7 +10,6 @@ import {
 import { renderEmail } from "@/lib/email/render";
 import { DropInBookingConfirmationEmail } from "@/lib/email/templates/dropin-booking-confirmation";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
-import type { BrandId } from "@/lib/branding/themes";
 
 /**
  * Booking confirmation — fired immediately after a confirmed booking row
@@ -45,7 +44,7 @@ export async function renderBookingConfirmation(
     : "";
   const sourceLabel = ctx.source === "walk_up" ? "Walk-up booking" : "Booking";
   const subject = `${sourceLabel} confirmed — ${sportLabel} at ${ctx.venue.name}`;
-  const brand = normalizeBrand(ctx.brand) as BrandId;
+  const brand = normalizeBrand(ctx.brand);
   const brandLabel = brand === "soccerone" ? "SoccerOne" : "Aspire";
 
   const smsBody =

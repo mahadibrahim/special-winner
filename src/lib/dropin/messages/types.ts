@@ -9,6 +9,7 @@
  * dispatcher (`dispatch.ts`), which respects the recipient's stored
  * primary/fallback channel preference.
  */
+import type { BrandId } from "@/lib/branding/themes";
 export interface MessageVariants {
   sms: { body: string };
   email: { subject: string; html: string; text: string };
@@ -51,8 +52,8 @@ export interface DropInBaseContext {
   /** Storefront brand the booking was created through. Defaults to "aspire".
    *  For online Checkout Sessions, derived from session.metadata.brand.
    *  For admin walk-up / waitlist-promoted, defaults to "aspire" until a
-   *  brand column is added to drop_in_bookings (deferred; report NEEDS_CONTEXT). */
-  brand?: string;
+   *  brand column is added to drop_in_bookings. */
+  brand?: BrandId;
 }
 
 export interface BookingConfirmationContext extends DropInBaseContext {

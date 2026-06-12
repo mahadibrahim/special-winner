@@ -30,6 +30,7 @@ import { checkMembersOnly, checkCapacity, checkGenderCap } from "./gates";
 import { assignTeam } from "./team-assignment";
 import { dispatchBookingConfirmation } from "./messages/dispatch";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
+import type { BrandId } from "@/lib/branding/themes";
 
 export interface BookingError {
   code:
@@ -67,6 +68,7 @@ export async function createConfirmedBookingFreePath(opts: {
   waiverSigned?: boolean;
   waiverSignedAt?: Date;
   waiverSignedBy?: string;
+  brand?: BrandId;
 }): Promise<CreateConfirmedBookingResult> {
   const db = getDb();
 
@@ -262,7 +264,7 @@ export async function createConfirmedBookingFreePath(opts: {
     // via a microtask: the inserted row is committed when the tx body
     // returns and the dispatcher reads it from a fresh DB query.
     queueMicrotask(() => {
-      void dispatchBookingConfirmation(booking.id).catch((err) => {
+      void dispatchBookingConfirmation(booking.id, opts.brand).catch((err) => {
         console.error("[dropin] booking-confirmation dispatch failed", err);
       });
     });

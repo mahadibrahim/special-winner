@@ -200,6 +200,7 @@ export const POST: APIRoute = async (context) => {
       waiverSigned: true,
       waiverSignedAt,
       waiverSignedBy: data.waiverName,
+      brand: brandFromHost(request.headers.get("host") ?? ""),
     });
     if (!result.ok) {
       const httpStatus = result.error.code === "session_not_found" ? 404 : 409;
