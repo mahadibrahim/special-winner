@@ -24,6 +24,8 @@ declare global {
       isAdmin: boolean;
       isCoach: boolean;
       brand: BrandProfile | null;
+      // Always set (pure host-derived theme key); `brand` above is the
+      // nullable brand_profiles DB content row.
       brandId: BrandId;
       // Active venue pinned by the admin via the venue picker. Always
       // validated against the caller's scope in middleware — a cookie
