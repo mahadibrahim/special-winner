@@ -64,14 +64,20 @@ test.describe("Landing-page finders", () => {
     ).toHaveAttribute("href", "/adult");
   });
 
-  test("header nav exposes the six audience-led links", async ({ page }) => {
+  test("header nav — audience links with category dropdowns, no Sports", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     const nav = page.locator("nav").first();
-    for (const label of ["Youth", "Adult", "Sports", "Locations", "Shop", "About"]) {
-      await expect(
-        nav.getByRole("link", { name: label, exact: true }),
-      ).toBeVisible();
+
+    for (const name of ["Youth", "Adult", "Locations", "Shop", "About"]) {
+      await expect(nav.getByRole("link", { name, exact: true }).first()).toBeVisible();
     }
+    await expect(nav.getByRole("link", { name: "Sports", exact: true })).toHaveCount(0);
+
+    // CSS hover dropdown — works pre-hydration.
+    await nav.getByRole("link", { name: "Adult", exact: true }).hover();
+    await expect(nav.getByRole("link", { name: "Pickup" })).toBeVisible();
+    await nav.getByRole("link", { name: "Pickup" }).click();
+    await expect(page).toHaveURL(/\/adult\/pickup$/);
   });
 
   test("/shop returns 200 and is noindex", async ({ page }) => {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Menu, X, ArrowRight, LogOut, LayoutDashboard, User } from "lucide-react"
+import { Menu, X, ArrowRight, LogOut, LayoutDashboard, User, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
@@ -87,10 +87,24 @@ export default function Navigation() {
       "U"
     : ""
 
-  const navLinks = [
-    { href: "/youth", label: "Youth" },
-    { href: "/adult", label: "Adult" },
-    { href: "/sports", label: "Sports" },
+  const navLinks: Array<{ href: string; label: string; children?: Array<{ href: string; label: string }> }> = [
+    {
+      href: "/youth",
+      label: "Youth",
+      children: [
+        { href: "/youth/leagues", label: "Leagues & Classes" },
+        { href: "/youth/camps", label: "Camps" },
+      ],
+    },
+    {
+      href: "/adult",
+      label: "Adult",
+      children: [
+        { href: "/adult/leagues", label: "Leagues" },
+        { href: "/adult/pickup", label: "Pickup" },
+        { href: "/adult/tournaments", label: "Tournaments" },
+      ],
+    },
     { href: "/locations", label: "Locations" },
     { href: "/shop", label: "Shop" },
     { href: "/about", label: "About" },
@@ -126,14 +140,36 @@ export default function Navigation() {
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="relative px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors group"
-              >
-                {link.label}
-                <span className="absolute bottom-1 left-4 right-4 h-[1.5px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
-              </a>
+              <div key={link.href} className="relative group">
+                <a
+                  href={link.href}
+                  className="relative flex items-center gap-1 px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
+                >
+                  {link.label}
+                  {link.children && (
+                    <ChevronDown
+                      className="h-3 w-3 opacity-50 transition-transform group-hover:rotate-180"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="absolute bottom-1 left-4 right-4 h-[1.5px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
+                </a>
+                {link.children && (
+                  <div className="absolute left-0 top-full pt-1 hidden group-hover:block group-focus-within:block">
+                    <div className="min-w-44 bg-cream border border-border rounded-xl shadow-lg py-2">
+                      {link.children.map((child) => (
+                        <a
+                          key={child.href}
+                          href={child.href}
+                          className="block px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-paper transition-colors"
+                        >
+                          {child.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
@@ -249,18 +285,41 @@ export default function Navigation() {
                 {/* Mobile menu links */}
                 <div className="flex-1 px-6 py-8 overflow-y-auto">
                   <div className="space-y-1 mb-8">
-                    {navLinks.map((link, index) => (
-                      <a
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between py-4 text-lg font-display font-medium text-ink-2 hover:text-ink border-b border-border transition-colors group"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        {link.label}
-                        <ArrowRight className="w-5 h-5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
-                      </a>
-                    ))}
+                    {(() => {
+                      let flatIndex = 0;
+                      return navLinks.map((link) => {
+                        const parentIndex = flatIndex++;
+                        return (
+                          <div key={link.href}>
+                            <a
+                              href={link.href}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className="flex items-center justify-between py-4 text-lg font-display font-medium text-ink-2 hover:text-ink border-b border-border transition-colors group"
+                              style={{ animationDelay: `${parentIndex * 50}ms` }}
+                            >
+                              {link.label}
+                              <ArrowRight className="w-5 h-5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
+                            </a>
+                            {link.children &&
+                              link.children.map((child) => {
+                                const childIndex = flatIndex++;
+                                return (
+                                  <a
+                                    key={child.href}
+                                    href={child.href}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="flex items-center justify-between pl-8 py-3 text-sm font-medium text-ink-muted hover:text-ink border-b border-border transition-colors group"
+                                    style={{ animationDelay: `${childIndex * 50}ms` }}
+                                  >
+                                    {child.label}
+                                    <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
+                                  </a>
+                                );
+                              })}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
 

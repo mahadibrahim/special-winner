@@ -14,7 +14,7 @@ test.describe("Category pages", () => {
     await page.goto("/adult/leagues", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { level: 1, name: /adult leagues/i })).toBeVisible();
-    await expect(page.locator('a[href="/youth/leagues"]')).toBeVisible();
+    await expect(page.locator('#main-content a[href="/youth/leagues"]')).toBeVisible();
 
     await waitForHydration(page);
     await expect(page.getByText(/Adult Open Soccer/).first()).toBeVisible();
@@ -47,7 +47,7 @@ test.describe("Category pages", () => {
   test("/adult/pickup — hero and section render", async ({ page }) => {
     await page.goto("/adult/pickup", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: /pickup/i })).toBeVisible();
-    await expect(page.locator('a[href="/adult/leagues"]')).toBeVisible();
+    await expect(page.locator('#main-content a[href="/adult/leagues"]')).toBeVisible();
     await waitForHydration(page);
   });
 
