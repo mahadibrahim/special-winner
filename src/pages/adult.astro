@@ -1,10 +1,29 @@
 ---
-// SSR — the AdultFinder island fetches the drop-in endpoint client-side,
-// which is org-scoped via the request host; the page must not be prerendered.
+// One-screen hub: hero + category doors. Inventory lives on the category
+// pages (/adult/leagues, /adult/pickup, /adult/tournaments) — Phase 2 of
+// docs/superpowers/specs/2026-06-11-public-ia-redesign-design.md.
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import AdultFinder from "@/components/landing/adult-finder.tsx";
-import Testimonials from "@/components/testimonials";
-import CTABanner from "@/components/cta-banner";
+
+const doors = [
+  {
+    href: "/adult/leagues",
+    cta: "adult-hub-leagues",
+    title: "Leagues",
+    blurb: "Season-long play. Sign up a full team or join as a free agent.",
+  },
+  {
+    href: "/adult/pickup",
+    cta: "adult-hub-pickup",
+    title: "Pickup",
+    blurb: "Show up and play — pay per session, no commitment.",
+  },
+  {
+    href: "/adult/tournaments",
+    cta: "adult-hub-tournaments",
+    title: "Tournaments",
+    blurb: "One-day brackets. Bring a team or get placed.",
+  },
+];
 ---
 
 <BaseLayout
@@ -16,8 +35,6 @@ import CTABanner from "@/components/cta-banner";
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <!-- Hero — energy + credibility, dark/orange. Evergreen kicker (no
-         time-bound copy). CTAs scroll down to the finder, not away. -->
     <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-16">
       <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
@@ -31,72 +48,46 @@ import CTABanner from "@/components/cta-banner";
         </h1>
         <p class="mt-6 text-lg text-cream/85 max-w-2xl">
           Fair refs, reliable communication, and a post-game scene worth staying
-          for. Find a league, drop into pickup, or register a team for a
-          tournament — all right here.
+          for. Pick how you want to play.
         </p>
-        <div class="mt-8 flex flex-wrap gap-3">
-          <a
-            href="#leagues"
-            data-landing-cta="adult-hero-leagues"
-            class="inline-flex items-center gap-2 bg-primary text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary/90 transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Find a league ↓
-          </a>
-          <a
-            href="#pickup"
-            data-landing-cta="adult-hero-pickup"
-            class="inline-flex items-center gap-2 border border-cream text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-cream hover:text-ink transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Play pickup ↓
-          </a>
-          <a
-            href="#tournaments"
-            data-landing-cta="adult-hero-tournaments"
-            class="inline-flex items-center gap-2 border border-cream text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-cream hover:text-ink transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Tournaments ↓
-          </a>
-        </div>
       </div>
     </section>
 
-    <!-- The finder — sticky section-nav + three filterable sections.
-         Everything an adult needs resolves here without navigating away. -->
-    <AdultFinder client:load />
-
-    <!-- Testimonials — captain voice -->
-    <Testimonials client:visible />
-
-    <!-- CTA banner -->
-    <CTABanner client:visible />
+    <section class="py-12 lg:py-16">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {doors.map((d) => (
+          <a
+            href={d.href}
+            data-landing-cta={d.cta}
+            class="group bg-paper border border-border rounded-2xl p-7 hover:border-ink-muted transition-colors"
+          >
+            <h2 class="font-display text-2xl text-ink">{d.title}</h2>
+            <p class="text-ink-muted mt-2">{d.blurb}</p>
+            <span class="inline-block mt-5 text-sm font-medium text-primary group-hover:translate-x-1 transition-transform">
+              Browse {d.title.toLowerCase()} →
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
   </main>
 </BaseLayout>
 
 <script>
   import { track } from "@/lib/analytics/track";
 
-  // Conversion analytics on the hero jump-links.
+  // Legacy section anchors (pre-Phase-2 bookmarks) → category pages.
+  const anchorMap: Record<string, string> = {
+    leagues: "/adult/leagues",
+    pickup: "/adult/pickup",
+    tournaments: "/adult/tournaments",
+  };
+  const hash = location.hash.slice(1);
+  if (Object.hasOwn(anchorMap, hash)) location.replace(anchorMap[hash]);
+
   document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
     el.addEventListener("click", () => {
       track("landing_hero_cta_click", { cta: el.dataset.landingCta });
     });
-  });
-
-  // Smooth-scroll for in-page anchors (hero jump-links + the sticky
-  // section-nav). `scroll-mt-*` on each <section> offsets the sticky headers.
-  document.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement;
-    const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
-    if (!anchor) return;
-    const id = anchor.getAttribute("href")?.slice(1);
-    if (!id) return;
-    const section = document.getElementById(id);
-    if (!section) return;
-    e.preventDefault();
-    section.scrollIntoView({ behavior: "smooth" });
-    history.replaceState(null, "", `#${id}`);
   });
 </script>

@@ -7,7 +7,7 @@ import { PickupFinderSection } from "./pickup-finder-section"
 
 /**
  * The island behind /adult/pickup. Same data + adult filter as the Pickup
- * section of the /adult finder, without the section-nav/scroll-spy — this
+ * section of the former /adult finder page, standalone — this
  * page IS the section.
  */
 

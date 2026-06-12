@@ -83,7 +83,7 @@ SoccerOne tree (`/soccerone/**`) and its nav; registration wizard; checkout/paym
 
 ## Measurement
 
-Existing events `landing_hero_cta_click` and `adult_section_nav_click` already capture the entry clicks. After Phase 3, define a PostHog funnel: home pageview → category pageview → `/register/**` pageview → `registration_created`. Baseline (30 days pre-change, test accounts filtered): ~25–30 unique visitors/week, 5 registrations/month, most registrations arriving via direct shared links.
+The `landing_hero_cta_click` event captures hub-door and homepage entry clicks (`adult_section_nav_click` died with the Phase-2 SectionNav removal; category pageviews replace it). After Phase 3, define a PostHog funnel: home pageview → category pageview → `/register/**` pageview → `registration_created`. Baseline (30 days pre-change, test accounts filtered): ~25–30 unique visitors/week, 5 registrations/month, most registrations arriving via direct shared links.
 
 ## Expected impact (honest)
 

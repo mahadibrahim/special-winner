@@ -11,7 +11,7 @@ import {
 } from "@/lib/programs/category-pages"
 import { SeasonsFinderSection } from "./seasons-finder-section"
 import { FilterChips, type ChipOption } from "./filter-chips"
-import type { ApiSeason } from "./adult-finder"
+import type { ApiSeason } from "@/lib/programs/api-season"
 
 /**
  * The island behind an audience-scoped category page (/adult/leagues,
