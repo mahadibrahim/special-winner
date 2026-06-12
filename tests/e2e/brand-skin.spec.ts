@@ -38,4 +38,15 @@ test("Aspire host renders unbranded-identical chrome (regression)", async ({
   );
   // --cream stays the warm off-white — assert it is NOT the SoccerOne ink
   expect(bg).not.toBe("rgb(10, 10, 13)");
+
+  // Keyboard-focus ring must not be the SoccerOne lime (tokens.css ships
+  // in every bundle via BaseLayout's chrome imports; its focus rule is
+  // scoped to html[data-brand="soccerone"]).
+  const focusOutline = await page.evaluate(() => {
+    const link = document.querySelector<HTMLAnchorElement>("main a[href]");
+    if (!link) return null;
+    link.focus();
+    return getComputedStyle(link).outlineColor;
+  });
+  expect(focusOutline).not.toBe("rgb(163, 230, 53)");
 });

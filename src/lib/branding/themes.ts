@@ -32,6 +32,8 @@ export interface BrandTheme {
    * :root custom properties substitute on the declaring element, so an
    * override on body or a wrapper re-themes Tailwind utilities but NOT
    * hand-authored var(--font-*) consumers — a split-brain failure.
+   *
+   * Values are emitted verbatim into an inline <style> via set:html — never populate cssVars from DB or user input.
    */
   cssVars: Record<string, string> | null;
 }
@@ -51,7 +53,7 @@ const soccerone: BrandTheme = {
   chrome: "soccerone",
   favicon: "/soccerone-favicon.svg",
   fontsHref:
-    "https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+    "https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap",
   cssVars: {
     // —— Editorial palette inversion (values from soccerone-tokens.css) ——
     // Entries without a --so- comment are seam-only values with no soccerone-tokens.css source.

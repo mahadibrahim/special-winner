@@ -95,10 +95,11 @@
 .so-header a:focus-visible,
 .so-header button:focus-visible,
 .so-footer a:focus-visible,
-main a:focus-visible,
-main button:focus-visible,
-main input:focus-visible,
-main select:focus-visible {
+/* Scoped to the brand attr: this sheet ships in every page's bundle via BaseLayout's chrome imports — unscoped element rules would bleed into Aspire pages. */
+html[data-brand="soccerone"] main a:focus-visible,
+html[data-brand="soccerone"] main button:focus-visible,
+html[data-brand="soccerone"] main input:focus-visible,
+html[data-brand="soccerone"] main select:focus-visible {
   outline: 2px solid var(--so-lime);
   outline-offset: 2px;
   border-radius: var(--so-radius-xs);
