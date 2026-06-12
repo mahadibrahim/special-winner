@@ -186,7 +186,7 @@ export default function CTABanner() {
               data-landing-cta="homepage-cta-youth"
               className="group inline-flex items-center gap-2 bg-cream text-ink px-8 py-4 text-base font-bold rounded-xl shadow-2xl shadow-navy-deep/20 hover:shadow-navy-deep/30 hover:scale-105 transition-all duration-300"
             >
-              For your kid
+              For Kids
               <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
             <a
@@ -194,7 +194,7 @@ export default function CTABanner() {
               data-landing-cta="homepage-cta-adult"
               className="group inline-flex items-center gap-2 bg-ink text-cream px-8 py-4 text-base font-bold rounded-xl hover:scale-105 transition-all duration-300"
             >
-              For yourself
+              For Adults
               <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
           </div>

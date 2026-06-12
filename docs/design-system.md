@@ -255,3 +255,41 @@ When converting a component from the old dark SaaS theme:
 | `text-blue-400`, `text-blue-500` | `text-primary` |
 | `bg-blue-500/20` | `bg-primary/10` |
 | `bg-gray-900`, `bg-gray-800` | `bg-navy-deep`, `bg-navy` |
+
+---
+
+## Graded imagery (2026-06-12 — aesthetic evolution)
+
+Photography on public marketing surfaces never appears raw. Every image passes
+through the brand grade so mismatched (stock) photography reads as one set:
+
+- CSS: wrap in `.graded` (navy→orange duotone) or `.graded--emerald` (youth contexts).
+- React: `<GradedImage src alt variant?="navy|emerald" />` from `@/components/ui/graded-image`.
+- Recipe: `grayscale(1) contrast(1.08) brightness(.96)` on the img + a
+  `linear-gradient(135deg, rgba(29,45,68,.78), rgba(232,78,27,.32))` multiply overlay.
+- Removing the grade per-image (when real photography arrives) = drop the class.
+
+### Accent roles (marketing surfaces)
+
+orange = adult/primary CTA energy · emerald = youth · ochre = tertiary highlight ·
+navy = neutral/pickup. The "single hot-spot" restraint still applies to app/dashboard
+surfaces; marketing pages may run all three accents.
+
+### Patterns
+
+- **Benefit trio**: 3 columns, 3px colored border-top (orange/emerald/ochre), italic
+  serif benefit headline, one supporting sentence. Replaces stat/proof boxes — leading
+  with operational tablestakes (venues, refs, fees) is banned; those live in body copy.
+- **Audience badge**: chip overlay on mixed-surface cards — orange "Adult",
+  emerald "Youth", navy "Pickup".
+
+### Stock sources (license traceability — Unsplash License, self-hosted)
+
+| File | Source |
+|---|---|
+| adult-match-night.jpg | photo-1517466787929-bc90951d0974 (images.unsplash.com) |
+| soccer-action.jpg | photo-1431324155629-1a6deb1dec8d |
+| five-aside-turf.jpg | photo-1574629810360-7efbbe195018 |
+| pickup-game.jpg | photo-1551958219-acbc608c6377 |
+| youth-training.jpg | photo-1606925797300-0b35e9d1794e |
+| team-huddle.jpg | photo-1529900748604-07564a03e7a6 |

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForHydration } from "../utils/test-helpers";
 
 /**
  * Landing hubs + the homepage gateway + header nav.
@@ -81,5 +82,39 @@ test.describe("Landing-page finders", () => {
       "content",
       "noindex",
     );
+  });
+
+  test("homepage — evolved sections: hero copy, benefits, strip, capture", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    // Benefit-led hero (server-rendered).
+    await expect(
+      page.getByRole("heading", { level: 1, name: /best part of your week/i }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /for kids/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /for adults/i })).toBeVisible();
+
+    // Benefit trio (static, server-rendered).
+    await expect(page.getByText(/actually fun/i)).toBeVisible();
+
+    // Open-now strip: anchor + catch-all link.
+    await expect(page.locator("#programs")).toBeVisible();
+    await expect(page.locator('#programs a[href="/programs"]')).toBeVisible();
+
+    // Capture band submits (newsletter upsert is idempotent across runs).
+    // client:visible — scroll the island into view, then wait for it to hydrate
+    // before interacting (the React submit handler isn't attached until then).
+    await waitForHydration(page);
+    const captureBandIsland = page.locator(
+      'astro-island[component-url*="capture-band"]',
+    );
+    await captureBandIsland.scrollIntoViewIfNeeded();
+    await page.waitForSelector(
+      'astro-island[component-url*="capture-band"]:not([ssr])',
+      { timeout: 15_000 },
+    );
+    await page.locator("#capture-band-email").fill("home-incentive-e2e@test.aspiresports.com");
+    await page.getByRole("button", { name: /count me in/i }).click();
+    await expect(page.getByText(/you're on the list/i)).toBeVisible();
   });
 });
