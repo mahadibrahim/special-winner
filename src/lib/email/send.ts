@@ -28,7 +28,7 @@ import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
 import { WAITLIST_PROMOTION_HOURS } from "@/lib/waitlist/processor";
 import { originForBrand } from "@/lib/organization/soccerone-routing";
-import type { BrandId } from "@/lib/branding/themes";
+import { getBrandTheme, type BrandId } from "@/lib/branding/themes";
 
 /** Clip a string to `max` chars for use inside an SMS body. */
 function clip(value: string, max: number): string {
@@ -608,8 +608,7 @@ export async function sendSignInLinkEmail(params: SendSignInLinkParams) {
     return { success: false, error: "Email not configured" };
   }
 
-  const brandName =
-    params.brand === "soccerone" ? "SoccerOne" : "Aspire Sports";
+  const brandName = getBrandTheme(params.brand).displayName;
 
   const { html, text } = await renderEmail(
     SignInLinkEmail({
@@ -653,8 +652,7 @@ export async function sendEmailVerificationEmail(
     return { success: false, error: "Email not configured" };
   }
 
-  const brandName =
-    params.brand === "soccerone" ? "SoccerOne" : "Aspire Sports";
+  const brandName = getBrandTheme(params.brand).displayName;
 
   const { html, text } = await renderEmail(
     EmailVerificationEmail({
