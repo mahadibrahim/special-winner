@@ -91,8 +91,10 @@ test.describe("Landing-page finders", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: /best part of your week/i }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: /for kids/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /for adults/i })).toBeVisible();
+    // .first() = the hero CTA; the CTA banner at page bottom repeats the
+    // same labels (unified in #180), which strict mode otherwise rejects.
+    await expect(page.getByRole("link", { name: /for kids/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /for adults/i }).first()).toBeVisible();
 
     // Benefit trio (static, server-rendered).
     await expect(page.getByText(/actually fun/i)).toBeVisible();
