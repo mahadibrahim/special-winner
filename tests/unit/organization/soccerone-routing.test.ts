@@ -132,6 +132,18 @@ describe("brandFromHost()", () => {
   });
 });
 
+describe("soccerone.localhost dev host", () => {
+  it("is a SoccerOne host (browser-resolvable loopback for QA/e2e)", () => {
+    expect(isSoccerOneHost("soccerone.localhost")).toBe(true);
+    expect(isSoccerOneHost("soccerone.localhost:4321")).toBe(true);
+    expect(brandFromHost("soccerone.localhost:4321")).toBe("soccerone");
+  });
+
+  it("plain localhost stays aspire", () => {
+    expect(brandFromHost("localhost:4321")).toBe("aspire");
+  });
+});
+
 describe("originForBrand()", () => {
   it("returns the canonical SoccerOne origin for 'soccerone'", () => {
     expect(originForBrand("soccerone")).toBe("https://www.gosoccerone.com");

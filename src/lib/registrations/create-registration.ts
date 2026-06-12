@@ -7,6 +7,7 @@ import {
   locations,
 } from "@/lib/db/schema";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
+import type { BrandId } from "@/lib/branding/themes";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
 
@@ -23,6 +24,8 @@ export interface CreateRegistrationInput {
   waiverSignedBy: string;
   notes?: string;
   lookingForTeam?: boolean;
+  /** Host-derived brand of the request that created the registration. */
+  brand?: BrandId;
 }
 
 export type CreateRegistrationResult = {
@@ -164,6 +167,7 @@ export async function createRegistration(
             amountDueCents: amountDue,
             paymentStatus: "unpaid",
             registrationStatus: "waitlisted",
+            brand: input.brand,
           }).catch((err) =>
             console.error("Error sending waitlist email:", err),
           );

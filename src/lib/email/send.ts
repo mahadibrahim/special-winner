@@ -1,4 +1,4 @@
-import { sendEmail, isEmailConfigured } from "./index";
+import { sendEmail, isEmailConfigured, fromForBrand } from "./index";
 import { renderEmail } from "./render";
 import { formatEmailDate, formatEmailDateTime } from "./format";
 import { RegistrationConfirmationEmail } from "./templates/registration-confirmation";
@@ -27,6 +27,8 @@ import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
 import { WAITLIST_PROMOTION_HOURS } from "@/lib/waitlist/processor";
+import { originForBrand } from "@/lib/organization/soccerone-routing";
+import type { BrandId } from "@/lib/branding/themes";
 
 /** Clip a string to `max` chars for use inside an SMS body. */
 function clip(value: string, max: number): string {
@@ -74,6 +76,8 @@ async function sendTransactionalEmail(opts: {
   subject: string;
   html: string;
   text: string;
+  /** Sender override (per-brand display name); defaults to EMAIL_FROM. */
+  from?: string;
   smsNudge?: { organizationId?: string; body: string };
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const result = await sendEmail({
@@ -81,6 +85,7 @@ async function sendTransactionalEmail(opts: {
     subject: opts.subject,
     html: opts.html,
     text: opts.text,
+    from: opts.from,
   });
 
   await logEmail({
@@ -156,6 +161,10 @@ export interface SendRegistrationConfirmationParams {
   registrationStatus: string;
   /** Pass true when the parent already has Telegram linked to suppress the connect CTA in the email. */
   hasLinkedTelegram?: boolean;
+  /** Brand attribution for the purchase — from Stripe metadata.brand or
+   *  the request host. Controls email template + link origin. Defaults
+   *  to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendRegistrationConfirmationEmail(params: SendRegistrationConfirmationParams) {
@@ -164,7 +173,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = env.PUBLIC_APP_URL;
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
 
   const { html, text } = await renderEmail(
     RegistrationConfirmationEmail({
@@ -184,6 +193,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
       hasLinkedTelegram: params.hasLinkedTelegram ?? false,
       paymentUrl: `${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`,
       waitlistClaimHours: WAITLIST_PROMOTION_HOURS,
+      brand: params.brand,
     }),
   );
 
@@ -200,6 +210,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 
@@ -217,6 +228,10 @@ export interface SendPaymentReceiptParams {
   paymentType: string;
   remainingBalanceCents?: number;
   receiptNumber: string;
+  /** Brand attribution for the purchase — from Stripe metadata.brand or
+   *  the request host. Controls email template + link origin. Defaults
+   *  to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) {
@@ -225,7 +240,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = env.PUBLIC_APP_URL;
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
 
   const { html, text } = await renderEmail(
     PaymentReceiptEmail({
@@ -241,6 +256,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
         : undefined,
       receiptNumber: params.receiptNumber,
       dashboardUrl: `${appUrl}/dashboard`,
+      brand: params.brand,
     }),
   );
 
@@ -254,6 +270,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 

@@ -9,9 +9,9 @@ import {
   H2,
   P,
   StatusPill,
-  fonts,
-  tokens,
 } from "@/lib/email/components/email-layout";
+import { emailThemeFor } from "@/lib/email/components/email-theme";
+import type { BrandId } from "@/lib/branding/themes";
 import { StatusBanner } from "@/lib/email/components/status-banner";
 
 interface RegistrationConfirmationEmailProps {
@@ -31,6 +31,7 @@ interface RegistrationConfirmationEmailProps {
   hasLinkedTelegram?: boolean;
   paymentUrl?: string;
   waitlistClaimHours?: number;
+  brand?: BrandId;
 }
 
 export function RegistrationConfirmationEmail({
@@ -50,7 +51,9 @@ export function RegistrationConfirmationEmail({
   hasLinkedTelegram = false,
   paymentUrl,
   waitlistClaimHours,
+  brand,
 }: RegistrationConfirmationEmailProps) {
+  const t = emailThemeFor(brand);
   const isWaitlisted = registrationStatus === "waitlisted";
   const isPendingPayment = paymentStatus === "unpaid";
   const isDepositPaid = paymentStatus === "deposit_paid";
@@ -77,7 +80,7 @@ export function RegistrationConfirmationEmail({
       : `${childName}'s in for ${programName}.`;
 
   return (
-    <EmailLayout preview={preview}>
+    <EmailLayout preview={preview} brand={brand}>
       <StatusBanner mood={bannerMood}>{bannerText}</StatusBanner>
       <Content>
         <H1>{headline}</H1>
@@ -132,7 +135,7 @@ export function RegistrationConfirmationEmail({
             {locationAddress && (
               <>
                 <br />
-                <span style={{ color: tokens.inkMuted, fontSize: "13px" }}>
+                <span style={{ color: t.tokens.inkMuted, fontSize: "13px" }}>
                   {locationAddress}
                 </span>
               </>
@@ -193,8 +196,8 @@ export function RegistrationConfirmationEmail({
         {!hasLinkedTelegram && (
           <Section
             style={{
-              backgroundColor: tokens.cream2,
-              border: `1px solid ${tokens.border}`,
+              backgroundColor: t.tokens.cream2,
+              border: `1px solid ${t.tokens.border}`,
               borderRadius: "4px",
               padding: "20px 24px",
               margin: "32px 0 0",
@@ -202,12 +205,12 @@ export function RegistrationConfirmationEmail({
           >
             <Text
               style={{
-                fontFamily: fonts.body,
+                fontFamily: t.fonts.body,
                 fontSize: "11px",
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: tokens.inkMuted,
+                color: t.tokens.inkMuted,
                 margin: "0 0 8px",
               }}
             >
@@ -215,10 +218,10 @@ export function RegistrationConfirmationEmail({
             </Text>
             <Text
               style={{
-                fontFamily: fonts.body,
+                fontFamily: t.fonts.body,
                 fontSize: "14px",
                 lineHeight: "1.5",
-                color: tokens.ink2,
+                color: t.tokens.ink2,
                 margin: "0 0 12px",
               }}
             >
@@ -228,10 +231,10 @@ export function RegistrationConfirmationEmail({
             <Link
               href={`${dashboardUrl}?connect=telegram`}
               style={{
-                fontFamily: fonts.body,
+                fontFamily: t.fonts.body,
                 fontSize: "13px",
                 fontWeight: 500,
-                color: tokens.primary,
+                color: t.tokens.primary,
                 textDecoration: "none",
               }}
             >

@@ -101,6 +101,9 @@ export const POST: APIRoute = async (context) => {
     }
     const data = parsed.data;
     const db = getDb();
+    // Storefront the charge came through — brands share one org and one
+    // Stripe account, so the request host is the only brand signal.
+    const brand = brandFromHost(request.headers.get("host") ?? "");
 
     // Capture GA4 client_id + ad-platform IDs to pass through the
     // PaymentIntent metadata so the webhook
@@ -113,9 +116,7 @@ export const POST: APIRoute = async (context) => {
 
     const analyticsMetadata: Record<string, string> = {
       via_guest_checkout: "true",
-      // Storefront the charge came through — brands share one org and one
-      // Stripe account, so the request host is the only brand signal.
-      brand: brandFromHost(request.headers.get("host") ?? ""),
+      brand,
     };
     if (gaClientId) analyticsMetadata.ga_client_id = gaClientId;
     if (gclid) analyticsMetadata.gclid = gclid;
@@ -237,6 +238,7 @@ export const POST: APIRoute = async (context) => {
           waiverSigned,
           waiverSignedBy,
           lookingForTeam: lookingForTeam ?? false,
+          brand,
         });
       } catch (err) {
         if (err instanceof RegistrationError) {

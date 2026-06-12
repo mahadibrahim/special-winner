@@ -18,6 +18,11 @@
 export const SOCCERONE_HOSTS: readonly string[] = [
   "gosoccerone.com",
   "www.gosoccerone.com",
+  // Dev/e2e only: *.localhost resolves to loopback in Chromium and
+  // modern OS resolvers, so the brand skin can be exercised in a real
+  // browser and in Playwright without DNS or Host-header spoofing.
+  // Never publicly routable — harmless in prod.
+  "soccerone.localhost",
 ] as const;
 
 /** Canonical SoccerOne host (apex 308-redirects to this). */
@@ -59,6 +64,17 @@ export function isSoccerOneHost(host: string): boolean {
  */
 export function brandFromHost(host: string): "soccerone" | "aspire" {
   return isSoccerOneHost(host) ? "soccerone" : "aspire";
+}
+
+/**
+ * Normalize a raw brand string (e.g. Stripe `metadata.brand`, which is
+ * untyped and may be absent on pre-cutover charges) to a brand id.
+ * The single place that owns the metadata-string → brand mapping.
+ */
+export function normalizeBrand(
+  raw: string | null | undefined,
+): "soccerone" | "aspire" {
+  return raw === "soccerone" ? "soccerone" : "aspire";
 }
 
 /**

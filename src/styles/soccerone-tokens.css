@@ -8,9 +8,9 @@
  *  - Page/component <style> blocks reference var(--so-*) — never raw
  *    hex/rgba for brand colors, never raw font-family strings.
  *  - New shades require a new token here, not an inline value.
- *  - This file is the input to the future brand_profiles theme work
- *    (multi-brand decision 2026-06-10): each token maps 1:1 to a
- *    brand_profiles key when that lands.
+ *  - Shared booking surfaces consume these values via the typed theme
+ *    in src/lib/branding/themes.ts (brand-skinned booking flows,
+ *    2026-06-11). Change a value here FIRST, then mirror it there.
  *
  * Custom properties cascade into Astro scoped styles, so defining them
  * on :root here works everywhere the sheet is imported.
@@ -95,10 +95,11 @@
 .so-header a:focus-visible,
 .so-header button:focus-visible,
 .so-footer a:focus-visible,
-main a:focus-visible,
-main button:focus-visible,
-main input:focus-visible,
-main select:focus-visible {
+/* Scoped to the brand attr: this sheet ships in every page's bundle via BaseLayout's chrome imports — unscoped element rules would bleed into Aspire pages. */
+html[data-brand="soccerone"] main a:focus-visible,
+html[data-brand="soccerone"] main button:focus-visible,
+html[data-brand="soccerone"] main input:focus-visible,
+html[data-brand="soccerone"] main select:focus-visible {
   outline: 2px solid var(--so-lime);
   outline-offset: 2px;
   border-radius: var(--so-radius-xs);

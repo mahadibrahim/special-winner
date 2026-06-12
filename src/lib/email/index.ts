@@ -11,6 +11,20 @@ export function isEmailConfigured(): boolean {
 
 export const EMAIL_FROM = import.meta.env.RESEND_FROM_EMAIL || "Aspire Sports <hello@aspiresportsohio.com>";
 
+/**
+ * Sender identity for a brand. Both brands send from the same verified
+ * address — only the display name changes (gosoccerone.com is not yet
+ * verified in Resend; see the launch checklist). Falls back to
+ * EMAIL_FROM verbatim if the address can't be parsed out of it.
+ */
+export function fromForBrand(
+  brand: "aspire" | "soccerone" | null | undefined,
+): string {
+  if (brand !== "soccerone") return EMAIL_FROM;
+  const match = EMAIL_FROM.match(/<([^>]+)>/);
+  return match ? `SoccerOne <${match[1]}>` : EMAIL_FROM;
+}
+
 export interface EmailOptions {
   to: string | string[];
   subject: string;
@@ -18,6 +32,8 @@ export interface EmailOptions {
   text?: string;
   replyTo?: string;
   headers?: Record<string, string>;
+  /** Sender override (e.g. per-brand display name). Defaults to EMAIL_FROM. */
+  from?: string;
 }
 
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
@@ -28,7 +44,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
 
   try {
     const { data, error } = await resend.emails.send({
-      from: EMAIL_FROM,
+      from: options.from ?? EMAIL_FROM,
       to: options.to,
       subject: options.subject,
       html: options.html,

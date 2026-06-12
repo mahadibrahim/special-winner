@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { getPostHogServer } from "@/lib/posthog-server";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { recordConsent, recordDefaultMediaAuth } from "@/lib/consents/record";
 
 const createRegistrationSchema = z
@@ -203,6 +204,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         waiverSignedBy: data.waiverSignedBy,
         notes: data.notes,
         lookingForTeam: data.registerSelf ? (data.lookingForTeam ?? false) : false,
+        brand: brandFromHost(request.headers.get("host") ?? ""),
       });
 
       if (result.kind !== "resumed" && data.waiverSigned) {

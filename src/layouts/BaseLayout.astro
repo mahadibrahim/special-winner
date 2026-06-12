@@ -7,13 +7,18 @@ import PostHog from '@/components/posthog.astro';
 import GoogleTagManager from '@/components/google-tag-manager.astro';
 import GoogleTagManagerNoscript from '@/components/google-tag-manager-noscript.astro';
 import { isSoccerOneHost } from "@/lib/organization/soccerone-routing";
+// Chrome imports ship both brands' scoped CSS in every bundle (~3-4 KB gz, accepted); brand-specific element rules in soccerone-tokens.css must stay scoped to html[data-brand]. Note: prerendered pages bake data-brand at build time (always "aspire") — keep shared booking surfaces SSR.
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import { getBrandTheme } from '@/lib/branding/themes';
+
+const theme = getBrandTheme(Astro.locals.brandId);
 
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
-  /** Per-brand favicon path. Defaults to the Aspire mark; SoccerOne
-   *  pages pass "/soccerone-favicon.svg". */
+  /** Per-brand favicon path. Defaults to the theme favicon. */
   favicon?: string;
   bodyClass?: string;
   navigation?: boolean;
@@ -22,13 +27,19 @@ interface Props {
 
 const {
   title,
-  description = "Aspire Sports — evidence-based youth and adult sports in Central Ohio.",
+  description = theme.defaultDescription,
   ogImage,
-  favicon = "/favicon.svg",
+  favicon = theme.favicon,
   bodyClass = "min-h-screen flex flex-col bg-cream text-ink antialiased",
   navigation = true,
   footer = true,
 } = Astro.props;
+
+// Shared pages hardcode "… — Aspire Sports" titles. The tab/og title is
+// chrome-level brand identity, so swap the brand name per theme rather
+// than touching every page. Aspire path is an exact no-op.
+const brandedTitle =
+  theme.id === "aspire" ? title : title.replace(/Aspire Sports/g, theme.displayName);
 
 // GTM container — per-brand, keyed off the request host (brands share one
 // org, so the org slug can't distinguish them). Aspire is the default
@@ -40,14 +51,25 @@ const SOCCERONE_GTM_CONTAINER = import.meta.env.PUBLIC_GTM_CONTAINER_SOCCERONE |
 const gtmContainerId = isSoccerOneHost(Astro.url.hostname)
   ? SOCCERONE_GTM_CONTAINER
   : ASPIRE_GTM_CONTAINER;
+
+// Brand skin: custom-property overrides. MUST live on the html element —
+// :root custom properties substitute on the declaring element, so an
+// override on body or a wrapper would re-theme Tailwind utilities but
+// NOT hand-authored var(--*) consumers (split-brain). html[data-brand]
+// outranks the globals.css :root block by specificity.
+const brandCss = theme.cssVars
+  ? `html[data-brand="${theme.id}"]{${Object.entries(theme.cssVars)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(";")}}`
+  : null;
 ---
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-brand={theme.id}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <meta property="og:title" content={title} />
+    <meta property="og:title" content={brandedTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     {ogImage && <meta property="og:image" content={ogImage} />}
@@ -58,16 +80,18 @@ const gtmContainerId = isSoccerOneHost(Astro.url.hostname)
       href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <title>{title}</title>
+    {theme.fontsHref && <link href={theme.fontsHref} rel="stylesheet" />}
+    {brandCss && <style is:inline set:html={brandCss} />}
+    <title>{brandedTitle}</title>
     <PostHog />
     <GoogleTagManager containerId={gtmContainerId} />
     <slot name="head" />
   </head>
   <body class={bodyClass}>
     <GoogleTagManagerNoscript containerId={gtmContainerId} />
-    {navigation && <RegistrationRibbon client:load />}
-    {navigation && <Navigation client:load />}
+    {navigation && theme.chrome === "aspire" && <RegistrationRibbon client:load />}
+    {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:load />)}
     <slot />
-    {footer && <Footer />}
+    {footer && (theme.chrome === "soccerone" ? <SoccerOneFooter /> : <Footer />)}
   </body>
 </html>
