@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { deriveAudience } from "@/lib/programs/derive"
+import { inAgeBand } from "@/lib/programs/category-pages"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { SectionNav, type SectionNavItem } from "./section-nav"
 import { SeasonsFinderSection } from "./seasons-finder-section"
@@ -57,13 +58,6 @@ const AGE_BANDS: AgeBand[] = [
 
 const NAV_ITEMS: SectionNavItem[] = AGE_BANDS.map((b) => ({ id: b.id, label: b.title }))
 
-/** A season belongs to a band if its age range overlaps the band's range.
- *  A season with no age group applies to any age, so it appears in all
- *  bands — never hidden. */
-function inBand(s: ApiSeason, min: number, max: number): boolean {
-  if (!s.ageGroup) return true
-  return s.ageGroup.minAge <= max && s.ageGroup.maxAge >= min
-}
 
 export default function YouthFinder() {
   useHydrationBeacon()
@@ -127,7 +121,7 @@ export default function YouthFinder() {
           id={band.id}
           title={band.title}
           descriptor={band.descriptor}
-          seasons={youthSeasons.filter((s) => inBand(s, band.min, band.max))}
+          seasons={youthSeasons.filter((s) => inAgeBand(s, band.min, band.max))}
           loading={loading}
           emptyCtaAudience={i === 0 ? "parent" : undefined}
         />

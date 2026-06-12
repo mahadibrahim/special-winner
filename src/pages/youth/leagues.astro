@@ -1,5 +1,5 @@
 ---
-// SSR like /adult — the island fetches host-scoped public endpoints
+// SSR like /youth — the island fetches host-scoped public endpoints
 // client-side; keep request-time rendering (no prerender flag).
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import CategoryFinder from "@/components/landing/category-finder.tsx";
@@ -7,42 +7,43 @@ import CTABanner from "@/components/cta-banner";
 ---
 
 <BaseLayout
-  title="Adult Tournaments — Aspire Sports"
-  description="One-day adult sports tournaments in Columbus and central Ohio. Bring a full team or sign up solo and get placed."
+  title="Youth Leagues & Classes — Aspire Sports"
+  description="Youth sports leagues and skill-building classes in Columbus and central Ohio. Vetted coaches, organized seasons, sorted by your kid's age."
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/adult/tournaments`} />
+    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues`} />
   </Fragment>
 
   <main id="main-content" class="flex-1">
     <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-12">
       <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
-          <a href="/adult" class="hover:underline">Adult Sports</a> · Central Ohio
+          <a href="/youth" class="hover:underline">Youth Sports</a> · Central Ohio
         </p>
         <h1
           class="font-display max-w-3xl"
           style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.03em;"
         >
-          Adult tournaments.
+          Youth leagues &amp; classes.
         </h1>
         <p class="mt-4 text-lg text-cream/85 max-w-2xl">
-          One-day events — a full bracket, fair refs, and a winner by sundown.
-          Bring a team or sign up and get placed.
+          Season leagues and skill-building classes with vetted coaches and
+          tight logistics. Filter by your kid's age and go.
         </p>
         <p class="mt-3 text-sm text-cream/60">
-          Want season-long play instead? <a href="/adult/leagues" class="underline hover:text-cream">Adult leagues</a>.
+          School breaks coming up? <a href="/youth/camps" class="underline hover:text-cream">Youth camps</a>.
         </p>
       </div>
     </section>
 
     <CategoryFinder
       client:load
-      audience="adult"
-      programTypes={["tournament"]}
+      audience="youth"
+      programTypes={["league", "training", "clinic"]}
       title="Open now"
-      descriptor="One-day brackets open for registration."
-      sectionId="adult-tournaments"
+      descriptor="Use the age filter — every program shows its age range on the card."
+      ageChips
+      sectionId="youth-leagues"
     />
 
     <CTABanner client:visible />
