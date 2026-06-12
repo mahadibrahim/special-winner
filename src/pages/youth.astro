@@ -3,6 +3,9 @@
 // pages (/youth/leagues, /youth/camps) — Phase 2 of
 // docs/superpowers/specs/2026-06-11-public-ia-redesign-design.md.
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import NextUpCard from "@/components/marketing/next-up-card.astro";
+import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
+const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
 
 const doors = [
   {
@@ -30,21 +33,24 @@ const doors = [
 
   <main id="main-content" class="flex-1">
     <section class="bg-gradient-to-br from-emerald-600 to-emerald-400 text-white pt-28 pb-16">
-      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/85 mb-4">
-          Youth Sports · Central Ohio
-        </p>
-        <h1
-          class="font-display max-w-3xl"
-          style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
-        >
-          Sports your kid will actually look forward to.
-        </h1>
-        <p class="mt-6 text-lg text-white/90 max-w-2xl">
-          Real coaches, real development — built on the Double-Goal Coach and ELM
-          frameworks. Find what fits your kid by age, then narrow by format,
-          sport, and venue.
-        </p>
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row lg:items-end gap-8">
+        <div class="flex-1">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/85 mb-4">
+            Youth Sports · Central Ohio
+          </p>
+          <h1
+            class="font-display max-w-3xl"
+            style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+          >
+            Sports your kid will actually look forward to.
+          </h1>
+          <p class="mt-6 text-lg text-white/90 max-w-2xl">
+            Real coaches, real development — built on the Double-Goal Coach and ELM
+            frameworks. Find what fits your kid by age, then narrow by format,
+            sport, and venue.
+          </p>
+        </div>
+        {announcement && <div class="lg:pb-1"><NextUpCard announcement={announcement} /></div>}
       </div>
     </section>
 

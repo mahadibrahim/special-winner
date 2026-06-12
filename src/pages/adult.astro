@@ -3,6 +3,9 @@
 // pages (/adult/leagues, /adult/pickup, /adult/tournaments) — Phase 2 of
 // docs/superpowers/specs/2026-06-11-public-ia-redesign-design.md.
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import NextUpCard from "@/components/marketing/next-up-card.astro";
+import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
+const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "adult");
 
 const doors = [
   {
@@ -36,20 +39,23 @@ const doors = [
 
   <main id="main-content" class="flex-1">
     <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-16">
-      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
-          Adult Sports · Central Ohio
-        </p>
-        <h1
-          class="font-display max-w-3xl"
-          style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
-        >
-          The league you'll build your week around.
-        </h1>
-        <p class="mt-6 text-lg text-cream/85 max-w-2xl">
-          Fair refs, reliable communication, and a post-game scene worth staying
-          for. Pick how you want to play.
-        </p>
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row lg:items-end gap-8">
+        <div class="flex-1">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+            Adult Sports · Central Ohio
+          </p>
+          <h1
+            class="font-display max-w-3xl"
+            style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+          >
+            The league you'll build your week around.
+          </h1>
+          <p class="mt-6 text-lg text-cream/85 max-w-2xl">
+            Fair refs, reliable communication, and a post-game scene worth staying
+            for. Pick how you want to play.
+          </p>
+        </div>
+        {announcement && <div class="lg:pb-1"><NextUpCard announcement={announcement} /></div>}
       </div>
     </section>
 
