@@ -1,11 +1,23 @@
 ---
-// SSR — the YouthFinder island fetches the seasons endpoint client-side;
-// kept SSR for consistency with /adult and the prerender policy for new pages.
+// One-screen hub: hero + category doors. Inventory lives on the category
+// pages (/youth/leagues, /youth/camps) — Phase 2 of
+// docs/superpowers/specs/2026-06-11-public-ia-redesign-design.md.
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import YouthFinder from "@/components/landing/youth-finder.tsx";
-import WhyAspire from "@/components/why-aspire";
-import FAQSection from "@/components/faq-section";
-import CTABanner from "@/components/cta-banner";
+
+const doors = [
+  {
+    href: "/youth/leagues",
+    cta: "youth-hub-leagues",
+    title: "Leagues & Classes",
+    blurb: "Season leagues and skill-building classes, filtered by your kid's age.",
+  },
+  {
+    href: "/youth/camps",
+    cta: "youth-hub-camps",
+    title: "Camps",
+    blurb: "School-break and summer day camps — real coaching, tight logistics.",
+  },
+];
 ---
 
 <BaseLayout
@@ -17,8 +29,6 @@ import CTABanner from "@/components/cta-banner";
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <!-- Hero — reassurance, warm/green. Evergreen kicker (no time-bound
-         copy). CTAs scroll down to the finder, not away. -->
     <section class="bg-gradient-to-br from-emerald-600 to-emerald-400 text-white pt-28 pb-16">
       <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/85 mb-4">
@@ -35,72 +45,44 @@ import CTABanner from "@/components/cta-banner";
           frameworks. Find what fits your kid by age, then narrow by format,
           sport, and venue.
         </p>
-        <div class="mt-8 flex flex-wrap gap-3">
-          <a
-            href="#ages-4-8"
-            data-landing-cta="youth-hero-4-8"
-            class="inline-flex items-center gap-2 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Ages 4–8 ↓
-          </a>
-          <a
-            href="#ages-9-12"
-            data-landing-cta="youth-hero-9-12"
-            class="inline-flex items-center gap-2 border border-white text-white px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-white hover:text-ink transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Ages 9–12 ↓
-          </a>
-          <a
-            href="#ages-13-18"
-            data-landing-cta="youth-hero-13-18"
-            class="inline-flex items-center gap-2 border border-white text-white px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-white hover:text-ink transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Ages 13–18 ↓
-          </a>
-        </div>
       </div>
     </section>
 
-    <!-- The finder — sticky section-nav + three age-band sections.
-         Everything a parent needs resolves here without navigating away. -->
-    <YouthFinder client:load />
-
-    <!-- Why parents trust Aspire -->
-    <WhyAspire client:visible />
-
-    <!-- Parent FAQ -->
-    <FAQSection client:visible />
-
-    <!-- CTA banner -->
-    <CTABanner client:visible />
+    <section class="py-12 lg:py-16">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {doors.map((d) => (
+          <a
+            href={d.href}
+            data-landing-cta={d.cta}
+            class="group bg-paper border border-border rounded-2xl p-7 hover:border-ink-muted transition-colors"
+          >
+            <h2 class="font-display text-2xl text-ink">{d.title}</h2>
+            <p class="text-ink-muted mt-2">{d.blurb}</p>
+            <span class="inline-block mt-5 text-sm font-medium text-primary group-hover:translate-x-1 transition-transform">
+              Browse {d.title.toLowerCase()} →
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
   </main>
 </BaseLayout>
 
 <script>
   import { track } from "@/lib/analytics/track";
 
-  // Conversion analytics on the hero jump-links.
+  // Legacy age-band anchors (pre-Phase-2 bookmarks) → leagues category page.
+  const anchorMap: Record<string, string> = {
+    "ages-4-8": "/youth/leagues",
+    "ages-9-12": "/youth/leagues",
+    "ages-13-18": "/youth/leagues",
+  };
+  const hash = location.hash.slice(1);
+  if (anchorMap[hash]) location.replace(anchorMap[hash]);
+
   document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
     el.addEventListener("click", () => {
       track("landing_hero_cta_click", { cta: el.dataset.landingCta });
     });
-  });
-
-  // Smooth-scroll for in-page anchors (hero jump-links + the sticky
-  // section-nav). `scroll-mt-*` on each <section> offsets the sticky headers.
-  document.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement;
-    const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
-    if (!anchor) return;
-    const id = anchor.getAttribute("href")?.slice(1);
-    if (!id) return;
-    const section = document.getElementById(id);
-    if (!section) return;
-    e.preventDefault();
-    section.scrollIntoView({ behavior: "smooth" });
-    history.replaceState(null, "", `#${id}`);
   });
 </script>

@@ -13,26 +13,22 @@ import { waitForHydration } from "../utils/test-helpers";
  */
 
 test.describe("Landing-page finders", () => {
-  test("/youth — age-led finder: hero, jump-links, three age sections", async ({ page }) => {
+  test("/youth — hub: hero + two category doors", async ({ page }) => {
     await page.goto("/youth", { waitUntil: "domcontentloaded" });
 
-    // Hero (server-rendered) — headline + the three age jump-links.
     await expect(
       page.getByRole("heading", { name: /look forward to/i }),
     ).toBeVisible();
-    for (const id of ["ages-4-8", "ages-9-12", "ages-13-18"]) {
-      await expect(page.locator(`a[href="#${id}"]`).first()).toBeVisible();
+    for (const cta of ["youth-hub-leagues", "youth-hub-camps"]) {
+      await expect(page.locator(`[data-landing-cta="${cta}"]`)).toBeVisible();
     }
 
-    // Finder island hydrates → the three age <section> anchors exist.
-    await waitForHydration(page);
-    for (const id of ["ages-4-8", "ages-9-12", "ages-13-18"]) {
-      await expect(page.locator(`section#${id}`)).toHaveCount(1);
-    }
+    await page.locator('[data-landing-cta="youth-hub-leagues"]').click();
+    await expect(page).toHaveURL(/\/youth\/leagues$/);
 
-    // A hero jump-link scrolls to its section (the hash updates).
-    await page.locator('[data-landing-cta="youth-hero-9-12"]').click();
-    await expect(page).toHaveURL(/#ages-9-12$/);
+    // Legacy age-band anchors forward to the leagues category page.
+    await page.goto("/youth#ages-9-12", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/youth\/leagues$/);
   });
 
   test("/adult — hub: hero + three category doors", async ({ page }) => {
