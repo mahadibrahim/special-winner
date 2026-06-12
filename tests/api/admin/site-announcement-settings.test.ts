@@ -37,6 +37,12 @@ describe("Site announcement settings round-trip", () => {
 
   // Case 1: PATCH set → 200, GET roundtrips every field
   it("PATCH sets siteAnnouncement and GET roundtrips all fields (200)", async () => {
+    // Snapshot sibling settings keys — the shallow merge must not clobber them.
+    const beforeRes = await apiFetch("/api/admin/organizations/settings", {
+      cookie: adminCookie,
+    });
+    const beforeSettings = (await expectJson(beforeRes, 200)).settings ?? {};
+
     const patchRes = await apiFetch("/api/admin/organizations/settings", {
       method: "PATCH",
       cookie: adminCookie,
@@ -74,6 +80,12 @@ describe("Site announcement settings round-trip", () => {
       linkLabel: "Claim a spot",
       audience: "adult",
       expiresAt: "2099-01-01T00:00:00.000Z",
+    });
+
+    // Sibling keys survived the patch untouched.
+    expect({ ...getJson.settings, siteAnnouncement: undefined }).toEqual({
+      ...beforeSettings,
+      siteAnnouncement: undefined,
     });
   });
 

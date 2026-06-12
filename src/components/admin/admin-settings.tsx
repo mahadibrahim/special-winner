@@ -69,10 +69,15 @@ export function AdminSettings({ organizationName }: AdminSettingsProps = {}) {
         setExternalStore(json.settings?.externalStore ?? null);
         const ann = json.settings?.siteAnnouncement;
         if (ann) {
-          // Convert stored ISO datetime back to datetime-local format for the input
-          const expiresLocal = ann.expiresAt
-            ? ann.expiresAt.slice(0, 16)
-            : "";
+          // Convert stored UTC ISO back to LOCAL wall-time for the
+          // datetime-local input. Slicing the ISO string directly would show
+          // UTC as if it were local, and a subsequent save would re-encode it
+          // — drifting the expiry by the UTC offset on every load-save cycle.
+          const d = ann.expiresAt ? new Date(ann.expiresAt) : null;
+          const expiresLocal =
+            d && !Number.isNaN(d.getTime())
+              ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+              : "";
           setAnnouncement({
             title: ann.title ?? "",
             detail: ann.detail ?? "",
