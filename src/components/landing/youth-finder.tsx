@@ -6,7 +6,7 @@ import { inAgeBand } from "@/lib/programs/category-pages"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { SectionNav, type SectionNavItem } from "./section-nav"
 import { SeasonsFinderSection } from "./seasons-finder-section"
-import type { ApiSeason } from "./adult-finder"
+import type { ApiSeason } from "@/lib/programs/api-season"
 
 /**
  * The /youth finder — the interactive heart of the youth landing page. One

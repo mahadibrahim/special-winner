@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import ProgramCardV2 from "@/components/programs/program-card-v2"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { EmptyNotifyForm } from "./empty-notify-form"
-import type { ApiSeason } from "./adult-finder"
+import type { ApiSeason } from "@/lib/programs/api-season"
 
 const PAGE_SIZE = 6
 

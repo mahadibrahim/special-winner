@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { ApiSeason } from "@/components/landing/adult-finder"
+import type { ApiSeason } from "@/lib/programs/api-season"
 import {
   AGE_BAND_CHIPS,
   byRegistrationCloses,

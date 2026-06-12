@@ -1,5 +1,5 @@
 import { deriveAudience } from "@/lib/programs/derive"
-import type { ApiSeason } from "@/components/landing/adult-finder"
+import type { ApiSeason } from "@/lib/programs/api-season"
 
 /**
  * Pure helpers behind the audience-scoped category pages
