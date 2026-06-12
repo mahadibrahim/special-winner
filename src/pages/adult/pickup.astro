@@ -1,0 +1,43 @@
+---
+// src/pages/adult/pickup.astro
+// SSR — /api/dropin/sessions is org-scoped via the request host.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import PickupPageFinder from "@/components/landing/pickup-page-finder.tsx";
+import CTABanner from "@/components/cta-banner";
+---
+
+<BaseLayout
+  title="Pickup — Aspire Sports"
+  description="Drop-in pickup sessions in Columbus and central Ohio. Pay per session, show up and play — no season commitment."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/adult/pickup`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-12">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+          <a href="/adult" class="hover:underline">Adult Sports</a> · Central Ohio
+        </p>
+        <h1
+          class="font-display max-w-3xl"
+          style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          Pickup.
+        </h1>
+        <p class="mt-4 text-lg text-cream/85 max-w-2xl">
+          No season commitment, no roster, no pressure — pay per session, show
+          up, and play.
+        </p>
+        <p class="mt-3 text-sm text-cream/60">
+          Ready for a season? <a href="/adult/leagues" class="underline hover:text-cream">Adult leagues</a>.
+        </p>
+      </div>
+    </section>
+
+    <PickupPageFinder client:load />
+
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>
