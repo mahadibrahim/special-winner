@@ -401,6 +401,24 @@ export interface OrganizationExternalStore {
   partnerName: "Squadlocker" | "BSN" | "Custom Ink" | "Other";
 }
 
+/**
+ * Single-slot public site banner — the "Next up" card rendered in the
+ * home/hub heroes (aesthetic-evolution spec, 2026-06-12). NOT the
+ * announcements table (dashboard messages to registered users).
+ * Set/cleared from /admin/settings; expiry and audience filtering happen
+ * read-side in src/lib/marketing/site-announcement.ts.
+ */
+export interface OrganizationSiteAnnouncement {
+  title: string;
+  detail?: string;
+  linkUrl?: string;
+  linkLabel?: string;
+  /** Which public surfaces show it. "all" = home + both hubs. */
+  audience: "all" | "adult" | "youth";
+  /** ISO datetime; absent = no expiry. */
+  expiresAt?: string;
+}
+
 // Organization settings (stored in jsonb)
 export interface OrganizationSettings {
   branding: {
@@ -459,6 +477,7 @@ export interface OrganizationSettings {
     keywords?: string[];
   };
   externalStore?: OrganizationExternalStore;
+  siteAnnouncement?: OrganizationSiteAnnouncement;
 }
 
 // Organization features (feature flags)
