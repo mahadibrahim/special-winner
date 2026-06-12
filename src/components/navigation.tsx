@@ -19,6 +19,12 @@ interface MeUser {
   lastName: string | null
 }
 
+interface NavLink {
+  href: string
+  label: string
+  children?: Array<{ href: string; label: string }>
+}
+
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
@@ -87,7 +93,7 @@ export default function Navigation() {
       "U"
     : ""
 
-  const navLinks: Array<{ href: string; label: string; children?: Array<{ href: string; label: string }> }> = [
+  const navLinks: NavLink[] = [
     {
       href: "/youth",
       label: "Youth",
@@ -156,7 +162,7 @@ export default function Navigation() {
                 </a>
                 {link.children && (
                   <div className="absolute left-0 top-full pt-1 hidden group-hover:block group-focus-within:block">
-                    <div className="min-w-44 bg-cream border border-border rounded-xl shadow-lg py-2">
+                    <div className="min-w-44 bg-cream border border-border rounded-md shadow-sm py-2">
                       {link.children.map((child) => (
                         <a
                           key={child.href}
@@ -285,41 +291,29 @@ export default function Navigation() {
                 {/* Mobile menu links */}
                 <div className="flex-1 px-6 py-8 overflow-y-auto">
                   <div className="space-y-1 mb-8">
-                    {(() => {
-                      let flatIndex = 0;
-                      return navLinks.map((link) => {
-                        const parentIndex = flatIndex++;
-                        return (
-                          <div key={link.href}>
-                            <a
-                              href={link.href}
-                              onClick={() => setMobileMenuOpen(false)}
-                              className="flex items-center justify-between py-4 text-lg font-display font-medium text-ink-2 hover:text-ink border-b border-border transition-colors group"
-                              style={{ animationDelay: `${parentIndex * 50}ms` }}
-                            >
-                              {link.label}
-                              <ArrowRight className="w-5 h-5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
-                            </a>
-                            {link.children &&
-                              link.children.map((child) => {
-                                const childIndex = flatIndex++;
-                                return (
-                                  <a
-                                    key={child.href}
-                                    href={child.href}
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="flex items-center justify-between pl-8 py-3 text-sm font-medium text-ink-muted hover:text-ink border-b border-border transition-colors group"
-                                    style={{ animationDelay: `${childIndex * 50}ms` }}
-                                  >
-                                    {child.label}
-                                    <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
-                                  </a>
-                                );
-                              })}
-                          </div>
-                        );
-                      });
-                    })()}
+                    {navLinks.map((link) => (
+                      <div key={link.href}>
+                        <a
+                          href={link.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-between py-4 text-lg font-display font-medium text-ink-2 hover:text-ink border-b border-border transition-colors group"
+                        >
+                          {link.label}
+                          <ArrowRight className="w-5 h-5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
+                        </a>
+                        {link.children?.map((child) => (
+                          <a
+                            key={child.href}
+                            href={child.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center justify-between pl-8 py-3 text-sm font-medium text-ink-muted hover:text-ink border-b border-border transition-colors group"
+                          >
+                            {child.label}
+                            <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
+                          </a>
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
