@@ -27,7 +27,7 @@ test.describe("Category pages", () => {
 
     // Chip rows auto-hide when they have ≤1 option, so only assert behavior
     // when a chip row is present: clicking "All" is always safe.
-    const allChips = page.getByRole("button", { name: "All" });
+    const allChips = page.getByRole("button", { name: "All", exact: true });
     if ((await allChips.count()) > 0) {
       await allChips.first().click();
       await expect(page.getByText(/Adult Open Soccer/).first()).toBeVisible();
@@ -38,6 +38,10 @@ test.describe("Category pages", () => {
     await page.goto("/adult/tournaments", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: /adult tournaments/i })).toBeVisible();
     await waitForHydration(page);
+    // Catalog-dependent: either tournament cards or the capture empty state.
+    await expect(
+      page.getByText(/nothing open right now/i).or(page.locator(".grid").first()).first(),
+    ).toBeVisible();
   });
 
   test("/adult/pickup — hero and section render", async ({ page }) => {
@@ -60,8 +64,8 @@ test.describe("Category pages", () => {
 
     // Seed has no camp programs → empty state with EmptyNotifyForm renders.
     await expect(page.getByText(/nothing open right now/i)).toBeVisible();
-    // Scope to the empty-state form — the CTABanner also has an email input
-    // with an identical accessible label, so target by the unique input id.
+    // Scope to the empty-state form — the footer newsletter form also has an
+    // email input with the same accessible label, so target by the unique id.
     await page.locator("#empty-finder-youth-camps-email").fill("camps-waitlist-e2e@test.aspiresports.com");
     await page.getByRole("button", { name: /notify me/i }).click();
     await expect(page.getByText(/you're on the list/i)).toBeVisible();
