@@ -47,7 +47,7 @@ export function MembershipTier({
     // evergreen copy, real contact path.
     toast("This plan isn't open for signup yet", {
       description:
-        "Email play@gosoccerone.com and we'll let you know the moment it opens.",
+        "Email hello@gosoccerone.com and we'll let you know the moment it opens.",
       duration: 6000,
     });
   };

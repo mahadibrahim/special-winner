@@ -8,4 +8,4 @@
  * A scheduled routine verifies this on 2026-06-12 and opens an issue
  * if missing. Change the address here only.
  */
-export const SOCCERONE_CONTACT_EMAIL = "play@gosoccerone.com";
+export const SOCCERONE_CONTACT_EMAIL = "hello@gosoccerone.com";
