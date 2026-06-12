@@ -85,6 +85,15 @@
   --sidebar-ring: var(--primary-orange);
   --success: var(--sage);
   --warning: var(--ochre);
+
+  /* ——————————— Brand font seams ——————————— */
+  /* Tailwind's font utilities resolve through these at runtime so a
+     brand override (html[data-brand]) can swap families. Values are
+     the original Aspire stacks, unchanged. */
+  --brand-font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --brand-font-display: "Newsreader", "Source Serif 4", Georgia, serif;
+  --brand-font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+  --brand-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 /* ——————————— Dark mode (minibooks, coach resources,
@@ -128,10 +137,10 @@
 
 @theme inline {
   /* Typography — editorial pairing */
-  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: "Newsreader", "Source Serif 4", Georgia, serif;
-  --font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: var(--brand-font-sans);
+  --font-display: var(--brand-font-display);
+  --font-serif: var(--brand-font-serif);
+  --font-mono: var(--brand-font-mono);
 
   /* Colors */
   --color-background: var(--background);
