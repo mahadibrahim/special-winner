@@ -398,6 +398,9 @@ export interface SendMagicLinkLoginParams {
   programName?: string;
   childName?: string;
   seasonName?: string;
+  /** Brand the checkout was placed on — controls template theme + sender.
+   *  Defaults to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) {
@@ -414,6 +417,7 @@ export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) 
       programName: params.programName,
       childName: params.childName,
       seasonName: params.seasonName,
+      brand: params.brand,
     }),
   );
 
@@ -426,6 +430,7 @@ export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) 
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 
@@ -592,6 +597,9 @@ export interface SendSignInLinkParams {
   name: string;
   signInUrl: string;
   expiresIn?: string;
+  /** Brand the sign-in was requested from — controls template theme, sender,
+   *  and subject display name. Defaults to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendSignInLinkEmail(params: SendSignInLinkParams) {
@@ -600,15 +608,19 @@ export async function sendSignInLinkEmail(params: SendSignInLinkParams) {
     return { success: false, error: "Email not configured" };
   }
 
+  const brandName =
+    params.brand === "soccerone" ? "SoccerOne" : "Aspire Sports";
+
   const { html, text } = await renderEmail(
     SignInLinkEmail({
       name: params.name,
       signInUrl: params.signInUrl,
       expiresIn: params.expiresIn ?? "15 minutes",
+      brand: params.brand,
     }),
   );
 
-  const subject = "Sign in to Aspire Sports";
+  const subject = `Sign in to ${brandName}`;
 
   return sendTransactionalEmail({
     userId: params.userId,
@@ -617,6 +629,7 @@ export async function sendSignInLinkEmail(params: SendSignInLinkParams) {
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 
@@ -627,6 +640,9 @@ export interface SendEmailVerificationParams {
   name: string;
   verifyUrl: string;
   expiresIn?: string;
+  /** Brand the signup was initiated from — controls template theme, sender,
+   *  and subject display name. Defaults to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendEmailVerificationEmail(
@@ -637,15 +653,19 @@ export async function sendEmailVerificationEmail(
     return { success: false, error: "Email not configured" };
   }
 
+  const brandName =
+    params.brand === "soccerone" ? "SoccerOne" : "Aspire Sports";
+
   const { html, text } = await renderEmail(
     EmailVerificationEmail({
       name: params.name,
       verifyUrl: params.verifyUrl,
       expiresIn: params.expiresIn ?? "24 hours",
+      brand: params.brand,
     }),
   );
 
-  const subject = "Verify your email — Aspire Sports";
+  const subject = `Verify your email — ${brandName}`;
 
   return sendTransactionalEmail({
     userId: params.userId,
@@ -654,6 +674,7 @@ export async function sendEmailVerificationEmail(
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 

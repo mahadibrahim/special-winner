@@ -12,6 +12,7 @@ import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { verifyTurnstile } from "@/lib/auth/turnstile";
 import { isEmailConfigured } from "@/lib/email";
 import { sendSignInLinkEmail } from "@/lib/email/send";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -141,12 +142,14 @@ export const POST: APIRoute = async (context) => {
       // Origin-aware: the link must redeem on the domain the user signed up
       // from (session cookies are per-domain across the two brand hosts).
       const signinUrl = buildMagicLinkUrl(token, { origin: context.url.origin });
+      const brand = brandFromHost(context.request.headers.get("host") ?? "");
       await sendSignInLinkEmail({
         userId: newUser.id,
         recipientEmail: emailLower,
         name: newUser.firstName || "",
         signInUrl: signinUrl,
         expiresIn: "15 minutes",
+        brand,
       });
     } else {
       console.warn("Email not configured, sign-in link not sent");

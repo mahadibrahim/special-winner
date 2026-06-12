@@ -189,6 +189,7 @@ export async function handleRegistrationPaymentSucceeded(
             programName: row.program.name,
             childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
             seasonName: row.season.name,
+            brand: normalizeBrand(paymentIntent.metadata?.brand),
           }).catch((err) =>
             console.error("[stripe webhook] magic-link email send failed:", err),
           );
