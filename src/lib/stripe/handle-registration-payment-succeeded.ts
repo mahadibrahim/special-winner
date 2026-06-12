@@ -17,7 +17,7 @@ import {
   sendPaymentReceiptEmail,
 } from "@/lib/email/send";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
-import { originForBrand } from "@/lib/organization/soccerone-routing";
+import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
 import { sendPurchaseEvent } from "@/lib/analytics/ga4-measurement-protocol";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
@@ -143,7 +143,7 @@ export async function handleRegistrationPaymentSucceeded(
         amountDueCents: registration.amountDueCents,
         paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
         registrationStatus: "confirmed",
-        brand: paymentIntent.metadata?.brand === "soccerone" ? "soccerone" : "aspire",
+        brand: normalizeBrand(paymentIntent.metadata?.brand),
       }).catch((err) => console.error("[stripe webhook] email send failed:", err));
 
       sendPaymentReceiptEmail({
@@ -159,7 +159,7 @@ export async function handleRegistrationPaymentSucceeded(
         paymentType: paymentTypeValue,
         remainingBalanceCents: isFullyPaid ? undefined : newAmountDue,
         receiptNumber: paymentIntent.id.replace(/^pi_(test_)?/, "").slice(0, 12),
-        brand: paymentIntent.metadata?.brand === "soccerone" ? "soccerone" : "aspire",
+        brand: normalizeBrand(paymentIntent.metadata?.brand),
       }).catch((err) =>
         console.error("[stripe webhook] receipt email send failed:", err),
       );

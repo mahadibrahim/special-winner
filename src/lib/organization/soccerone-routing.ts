@@ -67,6 +67,17 @@ export function brandFromHost(host: string): "soccerone" | "aspire" {
 }
 
 /**
+ * Normalize a raw brand string (e.g. Stripe `metadata.brand`, which is
+ * untyped and may be absent on pre-cutover charges) to a brand id.
+ * The single place that owns the metadata-string → brand mapping.
+ */
+export function normalizeBrand(
+  raw: string | null | undefined,
+): "soccerone" | "aspire" {
+  return raw === "soccerone" ? "soccerone" : "aspire";
+}
+
+/**
  * Canonical origin for a brand label, for contexts with no request to
  * derive it from (Stripe webhooks, cron). Returns null for any non-SoccerOne
  * brand — callers fall back to PUBLIC_APP_URL (the Aspire origin).
