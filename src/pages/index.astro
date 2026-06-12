@@ -6,8 +6,7 @@
 export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { DualCtaHero } from '../components/marketing/dual-cta-hero';
-import WhyAspire from '../components/why-aspire';
-import StatsSection from '../components/stats-section';
+import BenefitTrio from '../components/marketing/benefit-trio';
 import PartnersSection from '../components/partners-section';
 import HomepageProgramsPreview from '../components/homepage-programs-preview';
 import Testimonials from '../components/testimonials';
@@ -16,16 +15,15 @@ import CTABanner from '../components/cta-banner';
 ---
 
 <BaseLayout
-  title="Aspire Sports | Youth Sports Programs in Central Ohio"
-  description="Aspire Sports — evidence-based youth sports in Central Ohio. Development-first programs built on the Double-Goal Coach, ELM, and TDEQ-5 frameworks."
+  title="Aspire Sports — Adult & Youth Sports Leagues in Columbus, Ohio"
+  description="Soccer leagues, pickup, and youth programs in Columbus — actually fun, properly organized, all year. Find your league or your kid's next season."
 >
   <main id="main-content">
     <DualCtaHero client:load />
+    <BenefitTrio />
     <section id="programs">
       <HomepageProgramsPreview client:load />
     </section>
-    <WhyAspire client:visible />
-    <StatsSection client:visible />
     <Testimonials client:visible />
     <PartnersSection client:visible />
     <FAQSection client:visible />
