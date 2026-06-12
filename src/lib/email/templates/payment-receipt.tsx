@@ -10,8 +10,9 @@ import {
   InfoCard,
   P,
   PMuted,
-  tokens,
 } from "@/lib/email/components/email-layout";
+import { emailThemeFor } from "@/lib/email/components/email-theme";
+import type { BrandId } from "@/lib/branding/themes";
 import { StatusBanner } from "@/lib/email/components/status-banner";
 
 interface PaymentReceiptEmailProps {
@@ -25,6 +26,7 @@ interface PaymentReceiptEmailProps {
   remainingBalance?: string;
   receiptNumber: string;
   dashboardUrl: string;
+  brand?: BrandId;
 }
 
 export function PaymentReceiptEmail({
@@ -38,7 +40,9 @@ export function PaymentReceiptEmail({
   remainingBalance,
   receiptNumber,
   dashboardUrl,
+  brand,
 }: PaymentReceiptEmailProps) {
+  const t = emailThemeFor(brand);
   const hasBalance = !!remainingBalance && remainingBalance !== "$0.00";
   const paymentLabel =
     paymentType === "deposit"
@@ -50,6 +54,7 @@ export function PaymentReceiptEmail({
   return (
     <EmailLayout
       preview={`Payment receipt for ${childName} — ${programName}`}
+      brand={brand}
     >
       <StatusBanner mood="success">Payment received</StatusBanner>
       <Content>
@@ -75,9 +80,9 @@ export function PaymentReceiptEmail({
           <Detail label="Season">{seasonName}</Detail>
           <Detail label="Date">{paymentDate}</Detail>
           <Detail label="Type">{paymentLabel}</Detail>
-          <Hr style={{ borderColor: tokens.border, margin: "12px 0" }} />
+          <Hr style={{ borderColor: t.tokens.border, margin: "12px 0" }} />
           <Detail label="Amount paid">
-            <strong style={amountStyle}>{amountPaid}</strong>
+            <strong style={{ color: t.tokens.sage, fontSize: "16px" }}>{amountPaid}</strong>
           </Detail>
           <Detail label="Receipt #">{receiptNumber}</Detail>
         </DetailPanel>
@@ -107,10 +112,5 @@ export function PaymentReceiptEmail({
     </EmailLayout>
   );
 }
-
-const amountStyle = {
-  color: tokens.sage,
-  fontSize: "16px",
-};
 
 export default PaymentReceiptEmail;

@@ -3,6 +3,8 @@ import { describe, it, expect } from "vitest";
 import { renderEmail } from "@/lib/email/render";
 import { EmailLayout, P, StatusPill } from "@/lib/email/components/email-layout";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import { RegistrationConfirmationEmail } from "@/lib/email/templates/registration-confirmation";
+import { PaymentReceiptEmail } from "@/lib/email/templates/payment-receipt";
 
 describe("EmailLayout brand rendering", () => {
   it("renders the Aspire image logo and cream palette by default", async () => {
@@ -54,5 +56,60 @@ describe("EmailLayout brand rendering", () => {
     // Aspire cream-era colors must appear
     expect(html).toContain("#8A6A2E"); // warningFg
     expect(html).toContain("#F4D8D2"); // deniedBg
+  });
+});
+
+describe("booking templates accept a brand", () => {
+  const confirmationProps = {
+    parentName: "Sam",
+    childName: "Alex Doe",
+    programName: "Adult Pickup",
+    seasonName: "Summer 2026",
+    startDate: "June 1, 2026",
+    endDate: "Aug 1, 2026",
+    locationName: "Worthington",
+    amountDue: "$120.00",
+    paymentStatus: "paid",
+    registrationStatus: "confirmed",
+    dashboardUrl: "https://www.gosoccerone.com/dashboard",
+    hasLinkedTelegram: false,
+    paymentUrl: "https://www.gosoccerone.com/pay",
+    waitlistClaimHours: 48,
+  };
+
+  const receiptProps = {
+    parentName: "Sam",
+    childName: "Alex Doe",
+    programName: "Adult Pickup",
+    seasonName: "Summer 2026",
+    amountPaid: "$120.00",
+    paymentDate: "June 1, 2026",
+    paymentType: "full",
+    receiptNumber: "REC-001",
+    dashboardUrl: "https://www.gosoccerone.com/dashboard",
+  };
+
+  it("RegistrationConfirmationEmail with brand=soccerone uses dark palette and SoccerOne name", async () => {
+    const { html } = await renderEmail(
+      <RegistrationConfirmationEmail {...confirmationProps} brand="soccerone" />,
+    );
+    expect(html).toContain("#0a0a0d");
+    expect(html).toContain("SoccerOne");
+  });
+
+  it("PaymentReceiptEmail with brand=soccerone uses dark palette and SoccerOne name", async () => {
+    const { html } = await renderEmail(
+      <PaymentReceiptEmail {...receiptProps} brand="soccerone" />,
+    );
+    expect(html).toContain("#0a0a0d");
+    expect(html).toContain("SoccerOne");
+  });
+
+  it("RegistrationConfirmationEmail without brand uses cream palette and Aspire name", async () => {
+    const { html } = await renderEmail(
+      <RegistrationConfirmationEmail {...confirmationProps} />,
+    );
+    expect(html).toContain("#F5EFE3");
+    expect(html).toContain("Aspire Sports Ohio");
   });
 });
