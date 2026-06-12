@@ -10,9 +10,10 @@ import {
   InfoCard,
   P,
   PMuted,
-  tokens,
 } from "@/lib/email/components/email-layout";
+import { emailThemeFor } from "@/lib/email/components/email-theme";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import type { BrandId } from "@/lib/branding/themes";
 
 interface WaitlistPromotionEmailProps {
   parentName: string;
@@ -24,6 +25,7 @@ interface WaitlistPromotionEmailProps {
   hoursToComplete: number;
   registerUrl: string;
   dashboardUrl: string;
+  brand?: BrandId;
 }
 
 export function WaitlistPromotionEmail({
@@ -36,10 +38,14 @@ export function WaitlistPromotionEmail({
   hoursToComplete,
   registerUrl,
   dashboardUrl,
+  brand,
 }: WaitlistPromotionEmailProps) {
+  const t = emailThemeFor(brand);
+
   return (
     <EmailLayout
       preview={`A spot opened up for ${childName} in ${programName}`}
+      brand={brand}
     >
       <StatusBanner mood="warning">
         Action required — {hoursToComplete}-hour deadline
@@ -78,7 +84,10 @@ export function WaitlistPromotionEmail({
         <Button href={registerUrl}>Complete registration now →</Button>
         <PMuted>
           Or view all your registrations on your{" "}
-          <Link href={dashboardUrl} style={linkStyle}>
+          <Link
+            href={dashboardUrl}
+            style={{ color: t.tokens.primary, textDecoration: "underline" }}
+          >
             dashboard
           </Link>
           .
@@ -113,10 +122,5 @@ export function WaitlistPromotionEmail({
     </EmailLayout>
   );
 }
-
-const linkStyle = {
-  color: tokens.primary,
-  textDecoration: "underline",
-};
 
 export default WaitlistPromotionEmail;

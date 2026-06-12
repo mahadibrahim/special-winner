@@ -13,6 +13,7 @@ import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
 import { adminRefund } from "@/lib/payments/admin-refund";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 
 const refundActionSchema = z.object({
   action: z.enum(["approve", "deny"]),
@@ -161,6 +162,7 @@ export const POST: APIRoute = async (context) => {
           refundAmountCents,
           refundStatus: "denied",
           denialReason: reason,
+          brand: normalizeBrand(registration.registration.brand),
         }).catch((err) => console.error("Error sending refund denial email:", err));
       }
 

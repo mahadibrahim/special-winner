@@ -8,9 +8,10 @@ import {
   H1,
   P,
   PMuted,
-  tokens,
 } from "@/lib/email/components/email-layout";
+import { emailThemeFor } from "@/lib/email/components/email-theme";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import type { BrandId } from "@/lib/branding/themes";
 
 export type BalanceReminderType = "t21" | "t7" | "t1";
 
@@ -23,6 +24,7 @@ interface PaymentBalanceReminderEmailProps {
   seasonStartDate: string; // pre-formatted like "May 21, 2026"
   payBalanceUrl: string;
   reminderType: BalanceReminderType;
+  brand?: BrandId;
 }
 
 const COPY: Record<
@@ -53,11 +55,13 @@ export function PaymentBalanceReminderEmail({
   seasonStartDate,
   payBalanceUrl,
   reminderType,
+  brand,
 }: PaymentBalanceReminderEmailProps) {
+  const t = emailThemeFor(brand);
   const copy = COPY[reminderType];
 
   return (
-    <EmailLayout preview={copy.preview(childName)}>
+    <EmailLayout preview={copy.preview(childName)} brand={brand}>
       <StatusBanner mood="warning">Balance due</StatusBanner>
       <Content>
         <H1>Balance due: {balanceAmount}</H1>
@@ -69,9 +73,11 @@ export function PaymentBalanceReminderEmail({
           <Detail label="Program">{programName}</Detail>
           <Detail label="Season">{seasonName}</Detail>
           <Detail label="Season starts">{seasonStartDate}</Detail>
-          <Hr style={{ borderColor: tokens.border, margin: "12px 0" }} />
+          <Hr style={{ borderColor: t.tokens.border, margin: "12px 0" }} />
           <Detail label="Balance due">
-            <strong style={amountStyle}>{balanceAmount}</strong>
+            <strong style={{ color: t.tokens.sage, fontSize: "16px" }}>
+              {balanceAmount}
+            </strong>
           </Detail>
         </DetailPanel>
 
@@ -84,10 +90,5 @@ export function PaymentBalanceReminderEmail({
     </EmailLayout>
   );
 }
-
-const amountStyle = {
-  color: tokens.sage,
-  fontSize: "16px",
-};
 
 export default PaymentBalanceReminderEmail;

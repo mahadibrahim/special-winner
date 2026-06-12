@@ -24,6 +24,8 @@ import {
 import { assignTeam } from "@/lib/dropin/team-assignment";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import type { BrandId } from "@/lib/branding/themes";
 
 const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
   "card_online",
@@ -47,6 +49,8 @@ export async function handleDropInCheckoutComplete(
   const waiverName = session.metadata?.waiver_name || null;
   const waiverSignedAtRaw = session.metadata?.waiver_signed_at;
   const waiverSignedAt = waiverSignedAtRaw ? new Date(waiverSignedAtRaw) : null;
+  // Brand is set in extraMetadata at checkout creation time (PR #168, bookings/index.ts).
+  const brand = normalizeBrand(session.metadata?.brand) as BrandId;
 
   if (!sessionDbId || !userId) {
     return { status: "skipped", reason: "missing dropin metadata" };
@@ -140,7 +144,7 @@ export async function handleDropInCheckoutComplete(
     // Fire-and-forget confirmation. The webhook handler is idempotent and
     // we don't want messaging failures to roll back the booking insert.
     queueMicrotask(() => {
-      void dispatchBookingConfirmation(booking.id).catch((err) => {
+      void dispatchBookingConfirmation(booking.id, brand).catch((err) => {
         console.error(
           "[dropin] checkout booking-confirmation dispatch failed",
           err,

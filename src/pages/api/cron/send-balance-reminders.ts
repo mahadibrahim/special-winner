@@ -17,6 +17,8 @@ import {
 } from "@/lib/auth/magic-link";
 import { env } from "@/lib/env";
 import { captureServerException } from "@/lib/observability/server-error";
+import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
+import type { BrandId } from "@/lib/branding/themes";
 
 /**
  * POST /api/cron/send-balance-reminders
@@ -71,7 +73,6 @@ export const POST: APIRoute = async ({ request }) => {
 
   const startedAt = Date.now();
   const db = getDb();
-  const appUrl = env.PUBLIC_APP_URL;
 
   const results: WindowResult[] = [];
 
@@ -92,6 +93,7 @@ export const POST: APIRoute = async ({ request }) => {
       const rows = await db
         .select({
           registrationId: registrations.id,
+          registrationBrand: registrations.brand,
           amountDueCents: registrations.amountDueCents,
           amountPaidCents: registrations.amountPaidCents,
           startDate: seasons.startDate,
@@ -149,6 +151,9 @@ export const POST: APIRoute = async ({ request }) => {
             continue;
           }
 
+          const brand = normalizeBrand(row.registrationBrand) as BrandId;
+          const brandAppUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
+
           // Guest-checkout users have no password; mint a magic-link so the
           // pay-balance link signs them in transparently. Authenticated users
           // get a plain dashboard link (middleware will gate it).
@@ -167,7 +172,7 @@ export const POST: APIRoute = async ({ request }) => {
             });
             payBalanceUrl = buildMagicLinkUrl(link.token);
           } else {
-            payBalanceUrl = `${appUrl}/dashboard/registrations/${row.registrationId}/pay-balance`;
+            payBalanceUrl = `${brandAppUrl}/dashboard/registrations/${row.registrationId}/pay-balance`;
           }
 
           await sendBalanceReminderEmail({
@@ -184,6 +189,7 @@ export const POST: APIRoute = async ({ request }) => {
             seasonStartDate: row.startDate,
             payBalanceUrl,
             reminderType: window.type,
+            brand,
           });
 
           result.sent += 1;

@@ -287,6 +287,8 @@ export interface SendWaitlistPromotionParams {
   amountDueCents: number;
   expiresAt: Date;
   hoursToComplete: number;
+  /** Brand attribution for the purchase — controls email template + link origin. */
+  brand?: BrandId;
 }
 
 export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionParams) {
@@ -295,7 +297,7 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = env.PUBLIC_APP_URL;
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
 
   const { html, text } = await renderEmail(
     WaitlistPromotionEmail({
@@ -308,6 +310,7 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
       hoursToComplete: params.hoursToComplete,
       registerUrl: `${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`,
       dashboardUrl: `${appUrl}/dashboard`,
+      brand: params.brand,
     }),
   );
 
@@ -323,6 +326,7 @@ export async function sendWaitlistPromotionEmail(params: SendWaitlistPromotionPa
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
     smsNudge: { organizationId: params.organizationId, body: smsBody },
   });
 }
@@ -340,6 +344,8 @@ export interface SendRefundNotificationParams {
   refundAmountCents: number;
   refundStatus: "approved" | "denied";
   denialReason?: string;
+  /** Brand attribution for the registration — controls email template + link origin. */
+  brand?: BrandId;
 }
 
 export async function sendRefundNotificationEmail(params: SendRefundNotificationParams) {
@@ -348,7 +354,7 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = env.PUBLIC_APP_URL;
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
 
   const { html, text } = await renderEmail(
     RefundNotificationEmail({
@@ -360,6 +366,7 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
       refundStatus: params.refundStatus,
       denialReason: params.denialReason,
       dashboardUrl: `${appUrl}/dashboard`,
+      brand: params.brand,
     }),
   );
 
@@ -376,6 +383,7 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 
@@ -432,7 +440,10 @@ export interface SendPaymentFailedParams {
   programName: string;
   seasonName: string;
   failureMessage: string;
+  /** Caller must build retryUrl using the brand origin. */
   retryUrl: string;
+  /** Brand attribution for the registration — controls email template + sender. */
+  brand?: BrandId;
 }
 
 export async function sendPaymentFailedEmail(params: SendPaymentFailedParams) {
@@ -449,6 +460,7 @@ export async function sendPaymentFailedEmail(params: SendPaymentFailedParams) {
       seasonName: params.seasonName,
       failureMessage: params.failureMessage,
       retryUrl: params.retryUrl,
+      brand: params.brand,
     }),
   );
 
@@ -464,6 +476,7 @@ export async function sendPaymentFailedEmail(params: SendPaymentFailedParams) {
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
     smsNudge: { organizationId: params.organizationId, body: smsBody },
   });
 }
@@ -526,8 +539,11 @@ export interface SendBalanceReminderParams {
   seasonName: string;
   balanceCents: number;
   seasonStartDate: Date | string;
+  /** Caller must build payBalanceUrl using the brand origin. */
   payBalanceUrl: string;
   reminderType: BalanceReminderType;
+  /** Brand attribution for the registration — controls email template + sender. */
+  brand?: BrandId;
 }
 
 export async function sendBalanceReminderEmail(
@@ -548,6 +564,7 @@ export async function sendBalanceReminderEmail(
       seasonStartDate: formatEmailDate(params.seasonStartDate),
       payBalanceUrl: params.payBalanceUrl,
       reminderType: params.reminderType,
+      brand: params.brand,
     }),
   );
 
@@ -563,6 +580,7 @@ export async function sendBalanceReminderEmail(
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
     smsNudge: { organizationId: params.organizationId, body: smsBody },
   });
 }

@@ -48,6 +48,11 @@ export interface DropInBaseContext {
   session: DropInMessageSession;
   venue: DropInMessageVenue;
   publicAppUrl: string;
+  /** Storefront brand the booking was created through. Defaults to "aspire".
+   *  For online Checkout Sessions, derived from session.metadata.brand.
+   *  For admin walk-up / waitlist-promoted, defaults to "aspire" until a
+   *  brand column is added to drop_in_bookings (deferred; report NEEDS_CONTEXT). */
+  brand?: string;
 }
 
 export interface BookingConfirmationContext extends DropInBaseContext {
