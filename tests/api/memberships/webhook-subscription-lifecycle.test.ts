@@ -8,7 +8,14 @@ import Stripe from "stripe";
 import crypto from "crypto";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
-const SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET ?? "whsec_test";
+
+// STRIPE_CONNECT_WEBHOOK_SECRET must match what the server has configured.
+// When unset, the server returns 400 "Missing signature or webhook secret"
+// before verifying the payload, making all assertions meaningless. Skip the
+// suite cleanly in that environment.
+const STRIPE_CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+const connectWebhookConfigured = Boolean(STRIPE_CONNECT_WEBHOOK_SECRET);
+const SECRET = STRIPE_CONNECT_WEBHOOK_SECRET ?? "whsec_test";
 
 let userId: string;
 let orgId: string;
@@ -39,6 +46,10 @@ async function send(event: Stripe.Event): Promise<Response> {
 // run), every `it` skips dynamically.
 let hasFixtures = false;
 
+// Combined skip flag: both the env secret AND DB fixtures must be present.
+// When either is missing every test in the suite skips.
+let canRunWebhookTests = false;
+
 beforeAll(async () => {
   const db = getDb();
   const [org] = await db.select().from(organizations).where(eq(organizations.slug, "soccerone"));
@@ -50,6 +61,7 @@ beforeAll(async () => {
     tierId = tier?.id;
   }
   hasFixtures = Boolean(userId && orgId && tierId);
+  canRunWebhookTests = connectWebhookConfigured && hasFixtures;
 });
 
 afterEach(async () => {
@@ -60,7 +72,7 @@ afterEach(async () => {
 
 describe("Connect webhook — subscription lifecycle", () => {
   it("creates a membership row on checkout.session.completed", async (ctx) => {
-    if (!hasFixtures) return ctx.skip();
+    if (!canRunWebhookTests) return ctx.skip();
     const subId = `sub_test_${Date.now()}`;
     const event = {
       id: `evt_test_${Date.now()}`,
@@ -98,7 +110,7 @@ describe("Connect webhook — subscription lifecycle", () => {
   });
 
   it("is idempotent on replay", async (ctx) => {
-    if (!hasFixtures) return ctx.skip();
+    if (!canRunWebhookTests) return ctx.skip();
     const subId = `sub_test_${Date.now()}`;
     const eventBase = {
       id: `evt_test_${Date.now()}`,
@@ -130,7 +142,7 @@ describe("Connect webhook — subscription lifecycle", () => {
   });
 
   it("flips status to cancelled on customer.subscription.deleted", async (ctx) => {
-    if (!hasFixtures) return ctx.skip();
+    if (!canRunWebhookTests) return ctx.skip();
     const subId = `sub_test_${Date.now()}`;
     const db = getDb();
     await db.insert(memberships).values({
@@ -156,7 +168,7 @@ describe("Connect webhook — subscription lifecycle", () => {
   });
 
   it("flips status to past_due on invoice.payment_failed", async (ctx) => {
-    if (!hasFixtures) return ctx.skip();
+    if (!canRunWebhookTests) return ctx.skip();
     const subId = `sub_test_${Date.now()}`;
     const db = getDb();
     await db.insert(memberships).values({
