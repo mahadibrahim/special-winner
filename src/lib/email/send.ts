@@ -27,6 +27,8 @@ import { emailLogs } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
 import { WAITLIST_PROMOTION_HOURS } from "@/lib/waitlist/processor";
+import { originForBrand } from "@/lib/organization/soccerone-routing";
+import type { BrandId } from "@/lib/branding/themes";
 
 /** Clip a string to `max` chars for use inside an SMS body. */
 function clip(value: string, max: number): string {
@@ -156,6 +158,10 @@ export interface SendRegistrationConfirmationParams {
   registrationStatus: string;
   /** Pass true when the parent already has Telegram linked to suppress the connect CTA in the email. */
   hasLinkedTelegram?: boolean;
+  /** Brand attribution for the purchase — from Stripe metadata.brand or
+   *  the request host. Controls email template + link origin. Defaults
+   *  to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendRegistrationConfirmationEmail(params: SendRegistrationConfirmationParams) {
@@ -164,7 +170,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = env.PUBLIC_APP_URL;
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
 
   const { html, text } = await renderEmail(
     RegistrationConfirmationEmail({
@@ -184,6 +190,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
       hasLinkedTelegram: params.hasLinkedTelegram ?? false,
       paymentUrl: `${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`,
       waitlistClaimHours: WAITLIST_PROMOTION_HOURS,
+      brand: params.brand,
     }),
   );
 
@@ -217,6 +224,10 @@ export interface SendPaymentReceiptParams {
   paymentType: string;
   remainingBalanceCents?: number;
   receiptNumber: string;
+  /** Brand attribution for the purchase — from Stripe metadata.brand or
+   *  the request host. Controls email template + link origin. Defaults
+   *  to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) {
@@ -225,7 +236,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = env.PUBLIC_APP_URL;
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
 
   const { html, text } = await renderEmail(
     PaymentReceiptEmail({
@@ -241,6 +252,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
         : undefined,
       receiptNumber: params.receiptNumber,
       dashboardUrl: `${appUrl}/dashboard`,
+      brand: params.brand,
     }),
   );
 

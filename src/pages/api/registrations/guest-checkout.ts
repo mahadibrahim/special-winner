@@ -237,6 +237,7 @@ export const POST: APIRoute = async (context) => {
           waiverSigned,
           waiverSignedBy,
           lookingForTeam: lookingForTeam ?? false,
+          brand: brandFromHost(request.headers.get("host") ?? ""),
         });
       } catch (err) {
         if (err instanceof RegistrationError) {

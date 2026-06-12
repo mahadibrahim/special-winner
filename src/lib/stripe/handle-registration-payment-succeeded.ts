@@ -143,6 +143,7 @@ export async function handleRegistrationPaymentSucceeded(
         amountDueCents: registration.amountDueCents,
         paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
         registrationStatus: "confirmed",
+        brand: paymentIntent.metadata?.brand === "soccerone" ? "soccerone" : "aspire",
       }).catch((err) => console.error("[stripe webhook] email send failed:", err));
 
       sendPaymentReceiptEmail({
@@ -158,6 +159,7 @@ export async function handleRegistrationPaymentSucceeded(
         paymentType: paymentTypeValue,
         remainingBalanceCents: isFullyPaid ? undefined : newAmountDue,
         receiptNumber: paymentIntent.id.replace(/^pi_(test_)?/, "").slice(0, 12),
+        brand: paymentIntent.metadata?.brand === "soccerone" ? "soccerone" : "aspire",
       }).catch((err) =>
         console.error("[stripe webhook] receipt email send failed:", err),
       );

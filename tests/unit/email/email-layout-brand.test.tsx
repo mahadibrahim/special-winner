@@ -95,6 +95,7 @@ describe("booking templates accept a brand", () => {
     );
     expect(html).toContain("#0a0a0d");
     expect(html).toContain("SoccerOne");
+    expect(html).not.toContain("#F5EFE3");
   });
 
   it("PaymentReceiptEmail with brand=soccerone uses dark palette and SoccerOne name", async () => {
@@ -103,6 +104,7 @@ describe("booking templates accept a brand", () => {
     );
     expect(html).toContain("#0a0a0d");
     expect(html).toContain("SoccerOne");
+    expect(html).not.toContain("#F5EFE3");
   });
 
   it("RegistrationConfirmationEmail without brand uses cream palette and Aspire name", async () => {
@@ -111,5 +113,15 @@ describe("booking templates accept a brand", () => {
     );
     expect(html).toContain("#F5EFE3");
     expect(html).toContain("Aspire Sports Ohio");
+    expect(html).not.toContain("#0a0a0d");
+  });
+
+  it("PaymentReceiptEmail without brand uses cream palette and Aspire name", async () => {
+    const { html } = await renderEmail(
+      <PaymentReceiptEmail {...receiptProps} />,
+    );
+    expect(html).toContain("#F5EFE3");
+    expect(html).toContain("Aspire Sports Ohio");
+    expect(html).not.toContain("#0a0a0d");
   });
 });
