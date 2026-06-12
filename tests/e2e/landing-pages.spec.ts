@@ -35,23 +35,23 @@ test.describe("Landing-page finders", () => {
     await expect(page).toHaveURL(/#ages-9-12$/);
   });
 
-  test("/adult — finder: hero, jump-links, three sections incl. pickup", async ({ page }) => {
+  test("/adult — hub: hero + three category doors", async ({ page }) => {
     await page.goto("/adult", { waitUntil: "domcontentloaded" });
 
     await expect(
       page.getByRole("heading", { name: /build your week around/i }),
     ).toBeVisible();
-    for (const id of ["leagues", "pickup", "tournaments"]) {
-      await expect(page.locator(`a[href="#${id}"]`).first()).toBeVisible();
+    for (const cta of ["adult-hub-leagues", "adult-hub-pickup", "adult-hub-tournaments"]) {
+      await expect(page.locator(`[data-landing-cta="${cta}"]`)).toBeVisible();
     }
 
-    await waitForHydration(page);
-    for (const id of ["leagues", "pickup", "tournaments"]) {
-      await expect(page.locator(`section#${id}`)).toHaveCount(1);
-    }
+    // No React island on the hub — door links are plain <a> navigations.
+    await page.locator('[data-landing-cta="adult-hub-pickup"]').click();
+    await expect(page).toHaveURL(/\/adult\/pickup$/);
 
-    await page.locator('[data-landing-cta="adult-hero-pickup"]').click();
-    await expect(page).toHaveURL(/#pickup$/);
+    // Legacy anchor bookmarks forward to category pages.
+    await page.goto("/adult#leagues", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/adult\/leagues$/);
   });
 
   test("homepage — gateway hero CTAs route into the finders", async ({ page }) => {
