@@ -14,6 +14,12 @@ export const CAPTURE_INCENTIVE = {
   amountCents: 1500,
 } as const;
 
+/**
+ * The newsletter `source` value that routes a signup into the incentive
+ * email path. The capture band posts it; /api/public/newsletter gates on it.
+ */
+export const CAPTURE_INCENTIVE_SOURCE = "home-incentive";
+
 /** "$15" for whole dollars, "$12.50" otherwise. */
 export function formatIncentiveAmount(cents: number): string {
   return cents % 100 === 0

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { apiFetch } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { newsletterSignups, organizations } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { newsletterSignups, organizations, emailLogs } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 
 describe("POST /api/public/newsletter — tenant attribution", () => {
   let orgAId: string;
@@ -44,5 +44,55 @@ describe("POST /api/public/newsletter — tenant attribution", () => {
     expect(row).toBeTruthy();
     expect(row.organizationId).toBe(orgAId);
     expect(row.organizationId).not.toBe(orgBId);
+  });
+});
+
+describe("POST /api/public/newsletter — capture incentive email", () => {
+  const incentiveLogs = (email: string) =>
+    getDb()
+      .select()
+      .from(emailLogs)
+      .where(
+        and(
+          eq(emailLogs.emailType, "capture_incentive"),
+          eq(emailLogs.recipientEmail, email),
+        ),
+      );
+
+  it("logs exactly one capture_incentive email for home-incentive signups, deduped on resubmit", async () => {
+    const email = `nl-incentive-${crypto.randomUUID()}@example.com`;
+    const submit = () =>
+      apiFetch("/api/public/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source: "home-incentive" }),
+      });
+
+    const res1 = await submit();
+    expect(res1.status).toBe(200);
+
+    const afterFirst = await incentiveLogs(email);
+    expect(afterFirst).toHaveLength(1);
+    // "sent" when RESEND_API_KEY is configured, "skipped" otherwise — both
+    // mean the endpoint took the incentive path and the dedupe gate is set.
+    expect(["sent", "skipped"]).toContain(afterFirst[0].status);
+
+    const res2 = await submit();
+    expect(res2.status).toBe(200);
+
+    const afterSecond = await incentiveLogs(email);
+    expect(afterSecond).toHaveLength(1);
+  });
+
+  it("does not send the incentive for non-incentive sources", async () => {
+    const email = `nl-footer-${crypto.randomUUID()}@example.com`;
+    const res = await apiFetch("/api/public/newsletter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, source: "footer" }),
+    });
+    expect(res.status).toBe(200);
+
+    expect(await incentiveLogs(email)).toHaveLength(0);
   });
 });

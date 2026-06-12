@@ -4,6 +4,8 @@ import { newsletterSignups } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { sendCaptureIncentiveEmail } from "@/lib/email/send";
+import { CAPTURE_INCENTIVE_SOURCE } from "@/lib/marketing/capture-incentive";
 
 const BodySchema = z.object({
   email: z.string().trim().toLowerCase().email().max(320),
@@ -80,6 +82,18 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           updatedAt: new Date(),
         },
       });
+
+    if (source === CAPTURE_INCENTIVE_SOURCE) {
+      // Deliver the discount code (deduped per address inside the helper).
+      // Awaited — fire-and-forget promises can be killed when the serverless
+      // function returns. Failures are swallowed: the signup is already
+      // stored and must not 500 because Resend hiccuped.
+      try {
+        await sendCaptureIncentiveEmail({ recipientEmail: email });
+      } catch (err) {
+        console.error("[newsletter] incentive email failed", err);
+      }
+    }
 
     return new Response(
       JSON.stringify({ ok: true }),
