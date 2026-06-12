@@ -26,10 +26,12 @@ describe("venue-day holds", () => {
   let venueId: string;
   let organizationId: string;
 
-  // Each test uses its own far-future day to avoid cross-run overlap in
-  // the shared CI database (the exclusion constraint is global!).
+  // Each test uses its own far-future day. A per-run random offset (0–99
+  // years beyond the 365-day base) is added so repeated runs against the
+  // shared CI database don't collide with holds left by prior runs.
+  const RUN_YEAR_OFFSET = Math.floor(Math.random() * 100) * 365;
   const day = (offset: number) => {
-    const d = new Date(Date.now() + (365 + offset) * 86_400_000);
+    const d = new Date(Date.now() + (365 + RUN_YEAR_OFFSET + offset) * 86_400_000);
     return d.toISOString().slice(0, 10);
   };
 

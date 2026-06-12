@@ -65,7 +65,9 @@ describe("POST /api/registrations/guest-checkout — adult self path", () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.checkoutUrl ?? body.paid ?? body.waitlisted).toBeTruthy();
+    // Endpoint returns embedded-checkout PaymentIntent shape; also handles
+    // free-after-discount (paid=true) and waitlist (waitlisted=true) paths.
+    expect(body.clientSecret ?? body.paid ?? body.waitlisted).toBeTruthy();
   });
 });
 

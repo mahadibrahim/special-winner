@@ -78,14 +78,17 @@ describe("POST /api/payments/create-checkout — embedded checkout shape", () =>
       const body = await res.json();
 
       // New embedded-checkout fields must be present.
+      // createCheckoutSession creates a PaymentIntent (embedded checkout),
+      // so clientSecret is pi_..._secret_... and sessionId is pi_...
+      // PaymentIntent IDs are pi_{chars} (no test/live infix unlike cs_).
       expect(typeof body.clientSecret).toBe("string");
-      expect(body.clientSecret).toMatch(/^cs_(test|live)_.+_secret_/);
+      expect(body.clientSecret).toMatch(/^pi_.+_secret_/);
 
       expect(typeof body.publishableKey).toBe("string");
       expect(body.publishableKey).toMatch(/^pk_(test|live)_/);
 
       expect(typeof body.sessionId).toBe("string");
-      expect(body.sessionId).toMatch(/^cs_(test|live)_/);
+      expect(body.sessionId).toMatch(/^pi_/);
 
       // Old redirect field must NOT be present.
       expect(body.checkoutUrl).toBeUndefined();
@@ -122,24 +125,27 @@ describe("POST /api/payments/create-checkout — embedded checkout shape", () =>
       expect(typeof sessionId).toBe("string");
 
       // Retrieve the Stripe session directly to inspect server-side metadata.
+      // createCheckoutSession creates a PaymentIntent (not a Checkout
+      // Session), so we retrieve via /v1/payment_intents instead of
+      // /v1/checkout/sessions. The sessionId here is a pi_... ID.
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY!;
       const stripeRes = await fetch(
-        `https://api.stripe.com/v1/checkout/sessions/${sessionId}`,
+        `https://api.stripe.com/v1/payment_intents/${sessionId}`,
         {
           headers: { Authorization: `Bearer ${stripeSecretKey}` },
         },
       );
       expect(stripeRes.status).toBe(200);
-      const session = await stripeRes.json();
+      const pi = await stripeRes.json();
 
       // The parsed client_id (everything after GA1.1.) should be in metadata.
-      expect(session.metadata?.ga_client_id).toBe(gaClientId);
+      expect(pi.metadata?.ga_client_id).toBe(gaClientId);
 
       // The resolving org must be stamped so the charge is brand-attributable
       // without a DB join. localhost resolves to the default (Aspire) org, so
       // we assert a non-empty org id rather than a specific value.
-      expect(typeof session.metadata?.organization_id).toBe("string");
-      expect(session.metadata.organization_id.length).toBeGreaterThan(0);
+      expect(typeof pi.metadata?.organization_id).toBe("string");
+      expect(pi.metadata.organization_id.length).toBeGreaterThan(0);
     },
   );
 });

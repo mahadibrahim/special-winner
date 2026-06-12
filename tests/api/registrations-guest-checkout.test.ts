@@ -45,7 +45,7 @@ const validBody = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("POST /api/registrations/guest-checkout", () => {
-  itWithStripe("creates user, family member, registration, and returns checkoutUrl for new email", async () => {
+  itWithStripe("creates user, family member, registration, and returns PaymentIntent clientSecret for new email", async () => {
     const seasonId = await fetchOpenSeasonId();
     const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
       method: "POST",
@@ -54,8 +54,10 @@ describe("POST /api/registrations/guest-checkout", () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toHaveProperty("checkoutUrl");
-    expect(typeof body.checkoutUrl).toBe("string");
+    // Endpoint now returns embedded-checkout PaymentIntent shape (not redirect URL).
+    expect(typeof body.clientSecret).toBe("string");
+    expect(typeof body.sessionId).toBe("string");
+    expect(typeof body.publishableKey).toBe("string");
     expect(body.wasNewUser).toBe(true);
     const setCookie = res.headers.get("set-cookie") || "";
     // Lucia cookie set for new users
@@ -86,7 +88,9 @@ describe("POST /api/registrations/guest-checkout", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.wasNewUser).toBe(false);
-    expect(data).toHaveProperty("checkoutUrl");
+    // Endpoint now returns embedded-checkout PaymentIntent shape (not redirect URL).
+    expect(typeof data.clientSecret).toBe("string");
+    expect(typeof data.sessionId).toBe("string");
     const setCookie = res.headers.get("set-cookie") || "";
     expect(setCookie).not.toMatch(/auth_session=/);
   });
@@ -144,6 +148,8 @@ describe("POST /api/registrations/guest-checkout", () => {
     });
     expect(r2.status).toBe(200);
     const data = await r2.json();
-    expect(data).toHaveProperty("checkoutUrl");
+    // Endpoint now returns embedded-checkout PaymentIntent shape (not redirect URL).
+    expect(typeof data.clientSecret).toBe("string");
+    expect(typeof data.sessionId).toBe("string");
   });
 });
