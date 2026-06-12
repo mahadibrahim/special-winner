@@ -5,7 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { validateSession } from "@/lib/auth/session";
 import { canTagSession } from "@/lib/media/tag-permissions";
-import { logMediaAction } from "@/lib/media/audit";
+import { logMediaActions } from "@/lib/media/audit";
 
 export const prerender = false;
 
@@ -187,78 +187,131 @@ export const POST: APIRoute = async (context) => {
     source: string;
   }> = [];
 
+  // Resolve duplicates with ONE select over all touched assets instead of
+  // a per-tag existence query, then create the missing tags in one
+  // multi-row insert (plus one batched audit insert). A tag "exists" under
+  // the same rules the old per-tag lookups used: player = same asset +
+  // family member (any scope); team = same asset + team with scope "team";
+  // both_teams = same asset with scope "both_teams".
+  type TagRow = typeof mediaTags.$inferSelect;
+  const keyOf = (t: {
+    asset_id: string;
+    tag_scope: "player" | "team" | "both_teams";
+    family_member_id?: string | null;
+    team_id?: string | null;
+  }) =>
+    t.tag_scope === "player"
+      ? `p|${t.asset_id}|${t.family_member_id}`
+      : t.tag_scope === "team"
+        ? `t|${t.asset_id}|${t.team_id}`
+        : `b|${t.asset_id}`;
+
+  const touchedAssetIds = [...new Set(enqueued.map((t) => t.asset_id))];
+  const existingRows =
+    touchedAssetIds.length > 0
+      ? await db
+          .select()
+          .from(mediaTags)
+          .where(inArray(mediaTags.mediaAssetId, touchedAssetIds))
+      : [];
+
+  // A row can satisfy several lookup shapes — index it under each.
+  const rowByKey = new Map<string, TagRow>();
+  for (const row of existingRows) {
+    const keys: string[] = [];
+    if (row.familyMemberId) keys.push(`p|${row.mediaAssetId}|${row.familyMemberId}`);
+    if (row.tagScope === "team" && row.teamId) keys.push(`t|${row.mediaAssetId}|${row.teamId}`);
+    if (row.tagScope === "both_teams") keys.push(`b|${row.mediaAssetId}`);
+    for (const key of keys) {
+      if (!rowByKey.has(key)) rowByKey.set(key, row);
+    }
+  }
+
+  // First occurrence of a missing key gets created; in-batch repeats
+  // resolve against the freshly created row (same outcome as the old
+  // sequential loop).
+  const toInsert: Array<{ key: string; tag: (typeof enqueued)[number] }> = [];
+  const plannedKeys = new Set<string>();
   for (const t of enqueued) {
-    let whereClause;
-    if (t.tag_scope === "player") {
-      whereClause = and(
-        eq(mediaTags.mediaAssetId, t.asset_id),
-        eq(mediaTags.familyMemberId, t.family_member_id!)
-      );
-    } else if (t.tag_scope === "team") {
-      whereClause = and(
-        eq(mediaTags.mediaAssetId, t.asset_id),
-        eq(mediaTags.teamId, t.team_id!),
-        eq(mediaTags.tagScope, "team")
-      );
-    } else {
-      whereClause = and(
-        eq(mediaTags.mediaAssetId, t.asset_id),
-        eq(mediaTags.tagScope, "both_teams")
-      );
+    const key = keyOf(t);
+    if (!rowByKey.has(key) && !plannedKeys.has(key)) {
+      plannedKeys.add(key);
+      toInsert.push({ key, tag: t });
     }
-    const hit = await db.select().from(mediaTags).where(whereClause).limit(1);
-    if (hit.length > 0) {
-      existing.push({
-        id: hit[0].id,
-        media_asset_id: hit[0].mediaAssetId,
-        family_member_id: hit[0].familyMemberId,
-        team_id: hit[0].teamId,
-        tag_scope: hit[0].tagScope,
-        source: hit[0].source,
-      });
-      continue;
-    }
+  }
 
-    const [row] = await db
+  if (toInsert.length > 0) {
+    const inserted = await db
       .insert(mediaTags)
-      .values({
-        mediaAssetId: t.asset_id,
-        familyMemberId: t.family_member_id ?? null,
-        teamId: t.team_id ?? null,
-        tagScope: t.tag_scope,
-        source: t.effective_source as
-          | "manual_staff"
-          | "manual_offshore"
-          | "manual_admin"
-          | "auto_jersey_ocr"
-          | "auto_face"
-          | "burst_propagated",
-        confidence: "1.00",
-        taggedByUserId: user.id,
-      })
+      .values(
+        toInsert.map(({ tag: t }) => ({
+          mediaAssetId: t.asset_id,
+          familyMemberId: t.family_member_id ?? null,
+          teamId: t.team_id ?? null,
+          tagScope: t.tag_scope,
+          source: t.effective_source as
+            | "manual_staff"
+            | "manual_offshore"
+            | "manual_admin"
+            | "auto_jersey_ocr"
+            | "auto_face"
+            | "burst_propagated",
+          confidence: "1.00",
+          taggedByUserId: user.id,
+        })),
+      )
       .returning();
-    created.push({
-      id: row.id,
-      media_asset_id: row.mediaAssetId,
-      family_member_id: row.familyMemberId,
-      team_id: row.teamId,
-      tag_scope: row.tagScope,
-      source: row.source,
-    });
 
-    await logMediaAction({
-      actorUserId: user.id,
-      entityType: "tag",
-      entityId: row.id,
-      action: "create",
-      diff: {
-        asset_id: row.mediaAssetId,
+    for (let i = 0; i < inserted.length; i++) {
+      const row = inserted[i];
+      rowByKey.set(toInsert[i].key, row);
+      created.push({
+        id: row.id,
+        media_asset_id: row.mediaAssetId,
         family_member_id: row.familyMemberId,
         team_id: row.teamId,
         tag_scope: row.tagScope,
         source: row.source,
-      },
-    });
+      });
+    }
+
+    await logMediaActions(
+      inserted.map((row) => ({
+        actorUserId: user.id,
+        entityType: "tag" as const,
+        entityId: row.id,
+        action: "create" as const,
+        diff: {
+          asset_id: row.mediaAssetId,
+          family_member_id: row.familyMemberId,
+          team_id: row.teamId,
+          tag_scope: row.tagScope,
+          source: row.source,
+        },
+      })),
+    );
+  }
+
+  const createdKeys = new Set(toInsert.map(({ key }) => key));
+  for (const t of enqueued) {
+    const key = keyOf(t);
+    if (createdKeys.has(key)) {
+      // First occurrence already reported in `created`; report repeats as
+      // existing, matching the old loop's behavior.
+      createdKeys.delete(key);
+      continue;
+    }
+    const row = rowByKey.get(key);
+    if (row) {
+      existing.push({
+        id: row.id,
+        media_asset_id: row.mediaAssetId,
+        family_member_id: row.familyMemberId,
+        team_id: row.teamId,
+        tag_scope: row.tagScope,
+        source: row.source,
+      });
+    }
   }
 
   return new Response(JSON.stringify({ created, existing }), {

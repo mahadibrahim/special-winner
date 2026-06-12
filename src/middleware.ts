@@ -92,33 +92,37 @@ export const onRequest = defineMiddleware(async (context, next) => {
     context.request.headers.get("host") ?? "",
   );
 
-  // Resolve organization from domain (non-blocking — if it fails, we just
-  // proceed without organization context and the page handles it).
-  try {
+  // Resolve organization and brand profile from the host in parallel —
+  // they're independent lookups (a host may belong to an org and also have
+  // its own brand row, e.g. dropin marketing sites pointing at shared
+  // inventory), and both are TTL-cached so this usually costs no queries.
+  // Each failure is swallowed independently: the page proceeds without
+  // that piece of context.
+  {
     const host = context.request.headers.get("host") || "localhost";
-    const resolved = await resolveOrganizationFromHost(host);
+    const hostname = host.split(":")[0]?.toLowerCase() ?? host;
+    const [orgResult, brandResult] = await Promise.allSettled([
+      resolveOrganizationFromHost(host),
+      resolveBrandProfile(hostname),
+    ]);
 
-    if (resolved) {
-      context.locals.organization = resolved.organization;
-      context.locals.currentLocation = resolved.location;
+    if (orgResult.status === "fulfilled") {
+      if (orgResult.value) {
+        context.locals.organization = orgResult.value.organization;
+        context.locals.currentLocation = orgResult.value.location;
+      }
+    } else {
+      console.log("Middleware: Error resolving organization from host");
     }
 
-    // Resolve brand profile from the same host. Brand is independent of
-    // org resolution: a host may belong to an org and also have its own
-    // brand row (e.g. dropin marketing sites pointing at shared inventory).
-    // Strip any port suffix the headers might include.
-    const hostname = host.split(":")[0]?.toLowerCase() ?? host;
-    try {
-      const brand = await resolveBrandProfile(hostname);
-      if (brand) {
-        context.locals.brand = brand;
+    if (brandResult.status === "fulfilled") {
+      if (brandResult.value) {
+        context.locals.brand = brandResult.value;
       }
-    } catch {
+    } else {
       // Don't let a brand-table outage break the request.
       console.log("Middleware: Error resolving brand profile");
     }
-  } catch (error) {
-    console.log("Middleware: Error resolving organization from host");
   }
 
   try {

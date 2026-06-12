@@ -44,6 +44,25 @@
 [build.processing]
   skip_processing = false
 
+# ============================================================
+# STATIC ASSET CACHING
+# ============================================================
+# Astro emits content-hashed bundles under /_astro/ — a changed file
+# gets a new URL, so these are safe to cache forever. Without this,
+# Netlify serves them with max-age=0 + etag revalidation, costing a
+# round-trip per asset per page view.
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Hand-managed assets in /public are NOT content-hashed (same URL after
+# a redeploy), so cap browser cache at a day instead of immutable.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
 [context.production]
   command = "npm run build"
 
