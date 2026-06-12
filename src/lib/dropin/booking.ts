@@ -252,6 +252,7 @@ export async function createConfirmedBookingFreePath(opts: {
         waiverSigned: opts.waiverSigned ?? false,
         waiverSignedAt: opts.waiverSignedAt ?? null,
         waiverSignedBy: opts.waiverSignedBy ?? null,
+        brand: opts.brand ?? "aspire",
       })
       .returning();
 

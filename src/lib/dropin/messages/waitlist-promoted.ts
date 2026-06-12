@@ -44,6 +44,7 @@ export async function renderWaitlistPromoted(
       whenLabel: startStr,
       minutesLeft: minsLeft,
       claimUrl: link,
+      brand: ctx.brand,
     }),
   );
 

@@ -137,6 +137,7 @@ export async function handleDropInCheckoutComplete(
         waiverSigned: waiverName !== null,
         waiverSignedAt,
         waiverSignedBy: waiverName,
+        brand,
       })
       .returning();
 

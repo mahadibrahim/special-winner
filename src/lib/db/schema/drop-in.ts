@@ -3,6 +3,7 @@ import {
   pgEnum,
   uuid,
   text,
+  varchar,
   timestamp,
   integer,
   boolean,
@@ -147,6 +148,9 @@ export const dropInBookings = pgTable(
     waiverSigned: boolean("waiver_signed").notNull().default(false),
     waiverSignedAt: timestamp("waiver_signed_at", { withTimezone: true }),
     waiverSignedBy: text("waiver_signed_by"),
+    // Storefront brand the booking was made through. Default covers
+    // pre-cutover rows and at-facility walk-ups (no host signal).
+    brand: varchar("brand", { length: 20 }).default("aspire").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

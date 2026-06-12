@@ -12,15 +12,20 @@ export function isEmailConfigured(): boolean {
 export const EMAIL_FROM = import.meta.env.RESEND_FROM_EMAIL || "Aspire Sports <hello@aspiresportsohio.com>";
 
 /**
- * Sender identity for a brand. Both brands send from the same verified
- * address — only the display name changes (gosoccerone.com is not yet
- * verified in Resend; see the launch checklist). Falls back to
- * EMAIL_FROM verbatim if the address can't be parsed out of it.
+ * Sender identity for a brand. Resolution order for SoccerOne:
+ *  1. RESEND_FROM_EMAIL_SOCCERONE verbatim when set (use this once
+ *     gosoccerone.com is verified in Resend — set the env var in Netlify,
+ *     no code change needed).
+ *  2. "SoccerOne <addr>" where addr is parsed from EMAIL_FROM.
+ *  3. EMAIL_FROM verbatim (fallback when EMAIL_FROM has no angle-bracket address).
+ * For aspire (or unknown brand), EMAIL_FROM is returned unchanged.
  */
 export function fromForBrand(
   brand: "aspire" | "soccerone" | null | undefined,
 ): string {
   if (brand !== "soccerone") return EMAIL_FROM;
+  const envOverride = import.meta.env.RESEND_FROM_EMAIL_SOCCERONE as string | undefined;
+  if (envOverride) return envOverride;
   const match = EMAIL_FROM.match(/<([^>]+)>/);
   return match ? `SoccerOne <${match[1]}>` : EMAIL_FROM;
 }

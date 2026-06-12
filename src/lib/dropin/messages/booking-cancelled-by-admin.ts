@@ -63,6 +63,7 @@ export async function renderBookingCancelledByAdmin(
       refundLine,
       sessionUrl: link,
       reason: ctx.reason,
+      brand: ctx.brand,
     }),
   );
 

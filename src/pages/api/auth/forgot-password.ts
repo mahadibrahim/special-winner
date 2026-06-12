@@ -9,6 +9,7 @@ import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { verifyTurnstile } from "@/lib/auth/turnstile";
 import { isEmailConfigured } from "@/lib/email";
 import { sendSignInLinkEmail } from "@/lib/email/send";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 /**
  * Forgot-password / magic-link login handler.
@@ -124,12 +125,14 @@ export const POST: APIRoute = async ({ request, clientAddress, url }) => {
       // Origin-aware: the link must redeem on the domain the user requested
       // it from (session cookies are per-domain across the two brand hosts).
       const signInUrl = buildMagicLinkUrl(token, { origin: url.origin });
+      const brand = brandFromHost(request.headers.get("host") ?? "");
       await sendSignInLinkEmail({
         userId: targetUser.id,
         recipientEmail: normalizedEmail,
         name: targetUser.firstName || "",
         signInUrl,
         expiresIn: "15 minutes",
+        brand,
       });
     } else {
       console.warn("Email not configured, sign-in link not sent");

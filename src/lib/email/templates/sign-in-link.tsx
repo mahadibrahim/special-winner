@@ -5,27 +5,32 @@ import {
   EmailLayout,
   H1,
   P,
-  tokens,
 } from "@/lib/email/components/email-layout";
+import { emailThemeFor } from "@/lib/email/components/email-theme";
+import { getBrandTheme, type BrandId } from "@/lib/branding/themes";
 
 interface SignInLinkEmailProps {
   name: string;
   signInUrl: string;
   expiresIn: string;
+  brand?: BrandId;
 }
 
 export function SignInLinkEmail({
   name,
   signInUrl,
   expiresIn,
+  brand,
 }: SignInLinkEmailProps) {
+  const t = emailThemeFor(brand);
+  const brandName = getBrandTheme(brand).displayName;
   return (
-    <EmailLayout preview="Tap the link to sign in to Aspire Sports">
+    <EmailLayout preview={`Tap the link to sign in to ${brandName}`} brand={brand}>
       <Content>
-        <H1>Sign in to Aspire Sports</H1>
+        <H1>Sign in to {brandName}</H1>
         <P>Hi {name || "there"},</P>
         <P>
-          Tap the button below to sign in to your Aspire Sports account. No
+          Tap the button below to sign in to your {brandName} account. No
           password needed — this is a one-tap, single-use link.
         </P>
         <Button href={signInUrl}>Sign in</Button>
@@ -35,8 +40,8 @@ export function SignInLinkEmail({
           account without tapping the link.
         </P>
         <P>If the button above doesn't work, copy and paste this link into your browser:</P>
-        <Text style={linkLine}>
-          <Link href={signInUrl} style={linkStyle}>
+        <Text style={linkLine(t.tokens.inkMuted)}>
+          <Link href={signInUrl} style={linkStyle(t.tokens.primary)}>
             {signInUrl}
           </Link>
         </Text>
@@ -45,17 +50,17 @@ export function SignInLinkEmail({
   );
 }
 
-const linkLine = {
+const linkLine = (inkMuted: string) => ({
   fontSize: "13px",
   lineHeight: "1.5",
-  color: tokens.inkMuted,
+  color: inkMuted,
   margin: "0 0 16px",
   wordBreak: "break-all" as const,
-};
+});
 
-const linkStyle = {
-  color: tokens.primary,
+const linkStyle = (primary: string) => ({
+  color: primary,
   textDecoration: "underline",
-};
+});
 
 export default SignInLinkEmail;

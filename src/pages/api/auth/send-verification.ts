@@ -6,6 +6,7 @@ import { isEmailConfigured } from "@/lib/email";
 import { sendEmailVerificationEmail } from "@/lib/email/send";
 import { validateSession } from "@/lib/auth/session";
 import { hashToken } from "@/lib/auth/token-hash";
+import { brandFromHost, originForBrand } from "@/lib/organization/soccerone-routing";
 import crypto from "crypto";
 
 export const POST: APIRoute = async (context) => {
@@ -61,7 +62,11 @@ export const POST: APIRoute = async (context) => {
 
     // Send email
     if (isEmailConfigured()) {
-      const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:4321";
+      const brand = brandFromHost(context.request.headers.get("host") ?? "");
+      const appUrl =
+        originForBrand(brand) ??
+        import.meta.env.PUBLIC_APP_URL ??
+        "http://localhost:4321";
       const verifyUrl = `${appUrl}/verify-email/${token}`;
 
       await sendEmailVerificationEmail({
@@ -70,6 +75,7 @@ export const POST: APIRoute = async (context) => {
         name: userData[0].firstName || "",
         verifyUrl,
         expiresIn: "24 hours",
+        brand,
       });
     } else {
       console.warn("Email not configured, verification email not sent");
