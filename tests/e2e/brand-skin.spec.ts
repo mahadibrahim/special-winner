@@ -25,6 +25,9 @@ test("SoccerOne host skins shared booking chrome", async ({ page }) => {
     () => getComputedStyle(document.body).backgroundColor,
   );
   expect(bg).toBe("rgb(10, 10, 13)");
+  // Tab title is chrome-level brand identity — BaseLayout swaps the suffix
+  await expect(page).toHaveTitle(/SoccerOne/);
+  await expect(page).not.toHaveTitle(/Aspire Sports/);
 });
 
 test("Aspire host renders unbranded-identical chrome (regression)", async ({
@@ -33,6 +36,7 @@ test("Aspire host renders unbranded-identical chrome (regression)", async ({
   await page.goto("/signin", { waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-brand", "aspire");
   await expect(page.locator(".so-wordmark")).toHaveCount(0);
+  await expect(page).toHaveTitle(/Aspire Sports/);
   const bg = await page.evaluate(
     () => getComputedStyle(document.body).backgroundColor,
   );

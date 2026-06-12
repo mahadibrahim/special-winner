@@ -27,13 +27,19 @@ interface Props {
 
 const {
   title,
-  description = "Aspire Sports — evidence-based youth and adult sports in Central Ohio.",
+  description = theme.defaultDescription,
   ogImage,
   favicon = theme.favicon,
   bodyClass = "min-h-screen flex flex-col bg-cream text-ink antialiased",
   navigation = true,
   footer = true,
 } = Astro.props;
+
+// Shared pages hardcode "… — Aspire Sports" titles. The tab/og title is
+// chrome-level brand identity, so swap the brand name per theme rather
+// than touching every page. Aspire path is an exact no-op.
+const brandedTitle =
+  theme.id === "aspire" ? title : title.replace(/Aspire Sports/g, theme.displayName);
 
 // GTM container — per-brand, keyed off the request host (brands share one
 // org, so the org slug can't distinguish them). Aspire is the default
@@ -63,7 +69,7 @@ const brandCss = theme.cssVars
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <meta property="og:title" content={title} />
+    <meta property="og:title" content={brandedTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     {ogImage && <meta property="og:image" content={ogImage} />}
@@ -76,7 +82,7 @@ const brandCss = theme.cssVars
     />
     {theme.fontsHref && <link href={theme.fontsHref} rel="stylesheet" />}
     {brandCss && <style is:inline set:html={brandCss} />}
-    <title>{title}</title>
+    <title>{brandedTitle}</title>
     <PostHog />
     <GoogleTagManager containerId={gtmContainerId} />
     <slot name="head" />

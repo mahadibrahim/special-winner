@@ -19,6 +19,8 @@ export interface BrandTheme {
   displayName: string;
   /** Which header/footer pair BaseLayout renders on shared pages. */
   chrome: "aspire" | "soccerone";
+  /** Default <meta name="description"> when a page doesn't pass one. */
+  defaultDescription: string;
   favicon: string;
   /** Google Fonts stylesheet for brand fonts; null = base layout fonts suffice. */
   fontsHref: string | null;
@@ -42,6 +44,8 @@ const aspire: BrandTheme = {
   id: "aspire",
   displayName: "Aspire Sports",
   chrome: "aspire",
+  defaultDescription:
+    "Aspire Sports — evidence-based youth and adult sports in Central Ohio.",
   favicon: "/favicon.svg",
   fontsHref: null,
   cssVars: null,
@@ -51,6 +55,8 @@ const soccerone: BrandTheme = {
   id: "soccerone",
   displayName: "SoccerOne",
   chrome: "soccerone",
+  defaultDescription:
+    "SoccerOne — indoor soccer in Columbus, OH. Leagues, pickup, field rentals, and memberships at Worthington and Downtown.",
   favicon: "/soccerone-favicon.svg",
   fontsHref:
     "https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap",

@@ -40,6 +40,7 @@ describe("brand themes", () => {
       const theme = getBrandTheme(id);
       expect(theme.id).toBe(id);
       expect(theme.displayName.length).toBeGreaterThan(0);
+      expect(theme.defaultDescription).toContain(theme.displayName);
       expect(theme.favicon.startsWith("/")).toBe(true);
       expect(["aspire", "soccerone"]).toContain(theme.chrome);
     }

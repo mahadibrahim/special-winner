@@ -12,6 +12,7 @@ import {
 } from "@react-email/components";
 import type { CSSProperties, ReactNode } from "react";
 import type { BrandId } from "@/lib/branding/themes";
+import { SOCCERONE_CANONICAL_HOST } from "@/lib/organization/soccerone-routing";
 import {
   ASPIRE_EMAIL_THEME,
   EmailThemeProvider,
@@ -51,7 +52,7 @@ export function EmailLayout({
   const resolvedAppUrl =
     appUrl ??
     (brand === "soccerone"
-      ? "https://www.gosoccerone.com"
+      ? `https://${SOCCERONE_CANONICAL_HOST}`
       : "https://aspiresportsohio.com");
   return (
     <EmailThemeProvider value={t}>

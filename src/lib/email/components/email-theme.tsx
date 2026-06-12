@@ -84,7 +84,7 @@ export const ASPIRE_EMAIL_THEME: EmailTheme = {
   fontsHref:
     "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap",
   logo: { kind: "img", path: "/images/logo-black.png", alt: "Aspire Sports" },
-  footerAddress: "3989 Presidential Pkwy · Powell, OH 43065",
+  footerAddress: "3989 Presidential Pkwy \u00A0\u00B7\u00A0 Powell, OH 43065",
 };
 
 export const SOCCERONE_EMAIL_THEME: EmailTheme = {

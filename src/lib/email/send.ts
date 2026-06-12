@@ -1,4 +1,4 @@
-import { sendEmail, isEmailConfigured } from "./index";
+import { sendEmail, isEmailConfigured, fromForBrand } from "./index";
 import { renderEmail } from "./render";
 import { formatEmailDate, formatEmailDateTime } from "./format";
 import { RegistrationConfirmationEmail } from "./templates/registration-confirmation";
@@ -76,6 +76,8 @@ async function sendTransactionalEmail(opts: {
   subject: string;
   html: string;
   text: string;
+  /** Sender override (per-brand display name); defaults to EMAIL_FROM. */
+  from?: string;
   smsNudge?: { organizationId?: string; body: string };
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const result = await sendEmail({
@@ -83,6 +85,7 @@ async function sendTransactionalEmail(opts: {
     subject: opts.subject,
     html: opts.html,
     text: opts.text,
+    from: opts.from,
   });
 
   await logEmail({
@@ -207,6 +210,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 
@@ -266,6 +270,7 @@ export async function sendPaymentReceiptEmail(params: SendPaymentReceiptParams) 
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 
