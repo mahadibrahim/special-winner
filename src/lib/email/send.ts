@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm";
 import { sendEmail, isEmailConfigured, fromForBrand } from "./index";
 import { renderEmail } from "./render";
 import { formatEmailDate, formatEmailDateTime } from "./format";
@@ -18,6 +19,11 @@ import { WelcomeEmail1 } from "./templates/welcome-1-welcome";
 import { WelcomeEmail2 } from "./templates/welcome-2-story";
 import { WelcomeEmail3 } from "./templates/welcome-3-activation";
 import { DisputeAlertEmail } from "./templates/dispute-alert";
+import { CaptureIncentiveEmail } from "./templates/capture-incentive";
+import {
+  CAPTURE_INCENTIVE,
+  formatIncentiveAmount,
+} from "@/lib/marketing/capture-incentive";
 import {
   signUnsubscribeToken,
   getUnsubscribeSecret,
@@ -751,6 +757,78 @@ export async function sendWelcomeSeriesEmail(params: {
     emailType: meta.emailType,
     recipientEmail: params.recipientEmail,
     subject: meta.subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// ---- Capture-band incentive code email ----
+
+// One-shot incentive-code delivery for capture-band signups. The visitor
+// explicitly requested the code, so this is a transactional one-off, not a
+// drip series — no List-Unsubscribe (and none is possible: newsletter
+// signups have no user id to sign an unsubscribe token with).
+// Deduped per address via email_logs so re-submitting the band can't resend.
+export async function sendCaptureIncentiveEmail(params: {
+  recipientEmail: string;
+}) {
+  const emailType = "capture_incentive";
+  const amount = formatIncentiveAmount(CAPTURE_INCENTIVE.amountCents);
+  const subject = `Your ${amount} code for Aspire Sports`;
+
+  // Existence check — any matching row means we already handled this address
+  // (sent, failed, or skipped), so no orderBy is needed on the limit(1).
+  const [already] = await getDb()
+    .select({ id: emailLogs.id })
+    .from(emailLogs)
+    .where(
+      and(
+        eq(emailLogs.emailType, emailType),
+        eq(emailLogs.recipientEmail, params.recipientEmail),
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return { success: true, deduped: true };
+  }
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping capture-incentive email");
+    // Record the attempt anyway so the dedupe gate holds (same pattern as
+    // the welcome series).
+    await logEmail({
+      emailType,
+      recipientEmail: params.recipientEmail,
+      subject,
+      status: "skipped",
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    CaptureIncentiveEmail({
+      amount,
+      code: CAPTURE_INCENTIVE.code,
+      programsUrl: `${env.PUBLIC_APP_URL}/programs`,
+    }),
+  );
+
+  // Direct sendEmail rather than sendTransactionalEmail: there is no userId
+  // for the log association, no from override (Aspire-only surface), and no
+  // SMS nudge — so we log manually with the recipient email alone.
+  const result = await sendEmail({
+    to: params.recipientEmail,
+    subject,
+    html,
+    text,
+  });
+
+  await logEmail({
+    emailType,
+    recipientEmail: params.recipientEmail,
+    subject,
     resendMessageId: result.messageId,
     status: result.success ? "sent" : "failed",
   });
