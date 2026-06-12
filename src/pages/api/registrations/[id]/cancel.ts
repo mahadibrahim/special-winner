@@ -5,6 +5,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { sendWaitlistPromotionEmail } from "@/lib/email/send";
 import { getPostHogServer } from "@/lib/posthog-server";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 
 const cancelSchema = z.object({
   reason: z.string().optional(),
@@ -242,6 +243,7 @@ async function promoteFromWaitlist(seasonId: string, season: any): Promise<boole
           amountDueCents: waitlisted.registration.amountDueCents,
           expiresAt,
           hoursToComplete: WAITLIST_PROMOTION_HOURS,
+          brand: normalizeBrand(waitlisted.registration.brand),
         }).catch((err) => console.error("Error sending waitlist promotion email:", err));
       }
     }

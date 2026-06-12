@@ -175,6 +175,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       waiverSigned: true,
       waiverSignedAt,
       waiverSignedBy: waiverName,
+      brand: brandFromHost(request.headers.get("host") ?? ""),
     });
     if (!result.ok) {
       const httpStatus = result.error.code === "session_not_found" ? 404 : 409;

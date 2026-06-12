@@ -9,6 +9,7 @@ import {
   PMuted,
 } from "@/lib/email/components/email-layout";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import type { BrandId } from "@/lib/branding/themes";
 
 interface RefundNotificationEmailProps {
   parentName: string;
@@ -19,6 +20,7 @@ interface RefundNotificationEmailProps {
   refundStatus: "approved" | "denied";
   denialReason?: string;
   dashboardUrl: string;
+  brand?: BrandId;
 }
 
 export function RefundNotificationEmail({
@@ -30,6 +32,7 @@ export function RefundNotificationEmail({
   refundStatus,
   denialReason,
   dashboardUrl,
+  brand,
 }: RefundNotificationEmailProps) {
   const isApproved = refundStatus === "approved";
 
@@ -40,6 +43,7 @@ export function RefundNotificationEmail({
           ? `Refund approved — ${refundAmount} for ${childName}`
           : `Refund request update — ${childName}`
       }
+      brand={brand}
     >
       <StatusBanner mood={isApproved ? "success" : "problem"}>
         {isApproved ? "Refund approved" : "Refund request update"}

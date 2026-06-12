@@ -24,9 +24,11 @@ import {
 } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
 import { organizations } from "@/lib/db/schema/organizations";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendEmail, isEmailConfigured, fromForBrand } from "@/lib/email";
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
 import { sendTelegramRaw } from "@/lib/telegram/send";
+import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
+import type { BrandId } from "@/lib/branding/themes";
 import { renderBookingConfirmation } from "./booking-confirmation";
 import { renderWaitlistPromoted } from "./waitlist-promoted";
 import { renderBookingCancelledByAdmin } from "./booking-cancelled-by-admin";
@@ -196,6 +198,7 @@ async function deliverOnce(
   variants: MessageVariants,
   user: UserChannelInfo,
   organizationId: string,
+  brand?: BrandId,
 ): Promise<{ ok: boolean; reason?: string; error?: string }> {
   if (channel === "email") {
     if (!isEmailConfigured()) return { ok: false, reason: "email_not_configured" };
@@ -205,6 +208,7 @@ async function deliverOnce(
       subject: variants.email.subject,
       html: variants.email.html,
       text: variants.email.text,
+      from: fromForBrand(brand),
     });
     return r.success ? { ok: true } : { ok: false, reason: "email_failed", error: r.error };
   }
@@ -237,6 +241,7 @@ async function dispatch(
   user: UserChannelInfo,
   variants: MessageVariants,
   organizationId: string,
+  brand?: BrandId,
 ): Promise<DropInDispatchResult> {
   const order = resolveChannelOrder(user);
   if (order.length === 0) {
@@ -245,7 +250,7 @@ async function dispatch(
   let lastReason: string | undefined;
   let lastError: string | undefined;
   for (const channel of order) {
-    const r = await deliverOnce(channel, variants, user, organizationId);
+    const r = await deliverOnce(channel, variants, user, organizationId, brand);
     if (r.ok) return { ok: true, channel };
     lastReason = r.reason;
     lastError = r.error;
@@ -253,8 +258,8 @@ async function dispatch(
   return { ok: false, reason: lastReason ?? "all_channels_failed", error: lastError };
 }
 
-function publicAppUrl(): string {
-  return import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
+function publicAppUrl(brand?: BrandId): string {
+  return originForBrand(brand) ?? (import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321");
 }
 
 function recipientFromUser(u: UserChannelInfo): DropInMessageRecipient {
@@ -264,6 +269,7 @@ function recipientFromUser(u: UserChannelInfo): DropInMessageRecipient {
 function baseCtx(
   session: SessionContextRow,
   recipient: DropInMessageRecipient,
+  brand?: BrandId,
 ): DropInBaseContext {
   return {
     recipient,
@@ -280,14 +286,23 @@ function baseCtx(
       name: session.venueName,
       timezone: session.venueTimezone,
     },
-    publicAppUrl: publicAppUrl(),
+    publicAppUrl: publicAppUrl(brand),
+    brand,
   };
 }
 
 // ---------- Public dispatch entry points ----------
 
+/**
+ * Dispatch booking confirmation. `brand` is derived from Stripe Checkout
+ * Session metadata (set at checkout creation time, PR #168). For online
+ * bookings the webhook handler reads `session.metadata.brand` and passes it
+ * here. For walk-up / free bookings created without a Checkout Session, brand
+ * defaults to "aspire" (no brand column on drop_in_bookings yet).
+ */
 export async function dispatchBookingConfirmation(
   bookingId: string,
+  brand?: BrandId,
 ): Promise<DropInDispatchResult> {
   const booking = await loadBooking(bookingId);
   if (!booking) return { ok: false, reason: "booking_not_found" };
@@ -296,8 +311,9 @@ export async function dispatchBookingConfirmation(
   const user = await loadUser(booking.userId);
   if (!user) return { ok: false, reason: "user_not_found" };
 
+  const resolvedBrand = brand ?? "aspire";
   const ctx: BookingConfirmationContext = {
-    ...baseCtx(session, recipientFromUser(user)),
+    ...baseCtx(session, recipientFromUser(user), resolvedBrand),
     booking: {
       id: booking.id,
       amountPaidCents: booking.amountPaidCents,
@@ -308,9 +324,14 @@ export async function dispatchBookingConfirmation(
   };
 
   const variants = await renderBookingConfirmation(ctx);
-  return await dispatch(user, variants, session.organizationId);
+  return await dispatch(user, variants, session.organizationId, resolvedBrand);
 }
 
+/**
+ * Dispatch waitlist-promoted notification. Brand defaults to "aspire" because
+ * drop_in_bookings has no brand column yet. A follow-up migration adding
+ * brand to drop_in_bookings would allow deriving it here.
+ */
 export async function dispatchWaitlistPromoted(
   bookingId: string,
   promotionToken: string,
@@ -323,8 +344,10 @@ export async function dispatchWaitlistPromoted(
   const user = await loadUser(booking.userId);
   if (!user) return { ok: false, reason: "user_not_found" };
 
+  // Brand defaults to aspire — drop_in_bookings has no brand column yet.
+  const brand: BrandId = "aspire";
   const ctx: WaitlistPromotedContext = {
-    ...baseCtx(session, recipientFromUser(user)),
+    ...baseCtx(session, recipientFromUser(user), brand),
     booking: {
       id: booking.id,
       amountPaidCents: booking.amountPaidCents,
@@ -336,9 +359,13 @@ export async function dispatchWaitlistPromoted(
   };
 
   const variants = await renderWaitlistPromoted(ctx);
-  return await dispatch(user, variants, session.organizationId);
+  return await dispatch(user, variants, session.organizationId, brand);
 }
 
+/**
+ * Dispatch admin-cancelled notification. Brand defaults to "aspire" because
+ * drop_in_bookings has no brand column yet.
+ */
 export async function dispatchBookingCancelledByAdmin(
   bookingId: string,
   opts: {
@@ -353,8 +380,10 @@ export async function dispatchBookingCancelledByAdmin(
   const user = await loadUser(booking.userId);
   if (!user) return { ok: false, reason: "user_not_found" };
 
+  // Brand defaults to aspire — drop_in_bookings has no brand column yet.
+  const brand: BrandId = "aspire";
   const ctx: BookingCancelledByAdminContext = {
-    ...baseCtx(session, recipientFromUser(user)),
+    ...baseCtx(session, recipientFromUser(user), brand),
     booking: {
       id: booking.id,
       amountPaidCents: booking.amountPaidCents,
@@ -366,5 +395,5 @@ export async function dispatchBookingCancelledByAdmin(
   };
 
   const variants = await renderBookingCancelledByAdmin(ctx);
-  return await dispatch(user, variants, session.organizationId);
+  return await dispatch(user, variants, session.organizationId, brand);
 }

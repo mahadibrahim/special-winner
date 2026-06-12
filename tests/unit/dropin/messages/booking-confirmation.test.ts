@@ -63,4 +63,15 @@ describe("renderBookingConfirmation", () => {
     });
     expect(v.email.text).toContain("Included");
   });
+
+  it("brands SMS prefix and links to gosoccerone origin when brand is soccerone", async () => {
+    const v = await renderBookingConfirmation({
+      ...baseCtx,
+      publicAppUrl: "https://www.gosoccerone.com",
+      brand: "soccerone",
+    });
+    expect(v.sms.body).toContain("[SoccerOne]");
+    expect(v.sms.body).toContain("https://www.gosoccerone.com/dropin/s1");
+    expect(v.email.html).toContain("https://www.gosoccerone.com/dropin/s1");
+  });
 });

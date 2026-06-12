@@ -9,9 +9,10 @@ import {
   H2,
   P,
   PMuted,
-  tokens,
 } from "@/lib/email/components/email-layout";
+import { emailThemeFor } from "@/lib/email/components/email-theme";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import type { BrandId } from "@/lib/branding/themes";
 
 interface DropInBookingConfirmationEmailProps {
   recipientName: string;
@@ -26,12 +27,13 @@ interface DropInBookingConfirmationEmailProps {
   amountLabel: string;
   /** Absolute URL to the session detail page. */
   sessionUrl: string;
+  brand?: BrandId;
 }
 
 /**
  * Drop-in booking confirmation — the branded email sent after a confirmed
  * booking lands (online checkout, kiosk walk-in, or admin walk-up). Uses the
- * shared transactional EmailLayout so it matches every other Aspire email.
+ * shared transactional EmailLayout so it matches every other Aspire/SoccerOne email.
  */
 export function DropInBookingConfirmationEmail({
   recipientName,
@@ -41,9 +43,15 @@ export function DropInBookingConfirmationEmail({
   teamAssignment,
   amountLabel,
   sessionUrl,
+  brand,
 }: DropInBookingConfirmationEmailProps) {
+  const t = emailThemeFor(brand);
+
   return (
-    <EmailLayout preview={`You're confirmed for ${sportLabel} — ${whenLabel}`}>
+    <EmailLayout
+      preview={`You're confirmed for ${sportLabel} — ${whenLabel}`}
+      brand={brand}
+    >
       <StatusBanner mood="success">Booking confirmed</StatusBanner>
       <Content>
         <H1>You're confirmed</H1>
@@ -59,7 +67,7 @@ export function DropInBookingConfirmationEmail({
           {teamAssignment ? (
             <Detail label="Team">{teamAssignment}</Detail>
           ) : null}
-          <Hr style={{ borderColor: tokens.border, margin: "12px 0" }} />
+          <Hr style={{ borderColor: t.tokens.border, margin: "12px 0" }} />
           <Detail label="Payment">{amountLabel}</Detail>
         </DetailPanel>
 

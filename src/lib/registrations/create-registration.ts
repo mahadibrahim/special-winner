@@ -129,6 +129,7 @@ export async function createRegistration(
           waiverSigned: input.waiverSigned,
           notes: input.notes ?? null,
           lookingForTeam: input.lookingForTeam ?? false,
+          brand: input.brand ?? "aspire",
         })
         .returning();
 
@@ -205,6 +206,7 @@ export async function createRegistration(
       waiverSigned: input.waiverSigned,
       notes: input.notes ?? null,
       lookingForTeam: input.lookingForTeam ?? false,
+      brand: input.brand ?? "aspire",
     })
     .returning();
 

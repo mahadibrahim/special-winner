@@ -2,6 +2,7 @@ import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, locations, users } from "@/lib/db/schema";
 import { eq, and, asc, lt } from "drizzle-orm";
 import { sendWaitlistPromotionEmail } from "@/lib/email/send";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 
 // Waitlist promotion hours (how long they have to complete payment)
 export const WAITLIST_PROMOTION_HOURS = 48;
@@ -80,7 +81,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
       return false;
     }
 
-    // Get first waitlisted registration
+    // Get first waitlisted registration (include brand for email branding)
     const [waitlisted] = await getDb()
       .select({
         registration: registrations,
@@ -134,6 +135,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
       .where(eq(users.id, waitlisted.registration.registeredByUserId));
 
     if (programData && parentUser) {
+      const brand = normalizeBrand(waitlisted.registration.brand);
       // Send waitlist promotion email
       sendWaitlistPromotionEmail({
         userId: parentUser.id,
@@ -147,6 +149,7 @@ export async function promoteNextFromWaitlist(seasonId: string): Promise<boolean
         amountDueCents: waitlisted.registration.amountDueCents,
         expiresAt,
         hoursToComplete: WAITLIST_PROMOTION_HOURS,
+        brand,
       }).catch((err) => console.error("Error sending waitlist promotion email:", err));
     }
 

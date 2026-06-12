@@ -10,6 +10,7 @@ import { eq, asc } from "drizzle-orm";
 import type Stripe from "stripe";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 
 export type AdminRefundResult =
   | {
@@ -190,6 +191,7 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
         seasonName,
         refundAmountCents,
         refundStatus: "approved",
+        brand: normalizeBrand(registration.brand),
       }).catch((err) =>
         console.error("[admin-refund] synchronous-path refund email failed:", err),
       );

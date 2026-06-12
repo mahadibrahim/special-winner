@@ -9,6 +9,7 @@ import {
   PMuted,
 } from "@/lib/email/components/email-layout";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import type { BrandId } from "@/lib/branding/themes";
 
 interface PaymentFailedEmailProps {
   parentName: string;
@@ -17,6 +18,7 @@ interface PaymentFailedEmailProps {
   seasonName: string;
   failureMessage: string;
   retryUrl: string;
+  brand?: BrandId;
 }
 
 export function PaymentFailedEmail({
@@ -26,10 +28,12 @@ export function PaymentFailedEmail({
   seasonName,
   failureMessage,
   retryUrl,
+  brand,
 }: PaymentFailedEmailProps) {
   return (
     <EmailLayout
       preview={`Payment didn't go through for ${childName}'s registration`}
+      brand={brand}
     >
       <StatusBanner mood="problem">Action required — payment failed</StatusBanner>
       <Content>

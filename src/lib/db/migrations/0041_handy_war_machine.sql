@@ -1,0 +1,1 @@
+ALTER TABLE "registrations" ADD COLUMN "brand" varchar(20) DEFAULT 'aspire' NOT NULL;

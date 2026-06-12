@@ -131,6 +131,7 @@ export const POST: APIRoute = async (context) => {
 
   // Free path (member allotment / unlimited / $0 override): create immediately.
   if (rate.amountCents === 0) {
+    // at-facility path: no host signal, aspire default
     const result = await createConfirmedBookingFreePath({
       sessionId,
       userId,

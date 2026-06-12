@@ -9,6 +9,7 @@ import {
 } from "./types";
 import { renderEmail } from "@/lib/email/render";
 import { DropInBookingConfirmationEmail } from "@/lib/email/templates/dropin-booking-confirmation";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 
 /**
  * Booking confirmation — fired immediately after a confirmed booking row
@@ -43,9 +44,11 @@ export async function renderBookingConfirmation(
     : "";
   const sourceLabel = ctx.source === "walk_up" ? "Walk-up booking" : "Booking";
   const subject = `${sourceLabel} confirmed — ${sportLabel} at ${ctx.venue.name}`;
+  const brand = normalizeBrand(ctx.brand);
+  const brandLabel = brand === "soccerone" ? "SoccerOne" : "Aspire";
 
   const smsBody =
-    `[Aspire] You're in for ${sportLabel} at ${ctx.venue.name} on ${startStr}.${teamLine} ${amountStr} Details: ${link}`;
+    `[${brandLabel}] You're in for ${sportLabel} at ${ctx.venue.name} on ${startStr}.${teamLine} ${amountStr} Details: ${link}`;
 
   const { html, text } = await renderEmail(
     DropInBookingConfirmationEmail({
@@ -56,6 +59,7 @@ export async function renderBookingConfirmation(
       teamAssignment: ctx.booking.teamAssignment,
       amountLabel,
       sessionUrl: link,
+      brand,
     }),
   );
 

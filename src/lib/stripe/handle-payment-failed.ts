@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { sendPaymentFailedEmail } from "@/lib/email/send";
 import { env } from "@/lib/env";
+import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
 
 /**
  * Handler for `payment_intent.payment_failed` webhook events.
@@ -77,7 +78,12 @@ export async function handlePaymentFailed(
     paymentIntent.last_payment_error?.message ??
     "Your card was declined. Please try a different payment method.";
 
-  const appUrl = env.PUBLIC_APP_URL;
+  // Brand from Stripe metadata (set at charge creation time, PR #168).
+  // Fall back through registration.brand → default aspire.
+  const brand = normalizeBrand(
+    paymentIntent.metadata?.brand ?? row.registration.brand,
+  );
+  const appUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
 
   // Fire-and-forget email — don't block webhook ack.
   sendPaymentFailedEmail({
@@ -91,6 +97,7 @@ export async function handlePaymentFailed(
     seasonName: row.season.name,
     failureMessage,
     retryUrl: `${appUrl}/dashboard?retry=${registrationId}`,
+    brand,
   }).catch((err) =>
     console.error("[stripe webhook] payment-failed email send failed:", err),
   );
