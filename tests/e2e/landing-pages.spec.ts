@@ -1,15 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { waitForHydration } from "../utils/test-helpers";
 
 /**
- * Landing-page finders + the homepage gateway.
+ * Landing hubs + the homepage gateway + header nav.
  *
- * /youth and /adult are in-page finders: a server-rendered hero with
- * scroll-down jump-links, a hydrated React island (YouthFinder /
- * AdultFinder) that renders a sticky section-nav plus the stacked
- * sections. The hero markup is server-rendered (assertable immediately);
- * the section <section id> anchors come from the island (assert after
- * hydration). The homepage hero/CTA-banner route into those finders.
+ * /youth and /adult are one-screen hubs: a server-rendered hero plus
+ * category door cards (plain <a> links — no React island, so no
+ * hydration wait is needed). Legacy section anchors redirect to the
+ * category pages. The homepage hero/CTA-banner route into the hubs; the
+ * header nav exposes audience dropdowns over the category pages.
  */
 
 test.describe("Landing-page finders", () => {

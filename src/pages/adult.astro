@@ -83,7 +83,7 @@ const doors = [
     tournaments: "/adult/tournaments",
   };
   const hash = location.hash.slice(1);
-  if (anchorMap[hash]) location.replace(anchorMap[hash]);
+  if (Object.hasOwn(anchorMap, hash)) location.replace(anchorMap[hash]);
 
   document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
     el.addEventListener("click", () => {
