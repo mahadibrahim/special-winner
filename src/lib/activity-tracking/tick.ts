@@ -24,7 +24,7 @@ import { getDb } from "@/lib/db";
 import { activityCompletions } from "@/lib/db/schema/activity-tracking";
 import { games, venues } from "@/lib/db/schema/teams";
 import { locations, organizations } from "@/lib/db/schema/organizations";
-import { and, eq, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getCatalog } from "./catalog-cache";
 import { computeStage, stageAlreadyFired } from "./stage";
 import { computeHandoffTarget } from "./handoff";
@@ -40,6 +40,15 @@ export interface TickResult {
 }
 
 const PRE_REMINDER_LOOKAHEAD_MINUTES = 15;
+
+// Rows older than this can never fire a new stage: the final stage
+// (final_escalation) triggers at expected_at + escalation_minutes + 60min
+// — minutes-to-hours scale for every policy (defaults total 2h). Without
+// a lower bound the tick re-selects every still-"actionable" row since
+// the beginning of time on every run, so its work grows unboundedly with
+// history (and the accumulated scan was the cause of 120s+ timeouts in
+// the API tests). 7 days is orders of magnitude beyond any policy offset.
+const MAX_LOOKBACK_DAYS = 7;
 
 export async function runActivityTrackerTick(
   now: Date = new Date(),
@@ -58,6 +67,9 @@ export async function runActivityTrackerTick(
   const lookaheadCutoff = new Date(
     now.getTime() + PRE_REMINDER_LOOKAHEAD_MINUTES * 60 * 1000,
   );
+  const lookbackCutoff = new Date(
+    now.getTime() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
   const due = await db
     .select()
     .from(activityCompletions)
@@ -69,12 +81,45 @@ export async function runActivityTrackerTick(
           "overdue",
         ]),
         lte(activityCompletions.expectedAt, lookaheadCutoff),
+        gte(activityCompletions.expectedAt, lookbackCutoff),
       ),
     );
 
   const catalog = await getCatalog();
   const publicAppUrl =
     import.meta.env.PUBLIC_APP_URL ?? "https://app.example.com";
+
+  // Batch the per-row lookups. The naive shape (one game query + one
+  // recipient query per completion, sequentially over the max:1 pool)
+  // made tick time scale linearly with row count × DB round-trip
+  // latency. One query fetches every due game; recipients are resolved
+  // once per (venue, role) pair — completions overwhelmingly share
+  // venues and roles within a tick.
+  const dueGameIds = [...new Set(due.map((c) => c.gameId))];
+  const gameRows = dueGameIds.length
+    ? await db
+        .select({ game: games, venue: venues, org: organizations })
+        .from(games)
+        .leftJoin(venues, eq(games.venueId, venues.id))
+        .leftJoin(locations, eq(venues.locationId, locations.id))
+        .leftJoin(organizations, eq(locations.organizationId, organizations.id))
+        .where(inArray(games.id, dueGameIds))
+    : [];
+  const gameById = new Map(gameRows.map((r) => [r.game.id, r]));
+
+  const recipientsCache = new Map<
+    string,
+    Awaited<ReturnType<typeof resolveRecipientsForRole>>
+  >();
+  const recipientsFor = async (venueId: string, role: string) => {
+    const key = `${venueId}:${role}`;
+    let cached = recipientsCache.get(key);
+    if (!cached) {
+      cached = await resolveRecipientsForRole(venueId, role, now);
+      recipientsCache.set(key, cached);
+    }
+    return cached;
+  };
 
   for (const c of due) {
     try {
@@ -127,26 +172,18 @@ export async function runActivityTrackerTick(
           .where(eq(activityCompletions.id, c.id));
       }
 
-      // Look up game/venue/org for the dispatch context. The completion
+      // Game/venue/org come from the batched pre-fetch. The completion
       // row already carries organizationId for SMS scoping, so we only
       // need the venue + game + timezone here.
-      const [gameRow] = await db
-        .select({ game: games, venue: venues, org: organizations })
-        .from(games)
-        .leftJoin(venues, eq(games.venueId, venues.id))
-        .leftJoin(locations, eq(venues.locationId, locations.id))
-        .leftJoin(organizations, eq(locations.organizationId, organizations.id))
-        .where(eq(games.id, c.gameId))
-        .limit(1);
+      const gameRow = gameById.get(c.gameId);
       if (!gameRow?.game || !gameRow.venue) {
         result.processed++;
         continue;
       }
 
-      const recipients = await resolveRecipientsForRole(
+      const recipients = await recipientsFor(
         gameRow.venue.id,
         currentResponsibleRole,
-        now,
       );
       if (recipients.length === 0) {
         result.processed++;
