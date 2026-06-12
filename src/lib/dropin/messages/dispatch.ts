@@ -140,6 +140,7 @@ interface BookingContextRow {
   paymentMethod: string;
   teamAssignment: string | null;
   source: "online_booking" | "walk_up";
+  brand: BrandId;
 }
 
 async function loadBooking(bookingId: string): Promise<BookingContextRow | null> {
@@ -153,6 +154,7 @@ async function loadBooking(bookingId: string): Promise<BookingContextRow | null>
       paymentMethod: dropInBookings.paymentMethod,
       teamAssignment: dropInBookings.teamAssignment,
       source: dropInBookings.source,
+      brand: dropInBookings.brand,
     })
     .from(dropInBookings)
     .where(eq(dropInBookings.id, bookingId))
@@ -166,6 +168,7 @@ async function loadBooking(bookingId: string): Promise<BookingContextRow | null>
     paymentMethod: row.paymentMethod,
     teamAssignment: row.teamAssignment,
     source: row.source as "online_booking" | "walk_up",
+    brand: (row.brand as BrandId) ?? "aspire",
   };
 }
 
@@ -328,9 +331,8 @@ export async function dispatchBookingConfirmation(
 }
 
 /**
- * Dispatch waitlist-promoted notification. Brand defaults to "aspire" because
- * drop_in_bookings has no brand column yet. A follow-up migration adding
- * brand to drop_in_bookings would allow deriving it here.
+ * Dispatch waitlist-promoted notification. Brand is read from the booking row
+ * (drop_in_bookings.brand column, added in migration 0042).
  */
 export async function dispatchWaitlistPromoted(
   bookingId: string,
@@ -344,8 +346,7 @@ export async function dispatchWaitlistPromoted(
   const user = await loadUser(booking.userId);
   if (!user) return { ok: false, reason: "user_not_found" };
 
-  // Brand defaults to aspire — drop_in_bookings has no brand column yet.
-  const brand: BrandId = "aspire";
+  const brand: BrandId = booking.brand;
   const ctx: WaitlistPromotedContext = {
     ...baseCtx(session, recipientFromUser(user), brand),
     booking: {
@@ -363,8 +364,8 @@ export async function dispatchWaitlistPromoted(
 }
 
 /**
- * Dispatch admin-cancelled notification. Brand defaults to "aspire" because
- * drop_in_bookings has no brand column yet.
+ * Dispatch admin-cancelled notification. Brand is read from the booking row
+ * (drop_in_bookings.brand column, added in migration 0042).
  */
 export async function dispatchBookingCancelledByAdmin(
   bookingId: string,
@@ -380,8 +381,7 @@ export async function dispatchBookingCancelledByAdmin(
   const user = await loadUser(booking.userId);
   if (!user) return { ok: false, reason: "user_not_found" };
 
-  // Brand defaults to aspire — drop_in_bookings has no brand column yet.
-  const brand: BrandId = "aspire";
+  const brand: BrandId = booking.brand;
   const ctx: BookingCancelledByAdminContext = {
     ...baseCtx(session, recipientFromUser(user), brand),
     booking: {

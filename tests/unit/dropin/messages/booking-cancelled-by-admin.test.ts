@@ -56,4 +56,22 @@ describe("renderBookingCancelledByAdmin", () => {
     });
     expect(v.email.text).toContain("No charge");
   });
+
+  it("renders SoccerOne dark palette with brand=soccerone", async () => {
+    const v = await renderBookingCancelledByAdmin({
+      ...baseCtx,
+      brand: "soccerone",
+    });
+    expect(v.email.html).toContain("#0a0a0d");
+    expect(v.email.html).not.toContain("#F5EFE3");
+  });
+
+  it("renders Aspire cream palette with brand=aspire", async () => {
+    const v = await renderBookingCancelledByAdmin({
+      ...baseCtx,
+      brand: "aspire",
+    });
+    expect(v.email.html).toContain("#F5EFE3");
+    expect(v.email.html).not.toContain("#0a0a0d");
+  });
 });

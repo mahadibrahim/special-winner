@@ -123,6 +123,8 @@ export async function handleDropInWalkUpPayment(
         membershipId,
         stripePaymentIntentId: paymentIntentId,
         teamAssignment: team,
+        // At-facility walk-up: no brand host signal available.
+        // Column default ("aspire") applies.
       })
       .returning();
 

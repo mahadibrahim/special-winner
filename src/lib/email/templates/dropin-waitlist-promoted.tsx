@@ -10,6 +10,7 @@ import {
   PMuted,
 } from "@/lib/email/components/email-layout";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import type { BrandId } from "@/lib/branding/themes";
 
 interface DropInWaitlistPromotedEmailProps {
   recipientName: string;
@@ -23,6 +24,7 @@ interface DropInWaitlistPromotedEmailProps {
   minutesLeft: number;
   /** Absolute URL to the one-time claim link. */
   claimUrl: string;
+  brand?: BrandId;
 }
 
 /**
@@ -37,10 +39,12 @@ export function DropInWaitlistPromotedEmail({
   whenLabel,
   minutesLeft,
   claimUrl,
+  brand,
 }: DropInWaitlistPromotedEmailProps) {
   return (
     <EmailLayout
       preview={`A spot opened for ${sportLabel} — claim within ${minutesLeft} min`}
+      brand={brand}
     >
       <StatusBanner mood="warning">Spot available — act fast</StatusBanner>
       <Content>

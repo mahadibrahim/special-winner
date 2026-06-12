@@ -9,6 +9,7 @@ import {
   P,
 } from "@/lib/email/components/email-layout";
 import { StatusBanner } from "@/lib/email/components/status-banner";
+import type { BrandId } from "@/lib/branding/themes";
 
 interface DropInBookingCancelledEmailProps {
   recipientName: string;
@@ -25,6 +26,7 @@ interface DropInBookingCancelledEmailProps {
   /** Absolute URL to the session detail page. */
   sessionUrl: string;
   reason: "session_cancelled" | "admin_refund";
+  brand?: BrandId;
 }
 
 /**
@@ -40,11 +42,12 @@ export function DropInBookingCancelledEmail({
   refundLine,
   sessionUrl,
   reason,
+  brand,
 }: DropInBookingCancelledEmailProps) {
   const title =
     reason === "session_cancelled" ? "Session cancelled" : "Booking cancelled";
   return (
-    <EmailLayout preview={headline}>
+    <EmailLayout preview={headline} brand={brand}>
       <StatusBanner mood="problem">{title}</StatusBanner>
       <Content>
         <H1>{title}</H1>

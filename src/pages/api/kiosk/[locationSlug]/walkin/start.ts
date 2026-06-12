@@ -205,6 +205,7 @@ export const POST: APIRoute = async ({ params, request }) => {
       source: "walk_up",
       paymentMethod: "card_online",
       amountPaidCents: 0,
+      // At-facility kiosk: no brand host signal. Column default ("aspire") applies.
     })
     .returning();
 

@@ -49,4 +49,16 @@ describe("renderWaitlistPromoted", () => {
     expect(v.email.html).toContain("Alex");
     expect(v.email.text).toContain("Alex");
   });
+
+  it("renders SoccerOne dark palette with brand=soccerone", async () => {
+    const v = await renderWaitlistPromoted({ ...ctx, brand: "soccerone" });
+    expect(v.email.html).toContain("#0a0a0d");
+    expect(v.email.html).not.toContain("#F5EFE3");
+  });
+
+  it("renders Aspire cream palette with brand=aspire", async () => {
+    const v = await renderWaitlistPromoted({ ...ctx, brand: "aspire" });
+    expect(v.email.html).toContain("#F5EFE3");
+    expect(v.email.html).not.toContain("#0a0a0d");
+  });
 });

@@ -51,8 +51,8 @@ export interface DropInBaseContext {
   publicAppUrl: string;
   /** Storefront brand the booking was created through. Defaults to "aspire".
    *  For online Checkout Sessions, derived from session.metadata.brand.
-   *  For admin walk-up / waitlist-promoted, defaults to "aspire" until a
-   *  brand column is added to drop_in_bookings. */
+   *  For admin walk-up / waitlist-promoted / cancellations, read from
+   *  drop_in_bookings.brand (added in migration 0042). */
   brand?: BrandId;
 }
 

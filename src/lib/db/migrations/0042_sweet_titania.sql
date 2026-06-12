@@ -1,0 +1,1 @@
+ALTER TABLE "drop_in_bookings" ADD COLUMN "brand" varchar(20) DEFAULT 'aspire' NOT NULL;
