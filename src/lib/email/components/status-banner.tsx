@@ -1,7 +1,7 @@
 // src/lib/email/components/status-banner.tsx
 import { Section, Text } from "@react-email/components";
 import type { CSSProperties, ReactNode } from "react";
-import { useEmailTheme } from "./email-theme";
+import { useEmailTheme, type EmailTheme } from "./email-theme";
 
 type Mood = "success" | "warning" | "problem";
 
@@ -18,34 +18,48 @@ export function StatusBanner({
 }) {
   const t = useEmailTheme();
 
-  const palette: Record<Mood, { bg: string; fg: string; glyph: string }> = {
-    success: { bg: t.tokens.sageSoft, fg: t.brand === "soccerone" ? t.tokens.sage : "#436B52", glyph: "✓" },
-    warning: { bg: t.tokens.ochreSoft, fg: "#8A6A2E", glyph: "!" },
-    problem: { bg: t.tokens.primarySoft, fg: t.tokens.primary, glyph: "!" },
-  };
-
-  const p = palette[mood];
-
-  const bannerStyle: CSSProperties = {
-    padding: "10px 40px",
-    borderBottom: `1px solid ${t.tokens.border}`,
-    textAlign: "center",
-  };
-
-  const textStyle: CSSProperties = {
-    fontFamily: t.fonts.body,
-    fontSize: "11px",
-    fontWeight: 600,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    margin: 0,
-  };
+  const palette = moodPalette(t, mood);
 
   return (
-    <Section style={{ ...bannerStyle, backgroundColor: p.bg }}>
-      <Text style={{ ...textStyle, color: p.fg }}>
-        {p.glyph}&nbsp;&nbsp;{children}
+    <Section style={bannerStyle(t, palette.bg)}>
+      <Text style={textStyle(t, palette.fg)}>
+        {palette.glyph}&nbsp;&nbsp;{children}
       </Text>
     </Section>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Style functions (take theme, return CSSProperties)
+// ---------------------------------------------------------------------------
+
+function moodPalette(
+  t: EmailTheme,
+  mood: Mood,
+): { bg: string; fg: string; glyph: string } {
+  switch (mood) {
+    case "success":
+      return { bg: t.tokens.sageSoft, fg: t.tokens.successFg, glyph: "✓" };
+    case "warning":
+      return { bg: t.tokens.ochreSoft, fg: t.tokens.warningFg, glyph: "!" };
+    case "problem":
+      return { bg: t.tokens.deniedBg, fg: t.tokens.deniedFg, glyph: "!" };
+  }
+}
+
+const bannerStyle = (t: EmailTheme, bg: string): CSSProperties => ({
+  backgroundColor: bg,
+  padding: "10px 40px",
+  borderBottom: `1px solid ${t.tokens.border}`,
+  textAlign: "center",
+});
+
+const textStyle = (t: EmailTheme, fg: string): CSSProperties => ({
+  fontFamily: t.fonts.body,
+  fontSize: "11px",
+  fontWeight: 600,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  color: fg,
+  margin: 0,
+});

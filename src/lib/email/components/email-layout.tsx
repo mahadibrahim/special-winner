@@ -11,6 +11,7 @@ import {
   Text,
 } from "@react-email/components";
 import type { CSSProperties, ReactNode } from "react";
+import type { BrandId } from "@/lib/branding/themes";
 import {
   ASPIRE_EMAIL_THEME,
   EmailThemeProvider,
@@ -22,19 +23,21 @@ import {
 /**
  * @deprecated Aspire-only constants — kept for templates that haven't
  * been made brand-aware. Brand-aware code uses useEmailTheme().
+ * Must never appear in a template rendered with brand="soccerone" — these are frozen Aspire values and will not re-theme.
  */
 export const tokens = ASPIRE_EMAIL_THEME.tokens;
 
 /**
  * @deprecated Aspire-only constants — kept for templates that haven't
  * been made brand-aware. Brand-aware code uses useEmailTheme().
+ * Must never appear in a template rendered with brand="soccerone" — these are frozen Aspire values and will not re-theme.
  */
 export const fonts = ASPIRE_EMAIL_THEME.fonts;
 
 interface EmailLayoutProps {
   preview: string;
   appUrl?: string;
-  brand?: "aspire" | "soccerone";
+  brand?: BrandId;
   children: ReactNode;
 }
 
@@ -244,10 +247,10 @@ export function StatusPill({
   const t = useEmailTheme();
   const palette =
     variant === "paid" || variant === "confirmed"
-      ? { bg: t.tokens.sageSoft, fg: t.tokens.sage }
+      ? { bg: t.tokens.sageSoft, fg: t.tokens.successFg }
       : variant === "pending" || variant === "waitlisted"
-        ? { bg: t.tokens.ochreSoft, fg: "#8A6A2E" }
-        : { bg: "#F4D8D2", fg: t.tokens.primary };
+        ? { bg: t.tokens.ochreSoft, fg: t.tokens.warningFg }
+        : { bg: t.tokens.deniedBg, fg: t.tokens.deniedFg };
 
   return (
     <span

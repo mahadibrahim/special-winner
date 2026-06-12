@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { BrandId } from "@/lib/branding/themes";
 
 /**
  * Per-brand email theming. Token NAMES mirror the Aspire originals in
@@ -31,10 +32,14 @@ export interface EmailTokens {
   sageSoft: string;
   border: string;
   borderStrong: string;
+  successFg: string; // status fg on sageSoft surfaces
+  warningFg: string; // status fg on ochreSoft surfaces
+  deniedBg: string; // denied/destructive pill surface
+  deniedFg: string; // denied/destructive pill text
 }
 
 export interface EmailTheme {
-  brand: "aspire" | "soccerone";
+  brand: BrandId;
   brandName: string;
   tokens: EmailTokens;
   fonts: { display: string; body: string; mono: string };
@@ -66,6 +71,10 @@ export const ASPIRE_EMAIL_THEME: EmailTheme = {
     sageSoft: "#DDE7DC",
     border: "#DBD5C5",
     borderStrong: "#C7BFA9",
+    successFg: "#436B52",
+    warningFg: "#8A6A2E",
+    deniedBg: "#F4D8D2",
+    deniedFg: "#CC442C",
   },
   fonts: {
     display: '"Newsreader", Georgia, "Times New Roman", serif',
@@ -93,13 +102,17 @@ export const SOCCERONE_EMAIL_THEME: EmailTheme = {
     navy: "#0a1929",
     navyDeep: "#080c18",
     primary: "#a3e635",
-    primarySoft: "rgba(163, 230, 53, 0.15)",
+    primarySoft: "#242e15", // lime 15% over paper (solid: Outlook drops rgba)
     ochre: "#fbbf24",
-    ochreSoft: "rgba(251, 191, 36, 0.15)",
+    ochreSoft: "#312913", // amber 15% over paper
     sage: "#4ade80",
-    sageSoft: "rgba(74, 222, 128, 0.15)",
-    border: "rgba(255, 255, 255, 0.14)",
-    borderStrong: "rgba(255, 255, 255, 0.25)",
+    sageSoft: "#172d21", // green 15% over paper
+    border: "#26262b", // white 14% over paper
+    borderStrong: "#3a3a3e", // white 25% over paper
+    successFg: "#4ade80",
+    warningFg: "#fbbf24",
+    deniedBg: "#311d1f", // red 15% composited over paper (solid for Outlook)
+    deniedFg: "#f87171",
   },
   fonts: {
     display: "'Anton', 'Arial Narrow', sans-serif",
