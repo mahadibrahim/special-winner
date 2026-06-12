@@ -116,7 +116,7 @@ test.describe("Landing-page finders", () => {
       { timeout: 15_000 },
     );
     await page.locator("#capture-band-email").fill("home-incentive-e2e@test.aspiresports.com");
-    await page.getByRole("button", { name: /count me in/i }).click();
-    await expect(page.getByText(/you're on the list/i)).toBeVisible();
+    await page.getByRole("button", { name: /send my code/i }).click();
+    await expect(page.getByText(/check your inbox/i)).toBeVisible();
   });
 });
