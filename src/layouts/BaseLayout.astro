@@ -62,6 +62,23 @@ const brandCss = theme.cssVars
       .map(([k, v]) => `${k}:${v}`)
       .join(";")}}`
   : null;
+
+// On SSR pages the middleware has already validated the session, so hand
+// the auth state to Navigation and skip its client-side /api/auth/me round
+// trip (each one is a full function invocation + several DB queries). On
+// prerendered pages auth state is unknowable at build time — leave the prop
+// unset so Navigation falls back to fetching. `null` therefore means
+// "known anonymous", absent means "unknown, go fetch".
+const navUser = Astro.isPrerendered
+  ? undefined
+  : Astro.locals.user
+    ? {
+        id: Astro.locals.user.id,
+        email: Astro.locals.user.email,
+        firstName: Astro.locals.user.firstName,
+        lastName: Astro.locals.user.lastName,
+      }
+    : null;
 ---
 <!DOCTYPE html>
 <html lang="en" data-brand={theme.id}>
@@ -90,7 +107,7 @@ const brandCss = theme.cssVars
   <body class={bodyClass}>
     <GoogleTagManagerNoscript containerId={gtmContainerId} />
     {navigation && theme.chrome === "aspire" && <RegistrationRibbon client:load />}
-    {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:load />)}
+    {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:load {...(navUser !== undefined ? { initialUser: navUser } : {})} />)}
     <slot />
     {footer && (theme.chrome === "soccerone" ? <SoccerOneFooter /> : <Footer />)}
   </body>

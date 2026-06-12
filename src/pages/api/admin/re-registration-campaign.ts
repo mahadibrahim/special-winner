@@ -130,17 +130,22 @@ export const POST: APIRoute = async (context) => {
   let contacted = 0;
   let skipped = 0;
 
-  for (const candidate of validCandidates) {
-    if (parsed.data.dryRun) {
+  if (parsed.data.dryRun) {
+    for (const candidate of validCandidates) {
       dryRunList.push({
         parentName: candidate.parentFirstName,
         parentEmail: candidate.parentEmail,
         kidName: candidate.kidFirstName,
       });
-      continue;
     }
-
-    try {
+  } else {
+    // Send in small parallel batches — each candidate is a magic-link
+    // insert plus an SMS/email round trip, and serializing them made big
+    // campaigns take minutes (and risk the function timeout). Neither
+    // path opens a DB transaction, so overlapping is safe with the
+    // max:1 pool; the batch size keeps provider rate limits comfortable.
+    const SEND_BATCH = 5;
+    const processCandidate = async (candidate: (typeof validCandidates)[number]) => {
       // Create a magic link scoped to this parent and the new season
       const { token } = await createMagicLink({
         userId: candidate.parentUserId,
@@ -165,20 +170,31 @@ export const POST: APIRoute = async (context) => {
         senderType: "system",
       });
 
-      if (sendResult.ok) {
-        contacted++;
-      } else {
-        skipped++;
+      if (!sendResult.ok) {
         console.warn(
           `Re-registration send failed for parent ${candidate.parentUserId}: ${sendResult.reason}`,
         );
       }
-    } catch (err) {
-      skipped++;
-      console.error(
-        `Re-registration error for parent ${candidate.parentUserId}:`,
-        err,
-      );
+      return sendResult.ok;
+    };
+
+    for (let i = 0; i < validCandidates.length; i += SEND_BATCH) {
+      const batch = validCandidates.slice(i, i + SEND_BATCH);
+      const results = await Promise.allSettled(batch.map(processCandidate));
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j];
+        if (r.status === "fulfilled" && r.value) {
+          contacted++;
+        } else {
+          skipped++;
+          if (r.status === "rejected") {
+            console.error(
+              `Re-registration error for parent ${batch[j].parentUserId}:`,
+              r.reason,
+            );
+          }
+        }
+      }
     }
   }
 

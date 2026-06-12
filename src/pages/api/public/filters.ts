@@ -28,9 +28,9 @@ export const GET: APIRoute = async ({ locals }) => {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      // Sports/locations are near-static; 5 min browser cache (see
-      // /api/public/seasons for rationale).
-      "Cache-Control": "public, max-age=300",
+      // Sports/locations are near-static; 5 min browser cache plus a
+      // 1 h CDN layer (see /api/public/seasons for rationale).
+      "Cache-Control": "public, max-age=300, s-maxage=3600",
     },
   });
 };

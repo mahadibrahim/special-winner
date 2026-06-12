@@ -157,9 +157,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         "Content-Type": "application/json",
         // Catalog changes a few times per season; let browsers reuse it
         // across page views for 5 min instead of refetching on every
-        // marketing-page visit. Cache key is the full URL incl. host, so
-        // tenants never share entries.
-        "Cache-Control": "public, max-age=300",
+        // marketing-page visit, and let the CDN absorb bursts for 10.
+        // Cache key is the full URL incl. host, so tenants never share
+        // entries; Netlify skips caching responses with Set-Cookie.
+        "Cache-Control": "public, max-age=300, s-maxage=600",
       },
     });
   } catch (err) {

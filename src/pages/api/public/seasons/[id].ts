@@ -128,7 +128,12 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     return new Response(JSON.stringify({ season: formatted }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Short TTL only — payload includes live spotsLeft counts. Enough
+        // to absorb bursts without showing stale capacity for long.
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+      },
     });
   } catch (error) {
     console.error("Error fetching season:", error);

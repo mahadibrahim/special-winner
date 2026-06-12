@@ -72,13 +72,25 @@ export const POST: APIRoute = async (context) => {
       ),
     );
 
+  // Refunds in small parallel batches: the slow part is the Stripe call
+  // per booking, and nothing here holds a DB connection across it (no
+  // transactions in processCancelRefund), so overlapping the network
+  // waits is safe. Batch size stays modest to respect Stripe rate limits.
   let refunded = 0;
-  for (const b of activeBookings) {
-    const r = await processCancelRefund(b.id, {
-      adminOverride: true,
-      reason: body.reason ?? "session_cancelled",
-    });
-    if (r.refunded) refunded += 1;
+  const REFUND_BATCH = 5;
+  for (let i = 0; i < activeBookings.length; i += REFUND_BATCH) {
+    const batch = activeBookings.slice(i, i + REFUND_BATCH);
+    const results = await Promise.allSettled(
+      batch.map((b) =>
+        processCancelRefund(b.id, {
+          adminOverride: true,
+          reason: body.reason ?? "session_cancelled",
+        }),
+      ),
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.refunded) refunded += 1;
+    }
   }
 
   await db

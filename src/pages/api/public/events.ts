@@ -67,7 +67,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     return new Response(JSON.stringify({ events: rows }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Anonymous, host-scoped feed. Short browser cache, modest CDN
+        // cache — new events appear within 5 minutes.
+        "Cache-Control": "public, max-age=300, s-maxage=600",
+      },
     });
   } catch (err) {
     console.error("[events] fetch failed", err);

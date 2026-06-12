@@ -14,7 +14,13 @@ export const prerender = false;
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // Anonymous, host-scoped catalog data; tiers change rarely but feed
+      // checkout display, so cap CDN staleness at an hour. Netlify keys
+      // the CDN cache per host and skips responses with Set-Cookie.
+      "Cache-Control": "public, max-age=300, s-maxage=3600",
+    },
   });
 
 export const GET: APIRoute = async ({ locals }) => {

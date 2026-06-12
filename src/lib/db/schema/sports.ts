@@ -9,6 +9,7 @@ import {
   date,
   jsonb,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
@@ -45,7 +46,11 @@ export const ageGroups = pgTable("age_groups", {
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Every org-scoped list/lookup filters on organization_id; this was the
+  // only table in the catalog path without an index on it.
+  orgIdx: index("age_groups_org_idx").on(table.organizationId),
+}));
 
 // Relations
 export const sportsRelations = relations(sports, ({ one }) => ({

@@ -61,6 +61,11 @@ export const GET: APIRoute = async (context) => {
     const url = new URL(context.request.url);
     const status = url.searchParams.get("status");
     const includeExpired = url.searchParams.get("includeExpired") === "true";
+    // Bound the list — pinned-first, newest-first means the cap drops only
+    // the oldest rows. Response shape is unchanged.
+    const rawLimit = Number(url.searchParams.get("limit"));
+    const limit =
+      Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 100;
 
     const conditions = [eq(announcements.organizationId, orgContext.organizationId)];
 
@@ -130,7 +135,8 @@ export const GET: APIRoute = async (context) => {
       .leftJoin(users, eq(announcements.authorId, users.id))
       .leftJoin(locations, eq(announcements.locationId, locations.id))
       .where(and(...conditions))
-      .orderBy(desc(announcements.pinned), desc(announcements.createdAt));
+      .orderBy(desc(announcements.pinned), desc(announcements.createdAt))
+      .limit(limit);
 
     return new Response(JSON.stringify({ announcements: allAnnouncements }), {
       status: 200,

@@ -25,11 +25,20 @@ interface NavLink {
   children?: Array<{ href: string; label: string }>
 }
 
-export default function Navigation() {
+interface NavigationProps {
+  /**
+   * Auth state resolved server-side (SSR pages — middleware already
+   * validated the session). `null` = known anonymous, omitted = unknown
+   * (prerendered page), in which case we fall back to /api/auth/me.
+   */
+  initialUser?: MeUser | null
+}
+
+export default function Navigation({ initialUser }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
-  const [user, setUser] = useState<MeUser | null>(null)
-  const [authResolved, setAuthResolved] = useState(false)
+  const [user, setUser] = useState<MeUser | null>(initialUser ?? null)
+  const [authResolved, setAuthResolved] = useState(initialUser !== undefined)
   // Count of started-but-unpaid registrations, surfaced as a badge on the
   // Dashboard link so a saved registration is discoverable from anywhere.
   const [pendingCount, setPendingCount] = useState(0)
@@ -46,6 +55,8 @@ export default function Navigation() {
   }, [])
 
   useEffect(() => {
+    // Server already told us who the user is — no fetch needed.
+    if (initialUser !== undefined) return
     let cancelled = false
     fetch("/api/auth/me", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : { user: null }))

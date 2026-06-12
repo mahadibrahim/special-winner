@@ -80,32 +80,48 @@ export const POST: APIRoute = async (context) => {
     );
   const ourIds = new Set(ours.map((r) => r.id));
 
-  let updated = 0;
+  // One UPDATE per action type instead of one per entry. If the same
+  // booking appears twice, the last entry wins (same outcome as the
+  // sequential loop this replaces).
+  const actionById = new Map<string, Entry["action"]>();
   for (const entry of body.entries) {
     if (!ourIds.has(entry.bookingId)) continue;
-    if (entry.action === "check_in") {
-      await db
-        .update(dropInBookings)
-        .set({ checkedInAt: new Date(), updatedAt: new Date() })
-        .where(eq(dropInBookings.id, entry.bookingId));
-    } else if (entry.action === "undo_check_in") {
-      await db
-        .update(dropInBookings)
-        .set({ checkedInAt: null, updatedAt: new Date() })
-        .where(eq(dropInBookings.id, entry.bookingId));
-    } else if (entry.action === "no_show") {
-      await db
-        .update(dropInBookings)
-        .set({
-          status: "no_show",
-          cancellationReason: "no_show",
-          cancelledAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(dropInBookings.id, entry.bookingId));
-    }
-    updated += 1;
+    actionById.set(entry.bookingId, entry.action);
   }
+
+  const idsFor = (action: Entry["action"]) =>
+    [...actionById.entries()].filter(([, a]) => a === action).map(([id]) => id);
+
+  const checkInIds = idsFor("check_in");
+  const undoIds = idsFor("undo_check_in");
+  const noShowIds = idsFor("no_show");
+  const now = new Date();
+
+  if (checkInIds.length > 0) {
+    await db
+      .update(dropInBookings)
+      .set({ checkedInAt: now, updatedAt: now })
+      .where(inArray(dropInBookings.id, checkInIds));
+  }
+  if (undoIds.length > 0) {
+    await db
+      .update(dropInBookings)
+      .set({ checkedInAt: null, updatedAt: now })
+      .where(inArray(dropInBookings.id, undoIds));
+  }
+  if (noShowIds.length > 0) {
+    await db
+      .update(dropInBookings)
+      .set({
+        status: "no_show",
+        cancellationReason: "no_show",
+        cancelledAt: now,
+        updatedAt: now,
+      })
+      .where(inArray(dropInBookings.id, noShowIds));
+  }
+
+  const updated = actionById.size;
 
   return json({ ok: true, updated }, 200);
 };

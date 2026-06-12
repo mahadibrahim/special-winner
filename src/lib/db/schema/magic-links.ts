@@ -37,6 +37,10 @@ export const magicLinks = pgTable(
       table.purpose,
       table.expiresAt,
     ),
+    // Supports the expired-link cleanup sweep (`expires_at < cutoff`) —
+    // this table grows with every login, so without it the sweep is a
+    // full-table scan.
+    expiresAtIdx: index("idx_magic_links_expires_at").on(table.expiresAt),
   }),
 );
 

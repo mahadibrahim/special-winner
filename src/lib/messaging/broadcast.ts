@@ -20,7 +20,7 @@ import { resolveRouting, type MessageType } from "./routing-policy"
 import { postToGroup } from "../telegram/group"
 import { sendEmail } from "../email"
 import { sendSms } from "../sms/send"
-import { resolveOrCreateConversation } from "./conversations-helper"
+import { resolveOrCreateConversations } from "./conversations-helper"
 
 /**
  * Adaptations from spec:
@@ -147,14 +147,34 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
   }
 
   // ── Per-user SMS / email fan-out ──────────────────────────────────────────
-  for (const recipient of recipients.users) {
+  // Work out who actually gets a channel send, then resolve conversations
+  // for all of them in one batch up front. The send loop itself then does
+  // zero DB reads — message logging is accumulated and bulk-inserted after.
+  const planned = recipients.users.map((recipient) => {
     const sendSmsThis =
-      route.sms === "all_recipients" ||
-      (route.sms === "unlinked_only" && !recipient.hasTelegram)
+      (route.sms === "all_recipients" ||
+        (route.sms === "unlinked_only" && !recipient.hasTelegram)) &&
+      !!recipient.phone
     const sendEmailThis =
-      route.email === "all_recipients" ||
-      (route.email === "unlinked_only" && !recipient.hasTelegram) ||
-      (route.email === "unlinked_only" && recipient.alsoEmailCopy)
+      (route.email === "all_recipients" ||
+        (route.email === "unlinked_only" && !recipient.hasTelegram) ||
+        (route.email === "unlinked_only" && recipient.alsoEmailCopy)) &&
+      !!recipient.email
+    return { recipient, sendSmsThis, sendEmailThis }
+  })
+
+  const conversationByUser = await resolveOrCreateConversations(
+    planned
+      .filter((p) => p.sendSmsThis || p.sendEmailThis)
+      .map((p) => p.recipient.userId),
+    input.organizationId,
+  )
+
+  const messageRows: (typeof conversationMessages.$inferInsert)[] = []
+  const senderType = input.initiatorType === "system" ? "system" : input.initiatorType
+
+  for (const { recipient, sendSmsThis, sendEmailThis } of planned) {
+    const conversationId = conversationByUser.get(recipient.userId)
 
     if (sendSmsThis && recipient.phone) {
       try {
@@ -164,24 +184,21 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
           organizationId: input.organizationId,
         })
         if (result.ok) {
-          // Resolve or create a conversation for this parent so we can log the message
-          const conversationId = await resolveOrCreateConversation(
-            recipient.userId,
-            input.organizationId,
-          )
-          await db.insert(conversationMessages).values({
-            conversationId,
-            organizationId: input.organizationId,
-            senderUserId: input.initiatorId ?? null,
-            broadcastId: logRow.id,
-            targetType: "user",
-            channel: "sms",
-            direction: "outbound",
-            senderType: input.initiatorType === "system" ? "system" : input.initiatorType,
-            body: input.body,
-            externalMessageId: result.messageId,
-            deliveredAt: new Date(),
-          })
+          if (conversationId) {
+            messageRows.push({
+              conversationId,
+              organizationId: input.organizationId,
+              senderUserId: input.initiatorId ?? null,
+              broadcastId: logRow.id,
+              targetType: "user",
+              channel: "sms",
+              direction: "outbound",
+              senderType,
+              body: input.body,
+              externalMessageId: result.messageId,
+              deliveredAt: new Date(),
+            })
+          }
           smsSent++
         } else {
           errors.push(`SMS to ${recipient.userId}: ${result.reason}`)
@@ -200,23 +217,21 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
           text: input.body,
         })
         if (result.success) {
-          const conversationId = await resolveOrCreateConversation(
-            recipient.userId,
-            input.organizationId,
-          )
-          await db.insert(conversationMessages).values({
-            conversationId,
-            organizationId: input.organizationId,
-            senderUserId: input.initiatorId ?? null,
-            broadcastId: logRow.id,
-            targetType: "user",
-            channel: "email",
-            direction: "outbound",
-            senderType: input.initiatorType === "system" ? "system" : input.initiatorType,
-            body: input.body,
-            externalMessageId: result.messageId ?? null,
-            deliveredAt: new Date(),
-          })
+          if (conversationId) {
+            messageRows.push({
+              conversationId,
+              organizationId: input.organizationId,
+              senderUserId: input.initiatorId ?? null,
+              broadcastId: logRow.id,
+              targetType: "user",
+              channel: "email",
+              direction: "outbound",
+              senderType,
+              body: input.body,
+              externalMessageId: result.messageId ?? null,
+              deliveredAt: new Date(),
+            })
+          }
           emailSent++
         } else {
           errors.push(`Email to ${recipient.userId}: ${result.error}`)
@@ -225,6 +240,10 @@ export async function composeBroadcast(input: ComposeBroadcastInput): Promise<Br
         errors.push(`Email to ${recipient.userId}: ${err}`)
       }
     }
+  }
+
+  if (messageRows.length > 0) {
+    await db.insert(conversationMessages).values(messageRows)
   }
 
   await db

@@ -19,6 +19,38 @@ export interface BrandProfile {
   featuredVenueIds: string[];
 }
 
+// In-memory TTL cache, same pattern as lib/organization/domain-resolver.ts.
+// Module-level state survives warm Netlify invocations, so this removes the
+// per-request brand lookup from the middleware hot path. Brand rows change
+// rarely; a stale window is acceptable.
+const cache = new Map<string, { data: BrandProfile | null; expiry: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCached(key: string): BrandProfile | null | undefined {
+  const cached = cache.get(key);
+  if (!cached) return undefined;
+  if (Date.now() > cached.expiry) {
+    cache.delete(key);
+    return undefined;
+  }
+  return cached.data;
+}
+
+function setCache(key: string, data: BrandProfile | null) {
+  cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
+}
+
+/**
+ * Clear the brand cache (useful after brand profile changes).
+ */
+export function clearBrandCache(hostname?: string) {
+  if (hostname) {
+    cache.delete(hostname.toLowerCase());
+  } else {
+    cache.clear();
+  }
+}
+
 /**
  * Resolve the active brand profile for an incoming hostname. Returns null
  * when no row matches — the page renders against the default org chrome.
@@ -29,6 +61,9 @@ export interface BrandProfile {
 export async function resolveBrandProfile(
   hostname: string,
 ): Promise<BrandProfile | null> {
+  const cached = getCached(hostname);
+  if (cached !== undefined) return cached;
+
   const db = getDb();
   const rows = await db
     .select()
@@ -37,9 +72,12 @@ export async function resolveBrandProfile(
     .limit(1);
 
   const row = rows[0];
-  if (!row) return null;
+  if (!row) {
+    setCache(hostname, null);
+    return null;
+  }
 
-  return {
+  const profile: BrandProfile = {
     id: row.id,
     organizationId: row.organizationId,
     displayName: row.displayName,
@@ -49,4 +87,6 @@ export async function resolveBrandProfile(
     footerCopy: row.footerCopy,
     featuredVenueIds: row.featuredVenueIds ?? [],
   };
+  setCache(hostname, profile);
+  return profile;
 }
