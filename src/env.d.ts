@@ -5,6 +5,7 @@ import type { Organization, Location, OrganizationSettings, OrganizationFeatures
 import type { UserRole } from "./lib/auth/roles";
 import type { UserAttributes } from "./lib/auth/types";
 import type { BrandProfile } from "./lib/branding/resolver";
+import type { BrandId } from "./lib/branding/themes";
 
 interface SessionAttributes {
   id: string;
@@ -23,6 +24,7 @@ declare global {
       isAdmin: boolean;
       isCoach: boolean;
       brand: BrandProfile | null;
+      brandId: BrandId;
       // Active venue pinned by the admin via the venue picker. Always
       // validated against the caller's scope in middleware — a cookie
       // value that doesn't belong to a location the user can access is

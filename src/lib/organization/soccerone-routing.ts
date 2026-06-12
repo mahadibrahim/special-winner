@@ -18,6 +18,11 @@
 export const SOCCERONE_HOSTS: readonly string[] = [
   "gosoccerone.com",
   "www.gosoccerone.com",
+  // Dev/e2e only: *.localhost resolves to loopback in Chromium and
+  // modern OS resolvers, so the brand skin can be exercised in a real
+  // browser and in Playwright without DNS or Host-header spoofing.
+  // Never publicly routable — harmless in prod.
+  "soccerone.localhost",
 ] as const;
 
 /** Canonical SoccerOne host (apex 308-redirects to this). */

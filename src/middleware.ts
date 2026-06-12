@@ -12,6 +12,7 @@ import {
   isSoccerOneHost,
   rewriteSoccerOnePath,
   getAspireToSoccerOneRedirect,
+  brandFromHost,
 } from "./lib/organization/soccerone-routing";
 
 // Env validation runs on the first request, not at module load. Validating
@@ -84,6 +85,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.isCoach = false;
   context.locals.brand = null;
   context.locals.activeLocationId = null;
+  // Host-derived brand id — pure, no DB. Distinct from `locals.brand`
+  // (the brand_profiles content row): brandId always resolves, and is
+  // the key for the typed theme in src/lib/branding/themes.ts.
+  context.locals.brandId = brandFromHost(
+    context.request.headers.get("host") ?? "",
+  );
 
   // Resolve organization from domain (non-blocking — if it fails, we just
   // proceed without organization context and the page handles it).
