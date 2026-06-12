@@ -34,6 +34,25 @@ const PRIVATE_PREFIXES = [
   "/auth",
 ];
 
+// Public SSR marketing pages. @astrojs/sitemap only auto-discovers
+// prerendered routes (output: "server"), so the SSR-rendered marketing
+// surface — home, audience hubs, category pages, directory pages — must be
+// listed explicitly. Dynamic slugs (/sports/[slug], /locations/[slug]) are
+// intentionally omitted: they're DB-driven and crawlable via the listed
+// index pages.
+const SSR_PUBLIC_PAGES = [
+  "/",
+  "/youth",
+  "/youth/leagues",
+  "/youth/camps",
+  "/adult",
+  "/adult/leagues",
+  "/adult/pickup",
+  "/adult/tournaments",
+  "/locations",
+  "/sports",
+];
+
 // https://astro.build/config
 export default defineConfig({
   site,
@@ -48,6 +67,7 @@ export default defineConfig({
           (prefix) => path === prefix || path.startsWith(prefix + "/")
         );
       },
+      customPages: SSR_PUBLIC_PAGES.map((p) => `${site}${p}`),
     }),
   ],
   adapter: netlify(),

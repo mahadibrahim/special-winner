@@ -48,14 +48,14 @@ test.describe("Landing-page finders", () => {
     await expect(page).toHaveURL(/\/adult\/leagues$/);
   });
 
-  test("homepage — gateway hero CTAs route into the finders", async ({ page }) => {
+  test("homepage — gateway hero CTAs deep-link the category pages", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(
       page.locator('[data-landing-cta="homepage-hero-youth"]'),
-    ).toHaveAttribute("href", "/youth");
+    ).toHaveAttribute("href", "/youth/leagues");
     await expect(
       page.locator('[data-landing-cta="homepage-hero-adult"]'),
-    ).toHaveAttribute("href", "/adult");
+    ).toHaveAttribute("href", "/adult/leagues");
   });
 
   test("header nav — audience links with category dropdowns, no Sports", async ({ page }) => {

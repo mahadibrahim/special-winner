@@ -36,7 +36,7 @@ Two facts shape the response:
 /youth/camps           category page · chips: Age (first) · Sport · Venue
 /locations             venue hubs as per-venue catalogs
 /about /shop           unchanged
-/sports                retired from nav; 301s (see Redirects)
+/sports                out of the nav (Phase 2); pages KEPT as SEO surface, footer-linked (decision 2026-06-12)
 ```
 
 ### Principles
@@ -65,8 +65,7 @@ Two facts shape the response:
 
 | From | To | Type |
 |---|---|---|
-| `/sports` | `/` | 301 |
-| `/sports/[slug]` | `/adult/leagues?sport=[slug]` | 301 (adult is the launch audience; revisit if Search Console shows youth-intent queries) |
+| — | `/sports` + `/sports/[slug]` are NOT redirected: founder decision 2026-06-12 keeps them live as SEO real estate, linked from the footer only | n/a |
 | `/adult#leagues`-style section anchors | `/adult/leagues` etc. | client-side or 301 |
 
 No other URLs change. Nothing 404s.
@@ -79,7 +78,7 @@ SoccerOne tree (`/soccerone/**`) and its nav; registration wizard; checkout/paym
 
 1. **Phase 1 — additive (now).** Ship the category pages (per the category set rule) on new routes. No nav changes, nothing existing moves. Smoke in prod.
 2. **Phase 2 — swap (after the fall/winter catalog is seeded).** Slim hubs, nav dropdowns, `/sports` removed from nav, section-anchor redirects. Reversible by reverting one PR.
-3. **Phase 3 — retire (after ~a week of funnel data).** Home audience CTAs; `/sports` 301s; update `sitemap.xml`.
+3. **Phase 3 — finish (gate dropped 2026-06-12, same day as Phase 2's).** Home hero CTAs deep-link `/youth/leagues` + `/adult/leagues`; sitemap gains the SSR marketing pages via `customPages` (auto-discovery only covers prerendered routes); `/sports` retirement REVERSED — pages stay, footer-linked.
 
 ## Measurement
 
