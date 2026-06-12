@@ -4,6 +4,7 @@ import { organizations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { clearDomainCache } from "@/lib/organization/domain-resolver";
 
 const externalStoreSchema = z.object({
   url: z.string().url(),
@@ -11,10 +12,20 @@ const externalStoreSchema = z.object({
   partnerName: z.enum(["Squadlocker", "BSN", "Custom Ink", "Other"]),
 });
 
+const siteAnnouncementSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  detail: z.string().trim().max(240).optional(),
+  linkUrl: z.string().trim().max(500).optional(),
+  linkLabel: z.string().trim().max(60).optional(),
+  audience: z.enum(["all", "adult", "youth"]),
+  expiresAt: z.string().datetime({ offset: true }).optional(),
+});
+
 // Partial settings patch. Only keys present in the body are merged at the top
 // level of the settings jsonb blob. Pass `null` for a key to delete it.
 const settingsPatchSchema = z.object({
   externalStore: externalStoreSchema.nullable().optional(),
+  siteAnnouncement: siteAnnouncementSchema.nullable().optional(),
 });
 
 const bodySchema = z.object({
@@ -101,6 +112,11 @@ export const PATCH: APIRoute = async (context) => {
       .set({ settings: merged as any, updatedAt: new Date() })
       .where(eq(organizations.id, orgContext.organizationId))
       .returning({ settings: organizations.settings });
+
+    // Clear the in-process domain-resolver cache so public pages on this
+    // instance reflect the new settings immediately. In prod, other instances
+    // may still serve the old value for up to 5 min (the resolver's TTL).
+    clearDomainCache();
 
     return new Response(JSON.stringify({ settings: updated.settings ?? {} }), {
       status: 200,
