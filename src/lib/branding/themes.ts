@@ -27,6 +27,11 @@ export interface BrandTheme {
    * Override the *palette* vars (--cream, --ink, …) — the semantic vars in
    * globals.css are var() references to them and re-resolve automatically.
    * null = no override; the Aspire design system applies untouched.
+   *
+   * The override block MUST live on the html element itself (html[data-brand]):
+   * :root custom properties substitute on the declaring element, so an
+   * override on body or a wrapper re-themes Tailwind utilities but NOT
+   * hand-authored var(--font-*) consumers — a split-brain failure.
    */
   cssVars: Record<string, string> | null;
 }
@@ -49,6 +54,7 @@ const soccerone: BrandTheme = {
     "https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
   cssVars: {
     // —— Editorial palette inversion (values from soccerone-tokens.css) ——
+    // Entries without a --so- comment are seam-only values with no soccerone-tokens.css source.
     "--cream": "#0a0a0d", // --so-ink: page background
     "--cream-2": "#131316",
     "--cream-3": "#1a1a1f",
@@ -66,10 +72,13 @@ const soccerone: BrandTheme = {
     "--paper": "#0e0e10", // --so-surface
     "--paper-shadow": "rgba(0, 0, 0, 0.45)",
     // —— Semantic vars with literal values in globals.css (don't cascade) ——
+    // (--sidebar-* literals deliberately not overridden: sidebar is an
+    // admin-only surface, out of booking-flow scope.)
     "--border": "rgba(255, 255, 255, 0.14)",
     "--input": "rgba(255, 255, 255, 0.14)",
     "--destructive": "oklch(0.55 0.2 27)",
     // —— var()-defined semantics whose palette resolution lands wrong on dark ——
+    "--destructive-foreground": "#ffffff", // paired with the --destructive override above
     "--secondary-foreground": "#ffffff", // default resolves to near-black via --cream
     // —— Brand fonts (Tailwind font utilities resolve through these seams) ——
     "--brand-font-sans": "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",

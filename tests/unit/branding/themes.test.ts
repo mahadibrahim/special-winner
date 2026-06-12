@@ -9,13 +9,29 @@ import {
 
 const BRAND_IDS: BrandId[] = ["aspire", "soccerone"];
 
-/** Every custom property defined in globals.css (palette, semantic, font seams). */
+/** Every custom property defined in globals.css :root block (palette, semantic, font seams). */
 function globalsCssVarNames(): Set<string> {
   const css = readFileSync(
     path.resolve(__dirname, "../../../src/styles/globals.css"),
     "utf-8",
   );
-  return new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
+  // Slice out only the :root { … } block so that @theme inline names like
+  // --color-cream and --font-sans are NOT treated as valid override targets
+  // (overriding those at runtime is a silent no-op).
+  const rootStart = css.indexOf(":root {");
+  if (rootStart === -1) throw new Error("globals.css: :root block not found");
+  let depth = 0;
+  let i = rootStart;
+  while (i < css.length) {
+    if (css[i] === "{") depth++;
+    else if (css[i] === "}") {
+      depth--;
+      if (depth === 0) break;
+    }
+    i++;
+  }
+  const rootBlock = css.slice(rootStart, i + 1);
+  return new Set([...rootBlock.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
 }
 
 describe("brand themes", () => {
@@ -55,9 +71,8 @@ describe("brand themes", () => {
     expect(soccerone.fontsHref).toContain("DM+Sans");
   });
 
-  it("BRAND_THEMES and getBrandTheme agree", () => {
-    for (const id of BRAND_IDS) {
-      expect(getBrandTheme(id)).toBe(BRAND_THEMES[id]);
-    }
+  it("falls back to aspire for null/undefined brand ids", () => {
+    expect(getBrandTheme(null)).toBe(BRAND_THEMES.aspire);
+    expect(getBrandTheme(undefined)).toBe(BRAND_THEMES.aspire);
   });
 });
