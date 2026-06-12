@@ -13,6 +13,8 @@ import Testimonials from '../components/testimonials';
 import FAQSection from '../components/faq-section';
 import CTABanner from '../components/cta-banner';
 import CaptureBand from '../components/marketing/capture-band';
+import { getActiveSiteAnnouncement } from '@/lib/marketing/site-announcement';
+const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "home");
 ---
 
 <BaseLayout
@@ -20,7 +22,7 @@ import CaptureBand from '../components/marketing/capture-band';
   description="Soccer leagues, pickup, and youth programs in Columbus — actually fun, properly organized, all year. Find your league or your kid's next season."
 >
   <main id="main-content">
-    <DualCtaHero client:load />
+    <DualCtaHero client:load announcement={announcement ?? undefined} />
     <BenefitTrio />
     <section id="programs">
       <HomepageProgramsPreview client:load />

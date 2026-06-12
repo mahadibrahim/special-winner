@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { ArrowRight } from "lucide-react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
+import type { OrganizationSiteAnnouncement } from "@/lib/db/schema/organizations"
 
 /**
  * DualCtaHero — the homepage gateway, benefit-led.
@@ -13,10 +14,20 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
  *  - "For Adults" → /adult/leagues (orange)
  *
  * No geographic chrome — Columbus/service-area copy is SEO-only (meta,
- * footer, /locations). The right column reserves the Next-up announcement
- * slot (later slice); until then the copy block spans the full width.
+ * footer, /locations). The right column renders the "Next up" announcement
+ * card when an active site banner is set; absent one the copy block spans
+ * the full width.
+ *
+ * Note: the card markup is duplicated from next-up-card.astro (two render
+ * contexts: Astro for hubs, React for this SSR+client:load hero). Consolidate
+ * during the multi-brand theme refactor.
  */
-export function DualCtaHero() {
+
+interface DualCtaHeroProps {
+  announcement?: OrganizationSiteAnnouncement
+}
+
+export function DualCtaHero({ announcement }: DualCtaHeroProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   useHydrationBeacon()
@@ -30,8 +41,8 @@ export function DualCtaHero() {
         className="absolute inset-0"
         loading="eager"
       />
-      <div className="graded-content max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pt-20 lg:pt-32 pb-16 lg:pb-24">
-        <div className="max-w-4xl">
+      <div className="graded-content max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pt-20 lg:pt-32 pb-16 lg:pb-24 flex flex-col lg:flex-row lg:items-end gap-10">
+        <div className="flex-1 max-w-4xl">
           <h1
             className={`font-display transition-all duration-700 delay-100 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -83,6 +94,30 @@ export function DualCtaHero() {
             </a>
           </div>
         </div>
+
+        {announcement && (
+          <div className="lg:pb-1">
+            <div className="bg-paper px-4 py-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.4)] max-w-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden="true" />
+                <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-primary">Next up</span>
+              </div>
+              <p className="font-display text-lg text-ink mt-1.5 leading-snug">{announcement.title}</p>
+              {announcement.detail && (
+                <p className="font-mono text-[11px] text-ink-muted mt-1.5 uppercase">{announcement.detail}</p>
+              )}
+              {announcement.linkUrl && (
+                <a
+                  href={announcement.linkUrl}
+                  data-landing-cta="next-up-card"
+                  className="block text-sm font-semibold text-primary mt-2.5 pt-2.5 border-t border-border hover:underline"
+                >
+                  {announcement.linkLabel || "Learn more"} →
+                </a>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )

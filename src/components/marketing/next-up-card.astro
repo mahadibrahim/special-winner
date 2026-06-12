@@ -1,0 +1,26 @@
+---
+import type { OrganizationSiteAnnouncement } from "@/lib/db/schema/organizations";
+
+interface Props {
+  announcement: OrganizationSiteAnnouncement;
+}
+const { announcement: a } = Astro.props;
+---
+
+<div class="bg-paper px-4 py-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.4)] max-w-xs">
+  <div class="flex items-center gap-2">
+    <span class="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden="true"></span>
+    <span class="text-[10px] font-bold tracking-[0.16em] uppercase text-primary">Next up</span>
+  </div>
+  <p class="font-display text-lg text-ink mt-1.5 leading-snug">{a.title}</p>
+  {a.detail && <p class="font-mono text-[11px] text-ink-muted mt-1.5 uppercase">{a.detail}</p>}
+  {a.linkUrl && (
+    <a
+      href={a.linkUrl}
+      data-landing-cta="next-up-card"
+      class="block text-sm font-semibold text-primary mt-2.5 pt-2.5 border-t border-border hover:underline"
+    >
+      {a.linkLabel || "Learn more"} →
+    </a>
+  )}
+</div>
