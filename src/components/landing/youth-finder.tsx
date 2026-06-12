@@ -58,7 +58,6 @@ const AGE_BANDS: AgeBand[] = [
 
 const NAV_ITEMS: SectionNavItem[] = AGE_BANDS.map((b) => ({ id: b.id, label: b.title }))
 
-
 export default function YouthFinder() {
   useHydrationBeacon()
 
