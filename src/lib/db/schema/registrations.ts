@@ -144,6 +144,11 @@ export const registrations = pgTable(
     waitlistExpiresAt: timestamp("waitlist_expires_at"),
     // Free-agent flag: adult self-registrants who want placement on a team
     lookingForTeam: boolean("looking_for_team").default(false).notNull(),
+    // Storefront brand the registration was created through ("aspire" |
+    // "soccerone"). Brands share one org; this is the only durable brand
+    // signal for request-less contexts (crons). Default covers all
+    // pre-cutover rows, which were Aspire by definition.
+    brand: varchar("brand", { length: 20 }).default("aspire").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
