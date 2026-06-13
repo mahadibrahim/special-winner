@@ -1,0 +1,22 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { DropSeasonsList } from "@/components/admin/drop-seasons-list";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+---
+
+<BaseLayout title="Drop League — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/drop-league"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <DropSeasonsList client:load />
+  </AdminLayout>
+</BaseLayout>
