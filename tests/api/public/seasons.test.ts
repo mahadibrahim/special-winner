@@ -28,12 +28,12 @@ describe("Public Seasons API", () => {
       }
     });
 
-    it("default listing only returns publicly-visible (open/active) seasons", async () => {
+    it("default listing only returns publicly-visible (open/active/forming) seasons", async () => {
       const res = await apiFetch(LIST_ENDPOINT, { method: "GET" });
 
       const json = await expectJson(res, 200);
       for (const season of json.seasons) {
-        expect(["open", "active"]).toContain(season.status);
+        expect(["open", "active", "forming"]).toContain(season.status);
       }
     });
 
@@ -50,7 +50,7 @@ describe("Public Seasons API", () => {
       expect(Array.isArray(json.seasons)).toBe(true);
       for (const season of json.seasons) {
         expect(season.status).not.toBe("draft");
-        expect(["open", "active"]).toContain(season.status);
+        expect(["open", "active", "forming"]).toContain(season.status);
       }
     });
 
@@ -75,6 +75,19 @@ describe("Public Seasons API", () => {
       expect(season.location).toBeDefined();
       expect(season.location.id).toBeDefined();
       expect(season.location.name).toBeDefined();
+    });
+
+    it("tags every returned season with a signupMode of interest|register", async () => {
+      const res = await apiFetch(LIST_ENDPOINT, { method: "GET" });
+      const json = await expectJson(res, 200);
+      for (const season of json.seasons) {
+        expect(["interest", "register"]).toContain(season.signupMode);
+        if (season.status === "forming") {
+          expect(season.signupMode).toBe("interest");
+        } else {
+          expect(season.signupMode).toBe("register");
+        }
+      }
     });
   });
 

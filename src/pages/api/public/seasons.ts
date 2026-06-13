@@ -32,11 +32,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // unauthenticated `GET /api/public/seasons?status=draft` would leak the
     // entire draft catalog, and the no-param SoccerOne leagues page would show
     // drafts the moment any exist.
-    const PUBLIC_STATUSES = ["open", "active"] as const;
+    const PUBLIC_STATUSES = ["open", "active", "forming"] as const;
     if (status && (PUBLIC_STATUSES as readonly string[]).includes(status)) {
       conditions.push(eq(seasons.status, status as typeof seasons.status.enumValues[number]));
     } else {
-      conditions.push(sql`${seasons.status} IN ('open', 'active')`);
+      conditions.push(sql`${seasons.status} IN ('open', 'active', 'forming')`);
     }
     if (locationSlug && locationSlug !== "all") {
       conditions.push(eq(locations.slug, locationSlug));
@@ -130,6 +130,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         spotsLeft,
         scheduleNotes: r.season.scheduleNotes,
         status: r.season.status,
+        signupMode: r.season.status === "forming" ? "interest" : "register",
         program: {
           id: r.program.id,
           name: r.program.name,
@@ -162,7 +163,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
       };
     });
 
-    return new Response(JSON.stringify({ seasons: formatted }), {
+    const ordered = [...formatted].sort((a, b) => {
+      if (a.signupMode !== b.signupMode) {
+        return a.signupMode === "register" ? -1 : 1;
+      }
+      return 0;
+    });
+
+    return new Response(JSON.stringify({ seasons: ordered }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",

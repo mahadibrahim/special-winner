@@ -3,6 +3,7 @@ export * from "./users";
 export * from "./organizations";
 export * from "./sports";
 export * from "./programs";
+export * from "./season-interest";
 export * from "./registrations";
 export * from "./payments";
 export * from "./teams";

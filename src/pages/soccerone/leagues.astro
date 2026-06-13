@@ -35,6 +35,13 @@ try {
   console.error('[soccerone/leagues] failed to load seasons', err);
 }
 
+// Phase 1: this hand-rolled SoccerOne template only renders a "Register Now"
+// CTA, so exclude `forming` (interest-only) seasons — otherwise they'd show a
+// register button for a season that isn't open yet. Forming seasons surface on
+// the main Aspire catalog (program-card-v2 renders the interest form). Phase 2
+// adds an interest CTA to this template.
+seasons = seasons.filter((s) => s.signupMode !== 'interest');
+
 const firstSeasonId = seasons[0]?.id ?? null;
 
 // Featured season = first open season (the API already sorts by startDate).

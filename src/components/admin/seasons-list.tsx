@@ -38,6 +38,7 @@ interface Season {
   status: string
   scheduleNotes: string | null
   venueId: string | null
+  interestCount?: number
   program: { id: string; name: string; slug: string }
   sport: { id: string; name: string; icon: string | null; color: string | null }
   location: { id: string; name: string }
@@ -67,6 +68,7 @@ interface Venue {
 
 const statusOptions = [
   { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-700" },
+  { value: "forming", label: "Forming", color: "bg-amber-100 text-amber-800" },
   { value: "open", label: "Open", color: "bg-green-100 text-green-700" },
   { value: "closed", label: "Closed", color: "bg-yellow-100 text-yellow-700" },
   { value: "active", label: "Active", color: "bg-blue-100 text-blue-700" },
@@ -377,6 +379,9 @@ export function SeasonsList() {
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-lg">{season.name}</h3>
                           <Badge className={statusConfig?.color}>{statusConfig?.label}</Badge>
+                          {season.status === "forming" && (
+                            <span className="text-xs text-ink-muted ml-2">{season.interestCount ?? 0} interested</span>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {season.program.name} · {season.location.name}

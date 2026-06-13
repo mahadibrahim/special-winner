@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { seasons, programs, sports, locations, ageGroups, teams, venues } from "@/lib/db/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { seasons, programs, sports, locations, ageGroups, teams, venues, seasonInterest } from "@/lib/db/schema";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import {
@@ -45,7 +45,7 @@ const seasonSchema = z.object({
   signupModes: z.array(z.enum(["individual", "team"])).min(1, "At least one signup mode is required").default(["individual"]),
   depositCents: z.number().int().min(0).optional().nullable(),
   allowDeposit: z.boolean().default(true),
-  status: z.enum(["draft", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
+  status: z.enum(["draft", "forming", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
   scheduleNotes: z.string().optional().nullable(),
   scaffold: scaffoldSchema.optional(),
 }).refine(
@@ -119,7 +119,23 @@ export const GET: APIRoute = async (context) => {
       .where(and(...whereClauses))
       .orderBy(asc(seasons.startDate));
 
-    return new Response(JSON.stringify({ seasons: allSeasons }), {
+    // Per-season interest counts (forming demand signal). One grouped query.
+    const interestRows = await getDb()
+      .select({
+        seasonId: seasonInterest.seasonId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(seasonInterest)
+      .where(eq(seasonInterest.organizationId, orgContext.organizationId))
+      .groupBy(seasonInterest.seasonId);
+    const interestMap = new Map(interestRows.map((r) => [r.seasonId, r.count]));
+
+    const seasonsWithInterest = allSeasons.map((s) => ({
+      ...s,
+      interestCount: interestMap.get(s.id) ?? 0,
+    }));
+
+    return new Response(JSON.stringify({ seasons: seasonsWithInterest }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
