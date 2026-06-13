@@ -19,6 +19,7 @@ import {
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
 import { sendPurchaseEvent } from "@/lib/analytics/ga4-measurement-protocol";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
 // the prior Checkout-Session flow exactly, just sourced from a PI.
@@ -250,6 +251,19 @@ export async function handleRegistrationPaymentSucceeded(
       console.error("[stripe webhook] GA4 item-context JOIN failed:", err);
     }
   }
+
+  capturePaymentCompleted({
+    distinctId: registration.registeredByUserId,
+    kind: "registration",
+    amountCents: amountPaid,
+    brand: normalizeBrand(paymentIntent.metadata?.brand),
+    metadata: {
+      registration_id: registrationId,
+      payment_type: paymentTypeValue,
+      fully_paid: isFullyPaid,
+      via_guest_checkout: paymentIntent.metadata?.via_guest_checkout === "true",
+    },
+  });
 
   return { status: "processed", registrationId, paidCents: amountPaid };
 }

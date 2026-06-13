@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import { Mail, MapPin, Loader2, CheckCircle2 } from "lucide-react"
+import { track } from "@/lib/analytics/track"
 
 const youthLinks = [
   { label: "Youth programs", href: "/youth" },
@@ -78,6 +79,7 @@ export default function Footer() {
         throw new Error(json.error ?? "Could not subscribe")
       }
       setNlStatus("ok")
+      track("newsletter_signup", { source: "footer", audience: nlAudience || undefined })
     } catch (err) {
       setNlError(err instanceof Error ? err.message : "Could not subscribe")
       setNlStatus("error")
