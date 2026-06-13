@@ -76,6 +76,27 @@ describe("Public Seasons API", () => {
       expect(season.location.id).toBeDefined();
       expect(season.location.name).toBeDefined();
     });
+
+    it("tags every returned season with a signupMode of interest|register", async () => {
+      const res = await apiFetch(LIST_ENDPOINT, { method: "GET" });
+      const json = await expectJson(res, 200);
+      for (const season of json.seasons) {
+        expect(["interest", "register"]).toContain(season.signupMode);
+        if (season.status === "forming") {
+          expect(season.signupMode).toBe("interest");
+        } else {
+          expect(season.signupMode).toBe("register");
+        }
+      }
+    });
+
+    it("still excludes draft/closed seasons now that forming is public", async () => {
+      const res = await apiFetch(`${LIST_ENDPOINT}?status=draft`, { method: "GET" });
+      const json = await expectJson(res, 200);
+      for (const season of json.seasons) {
+        expect(["open", "active", "forming"]).toContain(season.status);
+      }
+    });
   });
 
   // ---- GET /api/public/seasons/:id ----
