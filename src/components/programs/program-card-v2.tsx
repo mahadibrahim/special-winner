@@ -8,13 +8,17 @@ import {
   deriveDeadline,
   isDualMode,
   isTeamOnly,
+  deriveSignupMode,
   type SeasonForDerive,
 } from "@/lib/programs/derive"
+import { SeasonInterestForm } from "./season-interest-form"
 
 interface Season extends SeasonForDerive {
   id: string
   name: string
   slug: string
+  status?: string
+  signupMode?: string
   price: number
   teamPrice: number | null
   scheduleNotes: string | null
@@ -55,6 +59,7 @@ export default function ProgramCardV2({ season }: { season: Season }) {
   const deadline = deriveDeadline(season)
   const dual = isDualMode(season)
   const teamOnly = isTeamOnly(season)
+  const signupMode = deriveSignupMode(season)
 
   const programName = (season.program as { name?: string }).name ?? ""
   const headingName =
@@ -153,63 +158,75 @@ export default function ProgramCardV2({ season }: { season: Season }) {
         {/* Spacer pushes price + CTA to a consistent bottom band */}
         <div className="flex-1 min-h-[0.75rem]" />
 
-        {/* 5 · How much + CTA — dual-mode keeps two actions; preserved as-is */}
-        <div className="pt-3 border-t border-border">
-          {dual && season.teamPrice != null ? (
-            <>
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <div className="font-display text-lg text-ink leading-none">
-                    ${season.price.toLocaleString()}
+        {/* 5 · How much + CTA — dual-mode keeps two actions; forming seasons
+            show interest-capture form instead of register links */}
+        {signupMode === "interest" ? (
+          <div className="mt-3">
+            <span className="inline-flex items-center text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-amber-100 text-ink-2 mb-2">
+              Forming
+            </span>
+            <SeasonInterestForm seasonId={season.id} seasonName={season.name} />
+          </div>
+        ) : (
+          <>
+            <div className="pt-3 border-t border-border">
+              {dual && season.teamPrice != null ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <div className="font-display text-lg text-ink leading-none">
+                        ${season.price.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
+                        {indivUnit}
+                      </div>
+                    </div>
+                    <div className="border-l border-border pl-3">
+                      <div className="font-display text-lg text-ink leading-none">
+                        ${season.teamPrice.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
+                        per team
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
-                    {indivUnit}
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={`/register/${season.id}?mode=individual`}
+                      className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors"
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      Sign up solo
+                    </a>
+                    <a
+                      href={`/register/team/${season.id}`}
+                      className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      Bring a team
+                    </a>
                   </div>
+                </>
+              ) : (
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="font-display text-lg text-ink leading-none">
+                      ${headlinePrice.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-ink-muted mt-1">{headlineUnit}</div>
+                  </div>
+                  <a
+                    href={teamOnly ? `/register/team/${season.id}` : `/register/${season.id}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors"
+                  >
+                    {teamOnly ? "Register team" : "Register"}
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </a>
                 </div>
-                <div className="border-l border-border pl-3">
-                  <div className="font-display text-lg text-ink leading-none">
-                    ${season.teamPrice.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
-                    per team
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={`/register/${season.id}?mode=individual`}
-                  className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  Sign up solo
-                </a>
-                <a
-                  href={`/register/team/${season.id}`}
-                  className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  Bring a team
-                </a>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-end justify-between">
-              <div>
-                <div className="font-display text-lg text-ink leading-none">
-                  ${headlinePrice.toLocaleString()}
-                </div>
-                <div className="text-[11px] text-ink-muted mt-1">{headlineUnit}</div>
-              </div>
-              <a
-                href={teamOnly ? `/register/team/${season.id}` : `/register/${season.id}`}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors"
-              >
-                {teamOnly ? "Register team" : "Register"}
-                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-              </a>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   )
