@@ -52,7 +52,7 @@ export async function getPublicSports(orgId: string): Promise<PublicSport[]> {
           eq(programs.active, true),
           eq(programs.isTest, false),
           eq(seasons.isTest, false),
-          sql`${seasons.status} IN ('open', 'active')`,
+          sql`${seasons.status} IN ('open', 'active', 'forming')`,
         ),
       );
   } catch (err) {
@@ -89,7 +89,7 @@ export async function getPublicLocations(orgId: string): Promise<PublicLocation[
           eq(programs.active, true),
           eq(programs.isTest, false),
           eq(seasons.isTest, false),
-          sql`${seasons.status} IN ('open', 'active')`,
+          sql`${seasons.status} IN ('open', 'active', 'forming')`,
         ),
       )
       .orderBy(locations.sortOrder, locations.name);
