@@ -10,11 +10,11 @@
  * fires `checkout.session.completed`, to avoid orphan rows on Checkout
  * abandonment.
  *
- * Helper stubs (`getActiveMembershipForUser`, `decrementAllotment`) are
- * intentionally no-op until the memberships schema lands from the
- * 2026-04-28 design. Until then the only path that produces a $0 rate is
- * a session-level override (`sessionRateCents = 0` or `memberRateCents`
- * with a future membership row).
+ * Membership pricing is live: `getActiveMembershipForUser` delegates to the
+ * shared `getActiveMembershipForOrg` lookup, which resolves the tier benefits
+ * and the remaining `member_allotment` credits. Allotment is count-based —
+ * inserting a confirmed `member_allotment` booking IS the decrement (the next
+ * lookup counts it), so there is no separate counter to update here.
  */
 import { getDb } from "@/lib/db";
 import {
@@ -256,9 +256,9 @@ export async function createConfirmedBookingFreePath(opts: {
       })
       .returning();
 
-    if (rate.paymentMethod === "member_allotment" && rate.membershipId) {
-      await decrementAllotment(rate.membershipId);
-    }
+    // No explicit allotment decrement: the row we just inserted (payment
+    // method `member_allotment`) is itself the unit of consumption — the next
+    // getActiveMembershipForOrg lookup counts it against the monthly cap.
 
     // Fire-and-forget transactional confirmation. We dispatch *after* the
     // transaction commits — but since we need the booking id, we kick it off
@@ -325,8 +325,4 @@ async function fetchUserSkill(
     )
     .limit(1);
   return row?.level ?? "all_levels";
-}
-
-async function decrementAllotment(_membershipId: string): Promise<void> {
-  // no-op until memberships schema is wired
 }

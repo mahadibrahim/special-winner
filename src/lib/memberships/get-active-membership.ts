@@ -15,16 +15,21 @@
  * returns zero rows in both null-cases — no separate `orgHasMembershipTiers`
  * round-trip required.
  *
- * `allotmentRemaining` is always 0 in v1 (the allotment feature is v2 per
- * the data-model doc); the drop-in resolver's "Allotment tier with credits
- * remaining" branch is therefore never hit by v1 data.
+ * `allotmentRemaining` reflects the `free_pickup_per_month` benefit: for a
+ * tier with that benefit it counts the member's confirmed `member_allotment`
+ * drop-ins this calendar month and returns `cap − used` (floored at 0). Tiers
+ * that are unlimited or lack the benefit short-circuit to 0 with no extra
+ * query. See `./allotment.ts` for the count-based model and its concurrency
+ * caveat.
  */
-import { and, eq, inArray, desc } from "drizzle-orm";
+import { and, count, eq, gte, inArray, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   memberships,
   membershipTiers,
 } from "@/lib/db/schema/memberships";
+import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { computeAllotmentRemaining, allotmentPeriodStart } from "./allotment";
 
 // Drizzle's tx and the top-level db share a `.select().from(...)` surface,
 // so a caller inside a `db.transaction(async (tx) => …)` block can pass `tx`
@@ -100,6 +105,36 @@ export async function getActiveMembershipForOrg(
       ? (row.t.benefits as Record<string, unknown>)
       : {};
 
+  // Allotment: count this month's claimed member_allotment pickups for this
+  // membership and derive the remaining free credits. Unlimited tiers and
+  // tiers without the benefit skip the count entirely (the common case).
+  const allotmentBenefits = {
+    unlimited_pickup: benefits.unlimited_pickup === true,
+    free_pickup_per_month: Number(benefits.free_pickup_per_month) || 0,
+  };
+  let allotmentRemaining = 0;
+  if (
+    !allotmentBenefits.unlimited_pickup &&
+    allotmentBenefits.free_pickup_per_month > 0
+  ) {
+    const periodStart = allotmentPeriodStart(new Date());
+    const [usedRow] = await db
+      .select({ used: count() })
+      .from(dropInBookings)
+      .where(
+        and(
+          eq(dropInBookings.membershipId, row.m.id),
+          eq(dropInBookings.paymentMethod, "member_allotment"),
+          inArray(dropInBookings.status, ["confirmed", "no_show"]),
+          gte(dropInBookings.createdAt, periodStart),
+        ),
+      );
+    allotmentRemaining = computeAllotmentRemaining(
+      allotmentBenefits,
+      usedRow?.used ?? 0,
+    );
+  }
+
   return {
     id: row.m.id,
     userId: row.m.userId,
@@ -119,6 +154,6 @@ export async function getActiveMembershipForOrg(
       annualPriceCents: row.t.annualPriceCents,
       benefits,
     },
-    allotmentRemaining: 0,
+    allotmentRemaining,
   };
 }
