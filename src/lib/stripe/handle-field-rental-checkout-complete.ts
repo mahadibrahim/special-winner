@@ -25,6 +25,7 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { stripe } from "@/lib/stripe/client";
 import { logAlert } from "@/lib/logging/alerts";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
+import { dispatchRentalConfirmation } from "@/lib/rentals/messages/dispatch";
 
 export async function handleFieldRentalCheckoutComplete(
   session: Stripe.Checkout.Session,
@@ -165,11 +166,6 @@ export async function handleFieldRentalCheckoutComplete(
         updatedAt: new Date(),
       })
       .where(eq(fieldRentals.id, rentalId));
-
-    // TODO(rentals): fire-and-forget a rental confirmation email/SMS here once a rental
-    // messaging module exists (mirrors dispatchBookingConfirmation in the drop-in flow).
-    // Tracked as a follow-up — the spec calls for it but no rental messaging module is
-    // built yet.
     return { status: "processed", rentalId, paidCents };
   });
 
@@ -185,6 +181,14 @@ export async function handleFieldRentalCheckoutComplete(
     } catch (err) {
       console.error("[rentals] ledger sync after confirm failed", result.rentalId, err);
     }
+
+    // Fire-and-forget rental confirmation (email-preferred, SMS fallback).
+    // Messaging failures must not fail the webhook; dispatch logs its own.
+    queueMicrotask(() => {
+      void dispatchRentalConfirmation(result.rentalId).catch((err) => {
+        console.error("[rentals] checkout confirmation dispatch failed", err);
+      });
+    });
   }
   return result;
 }
