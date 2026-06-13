@@ -163,6 +163,7 @@ function mapDropStripeStatus(
     case "incomplete_expired":
       return "incomplete";
     default:
-      return "active";
+      // Unknown/new Stripe status → do NOT assume active (billing safety).
+      return "incomplete";
   }
 }

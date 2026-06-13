@@ -12,7 +12,7 @@
  * webhook — no orphan rows on abandonment (mirrors the memberships pattern).
  */
 import type { APIRoute } from "astro";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropPlayers, dropSubscriptions } from "@/lib/db/schema/drop-league";
 import { users } from "@/lib/db/schema/users";
@@ -63,6 +63,29 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     .limit(1);
   if (!player) return json({ error: "Player not found" }, 404);
 
+  // Ownership: if the player row is already claimed by a different user, refuse
+  // — otherwise user B could pay to subscribe into user A's registration.
+  if (player.userId && player.userId !== locals.user.id) {
+    return json({ error: "Forbidden" }, 403);
+  }
+
+  // Double-subscribe guard: never start a second checkout while a live
+  // subscription exists for this player — Stripe's idempotency key only covers
+  // a 24h window, so a later re-click would otherwise bill a second $99 + $25.
+  const [liveSub] = await db
+    .select({ id: dropSubscriptions.id })
+    .from(dropSubscriptions)
+    .where(
+      and(
+        eq(dropSubscriptions.dropPlayerId, player.id),
+        inArray(dropSubscriptions.status, ["active", "paused", "past_due"]),
+      ),
+    )
+    .limit(1);
+  if (liveSub) {
+    return json({ error: "Player already has an active subscription" }, 409);
+  }
+
   // Link the authenticated user to the player row if not already set.
   if (!player.userId) {
     await db
@@ -85,6 +108,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     .select({ stripeCustomerId: dropSubscriptions.stripeCustomerId })
     .from(dropSubscriptions)
     .where(eq(dropSubscriptions.userId, locals.user.id))
+    .orderBy(desc(dropSubscriptions.createdAt))
     .limit(1);
   const existingCustomerId = existingSub?.stripeCustomerId ?? null;
 

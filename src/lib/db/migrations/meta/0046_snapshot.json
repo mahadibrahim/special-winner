@@ -6108,8 +6108,8 @@
         }
       },
       "indexes": {
-        "drop_subscriptions_player_idx": {
-          "name": "drop_subscriptions_player_idx",
+        "drop_subscriptions_player_uniq": {
+          "name": "drop_subscriptions_player_uniq",
           "columns": [
             {
               "expression": "drop_player_id",
@@ -6118,7 +6118,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}

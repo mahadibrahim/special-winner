@@ -72,7 +72,9 @@ export const dropSubscriptions = pgTable("drop_subscriptions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
-  index("drop_subscriptions_player_idx").on(t.dropPlayerId),
+  // Unique: one subscription row per drop player (a player registers for one
+  // drop season). Required for the webhook's ON CONFLICT (drop_player_id) upsert.
+  uniqueIndex("drop_subscriptions_player_uniq").on(t.dropPlayerId),
   uniqueIndex("drop_subscriptions_stripe_sub_uniq").on(t.stripeSubscriptionId),
 ]);
 

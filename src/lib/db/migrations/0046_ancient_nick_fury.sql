@@ -22,5 +22,5 @@ CREATE TABLE IF NOT EXISTS "drop_subscriptions" (
 ALTER TABLE "drop_subscriptions" ADD CONSTRAINT "drop_subscriptions_drop_player_id_drop_players_id_fk" FOREIGN KEY ("drop_player_id") REFERENCES "public"."drop_players"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drop_subscriptions" ADD CONSTRAINT "drop_subscriptions_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drop_subscriptions" ADD CONSTRAINT "drop_subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "drop_subscriptions_player_idx" ON "drop_subscriptions" USING btree ("drop_player_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "drop_subscriptions_player_uniq" ON "drop_subscriptions" USING btree ("drop_player_id");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "drop_subscriptions_stripe_sub_uniq" ON "drop_subscriptions" USING btree ("stripe_subscription_id");
