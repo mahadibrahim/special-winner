@@ -13,7 +13,11 @@ import {
   handleInvoicePaymentFailed,
 } from "@/lib/memberships/webhook-handlers";
 
-const STRIPE_CONNECT_WEBHOOK_SECRET = import.meta.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+// `import.meta.env` is build-time inlined; `process.env` fallback makes this a
+// runtime read so a rotated/late-set Netlify secret applies without a rebuild.
+const STRIPE_CONNECT_WEBHOOK_SECRET =
+  import.meta.env.STRIPE_CONNECT_WEBHOOK_SECRET ??
+  process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
 export const POST: APIRoute = async ({ request }) => {
   if (!stripe) {

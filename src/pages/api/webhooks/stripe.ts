@@ -30,7 +30,10 @@ export const POST: APIRoute = async ({ request }) => {
   let event: Stripe.Event | null = null;
 
   try {
-    const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET;
+    // `import.meta.env` is build-time inlined; `process.env` fallback makes this
+    // a runtime read so a rotated/late-set Netlify secret applies without a rebuild.
+    const webhookSecret =
+      import.meta.env.STRIPE_WEBHOOK_SECRET ?? process.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
       console.error("Stripe webhook secret not configured");
       return new Response(

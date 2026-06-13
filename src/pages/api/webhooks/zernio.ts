@@ -76,7 +76,11 @@ function extractError(payload: ZernioWebhookPayload): string {
 }
 
 export const POST: APIRoute = async ({ request }) => {
-  const secret = import.meta.env.ZERNIO_WEBHOOK_SECRET;
+  // `import.meta.env` is inlined at build time; the `process.env` fallback makes
+  // this a runtime read so a rotated/late-set Netlify secret applies without a
+  // rebuild (matches notionWriteback's pattern).
+  const secret =
+    import.meta.env.ZERNIO_WEBHOOK_SECRET ?? process.env.ZERNIO_WEBHOOK_SECRET;
   if (!secret) {
     console.error("[zernio webhook] ZERNIO_WEBHOOK_SECRET not configured");
     return json({ error: "Webhook not configured" }, 500);
