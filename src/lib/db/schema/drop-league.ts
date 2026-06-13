@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, numeric, boolean, date, timestamp, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, integer, numeric, boolean, date, timestamp, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { organizations, locations } from "./organizations";
 import { users } from "./users";
@@ -54,3 +54,29 @@ export type DropSeason = typeof dropSeasons.$inferSelect;
 export type NewDropSeason = typeof dropSeasons.$inferInsert;
 export type DropPlayer = typeof dropPlayers.$inferSelect;
 export type NewDropPlayer = typeof dropPlayers.$inferInsert;
+
+export const dropSubscriptionStatusEnum = pgEnum("drop_subscription_status", ["incomplete", "active", "past_due", "paused", "cancelled"]);
+
+export const dropSubscriptions = pgTable("drop_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  dropPlayerId: uuid("drop_player_id").notNull().references(() => dropPlayers.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  status: dropSubscriptionStatusEnum("status").default("incomplete").notNull(),
+  registrationFeePaid: boolean("registration_fee_paid").default(false).notNull(),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  // Unique: one subscription row per drop player (a player registers for one
+  // drop season). Required for the webhook's ON CONFLICT (drop_player_id) upsert.
+  uniqueIndex("drop_subscriptions_player_uniq").on(t.dropPlayerId),
+  uniqueIndex("drop_subscriptions_stripe_sub_uniq").on(t.stripeSubscriptionId),
+]);
+
+export type DropSubscription = typeof dropSubscriptions.$inferSelect;
+export type NewDropSubscription = typeof dropSubscriptions.$inferInsert;
