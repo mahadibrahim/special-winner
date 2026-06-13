@@ -17,6 +17,12 @@ import {
   handleSubscriptionDeleted,
   handleInvoicePaymentFailed,
 } from "@/lib/memberships/webhook-handlers";
+import {
+  handleDropCheckoutCompleted,
+  handleDropSubscriptionUpdated,
+  handleDropSubscriptionDeleted,
+  handleDropInvoicePaymentFailed,
+} from "@/lib/drop-league/webhook-handlers";
 import { captureWebhookOutcome } from "@/lib/observability/webhook-telemetry";
 
 /**
@@ -139,6 +145,19 @@ async function dispatch(event: Stripe.Event): Promise<void> {
               : session.subscription?.id ?? "(none)"
           }`,
         );
+      } else if (session.metadata?.type === "drop_subscription") {
+        // Drop-league recurring subscriptions. Same platform account as
+        // memberships — no Connect. Handler is idempotent (UPSERT on
+        // dropPlayerId); currentPeriodEnd is set by the subsequent
+        // customer.subscription.updated event.
+        await handleDropCheckoutCompleted(session);
+        console.log(
+          `[stripe webhook] checkout.session.completed (drop_subscription) → sub=${
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription?.id ?? "(none)"
+          }`,
+        );
       } else {
         console.log(
           `[stripe webhook] checkout.session.completed with unrecognized metadata.type=${
@@ -157,6 +176,11 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       const sub = event.data.object as Stripe.Subscription;
       await handleSubscriptionUpdated(sub);
       console.log(`[stripe webhook] ${event.type} (membership) → ${sub.id}`);
+      // Drop-league subscriptions share the same platform account and the same
+      // event stream. handleDropSubscriptionUpdated no-ops when no matching
+      // drop_subscriptions row exists, so this is safe to fan-out always.
+      await handleDropSubscriptionUpdated(sub);
+      console.log(`[stripe webhook] ${event.type} (drop) → ${sub.id}`);
       break;
     }
 
@@ -164,6 +188,8 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       const sub = event.data.object as Stripe.Subscription;
       await handleSubscriptionDeleted(sub);
       console.log(`[stripe webhook] customer.subscription.deleted (membership) → ${sub.id}`);
+      await handleDropSubscriptionDeleted(sub);
+      console.log(`[stripe webhook] customer.subscription.deleted (drop) → ${sub.id}`);
       break;
     }
 
@@ -171,6 +197,8 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       await handleInvoicePaymentFailed(invoice);
       console.log(`[stripe webhook] invoice.payment_failed (membership) → ${invoice.id}`);
+      await handleDropInvoicePaymentFailed(invoice);
+      console.log(`[stripe webhook] invoice.payment_failed (drop) → ${invoice.id}`);
       break;
     }
 
