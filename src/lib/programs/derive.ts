@@ -146,3 +146,19 @@ export function deriveDeadline(
   const daysUntil = Math.ceil((d.getTime() - Date.now()) / msPerDay);
   return { label, urgent: daysUntil <= 7 };
 }
+
+/**
+ * The CTA mode for a season card. `forming` seasons collect interest;
+ * everything else registers. An explicit `signupMode` (set by the public
+ * seasons API) wins, so the card never re-derives server intent. Phase 1 is
+ * interest|register; a 'priority' mode is added in Phase 2.
+ */
+export function deriveSignupMode(s: {
+  status?: string;
+  signupMode?: string;
+}): "interest" | "register" {
+  if (s.signupMode === "interest" || s.signupMode === "register") {
+    return s.signupMode;
+  }
+  return s.status === "forming" ? "interest" : "register";
+}

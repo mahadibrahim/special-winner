@@ -15,6 +15,8 @@ export interface ApiSeason extends SeasonForDerive {
   maxParticipants: number | null
   pricingMode: string
   signupModes?: string[]
+  status?: string
+  signupMode?: "interest" | "register"
   registrationCloses?: string | null
   program: {
     id: string
