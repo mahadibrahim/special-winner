@@ -141,6 +141,7 @@ export function DropSeasonsList() {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "UTC",
     })
   }
 

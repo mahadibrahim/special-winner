@@ -22,6 +22,7 @@ import {
   BarChart3,
   type LucideIcon,
   CalendarDays,
+  TrendingDown,
 } from "lucide-react";
 
 export type NavItem = {
@@ -51,6 +52,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
       { name: "Seasons", href: "/admin/seasons", icon: Calendar },
       { name: "Programs", href: "/admin/programs", icon: Dumbbell },
       { name: "Drop-ins", href: "/admin/dropins", icon: Zap },
+      { name: "Drop League", href: "/admin/drop-league", icon: TrendingDown },
       { name: "Rentals", href: "/admin/rentals", icon: Key },
       { name: "Memberships", href: "/admin/memberships", icon: Gem },
       { name: "Campaigns", href: "/admin/campaigns", icon: Send },

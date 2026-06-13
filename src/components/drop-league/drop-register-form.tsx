@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 /**
  * BMI-gated registration form for a Drop League season.
@@ -16,6 +17,7 @@ export function DropRegisterForm({
   division: "mens" | "womens"
   seasonName: string
 }) {
+  useHydrationBeacon()
   const [status, setStatus] = useState<"idle" | "submitting" | "ok" | "ineligible" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
 

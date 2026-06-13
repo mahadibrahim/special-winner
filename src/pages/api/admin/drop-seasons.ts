@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { dropSeasons, dropPlayers } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -30,7 +30,7 @@ function defaultSessionDay(division: "mens" | "womens"): number {
 }
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);
@@ -74,7 +74,7 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   const orgContext = await requireOrganizationContext(context);

@@ -45,8 +45,8 @@ if (organization) {
 }
 
 function fmtDateRange(start: string, end: string) {
-  const s = new Date(start).toLocaleDateString("en-US", { month: "long", day: "numeric" });
-  const e = new Date(end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const s = new Date(start).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+  const e = new Date(end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   return `${s} – ${e}`;
 }
 ---

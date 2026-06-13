@@ -355,6 +355,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         "/admin/game-day",
         "/admin/activity-completions",
         "/admin/media",
+        "/admin/drop-league",
       ];
       if (
         isLocationAdmin &&

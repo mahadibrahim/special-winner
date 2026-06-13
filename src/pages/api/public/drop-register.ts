@@ -18,9 +18,9 @@ const BodySchema = z.object({
   email: z.string().trim().toLowerCase().email().max(320),
   phone: z.string().trim().max(32).optional(),
   dob: z.string().trim().optional(), // YYYY-MM-DD
-  heightFeet: z.number().int().min(3).max(8),
+  heightFeet: z.number().int().min(4).max(8),
   heightInches: z.number().int().min(0).max(11),
-  weightLbs: z.number().positive().max(1500),
+  weightLbs: z.number().positive().max(600),
   consent: z.literal(true), // must be exactly true
 });
 
@@ -133,7 +133,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
     .onConflictDoNothing();
 
   // NEVER echo back weight or bmi in the response — health data is write-only.
-  return new Response(JSON.stringify({ ok: true, eligible: true }), {
+  return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
