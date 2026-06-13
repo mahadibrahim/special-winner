@@ -26,9 +26,11 @@ import {
   formSubmissions,
   signatureSubmissions,
 } from "@/lib/db/schema/activity-tracking";
+import { games } from "@/lib/db/schema/teams";
 import { eq, and, ne } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { getActivityFromCatalog } from "@/lib/activity-tracking/catalog-cache";
+import { userHoldsVenueRole } from "@/lib/activity-tracking/venue-roles";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -124,10 +126,37 @@ export const POST: APIRoute = async (context) => {
     if (!templateId || !requiredRole) {
       return json({ error: "Missing template_id or required_role" }, 500);
     }
-    // TODO: verify the signing user currently holds `requiredRole` at the
-    // venue via venue_role_assignments. This goes in once Phase F lands the
-    // venue-role admin UI; a system signature path can sign without the
-    // human-role check.
+
+    // A signature attests that the signer holds `requiredRole` at the game's
+    // venue. Verify it against venue_role_assignments before recording the
+    // signature — otherwise any caller past the (super-admin) auth gate could
+    // mint a role-attested signature for a role/venue they don't actually
+    // hold (ISS-5). Resolve the venue from the completion's game.
+    const [game] = await db
+      .select({ venueId: games.venueId })
+      .from(games)
+      .where(eq(games.id, completion.gameId))
+      .limit(1);
+    if (!game?.venueId) {
+      return json(
+        { error: "Activity has no venue; signing role cannot be verified" },
+        409,
+      );
+    }
+    const holdsRole = await userHoldsVenueRole(
+      game.venueId,
+      requiredRole,
+      auth.user.id,
+    );
+    if (!holdsRole) {
+      return json(
+        {
+          error:
+            "You do not hold the required role at this venue to sign off this activity",
+        },
+        403,
+      );
+    }
 
     const [sub] = await db
       .insert(signatureSubmissions)
