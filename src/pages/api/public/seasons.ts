@@ -24,8 +24,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const conditions = [];
     // Tenant scope — must be first.
     conditions.push(eq(organizations.id, organization.id));
-    if (status) {
+    // Status is clamped to a public-safe allowlist. This endpoint backs the
+    // marketing catalog, so it must NEVER surface draft/closed/etc. seasons —
+    // a draft season carries unannounced future pricing and dates. Callers may
+    // narrow to a single safe status (e.g. ?status=open), but any other value
+    // (or none) falls back to both publicly visible statuses. Without this an
+    // unauthenticated `GET /api/public/seasons?status=draft` would leak the
+    // entire draft catalog, and the no-param SoccerOne leagues page would show
+    // drafts the moment any exist.
+    const PUBLIC_STATUSES = ["open", "active"] as const;
+    if (status && (PUBLIC_STATUSES as readonly string[]).includes(status)) {
       conditions.push(eq(seasons.status, status as typeof seasons.status.enumValues[number]));
+    } else {
+      conditions.push(sql`${seasons.status} IN ('open', 'active')`);
     }
     if (locationSlug && locationSlug !== "all") {
       conditions.push(eq(locations.slug, locationSlug));
