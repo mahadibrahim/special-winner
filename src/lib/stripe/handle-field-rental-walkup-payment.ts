@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
+import { dispatchRentalConfirmation } from "@/lib/rentals/messages/dispatch";
 
 export async function handleFieldRentalWalkUpPayment(
   paymentIntent: Stripe.PaymentIntent,
@@ -64,10 +65,6 @@ export async function handleFieldRentalWalkUpPayment(
         updatedAt: new Date(),
       })
       .where(eq(fieldRentals.id, rentalId));
-    // TODO(rentals): fire-and-forget a rental confirmation email/SMS here
-    // once a rental messaging module exists (mirrors dispatchBookingConfirmation
-    // in the drop-in flow). Tracked alongside the same TODO in
-    // handle-field-rental-checkout-complete.ts.
     return { status: "processed", rentalId, paidCents };
   });
 
@@ -83,6 +80,14 @@ export async function handleFieldRentalWalkUpPayment(
     } catch (err) {
       console.error("[rentals] ledger sync after confirm failed", result.rentalId, err);
     }
+
+    // Fire-and-forget rental confirmation (email-preferred, SMS fallback).
+    // Messaging failures must not fail the webhook; dispatch logs its own.
+    queueMicrotask(() => {
+      void dispatchRentalConfirmation(result.rentalId).catch((err) => {
+        console.error("[rentals] walk-up confirmation dispatch failed", err);
+      });
+    });
   }
   return result;
 }
