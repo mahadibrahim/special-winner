@@ -101,7 +101,10 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
     })
     .onConflictDoUpdate({
       target: newsletterSignups.email,
-      set: { updatedAt: sql`now()` },
+      set: {
+        firstName: sql`COALESCE(EXCLUDED.first_name, ${newsletterSignups.firstName})`,
+        updatedAt: sql`now()`,
+      },
     });
 
   return new Response(JSON.stringify({ ok: true }), {

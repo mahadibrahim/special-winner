@@ -126,6 +126,7 @@ export const GET: APIRoute = async (context) => {
         count: sql<number>`count(*)::int`,
       })
       .from(seasonInterest)
+      .where(eq(seasonInterest.organizationId, orgContext.organizationId))
       .groupBy(seasonInterest.seasonId);
     const interestMap = new Map(interestRows.map((r) => [r.seasonId, r.count]));
 

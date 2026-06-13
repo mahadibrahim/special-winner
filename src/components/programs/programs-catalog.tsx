@@ -84,14 +84,20 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetch("/api/public/seasons?status=open")
+    // Fetch the full public set (default returns open/active/forming) and keep
+    // the advertisable ones: `open` (register) and `forming` (interest list).
+    // program-card-v2 renders the right CTA per `signupMode`. We drop `active`
+    // (in-season) so the catalog stays a "join now / coming soon" surface.
+    fetch("/api/public/seasons")
       .then((r) => {
         if (!r.ok) throw new Error("Could not load programs")
         return r.json() as Promise<{ seasons: ApiSeason[] }>
       })
       .then((j) => {
         if (cancelled) return
-        setSeasons(j.seasons)
+        setSeasons(
+          j.seasons.filter((s) => s.status === "open" || s.status === "forming"),
+        )
       })
       .catch((e) => {
         if (!cancelled) setError(e.message)
