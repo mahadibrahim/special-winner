@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { track } from "@/lib/analytics/track"
 
 /**
  * Compact email-capture form for empty finder states. When an org has no
@@ -36,6 +37,7 @@ export function EmptyNotifyForm({ audience, source }: EmptyNotifyFormProps) {
         throw new Error(json.error ?? "Could not save your email")
       }
       setStatus("ok")
+      track("newsletter_signup", { source, audience })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your email")
       setStatus("error")

@@ -25,6 +25,7 @@ import { assignTeam } from "@/lib/dropin/team-assignment";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
 const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
   "card_online",
@@ -150,6 +151,21 @@ export async function handleDropInCheckoutComplete(
           err,
         );
       });
+    });
+
+    // Revenue event — no DB access, so safe inside the tx (same as the
+    // queued confirmation above). Brand-attributed for two-brand segmentation.
+    capturePaymentCompleted({
+      distinctId: userId,
+      kind: "dropin",
+      amountCents: session.amount_total ?? 0,
+      brand,
+      metadata: {
+        booking_id: booking.id,
+        session_id: sessionDbId,
+        payment_method: paymentMethod,
+        used_membership: membershipId !== null,
+      },
     });
 
     return {

@@ -6,6 +6,7 @@ import {
   CAPTURE_INCENTIVE_SOURCE,
   formatIncentiveAmount,
 } from "@/lib/marketing/capture-incentive"
+import { track } from "@/lib/analytics/track"
 
 /**
  * Inline email-capture band (home). Deliberately NOT a popup — see the
@@ -30,6 +31,7 @@ export default function CaptureBand() {
       })
       if (!res.ok) throw new Error()
       setStatus("ok")
+      track("newsletter_signup", { source: CAPTURE_INCENTIVE_SOURCE })
     } catch {
       setStatus("error")
     }
