@@ -28,6 +28,7 @@ export const programTypeEnum = pgEnum("program_type", [
 
 export const seasonStatusEnum = pgEnum("season_status", [
   "draft",
+  "forming",
   "open",
   "closed",
   "active",
