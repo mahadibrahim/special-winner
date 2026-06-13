@@ -63,6 +63,37 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
 
+# ============================================================
+# POSTHOG REVERSE PROXY
+# ============================================================
+# Serve PostHog ingestion first-party through /ingest/* so content/tracker
+# blockers (which blocklist *.i.posthog.com) can't silently drop analytics,
+# session replay, and error events. The client points api_host at /ingest on
+# deployed hosts (src/components/posthog.astro). Applies to every domain this
+# build serves, gosoccerone.com included.
+#
+# Order matters — Netlify uses first-match, so the asset paths must precede
+# the catch-all. Static bundles AND remote-config /array/* are served by the
+# assets origin (us-assets); everything else by the ingestion origin (us).
+# US cloud; status 200 + force = proxy (rewrite), not a 30x redirect.
+[[redirects]]
+  from = "/ingest/static/*"
+  to = "https://us-assets.i.posthog.com/static/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/ingest/array/*"
+  to = "https://us-assets.i.posthog.com/array/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/ingest/*"
+  to = "https://us.i.posthog.com/:splat"
+  status = 200
+  force = true
+
 [context.production]
   command = "npm run build"
 
