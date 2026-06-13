@@ -28,6 +28,32 @@ describe("Public Seasons API", () => {
       }
     });
 
+    it("default listing only returns publicly-visible (open/active) seasons", async () => {
+      const res = await apiFetch(LIST_ENDPOINT, { method: "GET" });
+
+      const json = await expectJson(res, 200);
+      for (const season of json.seasons) {
+        expect(["open", "active"]).toContain(season.status);
+      }
+    });
+
+    it("never leaks non-public seasons via the status param (?status=draft)", async () => {
+      // The marketing catalog must never surface draft/closed seasons —
+      // a draft carries unannounced future pricing/dates. A non-public
+      // status value must fall back to the open/active allowlist, not echo
+      // the requested status back as a filter.
+      const res = await apiFetch(`${LIST_ENDPOINT}?status=draft`, {
+        method: "GET",
+      });
+
+      const json = await expectJson(res, 200);
+      expect(Array.isArray(json.seasons)).toBe(true);
+      for (const season of json.seasons) {
+        expect(season.status).not.toBe("draft");
+        expect(["open", "active"]).toContain(season.status);
+      }
+    });
+
     it("returns season data with sport, location, and price fields", async () => {
       const res = await apiFetch(LIST_ENDPOINT, { method: "GET" });
 
