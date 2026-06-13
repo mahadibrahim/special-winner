@@ -1,0 +1,201 @@
+---
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { DropRegisterForm } from "@/components/drop-league/drop-register-form";
+import { getDb } from "@/lib/db";
+import { dropSeasons } from "@/lib/db/schema/drop-league";
+import { and, eq, asc } from "drizzle-orm";
+
+const organization = Astro.locals.organization;
+
+type OpenSeason = {
+  id: string;
+  name: string;
+  division: "mens" | "womens";
+  startDate: string;
+  endDate: string;
+};
+
+let mensSeason: OpenSeason | null = null;
+let womensSeason: OpenSeason | null = null;
+
+if (organization) {
+  const db = getDb();
+  const openSeasons = await db
+    .select({
+      id: dropSeasons.id,
+      name: dropSeasons.name,
+      division: dropSeasons.division,
+      startDate: dropSeasons.startDate,
+      endDate: dropSeasons.endDate,
+    })
+    .from(dropSeasons)
+    .where(
+      and(
+        eq(dropSeasons.organizationId, organization.id),
+        eq(dropSeasons.status, "open")
+      )
+    )
+    .orderBy(asc(dropSeasons.startDate));
+
+  for (const s of openSeasons) {
+    if (!mensSeason && s.division === "mens") mensSeason = s;
+    if (!womensSeason && s.division === "womens") womensSeason = s;
+  }
+}
+
+function fmtDateRange(start: string, end: string) {
+  const s = new Date(start).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+  const e = new Date(end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return `${s} – ${e}`;
+}
+---
+
+<BaseLayout
+  title="Drop League — Register | Aspire Sports"
+  description="Sign up for the Aspire Sports Drop League — competitive soccer for players who want to get active, make friends, and drop pounds. Men's (Mondays) and Women's (Wednesdays)."
+>
+  <main id="main-content" class="flex-1">
+
+    <!-- Hero -->
+    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-16">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+          <a href="/adult/leagues" class="hover:underline">Adult Leagues</a> · Special Programs
+        </p>
+        <h1
+          class="font-display max-w-2xl"
+          style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          Drop League.
+        </h1>
+        <p class="mt-4 text-xl text-cream/90 font-medium max-w-lg">
+          Score goals. Make friends. Drop pounds.
+        </p>
+        <p class="mt-3 text-base text-cream/70 max-w-xl">
+          A competitive 7v7 outdoor soccer league built for players who want to get active
+          alongside a supportive crew. Men&apos;s on Mondays — Women&apos;s on Wednesdays.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-6 text-sm text-cream/60">
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary-orange"></span>
+            Weekly sessions
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary-orange"></span>
+            Fair refs, organized play
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary-orange"></span>
+            No experience required
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="border-b border-border bg-cream-2">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <p class="text-sm text-ink-muted">
+          <strong class="text-ink">How it works:</strong> Register below, show up on game night, and play.
+          We&apos;ll slot you onto a team and send session details before week one.
+          Registration is screened to keep division sizes manageable.
+        </p>
+      </div>
+    </section>
+
+    <!-- Division cards -->
+    <section class="py-16">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+          <!-- Men's Division -->
+          <div class="rounded-xl border border-border bg-paper p-8 shadow-sm">
+            <div class="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-1">
+                  Men&apos;s Division
+                </p>
+                <h2 class="text-2xl font-display leading-tight">
+                  {mensSeason ? mensSeason.name : "Men's Drop League"}
+                </h2>
+                {mensSeason && (
+                  <p class="mt-1 text-sm text-ink-muted">
+                    {fmtDateRange(mensSeason.startDate, mensSeason.endDate)} · Mondays
+                  </p>
+                )}
+              </div>
+              <span class={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${mensSeason ? "bg-green-100 text-green-800" : "bg-cream-3 text-ink-muted"}`}>
+                {mensSeason ? "Open" : "Coming soon"}
+              </span>
+            </div>
+
+            {mensSeason ? (
+              <DropRegisterForm
+                client:load
+                dropSeasonId={mensSeason.id}
+                division="mens"
+                seasonName={mensSeason.name}
+              />
+            ) : (
+              <p class="text-sm text-ink-muted rounded-lg border border-border bg-cream-2 px-4 py-6 text-center">
+                Registration opens soon — check back or follow us on social for the announcement.
+              </p>
+            )}
+          </div>
+
+          <!-- Women's Division -->
+          <div class="rounded-xl border border-border bg-paper p-8 shadow-sm">
+            <div class="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-1">
+                  Women&apos;s Division
+                </p>
+                <h2 class="text-2xl font-display leading-tight">
+                  {womensSeason ? womensSeason.name : "Women's Drop League"}
+                </h2>
+                {womensSeason && (
+                  <p class="mt-1 text-sm text-ink-muted">
+                    {fmtDateRange(womensSeason.startDate, womensSeason.endDate)} · Wednesdays
+                  </p>
+                )}
+              </div>
+              <span class={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${womensSeason ? "bg-green-100 text-green-800" : "bg-cream-3 text-ink-muted"}`}>
+                {womensSeason ? "Open" : "Coming soon"}
+              </span>
+            </div>
+
+            {womensSeason ? (
+              <DropRegisterForm
+                client:load
+                dropSeasonId={womensSeason.id}
+                division="womens"
+                seasonName={womensSeason.name}
+              />
+            ) : (
+              <p class="text-sm text-ink-muted rounded-lg border border-border bg-cream-2 px-4 py-6 text-center">
+                Registration opens soon — check back or follow us on social for the announcement.
+              </p>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom note -->
+    <section class="bg-cream-2 border-t border-border py-10">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <p class="text-sm text-ink-muted max-w-xl mx-auto">
+          Questions? Email us at{" "}
+          <a href="mailto:hello@aspiresportsohio.com" class="text-primary-orange underline hover:opacity-80">
+            hello@aspiresportsohio.com
+          </a>
+          {" "}or browse our{" "}
+          <a href="/adult/leagues" class="underline hover:opacity-80">other adult leagues</a>.
+        </p>
+      </div>
+    </section>
+
+  </main>
+</BaseLayout>
