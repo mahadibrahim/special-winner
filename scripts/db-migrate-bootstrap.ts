@@ -12,7 +12,11 @@
  *   - reconcile the tracking table authoritatively (in one transaction):
  *       · the table is rewritten to contain exactly the expectedApplied
  *         set, each row carrying its journal `when` as `created_at`
- *       · rows whose hash isn't in expectedApplied → DELETE (drift)
+ *       · rows whose hash matches a journal entry with NO parseable effects
+ *         → PRESERVE (the migrator's own bookkeeping is the only record the
+ *         migration ran; deleting it re-runs the migration — the 2026-06-12
+ *         migrate-prod incident)
+ *       · rows whose hash matches no current journal entry → DELETE (drift)
  *     This matters because drizzle's migrator selects what to run by the
  *     `created_at` TIMESTAMP, not by hash — a row with the right hash but
  *     a NULL/stale created_at silently makes it re-run every migration.
@@ -22,11 +26,16 @@
  *
  * Safe to run on every CI build.
  *
- * Handles four schema-effect shapes per migration:
+ * Handles six schema-effect shapes per migration:
  *   · CREATE TABLE "name"               → table must exist (unless later dropped)
  *   · ALTER TABLE "t" ADD COLUMN "c"   → column must exist (unless later dropped)
  *   · DROP TABLE "name"                → table should be absent
  *   · ALTER TABLE "t" DROP COLUMN "c"  → column should be absent
+ *   · CREATE [UNIQUE] INDEX "i" ON "t" → index must exist (unless later dropped);
+ *                                        gates only index-ONLY migrations — for
+ *                                        mixed migrations a missing index is a
+ *                                        warning, table/column evidence decides
+ *   · DROP INDEX "i"                   → resolves earlier creates to expect-absent
  *
  * A migration is treated as applied when ALL of its net effects are
  * consistent with the target DB state (accounting for later drops).
@@ -57,12 +66,15 @@ export type RawEffect =
   | { kind: "create-table"; name: string }
   | { kind: "add-column"; table: string; column: string }
   | { kind: "drop-table"; name: string }
-  | { kind: "drop-column"; table: string; column: string };
+  | { kind: "drop-column"; table: string; column: string }
+  | { kind: "create-index"; name: string; table: string }
+  | { kind: "drop-index"; name: string };
 
 // Resolved effects after accounting for later migrations that drop things.
 export type ResolvedEffect =
   | { kind: "create-table"; name: string; expectPresent: boolean }
-  | { kind: "add-column"; table: string; column: string; expectPresent: boolean };
+  | { kind: "add-column"; table: string; column: string; expectPresent: boolean }
+  | { kind: "create-index"; name: string; expectPresent: boolean };
 
 // Match a SQL identifier in one of four shapes:
 //   "name"            (quoted)         → captured by the "quoted" group
@@ -134,6 +146,35 @@ export function extractSchemaEffects(sqlText: string): RawEffect[] {
     });
   }
 
+  // CREATE [UNIQUE] INDEX [CONCURRENTLY] [IF NOT EXISTS] name ON [schema.]table
+  // The index name itself is never schema-qualified (it lives in the table's
+  // schema), so plain IDENT_GROUPS for the name; QUAL_IDENT for the table.
+  // Added after the 2026-06-12 incident: index-only migration 0043 parsed to
+  // zero effects, so the reconciler deleted the migrator's tracking row for
+  // it and the migrator re-ran it on the next deploy.
+  const createIdxRe = new RegExp(
+    `CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+(?:CONCURRENTLY\\s+)?(?:IF\\s+NOT\\s+EXISTS\\s+)?${IDENT_GROUPS}\\s+ON\\s+${QUAL_IDENT}`,
+    "gi",
+  );
+  while ((m = createIdxRe.exec(sqlText)) !== null) {
+    effects.push({
+      kind: "create-index",
+      name: m[1] ?? m[2],
+      table: m[3] ?? m[4],
+    });
+  }
+
+  // DROP INDEX [CONCURRENTLY] [IF EXISTS] [schema.]name [CASCADE]
+  // (single-name form only — the multi-name `DROP INDEX a, b` shape has never
+  // appeared in this repo's migrations; extend if drizzle ever emits it)
+  const dropIdxRe = new RegExp(
+    `DROP\\s+INDEX\\s+(?:CONCURRENTLY\\s+)?(?:IF\\s+EXISTS\\s+)?${QUAL_IDENT}(?:\\s+CASCADE)?`,
+    "gi",
+  );
+  while ((m = dropIdxRe.exec(sqlText)) !== null) {
+    effects.push({ kind: "drop-index", name: m[1] ?? m[2] });
+  }
+
   return effects;
 }
 
@@ -151,12 +192,15 @@ export function resolveEffects(
   // Build sets for O(1) lookup of what gets dropped later.
   const laterDroppedTables = new Set<string>();
   const laterDroppedColumns = new Set<string>(); // "table.column"
+  const laterDroppedIndexes = new Set<string>();
 
   for (const e of laterEffects) {
     if (e.kind === "drop-table") {
       laterDroppedTables.add(e.name);
     } else if (e.kind === "drop-column") {
       laterDroppedColumns.add(`${e.table}.${e.column}`);
+    } else if (e.kind === "drop-index") {
+      laterDroppedIndexes.add(e.name);
     }
   }
 
@@ -178,13 +222,48 @@ export function resolveEffects(
         column: e.column,
         expectPresent,
       });
+    } else if (e.kind === "create-index") {
+      // Dropped explicitly later, or implicitly via dropping the parent table.
+      // CAVEAT (mirrors the pure-DROP caveat above): a later DROP COLUMN of an
+      // indexed column also drops the index implicitly — we don't track index
+      // column lists, so that shape would false-flag the index as missing.
+      // No migration in this repo drops columns today; if one ever does,
+      // index effects degrade to a warning for mixed migrations (see the
+      // classification loop in main), so only an index-ONLY migration could
+      // be affected.
+      const expectPresent =
+        !laterDroppedIndexes.has(e.name) && !laterDroppedTables.has(e.table);
+      resolved.push({ kind: "create-index", name: e.name, expectPresent });
     }
-    // drop-table / drop-column effects from this migration don't need their
-    // own resolved entry — their impact is captured in the expectPresent flags
-    // of earlier migrations.
+    // drop-table / drop-column / drop-index effects from this migration don't
+    // need their own resolved entry — their impact is captured in the
+    // expectPresent flags of earlier migrations.
   }
 
   return resolved;
+}
+
+/**
+ * Decide what the reconciler does with an existing tracking row.
+ *
+ *   - "rewrite":  hash is in the verified-applied set → delete-and-reinsert
+ *                 with the journal `when` as created_at (fixes stale values)
+ *   - "preserve": hash belongs to a journal entry with NO parseable effects.
+ *                 The migrator's own bookkeeping is the only record that the
+ *                 migration ran — deleting it would make the migrator re-run
+ *                 the migration on the next deploy (the 2026-06-12 incident:
+ *                 index-only 0043 was re-run and died on "already exists").
+ *                 Keep the row; created_at is reconciled in place.
+ *   - "delete":   hash matches no current journal entry → true drift.
+ */
+export function planExistingRowAction(
+  rowHash: string,
+  expectedApplied: Map<string, { tag: string; when: number }>,
+  hashlessByHash: Map<string, { tag: string; when: number }>,
+): "rewrite" | "preserve" | "delete" {
+  if (expectedApplied.has(rowHash)) return "rewrite";
+  if (hashlessByHash.has(rowHash)) return "preserve";
+  return "delete";
 }
 
 async function main() {
@@ -246,6 +325,13 @@ async function main() {
       publicColumns.map((r) => `${r.table_name}.${r.column_name}`),
     );
 
+    const publicIndexes = await sql<Array<{ indexname: string }>>`
+      SELECT indexname
+      FROM pg_indexes
+      WHERE schemaname = 'public'
+    `;
+    const indexSet = new Set(publicIndexes.map((r) => r.indexname));
+
     // Parse raw effects for every migration in journal order.
     const entries = journal.entries;
     const perMigrationContents: Array<{ entry: JournalEntry; hash: string }> = [];
@@ -264,14 +350,18 @@ async function main() {
     const expectedApplied = new Map<string, { tag: string; when: number }>();
     const expectedPending: Array<{ tag: string; missing: string[] }> = [];
     const hashlessEntries: string[] = [];
+    const hashlessByHash = new Map<string, { tag: string; when: number }>();
 
     for (let i = 0; i < perMigrationContents.length; i++) {
       const { entry, hash } = perMigrationContents[i];
       const rawEffects = allRawEffects[i];
 
-      // If this migration has no parseable effects, flag it.
+      // If this migration has no parseable effects, flag it. Its hash is kept
+      // so the reconciler can PRESERVE (not delete) a tracking row the
+      // migrator wrote for it.
       if (rawEffects.length === 0) {
         hashlessEntries.push(entry.tag);
+        hashlessByHash.set(hash, { tag: entry.tag, when: entry.when });
         continue;
       }
 
@@ -294,10 +384,13 @@ async function main() {
       }
 
       const missing: string[] = [];
+      const missingIndexes: string[] = [];
       const unexpectedlyPresent: string[] = [];
+      let hasStrongEffects = false; // any table/column effect, regardless of state
 
       for (const e of resolved) {
         if (e.kind === "create-table") {
+          hasStrongEffects = true;
           if (e.expectPresent && !tableSet.has(e.name)) {
             missing.push(e.name);
           } else if (!e.expectPresent && tableSet.has(e.name)) {
@@ -305,11 +398,18 @@ async function main() {
             unexpectedlyPresent.push(e.name);
           }
         } else if (e.kind === "add-column") {
+          hasStrongEffects = true;
           const key = `${e.table}.${e.column}`;
           if (e.expectPresent && !columnSet.has(key)) {
             missing.push(key);
           } else if (!e.expectPresent && columnSet.has(key)) {
             unexpectedlyPresent.push(key);
+          }
+        } else if (e.kind === "create-index") {
+          if (e.expectPresent && !indexSet.has(e.name)) {
+            missingIndexes.push(`index:${e.name}`);
+          } else if (!e.expectPresent && indexSet.has(e.name)) {
+            unexpectedlyPresent.push(`index:${e.name}`);
           }
         }
       }
@@ -321,10 +421,25 @@ async function main() {
         );
       }
 
-      if (missing.length === 0) {
+      // Index presence gates ONLY index-only migrations. For mixed migrations
+      // the table/column evidence decides: if those all exist, the migration
+      // ran, and a missing index is drift to surface — NOT a reason to mark
+      // the migration pending, which would delete its tracking row and make
+      // the migrator re-run a possibly non-idempotent CREATE TABLE against a
+      // live database.
+      if (hasStrongEffects && missing.length === 0 && missingIndexes.length > 0) {
+        console.warn(
+          `  ${entry.tag}: warning — tables/columns verify as applied but ` +
+            `expected indexes are missing (drift?): ${missingIndexes.join(", ")}`,
+        );
+      }
+
+      const gating = hasStrongEffects ? missing : [...missing, ...missingIndexes];
+
+      if (gating.length === 0) {
         expectedApplied.set(hash, { tag: entry.tag, when: entry.when });
       } else {
-        expectedPending.push({ tag: entry.tag, missing });
+        expectedPending.push({ tag: entry.tag, missing: gating });
       }
     }
 
@@ -363,6 +478,7 @@ async function main() {
 
     let deleted = 0;
     let written = 0;
+    let preserved = 0;
 
     await sql.begin(async (txRaw) => {
       // The `postgres` lib types TransactionSql as Omit<Sql, …>, which
@@ -370,14 +486,37 @@ async function main() {
       // It IS callable at runtime — re-alias to the base Sql type.
       const tx = txRaw as unknown as typeof sql;
 
-      // Drop rows whose hash isn't in the expected-applied set (drift or
-      // stale entries from an earlier broken bootstrap).
+      // Rows not in the expected-applied set are either (a) bookkeeping the
+      // migrator wrote for a migration we can't parse — PRESERVE those, the
+      // row is the only record the migration ran (deleting one caused the
+      // 2026-06-12 migrate-prod failure: index-only 0043 was re-run and died
+      // on "already exists") — or (b) true drift → delete.
       for (const r of existingRows) {
-        if (!expectedApplied.has(r.hash)) {
-          await tx`DELETE FROM drizzle.__drizzle_migrations WHERE hash = ${r.hash}`;
-          deleted++;
-          console.log(`  removed stale tracking row (${r.hash.slice(0, 12)}…)`);
+        const action = planExistingRowAction(r.hash, expectedApplied, hashlessByHash);
+        if (action === "rewrite") continue; // handled in the write loop below
+        if (action === "preserve") {
+          const meta = hashlessByHash.get(r.hash)!;
+          if (String(r.created_at) !== String(meta.when)) {
+            await tx`
+              UPDATE drizzle.__drizzle_migrations
+              SET created_at = ${meta.when}
+              WHERE hash = ${r.hash}
+            `;
+            console.log(
+              `  ${meta.tag}: preserved migrator-written row (unverifiable effects), ` +
+                `created_at reconciled → ${meta.when}`,
+            );
+          } else {
+            console.log(
+              `  ${meta.tag}: preserved migrator-written row (unverifiable effects)`,
+            );
+          }
+          preserved++;
+          continue;
         }
+        await tx`DELETE FROM drizzle.__drizzle_migrations WHERE hash = ${r.hash}`;
+        deleted++;
+        console.log(`  removed stale tracking row (${r.hash.slice(0, 12)}…)`);
       }
 
       // Authoritatively (re)write every expected row with the correct
@@ -410,14 +549,17 @@ async function main() {
 
     for (const tag of hashlessEntries) {
       console.warn(
-        `  ${tag}: no detectable schema effects (CREATE TABLE / ADD COLUMN); ` +
-          `left un-applied. Migrator may fail if the changes have already run.`,
+        `  ${tag}: no detectable schema effects (tables/columns/indexes); ` +
+          `cannot verify against the DB. An existing tracking row is preserved; ` +
+          `without one the migrator will (re-)run it — write such migrations ` +
+          `idempotently.`,
       );
     }
 
     console.log(
       `Bootstrap complete: ${written} rows written (created_at reconciled), ` +
-        `${deleted} stale removed, ${expectedPending.length} pending for migrator.`,
+        `${preserved} preserved, ${deleted} stale removed, ` +
+        `${expectedPending.length} pending for migrator.`,
     );
   } finally {
     await sql.end();
