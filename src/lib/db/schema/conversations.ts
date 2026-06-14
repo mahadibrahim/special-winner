@@ -188,7 +188,7 @@ export type NewBotActionLog = typeof botActionsLog.$inferInsert;
 // Valid values (kept as const arrays rather than pgEnum to allow cheap additions)
 export const CONVERSATION_STATUS = ["active", "archived", "muted"] as const;
 export const MESSAGE_DIRECTION = ["inbound", "outbound"] as const;
-export const MESSAGE_CHANNEL = ["sms", "email", "telegram", "web"] as const;
+export const MESSAGE_CHANNEL = ["sms", "email", "telegram", "whatsapp", "web"] as const;
 export const MESSAGE_SENDER_TYPE = [
   "parent",
   "bot",
