@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aspire Sports — 2026–27 Season Calendar Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --ink-faint: oklch(0.50 0.008 260);
+    --navy: oklch(0.30 0.07 260);
+    --navy-deep: oklch(0.20 0.07 262);
+    --orange: oklch(0.58 0.19 35);
+    --orange-soft: oklch(0.92 0.035 50);
+    --ochre: oklch(0.72 0.13 70);
+    --ochre-soft: oklch(0.92 0.05 75);
+    --sage: oklch(0.52 0.08 155);
+    --sage-soft: oklch(0.93 0.025 155);
+    --plum: oklch(0.42 0.10 330);
+    --paper: oklch(0.99 0.003 80);
+    --border: oklch(0.88 0.012 78);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 48px clamp(20px, 4vw, 64px) 96px;
+  }
+  .label { font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink-muted); }
+  h1 { font-family: "Newsreader", serif; font-weight: 500; font-size: clamp(32px, 4.5vw, 52px); line-height: 1.05; margin: 10px 0 14px; max-width: 24ch; }
+  h2 { font-family: "Newsreader", serif; font-weight: 500; font-size: 28px; margin: 0 0 4px; }
+  h2 + .sub2 { color: var(--ink-muted); font-size: 14px; margin-bottom: 10px; }
+  .intro { color: var(--ink-2); max-width: 70ch; }
+  .rule-heavy { border: 0; border-top: 2px solid var(--ink); margin: 44px 0 26px; }
+
+  .pricing { display: flex; flex-wrap: wrap; border: 1px solid var(--border); background: var(--paper); margin-top: 26px; max-width: 1040px; }
+  .pricing > div { padding: 14px 22px; border-right: 1px solid var(--border); flex: 1 1 150px; }
+  .pricing > div:last-child { border-right: 0; }
+  .pricing .num { font-family: "Newsreader", serif; font-size: 24px; font-weight: 500; }
+  .pricing .num em { font-size: 14px; font-style: normal; color: var(--ink-muted); }
+  .pricing .cap { font-size: 11.5px; color: var(--ink-muted); margin-top: 2px; }
+
+  /* season band timeline */
+  .seasonbar { display: grid; grid-template-columns: 150px 1fr; margin-top: 20px; max-width: 1180px; }
+  .seasonbar .smonths { grid-column: 2; display: grid; grid-template-columns: repeat(40, 1fr); border-bottom: 1px solid var(--ink); }
+  .seasonbar .smonths span { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-muted); border-left: 1px solid var(--border); padding: 0 0 5px 3px; }
+  .seasonbar .slabel { font-size: 12.5px; color: var(--ink-2); padding: 12px 14px 12px 0; align-self: center; }
+  .seasonbar .strack { position: relative; display: grid; grid-template-columns: repeat(40, 1fr); align-items: center; min-height: 38px;
+    background: linear-gradient(90deg, transparent 27.5%, var(--ochre-soft) 27.5%, var(--ochre-soft) 30%, transparent 30%),
+                linear-gradient(90deg, transparent 37.5%, var(--ochre-soft) 37.5%, var(--ochre-soft) 42.5%, transparent 42.5%),
+                linear-gradient(90deg, transparent 72.5%, var(--ochre-soft) 72.5%, var(--ochre-soft) 75%, transparent 75%),
+                repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px 2.5%); border-bottom: 1px solid var(--border); }
+  .sseg { height: 24px; border-radius: 3px; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 500; color: var(--paper); display: flex; align-items: center; padding: 0 9px; white-space: nowrap; overflow: hidden; }
+  .sseg.fall { background: var(--orange); } .sseg.w1 { background: var(--navy); }
+  .sseg.w2 { background: var(--navy-deep); } .sseg.spring { background: var(--sage); }
+  .sseg.camp { background: var(--ochre); color: var(--ink); height: 18px; font-size: 9.5px; }
+  .sseg.tail { background: transparent; color: var(--ink-muted); border: 1px dashed var(--ink-faint); }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; font-size: 12px; color: var(--ink-muted); }
+  .legend i { display: inline-block; width: 13px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+  /* capacity grid */
+  .capmeta { display: flex; flex-wrap: wrap; gap: 26px; margin: 6px 0 18px; }
+  .capmeta b { font-family: "Newsreader", serif; font-size: 30px; font-weight: 500; display:block; line-height: 1; }
+  .capmeta span { font-size: 12px; color: var(--ink-muted); }
+  .venue-block { background: var(--paper); border: 1px solid var(--border); padding: 22px 22px 24px; margin-bottom: 28px; max-width: 1320px; }
+  .venue-block h3 { font-family: "Newsreader", serif; font-weight: 500; font-size: 22px; }
+  .venue-block .vsub { font-size: 12.5px; color: var(--ink-muted); margin-bottom: 16px; }
+  .cap { display: grid; grid-template-columns: 92px repeat(7, 1fr); gap: 5px; }
+  .cap .colh { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); padding-bottom: 4px; border-bottom: 2px solid var(--ink); text-align: center; }
+  .cap .colh.blank { border-bottom: 0; }
+  .cap .rowh { font-size: 11.5px; color: var(--ink-2); align-self: center; padding-right: 6px; line-height: 1.2; }
+  .cap .rowh small { display: block; color: var(--ink-faint); font-size: 10px; font-family: "IBM Plex Mono", monospace; }
+  .cell { min-height: 52px; border-radius: 3px; padding: 5px 6px; font-size: 11px; line-height: 1.25; display: flex; flex-direction: column; justify-content: center; }
+  .cell b { font-weight: 600; font-size: 11.5px; }
+  .cell time { font-family: "IBM Plex Mono", monospace; font-size: 9.5px; opacity: 0.8; }
+  .cell.coed { background: var(--navy); color: var(--paper); }
+  .cell.mens { background: var(--navy-deep); color: var(--paper); }
+  .cell.womens { background: var(--plum); color: var(--paper); }
+  .cell.futsal { background: var(--orange); color: var(--paper); }
+  .cell.youth { background: var(--sage-soft); border: 1px solid oklch(0.52 0.08 155 / 0.45); }
+  .cell.class { background: var(--ochre-soft); border: 1px solid oklch(0.72 0.13 70 / 0.4); }
+  .cell.drop { background: var(--orange-soft); border: 1px solid oklch(0.58 0.19 35 / 0.35); color: var(--ink-2); }
+  .cell.dropleague { background: oklch(0.50 0.10 195); color: var(--paper); }
+  .cell.open { background: var(--cream-2); border: 1px dashed var(--ink-faint); color: var(--ink-muted); }
+  .cell .ln2 { display:block; margin-top:3px; padding-top:3px; border-top:1px solid oklch(1 0 0 / 0.18); font-size:10.5px; }
+  .cell.open .ln2, .cell.drop .ln2 { border-top-color: oklch(0 0 0 / 0.12); }
+  .gridkey { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 11.5px; color: var(--ink-muted); }
+  .gridkey i { display:inline-block; width: 12px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+  /* division roster */
+  .roster { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-top: 18px; max-width: 1180px; }
+  .rcol { background: var(--paper); border: 1px solid var(--border); padding: 16px 18px; }
+  .rcol h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 8px; }
+  .rcol ul { list-style: none; }
+  .rcol li { font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--cream-3); }
+  .rcol li:last-child { border-bottom: 0; }
+  .rcol li span { color: var(--ink-faint); font-family: "IBM Plex Mono", monospace; font-size: 11px; float: right; }
+
+  /* registration */
+  .reg { margin-top: 20px; max-width: 1120px; }
+  .reg-months { display: grid; grid-template-columns: 150px 1fr; }
+  .reg-months .scale { display: grid; grid-template-columns: repeat(10, 1fr); border-bottom: 1px solid var(--ink); }
+  .reg-months .scale span { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-muted); border-left: 1px solid var(--border); padding: 0 0 5px 3px; }
+  .reg-lane { display: grid; grid-template-columns: 150px 1fr; border-bottom: 1px solid var(--border); min-height: 42px; }
+  .reg-lane .rl { font-size: 12.5px; color: var(--ink-2); align-self: center; }
+  .reg-track { position: relative; background: repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px 10%); }
+  .reg-bar { position: absolute; top: 50%; transform: translateY(-50%); height: 13px; border-radius: 7px; background: var(--cream-3); border: 1px solid var(--ink-faint); }
+  .reg-bar .d { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 7px; height: 7px; border-radius: 50%; background: var(--ink); }
+  .reg-bar .d.c { left: 100%; }
+  .reg-bar .eb { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--orange); }
+  .reg-bar .eb::after { content: "early-bird"; position: absolute; top: -15px; left: -8px; font-family: "IBM Plex Mono", monospace; font-size: 9px; color: var(--orange); white-space: nowrap; }
+  .reg-dates { font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--ink-muted); position: absolute; white-space: nowrap; top: calc(50% + 11px); }
+
+  .notes { max-width: 76ch; margin-top: 16px; padding-left: 18px; }
+  .notes li { margin-bottom: 8px; color: var(--ink-2); }
+  .foot { margin-top: 38px; font-size: 12px; color: var(--ink-faint); font-family: "IBM Plex Mono", monospace; }
+</style>
+</head>
+<body>
+
+<div class="label">&sect; Internal preview &mdash; not customer-facing</div>
+<h1>The 2026&ndash;27 season catalog, built at real capacity.</h1>
+<p class="intro">Capacity is asymmetric: <strong>Worthington</strong> runs two 7v7 turf fields plus a futsal court; <strong>Downtown</strong> has a single field, so it&rsquo;s the bottleneck venue &mdash; one division per night, no futsal. Four back-to-back indoor sessions (Sep 2026 &rarr; May 2027) feed the summer outdoor handoff. <strong>Every division below is seeded as a draft</strong> and flipped open in admin only as teams commit, so the catalog can be dense while the launch is lean.</p>
+
+<div class="pricing">
+  <div><div class="num">$1,050</div><div class="cap">7v7 team &middot; 7 games + playoffs</div></div>
+  <div><div class="num">$1,000</div><div class="cap">early-bird team (6 wks out)</div></div>
+  <div><div class="num">$750</div><div class="cap">futsal 5v5 team &middot; 7 games</div></div>
+  <div><div class="num">$120</div><div class="cap">individual / free agent</div></div>
+  <div><div class="num">$200</div><div class="cap">non-refundable deposit</div></div>
+  <div><div class="num">$120<em>/player</em></div><div class="cap">youth rec league</div></div>
+</div>
+
+<hr class="rule-heavy" />
+<div class="label">&sect; The capacity, filled</div>
+<h2>A typical Fall-session week</h2>
+<div class="sub2">Each cell is a league division occupying one surface for one night, ~4&ndash;5 games over 6:20&ndash;10:20pm. This is the full draft grid; you open divisions as demand fills them.</div>
+
+<div class="capmeta">
+  <div><b>~18</b><span>adult league divisions / session (both venues)</span></div>
+  <div><b>4</b><span>surfaces (Worthington 2 turf + futsal; Downtown 1 turf)</span></div>
+  <div><b>6:20p&ndash;12a</b><span>league prime to 10:20p, open pickup to midnight</span></div>
+  <div><b>+</b><span>futsal leagues most nights &middot; Fri&ndash;Sun pickup &middot; Sunday Drop League</span></div>
+</div>
+
+<div class="venue-block">
+  <h3>Downtown &mdash; adult only <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--orange); letter-spacing:0.05em; vertical-align:middle;">&nbsp;&nbsp;1 FIELD &mdash; CAPACITY-CONSTRAINED</span></h3>
+  <div class="vsub">22&ndash;40 professionals &middot; single turf field, open 6:20pm&ndash;midnight &middot; leagues Mon&ndash;Thu, pickup-led Fri&ndash;Sun &middot; Sunday Drop League</div>
+  <div class="cap">
+    <div class="colh blank"></div>
+    <div class="colh">Mon</div><div class="colh">Tue</div><div class="colh">Wed</div><div class="colh">Thu</div><div class="colh">Fri</div><div class="colh">Sat</div><div class="colh">Sun</div>
+
+    <div class="rowh">Turf<small>7v7</small></div>
+    <div class="cell coed"><b>Coed D</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup 10:20p&ndash;12a</span></div>
+    <div class="cell coed"><b>Coed C</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup 10:20p&ndash;12a</span></div>
+    <div class="cell coed"><b>Coed B</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup 10:20p&ndash;12a</span></div>
+    <div class="cell mens"><b>Men&rsquo;s Open / A</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup 10:20p&ndash;12a</span></div>
+    <div class="cell drop"><b>Pickup</b><time>6:20p&ndash;12a</time></div>
+    <div class="cell drop"><b>Pickup</b><time>12p&ndash;12a</time><span class="ln2">+ rentals / events</span></div>
+    <div class="cell dropleague"><b>Drop League</b><time>5:00&ndash;7:00p</time><span class="ln2">+ Coed pickup to 12a</span></div>
+  </div>
+  <div class="gridkey">
+    <span><i style="background:var(--navy)"></i>Coed league</span>
+    <span><i style="background:var(--navy-deep)"></i>Men&rsquo;s league</span>
+    <span><i style="background:oklch(0.50 0.10 195)"></i>Drop League (Man v Fat model)</span>
+    <span><i style="background:var(--orange-soft); border:1px solid oklch(0.58 0.19 35 / 0.35)"></i>Pickup</span>
+    <span style="color:var(--ink-faint)">One field caps Downtown at ~4 leagues + Drop; the rest is pickup &mdash; later hours add a nightly pickup wave.</span>
+  </div>
+</div>
+
+<div class="venue-block">
+  <h3>Worthington &mdash; adult + youth</h3>
+  <div class="vsub">30&ndash;45 families &middot; two turf + futsal, open to midnight &middot; adult + futsal leagues most nights &middot; youth Sat leagues &amp; weekday classes &middot; Fri&ndash;Sun pickup-led</div>
+  <div class="cap">
+    <div class="colh blank"></div>
+    <div class="colh">Mon</div><div class="colh">Tue</div><div class="colh">Wed</div><div class="colh">Thu</div><div class="colh">Fri</div><div class="colh">Sat</div><div class="colh">Sun</div>
+
+    <div class="rowh">Turf A<small>7v7</small></div>
+    <div class="cell coed"><b>Coed C</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell coed"><b>Coed D</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell coed"><b>Coed B</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell coed"><b>Coed 30+</b><time>6:20&ndash;9:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell coed"><b>Coed 40+</b><time>6:20&ndash;9:20p</time><span class="ln2">+ pickup to 12a</span></div>
+    <div class="cell youth"><b>U6 &middot; U8 leagues</b><time>8:30&ndash;11:30a</time><span class="ln2">pickup pm</span></div>
+    <div class="cell drop"><b>Pickup / family</b><time>12&ndash;9p</time></div>
+
+    <div class="rowh">Turf B<small>7v7</small></div>
+    <div class="cell mens"><b>Men&rsquo;s C</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell mens"><b>Men&rsquo;s D</b><time>6:20&ndash;10:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell womens"><b>Women&rsquo;s Open</b><time>6:20&ndash;9:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell mens"><b>Men&rsquo;s 30+</b><time>6:20&ndash;9:20p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell drop"><b>Pickup</b><time>6:20p&ndash;12a</time></div>
+    <div class="cell youth"><b>U10 &middot; U12 leagues</b><time>11a&ndash;1:30p</time><span class="ln2">pickup pm</span></div>
+    <div class="cell drop"><b>Pickup</b><time>12&ndash;10p</time></div>
+
+    <div class="rowh">Futsal<small>5v5</small></div>
+    <div class="cell futsal"><b>Futsal Coed Rec</b><time>6:30&ndash;9:30p</time><span class="ln2">Academy U4&ndash;U8 &middot; 4:30p</span></div>
+    <div class="cell futsal"><b>Futsal Men&rsquo;s B</b><time>6:30&ndash;9:30p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell futsal"><b>Futsal Coed Comp</b><time>6:30&ndash;9:30p</time><span class="ln2">Academy U7&ndash;U10 &middot; 4:30p</span></div>
+    <div class="cell futsal"><b>Futsal Men&rsquo;s A</b><time>6:30&ndash;9:30p</time><span class="ln2">pickup to 12a</span></div>
+    <div class="cell drop"><b>Futsal pickup</b><time>6:30p&ndash;12a</time><span class="ln2">Lil&rsquo; Kickers &middot; 4:30p</span></div>
+    <div class="cell drop"><b>Futsal pickup</b><time>11a&ndash;10p</time><span class="ln2">youth futsal &middot; 9a</span></div>
+    <div class="cell drop"><b>Futsal pickup</b><time>12&ndash;9p</time></div>
+  </div>
+  <div class="gridkey">
+    <span><i style="background:var(--navy)"></i>Coed</span>
+    <span><i style="background:var(--navy-deep)"></i>Men&rsquo;s</span>
+    <span><i style="background:var(--plum)"></i>Women&rsquo;s</span>
+    <span><i style="background:var(--orange)"></i>Futsal league</span>
+    <span><i style="background:var(--sage-soft); border:1px solid oklch(0.52 0.08 155 / 0.45)"></i>Youth league</span>
+    <span><i style="background:var(--orange-soft); border:1px solid oklch(0.58 0.19 35 / 0.35)"></i>Pickup</span>
+    <span style="color:var(--ink-faint)">Youth classes (academy / Lil&rsquo; Kickers) run 4:30&ndash;6p before adult leagues.</span>
+  </div>
+</div>
+
+<hr class="rule-heavy" />
+<div class="label">&sect; Every division, enumerated</div>
+<h2>The full draft roster (per session)</h2>
+<div class="sub2">What gets seeded as draft seasons. Skill tiers A&ndash;D, age brackets, and futsal multiply into the grid above. Open divisions as teams fill them.</div>
+
+<div class="roster">
+  <div class="rcol">
+    <h4>Downtown &mdash; 1 field, 4 leagues + Drop</h4>
+    <ul>
+      <li>Coed D <span>Mon</span></li>
+      <li>Coed C <span>Tue</span></li>
+      <li>Coed B <span>Wed</span></li>
+      <li>Men&rsquo;s Open / A <span>Thu</span></li>
+      <li>Drop League <span>Sun</span></li>
+      <li>Pickup <span>Fri&ndash;Sun + late</span></li>
+    </ul>
+  </div>
+  <div class="rcol">
+    <h4>Worthington &mdash; Adult 7v7 (2 fields)</h4>
+    <ul>
+      <li>Coed B <span>Wed</span></li>
+      <li>Coed C <span>Mon</span></li>
+      <li>Coed D <span>Tue</span></li>
+      <li>Coed 30+ <span>Thu</span></li>
+      <li>Coed 40+ <span>Fri</span></li>
+      <li>Men&rsquo;s C / D <span>Mon&ndash;Tue</span></li>
+      <li>Men&rsquo;s 30+ <span>Thu</span></li>
+      <li>Women&rsquo;s Open <span>Wed</span></li>
+    </ul>
+  </div>
+  <div class="rcol">
+    <h4>Worthington &mdash; Youth leagues (Sat)</h4>
+    <ul>
+      <li>U6 rec <span>Sat am</span></li>
+      <li>U8 rec <span>Sat am</span></li>
+      <li>U10 rec <span>Sat</span></li>
+      <li>U12 rec <span>Sat</span></li>
+      <li>Youth futsal U7&ndash;U8 <span>Sat am</span></li>
+    </ul>
+  </div>
+  <div class="rcol">
+    <h4>Worthington &mdash; Futsal &amp; classes</h4>
+    <ul>
+      <li>Futsal Coed Rec <span>Mon</span></li>
+      <li>Futsal Men&rsquo;s B <span>Tue</span></li>
+      <li>Futsal Coed Comp <span>Wed</span></li>
+      <li>Futsal Men&rsquo;s A <span>Thu</span></li>
+      <li>Academy / Lil&rsquo; Kickers <span>M/W/F pm</span></li>
+      <li>Futsal pickup <span>Fri&ndash;Sun</span></li>
+    </ul>
+  </div>
+</div>
+
+<hr class="rule-heavy" />
+<div class="label">&sect; Across the months</div>
+<h2>September 2026 &rarr; June 2027</h2>
+<div class="sub2">Every division above repeats on this four-session calendar. Holiday weeks tinted; camps fill the league byes.</div>
+
+<div class="seasonbar">
+  <div class="slabel"></div>
+  <div class="smonths">
+    <span style="grid-column: span 4">Sep</span><span style="grid-column: span 4">Oct</span><span style="grid-column: span 5">Nov</span><span style="grid-column: span 4">Dec</span><span style="grid-column: span 4">Jan ’27</span><span style="grid-column: span 4">Feb</span><span style="grid-column: span 5">Mar</span><span style="grid-column: span 4">Apr</span><span style="grid-column: span 5">May</span><span style="grid-column: span 1">Jun</span>
+  </div>
+  <div class="slabel">All league divisions</div>
+  <div class="strack">
+    <div class="sseg fall" style="grid-column: 2 / span 8">Fall &middot; 7 games + playoffs</div>
+    <div class="sseg w1" style="grid-column: 10 / span 10">Winter 1 &middot; 7 games &middot; byes Thanksgiving + Dec 21&ndash;Jan 3</div>
+    <div class="sseg w2" style="grid-column: 20 / span 9">Winter 2 &middot; 7 games + playoffs</div>
+    <div class="sseg spring" style="grid-column: 31 / span 8">Spring &middot; 7 games + playoffs</div>
+    <div class="sseg tail" style="grid-column: 39 / span 2">outdoor &rarr;</div>
+  </div>
+  <div class="slabel">Break-week camps</div>
+  <div class="strack">
+    <div class="sseg camp" style="grid-column: 12 / span 1">T-give</div>
+    <div class="sseg camp" style="grid-column: 16 / span 2">Winter camp</div>
+    <div class="sseg camp" style="grid-column: 30 / span 1">Spring</div>
+  </div>
+</div>
+<div class="legend">
+  <span><i style="background:var(--orange)"></i>Fall (Sep 14&ndash;Nov 8)</span>
+  <span><i style="background:var(--navy)"></i>Winter 1 (Nov 9&ndash;Jan 17)</span>
+  <span><i style="background:var(--navy-deep)"></i>Winter 2 (Jan 18&ndash;Mar 20)</span>
+  <span><i style="background:var(--sage)"></i>Spring (Apr 5&ndash;May 30)</span>
+  <span><i style="background:var(--ochre)"></i>Camp</span>
+  <span><i style="background:var(--ochre-soft)"></i>School holiday week</span>
+</div>
+
+<hr class="rule-heavy" />
+<div class="label">&sect; Registration windows</div>
+<h2>When signup opens, before each season displays</h2>
+<div class="sub2">The season sits in the catalog as a draft long before its bar starts &mdash; you choose when it appears.</div>
+
+<div class="reg">
+  <div class="reg-months"><div></div><div class="scale">
+    <span>Jul ’26</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan ’27</span><span>Feb</span><span>Mar</span><span>Apr</span>
+  </div></div>
+  <div class="reg-lane"><div class="rl">Fall 2026</div><div class="reg-track">
+    <div class="reg-bar" style="left:3.9%; width:16.8%"><span class="eb" style="left:40%"></span><span class="d"></span><span class="d c"></span></div>
+    <span class="reg-dates" style="left:3.9%">Jul 13 &rarr; Sep 3</span>
+  </div></div>
+  <div class="reg-lane"><div class="rl">Winter 1</div><div class="reg-track">
+    <div class="reg-bar" style="left:24.3%; width:14.7%"><span class="eb" style="left:32%"></span><span class="d"></span><span class="d c"></span></div>
+    <span class="reg-dates" style="left:24.3%">Sep 14 &rarr; Oct 29</span>
+  </div></div>
+  <div class="reg-lane"><div class="rl">Winter 2</div><div class="reg-track">
+    <div class="reg-bar" style="left:45%; width:16.9%"><span class="eb" style="left:41%"></span><span class="d"></span><span class="d c"></span></div>
+    <span class="reg-dates" style="left:45%">Nov 16 &rarr; Jan 7</span>
+  </div></div>
+  <div class="reg-lane"><div class="rl">Spring 2027</div><div class="reg-track">
+    <div class="reg-bar" style="left:72.5%; width:15.2%"><span class="eb" style="left:33%"></span><span class="d"></span><span class="d c"></span></div>
+    <span class="reg-dates" style="left:72.5%">Feb 8 &rarr; Mar 25</span>
+  </div></div>
+</div>
+
+<hr class="rule-heavy" />
+<div class="label">&sect; Fine print</div>
+<ul class="notes">
+  <li><strong>Dense catalog, lean launch.</strong> The grid above is the full draft roster (~18 adult divisions/session, plus youth + futsal). Season 1 opens only the 1&ndash;3 divisions you can credibly fill; the rest stay draft and flip open as teams commit, season over season. Fill ramps; the structure exists from day one.</li>
+  <li><strong>Downtown is the bottleneck.</strong> One field caps it at ~5 leagues/session, so you trade off Coed depth vs. a Men&rsquo;s night &mdash; and it will waitlist before Worthington does. That makes the downtown second field (or a partner site) the clearest capacity-expansion lever.</li>
+  <li><strong>Futsal runs leagues most nights.</strong> The Worthington court hosts 5v5 futsal leagues Mon&ndash;Thu (lower team fee, shorter games) with youth academy stacked into the 4:30&ndash;6p afternoon slot, then pickup Fri&ndash;Sun. Downtown has no futsal court.</li>
+  <li><strong>Drop League &mdash; the Man v Fat model.</strong> Weight-loss soccer where teams score for goals <em>and</em> collective weight lost. Seeded one night/week (Downtown Sunday early evening, fitting the men&rsquo;s-professional audience); expandable to a Worthington weeknight as it grows. A genuine differentiator no Columbus competitor runs.</li>
+  <li><strong>Pickup fills the gaps and the late hours.</strong> Open to midnight means leagues hold prime time (to ~10:20p) and the 10:20p&ndash;12a window becomes a nightly pay-per-session pickup wave; Fri&ndash;Sun evenings are pickup-led rather than dead rental slots. Pickup is drop-in (pay-per-session), not a seeded season &mdash; it&rsquo;s scheduled capacity, not catalog rows.</li>
+  <li><strong>Capacity is illustrative.</strong> Division-to-night assignments and slot times are a sensible default, not fixed; real assignment follows registered team counts. Confirmed surfaces: Worthington 2 turf + 1 futsal; Downtown 1 turf.</li>
+  <li><strong>7-game seasons (+ playoff/finals week).</strong> Matches the Columbus market &mdash; Resolute charges $1,050 for 7 games; Plex runs "7 games + playoffs." Better per-game margin than 8 at the same price, and it resolves the Winter 1 squeeze: Nov 9&ndash;Jan 17 yields exactly 7 game-weeks after the Thanksgiving + Dec 21&ndash;Jan 3 byes, so no need to play Thanksgiving week. Playoffs are top-team only, so not every team plays week 8.</li>
+  <li><strong>School calendars verified (2026-13).</strong> Winter break is universal across all Columbus-metro districts: <strong>Dec 21, 2026 &ndash; Jan 1, 2027</strong> (back Jan 4/5) &mdash; the winter bye + camp week. Thanksgiving: all off Wed&ndash;Fri Nov 25&ndash;27; Columbus City off the full week Nov 23&ndash;27. <strong>Spring break SPLITS</strong> &mdash; early cluster (Westerville/Hilliard) Mar 22&ndash;26, late cluster (Dublin/Olentangy/New Albany) Mar 29&ndash;Apr 2 &mdash; so <strong>Winter 2 ends Sat Mar 20</strong> (before the earliest spring break Mon Mar 22), and the Spring start of Apr 5 is confirmed. Spring camp needs two weeks (Mar 22&ndash;26 + Mar 29&ndash;Apr 2) or defaults to Mar 29&ndash;Apr 2 for widest coverage. Still to confirm: Worthington's own PDF (Westerville used as proxy). See docs/research/2026-06-13-columbus-school-calendars-2026-27.md.</li>
+  <li><strong>Seed scale:</strong> ~18 adult + youth/futsal divisions &times; 4 sessions &asymp; 70&ndash;80 draft seasons. All gated at <code>status=draft</code>; flipping to <code>open</code> publishes per division, any time, reversible.</li>
+</ul>
+
+<p class="foot">Generated 2026-06-13 &middot; capacity model: Worthington 2 turf (7v7) + 1 futsal (5v5), Downtown 1 turf &mdash; founder-confirmed &middot; sources in docs/research/2026-06-12-season-calendar-competitive-research.md</p>
+
+</body>
+</html>
