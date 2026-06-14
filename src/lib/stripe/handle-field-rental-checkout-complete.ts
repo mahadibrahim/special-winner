@@ -26,6 +26,9 @@ import { stripe } from "@/lib/stripe/client";
 import { logAlert } from "@/lib/logging/alerts";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
 import { dispatchRentalConfirmation } from "@/lib/rentals/messages/dispatch";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
+import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 
 export async function handleFieldRentalCheckoutComplete(
   session: Stripe.Checkout.Session,
@@ -189,6 +192,53 @@ export async function handleFieldRentalCheckoutComplete(
         console.error("[rentals] checkout confirmation dispatch failed", err);
       });
     });
+
+    // Revenue analytics (all rentals) + server-side ad conversions (online
+    // path is ad-attributable). Brand/user/venue come from the checkout
+    // metadata, so no extra query is needed here.
+    const md = session.metadata ?? {};
+    const brand = normalizeBrand(md.brand);
+    const renterUserId = md.user_id;
+    if (renterUserId) {
+      capturePaymentCompleted({
+        distinctId: renterUserId,
+        kind: "field_rental",
+        amountCents: paidCents,
+        brand,
+        organizationId: md.organization_id || undefined,
+        metadata: {
+          rental_id: result.rentalId,
+          venue_name: md.venue_name,
+          used_membership: Boolean(md.membership_id),
+        },
+      });
+    }
+
+    const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
+    if (hasAttribution) {
+      const itemName = md.venue_name
+        ? `Field rental — ${md.venue_name}`
+        : "Field rental";
+      fireServerPurchaseConversions({
+        metadata: md,
+        eventId: paymentIntentId ?? session.id,
+        valueCents: paidCents,
+        brand,
+        email: session.customer_details?.email ?? session.customer_email ?? null,
+        ga4Items: [
+          {
+            id: result.rentalId,
+            name: itemName,
+            category: "Field Rental",
+            priceCents: paidCents,
+          },
+        ],
+        ga4PaymentType: "full",
+        contentIds: [result.rentalId],
+        contentName: itemName,
+        contentCategory: "field_rental",
+      });
+    }
   }
   return result;
 }

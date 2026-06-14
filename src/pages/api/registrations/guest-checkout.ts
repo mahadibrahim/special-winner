@@ -28,7 +28,7 @@ import {
   recordDefaultMediaAuth,
   hasActiveConsent,
 } from "@/lib/consents/record";
-import { parseGaClientId, readQueryOrCookie } from "@/lib/analytics/parse-cookies";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -105,22 +105,15 @@ export const POST: APIRoute = async (context) => {
     // Stripe account, so the request host is the only brand signal.
     const brand = brandFromHost(request.headers.get("host") ?? "");
 
-    // Capture GA4 client_id + ad-platform IDs to pass through the
-    // PaymentIntent metadata so the webhook
-    // (handle-registration-payment-succeeded.ts) can fire a server-side
-    // GA4 Measurement Protocol purchase event.
-    const cookieHeader = request.headers.get("cookie");
-    const gaClientId = parseGaClientId(cookieHeader);
-    const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
-    const fbclid = readQueryOrCookie(url, cookieHeader, "fbclid");
-
+    // Capture GA4 client_id + ad-platform IDs (gclid, fbclid, _fbc, _fbp) to
+    // pass through the PaymentIntent metadata so the webhook
+    // (handle-registration-payment-succeeded.ts) can fire server-side GA4
+    // Measurement Protocol + Meta Conversions API purchase events.
     const analyticsMetadata: Record<string, string> = {
       via_guest_checkout: "true",
       brand,
+      ...collectAdAttribution(url, request.headers.get("cookie")),
     };
-    if (gaClientId) analyticsMetadata.ga_client_id = gaClientId;
-    if (gclid) analyticsMetadata.gclid = gclid;
-    if (fbclid) analyticsMetadata.fbclid = fbclid;
 
     // -------------------------------------------------------------------------
     // Shared helper: upsert user by email, assign parent role if new.

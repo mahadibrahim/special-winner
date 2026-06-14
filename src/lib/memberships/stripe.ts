@@ -79,6 +79,10 @@ export async function createSubscriptionCheckoutSession(opts: {
   /** Storefront brand ("aspire" | "soccerone") — host-derived by the caller,
    *  since both brands share one org and one Stripe account. */
   brand: string;
+  /** Tier display name — carried so the webhook can label GA4/Meta items. */
+  tierName?: string;
+  /** Ad-attribution ids (collectAdAttribution) → server-side conversions. */
+  adAttribution?: Record<string, string>;
 }): Promise<{ url: string; sessionId: string }> {
   const s = membershipsStripe();
 
@@ -112,6 +116,9 @@ export async function createSubscriptionCheckoutSession(opts: {
         tier_id: opts.tierId,
         billing_interval: opts.billingInterval,
         brand: opts.brand,
+        ...(opts.tierName ? { tier_name: opts.tierName } : {}),
+        // Ad-attribution ids → webhook fires server-side GA4 + Meta purchases.
+        ...(opts.adAttribution ?? {}),
       },
       success_url: opts.successUrl,
       cancel_url: opts.cancelUrl,

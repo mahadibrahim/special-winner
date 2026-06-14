@@ -82,6 +82,16 @@ const envSchema = z.object({
   // but don't crash the site.
   GA4_MEASUREMENT_ID: z.string().optional(),
   GA4_API_SECRET: z.string().optional(),
+
+  // Meta Conversions API — server-side Purchase event backup (twin of the
+  // GTM browser pixel). Optional everywhere; missing values disable the
+  // server-side fire but don't crash the site. The *_SOCCERONE overrides let
+  // the second brand report to its own pixel; both fall back to the base
+  // pixel when unset.
+  FB_PIXEL_ID: z.string().optional(),
+  FB_CAPI_TOKEN: z.string().optional(),
+  FB_PIXEL_ID_SOCCERONE: z.string().optional(),
+  FB_CAPI_TOKEN_SOCCERONE: z.string().optional(),
 });
 
 // Vars that must be set when running in production.
@@ -110,6 +120,8 @@ const SOFT_REQUIRED_IN_PROD = [
   "FOUNDER_ALERT_EMAIL",
   "GA4_MEASUREMENT_ID",
   "GA4_API_SECRET",
+  "FB_PIXEL_ID",
+  "FB_CAPI_TOKEN",
 ] as const;
 
 type ValidatedEnv = z.infer<typeof envSchema> & {

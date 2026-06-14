@@ -18,7 +18,7 @@ import {
 } from "@/lib/email/send";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
-import { sendPurchaseEvent } from "@/lib/analytics/ga4-measurement-protocol";
+import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
@@ -203,8 +203,15 @@ export async function handleRegistrationPaymentSucceeded(
     console.error("[stripe webhook] email payload build failed:", err);
   }
 
-  const gaClientId = paymentIntent.metadata?.ga_client_id;
-  if (gaClientId) {
+  // Server-side ad conversions (GA4 Measurement Protocol + Meta CAPI) — the
+  // ad-blocker / iOS-ATP-resistant twins of the browser pixel fire on
+  // /payment/return, deduped against it by the PaymentIntent id. Item context
+  // needs a JOIN, so this runs after the fulfillment transaction. Skip the
+  // work entirely when the charge carries no ad attribution.
+  const md = paymentIntent.metadata ?? {};
+  const hasAttribution =
+    md.ga_client_id || md.fbclid || md._fbc || md._fbp;
+  if (hasAttribution) {
     try {
       const [itemRow] = await db
         .select({
@@ -230,25 +237,30 @@ export async function handleRegistrationPaymentSucceeded(
           paymentTypeForTracking = "full";
         }
 
-        sendPurchaseEvent({
-          clientId: gaClientId,
-          transactionId: paymentIntent.id,
+        const itemName = `${itemRow.programName} - ${itemRow.seasonName}`;
+        fireServerPurchaseConversions({
+          metadata: paymentIntent.metadata,
+          eventId: paymentIntent.id,
           valueCents: amountPaid,
-          currency: "USD",
-          paymentType: paymentTypeForTracking,
-          coupon: paymentIntent.metadata?.discount_code,
-          items: [
+          brand: normalizeBrand(paymentIntent.metadata?.brand),
+          email: paymentIntent.receipt_email,
+          ga4Items: [
             {
               id: itemRow.seasonId,
-              name: `${itemRow.programName} - ${itemRow.seasonName}`,
+              name: itemName,
               category: itemRow.sportName,
               priceCents: itemRow.seasonPriceCents,
             },
           ],
-        }).catch((err) => console.error("[stripe webhook] GA4 MP send failed:", err));
+          ga4PaymentType: paymentTypeForTracking,
+          ga4Coupon: paymentIntent.metadata?.discount_code,
+          contentIds: [itemRow.seasonId],
+          contentName: itemName,
+          contentCategory: "registration",
+        });
       }
     } catch (err) {
-      console.error("[stripe webhook] GA4 item-context JOIN failed:", err);
+      console.error("[stripe webhook] purchase-conversion item JOIN failed:", err);
     }
   }
 

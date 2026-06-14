@@ -9,6 +9,9 @@ import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { memberships } from "@/lib/db/schema/memberships";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
+import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 
 /**
  * `checkout.session.completed` for `mode === 'subscription'` with our
@@ -46,7 +49,7 @@ export async function handleCheckoutSessionCompleted(
   }
 
   const db = getDb();
-  await db
+  const inserted = await db
     .insert(memberships)
     .values({
       userId,
@@ -57,7 +60,53 @@ export async function handleCheckoutSessionCompleted(
       stripeSubscriptionId: subscriptionId,
       stripeCustomerId: customerId ?? null,
     })
-    .onConflictDoNothing({ target: memberships.stripeSubscriptionId });
+    .onConflictDoNothing({ target: memberships.stripeSubscriptionId })
+    .returning({ id: memberships.id });
+
+  // Only fire revenue analytics + ad conversions on the genuine first insert,
+  // not on a webhook retry that hits the ON CONFLICT no-op (the upstream
+  // stripe_events ledger already dedupes, this is belt-and-braces).
+  if (inserted.length === 0) return;
+
+  const brand = normalizeBrand(session.metadata?.brand);
+  const amountCents = session.amount_total ?? 0;
+
+  capturePaymentCompleted({
+    distinctId: userId,
+    kind: "membership",
+    amountCents,
+    brand,
+    organizationId,
+    metadata: {
+      membership_id: inserted[0].id,
+      tier_id: tierId,
+      billing_interval: billingInterval,
+      subscription_id: subscriptionId,
+    },
+  });
+
+  // Online membership signup is an ad-attributable path. Subscription-mode
+  // sessions have no PaymentIntent, so the Checkout Session id is the dedup
+  // key shared with the browser pixel fire on the success page.
+  const md = session.metadata ?? {};
+  const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
+  if (hasAttribution) {
+    const tierName = md.tier_name || "Membership";
+    fireServerPurchaseConversions({
+      metadata: md,
+      eventId: session.id,
+      valueCents: amountCents,
+      brand,
+      email: session.customer_details?.email ?? session.customer_email ?? null,
+      ga4Items: [
+        { id: tierId, name: tierName, category: "Membership", priceCents: amountCents },
+      ],
+      ga4PaymentType: "full",
+      contentIds: [tierId],
+      contentName: tierName,
+      contentCategory: "membership",
+    });
+  }
 }
 
 /**

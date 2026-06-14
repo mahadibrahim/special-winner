@@ -29,6 +29,7 @@ import {
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import { applyMemberRentalDiscount } from "@/lib/memberships/discount";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 export const prerender = false;
 
@@ -253,6 +254,11 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           base_amount_cents: String(baseAmountDueCents),
           // Storefront brand — host-derived, since both brands share one org.
           brand: brandFromHost(request.headers.get("host") ?? ""),
+          // Carried for the webhook's revenue + ad-conversion fires.
+          user_id: locals.user.id,
+          venue_name: venue.name,
+          // Ad-attribution ids → server-side GA4 + Meta purchase conversions.
+          ...collectAdAttribution(url, request.headers.get("cookie")),
         },
         payment_intent_data: partnerStripeAccountId
           ? {
