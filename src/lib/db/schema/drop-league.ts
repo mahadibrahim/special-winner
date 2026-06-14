@@ -42,12 +42,19 @@ export const dropPlayers = pgTable("drop_players", {
   currentWeightG: integer("current_weight_g").notNull(),
   bmi: numeric("bmi", { precision: 4, scale: 1 }).notNull(),
   maintenanceStatus: boolean("maintenance_status").default(false).notNull(),
+  // Phase 3 scoring counters
+  dropTeamId: uuid("drop_team_id"),
+  weeksLost: integer("weeks_lost").notNull().default(0),
+  hatTricksAwarded: integer("hat_tricks_awarded").notNull().default(0),
+  fivePctAwarded: boolean("five_pct_awarded").notNull().default(false),
+  tenPctAwarded: boolean("ten_pct_awarded").notNull().default(false),
   consentAt: timestamp("consent_at").notNull(),
   status: dropPlayerStatusEnum("status").default("registered").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("drop_players_season_idx").on(t.dropSeasonId),
   uniqueIndex("drop_players_season_email_uniq").on(t.dropSeasonId, sql`lower(${t.email})`),
+  index("drop_players_team_idx").on(t.dropTeamId),
 ]);
 
 export type DropSeason = typeof dropSeasons.$inferSelect;
@@ -80,3 +87,74 @@ export const dropSubscriptions = pgTable("drop_subscriptions", {
 
 export type DropSubscription = typeof dropSubscriptions.$inferSelect;
 export type NewDropSubscription = typeof dropSubscriptions.$inferInsert;
+
+// ─── Phase 3: Scoring ────────────────────────────────────────────────────────
+
+export const dropMatchStatusEnum = pgEnum("drop_match_status", ["scheduled", "final"]);
+
+export const dropTeams = pgTable("drop_teams", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  dropSeasonId: uuid("drop_season_id").notNull().references(() => dropSeasons.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 120 }).notNull(),
+  color: varchar("color", { length: 32 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("drop_teams_season_idx").on(t.dropSeasonId),
+]);
+
+export const dropWeighIns = pgTable("drop_weigh_ins", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  dropPlayerId: uuid("drop_player_id").notNull().references(() => dropPlayers.id, { onDelete: "cascade" }),
+  dropSeasonId: uuid("drop_season_id").notNull().references(() => dropSeasons.id, { onDelete: "cascade" }),
+  weekNumber: integer("week_number").notNull(),
+  weighInDate: date("weigh_in_date"),
+  weightG: integer("weight_g").notNull(),
+  deltaVsPriorWeekG: integer("delta_vs_prior_week_g"),
+  deltaVsSeasonStartG: integer("delta_vs_season_start_g"),
+  recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("drop_weigh_ins_player_idx").on(t.dropPlayerId),
+  uniqueIndex("drop_weigh_ins_player_week_uniq").on(t.dropPlayerId, t.weekNumber),
+]);
+
+export const dropMatches = pgTable("drop_matches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  dropSeasonId: uuid("drop_season_id").notNull().references(() => dropSeasons.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  weekNumber: integer("week_number").notNull(),
+  homeTeamId: uuid("home_team_id").notNull().references(() => dropTeams.id, { onDelete: "cascade" }),
+  awayTeamId: uuid("away_team_id").notNull().references(() => dropTeams.id, { onDelete: "cascade" }),
+  homePitchScore: integer("home_pitch_score").notNull().default(0),
+  awayPitchScore: integer("away_pitch_score").notNull().default(0),
+  homeBonusGoals: numeric("home_bonus_goals", { precision: 4, scale: 1 }).notNull().default("0"),
+  awayBonusGoals: numeric("away_bonus_goals", { precision: 4, scale: 1 }).notNull().default("0"),
+  homeFinalScore: numeric("home_final_score", { precision: 4, scale: 1 }).notNull().default("0"),
+  awayFinalScore: numeric("away_final_score", { precision: 4, scale: 1 }).notNull().default("0"),
+  status: dropMatchStatusEnum("status").notNull().default("scheduled"),
+  playedAt: timestamp("played_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("drop_matches_season_week_idx").on(t.dropSeasonId, t.weekNumber),
+]);
+
+export const dropFoodDiary = pgTable("drop_food_diary", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  dropPlayerId: uuid("drop_player_id").notNull().references(() => dropPlayers.id, { onDelete: "cascade" }),
+  weekNumber: integer("week_number").notNull(),
+  submitted: boolean("submitted").notNull().default(false),
+  coachConfirmed: boolean("coach_confirmed").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("drop_food_diary_player_week_uniq").on(t.dropPlayerId, t.weekNumber),
+]);
+
+export type DropTeam = typeof dropTeams.$inferSelect;
+export type NewDropTeam = typeof dropTeams.$inferInsert;
+export type DropWeighIn = typeof dropWeighIns.$inferSelect;
+export type NewDropWeighIn = typeof dropWeighIns.$inferInsert;
+export type DropMatch = typeof dropMatches.$inferSelect;
+export type NewDropMatch = typeof dropMatches.$inferInsert;
+export type DropFoodDiary = typeof dropFoodDiary.$inferSelect;
+export type NewDropFoodDiary = typeof dropFoodDiary.$inferInsert;
