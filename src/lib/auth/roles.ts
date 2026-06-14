@@ -11,7 +11,8 @@ export type RoleName =
   | "parent"
   | "player"
   | "media_staff"
-  | "media_editor";
+  | "media_editor"
+  | "referee";
 export type ScopeType = "global" | "organization" | "location" | "program" | "team";
 
 export interface UserRole {

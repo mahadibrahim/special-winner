@@ -56,6 +56,7 @@ const ROUTE_RULES: RouteRule[] = [
   { kind: "role", pattern: /^\/coach(\/|$)/, roles: ["coach", "admin", "super_admin", "location_admin"] },
   // Authenticated-only areas.
   { kind: "authed", pattern: /^\/dashboard(\/|$)/ },
+  { kind: "authed", pattern: /^\/portal(\/|$)/ },
   { kind: "authed", pattern: /^\/account(\/|$)/ },
   { kind: "authed", pattern: /^\/messages(\/|$)/ },
   { kind: "authed", pattern: /^\/media(\/|$)/ },

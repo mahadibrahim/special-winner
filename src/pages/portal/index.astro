@@ -1,0 +1,53 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { resolvePortalsForUser, resolvePostLoginTarget } from "@/lib/portal/resolve";
+
+export const prerender = false;
+
+// Middleware guarantees a signed-in user on /portal.
+const user = Astro.locals.user!;
+const roleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
+const portals = resolvePortalsForUser(roleNames);
+
+// Collapse the trivial cases so multi-portal users are the only ones who see
+// the hub. resolvePostLoginTarget returns "/portal" only when there are 2+.
+if (portals.length < 2) {
+  return Astro.redirect(resolvePostLoginTarget(roleNames), 302);
+}
+---
+
+<BaseLayout title="Choose a portal — Aspire Sports" navigation={false} footer={false}>
+  <main class="min-h-screen bg-cream flex items-center justify-center p-6">
+    <div class="w-full max-w-2xl">
+      <div class="mb-8 text-center">
+        <img src="/images/logo.svg" alt="Aspire Sports" class="h-10 w-auto mx-auto mb-4" />
+        <h1 class="text-2xl font-semibold text-ink">
+          Welcome back{user.firstName ? `, ${user.firstName}` : ""}
+        </h1>
+        <p class="text-ink-muted mt-1">Choose where you want to go.</p>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {portals.map((portal) => {
+          const Icon = portal.icon;
+          return (
+            <a
+              href={portal.homeHref}
+              class="group flex items-center gap-4 rounded-2xl border border-border bg-white p-5 transition-colors hover:border-navy hover:bg-navy/5"
+            >
+              <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-navy text-cream">
+                <Icon className="h-6 w-6" />
+              </div>
+              <div class="min-w-0">
+                <p class="font-semibold text-ink">{portal.label}</p>
+                <p class="text-sm text-ink-muted truncate">{portal.homeHref}</p>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+      <div class="mt-8 text-center">
+        <a href="/" class="text-sm text-ink-muted hover:text-ink">View site</a>
+      </div>
+    </div>
+  </main>
+</BaseLayout>

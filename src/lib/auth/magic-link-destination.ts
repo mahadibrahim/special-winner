@@ -1,4 +1,5 @@
 import type { MagicLinkPurpose } from "@/lib/db/schema/magic-links";
+import { resolvePostLoginTarget } from "@/lib/portal/resolve";
 
 /**
  * Open-redirect guard. A redirect target is only safe to honor if it's a
@@ -22,8 +23,9 @@ export function isSafeRelativePath(value: unknown): value is string {
  * Maps a redeemed magic-link to its post-login destination path.
  *
  * Pure function — testable in isolation. The consumer at /m/[token]
- * fetches the user's roles and passes `isAdminRole` so the "plain login"
- * case can route admins to /admin instead of /dashboard.
+ * fetches the user's roles and passes `roleNames` so the "plain login"
+ * case can route to the appropriate portal (hub for multi-role users,
+ * portal home for single-role staff, dashboard for customers).
  *
  * Open-redirect protection: a context.redirectTo override is only honored
  * if it's a relative path beginning with "/" and not scheme-relative
@@ -33,7 +35,7 @@ export function destinationFor(
   purpose: MagicLinkPurpose,
   context: Record<string, unknown> | null,
   _origin: string,
-  opts: { isAdminRole: boolean },
+  opts: { roleNames: string[] },
 ): string {
   const ctx = context ?? {};
 
@@ -43,7 +45,7 @@ export function destinationFor(
       if (isSafeRelativePath(ctx.redirectTo)) {
         return ctx.redirectTo;
       }
-      return opts.isAdminRole ? "/admin" : "/dashboard";
+      return resolvePostLoginTarget(opts.roleNames);
     }
 
     case "pay_invoice": {

@@ -3,9 +3,9 @@ import type { RoleName, UserRole } from "./roles";
 /**
  * Pick a single "primary" role name from a user's role set.
  *
- * Many admin surfaces only display one role at a time — the sidebar
- * picker (`getSidebarForRole`), the role-aware home redirects, the
- * dashboard greeting. The previous pattern was `userRoles[0]?.name`,
+ * Many admin surfaces only display one role at a time — the portal
+ * resolver, the role-aware home redirects, the dashboard greeting.
+ * The previous pattern was `userRoles[0]?.name`,
  * which depends on the physical row ordering returned by
  * `getUserRoles` — that SELECT has no `ORDER BY`, so a user with
  * multiple admin-tier rows could see different surfaces on different
@@ -23,6 +23,7 @@ const PRECEDENCE: RoleName[] = [
   "media_editor",
   "media_staff",
   "coach",
+  "referee",
   "player",
   "parent",
 ];
