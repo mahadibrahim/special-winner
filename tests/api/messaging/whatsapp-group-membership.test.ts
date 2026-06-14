@@ -19,11 +19,15 @@ import type { ZernioClient } from "@/lib/zernio/messaging"
  * injection — no Zernio network calls. Only the methods the sync touches are
  * implemented; the rest throw if reached.
  */
-function fakeZernio(): { client: ZernioClient; added: string[] } {
+function fakeZernio(): { client: ZernioClient; added: string[]; removed: string[] } {
   const added: string[] = []
+  const removed: string[] = []
   const client = {
     async addGroupParticipants(input: { groupId: string; phoneNumbers: string[] }) {
       added.push(...input.phoneNumbers)
+    },
+    async removeGroupParticipants(input: { groupId: string; phoneNumbers: string[] }) {
+      removed.push(...input.phoneNumbers)
     },
     async sendInboxMessage() {
       throw new Error("sendInboxMessage not expected")
@@ -35,7 +39,7 @@ function fakeZernio(): { client: ZernioClient; added: string[] } {
       throw new Error("createGroupInviteLink not expected")
     },
   } as unknown as ZernioClient
-  return { client, added }
+  return { client, added, removed }
 }
 
 /** Seed one active-roster parent (with optional phone) on the given team/season. */
@@ -207,7 +211,42 @@ describe("syncWhatsAppGroupMembership", () => {
 
     const { client, added } = fakeZernio()
     const result = await syncWhatsAppGroupMembership(scheduled.id, client)
-    expect(result).toEqual({ added: [], skipped: [] })
+    expect(result).toEqual({ added: [], removed: [], skipped: [] })
     expect(added).toHaveLength(0)
+  })
+
+  it("removes a member who has left the active roster", async () => {
+    const ctx = await createAdminOrgGameContext({ audienceType: "parents" })
+    const userId = await seedRosterParent({
+      seasonId: ctx.seasonId,
+      teamId: ctx.homeTeamId,
+      phone: "(614) 555-0150",
+    })
+    const groupId = await seedActiveWhatsAppGroup(ctx)
+
+    // First sync joins them.
+    const first = await syncWhatsAppGroupMembership(groupId, fakeZernio().client)
+    expect(first.added).toContain(userId)
+
+    // They leave the roster (set inactive), then we re-sync.
+    const db = getDb()
+    await db
+      .update(rosters)
+      .set({ status: "inactive" })
+      .where(eq(rosters.teamId, ctx.homeTeamId))
+
+    const { client, added, removed } = fakeZernio()
+    const result = await syncWhatsAppGroupMembership(groupId, client)
+
+    expect(result.removed).toContain(userId)
+    expect(added).toHaveLength(0)
+    expect(removed).toContain("+16145550150")
+
+    const memberships = await db
+      .select()
+      .from(teamGroupMemberships)
+      .where(eq(teamGroupMemberships.teamGroupId, groupId))
+    const mine = memberships.find((m) => m.userId === userId)
+    expect(mine?.removedAt).not.toBeNull()
   })
 })
