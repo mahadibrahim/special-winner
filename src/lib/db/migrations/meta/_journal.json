@@ -351,6 +351,13 @@
       "when": 1781444461971,
       "tag": "0049_ancient_nicolaos",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1781446705436,
+      "tag": "0050_boring_absorbing_man",
+      "breakpoints": true
     }
   ]
 }

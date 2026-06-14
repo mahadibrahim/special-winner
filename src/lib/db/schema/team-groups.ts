@@ -19,6 +19,10 @@ export const teamGroups = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     telegramChatId: varchar("telegram_chat_id", { length: 100 }),
+    // WhatsApp (Cloud API, via Zernio) group-chat id — the channel-agnostic
+    // peer of telegram_chat_id. One provider id is set per group; which one is
+    // set implies the provider. Null until the group is provisioned.
+    whatsappChatId: varchar("whatsapp_chat_id", { length: 100 }),
     audienceType: varchar("audience_type", { length: 20 }).notNull().default("parents"),
     name: varchar("name", { length: 128 }).notNull(),
     inviteLink: text("invite_link"),
@@ -32,6 +36,7 @@ export const teamGroups = pgTable(
     orgIdx: index("team_groups_org_id_idx").on(t.organizationId),
     statusIdx: index("team_groups_status_idx").on(t.status),
     telegramChatIdUnique: uniqueIndex("team_groups_telegram_chat_id_unique").on(t.telegramChatId),
+    whatsappChatIdUnique: uniqueIndex("team_groups_whatsapp_chat_id_unique").on(t.whatsappChatId),
   }),
 )
 
