@@ -19,20 +19,7 @@ const navHrefs = new Set(
  */
 const CONTEXTUAL_ROUTES = new Set<string>([
   // Reached via contextual links (confirmed in the codebase) — keep contextual.
-  "/admin/registrations", // from season-detail + registration-detail
-  "/admin/teams",         // from season-detail + roster-manager
   "/admin/sports",        // from programs-list (also a /admin/programs tab)
-  // TODO(sub-project 1): orphans to be placed in the super-admin nav redesign.
-  "/admin/games",
-  "/admin/age-groups",
-  "/admin/game-day/today",
-  "/admin/broadcasts",
-  "/admin/re-registration-campaign",
-  "/admin/reports",            // reports hub; nav links straight to sub-reports today
-  // TODO(sub-project 1): media management lives under /admin (distinct from /media worker queue).
-  "/admin/media/shoots",
-  "/admin/media/staff",
-  "/admin/media/tag-queue",
   // Reached from a parent index/detail — contextual sub-pages.
   "/admin/dropin/rate-card",
   "/admin/dropin/sessions",
