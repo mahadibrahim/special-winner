@@ -29,71 +29,54 @@ describe("isSafeRelativePath", () => {
 });
 
 describe("destinationFor — login purpose", () => {
-  it("sends admin users to /admin on plain login", () => {
-    expect(destinationFor("login", null, ORIGIN, { isAdminRole: true })).toBe("/admin");
-  });
-
-  it("sends non-admin users to /dashboard on plain login", () => {
-    expect(destinationFor("login", null, ORIGIN, { isAdminRole: false })).toBe("/dashboard");
-  });
-
-  it("honors a safe relative redirectTo override (non-admin)", () => {
+  it("login: honors a safe relative redirectTo override", () => {
     expect(
-      destinationFor("login", { redirectTo: "/dashboard/payments" }, ORIGIN, {
-        isAdminRole: false,
+      destinationFor("login", { redirectTo: "/dashboard/payments" }, "https://x", {
+        roleNames: ["super_admin"],
       }),
     ).toBe("/dashboard/payments");
   });
 
-  it("honors a safe relative redirectTo override (admin)", () => {
-    expect(
-      destinationFor("login", { redirectTo: "/admin/seasons" }, ORIGIN, {
-        isAdminRole: true,
-      }),
-    ).toBe("/admin/seasons");
+  it("login: routes a single-portal admin to their portal home", () => {
+    expect(destinationFor("login", null, "https://x", { roleNames: ["super_admin"] })).toBe("/admin");
+    expect(destinationFor("login", null, "https://x", { roleNames: ["location_admin"] })).toBe("/admin/venue");
   });
 
-  it("rejects scheme-relative redirectTo (open-redirect protection)", () => {
+  it("login: routes a multi-portal user to the hub", () => {
     expect(
-      destinationFor("login", { redirectTo: "//evil.example.com" }, ORIGIN, {
-        isAdminRole: false,
-      }),
-    ).toBe("/dashboard");
+      destinationFor("login", null, "https://x", { roleNames: ["super_admin", "coach"] }),
+    ).toBe("/portal");
   });
 
-  it("rejects absolute-URL redirectTo (open-redirect protection)", () => {
-    expect(
-      destinationFor("login", { redirectTo: "https://evil.example.com" }, ORIGIN, {
-        isAdminRole: false,
-      }),
-    ).toBe("/dashboard");
+  it("login: routes a customer to the dashboard", () => {
+    expect(destinationFor("login", null, "https://x", { roleNames: ["parent"] })).toBe("/dashboard");
   });
 
-  it("password_reset_login follows the same rules as login", () => {
+  it("password_reset_login: same portal routing as login", () => {
     expect(
-      destinationFor("password_reset_login", null, ORIGIN, { isAdminRole: true }),
-    ).toBe("/admin");
+      destinationFor("password_reset_login", null, "https://x", { roleNames: ["coach"] }),
+    ).toBe("/coach");
   });
 });
 
 describe("destinationFor — purpose-specific routes (role-agnostic)", () => {
   it("pay_invoice with invoiceId returns the pay page", () => {
     expect(
-      destinationFor("pay_invoice", { invoiceId: "abc" }, ORIGIN, { isAdminRole: false }),
+      destinationFor("pay_invoice", { invoiceId: "abc" }, ORIGIN, { roleNames: ["parent"] }),
     ).toBe("/dashboard/payments/abc/pay");
   });
 
   it("register_for_season returns the register URL", () => {
     expect(
       destinationFor("register_for_season", { seasonId: "s1" }, ORIGIN, {
-        isAdminRole: false,
+        roleNames: ["parent"],
       }),
     ).toBe("/register/s1?returning=1");
   });
 
   it("unknown purpose falls back to /dashboard", () => {
     expect(
-      destinationFor("totally_made_up" as never, null, ORIGIN, { isAdminRole: true }),
+      destinationFor("totally_made_up" as never, null, ORIGIN, { roleNames: ["super_admin"] }),
     ).toBe("/dashboard");
   });
 });

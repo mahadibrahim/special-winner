@@ -52,17 +52,16 @@ export const GET: APIRoute = async ({ params, cookies, redirect, url }) => {
     console.error("[m/token] sign-in telemetry failed", err);
   }
 
-  // For plain-login purposes, send admin roles to /admin instead of /dashboard.
+  // For plain-login purposes, route by the user's portals (hub for multi-role,
+  // straight in for single-role, dashboard for customers).
   const userRoles = await getUserRoles(result.userId);
-  const isAdminRole = userRoles.some(
-    (r) => r.name === "super_admin" || r.name === "location_admin",
-  );
+  const roleNames = userRoles.map((r) => r.name);
 
   const destination = destinationFor(
     result.purpose,
     result.purposeContext,
     url.origin,
-    { isAdminRole },
+    { roleNames },
   );
   return redirect(destination);
 };
