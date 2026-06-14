@@ -1,0 +1,20 @@
+---
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { DropDashboard } from "@/components/drop-league/drop-dashboard";
+
+// Middleware does not gate /drop-league/dashboard — add a defensive guard.
+if (!Astro.locals.user) {
+  const redirectParam = encodeURIComponent("/drop-league/dashboard");
+  return Astro.redirect(`/signin?redirect=${redirectParam}`);
+}
+---
+
+<BaseLayout
+  title="My Drop League | Aspire Sports"
+  description="Track your Drop League progress — weekly weigh-ins, milestones, and team standing."
+>
+  <main id="main-content" class="flex-1">
+    <DropDashboard client:load />
+  </main>
+</BaseLayout>
