@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { createZernioClient } from "@/lib/zernio/messaging";
+import {
+  createZernioClient,
+  createZernioClientFromEnv,
+  isZernioConfigured,
+} from "@/lib/zernio/messaging";
 
 interface Captured {
   url?: string;
@@ -142,5 +146,38 @@ describe("Zernio messaging client", () => {
     );
     expect(captured.init?.method).toBe("POST");
     expect(link).toBe("https://chat.whatsapp.com/new");
+  });
+});
+
+describe("Zernio client config from env", () => {
+  it("isZernioConfigured is true only when both API key and account id are present", () => {
+    expect(isZernioConfigured({ ZERNIO_API_KEY: "k", ZERNIO_ACCOUNT_ID: "a" })).toBe(true);
+    expect(isZernioConfigured({ ZERNIO_API_KEY: "k" })).toBe(false);
+    expect(isZernioConfigured({ ZERNIO_ACCOUNT_ID: "a" })).toBe(false);
+    expect(isZernioConfigured({})).toBe(false);
+  });
+
+  it("createZernioClientFromEnv throws a clear error when ZERNIO_API_KEY is missing", () => {
+    expect(() => createZernioClientFromEnv({ ZERNIO_ACCOUNT_ID: "a" })).toThrow(/ZERNIO_API_KEY/);
+  });
+
+  it("createZernioClientFromEnv throws a clear error when ZERNIO_ACCOUNT_ID is missing", () => {
+    expect(() => createZernioClientFromEnv({ ZERNIO_API_KEY: "k" })).toThrow(/ZERNIO_ACCOUNT_ID/);
+  });
+
+  it("createZernioClientFromEnv builds a client that sends with the env-supplied credentials", async () => {
+    const captured: Captured = {};
+    const client = createZernioClientFromEnv(
+      { ZERNIO_API_KEY: "env-key", ZERNIO_ACCOUNT_ID: "env-acct" },
+      fakeFetch(captured) as unknown as typeof fetch,
+    );
+
+    await client.sendInboxMessage({ conversationId: "c1", message: "hi" });
+
+    expect(captured.init?.headers?.["Authorization"]).toBe("Bearer env-key");
+    expect(JSON.parse(captured.init?.body ?? "{}")).toEqual({
+      accountId: "env-acct",
+      message: "hi",
+    });
   });
 });

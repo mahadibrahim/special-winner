@@ -133,3 +133,43 @@ export function createZernioClient(config: ZernioClientConfig) {
     },
   };
 }
+
+export type ZernioClient = ReturnType<typeof createZernioClient>;
+
+interface ZernioEnv {
+  ZERNIO_API_KEY?: string;
+  ZERNIO_ACCOUNT_ID?: string;
+}
+
+/** True when both Zernio credentials are present (channel can be enabled). */
+export function isZernioConfigured(
+  env: ZernioEnv = import.meta.env as unknown as ZernioEnv,
+): boolean {
+  return Boolean(env.ZERNIO_API_KEY && env.ZERNIO_ACCOUNT_ID);
+}
+
+/**
+ * Build a client from environment credentials (the production entry point).
+ * Mirrors the Telegram transport's `import.meta.env`-based config. Throws a
+ * clear error if unconfigured so callers fail loudly rather than send nowhere.
+ */
+export function createZernioClientFromEnv(
+  env: ZernioEnv = import.meta.env as unknown as ZernioEnv,
+  fetchImpl?: typeof fetch,
+): ZernioClient {
+  if (!env.ZERNIO_API_KEY) {
+    throw new Error(
+      "Zernio not configured. Set ZERNIO_API_KEY to enable the WhatsApp channel.",
+    );
+  }
+  if (!env.ZERNIO_ACCOUNT_ID) {
+    throw new Error(
+      "Zernio not configured. Set ZERNIO_ACCOUNT_ID to enable the WhatsApp channel.",
+    );
+  }
+  return createZernioClient({
+    apiKey: env.ZERNIO_API_KEY,
+    accountId: env.ZERNIO_ACCOUNT_ID,
+    fetchImpl,
+  });
+}
