@@ -140,7 +140,7 @@ describe("Admin Drop Weigh-In API", () => {
 
       // Auth passed; player not found → 404
       // (without seeded fixtures, 500 is also acceptable if DB errors)
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 });

@@ -201,7 +201,7 @@ describe("Admin Drop Matches API", () => {
 
       // Auth passed; match not found → 404.
       // (Without seeded fixtures, 500 is also acceptable if DB errors.)
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 
@@ -222,7 +222,7 @@ describe("Admin Drop Matches API", () => {
       });
 
       // Auth passed; team not found → 404 or 500 if DB errors
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 });

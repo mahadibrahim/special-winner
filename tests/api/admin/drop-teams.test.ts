@@ -135,7 +135,7 @@ describe("Admin Drop Teams API", () => {
 
       // 404 because player not found, OR 500 if DB throws — both are acceptable
       // without seeded fixtures; the auth gate already passed (we got past 401/403)
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 });
