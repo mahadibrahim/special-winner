@@ -1,0 +1,380 @@
+---
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { DropScoringExplainer } from "@/components/drop-league/drop-scoring-explainer";
+import { DropStandingsTable } from "@/components/drop-league/drop-standings-table";
+import { getDb } from "@/lib/db";
+import { dropSeasons } from "@/lib/db/schema/drop-league";
+import { and, eq, inArray, asc } from "drizzle-orm";
+
+const organization = Astro.locals.organization;
+
+type OpenSeason = {
+  id: string;
+  name: string;
+  division: "mens" | "womens";
+  startDate: string;
+  endDate: string;
+};
+
+let mensSeason: OpenSeason | null = null;
+let womensSeason: OpenSeason | null = null;
+
+if (organization) {
+  const db = getDb();
+  const seasons = await db
+    .select({
+      id: dropSeasons.id,
+      name: dropSeasons.name,
+      division: dropSeasons.division,
+      startDate: dropSeasons.startDate,
+      endDate: dropSeasons.endDate,
+    })
+    .from(dropSeasons)
+    .where(
+      and(
+        eq(dropSeasons.organizationId, organization.id),
+        inArray(dropSeasons.status, ["open", "active"])
+      )
+    )
+    .orderBy(asc(dropSeasons.startDate));
+
+  for (const s of seasons) {
+    if (!mensSeason && s.division === "mens") mensSeason = s;
+    if (!womensSeason && s.division === "womens") womensSeason = s;
+  }
+}
+
+function fmtDateRange(start: string, end: string) {
+  const s = new Date(start).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+  const e = new Date(end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+  return `${s} – ${e}`;
+}
+
+const faqItems = [
+  {
+    q: "Who can join Drop League?",
+    a: "Any adult with a BMI of 27.5 or higher. BMI is checked at registration using the height and weight you provide. Men's sessions run Mondays; Women's sessions run Wednesdays. No soccer experience required.",
+  },
+  {
+    q: "What if I miss a week?",
+    a: "No weigh-in means no play that week. There are no retroactive entries. Sessions are weekly and fixed all season — the schedule is set from day one.",
+  },
+  {
+    q: "Do I need to know how to play soccer?",
+    a: "Not at all. Drop League is built for people who want to get active in a structured, team environment. New players find their footing quickly, and teams are balanced so no prior experience is expected.",
+  },
+  {
+    q: "What does the monthly membership cover?",
+    a: "Your weekly session, a certified referee, the private weekly weigh-in, Drop Goals scoring, and access to the league table and your own stats. Everything included in one monthly membership.",
+  },
+  {
+    q: "Can I join mid-season?",
+    a: "No — seasons start together so every team enters with the same baseline weight and the same number of weeks on the clock. Registration opens before each new season.",
+  },
+  {
+    q: "How does the weigh-in work?",
+    a: "Before each match, players weigh in privately with the coach — one player at a time, behind a screen. Your weight is never announced, posted, or shared. Only the bonus goals your team earns appear on the table.",
+  },
+];
+---
+
+<BaseLayout
+  title="Drop League — Aspire Sports"
+  description="A competitive soccer league where the scales are part of the game. Men's on Mondays, Women's on Wednesdays. Score goals, make friends, drop pounds."
+>
+  <main id="main-content" class="flex-1">
+
+    <!-- ── 1. Hero ─────────────────────────────────────────────────── -->
+    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-20">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+          <a href="/adult/leagues" class="hover:underline">Adult Leagues</a> · Special Programs
+        </p>
+        <h1
+          class="font-display max-w-2xl"
+          style="font-size: clamp(2rem, 5vw, 3.75rem); line-height: 1.05; letter-spacing: -0.03em;"
+        >
+          Drop League.
+        </h1>
+        <p class="mt-4 text-xl text-cream/90 font-medium max-w-xl">
+          Score goals. Make friends. Drop pounds.
+        </p>
+        <p class="mt-3 text-base text-cream/70 max-w-xl">
+          The only soccer league where the scales are part of the game.
+          A properly structured league — refs, standings, trophies, seasons —
+          built for players who want to compete and get results.
+        </p>
+        <div class="mt-10 flex flex-wrap gap-4">
+          <a
+            href="/drop-league/register"
+            class="inline-flex items-center gap-2 rounded-full bg-primary-orange px-6 py-3 text-sm font-semibold text-cream shadow-sm hover:opacity-90 transition-opacity"
+          >
+            Find your division
+          </a>
+          <a
+            href="#divisions"
+            class="inline-flex items-center gap-2 rounded-full border border-cream/30 px-6 py-3 text-sm font-semibold text-cream/80 hover:text-cream hover:border-cream/60 transition-colors"
+          >
+            See dates
+          </a>
+        </div>
+        <div class="mt-10 flex flex-wrap gap-6 text-sm text-cream/60">
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary-orange"></span>
+            Men&apos;s · Mondays
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary-orange"></span>
+            Women&apos;s · Wednesdays
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary-orange"></span>
+            No experience required
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 2. The concept ─────────────────────────────────────────── -->
+    <section class="py-20 border-b border-border">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
+
+          <!-- How it works -->
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+              How it works
+            </p>
+            <h2 class="font-display text-3xl text-ink leading-tight mb-6" style="letter-spacing: -0.02em;">
+              Real league. Real scores. Real results.
+            </h2>
+            <ol class="space-y-5">
+              <li class="flex gap-4">
+                <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary-orange text-cream text-sm font-bold">1</span>
+                <div>
+                  <p class="font-semibold text-ink text-sm">Weigh in before the match</p>
+                  <p class="text-sm text-ink-muted mt-0.5">Private, one-on-one with the coach. Takes 60 seconds. Your data stays with you and your team.</p>
+                </div>
+              </li>
+              <li class="flex gap-4">
+                <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary-orange text-cream text-sm font-bold">2</span>
+                <div>
+                  <p class="font-semibold text-ink text-sm">Play a proper match</p>
+                  <p class="text-sm text-ink-muted mt-0.5">6-a-side, two halves, one referee, genuine competition. Not a fitness class with a ball.</p>
+                </div>
+              </li>
+              <li class="flex gap-4">
+                <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary-orange text-cream text-sm font-bold">3</span>
+                <div>
+                  <p class="font-semibold text-ink text-sm">Earn Drop Goals from your week&apos;s progress</p>
+                  <p class="text-sm text-ink-muted mt-0.5">Weight lost becomes bonus goals added to your team&apos;s match score. Hit a milestone — earn more. The app calculates it automatically.</p>
+                </div>
+              </li>
+              <li class="flex gap-4">
+                <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary-orange text-cream text-sm font-bold">4</span>
+                <div>
+                  <p class="font-semibold text-ink text-sm">Climb the table</p>
+                  <p class="text-sm text-ink-muted mt-0.5">Final score = pitch goals + Drop Goals. A team can lose 0–3 on the pitch and still win. The table reflects everything.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <!-- Who it's for -->
+          <div>
+            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
+              Who it&apos;s for
+            </p>
+            <h2 class="font-display text-3xl text-ink leading-tight mb-6" style="letter-spacing: -0.02em;">
+              If you want to compete and get results, this is your league.
+            </h2>
+            <div class="space-y-4">
+              <div class="rounded-lg border border-border bg-cream-2 px-5 py-4">
+                <p class="font-semibold text-ink text-sm mb-1">Adults BMI 27.5+</p>
+                <p class="text-sm text-ink-muted">The BMI floor keeps the environment comfortable and the mechanic meaningful. It's checked at registration and that's the last you hear about it.</p>
+              </div>
+              <div class="rounded-lg border border-border bg-cream-2 px-5 py-4">
+                <p class="font-semibold text-ink text-sm mb-1">Two separate divisions</p>
+                <p class="text-sm text-ink-muted">Men&apos;s on Mondays. Women&apos;s on Wednesdays. Separate tables, separate teams, same rules.</p>
+              </div>
+              <div class="rounded-lg border border-border bg-cream-2 px-5 py-4">
+                <p class="font-semibold text-ink text-sm mb-1">All skill levels</p>
+                <p class="text-sm text-ink-muted">Teams are operator-assigned and balanced. Plenty of players are picking up a ball for the first time. No prior soccer experience required — or expected.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. The scoring ─────────────────────────────────────────── -->
+    <section class="py-20 bg-paper border-b border-border">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            The Scoring System
+          </p>
+          <h2 class="font-display text-3xl text-ink" style="letter-spacing: -0.02em;">
+            Drop Goals can flip any match.
+          </h2>
+          <p class="mt-3 text-base text-ink-muted max-w-lg mx-auto">
+            A team trailing on the pitch can win on the table. Here&apos;s how the numbers work.
+          </p>
+        </div>
+        <DropScoringExplainer />
+      </div>
+    </section>
+
+    <!-- ── 4. Divisions ───────────────────────────────────────────── -->
+    <section id="divisions" class="py-20 border-b border-border">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            Divisions
+          </p>
+          <h2 class="font-display text-3xl text-ink" style="letter-spacing: -0.02em;">
+            Pick your night.
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          <!-- Men's Division -->
+          <div class="rounded-xl border border-border bg-paper p-8 shadow-sm">
+            <div class="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-1">
+                  Men&apos;s Division
+                </p>
+                <h3 class="text-2xl font-display leading-tight">
+                  {mensSeason ? mensSeason.name : "Men's Drop League"}
+                </h3>
+                {mensSeason && (
+                  <p class="mt-1 text-sm text-ink-muted">
+                    {fmtDateRange(mensSeason.startDate, mensSeason.endDate)} · Mondays
+                  </p>
+                )}
+                {!mensSeason && (
+                  <p class="mt-1 text-sm text-ink-muted">Mondays</p>
+                )}
+              </div>
+              <span class={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${mensSeason ? "bg-green-100 text-green-800" : "bg-cream-3 text-ink-muted"}`}>
+                {mensSeason ? "Open" : "Coming soon"}
+              </span>
+            </div>
+
+            {mensSeason ? (
+              <a
+                href="/drop-league/register"
+                class="inline-flex items-center justify-center w-full rounded-full bg-primary-orange px-6 py-3 text-sm font-semibold text-cream shadow-sm hover:opacity-90 transition-opacity"
+              >
+                Register — Men&apos;s Division
+              </a>
+            ) : (
+              <p class="text-sm text-ink-muted rounded-lg border border-border bg-cream-2 px-4 py-6 text-center">
+                Registration opens soon — check back or follow us on social for the announcement.
+              </p>
+            )}
+          </div>
+
+          <!-- Women's Division -->
+          <div class="rounded-xl border border-border bg-paper p-8 shadow-sm">
+            <div class="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-1">
+                  Women&apos;s Division
+                </p>
+                <h3 class="text-2xl font-display leading-tight">
+                  {womensSeason ? womensSeason.name : "Women's Drop League"}
+                </h3>
+                {womensSeason && (
+                  <p class="mt-1 text-sm text-ink-muted">
+                    {fmtDateRange(womensSeason.startDate, womensSeason.endDate)} · Wednesdays
+                  </p>
+                )}
+                {!womensSeason && (
+                  <p class="mt-1 text-sm text-ink-muted">Wednesdays</p>
+                )}
+              </div>
+              <span class={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${womensSeason ? "bg-green-100 text-green-800" : "bg-cream-3 text-ink-muted"}`}>
+                {womensSeason ? "Open" : "Coming soon"}
+              </span>
+            </div>
+
+            {womensSeason ? (
+              <a
+                href="/drop-league/register"
+                class="inline-flex items-center justify-center w-full rounded-full bg-primary-orange px-6 py-3 text-sm font-semibold text-cream shadow-sm hover:opacity-90 transition-opacity"
+              >
+                Register — Women&apos;s Division
+              </a>
+            ) : (
+              <p class="text-sm text-ink-muted rounded-lg border border-border bg-cream-2 px-4 py-6 text-center">
+                Registration opens soon — check back or follow us on social for the announcement.
+              </p>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 5. Standings ───────────────────────────────────────────── -->
+    <section class="py-20 bg-cream-2 border-b border-border">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="mb-10">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            League Table
+          </p>
+          <h2 class="font-display text-3xl text-ink" style="letter-spacing: -0.02em;">
+            Current standings.
+          </h2>
+          <p class="mt-2 text-sm text-ink-muted max-w-lg">
+            Final score = pitch goals + Drop Goals. The table updates after every match night.
+          </p>
+        </div>
+        <DropStandingsTable client:load />
+      </div>
+    </section>
+
+    <!-- ── 6. FAQ ─────────────────────────────────────────────────── -->
+    <section class="py-20 border-b border-border">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="max-w-2xl">
+          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-3">
+            FAQ
+          </p>
+          <h2 class="font-display text-3xl text-ink mb-10" style="letter-spacing: -0.02em;">
+            Common questions.
+          </h2>
+
+          <dl class="space-y-8">
+            {faqItems.map((item) => (
+              <div class="border-b border-border pb-8 last:border-b-0 last:pb-0">
+                <dt class="font-semibold text-ink text-base mb-2">{item.q}</dt>
+                <dd class="text-sm text-ink-muted leading-relaxed">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 7. Footer disclaimer ───────────────────────────────────── -->
+    <section class="bg-cream-2 border-t border-border py-10">
+      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-sm text-ink-muted text-center max-w-xl mx-auto">
+          Drop League is operated by Aspire Sports. Not affiliated with Man V Fat Ltd.
+          Questions? Email{" "}
+          <a href="mailto:hello@aspiresportsohio.com" class="text-primary-orange underline hover:opacity-80">
+            hello@aspiresportsohio.com
+          </a>
+          {" "}or browse our{" "}
+          <a href="/adult/leagues" class="underline hover:opacity-80">other adult leagues</a>.
+        </p>
+      </div>
+    </section>
+
+  </main>
+</BaseLayout>
