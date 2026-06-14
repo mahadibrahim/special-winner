@@ -115,14 +115,17 @@ export async function buildPlayerWeeks(
     const priorWI = wiHistory.find((w) => w.weekNumber === weekNumber - 1);
     const priorWeekWeightG = priorWI?.weightG ?? null;
 
-    // priorWeeksLost: count of weigh-ins BEFORE the target week where delta < 0
-    // (i.e., the player's weight dropped vs the prior week for that week)
-    const priorWeeksLost = wiHistory.filter(
-      (w) =>
-        w.weekNumber < weekNumber &&
-        w.deltaVsPriorWeekG !== null &&
-        w.deltaVsPriorWeekG < 0
-    ).length;
+    // priorWeeksLost: count weeks BEFORE the target where the player lost vs the
+    // immediately prior week — computed LIVE from the weigh-in weights, NOT the
+    // stored deltaVsPriorWeekG (which goes stale if an earlier week's weight is
+    // later corrected). This keeps scoring derivation purely from source weights.
+    const weightByWeek = new Map(wiHistory.map((w) => [w.weekNumber, w.weightG]));
+    let priorWeeksLost = 0;
+    for (const w of wiHistory) {
+      if (w.weekNumber >= weekNumber) continue;
+      const prev = weightByWeek.get(w.weekNumber - 1);
+      if (prev !== undefined && w.weightG < prev) priorWeeksLost++;
+    }
 
     // hatTricksAwarded: derived — one hat-trick per 3 consecutive lost weeks, max 4
     const hatTricksAwarded = Math.min(Math.floor(priorWeeksLost / 3), 4);

@@ -251,7 +251,7 @@ export const POST: APIRoute = async (context) => {
       if (!breakdown) continue;
 
       const newWeeksLost = pw.priorWeeksLost + (breakdown.lostVsPrior ? 1 : 0);
-      const newHatTricks = pw.hatTricksAwarded + (breakdown.hatTrickAwarded ? 1 : 0);
+      const newHatTricks = Math.min(pw.hatTricksAwarded + (breakdown.hatTrickAwarded ? 1 : 0), 4);
       const newFivePct = pw.fivePctAwarded || breakdown.fivePctNewlyAwarded;
       const newTenPct = pw.tenPctAwarded || breakdown.tenPctNewlyAwarded;
 
