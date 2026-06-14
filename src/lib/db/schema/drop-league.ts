@@ -55,6 +55,8 @@ export const dropPlayers = pgTable("drop_players", {
   index("drop_players_season_idx").on(t.dropSeasonId),
   uniqueIndex("drop_players_season_email_uniq").on(t.dropSeasonId, sql`lower(${t.email})`),
   index("drop_players_team_idx").on(t.dropTeamId),
+  // /api/drop/me + food-diary look up the player by userId on every request.
+  index("drop_players_user_idx").on(t.userId),
 ]);
 
 export type DropSeason = typeof dropSeasons.$inferSelect;

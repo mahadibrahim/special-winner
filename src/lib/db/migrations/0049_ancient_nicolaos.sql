@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "drop_players_user_idx" ON "drop_players" USING btree ("user_id");

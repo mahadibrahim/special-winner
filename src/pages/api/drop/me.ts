@@ -9,7 +9,7 @@
  * structurally impossible to leak another user's data.
  */
 import type { APIRoute } from "astro";
-import { desc, eq, asc } from "drizzle-orm";
+import { and, desc, eq, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   dropPlayers,
@@ -36,9 +36,21 @@ export const GET: APIRoute = async ({ locals }) => {
 
   const db = getDb();
 
-  // Find the user's most recent player row. userId is indexed.
+  // Find the user's most recent player row (userId is indexed). Explicit
+  // projection — never pull email/phone/dob/bmi/height into memory here.
   const [player] = await db
-    .select()
+    .select({
+      id: dropPlayers.id,
+      organizationId: dropPlayers.organizationId,
+      dropSeasonId: dropPlayers.dropSeasonId,
+      dropTeamId: dropPlayers.dropTeamId,
+      division: dropPlayers.division,
+      seasonStartWeightG: dropPlayers.seasonStartWeightG,
+      currentWeightG: dropPlayers.currentWeightG,
+      fivePctAwarded: dropPlayers.fivePctAwarded,
+      tenPctAwarded: dropPlayers.tenPctAwarded,
+      hatTricksAwarded: dropPlayers.hatTricksAwarded,
+    })
     .from(dropPlayers)
     .where(eq(dropPlayers.userId, locals.user.id))
     .orderBy(desc(dropPlayers.createdAt))
@@ -87,7 +99,13 @@ export const GET: APIRoute = async ({ locals }) => {
             awayBonusGoals: dropMatches.awayBonusGoals,
           })
           .from(dropMatches)
-          .where(eq(dropMatches.dropSeasonId, player.dropSeasonId))
+          .where(
+            and(
+              eq(dropMatches.dropSeasonId, player.dropSeasonId),
+              eq(dropMatches.organizationId, player.organizationId),
+              eq(dropMatches.status, "final"),
+            ),
+          )
       : Promise.resolve([]),
   ]);
 
