@@ -5,6 +5,10 @@ import {
   markPublished,
   markSyncError,
 } from "@/lib/zernio/notionWriteback";
+import {
+  parseInboundWhatsAppMessage,
+  handleInboundWhatsApp,
+} from "@/lib/messaging/inbound-whatsapp";
 
 /**
  * POST /api/webhooks/zernio
@@ -99,6 +103,18 @@ export const POST: APIRoute = async ({ request }) => {
     payload = JSON.parse(rawBody) as ZernioWebhookPayload;
   } catch {
     return json({ error: "Invalid JSON" }, 400);
+  }
+
+  // Inbound WhatsApp 1:1 message? Zernio delivers inbound messages to this same
+  // registered webhook as the social-publish confirmations. parseInbound… is
+  // conservative — it returns null for any event carrying `post` (every social
+  // event does), so the publish-confirmation path below is never disturbed.
+  const inbound = parseInboundWhatsAppMessage(payload);
+  if (inbound) {
+    // Record synchronously, then route through the pipeline fire-and-forget
+    // (handleInboundWhatsApp does this internally) to hold the ~5s ack budget.
+    const result = await handleInboundWhatsApp(inbound);
+    return json({ received: true, kind: "inbound_whatsapp", ...result });
   }
 
   const event = payload.event;

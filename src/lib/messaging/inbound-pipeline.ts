@@ -48,7 +48,7 @@ export interface InboundPipelineInput {
   parentUserId: string;
   messageId: string;
   messageBody: string;
-  channel: "sms" | "email" | "telegram" | "web";
+  channel: "sms" | "email" | "telegram" | "whatsapp" | "web";
 }
 
 export async function routeInboundMessage(
