@@ -214,21 +214,27 @@ export async function computeExpectedWhatsAppMembership(
 /**
  * Populate a provisioned WhatsApp team group with its roster.
  *
- * Additive (the create→populate path): adds expected members not already in the
- * group via Zernio's addGroupParticipants (which chunks at the 8-per-request
- * cap internally), then records joined memberships. Unlike the Telegram sync
- * there is no invite-accept step — Zernio pushes participants straight in, so
- * joinedAt is stamped immediately. Skips users who opted out, are already
- * members, or have an un-normalizable phone.
+ * Adds expected members not already in the group via Zernio's
+ * addGroupParticipants (which chunks at the 8-per-request cap internally) and
+ * records joined memberships. Unlike the Telegram sync there is no
+ * invite-accept step — Zernio pushes participants straight in, so joinedAt is
+ * stamped immediately. Skips users who opted out, are already members, or have
+ * an un-normalizable phone.
  *
- * No-ops unless the group is active with a whatsapp_chat_id. Removal of stale
- * members is intentionally out of scope here (the Zernio client exposes no
- * remove-participant call yet) — follow-up alongside the gateway channel work.
+ * Also removes stale members — those still in the group but no longer on the
+ * active roster — via removeGroupParticipants, mirroring the Telegram sync.
+ * Opted-out-but-rostered members stay; only off-roster members are pulled.
+ *
+ * No-ops unless the group is active with a whatsapp_chat_id.
  */
 export async function syncWhatsAppGroupMembership(
   teamGroupId: string,
   client?: ZernioClient,
-): Promise<{ added: string[]; skipped: Array<{ userId: string; reason: string }> }> {
+): Promise<{
+  added: string[]
+  removed: string[]
+  skipped: Array<{ userId: string; reason: string }>
+}> {
   const db = getDb()
 
   const group = await db.query.teamGroups.findFirst({
@@ -236,7 +242,7 @@ export async function syncWhatsAppGroupMembership(
     orderBy: (t, { asc }) => asc(t.createdAt),
   })
   if (!group || group.status !== "active" || !group.whatsappChatId) {
-    return { added: [], skipped: [] }
+    return { added: [], removed: [], skipped: [] }
   }
 
   const expected = await computeExpectedWhatsAppMembership(teamGroupId)
@@ -248,6 +254,7 @@ export async function syncWhatsAppGroupMembership(
   const existingByUserId = new Map(existing.map((m) => [m.userId, m]))
 
   const added: string[] = []
+  const removed: string[] = []
   const skipped: Array<{ userId: string; reason: string }> = []
   const toAdd: Array<{ userId: string; e164: string }> = []
 
@@ -269,33 +276,68 @@ export async function syncWhatsAppGroupMembership(
     toAdd.push({ userId, e164 })
   }
 
-  if (toAdd.length === 0) return { added, skipped }
-
-  const zernio = client ?? createZernioClientFromEnv()
-  await zernio.addGroupParticipants({
-    groupId: group.whatsappChatId,
-    phoneNumbers: toAdd.map((t) => t.e164),
-  })
-
-  const now = new Date()
-  for (const { userId } of toAdd) {
-    const membership = existingByUserId.get(userId)
-    if (!membership) {
-      await db.insert(teamGroupMemberships).values({
-        teamGroupId,
-        userId,
-        role: group.audienceType === "players" ? "player" : "parent",
-        joinedAt: now,
-        lastSyncedAt: now,
-      })
-    } else {
-      await db
-        .update(teamGroupMemberships)
-        .set({ joinedAt: now, removedAt: null, lastSyncedAt: now })
-        .where(eq(teamGroupMemberships.id, membership.id))
-    }
-    added.push(userId)
+  // Stale members: still in the group but no longer on the active roster.
+  // Mirrors the Telegram sync — opted-out-but-rostered members stay (they
+  // remain in the expected set), only off-roster members are pulled out.
+  const expectedIds = new Set(expected.map((e) => e.userId))
+  const toRemove: Array<{ userId: string; e164: string; membershipId: string }> = []
+  for (const membership of existing) {
+    if (expectedIds.has(membership.userId)) continue
+    if (membership.removedAt || !membership.joinedAt) continue
+    const u = await db.query.users.findFirst({
+      where: eq(users.id, membership.userId),
+      columns: { phone: true },
+    })
+    const e164 = toE164(u?.phone)
+    if (!e164) continue // can't address them on WhatsApp; just mark removed below
+    toRemove.push({ userId: membership.userId, e164, membershipId: membership.id })
   }
 
-  return { added, skipped }
+  if (toAdd.length === 0 && toRemove.length === 0) {
+    return { added, removed, skipped }
+  }
+
+  const zernio = client ?? createZernioClientFromEnv()
+  const now = new Date()
+
+  if (toAdd.length > 0) {
+    await zernio.addGroupParticipants({
+      groupId: group.whatsappChatId,
+      phoneNumbers: toAdd.map((t) => t.e164),
+    })
+    for (const { userId } of toAdd) {
+      const membership = existingByUserId.get(userId)
+      if (!membership) {
+        await db.insert(teamGroupMemberships).values({
+          teamGroupId,
+          userId,
+          role: group.audienceType === "players" ? "player" : "parent",
+          joinedAt: now,
+          lastSyncedAt: now,
+        })
+      } else {
+        await db
+          .update(teamGroupMemberships)
+          .set({ joinedAt: now, removedAt: null, lastSyncedAt: now })
+          .where(eq(teamGroupMemberships.id, membership.id))
+      }
+      added.push(userId)
+    }
+  }
+
+  if (toRemove.length > 0) {
+    await zernio.removeGroupParticipants({
+      groupId: group.whatsappChatId,
+      phoneNumbers: toRemove.map((t) => t.e164),
+    })
+    for (const { userId, membershipId } of toRemove) {
+      await db
+        .update(teamGroupMemberships)
+        .set({ removedAt: now, lastSyncedAt: now })
+        .where(eq(teamGroupMemberships.id, membershipId))
+      removed.push(userId)
+    }
+  }
+
+  return { added, removed, skipped }
 }

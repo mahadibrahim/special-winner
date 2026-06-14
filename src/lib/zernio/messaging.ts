@@ -74,9 +74,13 @@ export function createZernioClient(config: ZernioClientConfig) {
   const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
   const doFetch = config.fetchImpl ?? fetch;
 
-  async function post(path: string, body: unknown): Promise<unknown> {
+  async function request(
+    method: "POST" | "DELETE",
+    path: string,
+    body: unknown,
+  ): Promise<unknown> {
     const res = await doFetch(`${baseUrl}${path}`, {
-      method: "POST",
+      method,
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
@@ -84,6 +88,10 @@ export function createZernioClient(config: ZernioClientConfig) {
       body: JSON.stringify(body),
     });
     return res.json();
+  }
+
+  function post(path: string, body: unknown): Promise<unknown> {
+    return request("POST", path, body);
   }
 
   return {
@@ -115,6 +123,23 @@ export function createZernioClient(config: ZernioClientConfig) {
       const accountId = encodeURIComponent(config.accountId);
       for (const batch of chunk(input.phoneNumbers, MAX_PARTICIPANTS_PER_REQUEST)) {
         await post(
+          `/whatsapp/wa-groups/${input.groupId}/participants?accountId=${accountId}`,
+          { phoneNumbers: batch },
+        );
+      }
+    },
+
+    /**
+     * Remove participants from a WhatsApp group. The symmetric counterpart to
+     * addGroupParticipants — same `/participants` resource and 8-per-request
+     * cap, with the DELETE verb and the phone numbers in the body. No-ops on
+     * empty.
+     */
+    async removeGroupParticipants(input: AddGroupParticipantsInput): Promise<void> {
+      const accountId = encodeURIComponent(config.accountId);
+      for (const batch of chunk(input.phoneNumbers, MAX_PARTICIPANTS_PER_REQUEST)) {
+        await request(
+          "DELETE",
           `/whatsapp/wa-groups/${input.groupId}/participants?accountId=${accountId}`,
           { phoneNumbers: batch },
         );

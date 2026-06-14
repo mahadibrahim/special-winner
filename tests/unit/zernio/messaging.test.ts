@@ -129,6 +129,42 @@ describe("Zernio messaging client", () => {
     expect(calls).toBe(0);
   });
 
+  it("removeGroupParticipants chunks into DELETE requests of at most 8 participants", async () => {
+    const calls: Captured[] = [];
+    const fetchImpl = (async (url: string, init: Captured["init"]) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const client = createZernioClient({ apiKey: "k", accountId: "acct-1", fetchImpl });
+    const phones = Array.from({ length: 9 }, (_, i) => `+1614555000${i}`);
+
+    await client.removeGroupParticipants({ groupId: "g-1", phoneNumbers: phones });
+
+    expect(calls.length).toBe(2);
+    expect(calls[0].url).toBe(
+      "https://zernio.com/api/v1/whatsapp/wa-groups/g-1/participants?accountId=acct-1",
+    );
+    expect(calls[0].init?.method).toBe("DELETE");
+    expect(JSON.parse(calls[0].init?.body ?? "{}").phoneNumbers).toHaveLength(8);
+    expect(JSON.parse(calls[1].init?.body ?? "{}").phoneNumbers).toHaveLength(1);
+  });
+
+  it("removeGroupParticipants makes no request for an empty list", async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+    }) as unknown as typeof fetch;
+    const client = createZernioClient({ apiKey: "k", accountId: "acct-1", fetchImpl });
+
+    await client.removeGroupParticipants({ groupId: "g-1", phoneNumbers: [] });
+
+    expect(calls).toBe(0);
+  });
+
   it("createGroupInviteLink posts to the invite-link endpoint and returns the link", async () => {
     const captured: Captured = {};
     const client = createZernioClient({
