@@ -161,9 +161,9 @@ export async function promoteGroupToActive(
  * whatsapp_chat_id + invite link, and mark active in one pass.
  *
  * Idempotent: if the group already has a whatsapp_chat_id, this no-ops (a retry
- * must not create a duplicate WhatsApp group). Membership population (adding
- * roster phones as participants) is a separate concern handled by the
- * WhatsApp-aware membership sync — not done here yet.
+ * must not create a duplicate WhatsApp group). After activation it populates
+ * the roster via the WhatsApp-aware membership sync (same client), mirroring
+ * how promoteGroupToActive hands off to syncTeamGroupMembership.
  */
 export async function provisionWhatsAppGroup(
   teamGroupId: string,
@@ -198,6 +198,9 @@ export async function provisionWhatsAppGroup(
       createdAt: new Date(),
     })
     .where(eq(teamGroups.id, teamGroupId))
+
+  const { syncWhatsAppGroupMembership } = await import("./team-group-sync")
+  await syncWhatsAppGroupMembership(teamGroupId, zernio)
 }
 
 export async function archiveTeamGroup(teamGroupId: string): Promise<void> {
