@@ -229,6 +229,75 @@ function TeamCard({
   )
 }
 
+// ─── Food diary widget ────────────────────────────────────────────────────────
+
+function FoodDiaryWidget({ weekNumber }: { weekNumber: number }) {
+  const [status, setStatus] = useState<"idle" | "submitting" | "submitted" | "error">("idle")
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const handleSubmit = async () => {
+    setStatus("submitting")
+    setErrorMsg(null)
+    try {
+      const res = await fetch("/api/drop/food-diary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekNumber }),
+      })
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(json.error ?? `HTTP ${res.status}`)
+      }
+      setStatus("submitted")
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Could not submit. Try again.")
+      setStatus("error")
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-paper p-6 shadow-sm">
+      <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-1">
+        Food Diary
+      </p>
+      <h2 className="text-sm font-semibold text-ink mb-4">
+        This week&rsquo;s food diary — Week {weekNumber}
+      </h2>
+
+      {status === "submitted" ? (
+        <p className="text-sm text-ink font-medium">
+          Submitted — your coach will confirm it shortly.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-ink-muted">
+            Log your meals for the week, then mark it submitted. Your coach reviews and confirms to unlock the bonus.
+          </p>
+          <div>
+            <button
+              onClick={handleSubmit}
+              disabled={status === "submitting"}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {status === "submitting" ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+                  Submitting…
+                </>
+              ) : (
+                "Submit food diary"
+              )}
+            </button>
+          </div>
+          {status === "error" && errorMsg && (
+            <p className="text-xs text-red-600 font-medium">{errorMsg}</p>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function DropDashboard() {
@@ -364,8 +433,13 @@ export function DropDashboard() {
         )}
       </div>
 
-      {/* ── Food diary widget placeholder ── */}
-      {/* food diary widget mounts here in Task 4 */}
+      {/* ── Food diary widget ── */}
+      {(() => {
+        const currentWeek = weighIns.length > 0
+          ? Math.max(...weighIns.map((w) => w.weekNumber))
+          : 1
+        return <FoodDiaryWidget weekNumber={currentWeek} />
+      })()}
 
     </div>
   )
