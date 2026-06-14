@@ -2,27 +2,38 @@
 import {
   Home,
   Inbox,
+  CalendarDays,
   Calendar,
   Dumbbell,
+  Trophy,
+  Shield,
+  ClipboardList,
+  Baby,
+  Activity,
   Zap,
+  TrendingDown,
   Key,
+  Gem,
   Send,
+  Radio,
+  Megaphone,
+  RefreshCcw,
   Search,
   Users,
-  RefreshCcw,
   CreditCard,
   Tag,
   ShoppingBag,
+  Camera,
+  UserCog,
+  Tags,
   MapPin,
   Palette,
-  Gem,
   BookOpen,
   ShieldCheck,
   Settings,
+  LayoutDashboard,
   BarChart3,
   type LucideIcon,
-  CalendarDays,
-  TrendingDown,
 } from "lucide-react";
 
 export type NavItem = {
@@ -41,21 +52,39 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
   {
     name: null,
     items: [
-      { name: "Home", href: "/admin", icon: Home },
+      { name: "Home", href: "/admin", icon: Home, badgeKey: "attention" },
       { name: "Inbox", href: "/messages", icon: Inbox, badgeKey: "inbox" },
     ],
   },
   {
-    name: "Plan",
+    name: "Plan & Program",
     items: [
       { name: "Venue calendar", href: "/admin/venue", icon: CalendarDays },
       { name: "Seasons", href: "/admin/seasons", icon: Calendar },
       { name: "Programs", href: "/admin/programs", icon: Dumbbell },
+      { name: "Games", href: "/admin/games", icon: Trophy },
+      { name: "Teams", href: "/admin/teams", icon: Shield },
+      { name: "Registrations", href: "/admin/registrations", icon: ClipboardList },
+      { name: "Age groups", href: "/admin/age-groups", icon: Baby },
+      { name: "Game day", href: "/admin/game-day/today", icon: Activity },
+    ],
+  },
+  {
+    name: "Casual play",
+    items: [
       { name: "Drop-ins", href: "/admin/dropins", icon: Zap },
       { name: "Drop League", href: "/admin/drop-league", icon: TrendingDown },
       { name: "Rentals", href: "/admin/rentals", icon: Key },
       { name: "Memberships", href: "/admin/memberships", icon: Gem },
+    ],
+  },
+  {
+    name: "Marketing",
+    items: [
       { name: "Campaigns", href: "/admin/campaigns", icon: Send },
+      { name: "Broadcasts", href: "/admin/broadcasts", icon: Radio },
+      { name: "Announcements", href: "/admin/announcements", icon: Megaphone },
+      { name: "Re-registration", href: "/admin/re-registration-campaign", icon: RefreshCcw },
     ],
   },
   {
@@ -75,9 +104,17 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    name: "Media",
+    items: [
+      { name: "Shoots", href: "/admin/media/shoots", icon: Camera },
+      { name: "Media staff", href: "/admin/media/staff", icon: UserCog },
+      { name: "Tag queue", href: "/admin/media/tag-queue", icon: Tags },
+    ],
+  },
+  {
     name: "Setup",
     items: [
-      { name: "Locations & venues", href: "/admin/locations", icon: MapPin },
+      { name: "Locations & spaces", href: "/admin/locations", icon: MapPin },
       { name: "Branding", href: "/admin/branding", icon: Palette },
       { name: "Curriculum", href: "/admin/curriculum", icon: BookOpen },
       { name: "Compliance", href: "/admin/compliance", icon: ShieldCheck },
@@ -87,11 +124,9 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
   {
     name: "Reports",
     items: [
+      { name: "Overview", href: "/admin/reports", icon: LayoutDashboard },
       { name: "Revenue", href: "/admin/reports/revenue", icon: BarChart3 },
-      { name: "Registrations", href: "/admin/reports/registrations", icon: BarChart3 },
-      // Conversion analytics live in PostHog — funnel queries don't have
-      // a backing route or component here yet. Add this entry back once
-      // the funnel API + chart component land.
+      { name: "Registration trends", href: "/admin/reports/registrations", icon: BarChart3 },
     ],
   },
 ];
