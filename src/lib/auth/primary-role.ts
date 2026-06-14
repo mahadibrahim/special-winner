@@ -23,6 +23,7 @@ const PRECEDENCE: RoleName[] = [
   "media_editor",
   "media_staff",
   "coach",
+  "referee",
   "player",
   "parent",
 ];
