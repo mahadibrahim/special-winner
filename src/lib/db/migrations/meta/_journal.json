@@ -337,6 +337,13 @@
       "when": 1781397876145,
       "tag": "0047_thankful_callisto",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1781442508189,
+      "tag": "0048_normal_stellaris",
+      "breakpoints": true
     }
   ]
 }
