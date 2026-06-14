@@ -16,17 +16,17 @@ describe("PORTALS registry", () => {
     expect(venue.homeHref).toBe("/admin/venue");
   });
 
-  it("admin portal carries the super-admin nav (Seasons present, Venue Day absent)", () => {
+  it("admin portal carries the super-admin nav (Seasons present, Check-in absent)", () => {
     const admin = PORTALS.find((p) => p.id === "admin")!;
     const names = admin.nav.flatMap((g) => g.items).map((i) => i.name);
     expect(names).toContain("Seasons");
-    expect(names).not.toContain("Venue Day");
+    expect(names).not.toContain("Check-in");
   });
 
-  it("venue portal carries the venue-manager nav (Venue Day present, Seasons absent)", () => {
+  it("venue portal carries the venue-manager nav (Check-in present, Seasons absent)", () => {
     const venue = PORTALS.find((p) => p.id === "venue")!;
     const names = venue.nav.flatMap((g) => g.items).map((i) => i.name);
-    expect(names).toContain("Venue Day");
+    expect(names).toContain("Check-in");
     expect(names).not.toContain("Seasons");
   });
 
