@@ -125,7 +125,7 @@ export function PortalLayout({
                         )}>{item.name}</span>
                         {badgeCount ? (
                           <span className={cn(
-                            "ml-auto inline-flex items-center justify-center rounded-full bg-navy text-cream text-[10px] font-semibold min-w-[18px] h-[18px] px-1",
+                            "ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold min-w-[18px] h-[18px] px-1",
                             sidebarOpen ? "inline-flex" : "hidden lg:inline-flex"
                           )}>
                             {badgeCount > 99 ? "99+" : badgeCount}
