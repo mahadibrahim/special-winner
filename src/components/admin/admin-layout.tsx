@@ -22,8 +22,7 @@ interface AdminLayoutProps {
 /**
  * Thin compatibility wrapper over PortalLayout for the /admin tree. super_admin
  * resolves to the `admin` portal; every other admin-tier role resolves to the
- * narrower `venue` portal (the safe default, matching the prior
- * getSidebarForRole behavior).
+ * narrower `venue` portal (the safe default for any non-super-admin role).
  */
 export function AdminLayout({
   children,
