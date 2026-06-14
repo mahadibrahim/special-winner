@@ -44,6 +44,7 @@ import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
 import { createSession } from "@/lib/auth";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 export const prerender = false;
 
@@ -236,6 +237,9 @@ export const POST: APIRoute = async (context) => {
       via_guest_checkout: "true",
       // Storefront brand — host-derived, since both brands share one org.
       brand: brandFromHost(request.headers.get("host") ?? ""),
+      // Ad-attribution ids → read back by the webhook to fire server-side
+      // GA4 + Meta purchase conversions.
+      ...collectAdAttribution(context.url, request.headers.get("cookie")),
     },
     // Stripe success/cancel redirects return to the booking domain.
     origin: context.url.origin,

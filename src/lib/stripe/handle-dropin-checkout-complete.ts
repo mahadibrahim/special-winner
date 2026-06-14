@@ -26,6 +26,7 @@ import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
+import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 
 const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
   "card_online",
@@ -79,7 +80,14 @@ export async function handleDropInCheckoutComplete(
     }
   }
 
-  return await db.transaction(async (tx) => {
+  // Captured inside the tx, used after commit to build GA4/Meta item context.
+  let itemLabel = "";
+  let itemCategory = "";
+
+  const result:
+    | { status: "skipped"; reason: string }
+    | { status: "processed"; bookingId: string; paidCents: number } =
+    await db.transaction(async (tx) => {
     // Lock the parent session row to serialize team-assignment with any
     // concurrent bookings.
     const [sessionRow] = await tx
@@ -90,6 +98,11 @@ export async function handleDropInCheckoutComplete(
     if (!sessionRow) {
       return { status: "skipped", reason: `session ${sessionDbId} not found` };
     }
+
+    itemCategory = sessionRow.sportOrClassLabel;
+    itemLabel = sessionRow.formatLabel
+      ? `${sessionRow.sportOrClassLabel} ${sessionRow.formatLabel}`
+      : sessionRow.sportOrClassLabel;
 
     // Existing-confirmed bookings for team-balance computation.
     const existingForTeam = await tx
@@ -174,4 +187,32 @@ export async function handleDropInCheckoutComplete(
       paidCents: session.amount_total ?? 0,
     };
   });
+
+  // Server-side ad conversions (GA4 MP + Meta CAPI) — online drop-in is an
+  // ad-attributable path. Fired after the tx (the GA4 item context is built
+  // from the captured session labels; no DB query needed here). Deduped
+  // against the browser pixel by the PaymentIntent id.
+  if (result.status === "processed") {
+    const md = session.metadata ?? {};
+    const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
+    if (hasAttribution) {
+      const amount = session.amount_total ?? 0;
+      fireServerPurchaseConversions({
+        metadata: md,
+        eventId: (session.payment_intent as string) ?? session.id,
+        valueCents: amount,
+        brand,
+        email: session.customer_details?.email ?? session.customer_email ?? null,
+        ga4Items: [
+          { id: sessionDbId, name: itemLabel, category: itemCategory, priceCents: amount },
+        ],
+        ga4PaymentType: "full",
+        contentIds: [sessionDbId],
+        contentName: itemLabel,
+        contentCategory: "dropin",
+      });
+    }
+  }
+
+  return result;
 }

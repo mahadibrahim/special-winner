@@ -32,6 +32,7 @@ import {
 } from "@/lib/dropin/booking";
 import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 export const prerender = false;
 
@@ -204,7 +205,11 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     waiverSignedAt,
     waiverName,
     // Storefront brand — host-derived, since both brands share one org.
-    extraMetadata: { brand: brandFromHost(request.headers.get("host") ?? "") },
+    // Ad-attribution ids → server-side GA4 + Meta purchase conversions.
+    extraMetadata: {
+      brand: brandFromHost(request.headers.get("host") ?? ""),
+      ...collectAdAttribution(url, request.headers.get("cookie")),
+    },
     // Stripe success/cancel redirects return to the booking domain.
     origin: url.origin,
   });

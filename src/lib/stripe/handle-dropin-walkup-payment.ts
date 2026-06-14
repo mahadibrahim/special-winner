@@ -24,6 +24,8 @@ import {
 import { assignTeam } from "@/lib/dropin/team-assignment";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
 const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
   "card_online",
@@ -68,7 +70,10 @@ export async function handleDropInWalkUpPayment(
     };
   }
 
-  return await db.transaction(async (tx) => {
+  const result:
+    | { status: "skipped"; reason: string }
+    | { status: "processed"; bookingId: string; paidCents: number } =
+    await db.transaction(async (tx) => {
     // Lock the parent session row — serializes team-assignment with any
     // concurrent walk-up or online bookings.
     const [sessionRow] = await tx
@@ -145,4 +150,25 @@ export async function handleDropInWalkUpPayment(
       paidCents: intent.amount_received ?? intent.amount ?? 0,
     };
   });
+
+  // Revenue analytics only. Walk-up is an at-facility sale with no ad click
+  // behind it, so it is deliberately NOT reported to GA4 Ads / Meta as a
+  // conversion — only to PostHog for internal revenue reporting.
+  if (result.status === "processed") {
+    capturePaymentCompleted({
+      distinctId: userId,
+      kind: "dropin",
+      amountCents: result.paidCents,
+      brand: normalizeBrand(intent.metadata?.brand),
+      metadata: {
+        booking_id: result.bookingId,
+        session_id: sessionDbId,
+        payment_method: paymentMethod,
+        source: "walk_up",
+        used_membership: membershipId !== null,
+      },
+    });
+  }
+
+  return result;
 }

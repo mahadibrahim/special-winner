@@ -16,6 +16,8 @@ import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
 import { dispatchRentalConfirmation } from "@/lib/rentals/messages/dispatch";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
 export async function handleFieldRentalWalkUpPayment(
   paymentIntent: Stripe.PaymentIntent,
@@ -30,6 +32,9 @@ export async function handleFieldRentalWalkUpPayment(
   const paidCents = paymentIntent.amount_received ?? paymentIntent.amount ?? 0;
   const db = getDb();
 
+  // Captured inside the tx for the post-commit revenue event.
+  let renterUserId: string | null = null;
+
   const result:
     | { status: "skipped"; reason: string }
     | { status: "processed"; rentalId: string; paidCents: number } =
@@ -42,6 +47,7 @@ export async function handleFieldRentalWalkUpPayment(
     if (!rental) {
       return { status: "skipped", reason: `rental ${rentalId} not found` };
     }
+    renterUserId = rental.renterUserId;
     if (rental.status === "cancelled") {
       return { status: "skipped", reason: `rental ${rentalId} already cancelled — late webhook` };
     }
@@ -88,6 +94,18 @@ export async function handleFieldRentalWalkUpPayment(
         console.error("[rentals] walk-up confirmation dispatch failed", err);
       });
     });
+
+    // Revenue analytics only — at-facility Terminal sale, no ad click, so not
+    // reported to GA4 Ads / Meta as a conversion (PostHog reporting only).
+    if (renterUserId) {
+      capturePaymentCompleted({
+        distinctId: renterUserId,
+        kind: "field_rental",
+        amountCents: result.paidCents,
+        brand: normalizeBrand(paymentIntent.metadata?.brand),
+        metadata: { rental_id: result.rentalId, source: "walk_up" },
+      });
+    }
   }
   return result;
 }

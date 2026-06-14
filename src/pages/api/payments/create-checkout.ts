@@ -6,7 +6,7 @@ import {
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
 import { getPostHogServer } from "@/lib/posthog-server";
-import { parseGaClientId, readQueryOrCookie } from "@/lib/analytics/parse-cookies";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 const checkoutSchema = z.object({
@@ -47,23 +47,17 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     discountCodeForLog = discountCode;
     const db = getDb();
 
-    // Capture GA4 client_id + ad-platform IDs to pass through the
-    // PaymentIntent metadata so the webhook
-    // (handle-registration-payment-succeeded.ts) can fire a server-side
-    // GA4 Measurement Protocol purchase event.
-    const cookieHeader = request.headers.get("cookie");
-    const gaClientId = parseGaClientId(cookieHeader);
-    const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
-    const fbclid = readQueryOrCookie(url, cookieHeader, "fbclid");
-
+    // Capture GA4 client_id + ad-platform IDs (gclid, fbclid, _fbc, _fbp) to
+    // pass through the PaymentIntent metadata so the webhook
+    // (handle-registration-payment-succeeded.ts) can fire server-side GA4
+    // Measurement Protocol + Meta Conversions API purchase events.
+    //
     // Storefront the charge came through — the brands share one org and
     // one Stripe account, so the request host is the only brand signal.
     const extraMetadata: Record<string, string> = {
       brand: brandFromHost(request.headers.get("host") ?? ""),
+      ...collectAdAttribution(url, request.headers.get("cookie")),
     };
-    if (gaClientId) extraMetadata.ga_client_id = gaClientId;
-    if (gclid) extraMetadata.gclid = gclid;
-    if (fbclid) extraMetadata.fbclid = fbclid;
 
     const result = await createCheckoutForRegistration({
       db,

@@ -18,6 +18,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
 export async function handleDropinWalkinPayment(
   paymentIntent: Stripe.PaymentIntent,
@@ -32,7 +34,15 @@ export async function handleDropinWalkinPayment(
   const paidCents = paymentIntent.amount_received ?? paymentIntent.amount ?? 0;
   const db = getDb();
 
-  return await db.transaction(async (tx) => {
+  // Captured inside the tx for the post-commit revenue event.
+  let bookingUserId = "";
+  let bookingBrand: "aspire" | "soccerone" = "aspire";
+  let bookingSessionId = "";
+
+  const result:
+    | { status: "skipped"; reason: string }
+    | { status: "processed"; bookingId: string; paidCents: number } =
+    await db.transaction(async (tx) => {
     const [row] = await tx
       .select()
       .from(dropInBookings)
@@ -41,6 +51,9 @@ export async function handleDropinWalkinPayment(
     if (!row) {
       return { status: "skipped", reason: `booking ${bookingId} not found` };
     }
+    bookingUserId = row.userId;
+    bookingBrand = normalizeBrand(row.brand);
+    bookingSessionId = row.sessionId;
     if (row.status === "cancelled") {
       return {
         status: "skipped",
@@ -82,4 +95,22 @@ export async function handleDropinWalkinPayment(
 
     return { status: "processed", bookingId, paidCents };
   });
+
+  // Revenue analytics only — kiosk walk-in has no ad click, so it is not
+  // reported to GA4 Ads / Meta as a conversion (PostHog reporting only).
+  if (result.status === "processed") {
+    capturePaymentCompleted({
+      distinctId: bookingUserId,
+      kind: "dropin",
+      amountCents: result.paidCents,
+      brand: bookingBrand,
+      metadata: {
+        booking_id: result.bookingId,
+        session_id: bookingSessionId,
+        source: "walk_in",
+      },
+    });
+  }
+
+  return result;
 }
