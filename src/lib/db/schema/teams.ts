@@ -118,6 +118,13 @@ export const teams = pgTable(
     ),
     maxRosterSize: integer("max_roster_size"),
     division: varchar("division", { length: 50 }),
+    // WhatsApp (Cloud API, via Zernio) group-chat id for this team's
+    // league-management channel. Null until the group is provisioned. The
+    // group lifecycle (create group, add roster as participants, post
+    // schedule/cancellation updates) is driven from platform-mcp against the
+    // Zernio API; this column is the correlation key the app stores so those
+    // sends can target the right team thread.
+    whatsappGroupId: text("whatsapp_group_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

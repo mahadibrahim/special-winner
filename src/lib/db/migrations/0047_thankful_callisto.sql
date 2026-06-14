@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN "whatsapp_group_id" text;
