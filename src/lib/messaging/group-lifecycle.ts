@@ -10,6 +10,7 @@ import {
   setGroupTitle,
   setGroupDescription,
 } from "../telegram/group"
+import { createZernioClientFromEnv, type ZernioClient } from "../zernio/messaging"
 
 type ScheduleCreationInput = {
   teamId: string
@@ -149,6 +150,54 @@ export async function promoteGroupToActive(
 
   const { syncTeamGroupMembership } = await import("./team-group-sync")
   await syncTeamGroupMembership(teamGroupId)
+}
+
+/**
+ * Provision a WhatsApp group for a team_group and activate it.
+ *
+ * The key upgrade over Telegram: Zernio's Cloud API can CREATE the group
+ * programmatically, so there is no `pending_manual_creation` step — no human
+ * has to make the group and hand back a chat id. We create it, store the
+ * whatsapp_chat_id + invite link, and mark active in one pass.
+ *
+ * Idempotent: if the group already has a whatsapp_chat_id, this no-ops (a retry
+ * must not create a duplicate WhatsApp group). Membership population (adding
+ * roster phones as participants) is a separate concern handled by the
+ * WhatsApp-aware membership sync — not done here yet.
+ */
+export async function provisionWhatsAppGroup(
+  teamGroupId: string,
+  client?: ZernioClient,
+): Promise<void> {
+  const db = getDb()
+
+  const group = await db.query.teamGroups.findFirst({
+    where: eq(teamGroups.id, teamGroupId),
+    orderBy: (t, { asc }) => asc(t.createdAt),
+  })
+  if (!group) throw new Error(`Team group ${teamGroupId} not found`)
+  if (group.whatsappChatId) return // already provisioned — do not create a duplicate
+
+  const zernio = client ?? createZernioClientFromEnv()
+  const created = await zernio.createWhatsAppGroup({
+    subject: group.name.slice(0, 128),
+    description: `${group.name} — managed by Aspire. Posts come from your league; reply here to reach the team.`,
+    joinApprovalMode: "approval_required",
+  })
+
+  const inviteLink =
+    created.inviteLink ??
+    (await zernio.createGroupInviteLink({ groupId: created.groupId }))
+
+  await db
+    .update(teamGroups)
+    .set({
+      whatsappChatId: created.groupId,
+      inviteLink,
+      status: "active",
+      createdAt: new Date(),
+    })
+    .where(eq(teamGroups.id, teamGroupId))
 }
 
 export async function archiveTeamGroup(teamGroupId: string): Promise<void> {
