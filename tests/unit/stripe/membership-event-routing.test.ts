@@ -26,6 +26,18 @@ vi.mock("@/lib/memberships/webhook-handlers", () => ({
   handleInvoicePaymentFailed: vi.fn(async () => undefined),
 }));
 
+// Drop-league handlers are fanned out in the SAME platform dispatch cases
+// (subscription + invoice events share one event stream). Mock them so this
+// routing test doesn't execute their real DB writes — this suite asserts
+// membership routing only. Without this, handleDropSubscriptionUpdated runs for
+// real and calls db.update (which the minimal db mock above doesn't provide).
+vi.mock("@/lib/drop-league/webhook-handlers", () => ({
+  handleDropCheckoutCompleted: vi.fn(async () => undefined),
+  handleDropSubscriptionUpdated: vi.fn(async () => undefined),
+  handleDropSubscriptionDeleted: vi.fn(async () => undefined),
+  handleDropInvoicePaymentFailed: vi.fn(async () => undefined),
+}));
+
 import { handleStripeEvent } from "@/lib/stripe/handle-stripe-event";
 import {
   handleCheckoutSessionCompleted,
