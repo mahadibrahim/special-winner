@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { PortalLayout, type PortalBadges, type Breadcrumb } from "@/components/portal/portal-layout"
 import { getPortalById } from "@/lib/portal/resolve"
 
@@ -23,6 +24,9 @@ interface AdminLayoutProps {
  * Thin compatibility wrapper over PortalLayout for the /admin tree. super_admin
  * resolves to the `admin` portal; every other admin-tier role resolves to the
  * narrower `venue` portal (the safe default for any non-super-admin role).
+ *
+ * Notification badge counts are fetched once on mount from /api/admin/nav-badges
+ * (fail-soft) so every admin page shows live counts without per-page plumbing.
  */
 export function AdminLayout({
   children,
@@ -39,6 +43,24 @@ export function AdminLayout({
   const subtitle = isSuperAdmin ? "Super-admin" : (venueLabel ?? "Venue")
   const roleLabel = isSuperAdmin ? "Super-admin" : "Venue manager"
 
+  const [fetched, setFetched] = useState<PortalBadges | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/admin/nav-badges")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setFetched(data as PortalBadges)
+      })
+      .catch(() => {
+        /* fail-soft: no badges */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const mergedBadges: PortalBadges | undefined = fetched ?? badges
+
   return (
     <PortalLayout
       currentPath={currentPath}
@@ -48,7 +70,7 @@ export function AdminLayout({
       roleLabel={roleLabel}
       showPortalSwitch={multiPortal}
       showVenuePicker
-      badges={badges}
+      badges={mergedBadges}
       breadcrumbs={breadcrumbs}
       user={user}
     >
