@@ -344,6 +344,13 @@
       "when": 1781442508189,
       "tag": "0048_normal_stellaris",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1781444461971,
+      "tag": "0049_ancient_nicolaos",
+      "breakpoints": true
     }
   ]
 }
