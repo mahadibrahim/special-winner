@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "node -r dotenv/config ./node_modules/.bin/astro dev",
     "dev:local": "NETLIFY_DEV=1 R2_MOCK=1 CRON_SECRET=devsecret node -r dotenv/config ./node_modules/.bin/astro dev",
+    "dev:bws": "./scripts/with-bws.sh npm run dev",
+    "test:api:bws": "./scripts/with-bws.sh npm run test:api",
+    "secrets:load": "node scripts/bws-load-secrets.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "tsc --noEmit",

@@ -17,6 +17,10 @@ pnpm-debug.log*
 .env
 .env.production
 
+# Bitwarden Secrets Manager — local plaintext secret load file (never commit).
+# The .example template IS tracked; the filled-in copy is not.
+secrets.local.csv
+
 # macOS-specific files
 .DS_Store
 
@@ -40,6 +44,7 @@ test-results/
 .claude/scheduled_tasks.lock
 .claude/settings.json
 .claude/skills/
+.claude/worktrees/
 
 # Local agent / skill tooling
 .agents/

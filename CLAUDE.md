@@ -19,8 +19,9 @@ Key patterns established across the codebase — follow these when adding new pa
 ## Commands
 
 ```bash
-# Development (requires .env with DATABASE_URL)
-npm run dev              # Start dev server at localhost:4321
+# Development
+npm run dev              # Start dev server at localhost:4321 (reads secrets from .env)
+npm run dev:bws          # Same, but injects secrets from Bitwarden (see Secrets below)
 
 # Database
 npm run db:push          # Push schema directly — LOCAL DBs ONLY (guarded; see below)
@@ -100,10 +101,51 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 ## Environment Variables
 
-Required in `.env`:
-- `DATABASE_URL` - PostgreSQL connection string
+The app reads config from `process.env`. Two ways to supply it locally:
+
+1. **`.env` file** (gitignored) — classic. `npm run dev` loads it via `dotenv`.
+2. **Bitwarden Secrets Manager** (preferred) — no plaintext secrets on disk. `npm run dev:bws` injects them at runtime. See Secrets below.
+
+`dotenv` does not override variables already set in the environment, so the two can coexist — Bitwarden-injected values win over anything in `.env`.
+
+**Minimum to boot the dev server:**
+- `DATABASE_URL` — Postgres connection string (Railway; see Database below)
+- `PUBLIC_APP_URL` — base URL, `http://localhost:4321` locally
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
-- `PUBLIC_APP_URL` - Base URL for the app
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
+- `AUTH_SECRET`
+
+Everything else in `.env.example` is feature-gated — missing values just make that feature inert locally (no SMS, media uploads, analytics, etc.); the app still boots. Production sets the full set in the Netlify dashboard, which carries extras (live keys, prod analytics) that local dev does not need.
+
+> Note: `.env.example` is the documented list but has drifted — `AUTH_SECRET` and `ALLOW_E2E_SEED` are used in practice but not listed there.
+
+## Database (local dev)
+
+There is **no local Postgres**. Local dev connects to a **Railway**-hosted database via `DATABASE_URL`. Guidance:
+
+- **Point local dev at staging, not prod.** The dev server reads *and writes* whatever `DATABASE_URL` targets — against prod you mutate real customer/payment data.
+- Use Railway's **public proxy host** (`*.proxy.rlwy.net:PORT`), not the internal `*.railway.internal` host (the internal host only resolves inside Railway's network and fails from a laptop).
+- `npm run db:push` is guarded to `localhost` only, so it will not run against Railway — schema changes go through `db:generate` → commit the migration → `db:migrate` (see the migrations sections below).
+
+## Secrets — Bitwarden Secrets Manager
+
+Secrets live in the Bitwarden Secrets Manager project **`aspire-web-app`** (id `d5054128-d647-480c-bcfd-b46a00d295c7`). The `bws` CLI fetches them; nothing is written to disk.
+
+**One-time setup on a new machine:**
+1. Install the `bws` CLI (Bitwarden Secrets Manager — direct download from `bitwarden/sdk-sm` GitHub releases; there is no Homebrew tap).
+2. Create a **read-only** machine-account access token in the Bitwarden web vault, scoped to the `aspire-web-app` project. Read-only is deliberate: a token on a laptop can read but never alter secrets.
+3. Store the token in the macOS Keychain (keeps it off disk and out of shell history):
+   ```sh
+   security add-generic-password -a "BitWarden" -s "bws-aspire-local" -w
+   ```
+
+**Daily use:**
+- `npm run dev:bws` — runs `scripts/with-bws.sh`, which reads the token from Keychain and runs the command through `bws run --project-id …`. Works for any command, e.g. `./scripts/with-bws.sh npm run test:api` (also exposed as `npm run test:api:bws`).
+- To override one value ad-hoc (e.g. point at prod for a single run), set it in the shell — it wins over the injected value: `DATABASE_URL=<prod-url> npm run dev:bws`.
+
+**Editing secrets:** add/edit them in the Bitwarden web UI (the laptop token is read-only). Each secret's **key must exactly match the env var name**, and it must be assigned to the `aspire-web-app` project. Watch for duplicate keys — Bitwarden allows two secrets with the same name, and which one wins on inject is undefined.
+
+**Bulk loading (optional, needs a write token):** `scripts/bws-load-secrets.mjs` (`npm run secrets:load`) pushes a local `secrets.local.csv` (gitignored; copy from `secrets.local.csv.example`) into the project, then delete the CSV. Requires a machine account with **write** access — the default read-only token cannot create secrets.
 
 ## Conventions
 
