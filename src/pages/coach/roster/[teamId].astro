@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import RosterTable from '../../../components/coach/roster-table';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
@@ -13,20 +16,13 @@ if (!teamId) {
 }
 ---
 
-<BaseLayout title="Team Roster — Aspire Sports">
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-5xl mx-auto">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
-          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
-          <span>/</span>
-          <span class="text-ink">Team Roster</span>
-        </nav>
-
-        <RosterTable client:load teamId={teamId} />
-      </div>
-    </main>
-
-
+<BaseLayout title="Team Roster — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/roster"
+    breadcrumbs={[{ label: "My Teams", href: "/coach/teams" }]}
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <RosterTable client:load teamId={teamId} />
+  </CoachLayout>
 </BaseLayout>

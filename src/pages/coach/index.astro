@@ -1,7 +1,10 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import CoachDashboardOverview from '../../components/coach/coach-dashboard-overview';
 import { BUSINESS_TIMEZONE, currentBusinessHour } from "@/lib/time/business-timezone";
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
@@ -13,74 +16,73 @@ if (hour >= 12 && hour < 17) greeting = "Good afternoon";
 else if (hour >= 17) greeting = "Good evening";
 ---
 
-<BaseLayout title="Coach Dashboard — Aspire Sports">
+<BaseLayout title="Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <!-- Section label -->
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">§ Coach Dashboard</p>
+      <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: BUSINESS_TIMEZONE })}
+      </p>
+    </div>
+    <div class="h-px bg-border mb-10"></div>
 
-    <main id="main-content" class="flex-1 pt-28 pb-16 px-4">
-      <div class="max-w-7xl mx-auto">
-        <!-- Section label -->
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">§ Coach Dashboard</p>
-          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: BUSINESS_TIMEZONE })}
-          </p>
-        </div>
-        <div class="h-px bg-border mb-10"></div>
-
-        <!-- Header Section -->
-        <header class="mb-10">
-          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div class="flex items-center gap-4">
-              <!-- Avatar -->
-              <div class="relative">
-                <div class="w-14 h-14 rounded-full bg-navy flex items-center justify-center">
-                  <span class="text-lg font-semibold text-cream font-display">
-                    {user?.firstName?.[0] || 'C'}{user?.lastName?.[0] || ''}
-                  </span>
-                </div>
-                <!-- Coach badge -->
-                <div class="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-primary rounded-full border-2 border-cream flex items-center justify-center">
-                  <svg class="w-2.5 h-2.5 text-cream" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4" />
-                  </svg>
-                </div>
-              </div>
-
-              <div>
-                <p class="text-xs text-ink-muted mb-0.5">{greeting}, Coach</p>
-                <h1 class="text-2xl sm:text-3xl font-display font-semibold text-ink">
-                  {user?.firstName || 'there'}.
-                </h1>
-              </div>
+    <!-- Header Section -->
+    <header class="mb-10">
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <!-- Avatar -->
+          <div class="relative">
+            <div class="w-14 h-14 rounded-full bg-navy flex items-center justify-center">
+              <span class="text-lg font-semibold text-cream font-display">
+                {user?.firstName?.[0] || 'C'}{user?.lastName?.[0] || ''}
+              </span>
             </div>
-
-            <!-- Quick Actions -->
-            <div class="flex flex-wrap gap-2">
-              <a href="/coach/practices/new" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded bg-primary text-cream hover:bg-primary/90 transition-colors">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                New Practice
-              </a>
-              <a href="/coach/messages" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                Message Parents
-              </a>
-              <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                Practices
-              </a>
-              <a href="/coach/assessments" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                Assessments
-              </a>
-              <a href="/coach/resources" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                Resources
-              </a>
+            <!-- Coach badge -->
+            <div class="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-primary rounded-full border-2 border-cream flex items-center justify-center">
+              <svg class="w-2.5 h-2.5 text-cream" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4" />
+              </svg>
             </div>
           </div>
-        </header>
 
-        <!-- Main Dashboard Content -->
-        <CoachDashboardOverview client:load />
+          <div>
+            <p class="text-xs text-ink-muted mb-0.5">{greeting}, Coach</p>
+            <h1 class="text-2xl sm:text-3xl font-display font-semibold text-ink">
+              {user?.firstName || 'there'}.
+            </h1>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="flex flex-wrap gap-2">
+          <a href="/coach/practices/new" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded bg-primary text-cream hover:bg-primary/90 transition-colors">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            New Practice
+          </a>
+          <a href="/coach/messages" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
+            Message Parents
+          </a>
+          <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
+            Practices
+          </a>
+          <a href="/coach/assessments" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
+            Assessments
+          </a>
+          <a href="/coach/resources" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
+            Resources
+          </a>
+        </div>
       </div>
-    </main>
+    </header>
 
-
+    <!-- Main Dashboard Content -->
+    <CoachDashboardOverview client:load />
+  </CoachLayout>
 </BaseLayout>
