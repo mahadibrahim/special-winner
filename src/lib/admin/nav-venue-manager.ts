@@ -25,7 +25,7 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
   {
     name: null,
     items: [
-      { name: "Venue Day", href: "/admin/venue", icon: Calendar },
+      { name: "Venue calendar", href: "/admin/venue", icon: Calendar },
       { name: "Check-in", href: "/admin/venue/check-in", icon: ClipboardCheck },
       { name: "Walk-up reg", href: "/admin/venue/walk-up", icon: UserPlus },
     ],
