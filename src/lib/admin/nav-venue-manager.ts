@@ -9,6 +9,8 @@ import {
   RefreshCcw,
   ClipboardList,
   BarChart3,
+  Zap,
+  Key,
 } from "lucide-react";
 import type { NavGroup } from "./nav-super-admin";
 
@@ -22,6 +24,13 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
       { name: "Venue calendar", href: "/admin/venue", icon: Calendar },
       { name: "Check-in", href: "/admin/venue/check-in", icon: ClipboardCheck },
       { name: "Walk-up reg", href: "/admin/venue/walk-up", icon: UserPlus },
+    ],
+  },
+  {
+    name: "Casual play",
+    items: [
+      { name: "Drop-ins", href: "/admin/dropins", icon: Zap },
+      { name: "Rentals", href: "/admin/rentals", icon: Key },
     ],
   },
   {

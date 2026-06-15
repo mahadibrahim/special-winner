@@ -1,3 +1,4 @@
+// TODO(SP2b): location-scope write — POST does not yet verify session's venue.locationId ∈ caller's locations.
 /**
  * POST /api/admin/dropin/sessions/:id/attendance
  *

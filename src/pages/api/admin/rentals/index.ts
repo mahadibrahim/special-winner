@@ -18,6 +18,8 @@ import {
   requireSameOrgVenue,
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
+import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
+import { venueLocationCondition } from "@/lib/admin/location-scope-filter";
 import { validateAdminRentalCreate } from "@/lib/rentals/validators";
 import { resolveRentalHourlyRateCents, computeRentalPriceCents } from "@/lib/rentals/pricing";
 import { createRentalHold, createConfirmedRentalNonStripe } from "@/lib/rentals/booking";
@@ -43,6 +45,13 @@ export const GET: APIRoute = async (context) => {
   const to = url.searchParams.get("to");
   const status = url.searchParams.get("status");
 
+  const locIds = await getEffectiveLocationIds({
+    userId: context.locals.user!.id,
+    userRoles: context.locals.userRoles ?? [],
+    activeLocationId: context.locals.activeLocationId ?? null,
+  });
+  const scopeCond = venueLocationCondition(locIds);
+
   const conditions = [eq(fieldRentals.organizationId, orgId)];
   if (venueId) conditions.push(eq(fieldRentals.venueId, venueId));
   if (from) conditions.push(gte(fieldRentals.startsAt, new Date(from)));
@@ -54,6 +63,7 @@ export const GET: APIRoute = async (context) => {
         status as (typeof fieldRentals.status.enumValues)[number],
       ),
     );
+  if (scopeCond) conditions.push(scopeCond);
 
   const rows = await getDb()
     .select({
@@ -83,6 +93,7 @@ export const GET: APIRoute = async (context) => {
   return json({ rentals: rows }, 200);
 };
 
+// TODO(SP2b): location-scope write — POST does not yet verify venue.locationId ∈ caller's locations (requireSameOrgVenue checks org only).
 export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;

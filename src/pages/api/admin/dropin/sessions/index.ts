@@ -14,6 +14,8 @@ import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
 import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
+import { venueLocationCondition } from "@/lib/admin/location-scope-filter";
 
 export const prerender = false;
 
@@ -39,6 +41,13 @@ export const GET: APIRoute = async (context) => {
   const to = toIso
     ? new Date(toIso)
     : new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+  const locIds = await getEffectiveLocationIds({
+    userId: context.locals.user!.id,
+    userRoles: context.locals.userRoles ?? [],
+    activeLocationId: context.locals.activeLocationId ?? null,
+  });
+  const scopeCond = venueLocationCondition(locIds);
 
   const db = getDb();
   const rows = await db
@@ -71,6 +80,7 @@ export const GET: APIRoute = async (context) => {
         eq(dropInSessions.organizationId, orgId),
         gte(dropInSessions.startsAt, from),
         lte(dropInSessions.startsAt, to),
+        scopeCond,
       ),
     )
     .orderBy(asc(dropInSessions.startsAt));
@@ -99,6 +109,7 @@ interface CreateBody {
   teamColors?: string[];
 }
 
+// TODO(SP2b): location-scope write — POST does not yet verify venue.locationId ∈ caller's locations.
 export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;

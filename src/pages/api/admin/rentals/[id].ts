@@ -1,3 +1,4 @@
+// TODO(SP2b): location-scope write — PATCH does not yet verify rental's venue.locationId ∈ caller's locations.
 /**
  * GET   /api/admin/rentals/:id → full rental detail (org-scoped).
  * PATCH /api/admin/rentals/:id → update notes/purpose, or cancel (without

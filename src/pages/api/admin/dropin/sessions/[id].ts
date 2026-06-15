@@ -5,6 +5,9 @@
  *                                          the dedicated /cancel endpoint
  *                                          also runs admin-cancel refunds.
  *                                          DELETE is safe-only (no roster).
+ *
+ * TODO(SP2b): location-scope write — PUT and DELETE do not yet verify the
+ * session's venue.locationId ∈ caller's locations (org-scoped only via loadOrgScoped).
  */
 import type { APIRoute } from "astro";
 import { and, asc, eq, sql } from "drizzle-orm";

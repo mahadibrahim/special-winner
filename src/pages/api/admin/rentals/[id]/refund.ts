@@ -1,3 +1,4 @@
+// TODO(SP2b): location-scope write — POST does not yet verify rental's venue.locationId ∈ caller's locations.
 /**
  * POST /api/admin/rentals/:id/refund → refund + cancel a paid rental.
  */
