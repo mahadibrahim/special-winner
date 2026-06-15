@@ -2,28 +2,20 @@ import {
   Calendar,
   ClipboardCheck,
   UserPlus,
-  Inbox,
   Search,
+  Inbox,
   Megaphone,
   ListOrdered,
   RefreshCcw,
 } from "lucide-react";
 import type { NavGroup } from "./nav-super-admin";
 
-// The venue-manager sidebar is deliberately narrow: only surfaces whose
-// queries are scoped by `getLocationIdsForUser` belong here. Adding an
-// item requires confirming both (a) the page filters its data to the
-// manager's locations and (b) the backing API enforces the same scope.
-//
-// Previously removed:
-//   - "Rosters" → /admin/venue/rosters (route didn't exist; backlog #25)
-//   - "Reports" → /admin/reports/venue (route didn't exist; backlog #25)
-//
-// Announcements were removed in #26 (no per-location data model) and
-// added back in #28 once `announcements.location_id` was wired up.
+// Venue-manager sidebar. Every item's data is scoped to the manager's locations
+// via getEffectiveLocationIds. Grouped for scanability; Casual play / Rosters /
+// Reports items are added by sub-project-2 Tasks 2–4 as their pages land.
 export const VENUE_MANAGER_NAV: NavGroup[] = [
   {
-    name: null,
+    name: "Front desk",
     items: [
       { name: "Venue calendar", href: "/admin/venue", icon: Calendar },
       { name: "Check-in", href: "/admin/venue/check-in", icon: ClipboardCheck },
@@ -31,18 +23,21 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
     ],
   },
   {
-    name: null,
+    name: "People",
+    items: [{ name: "Look up", href: "/admin/lookup", icon: Search }],
+  },
+  {
+    name: "Comms",
     items: [
       { name: "Inbox", href: "/messages", icon: Inbox, badgeKey: "inbox" },
-      { name: "Look up", href: "/admin/lookup", icon: Search },
       { name: "Announcements", href: "/admin/announcements", icon: Megaphone },
       { name: "Waitlist", href: "/admin/waitlist", icon: ListOrdered },
     ],
   },
   {
-    name: null,
+    name: "Requests",
     items: [
-      { name: "Refund requests", href: "/admin/refund-requests", icon: RefreshCcw },
+      { name: "Refund requests", href: "/admin/refund-requests", icon: RefreshCcw, badgeKey: "refundsPending" },
     ],
   },
 ];
