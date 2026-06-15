@@ -1,12 +1,15 @@
-// TODO(SP2b): location-scope write — POST does not yet verify rental's venue.locationId ∈ caller's locations.
 /**
  * POST /api/admin/rentals/:id/refund → refund + cancel a paid rental.
+ *
+ * Org- AND location-scoped: a venue manager can only refund rentals whose
+ * venue is in their assigned locations (super-admin is unscoped).
  */
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { refundFieldRental } from "@/lib/rentals/refund";
 
 export const prerender = false;
@@ -31,6 +34,9 @@ export const POST: APIRoute = async (context) => {
     .where(eq(fieldRentals.id, rentalId))
     .limit(1);
   if (!rental || rental.organizationId !== orgId) {
+    return json({ error: "Rental not found" }, 404);
+  }
+  if (!(await callerCanActOnVenue(context, rental.venueId))) {
     return json({ error: "Rental not found" }, 404);
   }
 

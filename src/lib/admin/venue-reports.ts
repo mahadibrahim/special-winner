@@ -22,39 +22,59 @@ export async function getVenueReports(
   if (locationIds.length === 0) return ZERO;
   const db = getDb();
 
-  const end = now;
   const start = new Date(now);
+  const end = new Date(now);
   if (period === "today") {
+    // Whole calendar day (UTC): include sessions later today, not just those
+    // that have already started — otherwise capacity/booked undercount until
+    // each session begins.
     start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(23, 59, 59, 999);
   } else {
+    // Rolling last 7 days up to the current moment.
     start.setUTCDate(start.getUTCDate() - 7);
   }
 
-  const [row] = await db
+  // The session window predicate is shared by both aggregates.
+  const sessionWindow = and(
+    inArray(venues.locationId, locationIds),
+    gte(dropInSessions.startsAt, start),
+    lte(dropInSessions.startsAt, end),
+  );
+
+  // Booking-derived metrics: one booking row per attendee. Counting these over
+  // the booking→session join is correct (each booking is distinct).
+  const bookingMetrics = db
     .select({
       checkedIn: sql<number>`count(*) filter (where ${dropInBookings.checkedInAt} is not null)::int`,
       walkUps: sql<number>`count(*) filter (where ${dropInBookings.source} = 'walk_up')::int`,
       noShows: sql<number>`count(*) filter (where ${dropInBookings.status} = 'no_show')::int`,
       booked: sql<number>`count(*) filter (where ${dropInBookings.status} = 'confirmed')::int`,
-      capacity: sql<number>`coalesce(sum(distinct ${dropInSessions.capacity}), 0)::int`,
     })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInBookings.sessionId, dropInSessions.id))
     .innerJoin(venues, eq(dropInSessions.venueId, venues.id))
-    .where(
-      and(
-        inArray(venues.locationId, locationIds),
-        gte(dropInSessions.startsAt, start),
-        lte(dropInSessions.startsAt, end),
-      ),
-    );
+    .where(sessionWindow);
 
-  const booked = row?.booked ?? 0;
-  const capacity = row?.capacity ?? 0;
+  // Capacity is a property of SESSIONS, so it must be summed over sessions
+  // directly — not over the booking-joined set (which would drop zero-booking
+  // sessions and, with sum(distinct), collapse equal capacities).
+  const capacityAgg = db
+    .select({
+      capacity: sql<number>`coalesce(sum(${dropInSessions.capacity}), 0)::int`,
+    })
+    .from(dropInSessions)
+    .innerJoin(venues, eq(dropInSessions.venueId, venues.id))
+    .where(sessionWindow);
+
+  const [[metrics], [cap]] = await Promise.all([bookingMetrics, capacityAgg]);
+
+  const booked = metrics?.booked ?? 0;
+  const capacity = cap?.capacity ?? 0;
   return {
-    checkedIn: row?.checkedIn ?? 0,
-    walkUps: row?.walkUps ?? 0,
-    noShows: row?.noShows ?? 0,
+    checkedIn: metrics?.checkedIn ?? 0,
+    walkUps: metrics?.walkUps ?? 0,
+    noShows: metrics?.noShows ?? 0,
     booked,
     capacity,
     fillRate: capacity > 0 ? booked / capacity : 0,

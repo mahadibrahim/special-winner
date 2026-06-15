@@ -1,9 +1,11 @@
-// TODO(SP2b): location-scope write — PATCH does not yet verify rental's venue.locationId ∈ caller's locations.
 /**
- * GET   /api/admin/rentals/:id → full rental detail (org-scoped).
+ * GET   /api/admin/rentals/:id → full rental detail.
  * PATCH /api/admin/rentals/:id → update notes/purpose, or cancel (without
  *        refund — use /refund for paid rentals). Body: { notes?, purpose?,
  *        cancel?: boolean }.
+ *
+ * Org- AND location-scoped: a venue manager can only read or mutate rentals
+ * whose venue is in their assigned locations (super-admin is unscoped).
  */
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
@@ -11,6 +13,7 @@ import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
 export const prerender = false;
 
@@ -35,6 +38,9 @@ export const GET: APIRoute = async (context) => {
     .where(eq(fieldRentals.id, rentalId))
     .limit(1);
   if (!row || row.field_rentals.organizationId !== orgId) {
+    return json({ error: "Rental not found" }, 404);
+  }
+  if (!(await callerCanActOnVenue(context, row.field_rentals.venueId))) {
     return json({ error: "Rental not found" }, 404);
   }
   return json({ rental: row.field_rentals, venue: row.venues }, 200);
@@ -62,6 +68,9 @@ export const PATCH: APIRoute = async (context) => {
     .where(eq(fieldRentals.id, rentalId))
     .limit(1);
   if (!rental || rental.organizationId !== orgId) {
+    return json({ error: "Rental not found" }, 404);
+  }
+  if (!(await callerCanActOnVenue(context, rental.venueId))) {
     return json({ error: "Rental not found" }, 404);
   }
 

@@ -6,10 +6,11 @@
  *                                          also runs admin-cancel refunds.
  *                                          DELETE is safe-only (no roster).
  *
- * TODO(SP2b): location-scope write — PUT and DELETE do not yet verify the
- * session's venue.locationId ∈ caller's locations (org-scoped only via loadOrgScoped).
+ * GET/PUT/DELETE are org-scoped AND location-scoped: a venue manager can only
+ * read or mutate sessions whose venue is in their assigned locations (super-
+ * admin is unscoped). Both checks live in `loadScoped`.
  */
-import type { APIRoute } from "astro";
+import type { APIRoute, APIContext } from "astro";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
@@ -19,6 +20,7 @@ import { BlockConflictError, removeSourceBlock } from "@/lib/scheduling/blocks";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
 export const prerender = false;
 
@@ -43,6 +45,19 @@ async function loadOrgScoped(sessionId: string, orgId: string) {
   return row ?? null;
 }
 
+/**
+ * Org-scoped load + location-scope check. Returns the session only when the
+ * caller may act on its venue (super-admin: always; venue manager: venue's
+ * location ∈ their set). A non-match returns null → callers 404, which also
+ * avoids leaking that a session exists at another location.
+ */
+async function loadScoped(context: APIContext, sessionId: string, orgId: string) {
+  const row = await loadOrgScoped(sessionId, orgId);
+  if (!row) return null;
+  if (!(await callerCanActOnVenue(context, row.venueId))) return null;
+  return row;
+}
+
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
@@ -51,7 +66,7 @@ export const GET: APIRoute = async (context) => {
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
 
-  const session = await loadOrgScoped(id, orgId);
+  const session = await loadScoped(context, id, orgId);
   if (!session) return json({ error: "Session not found" }, 404);
 
   const db = getDb();
@@ -122,7 +137,7 @@ export const PUT: APIRoute = async (context) => {
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
 
-  const session = await loadOrgScoped(id, orgId);
+  const session = await loadScoped(context, id, orgId);
   if (!session) return json({ error: "Session not found" }, 404);
 
   let body: PutBody;
@@ -130,6 +145,17 @@ export const PUT: APIRoute = async (context) => {
     body = await context.request.json();
   } catch {
     return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  // Moving a session to another venue requires acting-rights on the TARGET
+  // venue too — otherwise a manager could relocate a session out of (or into)
+  // a location they don't control.
+  if (
+    body.venueId !== undefined &&
+    body.venueId !== session.venueId &&
+    !(await callerCanActOnVenue(context, body.venueId))
+  ) {
+    return json({ error: "Venue not found" }, 404);
   }
 
   const db = getDb();
@@ -199,7 +225,7 @@ export const DELETE: APIRoute = async (context) => {
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
 
-  const session = await loadOrgScoped(id, orgId);
+  const session = await loadScoped(context, id, orgId);
   if (!session) return json({ error: "Session not found" }, 404);
 
   const db = getDb();

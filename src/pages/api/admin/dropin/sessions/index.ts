@@ -16,6 +16,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { venueLocationCondition } from "@/lib/admin/location-scope-filter";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
 export const prerender = false;
 
@@ -109,7 +110,9 @@ interface CreateBody {
   teamColors?: string[];
 }
 
-// TODO(SP2b): location-scope write — POST does not yet verify venue.locationId ∈ caller's locations.
+// POST is location-scoped: a venue manager can only create sessions at a venue
+// in their assigned locations (super-admin is unscoped). Enforced after the
+// venue tenant guard below via callerCanActOnVenue.
 export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
@@ -144,6 +147,9 @@ export const POST: APIRoute = async (context) => {
     .where(eq(venues.id, body.venueId))
     .limit(1);
   if (!venue) return json({ error: "Venue not found" }, 404);
+  if (!(await callerCanActOnVenue(context, body.venueId))) {
+    return json({ error: "Venue not found" }, 404);
+  }
 
   // Field attribution: the ledger tracks per field. Default to the
   // venue's Field 1 when omitted so existing admin clients keep working

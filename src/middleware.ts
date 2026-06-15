@@ -314,9 +314,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
         "/admin/programs",
         "/admin/sports",
         "/admin/age-groups",
-        "/admin/dropins",
-        "/admin/dropin",
-        "/admin/rentals",
+        // Casual play (drop-ins + rentals) is venue-manager scope as of SP2:
+        // the list/detail/create pages render for location_admin and their
+        // backing APIs filter by getLocationIdsForUser. Only the org-level
+        // rate cards stay super-admin (pricing is per-org, not per-venue).
+        "/admin/dropin/rate-card",
+        "/admin/rentals/rate-card",
         "/admin/refunds",
         "/admin/discount-codes",
         "/admin/gear",

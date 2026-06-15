@@ -4,6 +4,14 @@ import { useState, useEffect } from "react"
 import { ClipboardList } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -89,33 +97,33 @@ export function VenueRosters() {
               {team.players.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No players on this roster yet.</p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="pb-2 font-medium">Name</th>
-                      <th className="pb-2 font-medium w-20">Jersey</th>
-                      <th className="pb-2 font-medium w-24">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="w-20">Jersey</TableHead>
+                      <TableHead className="w-24">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {team.players.map((player, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-2">{player.playerName}</td>
-                        <td className="py-2 text-muted-foreground">
+                      <TableRow key={i}>
+                        <TableCell>{player.playerName}</TableCell>
+                        <TableCell className="text-muted-foreground">
                           {player.jerseyNumber ?? <span className="text-muted-foreground/50">—</span>}
-                        </td>
-                        <td className="py-2">
+                        </TableCell>
+                        <TableCell>
                           <Badge
                             variant={player.status === "active" ? "default" : "secondary"}
                             className="capitalize"
                           >
                             {player.status}
                           </Badge>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

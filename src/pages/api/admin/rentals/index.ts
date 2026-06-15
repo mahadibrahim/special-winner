@@ -20,6 +20,7 @@ import {
 } from "@/lib/auth/require-resource-ownership";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { venueLocationCondition } from "@/lib/admin/location-scope-filter";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { validateAdminRentalCreate } from "@/lib/rentals/validators";
 import { resolveRentalHourlyRateCents, computeRentalPriceCents } from "@/lib/rentals/pricing";
 import { createRentalHold, createConfirmedRentalNonStripe } from "@/lib/rentals/booking";
@@ -93,7 +94,9 @@ export const GET: APIRoute = async (context) => {
   return json({ rentals: rows }, 200);
 };
 
-// TODO(SP2b): location-scope write — POST does not yet verify venue.locationId ∈ caller's locations (requireSameOrgVenue checks org only).
+// POST is location-scoped: a venue manager can only create rentals at a venue
+// in their assigned locations (super-admin is unscoped). Enforced after the
+// org-ownership guard below via callerCanActOnVenue.
 export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
@@ -113,6 +116,9 @@ export const POST: APIRoute = async (context) => {
   const venueId = body.venueId as string;
   const ownership = await requireSameOrgVenue(orgId, venueId);
   if (!ownership.ok) return ownershipDeniedResponse();
+  if (!(await callerCanActOnVenue(context, venueId))) {
+    return ownershipDeniedResponse();
+  }
 
   const db = getDb();
   const [venue] = await db

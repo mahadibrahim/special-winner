@@ -1,4 +1,3 @@
-// TODO(SP2b): location-scope write — POST does not yet verify session's venue.locationId ∈ caller's locations.
 /**
  * POST /api/admin/dropin/sessions/:id/attendance
  *
@@ -10,13 +9,15 @@
  *     }>;
  *   }
  *
- * Tenant-scoped.
+ * Org- AND location-scoped: a venue manager can only mark attendance on
+ * sessions whose venue is in their assigned locations (super-admin unscoped).
  */
 import type { APIRoute } from "astro";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
 export const prerender = false;
 
@@ -54,7 +55,7 @@ export const POST: APIRoute = async (context) => {
 
   // Tenant guard: session must be ours.
   const [session] = await db
-    .select({ id: dropInSessions.id })
+    .select({ id: dropInSessions.id, venueId: dropInSessions.venueId })
     .from(dropInSessions)
     .where(
       and(
@@ -64,6 +65,9 @@ export const POST: APIRoute = async (context) => {
     )
     .limit(1);
   if (!session) return json({ error: "Session not found" }, 404);
+  if (!(await callerCanActOnVenue(context, session.venueId))) {
+    return json({ error: "Session not found" }, 404);
+  }
 
   // Pull only bookings belonging to this session — guards against
   // cross-session id passing.
