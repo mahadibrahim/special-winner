@@ -9,7 +9,8 @@
  * Body:
  *   { untilDate: ISO-date }   // YYYY-MM-DD or full ISO string
  *
- * Returns the list of created session ids.
+ * Returns the list of created session ids. Org- AND location-scoped: a venue
+ * manager can only repeat sessions whose venue is in their assigned locations.
  */
 import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
@@ -18,6 +19,7 @@ import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
 import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
 export const prerender = false;
 
@@ -64,6 +66,9 @@ export const POST: APIRoute = async (context) => {
     )
     .limit(1);
   if (!origin) return json({ error: "Session not found" }, 404);
+  if (!(await callerCanActOnVenue(context, origin.venueId))) {
+    return json({ error: "Session not found" }, 404);
+  }
 
   const originStart = new Date(origin.startsAt).getTime();
   const originEnd = new Date(origin.endsAt).getTime();

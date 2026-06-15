@@ -1,38 +1,29 @@
 import type { APIRoute } from "astro";
 import { getNavBadges } from "@/lib/admin/nav-badges";
+import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 
 export const prerender = false;
 
-const ZEROS = { inbox: 0, refundsPending: 0, attention: 0 };
+const ZERO = { inbox: 0, refundsPending: 0, attention: 0 };
+const json = (b: unknown, status = 200) =>
+  new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
-/**
- * GET /api/admin/nav-badges — super-admin only. Returns badge counts for the
- * admin sidebar nav (inbox, refunds pending, attention items).
- * Fails soft: any error returns zeros rather than a 500.
- */
 export const GET: APIRoute = async ({ locals }) => {
-  if (!locals.user) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-  if (!locals.organization) {
-    return json(ZEROS, 200);
-  }
-  const userRoles = (locals.userRoles ?? []).map((r) => r.name);
-  if (!userRoles.includes("super_admin")) {
-    return json({ error: "Forbidden" }, 403);
-  }
+  if (!locals.user) return json({ error: "Unauthorized" }, 401);
+  const roles = (locals.userRoles ?? []).map((r) => r.name);
+  const isAdmin = roles.includes("super_admin") || roles.includes("location_admin");
+  if (!isAdmin) return json({ error: "Forbidden" }, 403);
+  const orgId = locals.organization?.id;
+  if (!orgId) return json(ZERO);
+
   try {
-    const badges = await getNavBadges(locals.organization.id);
-    return json(badges, 200);
+    if (roles.includes("super_admin")) {
+      return json(await getNavBadges(orgId));
+    }
+    const locationIds = await getLocationIdsForUser(locals.user.id);
+    return json(await getNavBadges(orgId, { locationIds, userId: locals.user.id }));
   } catch (err) {
-    console.error("[nav-badges] failed to fetch badge counts:", err);
-    return json(ZEROS, 200);
+    console.error("[nav-badges] failed", err);
+    return json(ZERO);
   }
 };
-
-function json(payload: unknown, status: number): Response {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
-  });
-}

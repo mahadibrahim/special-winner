@@ -81,6 +81,20 @@ export async function getEffectiveLocationIds(opts: {
 }
 
 /**
+ * Every location id in an org. Used to materialize the super-admin "all
+ * locations" case (`getEffectiveLocationIds` → `null`) into a concrete id
+ * set for helpers that take `string[]`. Returns `[]` when `orgId` is absent.
+ */
+export async function allOrgLocationIds(orgId: string | undefined): Promise<string[]> {
+  if (!orgId) return [];
+  const rows = await getDb()
+    .select({ id: locations.id })
+    .from(locations)
+    .where(eq(locations.organizationId, orgId));
+  return rows.map((r) => r.id);
+}
+
+/**
  * Resolve every location the caller can act at, regardless of count.
  *
  *   - super_admin → every location in the current org.

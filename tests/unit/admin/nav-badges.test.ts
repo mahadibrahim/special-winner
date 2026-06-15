@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Two count queries run in getNavBadges in this order: refunds (3 inner joins),
 // then inbox (no join). Return 3 then 5.
@@ -22,8 +22,17 @@ vi.mock("@/lib/admin/attention-feed", () => ({
 import { getNavBadges } from "@/lib/admin/nav-badges";
 
 describe("getNavBadges", () => {
+  beforeEach(() => {
+    call = 0;
+  });
+
   it("returns inbox, refundsPending, and attention counts", async () => {
     const b = await getNavBadges("org_1");
     expect(b).toEqual({ refundsPending: 3, inbox: 5, attention: 2 });
+  });
+
+  it("scoped variant: location-scoped refunds + assigned-inbox, no attention", async () => {
+    const b = await getNavBadges("org_1", { locationIds: ["loc_1"], userId: "u_1" });
+    expect(b).toEqual({ refundsPending: 3, inbox: 5, attention: 0 });
   });
 });

@@ -1,3 +1,4 @@
+// TODO(SP2b): location-scope write — POST does not yet verify session's venue.locationId ∈ caller's locations.
 /**
  * POST /api/admin/dropin/sessions/:id/walk-up
  *
@@ -35,6 +36,7 @@ type UserGender = "male" | "female" | "non_binary" | "prefer_not_to_say";
 import { venues } from "@/lib/db/schema/teams";
 import { stripe } from "@/lib/stripe/client";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { resolveRate } from "@/lib/dropin/pricing";
 import {
   createConfirmedBookingFreePath,
@@ -84,6 +86,10 @@ export const POST: APIRoute = async (context) => {
     session.organizationId !== context.locals.organization.id
   ) {
     return json({ error: "Forbidden" }, 403);
+  }
+
+  if (!(await callerCanActOnVenue(context, session.venueId))) {
+    return json({ error: "Session not found" }, 404);
   }
 
   if (session.status !== "scheduled") {

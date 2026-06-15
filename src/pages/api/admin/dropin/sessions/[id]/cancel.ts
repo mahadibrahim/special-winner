@@ -4,6 +4,9 @@
  * Admin-cancels the session. Marks the session row cancelled, then for
  * every still-active booking runs the refund pipeline as an admin
  * override (full refund regardless of cancel-window).
+ *
+ * Org- AND location-scoped: a venue manager can only cancel sessions whose
+ * venue is in their assigned locations (super-admin is unscoped).
  */
 import type { APIRoute } from "astro";
 import { and, eq, inArray } from "drizzle-orm";
@@ -11,6 +14,7 @@ import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { removeSourceBlock } from "@/lib/scheduling/blocks";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { processCancelRefund } from "@/lib/dropin/refund";
 
 export const prerender = false;
@@ -53,6 +57,9 @@ export const POST: APIRoute = async (context) => {
     )
     .limit(1);
   if (!session) return json({ error: "Session not found" }, 404);
+  if (!(await callerCanActOnVenue(context, session.venueId))) {
+    return json({ error: "Session not found" }, 404);
+  }
   if (session.status === "cancelled") {
     return json({ error: "Session already cancelled" }, 409);
   }
