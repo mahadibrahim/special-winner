@@ -3,17 +3,13 @@ import {
   Building2,
   Flag,
   Camera,
-  Calendar,
-  ClipboardList,
-  GraduationCap,
-  BarChart3,
-  Inbox,
   Image,
   History,
   type LucideIcon,
 } from "lucide-react";
 import { SUPER_ADMIN_NAV, type NavGroup } from "@/lib/admin/nav-super-admin";
 import { VENUE_MANAGER_NAV } from "@/lib/admin/nav-venue-manager";
+import { COACH_NAV } from "@/lib/admin/nav-coach";
 import type { RoleName } from "@/lib/auth/roles";
 
 export type PortalId = "admin" | "venue" | "coach" | "media" | "referee";
@@ -29,24 +25,6 @@ export type Portal = {
   available: boolean;
   nav: NavGroup[];
 };
-
-// Starter nav for portals whose full IA lands in later sub-projects. These
-// list the current top-level routes so the orphan-guard test is meaningful;
-// Sub-projects 3 (coach) and 4 (media) will redesign them.
-const COACH_NAV: NavGroup[] = [
-  {
-    name: null,
-    items: [
-      { name: "Home", href: "/coach", icon: ClipboardList },
-      { name: "Schedule", href: "/coach/schedule", icon: Calendar },
-      { name: "Practices", href: "/coach/practices", icon: GraduationCap },
-      { name: "Assessments", href: "/coach/assessments", icon: ClipboardList },
-      { name: "Standings", href: "/coach/standings", icon: BarChart3 },
-      { name: "Resources", href: "/coach/resources", icon: GraduationCap },
-      { name: "Messages", href: "/coach/messages", icon: Inbox },
-    ],
-  },
-];
 
 const MEDIA_NAV: NavGroup[] = [
   {
