@@ -1,0 +1,28 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
+import { resolveVenueLabel } from "@/lib/admin/venue-label";
+import { VenueReports } from '@/components/admin/venue/venue-reports';
+
+export const prerender = false;
+
+// Middleware guarantees admin for /admin/**
+const user = Astro.locals.user!;
+const userRoles = Astro.locals.userRoles ?? [];
+const primaryRole = getPrimaryRoleName(userRoles);
+const isSuperAdmin = primaryRole === "super_admin";
+const venueLabel = isSuperAdmin ? undefined : await resolveVenueLabel(user.id);
+---
+
+<BaseLayout title="Reports — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    venueLabel={venueLabel}
+    currentPath="/admin/venue/reports"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <VenueReports client:load />
+  </AdminLayout>
+</BaseLayout>

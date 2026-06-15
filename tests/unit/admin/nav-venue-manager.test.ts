@@ -21,7 +21,7 @@ describe("VENUE_MANAGER_NAV", () => {
   });
   it("has labeled groups", () => {
     const names = VENUE_MANAGER_NAV.map((g) => g.name);
-    for (const g of ["Front desk", "People", "Comms", "Requests"]) {
+    for (const g of ["Front desk", "People", "Comms", "Requests", "Reports"]) {
       expect(names).toContain(g);
     }
   });

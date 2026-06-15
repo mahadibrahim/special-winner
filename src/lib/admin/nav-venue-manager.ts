@@ -8,6 +8,7 @@ import {
   ListOrdered,
   RefreshCcw,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import type { NavGroup } from "./nav-super-admin";
 
@@ -43,5 +44,9 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
     items: [
       { name: "Refund requests", href: "/admin/refund-requests", icon: RefreshCcw, badgeKey: "refundsPending" },
     ],
+  },
+  {
+    name: "Reports",
+    items: [{ name: "Reports", href: "/admin/venue/reports", icon: BarChart3 }],
   },
 ];
