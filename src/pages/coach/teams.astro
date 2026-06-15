@@ -1,0 +1,22 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
+import { CoachTeams } from '@/components/coach/coach-teams';
+import { getCoachTeams } from '@/lib/coach/get-coach-teams';
+
+export const prerender = false;
+
+// Middleware guarantees the coach role for /coach/**
+const user = Astro.locals.user!;
+const teams = await getCoachTeams(user.id);
+---
+
+<BaseLayout title="My Teams — Coach — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/teams"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <CoachTeams client:load teams={teams} />
+  </CoachLayout>
+</BaseLayout>
