@@ -8,7 +8,6 @@ const PAGES = fileURLToPath(new URL("../../../src/pages", import.meta.url));
 const hrefs = COACH_NAV.flatMap((g) => g.items.map((i) => i.href));
 
 function resolves(href: string): boolean {
-  if (href === "/messages") return true;
   return (
     existsSync(path.join(PAGES, href.replace(/^\//, "") + ".astro")) ||
     existsSync(path.join(PAGES, href.replace(/^\//, ""), "index.astro"))
