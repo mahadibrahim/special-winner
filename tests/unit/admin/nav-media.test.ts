@@ -15,11 +15,8 @@ function resolves(href: string): boolean {
 }
 
 describe("MEDIA_NAV / getMediaNav", () => {
-  it("the existing static pages resolve", () => {
-    // /media/queue is created in a later task; the orphan-guard verifies it then.
-    for (const h of ["/media/jobs", "/media/history"]) {
-      expect(resolves(h)).toBe(true);
-    }
+  it("every MEDIA_NAV href resolves to a real page", () => {
+    expect(allHrefs(MEDIA_NAV).filter((h) => !resolves(h))).toEqual([]);
   });
   it("media_staff sees jobs + history (not the queue)", () => {
     const hrefs = allHrefs(getMediaNav(["media_staff"]));

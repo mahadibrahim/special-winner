@@ -12,7 +12,7 @@ const roleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
 const sessionId = Astro.params.session_id;
 
 if (!sessionId) {
-  return Astro.redirect('/admin/media/tag-queue');
+  return Astro.redirect('/media/queue');
 }
 
 const perm = await canTagSession(user.id, sessionId);
@@ -21,7 +21,7 @@ if (!perm.allowed) {
     `<!doctype html><html><body><main id="main-content" style="font-family:system-ui;padding:2rem">
       <h1>Forbidden</h1>
       <p>${perm.reason}</p>
-      <p><a href="/admin/media/tag-queue">Back to queue</a></p>
+      <p><a href="/media/queue">Back to queue</a></p>
     </main></body></html>`,
     { status: 403, headers: { 'Content-Type': 'text/html' } }
   );
