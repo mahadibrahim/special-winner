@@ -23,8 +23,8 @@ describe("resolvePortalsForUser", () => {
     expect(resolvePortalsForUser(["media_staff", "media_editor"]).map((p) => p.id)).toEqual(["media"]);
   });
 
-  it("excludes unavailable portals (referee)", () => {
-    expect(resolvePortalsForUser(["referee"])).toEqual([]);
+  it("resolves the referee portal for a referee role (SP5: now available)", () => {
+    expect(resolvePortalsForUser(["referee"]).map((p) => p.id)).toEqual(["referee"]);
   });
 
   it("returns nothing for customer-only roles", () => {

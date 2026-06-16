@@ -3,12 +3,14 @@ import {
   Building2,
   Flag,
   Camera,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { SUPER_ADMIN_NAV, type NavGroup } from "@/lib/admin/nav-super-admin";
 import { VENUE_MANAGER_NAV } from "@/lib/admin/nav-venue-manager";
 import { COACH_NAV } from "@/lib/admin/nav-coach";
 import { MEDIA_NAV } from "@/lib/admin/nav-media";
+import { REFEREE_NAV } from "@/lib/admin/nav-referee";
 import type { RoleName } from "@/lib/auth/roles";
 
 export type PortalId = "admin" | "venue" | "coach" | "media" | "referee";
@@ -69,11 +71,11 @@ export const PORTALS: Portal[] = [
   {
     id: "referee",
     label: "Referee",
-    icon: Flag,
+    icon: ClipboardCheck,
     basePath: "/referee",
     homeHref: "/referee",
     roles: ["referee"],
-    available: false,
-    nav: [],
+    available: true,
+    nav: REFEREE_NAV,
   },
 ];

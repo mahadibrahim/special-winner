@@ -14,6 +14,7 @@ export type PortalBadges = {
   refundsPending?: number
   attention?: number
   mediaQueue?: number
+  reportsOwed?: number
 }
 
 export type Breadcrumb = { label: string; href?: string }
