@@ -773,10 +773,13 @@ export async function sendWelcomeSeriesEmail(params: {
 // Deduped per address via email_logs so re-submitting the band can't resend.
 export async function sendCaptureIncentiveEmail(params: {
   recipientEmail: string;
+  brand?: BrandId;
 }) {
+  const brand = params.brand ?? "aspire";
+  const brandName = brand === "soccerone" ? "SoccerOne" : "Aspire Sports";
   const emailType = "capture_incentive";
   const amount = formatIncentiveAmount(CAPTURE_INCENTIVE.amountCents);
-  const subject = `Your ${amount} code for Aspire Sports`;
+  const subject = `Your ${amount} code for ${brandName}`;
 
   // Existence check — a sent/skipped row means we already handled this
   // address, so no orderBy is needed on the limit(1). Failed sends are
@@ -810,11 +813,13 @@ export async function sendCaptureIncentiveEmail(params: {
     return { success: false, error: "Email not configured" };
   }
 
+  const origin = originForBrand(brand) ?? env.PUBLIC_APP_URL;
   const { html, text } = await renderEmail(
     CaptureIncentiveEmail({
       amount,
       code: CAPTURE_INCENTIVE.code,
-      programsUrl: `${env.PUBLIC_APP_URL}/programs`,
+      programsUrl: `${origin}/programs`,
+      brand,
     }),
   );
 

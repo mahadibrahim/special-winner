@@ -6,26 +6,28 @@ import {
   P,
   PMuted,
 } from "@/lib/email/components/email-layout";
+import type { BrandId } from "@/lib/branding/themes";
 
-// Aspire-only by design: the capture incentive is gated to the home-page
-// band (source "home-incentive"), which never renders on SoccerOne hosts.
-// If a SoccerOne incentive ever ships, thread `brand` through to EmailLayout
-// like payment-receipt.tsx does — don't reuse this template as-is.
+// Brand-aware: the capture incentive now ships from both the home band
+// (Aspire) and the /join landing page (either brand). `brand` themes the
+// EmailLayout chrome; the discount code itself is shared across brands.
 interface CaptureIncentiveEmailProps {
   /** Human-formatted amount, e.g. "$15". */
   amount: string;
   /** The shared discount code, e.g. "WELCOME15". */
   code: string;
   programsUrl: string;
+  brand?: BrandId;
 }
 
 export function CaptureIncentiveEmail({
   amount,
   code,
   programsUrl,
+  brand = "aspire",
 }: CaptureIncentiveEmailProps) {
   return (
-    <EmailLayout preview={`Your ${amount} code is inside`}>
+    <EmailLayout preview={`Your ${amount} code is inside`} brand={brand}>
       <Content>
         <H1>Here's your {amount} — see you out there.</H1>
         <P>
