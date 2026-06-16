@@ -440,7 +440,7 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
               {needsSignIn ? (
                 <a
                   className="panel-book-btn panel-book-link"
-                  href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/soccerone/rent")}`}
+                  href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
                 >
                   Sign in to book
                 </a>

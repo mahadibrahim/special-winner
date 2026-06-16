@@ -5,6 +5,7 @@ import {
   SOCCERONE_CANONICAL_HOST,
   rewriteSoccerOnePath,
   getAspireToSoccerOneRedirect,
+  getSoccerOneCanonicalRedirect,
   isSoccerOneHost,
   brandFromHost,
   originForBrand,
@@ -96,6 +97,49 @@ describe("getAspireToSoccerOneRedirect()", () => {
     "/soccerone-other",     // not the soccerone/ subtree
   ])("returns null for non-soccerone path %s", (input) => {
     expect(getAspireToSoccerOneRedirect(input)).toBeNull();
+  });
+});
+
+describe("getSoccerOneCanonicalRedirect()", () => {
+  // The public URL on a SoccerOne host is the SHORT form (/leagues). The
+  // /soccerone/* page files are an internal rewrite target, not a public
+  // surface — a SoccerOne host hitting the long form 301s to the short one.
+  // This is the exact inverse of SOCCERONE_MARKETING_REWRITES; the two stay
+  // symmetric so a short URL rewrites in and a long URL redirects out.
+  it("is the exact inverse of the rewrite table", () => {
+    for (const [short, long] of Object.entries(SOCCERONE_MARKETING_REWRITES)) {
+      expect(getSoccerOneCanonicalRedirect(long)).toBe(short);
+    }
+  });
+
+  it.each([
+    ["/soccerone", "/"],
+    ["/soccerone/leagues", "/leagues"],
+    ["/soccerone/rent", "/rent"],
+    ["/soccerone/pickup", "/pickup"],
+    ["/soccerone/memberships", "/memberships"],
+    ["/soccerone/downtown", "/downtown"],
+    ["/soccerone/worthington", "/worthington"],
+  ])("redirects long form %s → short form %s", (input, expected) => {
+    expect(getSoccerOneCanonicalRedirect(input)).toBe(expected);
+  });
+
+  it.each([
+    "/",                    // already the short form — must NOT redirect (would loop)
+    "/leagues",             // short form — the rewrite target, never redirected
+    "/rent",
+    "/soccerone-favicon.svg", // static asset, not the soccerone/ subtree
+    "/soccerone/leagues/x", // deeper than a known marketing root
+    "/register",
+    "/api/public/seasons",
+  ])("returns null for %s (no symmetric short form)", (input) => {
+    expect(getSoccerOneCanonicalRedirect(input)).toBeNull();
+  });
+
+  it("never maps a path to itself (guarantees no redirect loop)", () => {
+    for (const long of Object.values(SOCCERONE_MARKETING_REWRITES)) {
+      expect(getSoccerOneCanonicalRedirect(long)).not.toBe(long);
+    }
   });
 });
 

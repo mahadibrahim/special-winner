@@ -50,7 +50,7 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
     <div class="rent-header">
       <div class="rh-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/soccerone" class="bc-link">SoccerOne</a>
+          <a href="/" class="bc-link">SoccerOne</a>
           <span class="bc-sep">—</span>
           <span class="bc-current">Field Rentals</span>
         </nav>
@@ -96,13 +96,13 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
         <!-- Facility selector tabs -->
         <div class="facility-filter-row" role="group" aria-label="Select facility">
           <a
-            href="/soccerone/rent?facility=worthington"
+            href="/rent?facility=worthington"
             class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}
           >
             WORTHINGTON · 3 FIELDS
           </a>
           <a
-            href="/soccerone/rent?facility=downtown"
+            href="/rent?facility=downtown"
             class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}
           >
             DOWNTOWN · 1 FIELD
@@ -229,7 +229,7 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
           <h2 class="rmc-title">Member and Founder rates apply automatically.</h2>
           <p class="rmc-sub">One membership. Both facilities. Save $8–$16 per hour on every rental. Pays for itself in two bookings.</p>
         </div>
-        <a href="/soccerone/memberships" class="rmc-btn">View Membership Plans →</a>
+        <a href="/memberships" class="rmc-btn">View Membership Plans →</a>
       </div>
     </div>
 
