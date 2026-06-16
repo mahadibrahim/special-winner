@@ -37,9 +37,9 @@ describe("PORTALS registry", () => {
     }
   });
 
-  it("referee is not yet available (pages land in sub-project 5)", () => {
+  it("referee portal is now available (SP5)", () => {
     const referee = PORTALS.find((p) => p.id === "referee")!;
-    expect(referee.available).toBe(false);
+    expect(referee.available).toBe(true);
   });
 
   it("admin, venue, coach, media are available", () => {

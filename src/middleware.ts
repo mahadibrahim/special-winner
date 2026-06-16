@@ -45,6 +45,7 @@ type RouteRule =
         | "parent"
         | "media_staff"
         | "media_editor"
+        | "referee"
       >;
     };
 
@@ -54,6 +55,8 @@ const ROUTE_RULES: RouteRule[] = [
   { kind: "role", pattern: /^\/admin(\/|$)/, roles: ["admin", "super_admin", "location_admin"] },
   // Coach portal — coaches AND admins may access.
   { kind: "role", pattern: /^\/coach(\/|$)/, roles: ["coach", "admin", "super_admin", "location_admin"] },
+  // Referee portal — referees AND super admins may access.
+  { kind: "role", pattern: /^\/referee(\/|$)/, roles: ["referee", "super_admin"] },
   // Authenticated-only areas.
   { kind: "authed", pattern: /^\/dashboard(\/|$)/ },
   { kind: "authed", pattern: /^\/portal(\/|$)/ },
