@@ -1,0 +1,10 @@
+---
+export const prerender = false;
+
+// Role-aware landing: staff → jobs, editor → tagging queue. Middleware already
+// gates /media to media roles; the /dashboard fallback is a safety net.
+const roleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
+if (roleNames.includes("media_staff")) return Astro.redirect("/media/jobs");
+if (roleNames.includes("media_editor")) return Astro.redirect("/media/queue");
+return Astro.redirect("/dashboard");
+---
