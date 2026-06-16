@@ -8,12 +8,11 @@ import {
   GraduationCap,
   BarChart3,
   Inbox,
-  Image,
-  History,
   type LucideIcon,
 } from "lucide-react";
 import { SUPER_ADMIN_NAV, type NavGroup } from "@/lib/admin/nav-super-admin";
 import { VENUE_MANAGER_NAV } from "@/lib/admin/nav-venue-manager";
+import { MEDIA_NAV } from "@/lib/admin/nav-media";
 import type { RoleName } from "@/lib/auth/roles";
 
 export type PortalId = "admin" | "venue" | "coach" | "media" | "referee";
@@ -44,16 +43,6 @@ const COACH_NAV: NavGroup[] = [
       { name: "Standings", href: "/coach/standings", icon: BarChart3 },
       { name: "Resources", href: "/coach/resources", icon: GraduationCap },
       { name: "Messages", href: "/coach/messages", icon: Inbox },
-    ],
-  },
-];
-
-const MEDIA_NAV: NavGroup[] = [
-  {
-    name: null,
-    items: [
-      { name: "My jobs", href: "/media/jobs", icon: Image },
-      { name: "History", href: "/media/history", icon: History },
     ],
   },
 ];
