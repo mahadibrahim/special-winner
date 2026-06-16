@@ -1,0 +1,35 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { RefereeLayout } from '@/components/referee/referee-layout';
+import { MatchReport } from '@/components/referee/match-report';
+import { getRefereeMatchDetail } from '@/lib/referee/referee-queries';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const gameId = Astro.params.gameId!;
+const detail = await getRefereeMatchDetail(user.id, gameId);
+if (!detail) {
+  return new Response('Not found', { status: 404 });
+}
+const data = {
+  gameId: detail.gameId,
+  homeTeamName: detail.homeTeamName,
+  awayTeamName: detail.awayTeamName,
+  homeScore: detail.homeScore,
+  awayScore: detail.awayScore,
+  refereeNotes: detail.refereeNotes,
+  incidents: detail.incidents,
+};
+---
+
+<BaseLayout title="Match Report — Referee — Aspire Sports" navigation={false} footer={false}>
+  <RefereeLayout
+    client:load
+    currentPath="/referee"
+    breadcrumbs={[{ label: "My matches", href: "/referee" }]}
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <MatchReport client:load data={data} />
+  </RefereeLayout>
+</BaseLayout>
