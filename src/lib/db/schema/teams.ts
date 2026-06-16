@@ -178,6 +178,7 @@ export const games = pgTable(
     homeScore: integer("home_score"),
     awayScore: integer("away_score"),
     notes: text("notes"),
+    refereeNotes: text("referee_notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -234,6 +235,36 @@ export const gameOfficials = pgTable(
     index("game_officials_user_idx").on(table.userId),
     check("game_officials_non_negative_fee", sql`${table.feeCents} >= 0`),
   ],
+);
+
+export const gameIncidentTypeEnum = pgEnum("game_incident_type", [
+  "yellow_card",
+  "red_card",
+  "injury",
+  "other",
+]);
+export const gameSideEnum = pgEnum("game_side", ["home", "away"]);
+
+// Structured incidents logged by the assigned referee when reporting a match.
+export const gameIncidents = pgTable(
+  "game_incidents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    reportedByUserId: uuid("reported_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    type: gameIncidentTypeEnum("type").notNull(),
+    side: gameSideEnum("side").notNull(),
+    player: varchar("player", { length: 120 }),
+    minute: integer("minute"),
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("game_incidents_game_idx").on(t.gameId)],
 );
 
 // Standings (calculated/cached)
