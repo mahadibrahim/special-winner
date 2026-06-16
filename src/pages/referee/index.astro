@@ -1,0 +1,26 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { RefereeLayout } from '@/components/referee/referee-layout';
+import { RefereeMatches } from '@/components/referee/referee-matches';
+import { getRefereeAssignments } from '@/lib/referee/referee-queries';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const assignments = await getRefereeAssignments(user.id);
+const matches = assignments.map((m) => ({
+  gameId: m.gameId,
+  scheduledAt: m.scheduledAt.toISOString(),
+  homeTeamName: m.homeTeamName,
+  awayTeamName: m.awayTeamName,
+  homeScore: m.homeScore,
+  awayScore: m.awayScore,
+  reported: m.reported,
+}));
+---
+
+<BaseLayout title="My Matches — Referee — Aspire Sports" navigation={false} footer={false}>
+  <RefereeLayout client:load currentPath="/referee" user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
+    <RefereeMatches client:load matches={matches} />
+  </RefereeLayout>
+</BaseLayout>

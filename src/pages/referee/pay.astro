@@ -1,0 +1,25 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { RefereeLayout } from '@/components/referee/referee-layout';
+import { RefereePay } from '@/components/referee/referee-pay';
+import { getRefereePay } from '@/lib/referee/get-referee-pay';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const pay = await getRefereePay(user.id);
+const rows = pay.rows.map((r) => ({
+  gameId: r.gameId,
+  scheduledAt: r.scheduledAt.toISOString(),
+  homeTeamName: r.homeTeamName,
+  awayTeamName: r.awayTeamName,
+  feeCents: r.feeCents,
+  paymentStatus: r.paymentStatus,
+}));
+---
+
+<BaseLayout title="Pay — Referee — Aspire Sports" navigation={false} footer={false}>
+  <RefereeLayout client:load currentPath="/referee/pay" user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}>
+    <RefereePay client:load rows={rows} totalUnpaidCents={pay.totalUnpaidCents} />
+  </RefereeLayout>
+</BaseLayout>
