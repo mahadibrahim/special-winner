@@ -12,6 +12,9 @@ import type { BrandId } from "@/lib/branding/themes";
 /** One WhatsApp group link shared by both brands (decision 2026-06-16). */
 export const JOIN_WHATSAPP_URL = "https://chat.whatsapp.com/REPLACE_ME";
 
+/** Shared subcopy — intentionally identical across brands for now. */
+const DEFAULT_JOIN_SUBCOPY = "Pick one — or all three — and stay in the loop.";
+
 export interface JoinSocialLinks {
   instagram?: string;
   facebook?: string;
@@ -28,7 +31,7 @@ export interface JoinBrandContent {
 const JOIN_CONTENT: Record<BrandId, JoinBrandContent> = {
   aspire: {
     headline: "Three ways to join Aspire Sports",
-    subcopy: "Pick one — or all three — and stay in the loop.",
+    subcopy: DEFAULT_JOIN_SUBCOPY,
     socials: {
       instagram: "https://instagram.com/REPLACE_ME",
       facebook: "https://facebook.com/REPLACE_ME",
@@ -38,7 +41,7 @@ const JOIN_CONTENT: Record<BrandId, JoinBrandContent> = {
   },
   soccerone: {
     headline: "Three ways to join SoccerOne",
-    subcopy: "Pick one — or all three — and stay in the loop.",
+    subcopy: DEFAULT_JOIN_SUBCOPY,
     socials: {
       instagram: "https://instagram.com/REPLACE_ME",
       facebook: "https://facebook.com/REPLACE_ME",

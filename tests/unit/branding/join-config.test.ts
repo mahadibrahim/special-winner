@@ -8,8 +8,7 @@ describe("join-config", () => {
   });
 
   it("exposes a single shared WhatsApp URL", () => {
-    expect(typeof JOIN_WHATSAPP_URL).toBe("string");
-    expect(JOIN_WHATSAPP_URL.length).toBeGreaterThan(0);
+    expect(JOIN_WHATSAPP_URL).toMatch(/^https:\/\/chat\.whatsapp\.com\//);
   });
 
   it("every social value, when present, is an absolute URL", () => {
