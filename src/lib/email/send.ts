@@ -776,7 +776,7 @@ export async function sendCaptureIncentiveEmail(params: {
   brand?: BrandId;
 }) {
   const brand = params.brand ?? "aspire";
-  const brandName = brand === "soccerone" ? "SoccerOne" : "Aspire Sports";
+  const brandName = getBrandTheme(brand).displayName;
   const emailType = "capture_incentive";
   const amount = formatIncentiveAmount(CAPTURE_INCENTIVE.amountCents);
   const subject = `Your ${amount} code for ${brandName}`;
@@ -813,12 +813,12 @@ export async function sendCaptureIncentiveEmail(params: {
     return { success: false, error: "Email not configured" };
   }
 
-  const origin = originForBrand(brand) ?? env.PUBLIC_APP_URL;
+  const appUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
   const { html, text } = await renderEmail(
     CaptureIncentiveEmail({
       amount,
       code: CAPTURE_INCENTIVE.code,
-      programsUrl: `${origin}/programs`,
+      programsUrl: `${appUrl}/programs`,
       brand,
     }),
   );
