@@ -100,3 +100,51 @@ describe("POST /api/public/newsletter — capture incentive email", () => {
     expect(await incentiveLogs(email)).toHaveLength(0);
   });
 });
+
+describe("POST /api/public/newsletter — join page", () => {
+  const incentiveLogs = (email: string) =>
+    getDb()
+      .select()
+      .from(emailLogs)
+      .where(
+        and(
+          eq(emailLogs.emailType, "capture_incentive"),
+          eq(emailLogs.recipientEmail, email),
+        ),
+      );
+
+  it("delivers the incentive for source=join-page", async () => {
+    const email = `nl-join-${crypto.randomUUID()}@example.com`;
+    const res = await apiFetch("/api/public/newsletter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, source: "join-page", brand: "aspire" }),
+    });
+    expect(res.status).toBe(200);
+
+    const logs = await incentiveLogs(email);
+    expect(logs).toHaveLength(1);
+    expect(["sent", "skipped"]).toContain(logs[0].status);
+  });
+
+  it("stores the flyer src tag in notes", async () => {
+    const email = `nl-join-src-${crypto.randomUUID()}@example.com`;
+    const res = await apiFetch("/api/public/newsletter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        source: "join-page",
+        src: "fall25-powell",
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const [row] = await getDb()
+      .select()
+      .from(newsletterSignups)
+      .where(eq(newsletterSignups.email, email))
+      .limit(1);
+    expect(row.notes).toBe("flyer:fall25-powell");
+  });
+});
