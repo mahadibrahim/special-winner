@@ -1,17 +1,22 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { JobsList } from '../../../components/media/jobs-list';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { MediaLayout } from '@/components/media/media-layout';
+import { JobsList } from '@/components/media/jobs-list';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /media routes.
 const user = Astro.locals.user!;
+const roleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
 ---
 
-<BaseLayout title="My Jobs — Aspire Media">
-  <main id="main-content" class="mx-auto max-w-5xl p-6">
-    <header class="mb-6 flex items-center justify-between">
-      <h1 class="font-serif text-3xl">My jobs</h1>
-      <a href="/media/history" class="text-sm underline">History</a>
-    </header>
+<BaseLayout title="My Jobs — Aspire Media" navigation={false} footer={false}>
+  <MediaLayout
+    client:load
+    currentPath="/media/jobs"
+    roleNames={roleNames}
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
     <JobsList client:load />
-  </main>
+  </MediaLayout>
 </BaseLayout>

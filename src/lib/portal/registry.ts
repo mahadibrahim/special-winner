@@ -3,13 +3,12 @@ import {
   Building2,
   Flag,
   Camera,
-  Image,
-  History,
   type LucideIcon,
 } from "lucide-react";
 import { SUPER_ADMIN_NAV, type NavGroup } from "@/lib/admin/nav-super-admin";
 import { VENUE_MANAGER_NAV } from "@/lib/admin/nav-venue-manager";
 import { COACH_NAV } from "@/lib/admin/nav-coach";
+import { MEDIA_NAV } from "@/lib/admin/nav-media";
 import type { RoleName } from "@/lib/auth/roles";
 
 export type PortalId = "admin" | "venue" | "coach" | "media" | "referee";
@@ -25,16 +24,6 @@ export type Portal = {
   available: boolean;
   nav: NavGroup[];
 };
-
-const MEDIA_NAV: NavGroup[] = [
-  {
-    name: null,
-    items: [
-      { name: "My jobs", href: "/media/jobs", icon: Image },
-      { name: "History", href: "/media/history", icon: History },
-    ],
-  },
-];
 
 export const PORTALS: Portal[] = [
   {
