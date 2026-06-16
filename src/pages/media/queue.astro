@@ -1,0 +1,30 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { MediaLayout } from '@/components/media/media-layout';
+import { TaggingQueue } from '@/components/media/tagging-queue';
+import { getTaggingQueue } from '@/lib/media/get-tagging-queue';
+
+export const prerender = false;
+
+// Middleware guarantees a media role for /media/**
+const user = Astro.locals.user!;
+const roleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
+const queue = await getTaggingQueue(user.id);
+const items = queue.map((q) => ({
+  sessionId: q.sessionId,
+  sessionType: q.sessionType,
+  scheduledStart: q.scheduledStart.toISOString(),
+  placeName: q.placeName,
+}));
+---
+
+<BaseLayout title="Tagging Queue — Aspire Media" navigation={false} footer={false}>
+  <MediaLayout
+    client:load
+    currentPath="/media/queue"
+    roleNames={roleNames}
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <TaggingQueue client:load items={items} />
+  </MediaLayout>
+</BaseLayout>

@@ -13,6 +13,7 @@ export type PortalBadges = {
   inbox?: number
   refundsPending?: number
   attention?: number
+  mediaQueue?: number
   reportsOwed?: number
 }
 

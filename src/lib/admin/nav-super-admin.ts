@@ -40,7 +40,7 @@ export type NavItem = {
   name: string;
   href: string;
   icon: LucideIcon;
-  badgeKey?: "inbox" | "refundsPending" | "attention" | "reportsOwed";
+  badgeKey?: "inbox" | "refundsPending" | "attention" | "mediaQueue" | "reportsOwed";
 };
 
 export type NavGroup = {
