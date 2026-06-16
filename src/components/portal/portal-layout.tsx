@@ -13,6 +13,7 @@ export type PortalBadges = {
   inbox?: number
   refundsPending?: number
   attention?: number
+  reportsOwed?: number
 }
 
 export type Breadcrumb = { label: string; href?: string }
