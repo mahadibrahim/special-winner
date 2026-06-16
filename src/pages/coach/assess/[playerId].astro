@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import PlayerAssessmentDetail from '../../../components/coach/player-assessment-detail';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
@@ -17,28 +20,18 @@ const teamId = Astro.url.searchParams.get('teamId') || undefined;
 const sportId = Astro.url.searchParams.get('sportId') || undefined;
 ---
 
-<BaseLayout title="Player Assessment — Coach Dashboard — Aspire Sports">
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-6xl mx-auto">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
-          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
-          <span>/</span>
-          <a href="/coach/assessments" class="hover:text-ink transition-colors">Assessments</a>
-          <span>/</span>
-          <span class="text-ink">Player Details</span>
-        </nav>
-
-        <!-- Main Content -->
-        <PlayerAssessmentDetail
-          client:load
-          playerId={playerId}
-          teamId={teamId}
-          sportId={sportId}
-        />
-      </div>
-    </main>
-
-
+<BaseLayout title="Player Assessment — Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/assess"
+    breadcrumbs={[{ label: "My Teams", href: "/coach/teams" }]}
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <PlayerAssessmentDetail
+      client:load
+      playerId={playerId}
+      teamId={teamId}
+      sportId={sportId}
+    />
+  </CoachLayout>
 </BaseLayout>

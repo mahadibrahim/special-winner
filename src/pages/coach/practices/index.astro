@@ -1,52 +1,20 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import PracticesOverview from '../../../components/coach/practices-overview';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
 ---
 
-<BaseLayout title="Practice Sessions — Coach Dashboard — Aspire Sports">
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-7xl mx-auto">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
-          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
-          <span>/</span>
-          <span class="text-ink">Practice Sessions</span>
-        </nav>
-
-        <!-- Header -->
-        <header class="mb-8">
-          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <h1 class="text-2xl sm:text-3xl font-bold text-ink mb-2">
-                Practice Sessions
-              </h1>
-              <p class="text-ink-muted">
-                Plan, manage, and reflect on your team practice sessions.
-              </p>
-            </div>
-
-            <div class="flex gap-2">
-              <a href="/coach/practices/new" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary text-cream hover:bg-primary/90 transition-colors">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                New Session
-              </a>
-              <a href="/coach" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                Back to Dashboard
-              </a>
-            </div>
-          </div>
-        </header>
-
-        <!-- Main Content -->
-        <PracticesOverview client:load />
-      </div>
-    </main>
-
-
+<BaseLayout title="Practice Sessions — Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/practices"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <PracticesOverview client:load />
+  </CoachLayout>
 </BaseLayout>

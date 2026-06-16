@@ -1,46 +1,20 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import CoachAssessmentsOverview from '../../components/coach/coach-assessments-overview';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
 ---
 
-<BaseLayout title="Player Assessments — Coach Dashboard — Aspire Sports">
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-7xl mx-auto">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
-          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
-          <span>/</span>
-          <span class="text-ink">Player Assessments</span>
-        </nav>
-
-        <!-- Header -->
-        <header class="mb-8">
-          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <h1 class="text-2xl sm:text-3xl font-bold text-ink mb-2">
-                Player Assessments
-              </h1>
-              <p class="text-ink-muted">
-                Track and assess player development across technical, tactical, physical, and psychological domains.
-              </p>
-            </div>
-
-            <div class="flex gap-2">
-              <a href="/coach" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                Back to Dashboard
-              </a>
-            </div>
-          </div>
-        </header>
-
-        <!-- Main Content -->
-        <CoachAssessmentsOverview client:load />
-      </div>
-    </main>
-
-
+<BaseLayout title="Player Assessments — Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/assessments"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <CoachAssessmentsOverview client:load />
+  </CoachLayout>
 </BaseLayout>

@@ -40,8 +40,8 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   // Contextual sub-pages reached from their parent index.
   "/admin/media/shoots/new",   // reached from /admin/media/shoots (new shoot form)
   "/admin/dropin/sessions/new", // reached from /admin/dropins (new session form)
-  // TODO(sub-project 3): coach sub-pages to be placed in coach nav redesign.
-  "/coach/practices/new",      // reached from /coach/practices (new practice form)
+  // Reached from /coach/practices (new practice form) — contextual.
+  "/coach/practices/new",
 ]);
 
 /** Recursively collect .astro files under a directory. */
