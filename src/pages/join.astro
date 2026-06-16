@@ -1,0 +1,16 @@
+---
+// src/pages/join.astro — Aspire /join. SSR (reads request-time brand + ?src).
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { JoinPage } from "@/components/join/join-page";
+
+const brand = Astro.locals.brandId; // "aspire" on Aspire hosts
+const src = Astro.url.searchParams.get("src") ?? undefined;
+---
+
+<BaseLayout
+  title="Join Aspire Sports — email, WhatsApp & social"
+  description="Get a welcome code, schedules, and first dibs on registration. Join Aspire Sports by email, WhatsApp, or social."
+>
+  <JoinPage client:load brand={brand} src={src} />
+</BaseLayout>

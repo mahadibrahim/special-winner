@@ -1,0 +1,34 @@
+---
+// src/pages/soccerone/join.astro — served at /join on gosoccerone.com via the
+// SOCCERONE_MARKETING_REWRITES rewrite. SSR (reads request-time brand + ?src).
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SoccerOneHeader from "@/components/soccerone/SoccerOneHeader.astro";
+import SoccerOneFooter from "@/components/soccerone/SoccerOneFooter.astro";
+import { JoinPage } from "@/components/join/join-page";
+
+const brand = Astro.locals.brandId; // "soccerone" on Soccer One hosts
+const src = Astro.url.searchParams.get("src") ?? undefined;
+---
+
+<BaseLayout
+  favicon="/soccerone-favicon.svg"
+  title="Join SoccerOne — email, WhatsApp & social"
+  description="Get a welcome code, schedules, and updates. Join SoccerOne Columbus by email, WhatsApp, or social."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <SoccerOneHeader />
+  <JoinPage client:load brand={brand} src={src} />
+  <SoccerOneFooter />
+</BaseLayout>
