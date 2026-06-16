@@ -22,12 +22,16 @@ vi.mock("@/lib/db", () => ({
           // getReportsOwed: select(count).from(gameOfficials).innerJoin(games).where()
           where: async () => owedRows,
         }),
+        // getRefereeMatchDetail second query: select().from(gameIncidents).where().orderBy()
+        where: (..._a: any[]) => ({
+          orderBy: async () => incidentRows,
+        }),
       }),
     }),
   }),
 }));
 
-import { getRefereeAssignments, getReportsOwed } from "@/lib/referee/referee-queries";
+import { getRefereeAssignments, getReportsOwed, getRefereeMatchDetail } from "@/lib/referee/referee-queries";
 
 describe("referee-queries", () => {
   beforeEach(() => { assignmentRows = []; owedRows = []; detailRows = []; incidentRows = []; });
@@ -44,5 +48,34 @@ describe("referee-queries", () => {
   it("getReportsOwed counts past, not-completed assignments", async () => {
     owedRows = [{ count: 4 }];
     expect(await getReportsOwed("u1")).toBe(4);
+  });
+
+  it("getRefereeMatchDetail returns null when user is not assigned", async () => {
+    detailRows = [];
+    incidentRows = [];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result).toBeNull();
+  });
+
+  it("getRefereeMatchDetail returns game detail with incidents when assigned", async () => {
+    detailRows = [
+      {
+        gameId: "g1",
+        scheduledAt: new Date("2026-07-01T18:00:00Z"),
+        status: "scheduled",
+        homeScore: null,
+        awayScore: null,
+        refereeNotes: null,
+        homeTeamName: "Red",
+        awayTeamName: "Blue",
+      },
+    ];
+    incidentRows = [
+      { id: "inc1", type: "yellow_card", side: "home", player: "Player 7", minute: 23, description: "Foul" },
+    ];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result).not.toBeNull();
+    expect(result!.gameId).toBe("g1");
+    expect(result!.incidents).toEqual(incidentRows);
   });
 });

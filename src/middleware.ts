@@ -49,7 +49,7 @@ type RouteRule =
       >;
     };
 
-const ROUTE_RULES: RouteRule[] = [
+export const ROUTE_RULES: RouteRule[] = [
   // Admin dashboard — requires admin or super_admin role.
   // location_admin maps to "admin" semantics; both are covered by isAdmin flag.
   { kind: "role", pattern: /^\/admin(\/|$)/, roles: ["admin", "super_admin", "location_admin"] },

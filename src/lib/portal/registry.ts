@@ -5,6 +5,7 @@ import {
   Camera,
   Image,
   History,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { SUPER_ADMIN_NAV, type NavGroup } from "@/lib/admin/nav-super-admin";
@@ -81,7 +82,7 @@ export const PORTALS: Portal[] = [
   {
     id: "referee",
     label: "Referee",
-    icon: Flag,
+    icon: ClipboardCheck,
     basePath: "/referee",
     homeHref: "/referee",
     roles: ["referee"],

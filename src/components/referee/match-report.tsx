@@ -34,6 +34,10 @@ export function MatchReport({ data }: { data: MatchReportData }) {
   const setIncident = (i: number, k: keyof Incident, v: string) => setIncidents((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
 
   async function submit() {
+    if (homeScore.trim() === "" || awayScore.trim() === "") {
+      setStatus("error")
+      return
+    }
     setStatus("saving")
     try {
       const res = await fetch(`/api/referee/matches/${data.gameId}/report`, {
