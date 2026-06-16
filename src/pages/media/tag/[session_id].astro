@@ -1,10 +1,14 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { MediaLayout } from '@/components/media/media-layout';
 import { TaggerApp } from '../../../components/media/tagger-app';
 import { canTagSession } from '../../../lib/media/tag-permissions';
 
+export const prerender = false;
+
 // Middleware guarantees user is authenticated for /media routes.
 const user = Astro.locals.user!;
+const roleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
 const sessionId = Astro.params.session_id;
 
 if (!sessionId) {
@@ -38,9 +42,17 @@ const initialPayload = await res.json();
 ---
 
 <BaseLayout title="Tag Session — Aspire Media" navigation={false} footer={false}>
-  <TaggerApp
+  <MediaLayout
     client:load
-    sessionId={sessionId}
-    initialPayload={initialPayload}
-  />
+    currentPath="/media/tag"
+    roleNames={roleNames}
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+    breadcrumbs={[{ label: "Tagging queue", href: "/media/queue" }]}
+  >
+    <TaggerApp
+      client:load
+      sessionId={sessionId}
+      initialPayload={initialPayload}
+    />
+  </MediaLayout>
 </BaseLayout>
