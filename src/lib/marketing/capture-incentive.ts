@@ -26,3 +26,23 @@ export function formatIncentiveAmount(cents: number): string {
     ? `$${cents / 100}`
     : `$${(cents / 100).toFixed(2)}`;
 }
+
+/**
+ * The newsletter `source` value for the /join landing page. Distinct from
+ * CAPTURE_INCENTIVE_SOURCE so analytics can separate flyer-driven signups
+ * from home-page-band signups, while both deliver the same incentive code.
+ */
+export const JOIN_PAGE_SOURCE = "join-page";
+
+/** Sources whose signups should receive the discount-code incentive email. */
+const INCENTIVE_SOURCES: ReadonlySet<string> = new Set([
+  CAPTURE_INCENTIVE_SOURCE,
+  JOIN_PAGE_SOURCE,
+]);
+
+/** True if a signup `source` should trigger the incentive-code email. */
+export function sourceTriggersIncentive(
+  source: string | null | undefined,
+): boolean {
+  return source != null && INCENTIVE_SOURCES.has(source);
+}
