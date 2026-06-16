@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import { ResourceLibrary } from '../../components/coach/resource-library';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
@@ -44,116 +47,100 @@ const domainColors: Record<string, string> = {
 };
 ---
 
-<BaseLayout title="Coach Resources — Aspire Sports">
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-7xl mx-auto">
-        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
-          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
-          <span>/</span>
-          <span class="text-ink">Resources</span>
-        </nav>
-
-        <!-- Page Header -->
-        <header class="mb-10">
-          <h1 class="text-3xl font-bold text-ink mb-2">Coach Resources</h1>
-          <p class="text-ink-muted max-w-2xl leading-relaxed">
-            The Aspire curriculum library — sport guides, skill-level minibooks, and the full resource library.
-            Use these as your shared reference across every practice, every player, every season.
+<BaseLayout title="Coach Resources — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/resources"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <!-- Coaching Philosophy Card -->
+    <section class="mb-10 p-6 rounded-2xl bg-gradient-to-br from-paper to-cream-2 border border-border">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary via-primary to-orange-500 flex items-center justify-center flex-shrink-0">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h2 class="text-xl font-bold text-ink mb-2">The Aspire Coaching Philosophy</h2>
+          <p class="text-ink-muted text-sm leading-relaxed mb-3">
+            Every Aspire coach shares a common philosophy grounded in research: the <strong class="text-ink">Double-Goal Coach</strong>,
+            <strong class="text-ink">ELM framework</strong> (Effort, Learning, Mistakes), and <strong class="text-ink">TDEQ-5</strong> youth
+            development model. Four core beliefs guide us: development over winning, every child can improve, long-term athlete development,
+            and holistic growth across technical, tactical, physical, and psychological domains.
           </p>
-        </header>
-
-        <!-- Coaching Philosophy Card -->
-        <section class="mb-10 p-6 rounded-2xl bg-gradient-to-br from-paper to-cream-2 border border-border">
-          <div class="flex items-start gap-4">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary via-primary to-orange-500 flex items-center justify-center flex-shrink-0">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <div class="flex-1">
-              <h2 class="text-xl font-bold text-ink mb-2">The Aspire Coaching Philosophy</h2>
-              <p class="text-ink-muted text-sm leading-relaxed mb-3">
-                Every Aspire coach shares a common philosophy grounded in research: the <strong class="text-ink">Double-Goal Coach</strong>,
-                <strong class="text-ink">ELM framework</strong> (Effort, Learning, Mistakes), and <strong class="text-ink">TDEQ-5</strong> youth
-                development model. Four core beliefs guide us: development over winning, every child can improve, long-term athlete development,
-                and holistic growth across technical, tactical, physical, and psychological domains.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Sport Guides Section -->
-        <section class="mb-12">
-          <div class="flex items-baseline justify-between mb-5">
-            <h2 class="text-2xl font-bold text-ink">Sport Guides</h2>
-            <span class="text-sm text-ink-muted">Complete development frameworks</span>
-          </div>
-          <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {sportGuides.map((guide) => (
-              <a
-                href={`/guides/${guide.slug}`}
-                class="group block p-5 rounded-xl bg-paper border border-border hover:border-primary/30 hover:bg-cream-2 transition-all"
-              >
-                <div class={`w-10 h-10 rounded-lg bg-gradient-to-br ${guide.color} flex items-center justify-center mb-3 shadow-md`}>
-                  <span class="text-lg font-bold text-white">{guide.sport[0]}</span>
-                </div>
-                <h3 class="font-semibold text-ink mb-1 group-hover:text-primary transition-colors">{guide.sport}</h3>
-                <p class="text-xs text-ink-muted leading-relaxed line-clamp-3">{guide.description}</p>
-                <div class="mt-3 text-xs text-primary font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
-                  Open guide →
-                </div>
-              </a>
-            ))}
-          </div>
-        </section>
-
-        <!-- Skill Minibooks Section -->
-        <section class="mb-12">
-          <div class="flex items-baseline justify-between mb-5">
-            <h2 class="text-2xl font-bold text-ink">Skill Minibooks</h2>
-            <span class="text-sm text-ink-muted">{minibooks.length} print-ready development guides</span>
-          </div>
-
-          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {minibooks.map((book) => (
-              <a
-                href={`/minibooks/${book.slug}`}
-                data-sport={book.sport}
-                class="minibook-card group block p-4 rounded-xl bg-paper border border-border hover:border-primary/30 hover:bg-cream-2 transition-all"
-              >
-                <div class="flex items-start justify-between gap-3 mb-2">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-xs text-ink-muted mb-1">{book.sport} · {book.skill}</p>
-                    <h3 class="font-semibold text-ink group-hover:text-primary transition-colors line-clamp-2">
-                      {book.title}
-                    </h3>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 mt-3">
-                  <span class={`text-xs px-2 py-0.5 rounded border ${domainColors[book.domain]}`}>
-                    {book.domain}
-                  </span>
-                </div>
-              </a>
-            ))}
-          </div>
-
-          <p class="text-xs text-ink-faint mt-5 italic">
-            Baseball skill minibooks are in production and will be added in an upcoming quarterly release.
-          </p>
-        </section>
-
-        <!-- Dynamic Resource Library (DB-backed) -->
-        <section>
-          <div class="flex items-baseline justify-between mb-5">
-            <h2 class="text-2xl font-bold text-ink">Resource Library</h2>
-            <span class="text-sm text-ink-muted">Articles, videos, and references</span>
-          </div>
-          <ResourceLibrary client:visible />
-        </section>
+        </div>
       </div>
-    </main>
+    </section>
 
+    <!-- Sport Guides Section -->
+    <section class="mb-12">
+      <div class="flex items-baseline justify-between mb-5">
+        <h2 class="text-2xl font-bold text-ink">Sport Guides</h2>
+        <span class="text-sm text-ink-muted">Complete development frameworks</span>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {sportGuides.map((guide) => (
+          <a
+            href={`/guides/${guide.slug}`}
+            class="group block p-5 rounded-xl bg-paper border border-border hover:border-primary/30 hover:bg-cream-2 transition-all"
+          >
+            <div class={`w-10 h-10 rounded-lg bg-gradient-to-br ${guide.color} flex items-center justify-center mb-3 shadow-md`}>
+              <span class="text-lg font-bold text-white">{guide.sport[0]}</span>
+            </div>
+            <h3 class="font-semibold text-ink mb-1 group-hover:text-primary transition-colors">{guide.sport}</h3>
+            <p class="text-xs text-ink-muted leading-relaxed line-clamp-3">{guide.description}</p>
+            <div class="mt-3 text-xs text-primary font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+              Open guide →
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
 
+    <!-- Skill Minibooks Section -->
+    <section class="mb-12">
+      <div class="flex items-baseline justify-between mb-5">
+        <h2 class="text-2xl font-bold text-ink">Skill Minibooks</h2>
+        <span class="text-sm text-ink-muted">{minibooks.length} print-ready development guides</span>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {minibooks.map((book) => (
+          <a
+            href={`/minibooks/${book.slug}`}
+            data-sport={book.sport}
+            class="minibook-card group block p-4 rounded-xl bg-paper border border-border hover:border-primary/30 hover:bg-cream-2 transition-all"
+          >
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <div class="min-w-0 flex-1">
+                <p class="text-xs text-ink-muted mb-1">{book.sport} · {book.skill}</p>
+                <h3 class="font-semibold text-ink group-hover:text-primary transition-colors line-clamp-2">
+                  {book.title}
+                </h3>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 mt-3">
+              <span class={`text-xs px-2 py-0.5 rounded border ${domainColors[book.domain]}`}>
+                {book.domain}
+              </span>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      <p class="text-xs text-ink-faint mt-5 italic">
+        Baseball skill minibooks are in production and will be added in an upcoming quarterly release.
+      </p>
+    </section>
+
+    <!-- Dynamic Resource Library (DB-backed) -->
+    <section>
+      <div class="flex items-baseline justify-between mb-5">
+        <h2 class="text-2xl font-bold text-ink">Resource Library</h2>
+        <span class="text-sm text-ink-muted">Articles, videos, and references</span>
+      </div>
+      <ResourceLibrary client:visible />
+    </section>
+  </CoachLayout>
 </BaseLayout>

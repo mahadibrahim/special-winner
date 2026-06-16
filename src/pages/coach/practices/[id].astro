@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import SessionDetail from '../../../components/coach/session-detail';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
@@ -13,23 +16,12 @@ if (!id) {
 }
 ---
 
-<BaseLayout title="Practice Session — Coach Dashboard — Aspire Sports">
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-7xl mx-auto">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
-          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
-          <span>/</span>
-          <a href="/coach/practices" class="hover:text-ink transition-colors">Practice Sessions</a>
-          <span>/</span>
-          <span class="text-ink">Session Details</span>
-        </nav>
-
-        <!-- Main Content -->
-        <SessionDetail client:load sessionId={id} />
-      </div>
-    </main>
-
-
+<BaseLayout title="Practice Session — Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/practices"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <SessionDetail client:load sessionId={id} />
+  </CoachLayout>
 </BaseLayout>

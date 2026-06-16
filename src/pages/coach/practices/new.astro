@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import PracticePlanner from '../../../components/coach/practice-planner';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /coach routes.
 const user = Astro.locals.user!;
@@ -9,66 +12,36 @@ const user = Astro.locals.user!;
 const teamId = Astro.url.searchParams.get('teamId') || undefined;
 ---
 
-<BaseLayout title="New Practice Session — Coach Dashboard — Aspire Sports">
-
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-      <div class="max-w-7xl mx-auto">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-ink-muted mb-6">
-          <a href="/coach" class="hover:text-ink transition-colors">Coach Dashboard</a>
-          <span>/</span>
-          <a href="/coach/practices" class="hover:text-ink transition-colors">Practice Sessions</a>
-          <span>/</span>
-          <span class="text-ink">New Session</span>
-        </nav>
-
-        <!-- Header -->
-        <header class="mb-8">
-          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <h1 class="text-2xl sm:text-3xl font-bold text-ink mb-2">
-                Create Practice Session
-              </h1>
-              <p class="text-ink-muted">
-                Build an engaging practice session using templates and our activity library.
-              </p>
-            </div>
-
-            <div class="flex gap-2">
-              <a href="/coach/practices" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-border text-ink-muted hover:text-ink hover:bg-cream-2 transition-colors">
-                Cancel
-              </a>
-            </div>
-          </div>
-        </header>
-
-        <!-- Curriculum quick-reference banner -->
-        <div class="mb-6 p-4 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20">
-          <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <div class="flex-1">
-              <p class="text-sm text-ink-2">
-                <strong class="text-ink">Building a session on a specific skill?</strong>
-                Reference the Aspire skill minibook as you design the activity.
-              </p>
-              <a href="/coach/resources" class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                Open curriculum library
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </a>
-            </div>
-          </div>
+<BaseLayout title="New Practice Session — Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/practices"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <!-- Curriculum quick-reference banner -->
+    <div class="mb-6 p-4 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
         </div>
-
-        <!-- Main Content -->
-        <PracticePlanner client:load teamId={teamId} />
+        <div class="flex-1">
+          <p class="text-sm text-ink-2">
+            <strong class="text-ink">Building a session on a specific skill?</strong>
+            Reference the Aspire skill minibook as you design the activity.
+          </p>
+          <a href="/coach/resources" class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+            Open curriculum library
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </a>
+        </div>
       </div>
-    </main>
+    </div>
 
-
+    <!-- Main Content -->
+    <PracticePlanner client:load teamId={teamId} />
+  </CoachLayout>
 </BaseLayout>
