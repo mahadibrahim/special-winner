@@ -10,6 +10,7 @@ import {
 import { SUPER_ADMIN_NAV, type NavGroup } from "@/lib/admin/nav-super-admin";
 import { VENUE_MANAGER_NAV } from "@/lib/admin/nav-venue-manager";
 import { COACH_NAV } from "@/lib/admin/nav-coach";
+import { REFEREE_NAV } from "@/lib/admin/nav-referee";
 import type { RoleName } from "@/lib/auth/roles";
 
 export type PortalId = "admin" | "venue" | "coach" | "media" | "referee";
@@ -84,7 +85,7 @@ export const PORTALS: Portal[] = [
     basePath: "/referee",
     homeHref: "/referee",
     roles: ["referee"],
-    available: false,
-    nav: [],
+    available: true,
+    nav: REFEREE_NAV,
   },
 ];
