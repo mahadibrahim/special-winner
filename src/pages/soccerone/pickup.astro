@@ -35,7 +35,7 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
     <div class="pickup-header">
       <div class="ph-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/soccerone" class="bc-link">SoccerOne</a>
+          <a href="/" class="bc-link">SoccerOne</a>
           <span class="bc-sep">—</span>
           <span class="bc-current">Drop-In Pickup</span>
         </nav>
@@ -72,9 +72,9 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
 
         <!-- Facility filter tabs -->
         <div class="facility-filter-row" role="group" aria-label="Filter by facility">
-          <a href="/soccerone/pickup" class={`ff-tab ${facility === 'all' ? 'ff-tab--active' : ''}`}>ALL LOCATIONS</a>
-          <a href="/soccerone/pickup?facility=worthington" class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}>WORTHINGTON · 3 FIELDS</a>
-          <a href="/soccerone/pickup?facility=downtown" class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}>DOWNTOWN · 1 FIELD</a>
+          <a href="/pickup" class={`ff-tab ${facility === 'all' ? 'ff-tab--active' : ''}`}>ALL LOCATIONS</a>
+          <a href="/pickup?facility=worthington" class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}>WORTHINGTON · 3 FIELDS</a>
+          <a href="/pickup?facility=downtown" class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}>DOWNTOWN · 1 FIELD</a>
         </div>
       </div>
     </div>

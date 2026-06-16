@@ -13,7 +13,7 @@ const { currentFacility = "" } = Astro.props;
   <div class="so-header-inner">
 
     <!-- Wordmark -->
-    <a href="/soccerone" class="so-wordmark" aria-label="SoccerOne home">
+    <a href="/" class="so-wordmark" aria-label="SoccerOne home">
       <span class="wm-soccer">SOCCER</span><span class="wm-one">ONE</span>
       <span class="wm-tagline">CBus</span>
     </a>
@@ -21,7 +21,7 @@ const { currentFacility = "" } = Astro.props;
     <!-- Facility selector pill (desktop center) -->
     <div class="facility-selector" role="group" aria-label="Select facility">
       <a
-        href="/soccerone/worthington"
+        href="/worthington"
         class={`facility-tab ${currentFacility === 'worthington' ? 'facility-tab--active' : ''}`}
         aria-current={currentFacility === 'worthington' ? 'page' : undefined}
       >
@@ -29,7 +29,7 @@ const { currentFacility = "" } = Astro.props;
         <span class="tab-sub">3 FIELDS</span>
       </a>
       <a
-        href="/soccerone/downtown"
+        href="/downtown"
         class={`facility-tab ${currentFacility === 'downtown' ? 'facility-tab--active' : ''}`}
         aria-current={currentFacility === 'downtown' ? 'page' : undefined}
       >
@@ -43,15 +43,15 @@ const { currentFacility = "" } = Astro.props;
 
     <!-- Nav links -->
     <nav class="so-nav" aria-label="Main navigation">
-      <a href="/soccerone/leagues" class="so-nav-link">Leagues</a>
-      <a href="/soccerone/pickup" class="so-nav-link">Pickup</a>
-      <a href="/soccerone/rent" class="so-nav-link">Rent</a>
-      <a href="/soccerone/memberships" class="so-nav-link">Members</a>
+      <a href="/leagues" class="so-nav-link">Leagues</a>
+      <a href="/pickup" class="so-nav-link">Pickup</a>
+      <a href="/rent" class="so-nav-link">Rent</a>
+      <a href="/memberships" class="so-nav-link">Members</a>
       <a href="/signin" class="so-nav-link">Sign In</a>
     </nav>
 
     <!-- CTA -->
-    <a href="/soccerone/rent" class="so-header-cta">Book Field</a>
+    <a href="/rent" class="so-header-cta">Book Field</a>
 
     <!-- Mobile toggle -->
     <button class="so-mobile-btn" id="so-mobile-btn" aria-label="Open navigation">
@@ -63,20 +63,20 @@ const { currentFacility = "" } = Astro.props;
   <div class="so-mobile-drawer" id="so-mobile-drawer" aria-hidden="true">
     <!-- Facility selector mobile -->
     <div class="mobile-facility-row">
-      <a href="/soccerone/worthington" class={`mobile-facility-btn ${currentFacility === 'worthington' ? 'active' : ''}`}>
+      <a href="/worthington" class={`mobile-facility-btn ${currentFacility === 'worthington' ? 'active' : ''}`}>
         WORTHINGTON &mdash; 3 FIELDS
       </a>
-      <a href="/soccerone/downtown" class={`mobile-facility-btn ${currentFacility === 'downtown' ? 'active' : ''}`}>
+      <a href="/downtown" class={`mobile-facility-btn ${currentFacility === 'downtown' ? 'active' : ''}`}>
         DOWNTOWN &mdash; 1 FIELD
       </a>
       <span class="mobile-future">+ Future locations</span>
     </div>
-    <a href="/soccerone/leagues" class="mobile-nav-link">Leagues</a>
-    <a href="/soccerone/pickup" class="mobile-nav-link">Pickup</a>
-    <a href="/soccerone/rent" class="mobile-nav-link">Rent a Field</a>
-    <a href="/soccerone/memberships" class="mobile-nav-link">Memberships</a>
+    <a href="/leagues" class="mobile-nav-link">Leagues</a>
+    <a href="/pickup" class="mobile-nav-link">Pickup</a>
+    <a href="/rent" class="mobile-nav-link">Rent a Field</a>
+    <a href="/memberships" class="mobile-nav-link">Memberships</a>
     <a href="/signin" class="mobile-nav-link">Sign In</a>
-    <a href="/soccerone/rent" class="mobile-cta">Book a Field Now</a>
+    <a href="/rent" class="mobile-cta">Book a Field Now</a>
     <span class="mobile-powered">
       Powered by <a href="/">Aspire Sports</a>
     </span>

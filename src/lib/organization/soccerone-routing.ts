@@ -117,6 +117,41 @@ export function getAspireToSoccerOneRedirect(pathname: string): string | null {
   return null;
 }
 
+/**
+ * Inverse of SOCCERONE_MARKETING_REWRITES: long-form `/soccerone/*` path →
+ * its short public path. Built from the rewrite table so the two can never
+ * drift apart.
+ */
+const SOCCERONE_LONG_TO_SHORT: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    Object.entries(SOCCERONE_MARKETING_REWRITES).map(([short, long]) => [
+      long,
+      short,
+    ]),
+  );
+
+/**
+ * If the pathname is a long-form SoccerOne page path (`/soccerone`,
+ * `/soccerone/leagues`, …), return the short public path it should 301 to
+ * (`/`, `/leagues`, …). Otherwise null.
+ *
+ * The public URL on a SoccerOne host is the short form; the `/soccerone/*`
+ * files exist only as the rewrite *target*. A SoccerOne host that receives a
+ * long-form URL (old bookmark, stale inbound link) redirects to the canonical
+ * short form — the exact inverse of `rewriteSoccerOnePath`.
+ *
+ * This only ever maps long → short (the table has no entry whose key equals
+ * its value), so it can never redirect a path to itself.
+ *
+ * Caller responsibility: gate on `isSoccerOneHost(host)`, and run this BEFORE
+ * the short-form rewrite. Since the rewrite uses `next()` (no middleware
+ * re-run), the internal `/leagues` → `/soccerone/leagues` rewrite never
+ * re-enters this check, so there is no redirect↔rewrite loop.
+ */
+export function getSoccerOneCanonicalRedirect(pathname: string): string | null {
+  return SOCCERONE_LONG_TO_SHORT[pathname] ?? null;
+}
+
 // NOTE: the Phase-1 `isUnmappedSoccerOneHost` 404-guard is gone. It existed
 // to stop a SoccerOne host from silently serving Aspire content when the
 // SoccerOne org's domain mapping was missing — under the single-org model,

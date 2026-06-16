@@ -12,6 +12,7 @@ import {
   isSoccerOneHost,
   rewriteSoccerOnePath,
   getAspireToSoccerOneRedirect,
+  getSoccerOneCanonicalRedirect,
   brandFromHost,
 } from "./lib/organization/soccerone-routing";
 
@@ -227,15 +228,33 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // Branch 2 — SoccerOne-host marketing root → rewrite into soccerone/* subtree.
-  // Shared routes (/register, /rentals, /dropin, /api/*) pass through
-  // unchanged and serve the same org-scoped data as the Aspire site.
   if (isSoccerOneHost(soccerOneHost)) {
+    // Branch 2 — SoccerOne-host long-form /soccerone/* → 301 to short form.
+    // The public URL is the short form (/leagues); the /soccerone/* files are
+    // only the rewrite target below. Old bookmarks / stale inbound links to
+    // the long form are consolidated onto the canonical short URL. Runs BEFORE
+    // the rewrite so a genuine long-form request is caught first.
+    const canonicalShort = getSoccerOneCanonicalRedirect(soccerOneUrl.pathname);
+    if (canonicalShort) {
+      return context.redirect(
+        canonicalShort + soccerOneUrl.search + soccerOneUrl.hash,
+        301,
+      );
+    }
+
+    // Branch 3 — SoccerOne-host marketing root → rewrite into soccerone/* subtree.
+    // Shared routes (/register, /rentals, /dropin, /api/*) pass through
+    // unchanged and serve the same org-scoped data as the Aspire site.
     const rewriteTarget = rewriteSoccerOnePath(soccerOneUrl.pathname);
     if (rewriteTarget) {
-      // Compose the full URL for context.rewrite() — preserve query + hash.
+      // Compose the full URL — preserve query + hash. We use next() rather
+      // than context.rewrite() deliberately: next() renders the rewrite
+      // target without re-running the middleware chain, so the internal
+      // /leagues → /soccerone/leagues rewrite never re-enters Branch 2 and
+      // there is no redirect↔rewrite loop. (context.rewrite() re-invokes
+      // middleware, which would ping-pong with the Branch 2 redirect.)
       const targetUrl = new URL(rewriteTarget + soccerOneUrl.search + soccerOneUrl.hash, soccerOneUrl);
-      return context.rewrite(targetUrl);
+      return next(targetUrl);
     }
   }
 
