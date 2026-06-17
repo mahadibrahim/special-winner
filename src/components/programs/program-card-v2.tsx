@@ -33,7 +33,9 @@ interface Season extends SeasonForDerive {
  * apart. Specific names ("Memorial Day Premier — Summer 2026") are used as-is.
  */
 function isGenericSeasonName(name: string): boolean {
-  return /^(Spring|Summer|Fall|Winter)\s+\d{4}(\s*[—\-(].{0,30})?$/i.test(name.trim())
+  // Only a bare "Season YYYY" (no division/detail suffix) needs the program name
+  // prepended. "Fall 2026 — Men's D" is self-describing — render it as-is.
+  return /^(Spring|Summer|Fall|Winter)\s+\d{4}$/i.test(name.trim())
 }
 
 // Branded fallback colors for the media slot when a sport has no color set
