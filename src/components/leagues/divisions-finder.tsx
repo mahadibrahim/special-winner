@@ -28,9 +28,9 @@ const GENDERS: { key: DivisionGender; label: string }[] = [
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
 
-function registerHref(d: Division): string {
+export function registerHref(d: Division): string {
   if (d.status === "forming") return `/api/public/season-interest?seasonId=${d.seasonId}`;
-  return d.signupModes.includes("team") ? `/register/team/${d.seasonId}` : `/register/${d.seasonId}`;
+  return `/register/${d.seasonId}`;
 }
 
 export function DivisionsFinder({ divisions, venues, term }: {
