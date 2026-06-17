@@ -95,6 +95,19 @@ export const GET: APIRoute = async ({ params, locals }) => {
       registrationCloses: result.season.registrationCloses ? result.season.registrationCloses.toISOString() : null,
       earlyBirdDeadline: result.season.earlyBirdDeadline ? result.season.earlyBirdDeadline.toISOString() : null,
       scheduleNotes: result.season.scheduleNotes,
+      // Team pricing + signup capability (mirrors the list endpoint) so the
+      // register page's league-context rail + choose-mode have what they need.
+      teamPrice: result.season.teamPriceCents != null ? result.season.teamPriceCents / 100 : null,
+      teamPriceCents: result.season.teamPriceCents,
+      signupModes: result.season.signupModes,
+      // Division metadata for the rail facts.
+      termSlug: result.season.termSlug,
+      termLabel: result.season.termLabel,
+      divisionGender: result.season.divisionGender,
+      skillLevel: result.season.skillLevel,
+      dayOfWeek: result.season.dayOfWeek,
+      startTime: result.season.startTime,
+      endTime: result.season.endTime,
       program: {
         id: result.program.id,
         name: result.program.name,
