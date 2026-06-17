@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { DivisionsFinder } from "@/components/leagues/divisions-finder";
+import { StandingsPanel } from "@/components/leagues/standings-panel";
 import type { Division } from "@/lib/leagues/division-filters";
 import { RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-soccer-content";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
@@ -51,14 +52,7 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote }: {
             </>
           )}
           {tab === "standings" && (
-            <>
-              <h2 className="font-display font-semibold text-2xl">Standings &amp; results</h2>
-              <p className="text-ink-muted text-[13px] mt-0.5 mb-4">Live once the season kicks off. Past seasons keep their final tables.</p>
-              <div className="text-center py-10 border border-dashed border-cream-3 rounded-xl bg-paper">
-                <div className="font-display font-semibold text-xl text-ink-2">Standings begin Week 1 — {weekStart}</div>
-                <div className="text-[13px] text-ink-muted mt-1.5">Scores and the league table appear here weekly once games start.</div>
-              </div>
-            </>
+            <StandingsPanel divisions={divisions} weekStart={weekStart} />
           )}
           {tab === "rules" && (
             <>
