@@ -62,3 +62,14 @@ export const FAQ: FaqEntry[] = [
   { q: "Indoor vs outdoor?", a: "Indoor walled 7v7 — faster, no offside, and the wall keeps the ball in play. Games run rain or shine." },
   { q: "Roster size?", a: "Up to 14 on a roster, 7 on the field. Free substitution on the fly; the roster locks after game 3." },
 ];
+
+export type ValueProp = { icon: string; tint: "orange" | "sage" | "ochre"; title: string; copy: string };
+
+export const WHY_INDOOR: ValueProp[] = [
+  { icon: "⚡", tint: "orange", title: "Faster, more goals", copy: "Walled arena, no offside — more touches, more shots, more action than outdoor 11v11." },
+  { icon: "☃︎", tint: "sage", title: "Year-round, weatherproof", copy: "Climate-controlled turf. Games run on schedule all winter — never rained or snowed out." },
+  { icon: "🤝", tint: "orange", title: "No team? No problem", copy: "Sign up solo and the Free Agent Pool places you on a balanced squad by skill & schedule." },
+  { icon: "🥅", tint: "ochre", title: "Actual competition", copy: "Certified refs every match, live standings, and four skill tiers so you're matched, not mismatched." },
+  { icon: "🍻", tint: "ochre", title: "Stick around after", copy: "Half of league night happens off the field — food, drinks, and the people you'll keep playing with." },
+  { icon: "📍", tint: "sage", title: "Built around your week", copy: "Weeknight games, 50 minutes, at Worthington & Downtown / OSU. In and out, no all-day commitment." },
+];

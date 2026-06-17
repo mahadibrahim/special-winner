@@ -33,7 +33,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // unauthenticated `GET /api/public/seasons?status=draft` would leak the
     // entire draft catalog, and the no-param SoccerOne leagues page would show
     // drafts the moment any exist.
-    const PUBLIC_STATUSES = ["open", "active", "forming"] as const;
+    // 'completed' is allowed ONLY when explicitly requested (?status=completed) —
+    // public historical data (final standings). The default fallback below never
+    // includes it, so catalog/finders never surface finished seasons.
+    const PUBLIC_STATUSES = ["open", "active", "forming", "completed"] as const;
     if (status && (PUBLIC_STATUSES as readonly string[]).includes(status)) {
       conditions.push(eq(seasons.status, status as typeof seasons.status.enumValues[number]));
     } else {
