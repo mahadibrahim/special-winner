@@ -10,6 +10,9 @@ import {
   computeBmi,
   isEligibleBmi,
 } from "@/lib/drop-league/health";
+import { getPostHogServer } from "@/lib/posthog-server";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { SERVER_EVENTS } from "@/lib/analytics/events";
 
 const BodySchema = z.object({
   dropSeasonId: z.string().uuid(),
@@ -131,6 +134,22 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
       // status defaults to 'registered' via the schema default
     })
     .onConflictDoNothing();
+
+  // Fire-and-forget analytics. Never echo health data; never block/fail the
+  // registration on an analytics error.
+  try {
+    const posthog = getPostHogServer();
+    posthog.capture({
+      distinctId: email,
+      event: SERVER_EVENTS.dropRegisterSubmitted,
+      properties: {
+        drop_season_id: dropSeasonId,
+        brand: brandFromHost(request.headers.get("host") ?? ""),
+      },
+    });
+  } catch {
+    // analytics must never block or fail registration
+  }
 
   // NEVER echo back weight or bmi in the response — health data is write-only.
   return new Response(JSON.stringify({ ok: true }), {

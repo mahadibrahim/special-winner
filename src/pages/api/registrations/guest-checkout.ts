@@ -306,7 +306,7 @@ export const POST: APIRoute = async (context) => {
         }
 
         posthog.identify({ distinctId: userRow.id, properties: { email: userRow.email, firstName: userRow.firstName, lastName: userRow.lastName } });
-        posthog.capture({ distinctId: userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero" } });
+        posthog.capture({ distinctId: userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand } });
 
         if (checkout.kind === "paid_zero") {
           return new Response(
@@ -344,7 +344,7 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     if ("registrant" in data) {
       const r = data.registrant;
-      posthog.capture({ distinctId: r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType } });
+      posthog.capture({ distinctId: r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
 
       const { userRow, wasNewUser } = await upsertGuestUser({
         email: r.email,
@@ -387,7 +387,7 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     // PARENT + CHILD PATH (original behavior — preserved unchanged)
     // -------------------------------------------------------------------------
-    posthog.capture({ distinctId: data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType } });
+    posthog.capture({ distinctId: data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
 
     const { userRow, wasNewUser } = await upsertGuestUser({
       email: data.parent.email,

@@ -2,7 +2,21 @@
 import { useState, type ReactNode } from "react";
 import { filterDivisions, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
+import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
+
+// Map internal filter keys to spec facet names.
+const FACET_FOR: Record<keyof DivisionFilters, "level" | "format" | "day" | "venue"> = {
+  level: "level",
+  gender: "format",
+  day: "day",
+  venue: "venue",
+};
+
+function registerMode(d: Division): "team" | "individual" | "interest" {
+  if (d.status === "forming") return "interest";
+  return d.signupModes.includes("team") ? "team" : "individual";
+}
 
 const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
@@ -19,14 +33,17 @@ function registerHref(d: Division): string {
   return d.signupModes.includes("team") ? `/register/team/${d.seasonId}` : `/register/${d.seasonId}`;
 }
 
-export function DivisionsFinder({ divisions, venues }: {
+export function DivisionsFinder({ divisions, venues, term }: {
   divisions: Division[];
   venues: { slug: string; label: string }[];
+  term: string;
 }) {
   const [f, setF] = useState<DivisionFilters>({ level: null, gender: null, day: null, venue: null });
   const results = filterDivisions(divisions, f);
-  const toggle = <K extends keyof DivisionFilters>(k: K, v: DivisionFilters[K]) =>
+  const toggle = <K extends keyof DivisionFilters>(k: K, v: DivisionFilters[K]) => {
+    trackDivisionFilterApplied({ facet: FACET_FOR[k], value: String(v), term });
     setF((prev) => ({ ...prev, [k]: prev[k] === v ? null : v }));
+  };
   const clear = () => setF({ level: null, gender: null, day: null, venue: null });
 
   const chip = (active: boolean) =>
@@ -82,6 +99,7 @@ export function DivisionsFinder({ divisions, venues }: {
               <div className="text-xs text-ink-muted">{d.venueName}</div>
               <div className={cn("font-mono text-[11px] font-semibold", d.status === "forming" ? "text-ochre" : "text-sage")}>{d.spotsLabel}</div>
               <a href={registerHref(d)}
+                 onClick={() => trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode: registerMode(d), term })}
                  className={cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap",
                    d.status === "forming" ? "text-primary border border-primary" : "text-cream bg-primary")}>
                 {d.status === "forming" ? "Notify me" : "Register →"}

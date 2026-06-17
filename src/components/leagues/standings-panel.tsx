@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Division } from "@/lib/leagues/division-filters";
+import { trackStandingsDivisionSelected } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
 
 type StandingRow = {
@@ -21,7 +22,7 @@ type StandingsResponse = {
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 
-export function StandingsPanel({ divisions, weekStart }: { divisions: Division[]; weekStart: string }) {
+export function StandingsPanel({ divisions, weekStart, term }: { divisions: Division[]; weekStart: string; term: string }) {
   const [activeId, setActiveId] = useState<string | null>(divisions[0]?.seasonId ?? null);
   const [data, setData] = useState<StandingsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,7 +58,7 @@ export function StandingsPanel({ divisions, weekStart }: { divisions: Division[]
         {divisions.map((d) => (
           <button
             key={d.seasonId}
-            onClick={() => setActiveId(d.seasonId)}
+            onClick={() => { trackStandingsDivisionSelected({ term, seasonId: d.seasonId }); setActiveId(d.seasonId); }}
             aria-pressed={activeId === d.seasonId}
             className={cn(
               "font-sans font-semibold text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5",
