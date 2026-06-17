@@ -16,6 +16,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const sportSlug = url.searchParams.get("sport");
   const status = url.searchParams.get("status");
   const audience = url.searchParams.get("audience"); // "youth" | "adult" | null
+  const term = url.searchParams.get("term");
 
   try {
     if (!db) throw new Error("No DB");
@@ -43,6 +44,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
     if (sportSlug) {
       conditions.push(eq(sports.slug, sportSlug));
+    }
+    if (term) {
+      conditions.push(eq(seasons.termSlug, term));
     }
     // Audience filter: apply age-group bounds when audience is specified.
     // For seasons without an age group we include them in both views (no
@@ -129,6 +133,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
         registeredCount,
         spotsLeft,
         scheduleNotes: r.season.scheduleNotes,
+        termSlug: r.season.termSlug,
+        termLabel: r.season.termLabel,
+        divisionGender: r.season.divisionGender,
+        skillLevel: r.season.skillLevel,
+        dayOfWeek: r.season.dayOfWeek,
+        startTime: r.season.startTime,
+        endTime: r.season.endTime,
         status: r.season.status,
         signupMode: r.season.status === "forming" ? "interest" : "register",
         program: {
