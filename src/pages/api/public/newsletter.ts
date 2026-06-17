@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { sendCaptureIncentiveEmail } from "@/lib/email/send";
-import { CAPTURE_INCENTIVE_SOURCE } from "@/lib/marketing/capture-incentive";
+import { sourceTriggersIncentive } from "@/lib/marketing/capture-incentive";
 
 const BodySchema = z.object({
   email: z.string().trim().toLowerCase().email().max(320),
@@ -13,6 +13,8 @@ const BodySchema = z.object({
   audience: z.enum(["parent", "adult"]).optional(),
   locationInterest: z.string().trim().max(100).optional(),
   source: z.string().trim().max(50).optional(),
+  brand: z.enum(["aspire", "soccerone"]).optional(),
+  src: z.string().trim().max(80).optional(),
 });
 
 export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
@@ -57,7 +59,9 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
     );
   }
 
-  const { email, firstName, audience, locationInterest, source } = parsed.data;
+  const { email, firstName, audience, locationInterest, source, brand, src } =
+    parsed.data;
+  const notes = src ? `flyer:${src}` : undefined;
 
   try {
     // Upsert by email — re-submissions update audience/location, never duplicate.
@@ -69,6 +73,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         audience,
         locationInterest,
         source: source ?? "footer",
+        notes,
         organizationId: organization.id,
       })
       .onConflictDoUpdate({
@@ -78,18 +83,19 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           audience: sql`COALESCE(EXCLUDED.audience, ${newsletterSignups.audience})`,
           locationInterest: sql`COALESCE(EXCLUDED.location_interest, ${newsletterSignups.locationInterest})`,
           source: sql`COALESCE(EXCLUDED.source, ${newsletterSignups.source})`,
+          notes: sql`COALESCE(EXCLUDED.notes, ${newsletterSignups.notes})`,
           organizationId: organization.id,
           updatedAt: new Date(),
         },
       });
 
-    if (source === CAPTURE_INCENTIVE_SOURCE) {
+    if (sourceTriggersIncentive(source)) {
       // Deliver the discount code (deduped per address inside the helper).
       // Awaited — fire-and-forget promises can be killed when the serverless
       // function returns. Failures are swallowed: the signup is already
       // stored and must not 500 because Resend hiccuped.
       try {
-        await sendCaptureIncentiveEmail({ recipientEmail: email });
+        await sendCaptureIncentiveEmail({ recipientEmail: email, brand });
       } catch (err) {
         console.error("[newsletter] incentive email failed", err);
       }
