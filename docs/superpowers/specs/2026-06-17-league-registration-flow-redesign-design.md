@@ -59,12 +59,12 @@ Phase A is fully shippable and already a massive UX win.
 
 ### Phase B — Team deposit + shares + captain backstop (payments/schema subsystem)
 
-The TeamPayer model the schema comment defers. Depends on Phase A's team-create sub-flow.
+The TeamPayer model the schema comment defers. Depends on Phase A's team-create sub-flow. **Decisions locked (see below): $200 non-refundable deposit that credits the team fee; captain-assigned per-invitee shares; auto-charge the morning after registration closes with a 3-day warning email.**
 
-- **Schema extension** (`team_registrations`): captain card-on-file (Stripe customer id + payment method id), `depositCents` + deposit payment reference, `paymentDeadline`, and an **invitees** concept (email + assigned share cents + status `pending|paid|charged_to_captain`) distinct from post-registration members. Migration via `db:generate` (additive, idempotent).
-- **Captain deposit at team creation:** charge the deposit + save the card (reuse `programs.depositCents`/`allowDeposit` + the existing deposit payment rails). Team is `forming` only after the deposit succeeds.
-- **Assigned shares:** captain assigns a $ amount per invited email; the teammate-join landing charges that exact share; tracker shows collected vs team total.
-- **Captain backstop:** a scheduled job (new — see dependency) charges the captain's saved card for the sum of unpaid shares after `paymentDeadline`, with advance email notice. This is the "scheduled-job system" the schema flagged; its absence is why this is Phase B.
+- **Schema extension** (`team_registrations`): captain card-on-file (Stripe customer id + payment method id), `depositCents` (=$20000) + deposit payment reference, `paymentDeadline`, and an **invitees** concept (email + captain-assigned `shareCents` + status `pending|paid|charged_to_captain`) distinct from post-registration members. Migration via `db:generate` (additive, idempotent).
+- **Captain deposit at team creation:** charge the $200 deposit + save the card (reuse `programs.depositCents`/`allowDeposit` + the existing deposit payment rails). The deposit **credits the team total** (it is not an extra charge). Team is `forming` only after the deposit succeeds.
+- **Assigned shares:** captain assigns a $ amount per invited email (sum of shares = team fee − deposit); the teammate-join landing charges that exact `shareCents`; tracker shows collected vs team total.
+- **Captain backstop:** a new cron route `src/pages/api/cron/charge-unpaid-team-shares.ts` (following the existing `CRON_SECRET` pattern, e.g. `send-balance-reminders.ts`) charges the captain's saved card for the sum of `pending` shares the morning after `paymentDeadline`. A companion reminder fires ~3 days before close (extend or mirror `send-balance-reminders`). **Infra dependency is satisfied** — the Netlify scheduled-function + cron system already exists (14 routes); this is one more cron, not new infrastructure. (This resolves the schema comment's "needs its own design pass.")
 
 ## Data flow
 
@@ -99,9 +99,12 @@ Reuse the editorial cream tokens and tier colors (D=sage, C=ochre, B=orange, A/o
 - Non-soccer sports (the flow is sport-agnostic; lights up when those leagues exist).
 - Real Aspire photography in the rail (sport-color block placeholder for now).
 
+## Resolved decisions (Phase B)
+
+- **Deposit:** **$200, non-refundable, credits the team fee** (reserves the division spot; counts toward the total, not an extra charge).
+- **Share computation:** **captain-assigned per invitee** — captain enters a $ amount per invited email; sum of shares = team fee − deposit.
+- **Auto-charge:** **the morning after registration closes**, the captain's saved card is charged for all still-unpaid shares; a **reminder email ~3 days before close** goes to the captain + unpaid teammates.
+
 ## Open items to confirm in planning
 
-- **Deposit amount & refundability** (Phase B): the flyer cites $200 deposit / $1,000 early-bird team / $120 solo — confirm the exact deposit, whether it's refundable, and whether it credits the captain's own share or sits on top.
-- **Share computation** (Phase B): flat split of team fee across the roster cap vs captain-assigned per-invitee amounts. Mockup shows captain-assigned; confirm.
-- **Auto-charge timing/notice** (Phase B): how long after registration close, and the advance-notice email cadence.
-- **Solo "someone else"** on adult leagues: confirm whether adult divisions ever need the dependent path, or if "Myself" is the only adult case (the youth path already handles dependents elsewhere).
+- **Solo "someone else"** on adult leagues: confirm whether adult divisions ever need the dependent path, or if "Myself" is the only adult case (the youth path already handles dependents elsewhere). Low-risk default: keep "Myself" primary, retain "Someone else" via the existing `resolvePerson` path.
