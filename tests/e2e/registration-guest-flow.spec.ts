@@ -25,6 +25,10 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
     await page.goto(`/register/${season.id}`, { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
 
+    // One-door flow: choose-mode now precedes the wizard on team-capable seasons.
+    const joinSolo = page.getByText(/Join solo/i);
+    if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false)) await joinSolo.click();
+
     // Sanity: no redirect to /signin
     expect(page.url()).toContain(`/register/${season.id}`);
 
@@ -160,6 +164,10 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
 
     await page.goto(`/register/${season.id}`, { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
+
+    // One-door flow: choose-mode now precedes the wizard on team-capable seasons.
+    const joinSolo = page.getByText(/Join solo/i);
+    if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false)) await joinSolo.click();
 
     // Wait for wizard to finish loading
     await page.waitForSelector("[class*='animate-spin']", { state: "detached", timeout: 15_000 }).catch(() => {});

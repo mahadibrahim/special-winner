@@ -48,7 +48,7 @@ export default function RegisterExperience({
   const canTeam = !!season.signupModes && season.signupModes.includes("team");
   const railMode = teamToken ? "share" : mode === "team" ? "team" : "solo";
 
-  if (mode === "choose") {
+  if (mode === "choose" && canTeam) {
     return (
       <LeagueContextRail season={season} mode="solo" step={1} stepCount={4}>
         <ChooseMode season={season} canTeam={canTeam} onPick={setMode} />
