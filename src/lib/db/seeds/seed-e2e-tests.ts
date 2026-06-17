@@ -748,17 +748,87 @@ async function seedE2ETests() {
         depositCents: 3000, // $30 deposit
         allowDeposit: true,
         maxParticipants: 30,
+        // Fall 2026 adult-soccer division metadata. Both brand hosts resolve
+        // to this (Aspire) org post-cutover, so /adult/leagues/soccer/fall-2026
+        // is driven by these Aspire-org seasons.
+        termSlug: "fall-2026",
+        termLabel: "Fall 2026",
+        divisionGender: "coed",
+        skillLevel: "c",
+        dayOfWeek: "tue",
+        startTime: "18:00",
+        endTime: "20:00",
       })
       .returning();
   } else {
-    // Reset status and capacity so the season always shows "Register Now".
+    // Reset status and capacity so the season always shows "Register Now";
+    // keep the Fall 2026 division metadata in sync on re-seed.
     [adultSeason] = await db
       .update(seasons)
-      .set({ status: "open", maxParticipants: 30 })
+      .set({
+        status: "open",
+        maxParticipants: 30,
+        termSlug: "fall-2026",
+        termLabel: "Fall 2026",
+        divisionGender: "coed",
+        skillLevel: "c",
+        dayOfWeek: "tue",
+        startTime: "18:00",
+        endTime: "20:00",
+      })
       .where(eq(seasons.id, adultSeason.id))
       .returning();
   }
   console.log(`   ✓ Adult Season: ${adultSeason.name} (id: ${adultSeason.id}) status=${adultSeason.status}`);
+
+  // Second Aspire adult-soccer division (Men's D) so the soccer season page's
+  // divisions finder has >1 row and the gender filter is exercised. Same
+  // program/org as the coed season; unique slug.
+  let [adultMensSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-adult-soccer-fall-2026-mens-d"))
+    .limit(1);
+
+  if (!adultMensSeason) {
+    [adultMensSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: adultProgram.id,
+        ageGroupId: adultAgeGroup.id,
+        name: "Fall 2026 — Men's D",
+        slug: "e2e-adult-soccer-fall-2026-mens-d",
+        startDate: formatDate(seasonStartDate),
+        endDate: formatDate(seasonEndDate),
+        registrationOpens: new Date(),
+        registrationCloses: registrationEnd,
+        status: "open",
+        priceCents: 10000,
+        maxParticipants: 30,
+        termSlug: "fall-2026",
+        termLabel: "Fall 2026",
+        divisionGender: "mens",
+        skillLevel: "d",
+        dayOfWeek: "mon",
+        startTime: "20:00",
+        endTime: "22:00",
+      })
+      .returning();
+  } else {
+    [adultMensSeason] = await db
+      .update(seasons)
+      .set({
+        status: "open",
+        termSlug: "fall-2026",
+        termLabel: "Fall 2026",
+        divisionGender: "mens",
+        skillLevel: "d",
+        dayOfWeek: "mon",
+      })
+      .where(eq(seasons.id, adultMensSeason.id))
+      .returning();
+  }
+  console.log(`   ✓ Adult Season: ${adultMensSeason.name} (id: ${adultMensSeason.id})`);
 
   // -------------------------------------------------------------------------
   // Org B — second tenant for cross-tenant isolation tests.
@@ -1771,51 +1841,10 @@ async function seedE2ETests() {
           endDate: tenWeeksOut.toISOString().slice(0, 10),
           priceCents: 18000,
           maxParticipants: 80,
-          termSlug: "fall-2026",
-          termLabel: "Fall 2026",
-          divisionGender: "coed",
-          skillLevel: "c",
-          dayOfWeek: "tue",
-          startTime: "18:00",
-          endTime: "20:00",
         })
         .returning();
     }
     console.log(`   ✓ SoccerOne Season: ${soccerOneSeason.name} (status=${soccerOneSeason.status})`);
-
-    // 12c-ii. Second contrasting division under the same program — Men's D.
-    // Exercises the division finder's filters with >1 row. Unique slug
-    // (seasons_program_slug_uniq) and distinct gender/skill/day/time metadata.
-    let [soccerOneMensSeason] = await db
-      .select()
-      .from(seasons)
-      .where(eq(seasons.slug, "fall-2026-mens-d"))
-      .limit(1);
-
-    if (!soccerOneMensSeason) {
-      [soccerOneMensSeason] = await db
-        .insert(seasons)
-        .values({
-          programId: soccerOneProgram.id,
-          name: "Fall 2026 — Men's D",
-          slug: "fall-2026-mens-d",
-          status: "open",
-          isTest: false,
-          startDate: sixWeeksOut.toISOString().slice(0, 10),
-          endDate: tenWeeksOut.toISOString().slice(0, 10),
-          priceCents: 18000,
-          maxParticipants: 80,
-          termSlug: "fall-2026",
-          termLabel: "Fall 2026",
-          divisionGender: "mens",
-          skillLevel: "d",
-          dayOfWeek: "mon",
-          startTime: "20:00",
-          endTime: "22:00",
-        })
-        .returning();
-    }
-    console.log(`   ✓ SoccerOne Season: ${soccerOneMensSeason.name} (status=${soccerOneMensSeason.status})`);
 
     // 12d. SoccerOne rental-enabled venue.
     let [soccerOneVenue] = await db

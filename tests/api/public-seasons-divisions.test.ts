@@ -8,6 +8,9 @@ describe("GET /api/public/seasons division metadata", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body.seasons)).toBe(true);
+    // Non-vacuous: the seed provides Fall 2026 adult-soccer divisions under the
+    // Aspire org (the org both brand hosts resolve to), so this must be >= 1.
+    expect(body.seasons.length).toBeGreaterThanOrEqual(1);
     for (const s of body.seasons) {
       expect(s).toHaveProperty("termSlug", "fall-2026");
       expect(s).toHaveProperty("skillLevel");
