@@ -8,9 +8,6 @@ import {
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
-  Calendar,
-  MapPin,
-  Users,
   Loader2,
   AlertCircle,
 } from "lucide-react"
@@ -99,6 +96,8 @@ interface RegistrationWizardProps {
   user: AuthedUser | null
   /** URL ?audience= param forwarded from the Astro page ("adult" | "child" | null) */
   audienceHint?: string | null
+  /** Opaque token linking this registration to a specific team (threaded to checkout). */
+  teamToken?: string | null
 }
 
 // Step ids — named so the renumber (media folded into Agreements) stays
@@ -138,6 +137,7 @@ export default function RegistrationWizard({
   wasCancelled = false,
   user,
   audienceHint,
+  teamToken,
 }: RegistrationWizardProps) {
   const isGuest = user === null
   useHydrationBeacon()
@@ -672,6 +672,7 @@ export default function RegistrationWizard({
         body: JSON.stringify({
           registrationId: resumableRegistrationId,
           paymentMethodCategory: selectedPaymentCategory,
+          teamToken: teamToken ?? undefined,
         }),
       })
       const data = await res.json()
@@ -750,6 +751,7 @@ export default function RegistrationWizard({
               discountCode: discountCode || undefined,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
               paymentMethodCategory: category,
+              teamToken: teamToken ?? undefined,
             }
           : {
               seasonId,
@@ -771,6 +773,7 @@ export default function RegistrationWizard({
               discountCode: discountCode || undefined,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
               paymentMethodCategory: category,
+              teamToken: teamToken ?? undefined,
             }
 
       const res = await fetch("/api/registrations/guest-checkout", {
@@ -884,6 +887,7 @@ export default function RegistrationWizard({
             registrationId: regData.registration.id,
             discountCode: discountCode || undefined,
             paymentMethodCategory: category,
+            teamToken: teamToken ?? undefined,
           }),
         })
 
@@ -991,24 +995,6 @@ export default function RegistrationWizard({
       default:
         return false
     }
-  }
-
-  const formatDateRange = (start: string, end: string) => {
-    // Parse as local dates so "2026-05-16" doesn't render as May 15 in -04 TZs.
-    const [sy, sm, sd] = start.split("-").map(Number)
-    const [ey, em, ed] = end.split("-").map(Number)
-    const startDate = new Date(sy, (sm ?? 1) - 1, sd ?? 1)
-    const endDate = new Date(ey, (em ?? 1) - 1, ed ?? 1)
-    const startMonth = startDate.toLocaleDateString("en-US", { month: "short" })
-    const endMonth = endDate.toLocaleDateString("en-US", { month: "short" })
-    const startDay = startDate.getDate()
-    const endDay = endDate.getDate()
-    const year = endDate.getFullYear()
-
-    if (startMonth === endMonth) {
-      return `${startMonth} ${startDay} - ${endDay}, ${year}`
-    }
-    return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`
   }
 
   const calculateAge = (birthDate: string) => {
@@ -1134,7 +1120,7 @@ export default function RegistrationWizard({
   // ── Main wizard render ─────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="w-full">
       {/* Progress Steps */}
       <div className="mb-8">
         <div className="flex items-center justify-between relative">
@@ -1190,48 +1176,6 @@ export default function RegistrationWizard({
           </button>
         </div>
       )}
-
-      {/* Program Summary */}
-      <div className="mb-6 p-4 rounded-xl bg-paper border border-border">
-        <div className="flex items-center gap-4">
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl"
-            style={{
-              backgroundColor: `${season.sport.color || "#6b7280"}15`,
-              border: `1px solid ${season.sport.color || "#6b7280"}30`,
-            }}
-          >
-            {season.sport.icon || "🏃"}
-          </div>
-          <div className="flex-1">
-            <h2 className="font-semibold text-ink">{season.name}</h2>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                {formatDateRange(season.startDate, season.endDate)}
-              </span>
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5" />
-                {season.location.name}
-              </span>
-              {season.ageGroup && (
-                <span className="flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5" />
-                  Ages {season.ageGroup.minAge}-{season.ageGroup.maxAge}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-ink">${season.price}</div>
-            {season.allowDeposit && season.deposit && (
-              <div className="text-sm text-ink-muted">
-                or ${season.deposit} deposit
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Step Content */}
       <div className="bg-paper border border-border rounded-2xl p-6">

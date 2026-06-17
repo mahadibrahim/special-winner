@@ -844,6 +844,71 @@ export async function sendCaptureIncentiveEmail(params: {
   return result;
 }
 
+// ---- Team invite (captain → prospective teammate) ----
+
+export interface SendTeamInviteParams {
+  to: string;
+  teamName: string;
+  captainName: string;
+  joinUrl: string;
+  /** Brand attribution — controls sender display name + subject. Defaults to aspire. */
+  brand?: BrandId;
+}
+
+/**
+ * Invite a prospective teammate to join a captain-created team. The captain
+ * triggers this from the team-create flow; each recipient gets the one-door
+ * join link tagged to the team. Plain inline HTML — no React template, since
+ * this is a short captain-authored nudge rather than a branded transactional
+ * receipt. Logged like any other send.
+ */
+export async function sendTeamInviteEmail(params: SendTeamInviteParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team invite email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const brandName = getBrandTheme(params.brand).displayName;
+  const subject = `${params.captainName} invited you to join ${params.teamName}`;
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${escapeHtml(params.captainName)} put together a team — <strong>${escapeHtml(params.teamName)}</strong> — on ${escapeHtml(brandName)} and wants you on the roster.</p>
+    <p>Click below to register and pay your share. You'll join their roster automatically once you finish signup.</p>
+    <p><a href="${params.joinUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Join ${escapeHtml(params.teamName)} →</a></p>
+    <p style="color:#666;font-size:13px;">Or paste this link into your browser:<br>${escapeHtml(params.joinUrl)}</p>
+  </body></html>`;
+
+  const text = `${params.captainName} put together a team — ${params.teamName} — on ${brandName} and wants you on the roster.\n\nRegister and pay your share here:\n${params.joinUrl}\n`;
+
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+
+  await logEmail({
+    emailType: "team_invite",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+/** Minimal HTML-escape for interpolating user-supplied strings into email bodies. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ---- Dispute alert (founder-only operational email) ----
 
 export interface SendDisputeAlertParams {

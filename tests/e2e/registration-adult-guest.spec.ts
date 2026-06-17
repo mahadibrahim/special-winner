@@ -43,6 +43,10 @@ test.describe("Anonymous adult guest checkout", { tag: "@critical" }, () => {
     await page.goto(`/register/${seasonId}?audience=adult`, { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
 
+    // One-door flow: choose-mode now precedes the wizard on team-capable seasons.
+    const joinSolo = page.getByText(/Join solo/i);
+    if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false)) await joinSolo.click();
+
     // Wait for wizard to finish loading season data (spinner disappears)
     await page
       .waitForSelector("[class*='animate-spin']", { state: "detached", timeout: 15_000 })

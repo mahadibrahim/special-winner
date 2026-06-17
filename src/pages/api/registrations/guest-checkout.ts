@@ -65,6 +65,7 @@ const guestCheckoutSchema = z.union([
     waiverSignedBy: z.string().min(1),
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
+    teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
   }),
@@ -77,6 +78,7 @@ const guestCheckoutSchema = z.union([
     waiverSignedBy: z.string().min(1),
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
+    teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
   }),
@@ -193,6 +195,7 @@ export const POST: APIRoute = async (context) => {
       wasNewUser: boolean;
       distinctIdForPosthog: string;
       lookingForTeam?: boolean;
+      teamToken?: string | null;
       mediaAuthOptOuts?: ReadonlyArray<"internal" | "promotional" | "public">;
       extraMetadata: Record<string, string>;
       paymentMethodCategory?: "bank" | "card";
@@ -209,6 +212,7 @@ export const POST: APIRoute = async (context) => {
         wasNewUser,
         distinctIdForPosthog,
         lookingForTeam,
+        teamToken,
         mediaAuthOptOuts,
         extraMetadata,
         paymentMethodCategory,
@@ -231,6 +235,7 @@ export const POST: APIRoute = async (context) => {
           waiverSigned,
           waiverSignedBy,
           lookingForTeam: lookingForTeam ?? false,
+          teamToken: teamToken ?? null,
           brand,
         });
       } catch (err) {
@@ -378,6 +383,7 @@ export const POST: APIRoute = async (context) => {
         wasNewUser,
         distinctIdForPosthog: userRow.email,
         lookingForTeam: data.lookingForTeam ?? false,
+        teamToken: data.teamToken ?? null,
         mediaAuthOptOuts: data.mediaAuthOptOuts,
         extraMetadata: analyticsMetadata,
         paymentMethodCategory: data.paymentMethodCategory,
@@ -439,6 +445,7 @@ export const POST: APIRoute = async (context) => {
       discountCode: data.discountCode,
       wasNewUser,
       distinctIdForPosthog: userRow.email,
+      teamToken: data.teamToken ?? null,
       mediaAuthOptOuts: data.mediaAuthOptOuts,
       extraMetadata: analyticsMetadata,
       paymentMethodCategory: "paymentMethodCategory" in data ? data.paymentMethodCategory : undefined,

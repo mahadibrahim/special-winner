@@ -5,6 +5,8 @@ import {
   seasons,
   programs,
   locations,
+  teamRegistrations,
+  teamRegistrationMembers,
 } from "@/lib/db/schema";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
@@ -26,6 +28,12 @@ export interface CreateRegistrationInput {
   lookingForTeam?: boolean;
   /** Host-derived brand of the request that created the registration. */
   brand?: BrandId;
+  /**
+   * Optional `?team=` invite token. When present and valid (same-org), the
+   * new registration is linked into `team_registration_members`. A bad or
+   * expired token never blocks registration — linkage is best-effort.
+   */
+  teamToken?: string | null;
 }
 
 export type CreateRegistrationResult = {
@@ -39,6 +47,60 @@ export class RegistrationError extends Error {
   constructor(public status: number, message: string) {
     super(message);
     this.name = "RegistrationError";
+  }
+}
+
+/**
+ * Best-effort: link a freshly-created registration to its team via the
+ * `?team=` invite token. Tenant-scoped (token must belong to the same org as
+ * the season). Never throws — a bad/expired token must not break registration.
+ */
+async function linkRegistrationToTeam(opts: {
+  db: ReturnType<typeof getDb>;
+  teamToken: string;
+  registrationId: string;
+  organizationId: string | null;
+  user: { id: string };
+  registrantEmail: string | null;
+}): Promise<void> {
+  const { db, teamToken, registrationId, organizationId, user, registrantEmail } =
+    opts;
+  try {
+    if (!organizationId) return;
+
+    const [teamReg] = await db
+      .select()
+      .from(teamRegistrations)
+      .where(
+        and(
+          eq(teamRegistrations.inviteToken, teamToken),
+          eq(teamRegistrations.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (!teamReg) return;
+
+    // Dedupe: there's no unique constraint on (teamRegistrationId, registrationId),
+    // so guard with an existence check before inserting.
+    const [existing] = await db
+      .select({ id: teamRegistrationMembers.id })
+      .from(teamRegistrationMembers)
+      .where(eq(teamRegistrationMembers.registrationId, registrationId))
+      .limit(1);
+    if (existing) return;
+
+    const isCaptain =
+      teamReg.captainUserId === user.id ||
+      (registrantEmail != null &&
+        teamReg.captainEmail.toLowerCase() === registrantEmail.toLowerCase());
+
+    await db.insert(teamRegistrationMembers).values({
+      teamRegistrationId: teamReg.id,
+      registrationId,
+      role: isCaptain ? "captain" : "member",
+    });
+  } catch (err) {
+    console.error("Error linking registration to team:", err);
   }
 }
 
@@ -177,6 +239,23 @@ export async function createRegistration(
         console.error("Error preparing waitlist email:", emailError);
       }
 
+      if (input.teamToken) {
+        const [orgRow] = await db
+          .select({ organizationId: locations.organizationId })
+          .from(seasons)
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(eq(seasons.id, seasonId));
+        await linkRegistrationToTeam({
+          db,
+          teamToken: input.teamToken,
+          registrationId: waitlisted.id,
+          organizationId: orgRow?.organizationId ?? null,
+          user,
+          registrantEmail: user.email,
+        });
+      }
+
       return {
         kind: "waitlisted",
         registration: waitlisted,
@@ -209,6 +288,23 @@ export async function createRegistration(
       brand: input.brand ?? "aspire",
     })
     .returning();
+
+  if (input.teamToken) {
+    const [orgRow] = await db
+      .select({ organizationId: locations.organizationId })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(seasons.id, seasonId));
+    await linkRegistrationToTeam({
+      db,
+      teamToken: input.teamToken,
+      registrationId: created.id,
+      organizationId: orgRow?.organizationId ?? null,
+      user,
+      registrantEmail: user.email,
+    });
+  }
 
   return {
     kind: "created",
