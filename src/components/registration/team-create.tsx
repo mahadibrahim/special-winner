@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, CheckCircle2, Copy, Check, Send } from "lucide-react";
+import { EmbeddedPayment } from "./embedded-payment";
 
 export default function TeamCreate({
   seasonId,
@@ -19,11 +20,17 @@ export default function TeamCreate({
   const [captainEmail, setCaptainEmail] = useState(defaultEmail);
   const [notes, setNotes] = useState("");
 
-  const [status, setStatus] = useState<"idle" | "submitting" | "ok" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "submitting" | "deposit" | "ok" | "error"
+  >("idle");
   const [error, setError] = useState<string | null>(null);
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Captain $200 deposit (saves a card for the post-deadline backstop charge).
+  const [depositClientSecret, setDepositClientSecret] = useState<string | null>(null);
+  const [depositPublishableKey, setDepositPublishableKey] = useState<string | null>(null);
 
   // Invite-by-email state.
   const [inviteEmails, setInviteEmails] = useState("");
@@ -52,13 +59,27 @@ export default function TeamCreate({
         const json = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(json.error ?? "Could not create team");
       }
-      const json = (await res.json()) as { joinUrl: string; inviteToken: string };
+      const json = (await res.json()) as {
+        joinUrl: string;
+        inviteToken: string;
+        depositClientSecret?: string;
+        publishableKey?: string;
+      };
       setInviteToken(json.inviteToken);
       // The shareable link is the one-door register URL tagged to this team.
       setJoinUrl(
         `${window.location.origin}/register/${seasonId}?team=${encodeURIComponent(json.inviteToken)}`,
       );
-      setStatus("ok");
+      // Collect the $200 deposit before revealing the share view. If the server
+      // didn't return a client secret (Stripe unconfigured), fall through to the
+      // share view so the flow isn't fully blocked locally.
+      if (json.depositClientSecret && json.publishableKey) {
+        setDepositClientSecret(json.depositClientSecret);
+        setDepositPublishableKey(json.publishableKey);
+        setStatus("deposit");
+      } else {
+        setStatus("ok");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create team");
       setStatus("error");
@@ -112,6 +133,47 @@ export default function TeamCreate({
       setInviteStatus("error");
     }
   };
+
+  if (status === "deposit" && depositClientSecret && depositPublishableKey) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Step 2 of 4
+          </p>
+          <h1 className="font-display text-2xl text-ink mt-1 mb-2">
+            Reserve your team
+          </h1>
+          <p className="text-ink-2 leading-relaxed text-sm">
+            $200 deposit · credits the team fee · unpaid teammate shares are
+            charged to this card after the deadline.
+          </p>
+        </div>
+        <EmbeddedPayment
+          clientSecret={depositClientSecret}
+          publishableKey={depositPublishableKey}
+          seasonItem={{
+            id: seasonId,
+            name: teamName.trim() || "Team deposit",
+            category: "Team",
+            category2: "Team",
+            priceCents: 20000,
+          }}
+          valueCents={20000}
+          paymentType="deposit"
+          returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/register/${seasonId}?team=${encodeURIComponent(inviteToken ?? "")}`}
+          onSuccess={() => setStatus("ok")}
+          onCancel={() => {
+            // Back out of the deposit; the team row exists but is unpaid. Let
+            // the captain retry by re-rendering the form.
+            setStatus("idle");
+            setDepositClientSecret(null);
+            setDepositPublishableKey(null);
+          }}
+        />
+      </div>
+    );
+  }
 
   if (status === "ok" && joinUrl) {
     return (
