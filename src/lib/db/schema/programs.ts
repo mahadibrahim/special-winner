@@ -7,6 +7,7 @@ import {
   timestamp,
   integer,
   date,
+  time,
   jsonb,
   pgEnum,
   index,
@@ -119,6 +120,16 @@ export const seasons = pgTable(
     allowDeposit: boolean("allow_deposit").default(true),
     status: seasonStatusEnum("status").default("draft").notNull(),
     scheduleNotes: text("schedule_notes"), // 'Saturdays 9-10am'
+    // Division & term metadata for the sport-specific league pages.
+    // All nullable / additive — legacy seasons (youth catalog, etc.) leave
+    // these null and are unaffected. Populated for adult-league seasons.
+    termSlug: varchar("term_slug", { length: 64 }),   // 'fall-2026'
+    termLabel: varchar("term_label", { length: 64 }), // 'Fall 2026'
+    divisionGender: varchar("division_gender", { length: 10 }), // 'coed' | 'mens' | 'womens'
+    skillLevel: varchar("skill_level", { length: 8 }), // 'a' | 'b' | 'c' | 'd' | 'open'
+    dayOfWeek: varchar("day_of_week", { length: 3 }), // 'mon'..'sun'
+    startTime: time("start_time"), // 18:00
+    endTime: time("end_time"),     // 20:00
     settings: jsonb("settings"),
     isTest: boolean("is_test").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -132,6 +143,7 @@ export const seasons = pgTable(
     ),
     // Season slugs are unique within a program.
     uniqueIndex("seasons_program_slug_uniq").on(table.programId, table.slug),
+    index("seasons_term_idx").on(table.termSlug),
   ],
 );
 
