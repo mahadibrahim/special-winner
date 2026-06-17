@@ -10,7 +10,7 @@ import { waitForHydration } from "../utils/test-helpers";
  */
 
 test.describe("Category pages", () => {
-  test("/adult/leagues — hero, cross-link, league card from the catalog", async ({ page }) => {
+  test("/adult/leagues — hero, cross-link, league card from the catalog @critical", async ({ page }) => {
     await page.goto("/adult/leagues", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { level: 1, name: /adult leagues/i })).toBeVisible();
