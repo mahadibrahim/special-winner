@@ -44,3 +44,30 @@ export function resolveCurrentTerm<T extends TermSeason>(seasons: T[]): TermGrou
   const open = groups.filter((g) => g.hasOpen);
   return (open.length > 0 ? open : groups)[0];
 }
+
+export type TermPartition<T extends TermSeason = TermSeason> = {
+  current: TermGroup<T> | null;
+  upcoming: TermGroup<T>[];
+  past: TermGroup<T>[];
+};
+
+// Split term groups for the landing tabs: current = the open/active group,
+// upcoming = forming groups, past = completed groups.
+// groupByTerm already sorts groups earliest-start first.
+export function partitionTerms<T extends TermSeason>(seasons: T[]): TermPartition<T> {
+  const groups = groupByTerm(seasons);
+  const statusOf = (g: TermGroup<T>) => {
+    if (g.seasons.some((s) => s.status === "open" || s.status === "active")) return "current";
+    if (g.seasons.some((s) => s.status === "forming")) return "upcoming";
+    if (g.seasons.every((s) => s.status === "completed")) return "past";
+    return "other";
+  };
+  // resolveCurrentTerm falls back to the earliest forming group when nothing is
+  // open/active; for the partition we only treat a group as "current" when it
+  // actually has an open/active season.
+  const resolved = resolveCurrentTerm(seasons);
+  const current = resolved && statusOf(resolved) === "current" ? resolved : null;
+  const upcoming = groups.filter((g) => g.slug !== current?.slug && statusOf(g) === "upcoming");
+  const past = groups.filter((g) => g.slug !== current?.slug && statusOf(g) === "past");
+  return { current, upcoming, past };
+}
