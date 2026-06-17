@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { getAuthCookie } from "./setup/test-helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
@@ -11,11 +12,19 @@ describe("team linkage via ?team= token", () => {
     ).seasons?.[0];
     expect(season?.id).toBeTruthy();
 
+    // Phase B: creating a team requires an authenticated captain (the deposit
+    // saves a card on file). With no Stripe configured in CI the endpoint
+    // gracefully skips the deposit but still requires auth.
+    const captainCookie = await getAuthCookie(
+      "parent@test.aspiresports.com",
+      "TestParent123!",
+    );
+
     const stamp = Date.now();
     const create = await (
       await fetch(`${BASE}/api/public/team-registrations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Cookie: captainCookie },
         body: JSON.stringify({
           seasonId: season.id,
           teamName: `Linkage Test ${stamp}`,

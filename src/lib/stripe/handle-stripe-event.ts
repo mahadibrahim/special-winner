@@ -9,6 +9,7 @@ import { handleDropinWalkinPayment } from "./handle-dropin-walkin-payment";
 import { handleFieldRentalWalkUpPayment } from "./handle-field-rental-walkup-payment";
 import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
+import { handleTeamDepositSucceeded } from "./handle-team-deposit-succeeded";
 import { handleChargeRefunded } from "./handle-charge-refunded";
 import { handleChargeDispute } from "./handle-charge-dispute";
 import {
@@ -226,6 +227,12 @@ async function dispatch(event: Stripe.Event): Promise<void> {
         const result = await handleRegistrationPaymentSucceeded(paymentIntent);
         console.log(
           `[stripe webhook] payment_intent.succeeded (registration) → ${result.status}`,
+          result,
+        );
+      } else if (paymentIntent.metadata?.kind === "team_deposit") {
+        const result = await handleTeamDepositSucceeded(paymentIntent);
+        console.log(
+          `[stripe webhook] payment_intent.succeeded (team deposit) → ${result.status}`,
           result,
         );
       } else {

@@ -853,6 +853,8 @@ export interface SendTeamInviteParams {
   joinUrl: string;
   /** Brand attribution — controls sender display name + subject. Defaults to aspire. */
   brand?: BrandId;
+  /** Assigned per-player share in cents — surfaced in the email body when set. */
+  shareCents?: number;
 }
 
 /**
@@ -871,14 +873,23 @@ export async function sendTeamInviteEmail(params: SendTeamInviteParams) {
   const brandName = getBrandTheme(params.brand).displayName;
   const subject = `${params.captainName} invited you to join ${params.teamName}`;
 
+  const shareLine =
+    typeof params.shareCents === "number"
+      ? `Your share is $${(params.shareCents / 100).toFixed(2)}, due when you register.`
+      : "Click below to register and pay your share.";
+  const shareTextLine =
+    typeof params.shareCents === "number"
+      ? `Your share is $${(params.shareCents / 100).toFixed(2)}, due when you register.`
+      : "Register and pay your share here:";
+
   const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
     <p>${escapeHtml(params.captainName)} put together a team — <strong>${escapeHtml(params.teamName)}</strong> — on ${escapeHtml(brandName)} and wants you on the roster.</p>
-    <p>Click below to register and pay your share. You'll join their roster automatically once you finish signup.</p>
+    <p>${escapeHtml(shareLine)} You'll join their roster automatically once you finish signup.</p>
     <p><a href="${params.joinUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Join ${escapeHtml(params.teamName)} →</a></p>
     <p style="color:#666;font-size:13px;">Or paste this link into your browser:<br>${escapeHtml(params.joinUrl)}</p>
   </body></html>`;
 
-  const text = `${params.captainName} put together a team — ${params.teamName} — on ${brandName} and wants you on the roster.\n\nRegister and pay your share here:\n${params.joinUrl}\n`;
+  const text = `${params.captainName} put together a team — ${params.teamName} — on ${brandName} and wants you on the roster.\n\n${shareTextLine}\n${params.joinUrl}\n`;
 
   const result = await sendEmail({
     to: params.to,
@@ -890,6 +901,75 @@ export async function sendTeamInviteEmail(params: SendTeamInviteParams) {
 
   await logEmail({
     emailType: "team_invite",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// ---- Team share reminder (~3 days before the payment deadline) ----
+
+export interface SendTeamShareReminderParams {
+  to: string;
+  teamName: string;
+  /** Captain display name — surfaced so the recipient knows whose team this is. */
+  captainName?: string;
+  joinUrl: string;
+  /** Assigned per-player share in cents — surfaced when set. */
+  shareCents?: number;
+  /** Payment deadline — surfaced in the body when set. */
+  deadline?: Date | string;
+  /** Brand attribution — controls sender display name + subject. Defaults to aspire. */
+  brand?: BrandId;
+}
+
+/**
+ * Remind a teammate (or the captain) to pay their share before the deadline,
+ * after which the captain's saved card is charged the unpaid balance (the
+ * backstop). Fired by the charge-unpaid-team-shares cron ~3 days out. Plain
+ * inline HTML, mirroring sendTeamInviteEmail. Logged like any other send.
+ */
+export async function sendTeamShareReminderEmail(params: SendTeamShareReminderParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team share reminder email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const brandName = getBrandTheme(params.brand).displayName;
+  const subject = `Reminder: pay your share for ${params.teamName}`;
+
+  const deadlineStr =
+    params.deadline != null ? formatEmailDate(params.deadline) : null;
+  const shareLine =
+    typeof params.shareCents === "number"
+      ? `Your share is $${(params.shareCents / 100).toFixed(2)}.`
+      : "You still owe your share.";
+  const deadlineLine = deadlineStr
+    ? `Please pay by ${deadlineStr}, or ${params.captainName ? `${params.captainName}, your captain,` : "your team captain"} will be charged the unpaid balance.`
+    : `Please pay soon, or ${params.captainName ? `${params.captainName}, your captain,` : "your team captain"} will be charged the unpaid balance.`;
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>This is a reminder about your spot on <strong>${escapeHtml(params.teamName)}</strong> on ${escapeHtml(brandName)}.</p>
+    <p>${escapeHtml(shareLine)} ${escapeHtml(deadlineLine)}</p>
+    <p><a href="${params.joinUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Pay my share →</a></p>
+    <p style="color:#666;font-size:13px;">Or paste this link into your browser:<br>${escapeHtml(params.joinUrl)}</p>
+  </body></html>`;
+
+  const text = `Reminder about your spot on ${params.teamName} on ${brandName}.\n\n${shareLine} ${deadlineLine}\n\nPay your share here:\n${params.joinUrl}\n`;
+
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+
+  await logEmail({
+    emailType: "team_share_reminder",
     recipientEmail: params.to,
     subject,
     resendMessageId: result.messageId,
