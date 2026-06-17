@@ -7,6 +7,11 @@
 
 > **RESOLVED 2026-06-12 (founder):** All Aspire fields have **walls/boards**. The rulebook follows the **walled-arena branch** (Arena / Stars model), NOT the open-turf model. That means Aspire DOES adopt: kick-ins (or play-off-the-wall) at the perimeter, a **three-line violation in place of offside**, **boarding penalties**, GK throw-in/distribution restarts for end-netting balls, and ceiling restarts. Where this doc earlier said "do not copy the walled rules," that was the no-walls assumption — it is now reversed.
 
+> **⚠️ SUPERSEDED IN PART (2026-06-17) — canonical product doc: `docs/sports/adult-soccer-leagues.md`** (transcribed from the published League Guide). This research stays authoritative as the **rulebook** source, **except** where it conflicts with the published offering:
+> - **Season:** the published league is **7 games, NO playoffs** (the "8-game + playoffs" below was an outdoor/market estimate).
+> - **Roster:** **up to 14 (7 to play)** (the "max 18" below was a market norm).
+> The League Guide wins on those two points; everything else here (walled-arena rules, coed addendum, conduct/cards, standings, mercy) stands.
+
 ---
 
 ## Game format (indoor adult)

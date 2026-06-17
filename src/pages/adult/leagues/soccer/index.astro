@@ -1,0 +1,69 @@
+---
+// Evergreen Adult Soccer landing. SSR: resolves the current registering term.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { LevelLadder } from "@/components/leagues/level-ladder";
+import { FORMAT_FACTS, RULE_SECTIONS } from "@/lib/leagues/adult-soccer-content";
+import { resolveCurrentTerm, type TermSeason } from "@/lib/leagues/terms";
+
+const origin = Astro.url.origin;
+const res = await fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult`, {
+  headers: { cookie: Astro.request.headers.get("cookie") ?? "" },
+});
+const data = res.ok ? await res.json() : { seasons: [] };
+const seasons: any[] = data.seasons ?? [];
+const termSeasons: TermSeason[] = seasons
+  .filter((s) => s.termSlug)
+  .map((s) => ({ id: s.id, termSlug: s.termSlug, termLabel: s.termLabel, status: s.status, startDate: s.startDate }));
+const current = resolveCurrentTerm(termSeasons);
+const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60";
+---
+
+<BaseLayout
+  title="Adult Soccer Leagues — Aspire Sports"
+  description="Coed, men's and women's indoor 7v7 soccer leagues in central Ohio. Rec to competitive, all skill levels."
+>
+  <main id="main-content">
+    <section class="relative text-cream pt-16 px-9 bg-cover bg-center"
+      style={`background-image:linear-gradient(180deg,oklch(0.18 0.07 262/0.8),oklch(0.18 0.07 262/0.94)),url('${heroPhoto}')`}>
+      <div class="max-w-[1080px] mx-auto pb-8">
+        {current && (
+          <a href={`/adult/leagues/soccer/${current.slug}`} class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5" data-testid="now-registering">
+            <span><span class="font-mono text-[10px] tracking-widest uppercase opacity-85">Now Registering</span><br/><span class="font-display font-semibold text-lg">{current.label}</span></span>
+            <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See season →</span>
+          </a>
+        )}
+        <h1 class="font-display font-semibold text-5xl md:text-6xl tracking-tight mb-2">Adult soccer<br/>at Aspire.</h1>
+        <p class="text-cream/85 max-w-md mb-2">Coed, men's &amp; women's 7v7. Rec to competitive, indoor, across central-Ohio venues.</p>
+        <p class="font-mono text-[12px] text-cream/70 pb-1">{FORMAT_FACTS.slice(0, 4).join(" · ")}</p>
+      </div>
+    </section>
+
+    <section class="bg-cream px-9 py-10">
+      <div class="max-w-[1080px] mx-auto">
+        <p class="font-mono text-[11px] tracking-widest uppercase text-ink-muted mb-3">Find your level</p>
+        <LevelLadder client:visible />
+
+        <p class="font-mono text-[11px] tracking-widest uppercase text-ink-muted mt-10 mb-3">How it works</p>
+        <ul class="grid md:grid-cols-2 gap-x-8 gap-y-1.5">
+          {FORMAT_FACTS.map((f) => <li class="text-ink-2 text-sm pl-4 relative before:content-['›'] before:absolute before:left-0 before:text-primary before:font-bold">{f}</li>)}
+        </ul>
+
+        <p class="font-mono text-[11px] tracking-widest uppercase text-ink-muted mt-10 mb-3">The rules, in brief</p>
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-4">
+          {RULE_SECTIONS.map((s) => (
+            <div>
+              <h3 class="font-display font-semibold text-lg mb-1">{s.title}</h3>
+              <ul class="space-y-1">{s.items.slice(0,3).map((it) => <li class="text-[13px] text-ink-2 leading-snug">· {it}</li>)}</ul>
+            </div>
+          ))}
+        </div>
+        {current && (
+          <div class="mt-10">
+            <a href={`/adult/leagues/soccer/${current.slug}`} class="inline-flex bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase">See {current.label} divisions →</a>
+          </div>
+        )}
+      </div>
+    </section>
+  </main>
+</BaseLayout>
