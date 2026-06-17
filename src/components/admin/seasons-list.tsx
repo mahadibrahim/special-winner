@@ -37,6 +37,13 @@ interface Season {
   allowDeposit: boolean
   status: string
   scheduleNotes: string | null
+  termSlug?: string | null
+  termLabel?: string | null
+  divisionGender?: "coed" | "mens" | "womens" | null
+  skillLevel?: "a" | "b" | "c" | "d" | "open" | null
+  dayOfWeek?: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | null
+  startTime?: string | null
+  endTime?: string | null
   venueId: string | null
   interestCount?: number
   program: { id: string; name: string; slug: string }
@@ -106,6 +113,13 @@ export function SeasonsList() {
     allowDeposit: true,
     status: "draft",
     scheduleNotes: "",
+    termSlug: "",
+    termLabel: "",
+    divisionGender: "",
+    skillLevel: "",
+    dayOfWeek: "",
+    startTime: "",
+    endTime: "",
   })
 
   useEffect(() => {
@@ -167,6 +181,13 @@ export function SeasonsList() {
       allowDeposit: true,
       status: "draft",
       scheduleNotes: "",
+      termSlug: "",
+      termLabel: "",
+      divisionGender: "",
+      skillLevel: "",
+      dayOfWeek: "",
+      startTime: "",
+      endTime: "",
     })
     setScaffold({ type: "empty" })
     setIsDialogOpen(true)
@@ -192,6 +213,13 @@ export function SeasonsList() {
       allowDeposit: season.allowDeposit,
       status: season.status,
       scheduleNotes: season.scheduleNotes || "",
+      termSlug: season.termSlug || "",
+      termLabel: season.termLabel || "",
+      divisionGender: season.divisionGender || "",
+      skillLevel: season.skillLevel || "",
+      dayOfWeek: season.dayOfWeek || "",
+      startTime: season.startTime || "",
+      endTime: season.endTime || "",
     })
     setScaffold({ type: "empty" })
     setIsDialogOpen(true)
@@ -221,6 +249,13 @@ export function SeasonsList() {
       depositCents: source.depositCents ? (source.depositCents / 100).toString() : "",
       allowDeposit: source.allowDeposit,
       scheduleNotes: source.scheduleNotes || "",
+      termSlug: source.termSlug || "",
+      termLabel: source.termLabel || "",
+      divisionGender: source.divisionGender || "",
+      skillLevel: source.skillLevel || "",
+      dayOfWeek: source.dayOfWeek || "",
+      startTime: source.startTime || "",
+      endTime: source.endTime || "",
     }))
   }
 
@@ -260,6 +295,13 @@ export function SeasonsList() {
         allowDeposit: formData.allowDeposit,
         status: formData.status,
         scheduleNotes: formData.scheduleNotes || null,
+        termSlug: formData.termSlug || null,
+        termLabel: formData.termLabel || null,
+        divisionGender: formData.divisionGender || null,
+        skillLevel: formData.skillLevel || null,
+        dayOfWeek: formData.dayOfWeek || null,
+        startTime: formData.startTime || null,
+        endTime: formData.endTime || null,
         ...(editingSeason ? {} : { scaffold }),
       }
 
@@ -703,6 +745,81 @@ export function SeasonsList() {
                   onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, allowDeposit: checked === true }))}
                 />
                 <Label htmlFor="allowDeposit" className="font-normal">Allow deposit payment option</Label>
+              </div>
+
+              <div className="border-t border-border pt-4 mt-2">
+                <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-3">
+                  League page metadata (optional)
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="termLabel">Term label</Label>
+                    <Input id="termLabel" value={formData.termLabel}
+                      onChange={(e) => setFormData((p) => ({ ...p, termLabel: e.target.value }))}
+                      placeholder="Fall 2026" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="termSlug">Term slug</Label>
+                    <Input id="termSlug" value={formData.termSlug}
+                      onChange={(e) => setFormData((p) => ({ ...p, termSlug: e.target.value }))}
+                      placeholder="fall-2026" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4 mt-4">
+                  <div className="space-y-2">
+                    <Label>Division gender</Label>
+                    <Select value={formData.divisionGender || "none"}
+                      onValueChange={(v) => setFormData((p) => ({ ...p, divisionGender: v === "none" ? "" : v }))}>
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        <SelectItem value="coed">Coed</SelectItem>
+                        <SelectItem value="mens">Men's</SelectItem>
+                        <SelectItem value="womens">Women's</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Skill level</Label>
+                    <Select value={formData.skillLevel || "none"}
+                      onValueChange={(v) => setFormData((p) => ({ ...p, skillLevel: v === "none" ? "" : v }))}>
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        <SelectItem value="a">A · Elite</SelectItem>
+                        <SelectItem value="b">B · Competitive</SelectItem>
+                        <SelectItem value="c">C · Rec+</SelectItem>
+                        <SelectItem value="d">D · Beginner</SelectItem>
+                        <SelectItem value="open">Open</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Night</Label>
+                    <Select value={formData.dayOfWeek || "none"}
+                      onValueChange={(v) => setFormData((p) => ({ ...p, dayOfWeek: v === "none" ? "" : v }))}>
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        {["mon","tue","wed","thu","fri","sat","sun"].map((d) => (
+                          <SelectItem key={d} value={d}>{d[0].toUpperCase() + d.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startTime">Start time</Label>
+                    <Input id="startTime" type="time" value={formData.startTime}
+                      onChange={(e) => setFormData((p) => ({ ...p, startTime: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endTime">End time</Label>
+                    <Input id="endTime" type="time" value={formData.endTime}
+                      onChange={(e) => setFormData((p) => ({ ...p, endTime: e.target.value }))} />
+                  </div>
+                </div>
               </div>
             </div>
 
