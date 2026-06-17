@@ -830,6 +830,80 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Adult Season: ${adultMensSeason.name} (id: ${adultMensSeason.id})`);
 
+  // Active 'Summer 2026' soccer division with played games, so the season
+  // page's Standings tab renders a live table (Fall 2026 stays 'open' → empty
+  // standings). Idempotent via slug/name guards.
+  let [summerSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-adult-soccer-summer-2026-coed-c"))
+    .limit(1);
+
+  if (!summerSeason) {
+    [summerSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: adultProgram.id,
+        ageGroupId: adultAgeGroup.id,
+        name: "Summer 2026 — Coed C",
+        slug: "e2e-adult-soccer-summer-2026-coed-c",
+        startDate: formatDate(seasonStartDate),
+        endDate: formatDate(seasonEndDate),
+        status: "active",
+        priceCents: 10000,
+        maxParticipants: 30,
+        termSlug: "summer-2026",
+        termLabel: "Summer 2026",
+        divisionGender: "coed",
+        skillLevel: "c",
+        dayOfWeek: "tue",
+        startTime: "18:00",
+        endTime: "20:00",
+      })
+      .returning();
+  } else {
+    [summerSeason] = await db
+      .update(seasons)
+      .set({ status: "active", termSlug: "summer-2026", termLabel: "Summer 2026" })
+      .where(eq(seasons.id, summerSeason.id))
+      .returning();
+  }
+
+  const summerTeamNames = ["FC Lakeview", "Powell United", "Worthington Wolves", "North End SC"];
+  const summerTeamIds: Record<string, string> = {};
+  for (const name of summerTeamNames) {
+    let [t] = await db
+      .select()
+      .from(teams)
+      .where(and(eq(teams.seasonId, summerSeason.id), eq(teams.name, name)))
+      .limit(1);
+    if (!t) {
+      [t] = await db
+        .insert(teams)
+        .values({ seasonId: summerSeason.id, name, division: "Coed C" })
+        .returning();
+    }
+    summerTeamIds[name] = t.id;
+  }
+
+  const existingSummerGames = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.seasonId, summerSeason.id))
+    .limit(1);
+  if (existingSummerGames.length === 0) {
+    const wkAgo = (n: number) => new Date(Date.now() - n * 7 * 24 * 60 * 60 * 1000);
+    await db.insert(games).values([
+      { seasonId: summerSeason.id, homeTeamId: summerTeamIds["FC Lakeview"], awayTeamId: summerTeamIds["North End SC"], scheduledAt: wkAgo(3), status: "completed", homeScore: 3, awayScore: 1 },
+      { seasonId: summerSeason.id, homeTeamId: summerTeamIds["Powell United"], awayTeamId: summerTeamIds["Worthington Wolves"], scheduledAt: wkAgo(3), status: "completed", homeScore: 2, awayScore: 0 },
+      { seasonId: summerSeason.id, homeTeamId: summerTeamIds["FC Lakeview"], awayTeamId: summerTeamIds["Powell United"], scheduledAt: wkAgo(2), status: "completed", homeScore: 2, awayScore: 2 },
+      { seasonId: summerSeason.id, homeTeamId: summerTeamIds["Worthington Wolves"], awayTeamId: summerTeamIds["North End SC"], scheduledAt: wkAgo(2), status: "completed", homeScore: 1, awayScore: 0 },
+      { seasonId: summerSeason.id, homeTeamId: summerTeamIds["FC Lakeview"], awayTeamId: summerTeamIds["Worthington Wolves"], scheduledAt: wkAgo(1), status: "completed", homeScore: 4, awayScore: 2 },
+      { seasonId: summerSeason.id, homeTeamId: summerTeamIds["Powell United"], awayTeamId: summerTeamIds["North End SC"], scheduledAt: wkAgo(1), status: "completed", homeScore: 1, awayScore: 1 },
+    ]);
+  }
+  console.log(`   ✓ Active soccer division seeded: ${summerSeason.name} (4 teams, 6 games)`);
+
   // -------------------------------------------------------------------------
   // Org B — second tenant for cross-tenant isolation tests.
   // This org has its own admin, location, sport, program and season.
