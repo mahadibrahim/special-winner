@@ -1,0 +1,88 @@
+---
+// Per-term Adult Soccer season page. SSR: reads live seasons + per-host brand.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { SeasonTabs } from "@/components/leagues/season-tabs";
+import type { Division } from "@/lib/leagues/division-filters";
+import { FORMAT_FACTS } from "@/lib/leagues/adult-soccer-content";
+
+const { term } = Astro.params;
+const origin = Astro.url.origin;
+const res = await fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult&term=${term}`, {
+  headers: { cookie: Astro.request.headers.get("cookie") ?? "" },
+});
+const data = res.ok ? await res.json() : { seasons: [] };
+const seasons: any[] = data.seasons ?? [];
+
+if (seasons.length === 0) {
+  return Astro.redirect("/adult/leagues/soccer");
+}
+
+const termLabel = seasons[0].termLabel ?? "This season";
+const statusRank = (s: string) => (s === "open" ? 0 : s === "active" ? 1 : s === "forming" ? 2 : 3);
+const heroStatus = [...seasons].sort((a, b) => statusRank(a.status) - statusRank(b.status))[0].status;
+const startDate = seasons.map((s) => s.startDate).sort()[0];
+const endDate = seasons.map((s) => s.endDate).sort().at(-1);
+
+const venuesMap = new Map<string, string>();
+for (const s of seasons) venuesMap.set(s.location.slug, s.location.name);
+const venues = [...venuesMap].map(([slug, label]) => ({ slug, label }));
+
+function fmtTime(t: string | null) {
+  if (!t) return null;
+  const [h] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr} ${ampm}`;
+}
+
+const divisions: Division[] = seasons.map((s) => ({
+  id: s.id,
+  seasonId: s.id,
+  name: s.name,
+  level: (s.skillLevel ?? "open") as Division["level"],
+  gender: (s.divisionGender ?? "coed") as Division["gender"],
+  day: s.dayOfWeek ?? null,
+  time: s.startTime && s.endTime ? `${fmtTime(s.startTime)}–${fmtTime(s.endTime)}` : null,
+  venueSlug: s.location.slug,
+  venueName: s.location.name,
+  status: s.status,
+  spotsLabel: s.status === "forming" ? "forming" : s.spotsLeft != null ? `${s.spotsLeft} left` : "open",
+  signupModes: s.signupModes ?? ["individual"],
+}));
+
+const STATUS_LABEL: Record<string, string> = { open: "Registration Open", active: "In Progress", forming: "Forming", completed: "Complete" };
+const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60";
+---
+
+<BaseLayout
+  title={`${termLabel} Adult Soccer Leagues — Aspire Sports`}
+  description={`Register for ${termLabel} adult indoor 7v7 soccer leagues. ${FORMAT_FACTS.slice(0,3).join(" · ")}.`}
+>
+  <main id="main-content">
+    <section
+      class="relative text-cream pt-16 px-9 bg-cover bg-center"
+      style={`background-image:linear-gradient(180deg,oklch(0.18 0.07 262/0.78),oklch(0.18 0.07 262/0.93)),linear-gradient(100deg,oklch(0.18 0.07 262/0.95),oklch(0.18 0.07 262/0.4)),url('${heroPhoto}')`}
+    >
+      <div class="max-w-[1080px] mx-auto pb-6">
+        <span class="inline-flex items-center gap-1.5 bg-primary/20 border border-primary/60 text-cream rounded-full px-3 py-1.5 font-mono text-[10px] tracking-widest uppercase">
+          {STATUS_LABEL[heroStatus] ?? heroStatus}
+        </span>
+        <h1 class="font-display font-semibold text-5xl md:text-6xl tracking-tight mt-3 mb-1.5">{termLabel} · Adult Soccer</h1>
+        <p class="font-mono text-[12.5px] text-cream/85 mb-4">Indoor 7v7 · {startDate} – {endDate} · 7-game season, no playoffs · {venues.length} venues · {divisions.length} divisions</p>
+        <div class="flex flex-wrap gap-3 items-center pb-1">
+          <a href="#main-content" class="font-sans font-semibold text-[13px] bg-primary text-cream px-5 py-3 rounded-md" data-testid="hero-register">Register a team →</a>
+          <a href="#main-content" class="font-sans font-semibold text-[13px] border border-cream/40 text-cream px-5 py-3 rounded-md">Join solo</a>
+        </div>
+      </div>
+    </section>
+
+    <SeasonTabs
+      client:load
+      divisions={divisions}
+      venues={venues}
+      weekStart={startDate}
+      scheduleNote="One game per week per team. Exact slots assigned after rosters lock."
+    />
+  </main>
+</BaseLayout>
