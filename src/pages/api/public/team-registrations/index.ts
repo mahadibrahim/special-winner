@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { createDepositIntentWithSavedCard } from "@/lib/stripe/saved-cards";
+import { stripe } from "@/lib/stripe/client";
 
 const DEPOSIT_AMOUNT_CENTS = 20000; // $200 (locked decision)
 
@@ -156,6 +157,25 @@ async function finishWithDepositIntent(params: {
     return new Response(
       JSON.stringify({ error: "Database unavailable" }),
       { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // Graceful degradation: with no Stripe configured (local dev / CI), create the
+  // team WITHOUT a deposit so the rest of the flow still works. Production has
+  // Stripe, so the $200 deposit + saved card are enforced there. The team-create
+  // UI already falls through to the share view when no client secret is returned.
+  if (!stripe) {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        teamRegistrationId,
+        inviteToken,
+        joinUrl: `/team/${inviteToken}`,
+        teamFeeCents,
+        depositClientSecret: null,
+        publishableKey: null,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   }
 
