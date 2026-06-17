@@ -83,7 +83,6 @@ export const GET: APIRoute = async ({ params, locals }) => {
       startDate: result.season.startDate,
       endDate: result.season.endDate,
       registrationOpens: result.season.registrationOpens,
-      registrationCloses: result.season.registrationCloses,
       maxParticipants: result.season.maxParticipants,
       registeredCount,
       spotsLeft,
@@ -93,6 +92,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
       depositCents: result.season.depositCents,
       allowDeposit: result.season.allowDeposit,
       status: result.season.status,
+      registrationCloses: result.season.registrationCloses ? result.season.registrationCloses.toISOString() : null,
+      earlyBirdDeadline: result.season.earlyBirdDeadline ? result.season.earlyBirdDeadline.toISOString() : null,
       scheduleNotes: result.season.scheduleNotes,
       program: {
         id: result.program.id,
