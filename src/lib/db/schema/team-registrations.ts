@@ -4,6 +4,9 @@ import {
   varchar,
   text,
   timestamp,
+  integer,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 import { seasons } from "./programs";
@@ -42,6 +45,16 @@ export const teamRegistrations = pgTable("team_registrations", {
   status: varchar("status", { length: 30 }).default("forming").notNull(),
   // 'forming' | 'roster_complete' | 'cancelled'
 
+  // Phase B — captain payment backstop (TeamPayer model)
+  teamFeeCents: integer("team_fee_cents"),                 // snapshot of season team price at creation
+  depositCents: integer("deposit_cents").default(20000),   // $200 (locked decision)
+  depositPaymentId: uuid("deposit_payment_id"),            // soft ref to payments.id, set after charge
+  captainStripeCustomerId: varchar("captain_stripe_customer_id", { length: 255 }),
+  captainPaymentMethodId: varchar("captain_payment_method_id", { length: 255 }),
+  paymentDeadline: timestamp("payment_deadline"),          // = season.registrationCloses at creation
+  backstopStatus: varchar("backstop_status", { length: 20 }).default("none").notNull(),
+  // 'none' | 'pending' | 'charged' | 'failed'
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -63,7 +76,26 @@ export const teamRegistrationMembers = pgTable("team_registration_members", {
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
+export const teamInvitees = pgTable("team_invitees", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamRegistrationId: uuid("team_registration_id")
+    .notNull()
+    .references(() => teamRegistrations.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 320 }).notNull(),
+  assignedShareCents: integer("assigned_share_cents").notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  // 'pending' | 'paid' | 'charged_to_captain'
+  registrationId: uuid("registration_id").references(() => registrations.id, { onDelete: "set null" }),
+  invitedAt: timestamp("invited_at").defaultNow().notNull(),
+  paidAt: timestamp("paid_at"),
+}, (t) => [
+  index("team_invitees_team_idx").on(t.teamRegistrationId),
+  uniqueIndex("team_invitees_team_email_uniq").on(t.teamRegistrationId, t.email),
+]);
+
 export type TeamRegistration = typeof teamRegistrations.$inferSelect;
 export type NewTeamRegistration = typeof teamRegistrations.$inferInsert;
 export type TeamRegistrationMember = typeof teamRegistrationMembers.$inferSelect;
 export type NewTeamRegistrationMember = typeof teamRegistrationMembers.$inferInsert;
+export type TeamInvitee = typeof teamInvitees.$inferSelect;
+export type NewTeamInvitee = typeof teamInvitees.$inferInsert;
