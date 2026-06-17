@@ -24,6 +24,10 @@ import { ConfirmationStep } from "./confirmation-step"
 import { AddDependentForm } from "./add-dependent-form"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
+import {
+  trackRegistrationStepViewed,
+  trackRegistrationPaymentMethodSelected,
+} from "@/lib/analytics/events"
 
 interface Season {
   id: string
@@ -103,6 +107,10 @@ const STEP_PLAYER = 1
 const STEP_AGREEMENTS = 2
 const STEP_PAYMENT = 3
 const STEP_CONFIRM = 4
+
+const STEP_NAME: Record<number, "player" | "agreements" | "payment" | "confirm"> = {
+  1: "player", 2: "agreements", 3: "payment", 4: "confirm",
+}
 
 const STEPS = [
   { id: STEP_PLAYER, name: "Player", icon: User },
@@ -399,6 +407,11 @@ export default function RegistrationWizard({
     }
     // If no lock, leave at the "child" default
   }, [isGuest, season, lockedGuestMode])
+
+  // Track each wizard step view (league analytics).
+  useEffect(() => {
+    if (season) trackRegistrationStepViewed({ step: STEP_NAME[currentStep] ?? "player", seasonId: season.id })
+  }, [currentStep, season])
 
   // Fire view_item once when entering the payment step
   useEffect(() => {
@@ -938,6 +951,7 @@ export default function RegistrationWizard({
   // Selecting a payment method is the single commit action: lock the option,
   // remember the choice, and create the registration + Stripe session for it.
   const handleMethodSelected = (category: "bank" | "card") => {
+    trackRegistrationPaymentMethodSelected({ method: category })
     setSelectedPaymentCategory(category)
     setPaymentStarted(true)
     if (isGuest) {
