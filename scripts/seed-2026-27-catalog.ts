@@ -60,34 +60,38 @@ const PROGRAMS: ProgSpec[] = [
 
 // ---- Divisions (each → one season per session) ----
 type Kind = "adult" | "futsal" | "youth";
-type DivSpec = { prog: string; label: string; age: string; kind: Kind };
+type DivSpec = {
+  prog: string; label: string; age: string; kind: Kind;
+  gender: "coed" | "mens" | "womens" | null;
+  skill: "a" | "b" | "c" | "d" | "open" | null;
+};
 const DIVISIONS: DivSpec[] = [
   // Downtown (1 field): Coed D/C/B + Men's Open/A
-  { prog: "dt-coed", label: "Co-Ed D",     age: "Adult Co-Ed",  kind: "adult" },
-  { prog: "dt-coed", label: "Co-Ed C",     age: "Adult Co-Ed",  kind: "adult" },
-  { prog: "dt-coed", label: "Co-Ed B",     age: "Adult Co-Ed",  kind: "adult" },
-  { prog: "dt-mens", label: "Open / A",    age: "Adult Open",   kind: "adult" },
+  { prog: "dt-coed", label: "Co-Ed D",     age: "Adult Co-Ed",  kind: "adult", gender: "coed", skill: "d" },
+  { prog: "dt-coed", label: "Co-Ed C",     age: "Adult Co-Ed",  kind: "adult", gender: "coed", skill: "c" },
+  { prog: "dt-coed", label: "Co-Ed B",     age: "Adult Co-Ed",  kind: "adult", gender: "coed", skill: "b" },
+  { prog: "dt-mens", label: "Open / A",    age: "Adult Open",   kind: "adult", gender: "mens", skill: "a" },
   // Worthington adult 7v7 (2 fields)
-  { prog: "wo-coed", label: "Co-Ed B",     age: "Adult Co-Ed",  kind: "adult" },
-  { prog: "wo-coed", label: "Co-Ed C",     age: "Adult Co-Ed",  kind: "adult" },
-  { prog: "wo-coed", label: "Co-Ed D",     age: "Adult Co-Ed",  kind: "adult" },
-  { prog: "wo-coed", label: "Co-Ed 30+",   age: "Adult Over 30",kind: "adult" },
-  { prog: "wo-coed", label: "Co-Ed 40+",   age: "Adult Over 40",kind: "adult" },
-  { prog: "wo-mens", label: "Men's C",     age: "Adult Open",   kind: "adult" },
-  { prog: "wo-mens", label: "Men's D",     age: "Adult Open",   kind: "adult" },
-  { prog: "wo-mens", label: "Men's 30+",   age: "Adult Over 30",kind: "adult" },
-  { prog: "wo-womens", label: "Women's Open", age: "Adult Open",kind: "adult" },
+  { prog: "wo-coed", label: "Co-Ed B",     age: "Adult Co-Ed",  kind: "adult", gender: "coed", skill: "b" },
+  { prog: "wo-coed", label: "Co-Ed C",     age: "Adult Co-Ed",  kind: "adult", gender: "coed", skill: "c" },
+  { prog: "wo-coed", label: "Co-Ed D",     age: "Adult Co-Ed",  kind: "adult", gender: "coed", skill: "d" },
+  { prog: "wo-coed", label: "Co-Ed 30+",   age: "Adult Over 30",kind: "adult", gender: "coed", skill: null },
+  { prog: "wo-coed", label: "Co-Ed 40+",   age: "Adult Over 40",kind: "adult", gender: "coed", skill: null },
+  { prog: "wo-mens", label: "Men's C",     age: "Adult Open",   kind: "adult", gender: "mens", skill: "c" },
+  { prog: "wo-mens", label: "Men's D",     age: "Adult Open",   kind: "adult", gender: "mens", skill: "d" },
+  { prog: "wo-mens", label: "Men's 30+",   age: "Adult Over 30",kind: "adult", gender: "mens", skill: null },
+  { prog: "wo-womens", label: "Women's Open", age: "Adult Open",kind: "adult", gender: "womens", skill: "open" },
   // Worthington futsal (5v5)
-  { prog: "wo-futsal", label: "Co-Ed Rec", age: "Adult Co-Ed",  kind: "futsal" },
-  { prog: "wo-futsal", label: "Men's B",   age: "Adult Open",   kind: "futsal" },
-  { prog: "wo-futsal", label: "Co-Ed Comp",age: "Adult Co-Ed",  kind: "futsal" },
-  { prog: "wo-futsal", label: "Men's A",   age: "Adult Open",   kind: "futsal" },
+  { prog: "wo-futsal", label: "Co-Ed Rec", age: "Adult Co-Ed",  kind: "futsal", gender: "coed", skill: "d" },
+  { prog: "wo-futsal", label: "Men's B",   age: "Adult Open",   kind: "futsal", gender: "mens", skill: "b" },
+  { prog: "wo-futsal", label: "Co-Ed Comp",age: "Adult Co-Ed",  kind: "futsal", gender: "coed", skill: "b" },
+  { prog: "wo-futsal", label: "Men's A",   age: "Adult Open",   kind: "futsal", gender: "mens", skill: "a" },
   // Worthington youth leagues (Sat) — one game/week, no practices
-  { prog: "wo-youth", label: "U6",  age: "U6",  kind: "youth" },
-  { prog: "wo-youth", label: "U8",  age: "U8",  kind: "youth" },
-  { prog: "wo-youth", label: "U10", age: "U10", kind: "youth" },
-  { prog: "wo-youth", label: "U12", age: "U12", kind: "youth" },
-  { prog: "wo-youth-futsal", label: "U7-U8", age: "U8", kind: "youth" },
+  { prog: "wo-youth", label: "U6",  age: "U6",  kind: "youth", gender: null, skill: null },
+  { prog: "wo-youth", label: "U8",  age: "U8",  kind: "youth", gender: null, skill: null },
+  { prog: "wo-youth", label: "U10", age: "U10", kind: "youth", gender: null, skill: null },
+  { prog: "wo-youth", label: "U12", age: "U12", kind: "youth", gender: null, skill: null },
+  { prog: "wo-youth-futsal", label: "U7-U8", age: "U8", kind: "youth", gender: null, skill: null },
 ];
 
 async function getOrCreate(table: string, whereSql: postgres.PendingQuery<any>, createCols: Record<string, unknown>, descr: string): Promise<string> {
@@ -150,7 +154,7 @@ async function main() {
   }
 
   // Seasons — division × session, status=draft, idempotent by (program, slug)
-  let created = 0, skipped = 0, planned = 0;
+  let created = 0, skipped = 0, planned = 0, backfilled = 0;
   const byProgram: Record<string, number> = {};
   for (const d of DIVISIONS) {
     const pid = progId[d.prog];
@@ -176,7 +180,19 @@ async function main() {
       }
 
       const existing = await sql`select id from seasons where program_id=${pid} and slug=${slug} limit 1`;
-      if (existing.length) { skipped++; if (!COMMIT) console.log(`  [dry-run] SKIP (exists): ${name}`); continue; }
+      if (existing.length) {
+        if (COMMIT) {
+          await sql`update seasons set
+            term_slug=${s.key}, term_label=${s.label},
+            division_gender=${d.gender}, skill_level=${d.skill}
+            where id=${existing[0].id}`;
+          backfilled++;
+        } else {
+          console.log(`  [dry-run] would BACKFILL metadata: ${name}  (term=${s.key}, gender=${d.gender ?? "—"}, level=${d.skill ?? "—"})`);
+        }
+        skipped++;
+        continue;
+      }
 
       if (!COMMIT) {
         console.log(`  [dry-run] would CREATE season: ${name}  (${slug}, age=${d.age}, team=${team ? "$" + team / 100 : "—"}, indiv=$${indiv / 100}, deposit=${deposit ? "$" + deposit / 100 : "—"})`);
@@ -187,11 +203,13 @@ async function main() {
         insert into seasons (program_id, age_group_id, name, slug, start_date, end_date,
           registration_opens, registration_closes, early_bird_deadline,
           price_cents, team_price_cents, early_bird_price_cents, deposit_cents, allow_deposit,
-          signup_modes, pricing_mode, status)
+          signup_modes, pricing_mode, status,
+          term_slug, term_label, division_gender, skill_level)
         values (${pid}, ${agId}, ${name}, ${slug}, ${s.start}, ${s.end},
           ${ts(s.regOpen)}, ${ts(s.regClose)}, ${ts(s.eb)},
           ${indiv}, ${team}, ${teamEB}, ${deposit}, ${deposit !== null},
-          ${sql.array(modes)}, ${pricingMode}, 'draft')`;
+          ${sql.array(modes)}, ${pricingMode}, 'draft',
+          ${s.key}, ${s.label}, ${d.gender}, ${d.skill})`;
       created++;
     }
   }
@@ -201,6 +219,7 @@ async function main() {
   console.log(`Per program:`, byProgram);
   if (COMMIT) console.log(`Created: ${created}  Skipped (already existed): ${skipped}`);
   else console.log(`(dry-run — nothing written. Re-run with --commit to write.)`);
+  console.log(`Backfilled metadata (existing rows): ${backfilled}`);
 
   await sql.end();
   process.exit(0);
