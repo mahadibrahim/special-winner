@@ -126,6 +126,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       captainUserId,
       captainEmail,
       inviteToken,
+      teamFeeCents: season.teamPriceCents ?? season.priceCents,
     });
   } catch (err) {
     console.error("[team-registrations] insert failed", err);
@@ -147,8 +148,10 @@ async function finishWithDepositIntent(params: {
   captainUserId: string;
   captainEmail: string;
   inviteToken: string;
+  teamFeeCents: number;
 }): Promise<Response> {
-  const { teamRegistrationId, captainUserId, captainEmail, inviteToken } = params;
+  const { teamRegistrationId, captainUserId, captainEmail, inviteToken, teamFeeCents } =
+    params;
   if (!db) {
     return new Response(
       JSON.stringify({ error: "Database unavailable" }),
@@ -201,6 +204,7 @@ async function finishWithDepositIntent(params: {
       teamRegistrationId,
       inviteToken,
       joinUrl: `/team/${inviteToken}`,
+      teamFeeCents,
       depositClientSecret: clientSecret,
       publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
     }),

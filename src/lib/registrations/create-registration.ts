@@ -1,4 +1,4 @@
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import type { getDb } from "@/lib/db";
 import {
   registrations,
@@ -7,6 +7,7 @@ import {
   locations,
   teamRegistrations,
   teamRegistrationMembers,
+  teamInvitees,
 } from "@/lib/db/schema";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
@@ -101,6 +102,58 @@ async function linkRegistrationToTeam(opts: {
     });
   } catch (err) {
     console.error("Error linking registration to team:", err);
+  }
+}
+
+/**
+ * Resolve the team-invitee row (if any) for this registrant, by the `?team=`
+ * token + the registrant's (lowercased) email. Tenant-scoped via organizationId.
+ * Never throws — invitee linkage is best-effort and must not break registration.
+ * Returns the matched team + invitee so the caller can override the amount due
+ * to the captain-assigned share BEFORE inserting the registration.
+ */
+async function resolveTeamInvitee(opts: {
+  db: ReturnType<typeof getDb>;
+  teamToken: string;
+  organizationId: string | null;
+  registrantEmail: string | null;
+}): Promise<{
+  teamRegistrationId: string;
+  invitee: typeof teamInvitees.$inferSelect | null;
+} | null> {
+  const { db, teamToken, organizationId, registrantEmail } = opts;
+  try {
+    if (!organizationId || !registrantEmail) return null;
+
+    const [teamReg] = await db
+      .select({ id: teamRegistrations.id })
+      .from(teamRegistrations)
+      .where(
+        and(
+          eq(teamRegistrations.inviteToken, teamToken),
+          eq(teamRegistrations.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (!teamReg) return null;
+
+    const [invitee] = await db
+      .select()
+      .from(teamInvitees)
+      .where(
+        and(
+          eq(teamInvitees.teamRegistrationId, teamReg.id),
+          // Case-insensitive email match — invitees are stored lowercased, but
+          // guard anyway so a mixed-case stored row still matches.
+          eq(sql`lower(${teamInvitees.email})`, registrantEmail.toLowerCase()),
+        ),
+      )
+      .limit(1);
+
+    return { teamRegistrationId: teamReg.id, invitee: invitee ?? null };
+  } catch (err) {
+    console.error("Error resolving team invitee:", err);
+    return null;
   }
 }
 
@@ -266,10 +319,47 @@ export async function createRegistration(
   }
 
   // Normal creation
-  const amountDue =
+  let amountDue =
     input.registrationType === "deposit" && season.depositCents
       ? season.depositCents
       : season.priceCents;
+
+  // Resolve the org once (used for both team-member linkage and invitee lookup).
+  let organizationId: string | null = null;
+  if (input.teamToken) {
+    const [orgRow] = await db
+      .select({ organizationId: locations.organizationId })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(seasons.id, seasonId));
+    organizationId = orgRow?.organizationId ?? null;
+  }
+
+  // Team-invitee share: when joining via a `?team=` token, the captain may have
+  // assigned this email a specific share. Resolve it BEFORE the insert so we can
+  // override amountDue to the assigned share instead of the season price.
+  //
+  // Fallback when no invitee row matches (someone used the link without being
+  // invited — "open join"): we fall through to the normal season price and do
+  // NOT create an invitee row. Member linkage still happens via Phase A's
+  // `team_registration_members`, so the player still shows on the roster; they
+  // just pay the full season price like any individual registrant. This is the
+  // simpler correct behavior — no phantom invitee rows for uninvited joiners.
+  let matchedTeamInvitee: typeof teamInvitees.$inferSelect | null = null;
+  if (input.teamToken) {
+    const resolved = await resolveTeamInvitee({
+      db,
+      teamToken: input.teamToken,
+      organizationId,
+      registrantEmail: user.email,
+    });
+    if (resolved?.invitee && resolved.invitee.status !== "paid") {
+      matchedTeamInvitee = resolved.invitee;
+      amountDue = resolved.invitee.assignedShareCents;
+    }
+    // If found-but-already-paid, treat as normal (don't re-charge a share).
+  }
 
   const [created] = await db
     .insert(registrations)
@@ -290,20 +380,28 @@ export async function createRegistration(
     .returning();
 
   if (input.teamToken) {
-    const [orgRow] = await db
-      .select({ organizationId: locations.organizationId })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(eq(seasons.id, seasonId));
     await linkRegistrationToTeam({
       db,
       teamToken: input.teamToken,
       registrationId: created.id,
-      organizationId: orgRow?.organizationId ?? null,
+      organizationId,
       user,
       registrantEmail: user.email,
     });
+
+    // Link the invitee row to this registration (status flips to "paid" on
+    // payment success — see handle-registration-payment-succeeded.ts). Wrapped
+    // so an invitee-link failure never breaks the registration.
+    if (matchedTeamInvitee) {
+      try {
+        await db
+          .update(teamInvitees)
+          .set({ registrationId: created.id })
+          .where(eq(teamInvitees.id, matchedTeamInvitee.id));
+      } catch (err) {
+        console.error("Error linking team invitee to registration:", err);
+      }
+    }
   }
 
   return {

@@ -10,6 +10,7 @@ import {
   familyMembers,
   users,
   sports,
+  teamInvitees,
 } from "@/lib/db/schema";
 import {
   sendRegistrationConfirmationEmail,
@@ -105,6 +106,22 @@ export async function handleRegistrationPaymentSucceeded(
       },
     });
   });
+
+  // If this registration is a teammate paying their captain-assigned share,
+  // flip the invitee row to "paid" so the captain backstop no longer counts it
+  // among the unpaid shares. Defensive: a missing/failed update must not affect
+  // the (already-committed) registration fulfillment. Only mark paid once the
+  // registration is fully settled.
+  if (isFullyPaid) {
+    try {
+      await db
+        .update(teamInvitees)
+        .set({ status: "paid", paidAt: new Date() })
+        .where(eq(teamInvitees.registrationId, registrationId));
+    } catch (err) {
+      console.error("[stripe webhook] team invitee paid-flip failed:", err);
+    }
+  }
 
   try {
     const [row] = await db

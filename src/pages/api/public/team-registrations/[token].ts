@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   teamRegistrations,
   teamRegistrationMembers,
+  teamInvitees,
   seasons,
   programs,
   sports,
@@ -10,7 +11,7 @@ import {
   registrations,
   familyMembers,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 
 /**
  * Resolve a team by its invite token. Used by the team landing page so
@@ -91,6 +92,21 @@ export const GET: APIRoute = async ({ params, locals }) => {
       )
       .where(eq(teamRegistrationMembers.teamRegistrationId, t.team.id));
 
+    // Invitees: captain-assigned shares + their pay status. Surfaced so the
+    // captain status view (and the API test) can see who was invited, for how
+    // much, and whether they've paid.
+    const invitees = await db
+      .select({
+        email: teamInvitees.email,
+        assignedShareCents: teamInvitees.assignedShareCents,
+        status: teamInvitees.status,
+        invitedAt: teamInvitees.invitedAt,
+        paidAt: teamInvitees.paidAt,
+      })
+      .from(teamInvitees)
+      .where(eq(teamInvitees.teamRegistrationId, t.team.id))
+      .orderBy(asc(teamInvitees.invitedAt));
+
     return new Response(
       JSON.stringify({
         team: {
@@ -106,6 +122,13 @@ export const GET: APIRoute = async ({ params, locals }) => {
             role: m.role,
             registrationStatus: m.registrationStatus,
             paymentStatus: m.paymentStatus,
+          })),
+          inviteeCount: invitees.length,
+          invitees: invitees.map((i) => ({
+            email: i.email,
+            assignedShareCents: i.assignedShareCents,
+            status: i.status,
+            paidAt: i.paidAt,
           })),
         },
         season: {

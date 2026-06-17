@@ -1,23 +1,41 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { teamRegistrations } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { teamRegistrations, teamInvitees } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sendTeamInviteEmail } from "@/lib/email/send";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { assignEvenShares } from "@/lib/payments/team-captain-charge";
 
-const BodySchema = z.object({
-  emails: z
-    .array(z.string().trim().toLowerCase().email().max(320))
-    .min(1)
-    .max(50),
-});
+const emailSchema = z.string().trim().toLowerCase().email().max(320);
+
+// Accept either an explicit per-email share (`invites`) or a bare email list
+// (`emails`), in which case we even-split (teamFee − deposit) across them.
+const BodySchema = z.union([
+  z.object({
+    invites: z
+      .array(
+        z.object({
+          email: emailSchema,
+          shareCents: z.number().int().min(0).max(10_000_000),
+        }),
+      )
+      .min(1)
+      .max(50),
+  }),
+  z.object({
+    emails: z.array(emailSchema).min(1).max(50),
+  }),
+]);
 
 /**
- * Send team-invite emails to prospective teammates. The captain (or anyone
- * holding the invite token) supplies a list of emails; each gets the one-door
- * join link tagged to this team. Tenant-scoped via locals.organization,
- * mirroring the sibling GET [token].ts handler.
+ * Send team-invite emails to prospective teammates AND persist each invitee's
+ * assigned per-player share. The captain (or anyone holding the invite token)
+ * supplies either explicit `{ invites: [{ email, shareCents }] }` or a bare
+ * `{ emails: [] }` list (we even-split the team fee minus the captain deposit
+ * across them). Each invitee gets the one-door join link tagged to this team
+ * and, when they register, pays exactly their assigned share. Tenant-scoped
+ * via locals.organization, mirroring the sibling GET [token].ts handler.
  */
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const token = params.token;
@@ -62,6 +80,8 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         teamName: teamRegistrations.teamName,
         captainName: teamRegistrations.captainName,
         inviteToken: teamRegistrations.inviteToken,
+        teamFeeCents: teamRegistrations.teamFeeCents,
+        depositCents: teamRegistrations.depositCents,
       })
       .from(teamRegistrations)
       .where(eq(teamRegistrations.inviteToken, token))
@@ -91,24 +111,63 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     const joinUrl = `${origin}/register/${team.seasonId}?team=${encodeURIComponent(team.inviteToken)}`;
     const brand = brandFromHost(new URL(request.url).host);
 
-    // De-dupe emails (case already lowercased by zod).
-    const emails = Array.from(new Set(parsed.data.emails));
+    // Normalize the body into an [{ email, shareCents }] list, de-duped by
+    // email. Prefer an explicit per-email share when provided; otherwise
+    // even-split (teamFee − deposit) across the bare email list.
+    let shareByEmail: Map<string, number>;
+    if ("invites" in parsed.data) {
+      shareByEmail = new Map();
+      for (const { email, shareCents } of parsed.data.invites) {
+        shareByEmail.set(email, shareCents); // last write wins on dupes
+      }
+    } else {
+      const emails = Array.from(new Set(parsed.data.emails));
+      const splittable = Math.max(
+        0,
+        (team.teamFeeCents ?? 0) - (team.depositCents ?? 0),
+      );
+      const shares = assignEvenShares(splittable, emails);
+      shareByEmail = new Map(emails.map((e, i) => [e, shares[i]!]));
+    }
+
+    const invites = Array.from(shareByEmail.entries()).map(
+      ([email, shareCents]) => ({ email, shareCents }),
+    );
+
+    // Persist each invitee's assigned share. UPSERT on the
+    // (teamRegistrationId, email) unique index so re-inviting updates the share
+    // rather than erroring. Done before the emails so the share we persist
+    // matches the one we quote in the message.
+    await db
+      .insert(teamInvitees)
+      .values(
+        invites.map((i) => ({
+          teamRegistrationId: team.id,
+          email: i.email,
+          assignedShareCents: i.shareCents,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [teamInvitees.teamRegistrationId, teamInvitees.email],
+        set: { assignedShareCents: sql`excluded.assigned_share_cents` },
+      });
 
     const results = await Promise.all(
-      emails.map((to) =>
+      invites.map((i) =>
         sendTeamInviteEmail({
-          to,
+          to: i.email,
           teamName: team.teamName,
           captainName: team.captainName,
           joinUrl,
           brand,
+          shareCents: i.shareCents,
         }),
       ),
     );
 
     const sent = results.filter((r) => r.success).length;
 
-    return new Response(JSON.stringify({ sent }), {
+    return new Response(JSON.stringify({ sent, invitees: invites.length }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
