@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DivisionsFinder } from "@/components/leagues/divisions-finder";
 import { StandingsPanel } from "@/components/leagues/standings-panel";
 import type { Division } from "@/lib/leagues/division-filters";
 import { RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-soccer-content";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { trackSeasonViewed } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
 
 type Tab = "divisions" | "schedule" | "standings" | "rules" | "faq";
@@ -13,14 +14,18 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "standings", label: "Standings" }, { key: "rules", label: "Rules" }, { key: "faq", label: "FAQ" },
 ];
 
-export function SeasonTabs({ divisions, venues, weekStart, scheduleNote }: {
+export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term }: {
   divisions: Division[];
   venues: { slug: string; label: string }[];
   weekStart: string;
   scheduleNote: string;
+  term: string;
 }) {
   useHydrationBeacon();
   const [tab, setTab] = useState<Tab>("divisions");
+  useEffect(() => {
+    trackSeasonViewed({ sport: "soccer", term });
+  }, [term]);
   return (
     <div>
       <div className="bg-navy-deep px-9">
@@ -41,7 +46,7 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote }: {
             <>
               <h2 className="font-display font-semibold text-2xl">Find your level &amp; register</h2>
               <p className="text-ink-muted text-[13px] mt-0.5 mb-4">Pick your level, then narrow by format, night, or venue. Open divisions register on the spot.</p>
-              <DivisionsFinder divisions={divisions} venues={venues} />
+              <DivisionsFinder divisions={divisions} venues={venues} term={term} />
             </>
           )}
           {tab === "schedule" && (
@@ -52,7 +57,7 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote }: {
             </>
           )}
           {tab === "standings" && (
-            <StandingsPanel divisions={divisions} weekStart={weekStart} />
+            <StandingsPanel divisions={divisions} weekStart={weekStart} term={term} />
           )}
           {tab === "rules" && (
             <>

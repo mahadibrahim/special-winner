@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LevelLadder } from "@/components/leagues/level-ladder";
 import { WHY_INDOOR, RULE_SECTIONS } from "@/lib/leagues/adult-soccer-content";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { trackLandingTabViewed, trackLandingCtaClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
 
 export type LandingTerm = { slug: string; label: string; meta: string };
@@ -16,6 +17,9 @@ const ORANGE = "oklch(0.66 0.21 35)";
 export function SoccerLandingTabs({ current, upcoming, past }: Props) {
   useHydrationBeacon();
   const [tab, setTab] = useState<Tab>("overview");
+  useEffect(() => {
+    trackLandingTabViewed({ sport: "soccer", tab });
+  }, [tab]);
   const tabs: { key: Tab; label: string; badge?: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "this", label: "This Season" },
@@ -54,6 +58,7 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
                 </div>
                 {current && (
                   <a href={`/adult/leagues/soccer/${current.slug}`} data-testid="overview-season-cta"
+                     onClick={() => current && trackLandingCtaClicked({ term: current.slug })}
                      className="flex items-center justify-between gap-5 rounded-2xl px-6 py-5 mt-6 text-ink" style={{ background: ORANGE }}>
                     <span className="flex items-center gap-4">
                       <span className="font-mono text-[9px] tracking-widest uppercase bg-ink px-2.5 py-1.5 rounded-full whitespace-nowrap" style={{ color: ORANGE }}>● Registration open</span>
@@ -78,7 +83,9 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
           <div className="px-9 py-9"><div className="max-w-[1080px] mx-auto">
             <h2 className="font-display font-semibold text-2xl mb-4">This season</h2>
             {current ? (
-              <a href={`/adult/leagues/soccer/${current.slug}`} className="flex items-center justify-between gap-4 bg-navy-deep text-cream rounded-2xl px-6 py-5">
+              <a href={`/adult/leagues/soccer/${current.slug}`}
+                 onClick={() => current && trackLandingCtaClicked({ term: current.slug })}
+                 className="flex items-center justify-between gap-4 bg-navy-deep text-cream rounded-2xl px-6 py-5">
                 <span><span className="font-display font-semibold text-2xl block">{current.label}</span><span className="font-mono text-xs text-cream/80 mt-1 block">{current.dateLine} · {current.divisions} divisions · {current.venues} venues</span></span>
                 <span className="font-mono text-xs tracking-wide uppercase rounded-lg px-4 py-3 text-ink whitespace-nowrap" style={{ background: ORANGE }}>See divisions &amp; register →</span>
               </a>
