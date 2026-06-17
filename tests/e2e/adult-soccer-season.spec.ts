@@ -14,7 +14,9 @@ test("adult soccer season page: filter divisions and reach register @critical", 
 
   // filter by Men's narrows the list
   const before = await page.getByTestId("result-count").innerText();
-  await page.getByRole("button", { name: "Men's" }).click();
+  // exact: true — otherwise the substring match also hits the "Women's" chip
+  // ("women's" contains "men's"), tripping a strict-mode violation.
+  await page.getByRole("button", { name: "Men's", exact: true }).click();
   const after = await page.getByTestId("result-count").innerText();
   expect(Number(after)).toBeLessThanOrEqual(Number(before));
 
