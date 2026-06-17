@@ -1,11 +1,12 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import RegistrationWizard from '../../components/registration/registration-wizard';
+import RegisterExperience from '../../components/registration/register-experience';
 
 const { seasonId } = Astro.params;
 const user = Astro.locals.user;
 const wasCancelled = Astro.url.searchParams.get('payment') === 'cancelled';
 const audienceHint = Astro.url.searchParams.get('audience');
+const teamToken = Astro.url.searchParams.get('team');
 
 const userProp = user
   ? {
@@ -22,8 +23,6 @@ const userProp = user
 
 <BaseLayout title="Register — Aspire Sports">
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-    <div class="container mx-auto">
-      <RegistrationWizard seasonId={seasonId!} wasCancelled={wasCancelled} user={userProp} audienceHint={audienceHint} client:load />
-    </div>
+    <RegisterExperience seasonId={seasonId!} user={userProp} audienceHint={audienceHint} wasCancelled={wasCancelled} teamToken={teamToken} client:load />
   </main>
 </BaseLayout>
