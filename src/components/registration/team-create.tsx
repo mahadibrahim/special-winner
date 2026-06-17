@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X } from "lucide-react";
 import { EmbeddedPayment } from "./embedded-payment";
 
@@ -12,6 +12,129 @@ function evenSplitCents(totalCents: number, n: number): number[] {
   const base = Math.floor(totalCents / n);
   let remainder = totalCents - base * n;
   return Array.from({ length: n }, () => (remainder-- > 0 ? base + 1 : base));
+}
+
+/** Format cents as a $-prefixed dollar amount (e.g. 20000 → "$200"). */
+function fmtCents(cents: number): string {
+  const dollars = cents / 100;
+  return `$${Number.isInteger(dollars) ? dollars.toString() : dollars.toFixed(2)}`;
+}
+
+type PaymentSummary = {
+  teamFeeCents: number | null;
+  depositCents: number;
+  collectedCents: number;
+  invitees: {
+    email: string;
+    assignedShareCents: number | null;
+    status: string;
+  }[];
+};
+
+/**
+ * Live payment tracker shown after the captain pays their deposit. Polls the
+ * team-registrations GET endpoint (and re-fetches on window focus) so the
+ * captain watches collected-vs-total climb as teammates pay their shares.
+ */
+function PaymentTracker({ inviteToken }: { inviteToken: string }) {
+  const [summary, setSummary] = useState<PaymentSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}`,
+      );
+      if (!res.ok) return;
+      const json = (await res.json()) as { payment?: PaymentSummary };
+      if (json.payment) setSummary(json.payment);
+    } catch {
+      // Transient — leave the last good value on screen.
+    } finally {
+      setLoading(false);
+    }
+  }, [inviteToken]);
+
+  useEffect(() => {
+    void load();
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [load]);
+
+  if (loading && !summary) {
+    return (
+      <div className="bg-paper border border-ink/10 rounded-2xl p-6">
+        <div className="flex items-center gap-2 text-ink-muted text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading payment status…
+        </div>
+      </div>
+    );
+  }
+  if (!summary) return null;
+
+  const { teamFeeCents, collectedCents, invitees } = summary;
+  const pct =
+    teamFeeCents && teamFeeCents > 0
+      ? Math.min(100, Math.round((collectedCents / teamFeeCents) * 100))
+      : 0;
+
+  return (
+    <div className="bg-paper border border-ink/10 rounded-2xl p-6">
+      <h4 className="font-display text-lg text-ink mb-3">Payment tracker</h4>
+
+      <div className="h-2.5 w-full rounded-full bg-cream-2 overflow-hidden mb-2">
+        <div
+          className="h-full rounded-full bg-sage transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-sm text-ink-2 mb-4">
+        <span className="font-semibold text-ink">{fmtCents(collectedCents)}</span>
+        {" of "}
+        {teamFeeCents != null ? fmtCents(teamFeeCents) : "—"} collected
+      </p>
+
+      {invitees.length > 0 && (
+        <ul className="space-y-2">
+          {invitees.map((inv, idx) => {
+            const paid = inv.status === "paid";
+            return (
+              <li
+                key={`${inv.email}-${idx}`}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <span
+                    aria-hidden
+                    className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                      paid ? "bg-sage" : "bg-ink/25"
+                    }`}
+                  />
+                  <span className="truncate text-ink-2">{inv.email}</span>
+                </span>
+                <span className="flex items-center gap-2 flex-shrink-0">
+                  {inv.assignedShareCents != null && (
+                    <span className="text-ink-muted">
+                      {fmtCents(inv.assignedShareCents)}
+                    </span>
+                  )}
+                  {paid ? (
+                    <span className="inline-flex items-center gap-1 text-sage">
+                      <Check className="w-3.5 h-3.5" /> paid
+                    </span>
+                  ) : (
+                    <span className="text-ink-muted">invited</span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export default function TeamCreate({
@@ -351,6 +474,8 @@ export default function TeamCreate({
             </div>
           </form>
         </div>
+
+        {inviteToken && <PaymentTracker inviteToken={inviteToken} />}
 
         <div className="bg-paper border border-ink/10 rounded-2xl p-6">
           <h4 className="font-display text-lg text-ink mb-3">Next: register yourself</h4>

@@ -107,6 +107,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .where(eq(teamInvitees.teamRegistrationId, t.team.id))
       .orderBy(asc(teamInvitees.invitedAt));
 
+    // Live payment summary for the captain tracker: deposit + sum of paid
+    // teammate shares, against the full team fee. Computed server-side so the
+    // client never has to trust/replay status logic.
+    const depositCents = t.team.depositCents ?? 0;
+    const collectedCents =
+      depositCents +
+      invitees.reduce(
+        (sum, i) =>
+          i.status === "paid" ? sum + (i.assignedShareCents ?? 0) : sum,
+        0,
+      );
+
     return new Response(
       JSON.stringify({
         team: {
@@ -129,6 +141,16 @@ export const GET: APIRoute = async ({ params, locals }) => {
             assignedShareCents: i.assignedShareCents,
             status: i.status,
             paidAt: i.paidAt,
+          })),
+        },
+        payment: {
+          teamFeeCents: t.team.teamFeeCents ?? null,
+          depositCents,
+          collectedCents,
+          invitees: invitees.map((i) => ({
+            email: i.email,
+            assignedShareCents: i.assignedShareCents,
+            status: i.status,
           })),
         },
         season: {
