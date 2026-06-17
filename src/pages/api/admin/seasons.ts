@@ -47,6 +47,13 @@ const seasonSchema = z.object({
   allowDeposit: z.boolean().default(true),
   status: z.enum(["draft", "forming", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
   scheduleNotes: z.string().optional().nullable(),
+  termSlug: z.string().max(64).optional().nullable(),
+  termLabel: z.string().max(64).optional().nullable(),
+  divisionGender: z.enum(["coed", "mens", "womens"]).optional().nullable(),
+  skillLevel: z.enum(["a", "b", "c", "d", "open"]).optional().nullable(),
+  dayOfWeek: z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]).optional().nullable(),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").optional().nullable(),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").optional().nullable(),
   scaffold: scaffoldSchema.optional(),
 }).refine(
   (data) => !data.signupModes.includes("team") || (data.teamPriceCents != null && data.teamPriceCents > 0),
@@ -88,6 +95,13 @@ export const GET: APIRoute = async (context) => {
         allowDeposit: seasons.allowDeposit,
         status: seasons.status,
         scheduleNotes: seasons.scheduleNotes,
+        termSlug: seasons.termSlug,
+        termLabel: seasons.termLabel,
+        divisionGender: seasons.divisionGender,
+        skillLevel: seasons.skillLevel,
+        dayOfWeek: seasons.dayOfWeek,
+        startTime: seasons.startTime,
+        endTime: seasons.endTime,
         createdAt: seasons.createdAt,
         program: {
           id: programs.id,
@@ -229,6 +243,13 @@ export const POST: APIRoute = async (context) => {
           allowDeposit: data.allowDeposit,
           status: data.status,
           scheduleNotes: data.scheduleNotes || null,
+          termSlug: data.termSlug || null,
+          termLabel: data.termLabel || null,
+          divisionGender: data.divisionGender || null,
+          skillLevel: data.skillLevel || null,
+          dayOfWeek: data.dayOfWeek || null,
+          startTime: data.startTime || null,
+          endTime: data.endTime || null,
         })
         .returning();
 
@@ -363,6 +384,13 @@ export const PUT: APIRoute = async (context) => {
         allowDeposit: validData.allowDeposit,
         status: validData.status,
         scheduleNotes: validData.scheduleNotes || null,
+        termSlug: validData.termSlug || null,
+        termLabel: validData.termLabel || null,
+        divisionGender: validData.divisionGender || null,
+        skillLevel: validData.skillLevel || null,
+        dayOfWeek: validData.dayOfWeek || null,
+        startTime: validData.startTime || null,
+        endTime: validData.endTime || null,
         updatedAt: new Date(),
       })
       .where(eq(seasons.id, id))
