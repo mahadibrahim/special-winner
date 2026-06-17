@@ -1,19 +1,30 @@
 import { test, expect, type Page } from "@playwright/test";
 import { waitForHydration } from "../utils/test-helpers";
 
-async function openAdultSoccerSeasonId(page: Page) {
+// The unified one-door register page. Team-capable seasons open on a
+// choose-mode screen ("How do you want to join?"); solo-only seasons skip it
+// and render the wizard directly. The e2e seed's adult-soccer season is
+// solo-only, so these assertions are written to hold for BOTH shapes.
+// (Full team/choose-mode E2E coverage needs a team-capable seed fixture —
+// tracked as a follow-up; team linkage itself is covered by tests/api.)
+
+async function openAdultSoccerSeasonId(page: Page): Promise<string | undefined> {
   const res = await page.request.get("/api/public/seasons?sport=soccer&audience=adult");
   const json = await res.json();
   return json.seasons?.[0]?.id as string | undefined;
 }
 
-test("division Register lands on canonical /register with choose-mode @critical", async ({ page }) => {
+test("register page renders the registration experience @critical", async ({ page }) => {
   const id = await openAdultSoccerSeasonId(page);
   test.skip(!id, "no open adult soccer season in this env");
-  await page.goto(`/register/${id}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/register/${id}?audience=adult`, { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await expect(page.getByRole("heading", { name: /how do you want to join/i })).toBeVisible();
-  await expect(page.getByText(/Join solo/i)).toBeVisible();
+  // Either choose-mode (team-capable) or the wizard's first step (solo-only).
+  await expect(
+    page
+      .getByRole("heading", { name: /how do you want to join/i })
+      .or(page.getByText(/who are you registering|registrant info/i)),
+  ).toBeVisible({ timeout: 15_000 });
 });
 
 test("/register/team/:id redirects to canonical /register/:id @critical", async ({ page }) => {
@@ -24,12 +35,15 @@ test("/register/team/:id redirects to canonical /register/:id @critical", async 
   expect(page.url()).not.toContain("/team/");
 });
 
-test("solo path advances past choose-mode into the wizard @critical", async ({ page }) => {
+test("the register page reaches the wizard (through choose-mode when present) @critical", async ({ page }) => {
   const id = await openAdultSoccerSeasonId(page);
   test.skip(!id, "no open adult soccer season in this env");
-  await page.goto(`/register/${id}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/register/${id}?audience=adult`, { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.getByText(/Join solo/i).click();
-  // After picking solo, the choose-mode heading is gone and the wizard renders.
+  // If choose-mode is shown (team-capable season), pick solo to enter the wizard;
+  // otherwise we're already in the wizard.
+  const joinSolo = page.getByText(/Join solo/i);
+  if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false)) await joinSolo.click();
+  // We are no longer on the choose-mode screen.
   await expect(page.getByRole("heading", { name: /how do you want to join/i })).toHaveCount(0);
 });
