@@ -19,6 +19,7 @@ const createRegistrationSchema = z
     waiverSignedBy: z.string().min(1, "Waiver signature required"),
     notes: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
+    teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: z
       .array(z.enum(["internal", "promotional", "public"]))
       .optional(),
@@ -204,6 +205,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         waiverSignedBy: data.waiverSignedBy,
         notes: data.notes,
         lookingForTeam: data.registerSelf ? (data.lookingForTeam ?? false) : false,
+        teamToken: data.teamToken ?? null,
         brand: brandFromHost(request.headers.get("host") ?? ""),
       });
 
