@@ -85,7 +85,13 @@ function formatDate(iso: string, today: boolean): string {
   });
 }
 
-function GameCard({ session }: { session: DropInSession }) {
+function GameCard({
+  session,
+  defaults,
+}: {
+  session: DropInSession;
+  defaults: SessionsResponse["defaults"];
+}) {
   const skillC = skillColor(session.skillLevel);
   const spotsLeft = Math.max(0, session.capacity - session.confirmedCount);
   const spots = spotsUrgency(spotsLeft, session.capacity);
@@ -93,7 +99,12 @@ function GameCard({ session }: { session: DropInSession }) {
   const displayDate = formatDate(session.startsAt, today);
   const displayTime = formatTime(session.startsAt);
   const displaySkill = mapSkillLevel(session.skillLevel);
-  const priceDollars = session.sessionRateCents / 100;
+  // Per-session rate is optional; when unset it falls back to the org's
+  // drop-in rate card (defaultSessionRateCents). Without this fallback the
+  // card rendered "$0" for every session that uses the default pricing.
+  const priceCents =
+    session.sessionRateCents ?? defaults?.defaultSessionRateCents ?? null;
+  const priceDollars = priceCents != null ? priceCents / 100 : null;
 
   return (
     <div className="pickup-game-card" style={{ borderColor: skillC.border, background: skillC.bg }}>
@@ -140,7 +151,7 @@ function GameCard({ session }: { session: DropInSession }) {
         </div>
 
         <div className="pgc-price-row">
-          <span className="pgc-price">${priceDollars}</span>
+          <span className="pgc-price">{priceDollars != null ? `$${priceDollars}` : "—"}</span>
           <a href={`/dropin/${session.id}`} className="pgc-book-btn">
             Book Now
           </a>
@@ -272,8 +283,9 @@ function GameCard({ session }: { session: DropInSession }) {
   );
 }
 
-export default function PickupGames() {
+export default function PickupGames({ facility = "all" }: { facility?: string }) {
   const [sessions, setSessions] = useState<DropInSession[]>([]);
+  const [defaults, setDefaults] = useState<SessionsResponse["defaults"]>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -281,11 +293,20 @@ export default function PickupGames() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch("/api/dropin/sessions")
+    // Facility tabs map straight to the location slug ('worthington' |
+    // 'downtown'); 'all' (or anything else) means no location filter.
+    const qs =
+      facility === "worthington" || facility === "downtown"
+        ? `?location=${facility}`
+        : "";
+    fetch(`/api/dropin/sessions${qs}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = (await res.json()) as SessionsResponse;
-        if (!cancelled) setSessions(body.sessions ?? []);
+        if (!cancelled) {
+          setSessions(body.sessions ?? []);
+          setDefaults(body.defaults ?? null);
+        }
       })
       .catch((e: unknown) => {
         if (!cancelled)
@@ -297,7 +318,7 @@ export default function PickupGames() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [facility]);
 
   const todaySessions = sessions.filter((s) => isStartingToday(s.startsAt));
   const upcomingSessions = sessions.filter((s) => !isStartingToday(s.startsAt));
@@ -335,7 +356,7 @@ export default function PickupGames() {
 
             <div className="games-today-grid">
               {todaySessions.map((s) => (
-                <GameCard key={s.id} session={s} />
+                <GameCard key={s.id} session={s} defaults={defaults} />
               ))}
             </div>
           </div>
@@ -353,7 +374,7 @@ export default function PickupGames() {
 
             <div className="games-week-scroll">
               {upcomingSessions.map((s) => (
-                <GameCard key={s.id} session={s} />
+                <GameCard key={s.id} session={s} defaults={defaults} />
               ))}
             </div>
           </div>

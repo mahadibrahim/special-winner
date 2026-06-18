@@ -27,7 +27,7 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title={`Field Rentals — SoccerOne | ${facilityLabel}`}
-  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). $80/hr standard, members from $64/hr. Open 7am–11pm daily."
+  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). $80/hr standard, members from $64/hr. Open 4pm–12am daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -86,9 +86,9 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
             </div>
             <div class="rate-div" aria-hidden="true"></div>
             <div class="rate-item">
-              <span class="ri-amount mono">7AM</span>
+              <span class="ri-amount mono">4PM</span>
               <span class="ri-label">Open daily</span>
-              <span class="ri-sub">Through 11PM</span>
+              <span class="ri-sub">Through Midnight</span>
             </div>
           </div>
         </div>
@@ -125,7 +125,7 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
           ) : (
             <span class="fcb-addr">980 E Starr Ave, Columbus, OH 43201</span>
           )}
-          <span class="fcb-hours mono">7AM – 11PM daily</span>
+          <span class="fcb-hours mono">4PM – 12AM daily</span>
         </div>
       </div>
     </div>

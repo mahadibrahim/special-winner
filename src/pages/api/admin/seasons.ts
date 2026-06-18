@@ -49,8 +49,12 @@ const seasonSchema = z.object({
   scheduleNotes: z.string().optional().nullable(),
   scaffold: scaffoldSchema.optional(),
 }).refine(
-  (data) => !data.signupModes.includes("team") || (data.teamPriceCents != null && data.teamPriceCents > 0),
-  { message: "Team price is required when team signup is enabled", path: ["teamPriceCents"] },
+  // Team seasons must carry a team price, but $0 is valid (free tournaments /
+  // founder events). Requiring > 0 made any existing free team season
+  // un-editable — the whole object re-validates on save, so even a
+  // status-only change (e.g. cancelling) was rejected with "Validation failed".
+  (data) => !data.signupModes.includes("team") || data.teamPriceCents != null,
+  { message: "Team price is required when team signup is enabled (enter 0 for a free season)", path: ["teamPriceCents"] },
 );
 
 export const GET: APIRoute = async (context) => {
