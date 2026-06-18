@@ -65,33 +65,29 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 
         <!-- Facility selector -->
         <div class="hero-facility-selector" role="group" aria-label="Select a facility">
-          <a href="/worthington" class="hero-facility-btn hero-facility-btn--primary">
-            <div class="hfb-inner">
-              <div class="hfb-header">
-                <span class="hfb-name">WORTHINGTON</span>
-                <span class="hfb-badge">3 FIELDS</span>
-              </div>
+          <div class="hero-facility-card hero-facility-card--primary">
+            <a href="/worthington" class="hfc-main">
+              <div class="hfb-header"><span class="hfb-name">WORTHINGTON</span><span class="hfb-badge">3 FIELDS</span></div>
               <div class="hfb-address">535 Lakeview Plaza Blvd · 4pm–12am daily</div>
-              <div class="hfb-features">Adult leagues · Youth · Pickup · Rentals</div>
+            </a>
+            <div class="hfc-formats">
+              <a href="/leagues?location=worthington" class="hfc-fmt">Leagues</a>
+              <a href="/pickup?facility=worthington" class="hfc-fmt">Pickup</a>
+              <a href="/rent?facility=worthington" class="hfc-fmt">Rent</a>
             </div>
-            <svg class="hfb-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
+          </div>
 
-          <a href="/downtown" class="hero-facility-btn">
-            <div class="hfb-inner">
-              <div class="hfb-header">
-                <span class="hfb-name">DOWNTOWN</span>
-                <span class="hfb-badge">1 FIELD</span>
-              </div>
+          <div class="hero-facility-card">
+            <a href="/downtown" class="hfc-main">
+              <div class="hfb-header"><span class="hfb-name">DOWNTOWN</span><span class="hfb-badge">1 FIELD</span></div>
               <div class="hfb-address">980 E Starr Ave · 4pm–12am daily</div>
-              <div class="hfb-features">After-work pickup · Corporate leagues · Rentals</div>
+            </a>
+            <div class="hfc-formats">
+              <a href="/leagues?location=downtown" class="hfc-fmt">Leagues</a>
+              <a href="/pickup?facility=downtown" class="hfc-fmt">Pickup</a>
+              <a href="/rent?facility=downtown" class="hfc-fmt">Rent</a>
             </div>
-            <svg class="hfb-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
+          </div>
 
           <span class="hero-future-chip">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -649,34 +645,6 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       animation: heroReveal 1s ease-out 0.65s both;
     }
 
-    .hero-facility-btn {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1.5rem;
-      background: rgba(14,14,16,0.85);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: var(--so-radius-md);
-      padding: 1rem 1.25rem;
-      text-decoration: none;
-      transition: border-color 0.2s, background 0.2s;
-      flex: 1;
-      min-width: 260px;
-      max-width: 420px;
-      backdrop-filter: blur(8px);
-    }
-    .hero-facility-btn:hover {
-      border-color: var(--so-lime-a40);
-      background: var(--so-lime-a06);
-    }
-    .hero-facility-btn--primary {
-      border-color: var(--so-lime-a35);
-    }
-    .hero-facility-btn--primary:hover {
-      border-color: var(--so-lime);
-    }
-
-    .hfb-inner { display: flex; flex-direction: column; gap: 4px; }
     .hfb-header { display: flex; align-items: center; gap: 0.625rem; }
 
     .hfb-name {
@@ -702,22 +670,6 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       font-size: 0.8125rem;
       color: rgba(255,255,255,0.45);
     }
-    .hfb-features {
-      font-size: 0.75rem;
-      color: var(--so-lime-a60);
-      letter-spacing: 0.02em;
-    }
-
-    .hfb-arrow {
-      color: var(--so-lime-a50);
-      flex-shrink: 0;
-      transition: transform 0.2s;
-    }
-    .hero-facility-btn:hover .hfb-arrow {
-      transform: translateX(4px);
-      color: var(--so-lime);
-    }
-
     .hero-future-chip {
       display: flex;
       align-items: center;
@@ -731,6 +683,14 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: var(--so-radius-pill);
     }
+
+    /* Hero facility cards — launchpad style */
+    .hero-facility-card { background: rgba(255,255,255,0.05); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-md); padding: 1rem 1.1rem; flex: 1; min-width: 260px; max-width: 420px; }
+    .hero-facility-card--primary { background: var(--so-lime-a08); border-color: var(--so-lime-a30); }
+    .hfc-main { display: block; text-decoration: none; color: #fff; }
+    .hfc-formats { display: flex; gap: 0.45rem; margin-top: 0.75rem; }
+    .hfc-fmt { flex: 1; text-align: center; font-family: var(--so-font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #fff; background: rgba(0,0,0,0.35); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-sm); padding: 0.55rem 0.4rem; text-decoration: none; transition: all 0.14s; }
+    .hfc-fmt:hover { background: var(--so-lime); color: var(--so-ink); border-color: var(--so-lime); font-weight: 600; }
 
     /* Scroll indicator */
     .hero-scroll {
@@ -1584,7 +1544,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       .hero { min-height: 85vh; }
       .hero-content { padding: 0 1.5rem 3rem; }
       .hero-facility-selector { flex-direction: column; }
-      .hero-facility-btn { max-width: 100%; }
+      .hero-facility-card { max-width: 100%; }
       .numbers-grid { flex-wrap: wrap; gap: 1.5rem; }
       .stat-divider { display: none; }
       .stat-block { min-width: 120px; }

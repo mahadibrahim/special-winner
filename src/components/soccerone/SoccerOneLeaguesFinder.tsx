@@ -12,7 +12,11 @@ const ALL: FinderFilters = { location: "all", division: "all", night: "all" }
 
 export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSeason[] }) {
   useHydrationBeacon()
-  const [filters, setFilters] = useState<FinderFilters>(ALL)
+  const [filters, setFilters] = useState<FinderFilters>(() => {
+    if (typeof window === "undefined") return ALL
+    const loc = new URLSearchParams(window.location.search).get("location")
+    return loc ? { ...ALL, location: loc } : ALL
+  })
   const [arrivedFrom, setArrivedFrom] = useState<string | null>(null)
 
   // Hero deep-link: a launchpad quick-link dispatches { key, sectionId, location }.
