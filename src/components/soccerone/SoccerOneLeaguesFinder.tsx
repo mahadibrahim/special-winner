@@ -1,3 +1,4 @@
+"use client"
 import { useMemo, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
@@ -37,7 +38,7 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
       {arrivedFrom && (
         <div className="so-finder-arrived">
           Showing leagues at <strong>{locationChips.find(c => c.value === arrivedFrom)?.label ?? arrivedFrom}</strong>
-          <button type="button" onClick={() => { setFilters(ALL); setArrivedFrom(null) }}>clear ✕</button>
+          <button type="button" aria-label="Clear location filter" onClick={() => { setFilters(ALL); setArrivedFrom(null) }}>clear ✕</button>
         </div>
       )}
 
@@ -53,10 +54,10 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
       </p>
 
       {visible.length === 0 ? (
-        <SoccerOneFinderEmpty />
+        <SoccerOneFinderEmpty onClear={() => { setFilters(ALL); setArrivedFrom(null) }} />
       ) : (
         <div className="leagues-grid">
-          {visible.map((s) => <LeagueCard key={s.id} season={s} />)}
+          {visible.map((s) => <LeagueCard key={s.id} season={s as LeagueCardSeason} />)}
         </div>
       )}
     </section>
@@ -81,39 +82,50 @@ function ChipRow({ label, chips, active, onPick }: {
   )
 }
 
+interface LeagueCardSeason extends FinderSeason {
+  name: string
+  status: string
+  program: { name: string }
+  startDate: string | null
+  scheduleNotes: string | null
+  spotsLeft: number | null
+  maxParticipants: number | null
+  price: number
+  teamPrice: number | null
+}
+
 // Mirror of leagues.astro:224-267, as JSX. `season` carries the presentational
 // fields (name, status, program, startDate, scheduleNotes, spotsLeft,
 // maxParticipants, price, teamPrice) from /api/public/seasons.
-function LeagueCard({ season }: { season: FinderSeason }) {
-  const s = season as any
-  const isDowntown = s.location.slug?.includes("downtown")
-  const statusKey = s.status === "open" ? "open" : s.status === "filling" ? "filling" : "coming"
-  const priceLabel = s.teamPrice ? `$${s.price}/player · $${s.teamPrice}/team` : `$${s.price}/player`
+function LeagueCard({ season }: { season: LeagueCardSeason }) {
+  const isDowntown = season.location.slug?.includes("downtown")
+  const statusKey = season.status === "open" ? "open" : season.status === "filling" ? "filling" : "coming"
+  const priceLabel = season.teamPrice ? `$${season.price}/player · $${season.teamPrice}/team` : `$${season.price}/player`
   return (
     <div className={`league-card ${isDowntown ? "league-card--downtown" : "league-card--active"}`}>
-      <div className={`lc-location-badge ${isDowntown ? "lc-location-badge--downtown" : ""}`}>{s.location.name.toUpperCase()}</div>
+      <div className={`lc-location-badge ${isDowntown ? "lc-location-badge--downtown" : ""}`}>{season.location.name.toUpperCase()}</div>
       <div className="lc-top">
-        <div className="lc-division"><span className="lc-div-label">PROGRAM</span><span className="lc-div-name">{s.program.name}</span></div>
-        <span className={`lc-status lc-status--${statusKey}`}>{String(s.status).toUpperCase()}</span>
+        <div className="lc-division"><span className="lc-div-label">PROGRAM</span><span className="lc-div-name">{season.program.name}</span></div>
+        <span className={`lc-status lc-status--${statusKey}`}>{String(season.status).toUpperCase()}</span>
       </div>
-      <h3 className="lc-name">{s.name}</h3>
+      <h3 className="lc-name">{season.name}</h3>
       <div className="lc-details">
-        {s.startDate && <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{new Date(s.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div>}
-        {s.scheduleNotes && <div className="lc-detail-row"><span className="lcd-label">SCHEDULE</span><span className="lcd-val">{s.scheduleNotes}</span></div>}
-        <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{s.spotsLeft != null ? `${s.spotsLeft} left of ${s.maxParticipants}` : "Open"}</span></div>
+        {season.startDate && <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{new Date(season.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div>}
+        {season.scheduleNotes && <div className="lc-detail-row"><span className="lcd-label">SCHEDULE</span><span className="lcd-val">{season.scheduleNotes}</span></div>}
+        <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>
         <div className="lc-detail-row"><span className="lcd-label">PRICE</span><span className="lcd-val mono accent">{priceLabel}</span></div>
       </div>
-      <a href={`/register/${s.id}`} className="lc-cta">Register Now →</a>
+      <a href={`/register/${season.id}`} className="lc-cta">Register Now →</a>
     </div>
   )
 }
 
-function SoccerOneFinderEmpty() {
+function SoccerOneFinderEmpty({ onClear }: { onClear: () => void }) {
   return (
     <div className="so-finder-empty">
       <p className="le-title">No leagues match</p>
       <p className="le-body">Try widening a filter — or leave your email and we'll tell you when a new season opens.</p>
-      <a className="lc-cta" href="/leagues">Clear filters</a>
+      <button type="button" className="lc-cta" onClick={onClear}>Clear filters</button>
     </div>
   )
 }
