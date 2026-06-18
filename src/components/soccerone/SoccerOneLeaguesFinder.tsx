@@ -17,7 +17,10 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
     const loc = new URLSearchParams(window.location.search).get("location")
     return loc ? { ...ALL, location: loc } : ALL
   })
-  const [arrivedFrom, setArrivedFrom] = useState<string | null>(null)
+  const [arrivedFrom, setArrivedFrom] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    return new URLSearchParams(window.location.search).get("location")
+  })
 
   // Hero deep-link: a launchpad quick-link dispatches { key, sectionId, location }.
   // Only react when this section is the target; pre-fill the location chip.
