@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import type { SessionCardData } from "@/components/dropin/SessionCard"
 import PickupCard from "./pickup-card"
 import { FilterChips, type ChipOption } from "./filter-chips"
+import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 
 const PAGE_SIZE = 6
 
@@ -69,9 +70,17 @@ export function PickupFinderSection({
   const [activeVenue, setActiveVenue] = useState<string | null>(null)
   const [visible, setVisible] = useState(PAGE_SIZE)
 
+  // Hero tile → sport filter. Pickup labels are free text ("Coed 7v7 Soccer"),
+  // so we match the tile's sport word as a case-insensitive substring rather
+  // than an exact chip value.
+  const [externalSportKey, setExternalSportKey] = useState<string | null>(null)
+  useFinderFilter((detail) => {
+    if (detail.sectionId === id) setExternalSportKey(detail.key)
+  })
+
   useEffect(() => {
     setVisible(PAGE_SIZE)
-  }, [activeDate, activeSport, activeSkill, activeVenue])
+  }, [activeDate, activeSport, activeSkill, activeVenue, externalSportKey])
 
   const dateOptions = useMemo(
     () => buildOptions(sessions, (s) => dateBucket(s.startsAt), (s) => dateBucket(s.startsAt)),
@@ -92,22 +101,25 @@ export function PickupFinderSection({
 
   const filtered = useMemo(() => {
     return sessions.filter((s) => {
+      if (externalSportKey && !s.sportOrClassLabel.toLowerCase().includes(externalSportKey.toLowerCase())) return false
       if (activeDate && dateBucket(s.startsAt) !== activeDate) return false
       if (activeSport && s.sportOrClassLabel !== activeSport) return false
       if (activeSkill && s.skillLevel !== activeSkill) return false
       if (activeVenue && s.venueName !== activeVenue) return false
       return true
     })
-  }, [sessions, activeDate, activeSport, activeSkill, activeVenue])
+  }, [sessions, activeDate, activeSport, activeSkill, activeVenue, externalSportKey])
 
   const clearFilters = () => {
     setActiveDate(null)
     setActiveSport(null)
     setActiveSkill(null)
     setActiveVenue(null)
+    setExternalSportKey(null)
   }
   const hasActiveFilters =
-    activeDate !== null || activeSport !== null || activeSkill !== null || activeVenue !== null
+    activeDate !== null || activeSport !== null || activeSkill !== null ||
+    activeVenue !== null || externalSportKey !== null
 
   return (
     <section id={id} className="scroll-mt-36 py-12 lg:py-16">
