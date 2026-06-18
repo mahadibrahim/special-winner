@@ -26,4 +26,7 @@ describe("pricingTiers", () => {
     const tiers = pricingTiers({ defaultSessionRateCents: 1700, defaultMemberRateCents: 1700 })
     expect(tiers.find((t) => t.label === "Member")!.note).toBeUndefined()
   })
+  it("honors a custom walk-in rate via the second arg", () => {
+    expect(pricingTiers(rate, 2000)[0].amountLabel).toBe("$20")
+  })
 })

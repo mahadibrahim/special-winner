@@ -1,5 +1,4 @@
 // src/lib/hooks/use-finder-filter.ts
-"use client"
 import { useEffect, useRef } from "react"
 import { onFinderFilter, type FinderFilterDetail } from "@/lib/landing/finder-filter"
 
