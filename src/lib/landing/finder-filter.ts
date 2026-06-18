@@ -2,10 +2,13 @@
 export const FINDER_FILTER_EVENT = "aspire:finder-filter"
 
 export interface FinderFilterDetail {
-  /** Sport slug (seasons) or sport word (pickup) to filter to. */
+  /** Sport slug (seasons) or sport/format word (pickup, SoccerOne) to filter to. */
   key: string
   /** Id of the finder <section> to scroll to and that should react. */
   sectionId: string
+  /** Optional location slug (e.g. "worthington" | "downtown"). SoccerOne hero
+   *  launchpad sets this; finders that don't filter by location ignore it. */
+  location?: string
 }
 
 let pending: FinderFilterDetail | null = null
