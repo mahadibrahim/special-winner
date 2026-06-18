@@ -44,6 +44,9 @@ interface SessionDetailProps {
   sessionId: string;
   isAuthenticated: boolean;
   bannerKind: "success" | "cancelled" | null;
+  /** Stripe checkout session id from the success redirect; lets the detail
+   *  API resolve the booking for guests who returned anonymous. */
+  checkoutSessionId?: string | null;
 }
 
 function fmtDate(iso: string): string {
@@ -60,6 +63,7 @@ export default function SessionDetail({
   sessionId,
   isAuthenticated,
   bannerKind,
+  checkoutSessionId,
 }: SessionDetailProps) {
   useHydrationBeacon();
 
@@ -74,9 +78,13 @@ export default function SessionDetail({
     const POLL_INTERVAL_MS = 1500;
     const pollDeadline = Date.now() + 20_000;
 
+    const detailUrl = checkoutSessionId
+      ? `/api/dropin/sessions/${sessionId}?checkout_session_id=${encodeURIComponent(checkoutSessionId)}`
+      : `/api/dropin/sessions/${sessionId}`;
+
     const load = async (isPoll: boolean) => {
       try {
-        const res = await fetch(`/api/dropin/sessions/${sessionId}`);
+        const res = await fetch(detailUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = (await res.json()) as DetailResponse;
         if (cancelled) return;
@@ -108,7 +116,7 @@ export default function SessionDetail({
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [sessionId, bannerKind]);
+  }, [sessionId, bannerKind, checkoutSessionId]);
 
   if (loading) return <LoadingSkeleton />;
   if (error) return <ErrorBanner message={error} />;

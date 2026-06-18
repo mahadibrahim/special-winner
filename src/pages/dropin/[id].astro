@@ -10,6 +10,9 @@ const bookingParam = Astro.url.searchParams.get('booking');
 const bannerKind: 'success' | 'cancelled' | null =
   bookingParam === 'success' ? 'success' :
   bookingParam === 'cancelled' ? 'cancelled' : null;
+// Stripe carries the checkout session id back on success so the booking can be
+// resolved for guests who returned anonymous (see /api/dropin/sessions/[id]).
+const checkoutSessionId = Astro.url.searchParams.get('checkout_session_id');
 ---
 
 <BaseLayout title="Drop In Session — Aspire Sports">
@@ -19,6 +22,7 @@ const bannerKind: 'success' | 'cancelled' | null =
       sessionId={sessionId}
       isAuthenticated={isAuthenticated}
       bannerKind={bannerKind}
+      checkoutSessionId={checkoutSessionId}
     />
   </main>
 </BaseLayout>
