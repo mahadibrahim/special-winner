@@ -122,6 +122,7 @@ interface PutBody {
   membersOnly?: boolean;
   sessionRateCents?: number | null;
   memberRateCents?: number | null;
+  walkUpRateCents?: number | null;
   formatLabel?: string | null;
   startsAt?: string;
   endsAt?: string;
@@ -173,6 +174,8 @@ export const PUT: APIRoute = async (context) => {
     updates.sessionRateCents = body.sessionRateCents;
   if (body.memberRateCents !== undefined)
     updates.memberRateCents = body.memberRateCents;
+  if (body.walkUpRateCents !== undefined)
+    updates.walkUpRateCents = body.walkUpRateCents;
   if (body.formatLabel !== undefined) updates.formatLabel = body.formatLabel;
   if (body.startsAt !== undefined) updates.startsAt = new Date(body.startsAt);
   if (body.endsAt !== undefined) updates.endsAt = new Date(body.endsAt);

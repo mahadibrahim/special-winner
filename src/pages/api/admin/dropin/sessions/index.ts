@@ -106,6 +106,7 @@ interface CreateBody {
   membersOnly?: boolean;
   sessionRateCents?: number | null;
   memberRateCents?: number | null;
+  walkUpRateCents?: number | null;
   teamCount?: number;
   teamColors?: string[];
 }
@@ -200,6 +201,7 @@ export const POST: APIRoute = async (context) => {
       membersOnly: body.membersOnly ?? false,
       sessionRateCents: body.sessionRateCents ?? null,
       memberRateCents: body.memberRateCents ?? null,
+      walkUpRateCents: body.walkUpRateCents ?? null,
       teamCount: body.teamCount ?? 0,
       teamColors: body.teamColors ?? [],
       bookableResourceId: resourceId,
