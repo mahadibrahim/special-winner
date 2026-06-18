@@ -1,5 +1,3 @@
-// src/lib/soccerone/leagues-finder.ts
-
 export interface FinderSeason {
   id: string
   divisionGender: string | null   // 'coed' | 'mens' | 'womens'
@@ -10,6 +8,9 @@ export interface FinderSeason {
   [extra: string]: unknown
 }
 
+// Each filter axis uses the string "all" (not null) as the no-filter sentinel
+// because these values map directly to URL query params and chip values.
+// Note: the sibling module division-filters.ts uses null — don't conflate the two.
 export interface FinderFilters {
   location: string  // slug | "all"
   division: string  // divisionGender | "all"
@@ -37,11 +38,15 @@ export function deriveLocationChips(seasons: FinderSeason[]): Chip[] {
 }
 
 export function deriveDivisionChips(seasons: FinderSeason[]): Chip[] {
-  const seen: string[] = []
+  const seenSet = new Set<string>()
+  const ordered: string[] = []
   for (const s of seasons) {
-    if (s.divisionGender && !seen.includes(s.divisionGender)) seen.push(s.divisionGender)
+    if (s.divisionGender && !seenSet.has(s.divisionGender)) {
+      seenSet.add(s.divisionGender)
+      ordered.push(s.divisionGender)
+    }
   }
-  return seen.map((value) => ({ value, label: DIVISION_LABELS[value] ?? value }))
+  return ordered.map((value) => ({ value, label: DIVISION_LABELS[value] ?? value }))
 }
 
 export function deriveNightChips(seasons: FinderSeason[]): Chip[] {
