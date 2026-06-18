@@ -208,7 +208,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
         return new Response(
           JSON.stringify({
             error:
-              "This child has paid registrations on file. Please contact us at info@aspiresports.com to request a refund and full record deletion.",
+              "This child has paid registrations on file. Please contact us at hello@aspiresportsohio.com to request a refund and full record deletion.",
           }),
           { status: 409, headers: { "Content-Type": "application/json" } },
         );

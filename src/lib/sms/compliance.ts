@@ -120,7 +120,7 @@ export const STOP_RESPONSE =
   "You've been unsubscribed from Aspire Sports messages and won't receive further texts. Reply START to opt back in.";
 
 export const HELP_RESPONSE =
-  "Aspire Sports: youth sports program updates, schedules, and coach messages. Msg freq varies. Msg&data rates may apply. Reply STOP to unsubscribe. Contact: hello@aspiresports.com";
+  "Aspire Sports: youth sports program updates, schedules, and coach messages. Msg freq varies. Msg&data rates may apply. Reply STOP to unsubscribe. Contact: hello@aspiresportsohio.com";
 
 export const START_RESPONSE =
   "You're opted back in to Aspire Sports messages. We'll keep you posted on schedules and updates. Reply STOP anytime to opt out.";

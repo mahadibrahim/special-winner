@@ -7,18 +7,18 @@ import { track } from "@/lib/analytics/track"
 
 const youthLinks = [
   { label: "Youth programs", href: "/youth" },
-  { label: "Leagues", href: "/programs?audience=youth&type=league" },
+  { label: "Leagues", href: "/youth/leagues" },
+  { label: "Camps", href: "/youth/camps" },
   { label: "Classes", href: "/programs?audience=youth&type=training" },
-  { label: "Camps", href: "/programs?audience=youth&type=camp" },
   { label: "Clinics", href: "/programs?audience=youth&type=clinic" },
   { label: "Coaching guides", href: "/guides" },
 ]
 
 const adultLinks = [
-  { label: "Adult leagues", href: "/adult" },
-  { label: "Leagues", href: "/programs?audience=adult&type=league" },
-  { label: "Pick-up", href: "/dropin" },
-  { label: "Tournaments", href: "/programs?audience=adult&type=tournament" },
+  { label: "Adult programs", href: "/adult" },
+  { label: "Leagues", href: "/adult/leagues" },
+  { label: "Pick-up", href: "/adult/pickup" },
+  { label: "Tournaments", href: "/adult/tournaments" },
   { label: "Register a team", href: "/programs?audience=team" },
 ]
 
@@ -125,7 +125,7 @@ export default function Footer() {
 
             {/* Tagline */}
             <p className="font-display text-xl italic text-cream/90 mb-4 leading-snug">
-              Youth sports, done with<br />
+              Adult &amp; youth sports, done with<br />
               <span className="text-primary">conviction.</span>
             </p>
 
@@ -291,11 +291,11 @@ export default function Footer() {
             {/* Contact info */}
             <div className="space-y-3 mb-6">
               <a
-                href="mailto:info@aspiresports.com"
+                href="mailto:hello@aspiresportsohio.com"
                 className="flex items-center gap-3 text-cream/50 hover:text-primary text-sm transition-colors group"
               >
                 <Mail className="w-4 h-4 flex-shrink-0" />
-                info@aspiresports.com
+                hello@aspiresportsohio.com
               </a>
               {locations.length > 0 && (
                 <div className="flex items-center gap-3 text-cream/40 text-sm">
