@@ -250,28 +250,6 @@ const featuredPrice = featured
     .lhs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
     .lhs-div { width: 1px; height: 40px; background: rgba(255,255,255,0.08); }
 
-    /* Facility filter tabs */
-    .facility-filter-row {
-      display: flex;
-      gap: 0;
-      border-top: 1px solid var(--border);
-    }
-
-    .ff-tab {
-      font-family: var(--so-font-body);
-      font-size: 0.8125rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      color: rgba(255,255,255,0.4);
-      text-decoration: none;
-      padding: 1rem 1.5rem;
-      border-bottom: 2px solid transparent;
-      transition: color 0.15s, border-color 0.15s;
-      white-space: nowrap;
-    }
-    .ff-tab:hover { color: rgba(255,255,255,0.7); }
-    .ff-tab--active { color: var(--so-lime); border-bottom-color: var(--so-lime); }
-
     /* ---- LEAGUES SECTION ---- */
     .leagues-section { background: var(--bg); padding: 4rem 0; }
     .leagues-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
@@ -457,8 +435,6 @@ const featuredPrice = featured
       border-top: none;
     }
     .lc-cta:hover { border-bottom-color: var(--so-lime); }
-    .lc-cta--notify { color: rgba(255,255,255,0.5); border-bottom-color: rgba(255,255,255,0.15); }
-    .lc-cta--notify:hover { color: rgba(255,255,255,0.7); border-bottom-color: rgba(255,255,255,0.3); }
 
     /* ---- BOTTOM CTA ---- */
     .leagues-bottom-cta {
@@ -483,53 +459,6 @@ const featuredPrice = featured
     .lbc-btn-secondary { display: inline-block; background: rgba(10,10,13,0.1); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: var(--so-radius-sm); border: 1px solid rgba(10,10,13,0.25); transition: background 0.15s; white-space: nowrap; }
     .lbc-btn-secondary:hover { background: rgba(10,10,13,0.18); }
 
-    /* Empty state */
-    .leagues-empty {
-      padding: 4rem 0;
-      text-align: center;
-    }
-    .le-form {
-      margin: 1.5rem auto 0;
-      display: flex;
-      gap: 0.5rem;
-      max-width: 26rem;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .le-input {
-      flex: 1 1 14rem;
-      padding: 0.75rem 1rem;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: var(--so-radius-md);
-      color: #ffffff;
-      font-size: 0.9375rem;
-    }
-    .le-input::placeholder { color: rgba(255, 255, 255, 0.4); }
-    .le-input:focus {
-      outline: none;
-      border-color: var(--so-lime);
-    }
-    .le-btn {
-      padding: 0.75rem 1.25rem;
-      background: var(--so-lime);
-      color: var(--so-ink);
-      font-family: var(--so-font-display);
-      font-size: 0.9375rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      border: none;
-      border-radius: var(--so-radius-md);
-      cursor: pointer;
-    }
-    .le-btn:hover { background: var(--so-lime-bright); }
-    .le-btn:disabled { opacity: 0.6; cursor: default; }
-    .le-msg {
-      margin-top: 0.75rem;
-      font-size: 0.9375rem;
-      color: var(--so-lime);
-    }
-    .le-msg.le-msg--error { color: #f87171; }
     .le-title {
       font-family: var(--so-font-display);
       font-size: 1.5rem;
