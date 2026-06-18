@@ -15,5 +15,5 @@ test("pickup page shows the four-tier pricing band", async ({ page }) => {
   await expect(band).toBeVisible()
   await expect(band.getByText(/Pick your price/i)).toBeVisible()
   await expect(band.locator(".so-tier")).toHaveCount(4)
-  await expect(band.getByText("FREE")).toBeVisible()
+  await expect(band.locator(".so-tier--free .so-tier-amt")).toHaveText("FREE")
 })
