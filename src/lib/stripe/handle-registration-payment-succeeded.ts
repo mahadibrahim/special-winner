@@ -17,6 +17,7 @@ import {
   sendMagicLinkLoginEmail,
   sendPaymentReceiptEmail,
 } from "@/lib/email/send";
+import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
@@ -141,7 +142,7 @@ export async function handleRegistrationPaymentSucceeded(
       .where(eq(registrations.id, registrationId));
 
     if (row) {
-      sendRegistrationConfirmationEmail({
+      await awaitEmailSend("registration confirmation", () => sendRegistrationConfirmationEmail({
         userId: row.user.id,
         organizationId: row.location.organizationId ?? undefined,
         registrationId,
@@ -162,9 +163,9 @@ export async function handleRegistrationPaymentSucceeded(
         paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
         registrationStatus: "confirmed",
         brand: normalizeBrand(paymentIntent.metadata?.brand),
-      }).catch((err) => console.error("[stripe webhook] email send failed:", err));
+      }), { registrationId });
 
-      sendPaymentReceiptEmail({
+      await awaitEmailSend("payment receipt", () => sendPaymentReceiptEmail({
         userId: row.user.id,
         organizationId: row.location.organizationId ?? undefined,
         registrationId,
@@ -178,9 +179,7 @@ export async function handleRegistrationPaymentSucceeded(
         remainingBalanceCents: isFullyPaid ? undefined : newAmountDue,
         receiptNumber: paymentIntent.id.replace(/^pi_(test_)?/, "").slice(0, 12),
         brand: normalizeBrand(paymentIntent.metadata?.brand),
-      }).catch((err) =>
-        console.error("[stripe webhook] receipt email send failed:", err),
-      );
+      }), { registrationId });
 
       if (paymentIntent.metadata?.via_guest_checkout === "true") {
         try {
@@ -192,7 +191,7 @@ export async function handleRegistrationPaymentSucceeded(
             deliveredChannel: "email",
             deliveredTo: row.user.email,
           });
-          sendMagicLinkLoginEmail({
+          await awaitEmailSend("guest magic-link login", () => sendMagicLinkLoginEmail({
             userId: row.user.id,
             organizationId: row.location.organizationId ?? undefined,
             parentEmail: row.user.email,
@@ -208,9 +207,7 @@ export async function handleRegistrationPaymentSucceeded(
             childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
             seasonName: row.season.name,
             brand: normalizeBrand(paymentIntent.metadata?.brand),
-          }).catch((err) =>
-            console.error("[stripe webhook] magic-link email send failed:", err),
-          );
+          }), { registrationId });
         } catch (err) {
           console.error("[stripe webhook] magic-link mint failed:", err);
         }

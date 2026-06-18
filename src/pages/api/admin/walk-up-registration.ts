@@ -10,6 +10,7 @@ import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { normalizeUsPhone, sendSms } from "@/lib/sms/send";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
+import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import {
   recordConsent,
@@ -285,8 +286,9 @@ export const POST: APIRoute = async (context) => {
       adultSmsStatus = adultSmsResult.ok ? "sent" : "failed";
     }
 
-    // Fire-and-forget confirmation email
-    sendRegistrationConfirmationEmail({
+    // Confirmation email — awaited so the send completes before the function
+    // freezes; logged-but-never-thrown.
+    await awaitEmailSend("walk-up adult confirmation", () => sendRegistrationConfirmationEmail({
       userId: adultUserId,
       organizationId,
       registrationId: adultRegistration.id,
@@ -310,9 +312,7 @@ export const POST: APIRoute = async (context) => {
       amountDueCents: seasonInfo.season.priceCents - (input.amountPaidCents ?? 0),
       paymentStatus: adultPaymentStatus,
       registrationStatus: adultRegistrationStatus,
-    }).catch((err) =>
-      console.error("[walk-up-registration] adult email send failed:", err),
-    );
+    }), { registrationId: adultRegistration.id });
 
     return json({
       success: true,
@@ -482,9 +482,9 @@ export const POST: APIRoute = async (context) => {
     bypassOptInCheck: true,
   });
 
-  // Fire-and-forget registration confirmation email. Transactional email
-  // always sends the email directly; SMS (if any) is a separate additive nudge.
-  sendRegistrationConfirmationEmail({
+  // Registration confirmation email — awaited so the send completes before the
+  // function freezes. SMS (if any) is a separate additive nudge.
+  await awaitEmailSend("walk-up confirmation", () => sendRegistrationConfirmationEmail({
     userId: parentUserId,
     organizationId,
     registrationId,
@@ -508,9 +508,7 @@ export const POST: APIRoute = async (context) => {
     amountDueCents: seasonInfo.season.priceCents - (childInput.amountPaidCents ?? 0),
     paymentStatus,
     registrationStatus,
-  }).catch((err) =>
-    console.error("[walk-up-registration] email send failed:", err),
-  );
+  }), { registrationId });
 
   return json({
     success: true,

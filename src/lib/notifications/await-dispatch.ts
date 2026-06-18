@@ -31,3 +31,26 @@ export async function awaitDispatch(
     console.error(`[notify] ${label} dispatch threw`, { ...ctx, err });
   }
 }
+
+/**
+ * Same idea as awaitDispatch, for the transactional email senders in
+ * `@/lib/email/send` (they resolve `{ success: boolean; error?: string }`
+ * rather than throwing). Registration/receipt emails were previously fired
+ * un-awaited (`.catch()` only), so in the serverless runtime the send was
+ * abandoned when the handler returned. Call this with `await` after the DB
+ * work and before the handler returns; failures are logged, never thrown.
+ */
+export async function awaitEmailSend(
+  label: string,
+  run: () => Promise<{ success: boolean; error?: string }>,
+  ctx: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    const result = await run();
+    if (!result.success) {
+      console.error(`[email] ${label} not sent`, { ...ctx, error: result.error });
+    }
+  } catch (err) {
+    console.error(`[email] ${label} send threw`, { ...ctx, err });
+  }
+}
