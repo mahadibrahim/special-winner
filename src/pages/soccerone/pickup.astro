@@ -12,7 +12,7 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title="Drop-In Pickup Soccer | SoccerOne Columbus"
-  description="Show up and play at SoccerOne. Drop-in pickup soccer at Worthington and Downtown. No team needed. 7 days a week. Multiple skill levels. $12/session."
+  description="Show up and play at SoccerOne. Drop-in pickup soccer at Worthington and Downtown. No team needed. 7 days a week. Multiple skill levels. From $12/session."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -59,8 +59,8 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
             </div>
             <div class="pqs-div" aria-hidden="true"></div>
             <div class="pqs-item">
-              <span class="pqs-num mono">$12</span>
-              <span class="pqs-label">per session</span>
+              <span class="pqs-num mono">$15</span>
+              <span class="pqs-label">booked online</span>
             </div>
             <div class="pqs-div" aria-hidden="true"></div>
             <div class="pqs-item">
@@ -94,7 +94,7 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
         <div class="hs-arrow" aria-hidden="true">→</div>
         <div class="hs-step">
           <span class="hss-num mono">03</span>
-          <span class="hss-text">Pay at the front desk ($12) or use your Founder membership (free)</span>
+          <span class="hss-text">Pay at the door ($17), book online ($15), or use a Member plan ($12) — Founder members play free</span>
         </div>
         <div class="hs-arrow" aria-hidden="true">→</div>
         <div class="hs-step">
@@ -106,7 +106,7 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
 
     <!-- Games listing component -->
     <div class="pickup-games-wrap">
-      <PickupGames client:visible />
+      <PickupGames client:visible facility={facility} />
     </div>
 
     <!-- Skill levels guide -->

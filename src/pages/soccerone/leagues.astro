@@ -12,12 +12,12 @@ const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
 // so this page sees only SoccerOne seasons when rendered in SoccerOne context.
 // Optional ?facility=downtown|worthington filters by location slug — matches
-// the existing UI affordance.
-const locationSlug = facility === 'downtown'
-  ? 'soccerone-downtown'
-  : facility === 'worthington'
-    ? 'soccerone-worthington'
-    : null;
+// the existing UI affordance. The location slugs in the DB are bare
+// ('downtown' / 'worthington'), not 'soccerone-' prefixed, so the tab value
+// maps straight through; the old prefixed slugs matched no location and made
+// both tabs return zero leagues.
+const locationSlug =
+  facility === 'downtown' || facility === 'worthington' ? facility : null;
 
 let seasons: any[] = [];
 try {
