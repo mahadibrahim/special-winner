@@ -1,0 +1,2 @@
+ALTER TABLE "drop_in_rate_card" ADD COLUMN IF NOT EXISTS "default_walk_up_rate_cents" integer DEFAULT 1700 NOT NULL;--> statement-breakpoint
+ALTER TABLE "drop_in_sessions" ADD COLUMN IF NOT EXISTS "walk_up_rate_cents" integer;
