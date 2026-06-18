@@ -123,6 +123,7 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
         teamCount: 2,
         teamColors: ["red", "blue"],
         sessionRateCents: 1200,
+        walkUpRateCents: 1900,
       })
       .returning();
     sessionId = session.id;
@@ -176,7 +177,7 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       expect(res.status).toBe(200);
       expect(typeof body.token).toBe("string");
       expect(typeof body.bookingId).toBe("string");
-      expect(body.amountDueCents).toBe(1200); // session override rate
+      expect(body.amountDueCents).toBe(1900); // walk-up rate — kiosk charges walk-up, not the session rate
       expect(body.url).toContain(body.token);
 
       bookingId = body.bookingId;
@@ -249,10 +250,10 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
 
       expect(res.status).toBe(200);
       expect(typeof body.clientSecret).toBe("string");
-      // amountCents may include a card surcharge depending on the org's rate
-      // card configuration; assert ≥ the base session rate rather than an
-      // exact value so data-state variation in the shared test DB doesn't flap.
-      expect(body.amountCents).toBeGreaterThanOrEqual(1200);
+      // amountCents is the walk-up base (1900) plus any card surcharge; assert
+      // ≥ the base rather than an exact value so surcharge config in the shared
+      // test DB doesn't flap.
+      expect(body.amountCents).toBeGreaterThanOrEqual(1900);
     });
   });
 
