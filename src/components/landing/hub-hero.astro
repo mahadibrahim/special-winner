@@ -13,7 +13,7 @@ const { title, subhead, videoSources, poster } = Astro.props
 ---
 
 <section class="relative text-cream pt-[76px] px-9 pb-11 overflow-hidden" style="background:#0f1530">
-  <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover z-0 opacity-55" poster={poster}>
+  <video autoplay muted loop playsinline aria-hidden="true" class="absolute inset-0 w-full h-full object-cover z-0 opacity-55" poster={poster}>
     {videoSources.map((src) => <source src={src} type="video/mp4" />)}
   </video>
   <div class="absolute inset-0 z-[1]" style="background:linear-gradient(180deg,oklch(0.18 0.07 262/0.55),oklch(0.18 0.07 262/0.86))"></div>

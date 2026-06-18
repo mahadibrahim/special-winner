@@ -34,7 +34,7 @@ export function pricingTiers(
     {
       amountLabel: dollars(rate.defaultMemberRateCents),
       label: "Member",
-      best: true,
+      best: rate.defaultMemberRateCents < walkInCents,
       note: save > 0 ? `Save ${dollars(save)} →` : undefined,
     },
   ]

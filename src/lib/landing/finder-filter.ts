@@ -8,17 +8,23 @@ export interface FinderFilterDetail {
   sectionId: string
 }
 
+let pending: FinderFilterDetail | null = null
+
 /** Fired by a hero tile: notify the finder island, then scroll to it. */
 export function dispatchFinderFilter(detail: FinderFilterDetail): void {
+  pending = detail
   window.dispatchEvent(new CustomEvent<FinderFilterDetail>(FINDER_FILTER_EVENT, { detail }))
   document
     .getElementById(detail.sectionId)
     ?.scrollIntoView({ behavior: "smooth", block: "start" })
 }
 
-/** Subscribe to tile filter events. Returns an unsubscribe fn. */
+/** Subscribe to tile filter events. Returns an unsubscribe fn. Replays the most
+ *  recent filter to a late subscriber (hydration race) — sections gate on
+ *  sectionId, so a non-matching replay is a no-op. */
 export function onFinderFilter(cb: (detail: FinderFilterDetail) => void): () => void {
   const handler = (e: Event) => cb((e as CustomEvent<FinderFilterDetail>).detail)
   window.addEventListener(FINDER_FILTER_EVENT, handler)
+  if (pending) cb(pending)
   return () => window.removeEventListener(FINDER_FILTER_EVENT, handler)
 }

@@ -18,6 +18,6 @@ export interface HeroTile {
 }
 
 /** A live tile links out only when it has an href; otherwise it scroll-filters. */
-export function tileLinksOut(tile: HeroTile): boolean {
+export function tileLinksOut(tile: HeroTile): tile is HeroTile & { href: string } {
   return tile.state === "live" && Boolean(tile.href)
 }

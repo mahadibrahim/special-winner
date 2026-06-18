@@ -22,7 +22,7 @@ const { title, subhead, videoSources, poster, tiles, finderId, crosslink } = Ast
 ---
 
 <section class="relative text-cream pt-16 px-9 pb-8 overflow-hidden">
-  <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover z-0" poster={poster}>
+  <video autoplay muted loop playsinline aria-hidden="true" class="absolute inset-0 w-full h-full object-cover z-0" poster={poster}>
     {videoSources.map((src) => <source src={src} type="video/mp4" />)}
   </video>
   <div class="absolute inset-0 z-[1]" style="background:linear-gradient(180deg,oklch(0.18 0.07 262/0.45),oklch(0.18 0.07 262/0.82)),linear-gradient(100deg,oklch(0.18 0.07 262/0.7),oklch(0.18 0.07 262/0.25))"></div>
@@ -33,14 +33,14 @@ const { title, subhead, videoSources, poster, tiles, finderId, crosslink } = Ast
     <div class="grid sm:grid-cols-3 gap-3 mt-6">
       {tiles.map((t) =>
         tileLinksOut(t) ? (
-          <a href={t.href} data-sport-tile data-sport={t.key} data-state="live" class="relative rounded-2xl p-4 text-ink overflow-hidden" style={`background:${t.color}`}>
+          <a href={t.href} data-sport-tile data-sport={t.key} data-state="live" class="relative rounded-2xl p-4 text-ink overflow-hidden" style={t.color ? `background:${t.color}` : undefined}>
             <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
             <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
             <div class="font-mono text-xs">{t.meta}</div>
             <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
           </a>
         ) : t.state === "live" ? (
-          <button type="button" data-sport-tile data-sport={t.key} data-state="live" data-finder={finderId} class="relative text-left rounded-2xl p-4 text-ink overflow-hidden cursor-pointer" style={`background:${t.color}`}>
+          <button type="button" data-sport-tile data-sport={t.key} data-state="live" data-finder={finderId} class="relative text-left rounded-2xl p-4 text-ink overflow-hidden cursor-pointer" style={t.color ? `background:${t.color}` : undefined}>
             <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
             <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
             <div class="font-mono text-xs">{t.meta}</div>
