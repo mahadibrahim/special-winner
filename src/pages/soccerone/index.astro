@@ -357,7 +357,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
                 <span class="detail-val">Members from $12 · drop in any night</span>
               </span>
             </div>
-            <span class="pc-live"><span class="pc-dot"></span> Runs every night</span>
+            <span class="pc-live"><span class="pc-dot"></span> Open every night</span>
           </a>
 
           <!-- Rentals -->
@@ -381,7 +381,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
                 <span class="detail-val">By the hour · all 4 fields</span>
               </span>
             </div>
-            <span class="pc-live"><span class="pc-dot"></span> Book by the hour</span>
+            <span class="pc-live"><span class="pc-dot"></span> Open for booking</span>
           </a>
 
           <!-- Youth -->
@@ -1077,8 +1077,8 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       z-index: 0;
       filter: blur(34px);
       opacity: 0.45;
-      background: radial-gradient(circle at 30% 30%, rgba(163,230,53,0.5), transparent 55%),
-                  radial-gradient(circle at 70% 70%, rgba(163,230,53,0.2), transparent 60%);
+      background: radial-gradient(circle at 30% 30%, var(--so-lime-a50), transparent 55%),
+                  radial-gradient(circle at 70% 70%, var(--so-lime-a20), transparent 60%);
       animation: pc-drift 14s ease-in-out infinite;
     }
 
@@ -1087,7 +1087,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       align-items: center;
       gap: 0.45rem;
       font-family: var(--so-font-mono);
-      font-size: 0.62rem;
+      font-size: 0.625rem;
       letter-spacing: 0.04em;
       color: var(--so-lime);
       margin-top: 0.5rem;
@@ -1107,8 +1107,8 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     }
 
     @keyframes pc-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(163,230,53,0.5); }
-      50% { box-shadow: 0 0 0 7px rgba(163,230,53,0); }
+      0%, 100% { box-shadow: 0 0 0 0 var(--so-lime-a50); }
+      50% { box-shadow: 0 0 0 7px transparent; }
     }
 
     @media (prefers-reduced-motion: reduce) {
