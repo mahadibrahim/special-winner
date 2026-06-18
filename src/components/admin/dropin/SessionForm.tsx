@@ -182,7 +182,7 @@ export function SessionForm({ sessionId }: SessionFormProps) {
           : null,
         walkUpRateCents: state.walkUpRateCents
           ? Number(state.walkUpRateCents)
-          : undefined,
+          : null,
         teamCount: Number(state.teamCount),
         teamColors: state.teamColors
           .split(",")
