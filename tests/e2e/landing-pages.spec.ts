@@ -34,7 +34,7 @@ test.describe("Landing-page finders", () => {
     await page.goto("/adult", { waitUntil: "domcontentloaded" });
 
     await expect(
-      page.getByRole("heading", { name: /build your week around/i }),
+      page.getByRole("heading", { name: /three ways to play/i }),
     ).toBeVisible();
     for (const cta of ["adult-hub-leagues", "adult-hub-pickup", "adult-hub-tournaments"]) {
       await expect(page.locator(`[data-landing-cta="${cta}"]`)).toBeVisible();
