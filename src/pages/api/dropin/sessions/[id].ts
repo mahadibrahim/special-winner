@@ -22,8 +22,11 @@ import {
 import { venues } from "@/lib/db/schema/teams";
 import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveMembershipForUser } from "@/lib/dropin/booking";
+import { stripe } from "@/lib/stripe/client";
 
 export const prerender = false;
+
+const ACTIVE_BOOKING_STATUSES = ["confirmed", "waitlisted", "pending_claim"];
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -31,7 +34,7 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async ({ params, locals, url }) => {
   const sessionId = params.id;
   if (!sessionId) return json({ error: "session id required" }, 400);
 
@@ -99,11 +102,44 @@ export const GET: APIRoute = async ({ params, locals }) => {
       )
       .orderBy(dropInBookings.createdAt)
       .limit(1);
-    if (
-      existing &&
-      ["confirmed", "waitlisted", "pending_claim"].includes(existing.status)
-    ) {
+    if (existing && ACTIVE_BOOKING_STATUSES.includes(existing.status)) {
       alreadyBookedStatus = existing.status;
+    }
+  }
+
+  // Guest fallback: an existing-account guest who booked without signing in
+  // returns from Stripe anonymous, so the user lookup above finds nothing and
+  // the success page would poll forever. Resolve their booking via the
+  // checkout session id carried back in the success_url. The id is a
+  // capability only the buyer holds (it's in their redirect URL). Only hit
+  // Stripe when we still have no status, to avoid a round-trip per poll for
+  // signed-in users.
+  const checkoutSessionId = url.searchParams.get("checkout_session_id");
+  if (alreadyBookedStatus === null && checkoutSessionId && stripe) {
+    try {
+      const cs = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+      const paymentIntentId =
+        typeof cs.payment_intent === "string"
+          ? cs.payment_intent
+          : (cs.payment_intent?.id ?? null);
+      if (paymentIntentId) {
+        const [booked] = await db
+          .select({ status: dropInBookings.status })
+          .from(dropInBookings)
+          .where(
+            and(
+              eq(dropInBookings.sessionId, sessionId),
+              eq(dropInBookings.stripePaymentIntentId, paymentIntentId),
+            ),
+          )
+          .limit(1);
+        if (booked && ACTIVE_BOOKING_STATUSES.includes(booked.status)) {
+          alreadyBookedStatus = booked.status;
+        }
+      }
+    } catch {
+      // Non-fatal: a bad/expired checkout id just leaves the status null and
+      // the page falls back to its normal polling/timeout behavior.
     }
   }
 

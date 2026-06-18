@@ -109,7 +109,11 @@ export async function createDropInCheckoutSession(opts: {
           }
         : {}),
     },
-    success_url: `${appUrl}/dropin/${session.id}?booking=success`,
+    // Carry the checkout session id back so the success page can resolve the
+    // booking for guests who aren't signed in (existing-account guests don't
+    // get a login session — see guest-checkout). Stripe substitutes the
+    // literal {CHECKOUT_SESSION_ID} placeholder with the real id.
+    success_url: `${appUrl}/dropin/${session.id}?booking=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/dropin/${session.id}?booking=cancelled`,
   });
 
