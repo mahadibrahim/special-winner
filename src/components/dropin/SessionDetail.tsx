@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { useBrandId } from "@/lib/hooks/use-brand-id";
 import { deriveDropInSuccessPhase } from "@/lib/dropin/success-phase";
 import { BookButton } from "./BookButton";
 
@@ -66,6 +67,9 @@ export default function SessionDetail({
   checkoutSessionId,
 }: SessionDetailProps) {
   useHydrationBeacon();
+
+  const brand = useBrandId();
+  const allSessionsHref = brand === "soccerone" ? "/pickup" : "/dropin";
 
   const [data, setData] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -212,7 +216,7 @@ export default function SessionDetail({
 
       <header>
         <a
-          href="/dropin"
+          href={allSessionsHref}
           className="text-xs uppercase tracking-wider text-ink-faint hover:text-ink"
         >
           ← All sessions
