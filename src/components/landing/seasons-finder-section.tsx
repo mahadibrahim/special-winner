@@ -5,6 +5,7 @@ import ProgramCardV2 from "@/components/programs/program-card-v2"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { EmptyNotifyForm } from "./empty-notify-form"
 import type { ApiSeason } from "@/lib/programs/api-season"
+import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 
 const PAGE_SIZE = 6
 
@@ -90,6 +91,13 @@ export function SeasonsFinderSection({
   const [activeSport, setActiveSport] = useState<string | null>(null)
   const [activeVenue, setActiveVenue] = useState<string | null>(null)
   const [visible, setVisible] = useState(PAGE_SIZE)
+
+  // A hero tile elsewhere on the page can pre-apply this section's Sport
+  // filter. The section's Sport chips key on `sport.slug`, and category-page
+  // tiles carry the matching slug, so we set activeSport directly.
+  useFinderFilter((detail) => {
+    if (detail.sectionId === id) setActiveSport(detail.key)
+  })
 
   // Reset pagination whenever a filter changes — without this, narrowing
   // from a long list to a short one leaves the visitor scrolled past the
