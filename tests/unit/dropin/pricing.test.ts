@@ -4,6 +4,7 @@ import { resolveRate } from "@/lib/dropin/pricing";
 const baseRateCard = {
   defaultSessionRateCents: 1500,
   defaultMemberRateCents: 1200,
+  defaultWalkUpRateCents: 1700,
 };
 
 const baseSession = {

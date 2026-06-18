@@ -6,24 +6,31 @@
  * session and which payment method to record on the booking row.
  *
  * Rules (in order):
- *   1. No user OR no membership → full session rate, paid via card_online.
+ *   1. No user OR no membership → public price for the channel:
+ *      - walk_up source → walk-up rate (higher in-person price)
+ *      - online_booking source (default) → session rate
  *   2. Member with `unlimited_pickup` benefit → free, member_unlimited.
  *   3. Member with allotment remaining (>0) → free, member_allotment.
  *   4. Member with allotment exhausted → member rate, paid via card_online.
  *
- * Session-level overrides (`sessionRateCents`, `memberRateCents`) win over
- * the rate-card defaults whenever set.
+ * Session-level overrides (`sessionRateCents`, `memberRateCents`,
+ * `walkUpRateCents`) win over the rate-card defaults whenever set.
+ * Members are unaffected by `source` — they always resolve via rules 2–4.
  */
 
 export interface RateCard {
   defaultSessionRateCents: number;
   defaultMemberRateCents: number;
+  defaultWalkUpRateCents: number;
 }
 
 export interface SessionRateOverrides {
   sessionRateCents: number | null;
   memberRateCents: number | null;
+  walkUpRateCents?: number | null;
 }
+
+export type DropInBookingSource = "online_booking" | "walk_up";
 
 export interface MembershipForPricing {
   id: string;
@@ -53,14 +60,17 @@ export function resolveRate(
   user: { id: string } | null,
   membership: MembershipForPricing | null,
   rateCard: RateCard,
+  source: DropInBookingSource = "online_booking",
 ): ResolvedRate {
   const sessionRate = session.sessionRateCents ?? rateCard.defaultSessionRateCents;
+  const walkUpRate = session.walkUpRateCents ?? rateCard.defaultWalkUpRateCents;
   const memberRate = session.memberRateCents ?? rateCard.defaultMemberRateCents;
 
-  // No user, or no membership: pay the public session rate.
+  // No user, or no membership: pay the public price for this channel —
+  // walk-ins pay the (higher) walk-up rate, online pays the session rate.
   if (!user || !membership) {
     return {
-      amountCents: sessionRate,
+      amountCents: source === "walk_up" ? walkUpRate : sessionRate,
       paymentMethod: "card_online",
       membershipId: null,
     };
