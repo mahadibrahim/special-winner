@@ -1,0 +1,24 @@
+---
+// src/components/landing/hub-hero.astro
+// Bold-catalog hero for the audience hubs (/adult, /youth). Video bg + display
+// headline + subhead. No eyebrow (project preference). Hub cards render below
+// via <CategoryCard> in the page.
+interface Props {
+  title: string
+  subhead: string
+  videoSources: string[]
+  poster: string
+}
+const { title, subhead, videoSources, poster } = Astro.props
+---
+
+<section class="relative text-cream pt-[76px] px-9 pb-11 overflow-hidden" style="background:#0f1530">
+  <video autoplay muted loop playsinline aria-hidden="true" class="absolute inset-0 w-full h-full object-cover z-0 opacity-55" poster={poster}>
+    {videoSources.map((src) => <source src={src} type="video/mp4" />)}
+  </video>
+  <div class="absolute inset-0 z-[1]" style="background:linear-gradient(180deg,oklch(0.18 0.07 262/0.55),oklch(0.18 0.07 262/0.86))"></div>
+  <div class="relative z-[2] max-w-[1080px] mx-auto">
+    <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.5rem,6.5vw,4.5rem);line-height:.95;max-width:15ch">{title}</h1>
+    <p class="mt-4 text-lg text-cream/90 max-w-[560px]">{subhead}</p>
+  </div>
+</section>

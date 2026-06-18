@@ -1,9 +1,17 @@
 ---
-// SSR like /youth — the island fetches host-scoped public endpoints
-// client-side; keep request-time rendering (no prerender flag).
-import BaseLayout from "@/layouts/BaseLayout.astro";
-import CategoryFinder from "@/components/landing/category-finder.tsx";
-import CTABanner from "@/components/cta-banner";
+// src/pages/youth/camps.astro
+// SSR — the island fetches host-scoped public endpoints client-side.
+import BaseLayout from "@/layouts/BaseLayout.astro"
+import CategoryHero from "@/components/landing/category-hero.astro"
+import CategoryFinder from "@/components/landing/category-finder.tsx"
+import CTABanner from "@/components/cta-banner"
+import type { HeroTile } from "@/lib/landing/hero-tiles"
+
+const tiles: HeroTile[] = [
+  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Booking now", meta: "School-break & summer", color: "oklch(0.66 0.21 35)" },
+  { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
+  { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
+]
 ---
 
 <BaseLayout
@@ -15,26 +23,18 @@ import CTABanner from "@/components/cta-banner";
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-12">
-      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
-          <a href="/youth" class="hover:underline">Youth Sports</a> · Central Ohio
-        </p>
-        <h1
-          class="font-display max-w-3xl"
-          style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.03em;"
-        >
-          Youth camps.
-        </h1>
-        <p class="mt-4 text-lg text-cream/85 max-w-2xl">
-          Full days of play for school breaks and summer — real coaching,
-          tight drop-off and pick-up logistics, zero chaos.
-        </p>
-        <p class="mt-3 text-sm text-cream/60">
-          Looking for a season instead? <a href="/youth/leagues" class="underline hover:text-cream">Youth leagues &amp; classes</a>.
-        </p>
-      </div>
-    </section>
+    <CategoryHero
+      title="Youth camps."
+      subhead="Full days of play for school breaks and summer — real coaching, tight drop-off and pick-up logistics, zero chaos."
+      videoSources={[
+        "https://videos.pexels.com/video-files/6077723/6077723-hd_1920_1080_25fps.mp4",
+        "https://videos.pexels.com/video-files/6077723/6077723-sd_640_360_25fps.mp4",
+      ]}
+      poster="https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60"
+      tiles={tiles}
+      finderId="youth-camps"
+      crosslink={{ prompt: "Looking for a season instead?", href: "/youth/leagues", label: "Youth leagues & classes →" }}
+    />
 
     <CategoryFinder
       client:load

@@ -1,25 +1,21 @@
 ---
-// One-screen hub: hero + category doors. Inventory lives on the category
-// pages (/youth/leagues, /youth/camps) — Phase 2 of
-// docs/superpowers/specs/2026-06-11-public-ia-redesign-design.md.
+// One-screen hub: video hero + colored animated category doors. Inventory
+// lives on the category pages. Bold-catalog redesign — see
+// docs/superpowers/specs/2026-06-18-adult-youth-sitemap-redesign-design.md
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import HubHero from "@/components/landing/hub-hero.astro";
+import CategoryCard from "@/components/landing/category-card.astro";
 import NextUpCard from "@/components/marketing/next-up-card.astro";
 import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
 
 const doors = [
-  {
-    href: "/youth/leagues",
-    cta: "youth-hub-leagues",
-    title: "Leagues & Classes",
-    blurb: "Season leagues and skill-building classes, filtered by your kid's age.",
-  },
-  {
-    href: "/youth/camps",
-    cta: "youth-hub-camps",
-    title: "Camps",
-    blurb: "School-break and summer day camps — real coaching, tight logistics.",
-  },
+  { href: "/youth/leagues", cta: "youth-hub-leagues", palette: "youth-a" as const,
+    title: "Leagues & Classes", blurb: "Season leagues and skill-building classes, filtered by your kid's age.",
+    statusLabel: "Now enrolling", live: true, ctaLabel: "Browse leagues & classes" },
+  { href: "/youth/camps", cta: "youth-hub-camps", palette: "youth-b" as const,
+    title: "Camps", blurb: "School-break and summer day camps — real coaching, tight logistics.",
+    statusLabel: "Booking now", live: true, ctaLabel: "Browse camps" },
 ];
 ---
 
@@ -32,44 +28,26 @@ const doors = [
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <section class="bg-gradient-to-br from-emerald-600 to-emerald-400 text-white pt-28 pb-16">
-      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row lg:items-end gap-8">
-        <div class="flex-1">
-          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/85 mb-4">
-            Youth Sports · Central Ohio
-          </p>
-          <h1
-            class="font-display max-w-3xl"
-            style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
-          >
-            Sports your kid will actually look forward to.
-          </h1>
-          <p class="mt-6 text-lg text-white/90 max-w-2xl">
-            Real coaches, real development — built on the Double-Goal Coach and ELM
-            frameworks. Find what fits your kid by age, then narrow by format,
-            sport, and venue.
-          </p>
-        </div>
-        {announcement && <div class="lg:pb-1"><NextUpCard announcement={announcement} /></div>}
-      </div>
-    </section>
+    <HubHero
+      title="Sports your kid will actually look forward to."
+      subhead="Real coaches, real development — built on the Double-Goal Coach and ELM frameworks. Find what fits your kid by age, format, sport, and venue."
+      videoSources={["https://videos.pexels.com/video-files/3196586/3196586-uhd_2560_1440_25fps.mp4"]}
+      poster="https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1600&q=60"
+    />
 
-    <section class="py-12 lg:py-16">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {doors.map((d) => (
-          <a
-            href={d.href}
-            data-landing-cta={d.cta}
-            class="group bg-paper border border-border rounded-2xl p-7 hover:border-ink-muted transition-colors"
-          >
-            <h2 class="font-display text-2xl text-ink">{d.title}</h2>
-            <p class="text-ink-muted mt-2">{d.blurb}</p>
-            <span class="inline-block mt-5 text-sm font-medium text-primary group-hover:translate-x-1 transition-transform">
-              Browse {d.title.toLowerCase()} →
-            </span>
-          </a>
-        ))}
+    {announcement && (
+      <div class="max-w-[1080px] mx-auto px-9 pt-6">
+        <NextUpCard announcement={announcement} />
       </div>
+    )}
+
+    <section class="max-w-[1080px] mx-auto px-9 pt-7 pb-16 grid grid-cols-1 md:grid-cols-2 gap-4">
+      {doors.map((d) => (
+        <CategoryCard
+          href={d.href} cta={d.cta} palette={d.palette} title={d.title}
+          blurb={d.blurb} statusLabel={d.statusLabel} live={d.live} ctaLabel={d.ctaLabel}
+        />
+      ))}
     </section>
   </main>
 </BaseLayout>
