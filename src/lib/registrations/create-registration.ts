@@ -10,6 +10,7 @@ import {
   teamInvitees,
 } from "@/lib/db/schema";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
+import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import type { BrandId } from "@/lib/branding/themes";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
@@ -259,7 +260,7 @@ export async function createRegistration(
           .innerJoin(locations, eq(programs.locationId, locations.id))
           .where(eq(programs.id, season.programId));
         if (programData) {
-          sendRegistrationConfirmationEmail({
+          await awaitEmailSend("waitlist confirmation", () => sendRegistrationConfirmationEmail({
             userId: user.id,
             organizationId: programData.location.organizationId,
             registrationId: waitlisted.id,
@@ -284,9 +285,7 @@ export async function createRegistration(
             paymentStatus: "unpaid",
             registrationStatus: "waitlisted",
             brand: input.brand,
-          }).catch((err) =>
-            console.error("Error sending waitlist email:", err),
-          );
+          }), { registrationId: waitlisted.id });
         }
       } catch (emailError) {
         console.error("Error preparing waitlist email:", emailError);
