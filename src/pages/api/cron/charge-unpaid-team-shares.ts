@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { and, eq, lt, gte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teamRegistrations, teamInvitees } from "@/lib/db/schema";
+import { teamRegistrations, teamInvitees, payments } from "@/lib/db/schema";
 import { sendTeamShareReminderEmail } from "@/lib/email/send";
 import {
   sumUnpaidSharesCents,
@@ -81,6 +81,7 @@ export const POST: APIRoute = async ({ request }) => {
         captainName: teamRegistrations.captainName,
         captainEmail: teamRegistrations.captainEmail,
         paymentDeadline: teamRegistrations.paymentDeadline,
+        brand: teamRegistrations.brand,
       })
       .from(teamRegistrations)
       .where(
@@ -118,6 +119,8 @@ export const POST: APIRoute = async ({ request }) => {
 
         const joinUrl = `${base}/register/${team.seasonId}?team=${team.inviteToken}`;
         const deadline = team.paymentDeadline ?? undefined;
+        const brand =
+          (team.brand as "aspire" | "soccerone" | undefined) ?? undefined;
 
         // Captain gets a heads-up (no specific share).
         await sendTeamShareReminderEmail({
@@ -126,6 +129,7 @@ export const POST: APIRoute = async ({ request }) => {
           captainName: team.captainName,
           joinUrl,
           deadline,
+          brand,
         });
 
         // Each unpaid teammate gets their own share reminder.
@@ -137,6 +141,7 @@ export const POST: APIRoute = async ({ request }) => {
             joinUrl,
             shareCents: inv.assignedShareCents,
             deadline,
+            brand,
           });
         }
 
@@ -165,6 +170,7 @@ export const POST: APIRoute = async ({ request }) => {
     const dueTeams = await db
       .select({
         id: teamRegistrations.id,
+        captainUserId: teamRegistrations.captainUserId,
         captainStripeCustomerId: teamRegistrations.captainStripeCustomerId,
         captainPaymentMethodId: teamRegistrations.captainPaymentMethodId,
       })
@@ -217,6 +223,39 @@ export const POST: APIRoute = async ({ request }) => {
                 sql`${teamInvitees.status} <> 'paid'`,
               ),
             );
+
+          // Record the backstop charge in the payments ledger. Defensive:
+          // never let a ledger failure flip an already-succeeded charge to
+          // 'failed'. Skip if captainUserId is somehow null; onConflictDoNothing
+          // guards re-runs against the same PaymentIntent.
+          if (team.captainUserId && result.paymentIntentId) {
+            try {
+              await db
+                .insert(payments)
+                .values({
+                  registrationId: null,
+                  teamRegistrationId: team.id,
+                  userId: team.captainUserId,
+                  amountCents: unpaid,
+                  paymentType: "balance",
+                  status: "succeeded",
+                  stripePaymentIntentId: result.paymentIntentId,
+                })
+                .onConflictDoNothing({
+                  target: payments.stripePaymentIntentId,
+                  where: sql`stripe_payment_intent_id IS NOT NULL`,
+                });
+            } catch (ledgerErr) {
+              console.error(
+                `[cron] failed to record backstop payment for team ${team.id}:`,
+                ledgerErr,
+              );
+              void captureServerException(ledgerErr, {
+                component: "cron/charge-unpaid-team-shares",
+                metadata: { team_registration_id: team.id, phase: "charge-ledger" },
+              });
+            }
+          }
 
           charged += 1;
         } else {

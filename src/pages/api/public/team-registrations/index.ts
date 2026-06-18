@@ -6,6 +6,7 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { createDepositIntentWithSavedCard } from "@/lib/stripe/saved-cards";
 import { stripe } from "@/lib/stripe/client";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 const DEPOSIT_AMOUNT_CENTS = 20000; // $200 (locked decision)
 
@@ -99,6 +100,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const season = seasonRow[0];
 
     const inviteToken = generateInviteToken();
+    const brand = brandFromHost(request.headers.get("host") ?? "");
 
     const inserted = await db
       .insert(teamRegistrations)
@@ -112,6 +114,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         inviteToken,
         notes,
         status: "forming",
+        brand,
         teamFeeCents: season.teamPriceCents ?? season.priceCents,
         depositCents: DEPOSIT_AMOUNT_CENTS,
         paymentDeadline: season.registrationCloses,

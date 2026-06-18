@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teamRegistrations } from "@/lib/db/schema";
+import { teamRegistrations, payments } from "@/lib/db/schema";
 
 /**
  * Handles `payment_intent.succeeded` for the captain's $200 team deposit
@@ -37,7 +37,11 @@ export async function handleTeamDepositSucceeded(
   const db = getDb();
 
   const [team] = await db
-    .select({ id: teamRegistrations.id, backstopStatus: teamRegistrations.backstopStatus })
+    .select({
+      id: teamRegistrations.id,
+      backstopStatus: teamRegistrations.backstopStatus,
+      captainUserId: teamRegistrations.captainUserId,
+    })
     .from(teamRegistrations)
     .where(eq(teamRegistrations.id, teamRegistrationId));
 
@@ -71,6 +75,44 @@ export async function handleTeamDepositSucceeded(
       updatedAt: new Date(),
     })
     .where(eq(teamRegistrations.id, teamRegistrationId));
+
+  // Record the $200 deposit in the payments ledger. Defensive: a failure here
+  // must never break the (already-committed) card-saving + status update above,
+  // so it's wrapped in try/catch and onConflictDoNothing guards webhook retries.
+  // captainUserId should always be set (the deposit requires an authed captain),
+  // but skip the ledger row if it's somehow null rather than insert a bad row.
+  if (team.captainUserId) {
+    try {
+      const [paymentRow] = await db
+        .insert(payments)
+        .values({
+          registrationId: null,
+          teamRegistrationId: team.id,
+          userId: team.captainUserId,
+          amountCents: 20000,
+          paymentType: "deposit",
+          status: "succeeded",
+          stripePaymentIntentId: paymentIntent.id,
+        })
+        .onConflictDoNothing({
+          target: payments.stripePaymentIntentId,
+          where: sql`stripe_payment_intent_id IS NOT NULL`,
+        })
+        .returning({ id: payments.id });
+
+      if (paymentRow?.id) {
+        await db
+          .update(teamRegistrations)
+          .set({ depositPaymentId: paymentRow.id, updatedAt: new Date() })
+          .where(eq(teamRegistrations.id, teamRegistrationId));
+      }
+    } catch (ledgerErr) {
+      console.error(
+        `[handleTeamDepositSucceeded] failed to record deposit payment for team ${teamRegistrationId}:`,
+        ledgerErr,
+      );
+    }
+  }
 
   return { status: "processed", teamRegistrationId };
 }
