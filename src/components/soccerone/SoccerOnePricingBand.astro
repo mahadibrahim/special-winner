@@ -16,8 +16,9 @@ const [walkIn, online, member] = tiers
         {member.best && <span class="so-tier-ribbon">BEST VALUE</span>}
         <span class="so-tier-lbl">Member plan</span><span class="so-tier-amt">{member.amountLabel}</span>
         <span class="so-tier-desc">Monthly plan, every session discounted.</span>
-        {member.note && <span class="so-tier-save">↓ {member.note}</span>}
+        {member.note && <span class="so-tier-save"><span aria-hidden="true">↓</span> {member.note}</span>}
       </div>
+      {/* Founder FREE is a permanent SoccerOne business commitment — intentionally not data-driven */}
       <div class="so-tier so-tier--free">
         <span class="so-tier-ribbon">FOUNDERS</span>
         <span class="so-tier-lbl">Founder member</span><span class="so-tier-amt">FREE</span>
@@ -33,18 +34,18 @@ const [walkIn, online, member] = tiers
   .so-band-inner { max-width: 1100px; margin: 0 auto; }
   .so-band-h { font-family: var(--so-font-display); text-transform: uppercase; font-size: clamp(1.6rem, 4vw, 2.3rem); line-height: 1; margin-bottom: 0.4rem; color: #fff; }
   .so-band-h .lime { color: var(--so-lime); }
-  .so-band-sub { color: var(--muted, rgba(255,255,255,0.55)); font-size: 0.9rem; margin-bottom: 1.6rem; }
+  .so-band-sub { color: rgba(255,255,255,0.55); font-size: 0.9rem; margin-bottom: 1.6rem; }
   .so-band-tiers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
   .so-tier { position: relative; background: rgba(0,0,0,0.35); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-md); padding: 1.25rem 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-  .so-tier-lbl { font-family: var(--so-font-mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted, rgba(255,255,255,0.55)); }
+  .so-tier-lbl { font-family: var(--so-font-mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
   .so-tier-amt { font-family: var(--so-font-display); font-size: 2.4rem; line-height: 0.9; color: #fff; }
-  .so-tier-desc { font-size: 0.76rem; color: var(--muted, rgba(255,255,255,0.55)); line-height: 1.4; }
+  .so-tier-desc { font-size: 0.76rem; color: rgba(255,255,255,0.55); line-height: 1.4; }
   .so-tier--best { background: var(--so-lime-a08); border-color: var(--so-lime); }
   .so-tier--best .so-tier-amt, .so-tier--free .so-tier-amt { color: var(--so-lime); }
   .so-tier--free { background: var(--so-lime-a12); border-color: var(--so-lime); }
   .so-tier-ribbon { position: absolute; top: -1px; right: -1px; font-family: var(--so-font-mono); font-size: 0.55rem; letter-spacing: 0.08em; background: var(--so-lime); color: var(--so-ink); padding: 3px 9px; border-radius: 0 var(--so-radius-md) 0 var(--so-radius-md); font-weight: 600; }
   .so-tier-save { font-family: var(--so-font-mono); font-size: 0.66rem; color: var(--so-lime); }
-  .so-band-foot { margin-top: 1.4rem; font-family: var(--so-font-mono); font-size: 0.72rem; color: var(--muted, rgba(255,255,255,0.55)); text-align: center; }
+  .so-band-foot { margin-top: 1.4rem; font-family: var(--so-font-mono); font-size: 0.72rem; color: rgba(255,255,255,0.55); text-align: center; }
   .so-band-foot strong { color: var(--so-lime); }
   @media (max-width: 720px) { .so-band-tiers { grid-template-columns: repeat(2, 1fr); } }
 </style>
