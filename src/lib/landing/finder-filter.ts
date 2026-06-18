@@ -17,6 +17,14 @@ export function dispatchFinderFilter(detail: FinderFilterDetail): void {
   document
     .getElementById(detail.sectionId)
     ?.scrollIntoView({ behavior: "smooth", block: "start" })
+  // The replay buffer only needs to bridge the hydration window for a finder
+  // island that mounts just after a pre-hydration click. Expire it so a later
+  // remount (e.g. a youth age-band change re-keying the section) doesn't
+  // re-apply a filter the user has since cleared. Guard against clobbering a
+  // newer dispatch.
+  window.setTimeout(() => {
+    if (pending === detail) pending = null
+  }, 5000)
 }
 
 /** Subscribe to tile filter events. Returns an unsubscribe fn. Replays the most
