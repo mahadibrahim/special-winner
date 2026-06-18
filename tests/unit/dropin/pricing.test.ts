@@ -10,6 +10,7 @@ const baseRateCard = {
 const baseSession = {
   sessionRateCents: null,
   memberRateCents: null,
+  walkUpRateCents: null,
 };
 
 describe("resolveRate", () => {
