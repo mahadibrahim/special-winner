@@ -29,6 +29,7 @@ import { resolveRate, type ResolvedRate } from "./pricing";
 import { checkMembersOnly, checkCapacity, checkGenderCap } from "./gates";
 import { assignTeam } from "./team-assignment";
 import { dispatchBookingConfirmation } from "./messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import type { BrandId } from "@/lib/branding/themes";
 
@@ -72,7 +73,8 @@ export async function createConfirmedBookingFreePath(opts: {
 }): Promise<CreateConfirmedBookingResult> {
   const db = getDb();
 
-  return await db.transaction(async (tx) => {
+  const bookingResult = await db.transaction(
+    async (tx): Promise<CreateConfirmedBookingResult> => {
     // Lock the session row.
     const [session] = await tx
       .select()
@@ -260,28 +262,8 @@ export async function createConfirmedBookingFreePath(opts: {
     // method `member_allotment`) is itself the unit of consumption — the next
     // getActiveMembershipForOrg lookup counts it against the monthly cap.
 
-    // Fire-and-forget transactional confirmation. We dispatch *after* the
-    // transaction commits — but since we need the booking id, we kick it off
-    // via a microtask: the inserted row is committed when the tx body
-    // returns and the dispatcher reads it from a fresh DB query.
-    queueMicrotask(() => {
-      void dispatchBookingConfirmation(booking.id, opts.brand)
-        .then((result) => {
-          // dispatch resolves {ok:false} on a send failure (it doesn't throw),
-          // so without this the email could silently never arrive with no log.
-          if (!result.ok) {
-            console.error("[dropin] booking-confirmation not delivered", {
-              bookingId: booking.id,
-              brand: opts.brand,
-              reason: result.reason,
-              error: result.error,
-            });
-          }
-        })
-        .catch((err) => {
-          console.error("[dropin] booking-confirmation dispatch threw", err);
-        });
-    });
+    // Confirmation is dispatched after the tx commits (see below) — an
+    // un-awaited send here is dropped when the serverless function freezes.
 
     return {
       ok: true,
@@ -291,6 +273,17 @@ export async function createConfirmedBookingFreePath(opts: {
       teamAssignment: team,
     };
   });
+
+  // Confirmation email — awaited so the send completes before the function
+  // freezes; outside the tx so a messaging failure can't roll back the booking.
+  if (bookingResult.ok) {
+    await awaitDispatch(
+      "dropin confirmation",
+      () => dispatchBookingConfirmation(bookingResult.bookingId, opts.brand),
+      { bookingId: bookingResult.bookingId, brand: opts.brand },
+    );
+  }
+  return bookingResult;
 }
 
 // ---- Helper -----------------------------------------------------------------

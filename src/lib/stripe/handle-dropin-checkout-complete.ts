@@ -24,6 +24,7 @@ import {
 import { assignTeam } from "@/lib/dropin/team-assignment";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
@@ -155,35 +156,12 @@ export async function handleDropInCheckoutComplete(
       })
       .returning();
 
-    // Fire-and-forget confirmation. The webhook handler is idempotent and
-    // we don't want messaging failures to roll back the booking insert.
-    queueMicrotask(() => {
-      void dispatchBookingConfirmation(booking.id, brand)
-        .then((result) => {
-          // dispatch resolves {ok:false} on a send failure (it doesn't throw),
-          // so without this the email could silently never arrive with no log.
-          if (!result.ok) {
-            console.error(
-              "[dropin] checkout booking-confirmation not delivered",
-              {
-                bookingId: booking.id,
-                brand,
-                reason: result.reason,
-                error: result.error,
-              },
-            );
-          }
-        })
-        .catch((err) => {
-          console.error(
-            "[dropin] checkout booking-confirmation dispatch threw",
-            err,
-          );
-        });
-    });
+    // Confirmation email is dispatched AFTER the tx commits (see below), not
+    // here — an un-awaited send inside the tx is dropped when the serverless
+    // function freezes after responding.
 
-    // Revenue event — no DB access, so safe inside the tx (same as the
-    // queued confirmation above). Brand-attributed for two-brand segmentation.
+    // Revenue event — no DB access, so safe inside the tx.
+    // Brand-attributed for two-brand segmentation.
     capturePaymentCompleted({
       distinctId: userId,
       kind: "dropin",
@@ -209,6 +187,14 @@ export async function handleDropInCheckoutComplete(
   // from the captured session labels; no DB query needed here). Deduped
   // against the browser pixel by the PaymentIntent id.
   if (result.status === "processed") {
+    // Confirmation email — awaited so the send completes before the function
+    // freezes. Failure is logged, never thrown (must not poison the webhook).
+    await awaitDispatch(
+      "dropin checkout confirmation",
+      () => dispatchBookingConfirmation(result.bookingId, brand),
+      { bookingId: result.bookingId, brand },
+    );
+
     const md = session.metadata ?? {};
     const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
     if (hasAttribution) {

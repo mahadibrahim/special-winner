@@ -16,6 +16,7 @@ import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
 import { dispatchRentalConfirmation } from "@/lib/rentals/messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
@@ -87,13 +88,14 @@ export async function handleFieldRentalWalkUpPayment(
       console.error("[rentals] ledger sync after confirm failed", result.rentalId, err);
     }
 
-    // Fire-and-forget rental confirmation (email-preferred, SMS fallback).
-    // Messaging failures must not fail the webhook; dispatch logs its own.
-    queueMicrotask(() => {
-      void dispatchRentalConfirmation(result.rentalId).catch((err) => {
-        console.error("[rentals] walk-up confirmation dispatch failed", err);
-      });
-    });
+    // Rental confirmation (email-preferred, SMS fallback). Awaited so the send
+    // completes before the serverless function freezes; logged-but-not-thrown
+    // on failure so it can't poison the webhook.
+    await awaitDispatch(
+      "rental walk-up confirmation",
+      () => dispatchRentalConfirmation(result.rentalId),
+      { rentalId: result.rentalId },
+    );
 
     // Revenue analytics only — at-facility Terminal sale, no ad click, so not
     // reported to GA4 Ads / Meta as a conversion (PostHog reporting only).

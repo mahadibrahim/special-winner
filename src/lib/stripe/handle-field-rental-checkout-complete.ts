@@ -26,6 +26,7 @@ import { stripe } from "@/lib/stripe/client";
 import { logAlert } from "@/lib/logging/alerts";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
 import { dispatchRentalConfirmation } from "@/lib/rentals/messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
@@ -185,13 +186,14 @@ export async function handleFieldRentalCheckoutComplete(
       console.error("[rentals] ledger sync after confirm failed", result.rentalId, err);
     }
 
-    // Fire-and-forget rental confirmation (email-preferred, SMS fallback).
-    // Messaging failures must not fail the webhook; dispatch logs its own.
-    queueMicrotask(() => {
-      void dispatchRentalConfirmation(result.rentalId).catch((err) => {
-        console.error("[rentals] checkout confirmation dispatch failed", err);
-      });
-    });
+    // Rental confirmation (email-preferred, SMS fallback). Awaited so the send
+    // completes before the serverless function freezes; logged-but-not-thrown
+    // on failure so it can't poison the webhook.
+    await awaitDispatch(
+      "rental checkout confirmation",
+      () => dispatchRentalConfirmation(result.rentalId),
+      { rentalId: result.rentalId },
+    );
 
     // Revenue analytics (all rentals) + server-side ad conversions (online
     // path is ad-attributable). Brand/user/venue come from the checkout
