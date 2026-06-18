@@ -52,21 +52,15 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 
       <!-- Hero content -->
       <div class="hero-content">
-        <!-- Pre-headline label -->
-        <div class="hero-label" aria-hidden="true">
-          <span class="label-dot"></span>
-          <span class="label-text">COLUMBUS, OHIO</span>
-        </div>
-
         <!-- Main headline -->
         <h1 class="hero-headline">
-          <span class="hero-line-1">INDOOR</span>
-          <span class="hero-line-2">SOCCER.</span>
+          <span class="hero-line-1">YOUR GAME.</span>
+          <span class="hero-line-2">ANY NIGHT.</span>
         </h1>
 
         <p class="hero-sub">
-          Two facilities. Four fields. One city.<br />
-          Leagues, pickup, and rentals — year-round.
+          Four indoor fields across <span class="hero-loc">Worthington &amp; Downtown Columbus</span>.<br />
+          Leagues, pickup, and rentals — every night, year-round.
         </p>
 
         <!-- Facility selector -->
@@ -614,33 +608,6 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .hero-label {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 1.5rem;
-      animation: heroReveal 1s ease-out 0.15s both;
-    }
-    .label-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--so-lime);
-      box-shadow: 0 0 8px var(--so-lime);
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .label-text {
-      font-family: var(--so-font-mono);
-      font-size: 0.6875rem;
-      font-weight: 500;
-      letter-spacing: 0.14em;
-      color: var(--so-lime-a80);
-    }
-
     .hero-headline {
       display: flex;
       flex-direction: column;
@@ -671,6 +638,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       max-width: 480px;
       animation: heroReveal 1s ease-out 0.5s both;
     }
+    .hero-loc { color: var(--so-lime); font-weight: 500; }
 
     /* Facility selector in hero */
     .hero-facility-selector {
