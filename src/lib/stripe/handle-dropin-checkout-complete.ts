@@ -158,12 +158,28 @@ export async function handleDropInCheckoutComplete(
     // Fire-and-forget confirmation. The webhook handler is idempotent and
     // we don't want messaging failures to roll back the booking insert.
     queueMicrotask(() => {
-      void dispatchBookingConfirmation(booking.id, brand).catch((err) => {
-        console.error(
-          "[dropin] checkout booking-confirmation dispatch failed",
-          err,
-        );
-      });
+      void dispatchBookingConfirmation(booking.id, brand)
+        .then((result) => {
+          // dispatch resolves {ok:false} on a send failure (it doesn't throw),
+          // so without this the email could silently never arrive with no log.
+          if (!result.ok) {
+            console.error(
+              "[dropin] checkout booking-confirmation not delivered",
+              {
+                bookingId: booking.id,
+                brand,
+                reason: result.reason,
+                error: result.error,
+              },
+            );
+          }
+        })
+        .catch((err) => {
+          console.error(
+            "[dropin] checkout booking-confirmation dispatch threw",
+            err,
+          );
+        });
     });
 
     // Revenue event — no DB access, so safe inside the tx (same as the
