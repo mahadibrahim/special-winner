@@ -781,6 +781,77 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Adult Season: ${adultSeason.name} (id: ${adultSeason.id}) status=${adultSeason.status}`);
 
+  // Team-capable adult-soccer season — sibling of the solo-only
+  // `e2e-adult-open-soccer-2026` above. Same program/org/location/age group so
+  // localhost resolves to it. `signupModes` includes "team", which is what the
+  // register page's choose-mode keys off of to show the "Bring a team" path
+  // (register-experience.tsx: `signupModes.includes("team")`). The solo sibling
+  // leaves signupModes at the default ['individual'], so this is the only e2e
+  // season that exercises the team/choose-mode flow.
+  // earlyBird (now + 14d) sits before registrationEnd (now + ~3wk), both future.
+  const teamEarlyBirdDeadline = new Date();
+  teamEarlyBirdDeadline.setDate(teamEarlyBirdDeadline.getDate() + 14);
+
+  let [adultTeamSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-adult-team-soccer-2026"))
+    .limit(1);
+
+  if (!adultTeamSeason) {
+    [adultTeamSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: adultProgram.id,
+        ageGroupId: adultAgeGroup.id,
+        name: "E2E Adult Team Soccer 2026",
+        slug: "e2e-adult-team-soccer-2026",
+        startDate: formatDate(seasonStartDate),
+        endDate: formatDate(seasonEndDate),
+        registrationOpens: new Date(), // Open now
+        registrationCloses: registrationEnd,
+        earlyBirdDeadline: teamEarlyBirdDeadline,
+        status: "open",
+        priceCents: 12000, // $120 per-player (free-agent / solo path)
+        teamPriceCents: 100000, // $1000 team fee (team path)
+        signupModes: ["team", "individual"], // team-capable → choose-mode shows "Bring a team"
+        depositCents: 3000, // $30 individual deposit (team flow uses its own $200)
+        allowDeposit: true,
+        maxParticipants: 30,
+        termSlug: "fall-2026",
+        termLabel: "Fall 2026",
+        divisionGender: "coed",
+        skillLevel: "c",
+        dayOfWeek: "wed",
+        startTime: "18:00",
+        endTime: "20:00",
+      })
+      .returning();
+  } else {
+    // Reset status/capacity and keep team capability + division metadata in
+    // sync on re-seed (mirrors the solo sibling's update branch).
+    [adultTeamSeason] = await db
+      .update(seasons)
+      .set({
+        status: "open",
+        maxParticipants: 30,
+        teamPriceCents: 100000,
+        signupModes: ["team", "individual"],
+        earlyBirdDeadline: teamEarlyBirdDeadline,
+        registrationCloses: registrationEnd,
+        termSlug: "fall-2026",
+        termLabel: "Fall 2026",
+        divisionGender: "coed",
+        skillLevel: "c",
+        dayOfWeek: "wed",
+        startTime: "18:00",
+        endTime: "20:00",
+      })
+      .where(eq(seasons.id, adultTeamSeason.id))
+      .returning();
+  }
+  console.log(`   ✓ Adult Season: ${adultTeamSeason.name} (id: ${adultTeamSeason.id}) signupModes=${adultTeamSeason.signupModes}`);
+
   // Second Aspire adult-soccer division (Men's D) so the soccer season page's
   // divisions finder has >1 row and the gender filter is exercised. Same
   // program/org as the coed season; unique slug.

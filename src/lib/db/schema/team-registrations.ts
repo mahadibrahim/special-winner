@@ -44,6 +44,7 @@ export const teamRegistrations = pgTable("team_registrations", {
 
   status: varchar("status", { length: 30 }).default("forming").notNull(),
   // 'forming' | 'roster_complete' | 'cancelled'
+  brand: varchar("brand", { length: 20 }), // 'aspire' | 'soccerone' — set from host at creation
 
   // Phase B — captain payment backstop (TeamPayer model)
   teamFeeCents: integer("team_fee_cents"),                 // snapshot of season team price at creation
