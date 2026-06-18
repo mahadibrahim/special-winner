@@ -1,31 +1,24 @@
 ---
-// One-screen hub: hero + category doors. Inventory lives on the category
-// pages (/adult/leagues, /adult/pickup, /adult/tournaments) — Phase 2 of
-// docs/superpowers/specs/2026-06-11-public-ia-redesign-design.md.
+// One-screen hub: video hero + colored animated category doors. Inventory
+// lives on the category pages. Bold-catalog redesign — see
+// docs/superpowers/specs/2026-06-18-adult-youth-sitemap-redesign-design.md
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import HubHero from "@/components/landing/hub-hero.astro";
+import CategoryCard from "@/components/landing/category-card.astro";
 import NextUpCard from "@/components/marketing/next-up-card.astro";
 import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "adult");
 
 const doors = [
-  {
-    href: "/adult/leagues",
-    cta: "adult-hub-leagues",
-    title: "Leagues",
-    blurb: "Season-long play. Sign up a full team or join as a free agent.",
-  },
-  {
-    href: "/adult/pickup",
-    cta: "adult-hub-pickup",
-    title: "Pickup",
-    blurb: "Show up and play — pay per session, no commitment.",
-  },
-  {
-    href: "/adult/tournaments",
-    cta: "adult-hub-tournaments",
-    title: "Tournaments",
-    blurb: "One-day brackets. Bring a team or get placed.",
-  },
+  { href: "/adult/leagues", cta: "adult-hub-leagues", palette: "leagues" as const,
+    title: "Leagues", blurb: "Season-long play. Build a team or join as a free agent.",
+    statusLabel: "Now registering", live: true, ctaLabel: "Browse leagues" },
+  { href: "/adult/pickup", cta: "adult-hub-pickup", palette: "pickup" as const,
+    title: "Pickup", blurb: "Show up and play. Pay per session, no commitment.",
+    statusLabel: "Open this week", live: true, ctaLabel: "Browse pickup" },
+  { href: "/adult/tournaments", cta: "adult-hub-tournaments", palette: "tournaments" as const,
+    title: "Tournaments", blurb: "Bring a team or get placed. A winner by sundown.",
+    statusLabel: "One-day brackets", live: false, ctaLabel: "Browse tournaments" },
 ];
 ---
 
@@ -38,43 +31,26 @@ const doors = [
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <section class="bg-gradient-to-br from-ink to-zinc-700 text-cream pt-28 pb-16">
-      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row lg:items-end gap-8">
-        <div class="flex-1">
-          <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
-            Adult Sports · Central Ohio
-          </p>
-          <h1
-            class="font-display max-w-3xl"
-            style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.03em;"
-          >
-            The league you'll build your week around.
-          </h1>
-          <p class="mt-6 text-lg text-cream/85 max-w-2xl">
-            Fair refs, reliable communication, and a post-game scene worth staying
-            for. Pick how you want to play.
-          </p>
-        </div>
-        {announcement && <div class="lg:pb-1"><NextUpCard announcement={announcement} /></div>}
-      </div>
-    </section>
+    <HubHero
+      title="Three ways to play. One standard."
+      subhead="Leagues, pickup, or tournaments — same fair refs, tight logistics, and post-game scene across all three. Pick your speed."
+      videoSources={["https://videos.pexels.com/video-files/3196586/3196586-uhd_2560_1440_25fps.mp4"]}
+      poster="https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1600&q=60"
+    />
 
-    <section class="py-12 lg:py-16">
-      <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        {doors.map((d) => (
-          <a
-            href={d.href}
-            data-landing-cta={d.cta}
-            class="group bg-paper border border-border rounded-2xl p-7 hover:border-ink-muted transition-colors"
-          >
-            <h2 class="font-display text-2xl text-ink">{d.title}</h2>
-            <p class="text-ink-muted mt-2">{d.blurb}</p>
-            <span class="inline-block mt-5 text-sm font-medium text-primary group-hover:translate-x-1 transition-transform">
-              Browse {d.title.toLowerCase()} →
-            </span>
-          </a>
-        ))}
+    {announcement && (
+      <div class="max-w-[1080px] mx-auto px-9 pt-6">
+        <NextUpCard announcement={announcement} />
       </div>
+    )}
+
+    <section class="max-w-[1080px] mx-auto px-9 pt-7 pb-16 grid grid-cols-1 md:grid-cols-3 gap-4">
+      {doors.map((d) => (
+        <CategoryCard
+          href={d.href} cta={d.cta} palette={d.palette} title={d.title}
+          blurb={d.blurb} statusLabel={d.statusLabel} live={d.live} ctaLabel={d.ctaLabel}
+        />
+      ))}
     </section>
   </main>
 </BaseLayout>
