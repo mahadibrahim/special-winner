@@ -313,6 +313,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
         <div class="play-grid">
           <!-- Leagues -->
           <a href="/leagues" class="play-card play-card--featured">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">01</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -322,7 +323,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
               </svg>
             </div>
             <h3 class="pc-title">Adult Leagues</h3>
-            <p class="pc-desc">Coed, Premier, and Women's divisions. 8-week seasons with playoffs.</p>
+            <p class="pc-desc">Coed, Premier, and Women's divisions. 7-game seasons across both sites.</p>
             <div class="pc-detail">
               <span class="pc-detail-item">
                 <span class="detail-label">SEASONS</span>
@@ -333,11 +334,13 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
                 <span class="detail-val">Available</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Now registering</span>
             <a href="/leagues" class="pc-cta">See Leagues</a>
           </a>
 
           <!-- Pickup -->
           <a href="/pickup" class="play-card">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">02</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -351,13 +354,15 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
             <div class="pc-detail">
               <span class="pc-detail-item">
                 <span class="detail-label">SESSION RATE</span>
-                <span class="detail-val">From $12/game</span>
+                <span class="detail-val">Members from $12 · drop in any night</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Runs every night</span>
           </a>
 
           <!-- Rentals -->
           <a href="/rent" class="play-card">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">03</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -372,14 +377,16 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
             <p class="pc-desc">Book a field by the hour. Training, parties, team practices. All 4 fields available.</p>
             <div class="pc-detail">
               <span class="pc-detail-item">
-                <span class="detail-label">FROM</span>
-                <span class="detail-val">$80/hr</span>
+                <span class="detail-label">PRICING</span>
+                <span class="detail-val">By the hour · all 4 fields</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Book by the hour</span>
           </a>
 
           <!-- Youth -->
-          <a href="/leagues" class="play-card">
+          <a href="/leagues?audience=youth" class="play-card">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">04</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -396,6 +403,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
                 <span class="detail-val">All ages</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Youth clinics open</span>
           </a>
         </div>
       </div>
@@ -1059,6 +1067,53 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     .play-card--featured {
       border-color: var(--so-lime-a25);
       background: var(--so-lime-a04);
+    }
+    .play-card:hover .pc-aurora { animation-duration: 6s; }
+    .play-card > * { position: relative; z-index: 1; }
+
+    .pc-aurora {
+      position: absolute;
+      inset: -40%;
+      z-index: 0;
+      filter: blur(34px);
+      opacity: 0.45;
+      background: radial-gradient(circle at 30% 30%, rgba(163,230,53,0.5), transparent 55%),
+                  radial-gradient(circle at 70% 70%, rgba(163,230,53,0.2), transparent 60%);
+      animation: pc-drift 14s ease-in-out infinite;
+    }
+
+    .pc-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--so-font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.04em;
+      color: var(--so-lime);
+      margin-top: 0.5rem;
+    }
+
+    .pc-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--so-lime);
+      animation: pc-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pc-drift {
+      0%, 100% { transform: translate(0, 0) scale(1.05); }
+      50% { transform: translate(3%, -3%) scale(1.12); }
+    }
+
+    @keyframes pc-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(163,230,53,0.5); }
+      50% { box-shadow: 0 0 0 7px rgba(163,230,53,0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pc-aurora, .pc-dot { animation: none; }
+      .play-card:hover { transform: none; }
     }
 
     .pc-num {
