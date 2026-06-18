@@ -9,12 +9,13 @@ import SoccerOneLeaguesFinder from '@/components/soccerone/SoccerOneLeaguesFinde
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
 // so this page sees only SoccerOne seasons when rendered in SoccerOne context.
-// Fetch ALL adult seasons (no location filter) so the client-side finder can
-// filter across all locations.
+// Fetch ALL seasons for the requested audience (no location filter) so the
+// client-side finder can filter across all locations.
+const audience = Astro.url.searchParams.get('audience') === 'youth' ? 'youth' : 'adult';
 let seasons: any[] = [];
 try {
   const url = new URL('/api/public/seasons', Astro.url);
-  url.searchParams.set('audience', 'adult');
+  url.searchParams.set('audience', audience);
   const res = await fetch(url, {
     headers: { Host: Astro.request.headers.get('host') ?? '' },
   });
@@ -51,8 +52,10 @@ const featuredPrice = featured
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
-  title="Leagues — SoccerOne"
-  description="Adult coed, premier, and corporate indoor soccer leagues at SoccerOne Columbus. Worthington (3 fields) and Downtown (1 field). Register now for the upcoming season."
+  title={audience === 'youth' ? 'Youth Leagues — SoccerOne' : 'Leagues — SoccerOne'}
+  description={audience === 'youth'
+    ? 'Youth indoor soccer leagues at SoccerOne Columbus — Worthington and Downtown. Register now for the upcoming season.'
+    : 'Adult coed, premier, and corporate indoor soccer leagues at SoccerOne Columbus. Worthington (3 fields) and Downtown (1 field). Register now for the upcoming season.'}
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -82,9 +85,11 @@ const featuredPrice = featured
 
         <div class="lh-top">
           <div class="lh-text">
-            <h1 class="lh-title">LEAGUES</h1>
+            <h1 class="lh-title">{audience === 'youth' ? 'YOUTH LEAGUES' : 'LEAGUES'}</h1>
             <p class="lh-desc">
-              Competitive indoor soccer, season by season. Adult Coed, Premier, Women's, and Corporate divisions across both locations.
+              {audience === 'youth'
+                ? 'Youth indoor soccer leagues and academies across both locations.'
+                : 'Competitive indoor soccer, season by season. Adult Coed, Premier, Women\'s, and Corporate divisions across both locations.'}
             </p>
           </div>
           <div class="lh-stats">
