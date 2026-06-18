@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
@@ -81,17 +82,8 @@ export async function handleDropinWalkinPayment(
       })
       .where(eq(dropInBookings.id, bookingId));
 
-    // Fire-and-forget booking confirmation (same renderer + channels as the
-    // online and admin walk-up paths). Messaging failures must not roll back
-    // the booking; dispatch logs its own errors.
-    queueMicrotask(() => {
-      void dispatchBookingConfirmation(bookingId).catch((err) => {
-        console.error(
-          "[dropin] walk-in booking-confirmation dispatch failed",
-          err,
-        );
-      });
-    });
+    // Confirmation is dispatched after the tx commits (see below) — an
+    // un-awaited send here is dropped when the serverless function freezes.
 
     return { status: "processed", bookingId, paidCents };
   });
@@ -99,6 +91,14 @@ export async function handleDropinWalkinPayment(
   // Revenue analytics only — kiosk walk-in has no ad click, so it is not
   // reported to GA4 Ads / Meta as a conversion (PostHog reporting only).
   if (result.status === "processed") {
+    // Confirmation email — awaited so the send completes before the function
+    // freezes; logged-but-not-thrown on failure.
+    await awaitDispatch(
+      "dropin walk-in confirmation",
+      () => dispatchBookingConfirmation(result.bookingId),
+      { bookingId: result.bookingId },
+    );
+
     capturePaymentCompleted({
       distinctId: bookingUserId,
       kind: "dropin",

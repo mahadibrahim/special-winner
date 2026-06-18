@@ -26,6 +26,7 @@ import { stripe } from "@/lib/stripe/client";
 import { logAlert } from "@/lib/logging/alerts";
 import { promoteNextWaitlister } from "./promotion";
 import { dispatchBookingCancelledByAdmin } from "./messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 
 export interface CancelRefundResult {
   ok: boolean;
@@ -145,17 +146,17 @@ export async function processCancelRefund(
   // OR session cancelled). User-initiated cancels skip the email — the
   // user just clicked Cancel and saw the confirmation in the UI.
   if (options.adminOverride || isSessionCancel) {
-    queueMicrotask(() => {
-      void dispatchBookingCancelledByAdmin(bookingId, {
-        reason: isSessionCancel ? "session_cancelled" : "admin_refund",
-        refunded,
-      }).catch((err) => {
-        console.error(
-          "[dropin refund] booking-cancelled-by-admin dispatch failed",
-          err,
-        );
-      });
-    });
+    // Awaited so the send completes before the function freezes; logged, not
+    // thrown — a messaging failure must not break the cancel/refund response.
+    await awaitDispatch(
+      "dropin booking-cancelled-by-admin",
+      () =>
+        dispatchBookingCancelledByAdmin(bookingId, {
+          reason: isSessionCancel ? "session_cancelled" : "admin_refund",
+          refunded,
+        }),
+      { bookingId },
+    );
   }
 
   let promotedNextBookingId: string | undefined;

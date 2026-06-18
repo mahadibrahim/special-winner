@@ -24,6 +24,7 @@ import {
   dropInRateCard,
 } from "@/lib/db/schema/drop-in";
 import { dispatchWaitlistPromoted } from "./messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 
 export interface PromotionResult {
   promoted: boolean;
@@ -40,7 +41,8 @@ export async function promoteNextWaitlister(
   sessionId: string,
 ): Promise<PromotionResult> {
   const db = getDb();
-  return await db.transaction(async (tx) => {
+  const promotionResult = await db.transaction(
+    async (tx): Promise<PromotionResult> => {
     // Fetch the session's org so we can read the rate card's promotion window.
     const [sessionRow] = await tx
       .select({ organizationId: dropInSessions.organizationId })
@@ -95,17 +97,30 @@ export async function promoteNextWaitlister(
       expiresAt,
     };
 
-    // Fire the claim notification once the row update commits. The
-    // microtask queues after the surrounding tx returns, ensuring the
-    // dispatcher sees the promoted state when it reads the booking row.
-    queueMicrotask(() => {
-      void dispatchWaitlistPromoted(next.id, token, expiresAt).catch((err) => {
-        console.error("[dropin] waitlist-promoted dispatch failed", err);
-      });
-    });
+    // Claim notification is dispatched after the tx commits (see below) — an
+    // un-awaited send here is dropped when the serverless function freezes.
 
     return result;
   });
+
+  // Awaited so the send completes before the function freezes; outside the tx
+  // so a messaging failure can't roll back the promotion. Logged, not thrown.
+  if (
+    promotionResult.promoted &&
+    promotionResult.bookingId &&
+    promotionResult.token &&
+    promotionResult.expiresAt
+  ) {
+    const bookingId = promotionResult.bookingId;
+    const token = promotionResult.token;
+    const expiresAt = promotionResult.expiresAt;
+    await awaitDispatch(
+      "dropin waitlist-promoted",
+      () => dispatchWaitlistPromoted(bookingId, token, expiresAt),
+      { bookingId },
+    );
+  }
+  return promotionResult;
 }
 
 export interface ExpireResult {

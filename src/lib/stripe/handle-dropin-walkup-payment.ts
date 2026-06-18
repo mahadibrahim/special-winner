@@ -24,6 +24,7 @@ import {
 import { assignTeam } from "@/lib/dropin/team-assignment";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 
@@ -133,16 +134,8 @@ export async function handleDropInWalkUpPayment(
       })
       .returning();
 
-    // Fire-and-forget confirmation (walk-up source). Messaging failures
-    // must not roll back the booking; dispatch logs its own errors.
-    queueMicrotask(() => {
-      void dispatchBookingConfirmation(booking.id).catch((err) => {
-        console.error(
-          "[dropin] walk-up booking-confirmation dispatch failed",
-          err,
-        );
-      });
-    });
+    // Confirmation is dispatched after the tx commits (see below) — an
+    // un-awaited send here is dropped when the serverless function freezes.
 
     return {
       status: "processed",
@@ -155,6 +148,14 @@ export async function handleDropInWalkUpPayment(
   // behind it, so it is deliberately NOT reported to GA4 Ads / Meta as a
   // conversion — only to PostHog for internal revenue reporting.
   if (result.status === "processed") {
+    // Confirmation email — awaited so the send completes before the function
+    // freezes; logged-but-not-thrown on failure.
+    await awaitDispatch(
+      "dropin walk-up confirmation",
+      () => dispatchBookingConfirmation(result.bookingId),
+      { bookingId: result.bookingId },
+    );
+
     capturePaymentCompleted({
       distinctId: userId,
       kind: "dropin",
