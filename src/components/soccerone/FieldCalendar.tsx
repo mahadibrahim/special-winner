@@ -26,9 +26,13 @@ interface AvailabilityResponse {
   fields: FieldAvailability[];
 }
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 7); // 7am to 11pm
+// 4pm (16:00) open through the last bookable block at 11pm, which ends at
+// midnight close. The slot end label uses formatHour(hour + 1), so 24 must
+// render as midnight.
+const HOURS = Array.from({ length: 8 }, (_, i) => i + 16); // 4pm to midnight
 
 function formatHour(h: number) {
+  if (h === 0 || h === 24) return "12:00 AM";
   if (h === 12) return "12:00 PM";
   if (h < 12) return `${h}:00 AM`;
   return `${h - 12}:00 PM`;

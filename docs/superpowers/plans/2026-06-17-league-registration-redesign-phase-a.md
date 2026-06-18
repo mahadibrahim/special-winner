@@ -178,9 +178,9 @@ describe("rail-content", () => {
     expect(priceLabel("team", s)).toEqual({ amount: "$1,000", unit: "team · early-bird" });
     expect(priceLabel("share", s)).toEqual({ amount: "$120", unit: "your share" });
   });
-  it("formatDayTime renders day + time window", () => {
-    expect(formatDayTime("Tue", "19:00:00", "22:00:00")).toBe("Tue nights · 7–10pm");
-    expect(formatDayTime("Tue", null, null)).toBe("Tue nights");
+  it("formatDayTime renders day + time window (dayOfWeek is lowercase 'tue')", () => {
+    expect(formatDayTime("tue", "19:00:00", "22:00:00")).toBe("Tue nights · 7–10pm");
+    expect(formatDayTime("tue", null, null)).toBe("Tue nights");
     expect(formatDayTime(null, null, null)).toBe("");
   });
 });
@@ -216,8 +216,9 @@ export function priceLabel(
   return { amount: usd(season.price), unit: "solo" };
 }
 
-const DAY_FULL: Record<string, string> = {
-  Sun: "Sun", Mon: "Mon", Tue: "Tue", Wed: "Wed", Thu: "Thu", Fri: "Fri", Sat: "Sat",
+// dayOfWeek is stored lowercase 3-char ('mon'..'sun'); normalize to a label.
+const DAY_LABEL: Record<string, string> = {
+  sun: "Sun", mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat",
 };
 
 function to12h(t: string): string {
@@ -228,8 +229,9 @@ function to12h(t: string): string {
 }
 
 export function formatDayTime(day: string | null, start: string | null, end: string | null): string {
-  if (!day) return "";
-  const d = `${DAY_FULL[day] ?? day} nights`;
+  const label = DAY_LABEL[(day ?? "").toLowerCase()];
+  if (!label) return "";
+  const d = `${label} nights`;
   if (!start || !end) return d;
   // "7–10pm" — collapse matching periods to one suffix.
   const s = to12h(start), e = to12h(end);
@@ -452,7 +454,8 @@ export default function RegisterExperience({ seasonId, user, audienceHint, wasCa
   seasonId: string; user: AuthedUser; audienceHint: string | null; wasCancelled: boolean; teamToken: string | null;
 }) {
   useHydrationBeacon();
-  const [season, setSeason] = useState<(RailSeason & { signupModes: string[]; status: string }) | null>(null);
+  // signupModes is a single varchar (e.g. "team_or_individual"); .includes("team") works on it.
+  const [season, setSeason] = useState<(RailSeason & { signupModes: string | null; status: string }) | null>(null);
   const [err, setErr] = useState<string | null>(null);
   // teamToken present → teammate-join (mode "share"); else choose-mode first.
   const [mode, setMode] = useState<"choose" | "solo" | "team">(teamToken ? "solo" : "choose");
@@ -460,7 +463,8 @@ export default function RegisterExperience({ seasonId, user, audienceHint, wasCa
   useEffect(() => {
     fetch(`/api/public/seasons/${seasonId}`).then(async (r) => {
       if (!r.ok) throw new Error("not_found");
-      setSeason(await r.json());
+      const body = await r.json();
+      setSeason(body.season); // detail endpoint wraps the payload in { season }
     }).catch(() => setErr("We couldn't load this league. It may be closed."));
   }, [seasonId]);
 

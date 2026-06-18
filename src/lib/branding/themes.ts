@@ -46,7 +46,7 @@ const aspire: BrandTheme = {
   chrome: "aspire",
   defaultDescription:
     "Aspire Sports — evidence-based youth and adult sports in Central Ohio.",
-  favicon: "/favicon.svg",
+  favicon: "/favicon.svg?v=2",
   fontsHref: null,
   cssVars: null,
 };

@@ -22,6 +22,7 @@ import {
   dropInRateCard,
 } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
+import { locations } from "@/lib/db/schema/organizations";
 
 export const prerender = false;
 
@@ -43,6 +44,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const sport = url.searchParams.get("sport");
   const skill = url.searchParams.get("skill");
   const venueId = url.searchParams.get("venue");
+  // Filter to sessions whose venue belongs to this location slug (e.g.
+  // 'worthington' | 'downtown'). Backs the pickup-page facility tabs.
+  const location = url.searchParams.get("location");
   const audience = url.searchParams.get("audience");
   const fromIso = url.searchParams.get("from");
   const toIso = url.searchParams.get("to");
@@ -62,6 +66,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   if (sport) conds.push(eq(dropInSessions.sportOrClassLabel, sport));
   if (skill) conds.push(sql`${dropInSessions.skillLevel}::text = ${skill}`);
   if (venueId) conds.push(eq(dropInSessions.venueId, venueId));
+  if (location) conds.push(eq(locations.slug, location));
   if (audience) conds.push(sql`${dropInSessions.audience}::text = ${audience}`);
 
   const rows = await db
@@ -89,6 +94,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     })
     .from(dropInSessions)
     .leftJoin(venues, eq(venues.id, dropInSessions.venueId))
+    .leftJoin(locations, eq(locations.id, venues.locationId))
     .where(and(...conds))
     .orderBy(asc(dropInSessions.startsAt));
 

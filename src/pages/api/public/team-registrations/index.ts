@@ -4,6 +4,11 @@ import { teamRegistrations, seasons } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
+import { createDepositIntentWithSavedCard } from "@/lib/stripe/saved-cards";
+import { stripe } from "@/lib/stripe/client";
+import { brandFromHost } from "@/lib/organization/soccerone-routing";
+
+const DEPOSIT_AMOUNT_CENTS = 20000; // $200 (locked decision)
 
 const BodySchema = z.object({
   seasonId: z.string().uuid(),
@@ -41,6 +46,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     );
   }
 
+  // The captain pays a $200 deposit that SAVES a card (off-session) for the
+  // backstop charge, so we need a Stripe customer tied to a real user.
+  if (!locals.user) {
+    return new Response(
+      JSON.stringify({ error: "Please sign in to reserve a team." }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   let parsed;
   try {
     const body = await request.json();
@@ -61,10 +75,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const { seasonId, teamName, captainName, captainEmail, notes } = parsed.data;
 
+  const captainUserId = locals.user.id;
+  let teamRegistrationId: string | undefined;
+
   try {
-    // Verify the season exists and belongs to this org.
+    // Verify the season exists and belongs to this org, and snapshot the
+    // team fee + payment deadline onto the row at creation time.
     const seasonRow = await db
-      .select({ id: seasons.id })
+      .select({
+        id: seasons.id,
+        teamPriceCents: seasons.teamPriceCents,
+        priceCents: seasons.priceCents,
+        registrationCloses: seasons.registrationCloses,
+      })
       .from(seasons)
       .where(eq(seasons.id, seasonId))
       .limit(1);
@@ -74,9 +97,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
         { status: 404, headers: { "Content-Type": "application/json" } },
       );
     }
+    const season = seasonRow[0];
 
     const inviteToken = generateInviteToken();
-    const captainUserId = locals.user?.id ?? null;
+    const brand = brandFromHost(request.headers.get("host") ?? "");
 
     const inserted = await db
       .insert(teamRegistrations)
@@ -90,18 +114,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
         inviteToken,
         notes,
         status: "forming",
+        brand,
+        teamFeeCents: season.teamPriceCents ?? season.priceCents,
+        depositCents: DEPOSIT_AMOUNT_CENTS,
+        paymentDeadline: season.registrationCloses,
       })
       .returning({ id: teamRegistrations.id });
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        teamRegistrationId: inserted[0]?.id,
-        inviteToken,
-        joinUrl: `/team/${inviteToken}`,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    );
+    teamRegistrationId = inserted[0]?.id;
+    if (!teamRegistrationId) {
+      throw new Error("team_registrations insert returned no id");
+    }
+    return await finishWithDepositIntent({
+      teamRegistrationId,
+      captainUserId,
+      captainEmail,
+      inviteToken,
+      teamFeeCents: season.teamPriceCents ?? season.priceCents,
+    });
   } catch (err) {
     console.error("[team-registrations] insert failed", err);
     return new Response(
@@ -110,3 +140,97 @@ export const POST: APIRoute = async ({ request, locals }) => {
     );
   }
 };
+
+/**
+ * Create the captain's $200 deposit PaymentIntent (which also saves the card
+ * off-session for the backstop charge) and persist the Stripe customer id onto
+ * the team row. A Stripe failure rolls back the half-created team and returns a
+ * clean 502 so the client never gets an unpayable team.
+ */
+async function finishWithDepositIntent(params: {
+  teamRegistrationId: string;
+  captainUserId: string;
+  captainEmail: string;
+  inviteToken: string;
+  teamFeeCents: number;
+}): Promise<Response> {
+  const { teamRegistrationId, captainUserId, captainEmail, inviteToken, teamFeeCents } =
+    params;
+  if (!db) {
+    return new Response(
+      JSON.stringify({ error: "Database unavailable" }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // Graceful degradation: with no Stripe configured (local dev / CI), create the
+  // team WITHOUT a deposit so the rest of the flow still works. Production has
+  // Stripe, so the $200 deposit + saved card are enforced there. The team-create
+  // UI already falls through to the share view when no client secret is returned.
+  if (!stripe) {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        teamRegistrationId,
+        inviteToken,
+        joinUrl: `/team/${inviteToken}`,
+        teamFeeCents,
+        depositClientSecret: null,
+        publishableKey: null,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  let clientSecret: string;
+  let customerId: string;
+  try {
+    const intent = await createDepositIntentWithSavedCard({
+      userId: captainUserId,
+      email: captainEmail,
+      amountCents: DEPOSIT_AMOUNT_CENTS,
+      metadata: {
+        team_registration_id: teamRegistrationId,
+        kind: "team_deposit",
+      },
+    });
+    clientSecret = intent.clientSecret;
+    customerId = intent.customerId;
+  } catch (err) {
+    console.error("[team-registrations] deposit intent failed", err);
+    // Don't leave a half-created team claiming success — remove the row so the
+    // captain can retry cleanly. (No registrations reference it yet.)
+    try {
+      await db
+        .delete(teamRegistrations)
+        .where(eq(teamRegistrations.id, teamRegistrationId));
+    } catch (cleanupErr) {
+      console.error("[team-registrations] rollback delete failed", cleanupErr);
+    }
+    return new Response(
+      JSON.stringify({
+        error:
+          "We couldn't start your deposit. Please try again in a moment — no team was created.",
+      }),
+      { status: 502, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  await db
+    .update(teamRegistrations)
+    .set({ captainStripeCustomerId: customerId, updatedAt: new Date() })
+    .where(eq(teamRegistrations.id, teamRegistrationId));
+
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      teamRegistrationId,
+      inviteToken,
+      joinUrl: `/team/${inviteToken}`,
+      teamFeeCents,
+      depositClientSecret: clientSecret,
+      publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}

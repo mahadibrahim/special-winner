@@ -312,7 +312,25 @@ export function SeasonsList() {
       })
 
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error)
+      if (!response.ok) {
+        // Surface zod field-level messages (data.details) instead of the bare
+        // "Validation failed", so the user sees which field is wrong.
+        const details = data.details as Record<string, string[]> | undefined
+        const humanize = (f: string) =>
+          f
+            .replace(/Cents$/, "")
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^./, (c) => c.toUpperCase())
+            .trim()
+        const fieldMsgs = details
+          ? Object.entries(details).flatMap(([field, msgs]) =>
+              (Array.isArray(msgs) ? msgs : []).map((m) => `${humanize(field)}: ${m}`),
+            )
+          : []
+        throw new Error(
+          fieldMsgs.length ? fieldMsgs.join("; ") : data.error || "Request failed",
+        )
+      }
 
       await fetchData()
       setIsDialogOpen(false)
