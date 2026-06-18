@@ -2,6 +2,7 @@
 
 import { ArrowRight, Clock, MapPin } from "lucide-react"
 import type { SessionCardData } from "@/components/dropin/SessionCard"
+import { skillLevelDisplay } from "@/lib/landing/skill-levels"
 
 /**
  * Editorial pickup card for the /adult finder. A visual sibling of
@@ -99,10 +100,10 @@ export default function PickupCard({
           </div>
         )}
 
-        {/* Skill badge — at most one, mirrors ProgramCardV2's format badge */}
+        {/* Skill badge — at most one, color-coded by level (see skill-levels.ts) */}
         <div className="mt-2">
-          <span className="inline-flex items-center font-semibold tracking-wide uppercase text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
-            {session.skillLevel.replace("_", " ")}
+          <span className={`inline-flex items-center font-semibold tracking-wide uppercase text-[10px] px-2 py-0.5 rounded ${skillLevelDisplay(session.skillLevel).badgeClass}`}>
+            {skillLevelDisplay(session.skillLevel).label}
           </span>
         </div>
 
