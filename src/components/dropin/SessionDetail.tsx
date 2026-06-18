@@ -143,7 +143,7 @@ export default function SessionDetail({
         </div>
       )}
       {bannerKind === "cancelled" && (
-        <div className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-stone-700">
+        <div className="rounded-lg border border-cream-3 bg-cream-2 px-4 py-3 text-ink-2">
           Checkout was cancelled. Your spot was not reserved.
         </div>
       )}
@@ -151,22 +151,22 @@ export default function SessionDetail({
       <header>
         <a
           href="/dropin"
-          className="text-xs uppercase tracking-wider text-stone-500 hover:text-stone-900"
+          className="text-xs uppercase tracking-wider text-ink-faint hover:text-ink"
         >
           ← All sessions
         </a>
-        <h1 className="mt-2 text-3xl font-bold text-stone-900">
+        <h1 className="mt-2 text-3xl font-bold text-ink">
           {session.sportOrClassLabel}
           {session.formatLabel && (
-            <span className="text-stone-500 font-normal">
+            <span className="text-ink-muted font-normal">
               {" "}
               · {session.formatLabel}
             </span>
           )}
         </h1>
-        <p className="mt-1 text-stone-600">{fmtDate(session.startsAt)}</p>
+        <p className="mt-1 text-ink-muted">{fmtDate(session.startsAt)}</p>
         {data.venueName && (
-          <p className="mt-0.5 text-stone-500">{data.venueName}</p>
+          <p className="mt-0.5 text-ink-faint">{data.venueName}</p>
         )}
       </header>
 
@@ -181,9 +181,9 @@ export default function SessionDetail({
         )}
       </div>
 
-      <div className="rounded-xl border border-stone-200 bg-white p-5 space-y-4">
+      <div className="rounded-xl border border-cream-3 bg-paper p-5 space-y-4">
         <div>
-          <div className="flex items-center justify-between text-sm text-stone-700">
+          <div className="flex items-center justify-between text-sm text-ink-2">
             <span>
               {data.confirmedCount} / {session.capacity} confirmed
             </span>
@@ -191,7 +191,7 @@ export default function SessionDetail({
               {data.waitlistCount > 0 ? `${data.waitlistCount} on waitlist` : ""}
             </span>
           </div>
-          <div className="mt-1 h-2 w-full rounded bg-stone-100 overflow-hidden">
+          <div className="mt-1 h-2 w-full rounded bg-cream-3 overflow-hidden">
             <div
               className={`h-full ${isFull ? "bg-amber-500" : "bg-emerald-500"}`}
               style={{ width: `${fillPct}%` }}
@@ -200,7 +200,7 @@ export default function SessionDetail({
         </div>
 
         {(session.capacityMale != null || session.capacityFemale != null) && (
-          <p className="text-xs text-stone-500">
+          <p className="text-xs text-ink-faint">
             Per-gender caps in place to keep teams balanced.
           </p>
         )}
@@ -232,8 +232,8 @@ export default function SessionDetail({
       </div>
 
       {data.rateCard && (
-        <div className="rounded-xl border border-stone-200 bg-stone-50 p-5 text-sm text-stone-700">
-          <h3 className="font-semibold text-stone-900 mb-2">Cancellation policy</h3>
+        <div className="rounded-xl border border-cream-3 bg-cream-2 p-5 text-sm text-ink-2">
+          <h3 className="font-semibold text-ink mb-2">Cancellation policy</h3>
           <p>
             Cancel at least <strong>{data.rateCard.cancelWindowHours} hours</strong>{" "}
             before the session for a full refund. Inside that window, the booking

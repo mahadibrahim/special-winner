@@ -217,11 +217,11 @@ export function BookButton({
                   placeholder="you@email.com"
                 />
               </div>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-ink-faint">
                 Already have an account?{" "}
                 <a
                   href={`/signin?redirect=/dropin/${sessionId}`}
-                  className="underline hover:text-stone-700"
+                  className="underline hover:text-ink-2"
                 >
                   Sign in
                 </a>{" "}
@@ -230,7 +230,7 @@ export function BookButton({
             </div>
           )}
 
-          <p className="text-sm text-stone-700 leading-relaxed">{WAIVER_TEXT}</p>
+          <p className="text-sm text-ink-2 leading-relaxed">{WAIVER_TEXT}</p>
 
           <div className="space-y-4 pt-2">
             <div className="flex items-start gap-3">

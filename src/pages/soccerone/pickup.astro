@@ -59,7 +59,7 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
             </div>
             <div class="pqs-div" aria-hidden="true"></div>
             <div class="pqs-item">
-              <span class="pqs-num mono">$15</span>
+              <span class="pqs-num">$15</span>
               <span class="pqs-label">booked online</span>
             </div>
             <div class="pqs-div" aria-hidden="true"></div>
@@ -185,7 +185,6 @@ const facility = Astro.url.searchParams.get('facility') || 'all';
     .ph-quickstats { display: flex; align-items: center; gap: 1.5rem; background: var(--so-lime-a04); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-md); padding: 1.25rem 1.75rem; flex-shrink: 0; }
     .pqs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
     .pqs-num { font-family: var(--so-font-display); font-size: 2rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
-    .pqs-num.mono { font-family: var(--so-font-mono); font-size: 1.5rem; }
     .pqs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
     .pqs-div { width: 1px; height: 36px; background: rgba(255,255,255,0.08); }
 
