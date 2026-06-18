@@ -71,6 +71,8 @@ export const PUT: APIRoute = async (context) => {
     updates.defaultSessionRateCents = body.defaultSessionRateCents;
   if (body.defaultMemberRateCents !== undefined)
     updates.defaultMemberRateCents = body.defaultMemberRateCents;
+  if (body.defaultWalkUpRateCents !== undefined)
+    updates.defaultWalkUpRateCents = body.defaultWalkUpRateCents;
   if (body.cancelWindowHours !== undefined)
     updates.cancelWindowHours = body.cancelWindowHours;
   if (body.promotionWindowMinutes !== undefined)
