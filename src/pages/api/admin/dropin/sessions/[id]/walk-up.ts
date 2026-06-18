@@ -133,7 +133,7 @@ export const POST: APIRoute = async (context) => {
     userId,
     session.organizationId,
   );
-  const rate = resolveRate(session, { id: userId }, membership, rateCard);
+  const rate = resolveRate(session, { id: userId }, membership, rateCard, "walk_up");
 
   // Free path (member allotment / unlimited / $0 override): create immediately.
   if (rate.amountCents === 0) {

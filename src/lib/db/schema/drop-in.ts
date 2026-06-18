@@ -101,6 +101,7 @@ export const dropInSessions = pgTable(
     membersOnly: boolean("members_only").notNull().default(false),
     sessionRateCents: integer("session_rate_cents"),
     memberRateCents: integer("member_rate_cents"),
+    walkUpRateCents: integer("walk_up_rate_cents"),
     teamCount: integer("team_count").notNull().default(0),
     teamColors: text("team_colors")
       .array()
@@ -178,6 +179,7 @@ export const dropInRateCard = pgTable("drop_in_rate_card", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   defaultSessionRateCents: integer("default_session_rate_cents").notNull().default(1500),
   defaultMemberRateCents: integer("default_member_rate_cents").notNull().default(1200),
+  defaultWalkUpRateCents: integer("default_walk_up_rate_cents").notNull().default(1700),
   cancelWindowHours: integer("cancel_window_hours").notNull().default(24),
   promotionWindowMinutes: integer("promotion_window_minutes").notNull().default(30),
   checkInWindowMinutes: integer("check_in_window_minutes").notNull().default(60),

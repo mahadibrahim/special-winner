@@ -8,6 +8,7 @@
 export interface RateCardPutBody {
   defaultSessionRateCents?: number;
   defaultMemberRateCents?: number;
+  defaultWalkUpRateCents?: number;
   cancelWindowHours?: number;
   promotionWindowMinutes?: number;
 }
@@ -16,6 +17,7 @@ export function validateRateCardPut(body: RateCardPutBody): string | null {
   for (const key of [
     "defaultSessionRateCents",
     "defaultMemberRateCents",
+    "defaultWalkUpRateCents",
     "cancelWindowHours",
     "promotionWindowMinutes",
   ] as const) {

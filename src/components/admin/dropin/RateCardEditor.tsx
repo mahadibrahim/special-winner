@@ -12,6 +12,7 @@ import { toast } from "sonner";
 interface RateCard {
   defaultSessionRateCents: number;
   defaultMemberRateCents: number;
+  defaultWalkUpRateCents: number;
   cancelWindowHours: number;
   promotionWindowMinutes: number;
   updatedAt: string;
@@ -55,6 +56,7 @@ export function RateCardEditor() {
         body: JSON.stringify({
           defaultSessionRateCents: card.defaultSessionRateCents,
           defaultMemberRateCents: card.defaultMemberRateCents,
+          defaultWalkUpRateCents: card.defaultWalkUpRateCents,
           cancelWindowHours: card.cancelWindowHours,
           promotionWindowMinutes: card.promotionWindowMinutes,
         }),
@@ -122,6 +124,24 @@ export function RateCardEditor() {
               <p className="mt-1 text-xs text-ink-muted">
                 Member price (after allotment exhausted): $
                 {(card.defaultMemberRateCents / 100).toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="walkup-rate">Default walk-up rate (cents)</Label>
+              <Input
+                id="walkup-rate"
+                type="number"
+                min={0}
+                value={card.defaultWalkUpRateCents}
+                onChange={(e) =>
+                  setCard({
+                    ...card,
+                    defaultWalkUpRateCents: Number(e.target.value),
+                  })
+                }
+              />
+              <p className="mt-1 text-xs text-ink-muted">
+                In-person walk-in price: ${(card.defaultWalkUpRateCents / 100).toFixed(2)}
               </p>
             </div>
             <div>

@@ -36,6 +36,7 @@ interface FormState {
   membersOnly: boolean;
   sessionRateCents: string;
   memberRateCents: string;
+  walkUpRateCents: string;
   teamCount: number;
   teamColors: string;
 }
@@ -56,6 +57,7 @@ const EMPTY: FormState = {
   membersOnly: false,
   sessionRateCents: "",
   memberRateCents: "",
+  walkUpRateCents: "",
   teamCount: 0,
   teamColors: "",
 };
@@ -115,6 +117,8 @@ export function SessionForm({ sessionId }: SessionFormProps) {
               s.sessionRateCents != null ? String(s.sessionRateCents) : "",
             memberRateCents:
               s.memberRateCents != null ? String(s.memberRateCents) : "",
+            walkUpRateCents:
+              s.walkUpRateCents != null ? String(s.walkUpRateCents) : "",
             teamCount: s.teamCount,
             teamColors: (s.teamColors ?? []).join(", "),
           });
@@ -175,6 +179,9 @@ export function SessionForm({ sessionId }: SessionFormProps) {
           : null,
         memberRateCents: state.memberRateCents
           ? Number(state.memberRateCents)
+          : null,
+        walkUpRateCents: state.walkUpRateCents
+          ? Number(state.walkUpRateCents)
           : null,
         teamCount: Number(state.teamCount),
         teamColors: state.teamColors
@@ -416,6 +423,19 @@ export function SessionForm({ sessionId }: SessionFormProps) {
             value={state.memberRateCents}
             onChange={(e) =>
               setState({ ...state, memberRateCents: e.target.value })
+            }
+            placeholder="leave blank for rate-card default"
+          />
+        </div>
+        <div>
+          <Label htmlFor="wuprate">Walk-up rate (cents) — override</Label>
+          <Input
+            id="wuprate"
+            type="number"
+            min={0}
+            value={state.walkUpRateCents}
+            onChange={(e) =>
+              setState({ ...state, walkUpRateCents: e.target.value })
             }
             placeholder="leave blank for rate-card default"
           />

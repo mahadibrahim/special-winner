@@ -23,6 +23,7 @@ import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { stripe } from "@/lib/stripe/client";
 import { computeSurchargeCents } from "@/lib/payments/surcharge";
+import { resolveRate } from "@/lib/dropin/pricing";
 import { dropInPaymentDescription } from "@/lib/dropin/checkout-line-item";
 
 export const prerender = false;
@@ -87,6 +88,8 @@ export const POST: APIRoute = async ({ params, request }) => {
     .select({
       id: dropInSessions.id,
       sessionRateCents: dropInSessions.sessionRateCents,
+      memberRateCents: dropInSessions.memberRateCents,
+      walkUpRateCents: dropInSessions.walkUpRateCents,
       organizationId: dropInSessions.organizationId,
       venueId: dropInSessions.venueId,
       sportOrClassLabel: dropInSessions.sportOrClassLabel,
@@ -130,8 +133,11 @@ export const POST: APIRoute = async ({ params, request }) => {
       .where(eq(dropInRateCard.organizationId, sessionRow.organizationId))
       .limit(1);
   }
-  const amountCents =
-    sessionRow.sessionRateCents ?? rateCard?.defaultSessionRateCents ?? 1500;
+  // Kiosk walk-ins always pay the walk-up rate (no membership lookup here).
+  // The card surcharge below is still added on top → walk-up base + surcharge.
+  const amountCents = rateCard
+    ? resolveRate(sessionRow, null, null, rateCard, "walk_up").amountCents
+    : 1700;
 
   // Kiosk walk-in is always a card payment — apply the same card surcharge
   // the online drop-in checkout adds, so a walk-in costs the customer the
