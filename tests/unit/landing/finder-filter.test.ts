@@ -1,9 +1,13 @@
-import { describe, it, expect, vi, afterEach, beforeAll } from "vitest"
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest"
 import { dispatchFinderFilter, onFinderFilter, type FinderFilterDetail } from "@/lib/landing/finder-filter"
 
 // finder-filter.ts uses window/document APIs. Provide minimal stubs so the
 // module can be exercised in the Node/Vitest environment without jsdom.
-beforeAll(() => {
+// Re-stub before each test to reset the in-memory listener map and avoid
+// shared-state leakage between tests. Note: the module-level `pending` replay
+// buffer in finder-filter.ts isn't externally resettable, which is why each
+// test that subscribes also dispatches first.
+beforeEach(() => {
   const listeners: Record<string, EventListenerOrEventListenerObject[]> = {}
   ;(globalThis as any).window = {
     dispatchEvent: (e: CustomEvent) => {
@@ -42,8 +46,16 @@ describe("finder-filter event bus", () => {
     expect(received[0].key).toBe("leagues")
   })
 
-  it("location is optional (existing two-field callers still type-check)", () => {
-    const d: FinderFilterDetail = { key: "soccer", sectionId: "sessions" }
-    expect(d.location).toBeUndefined()
+  it("omits location when not provided", () => {
+    // Dispatch before subscribing so the module-level pending buffer holds this
+    // test's event (not a stale one from a prior test) when onFinderFilter replays.
+    dispatchFinderFilter({ key: "soccer", sectionId: "sessions" })
+    const received: FinderFilterDetail[] = []
+    const off = onFinderFilter((d) => received.push(d))
+    off()
+
+    expect(received).toHaveLength(1)
+    expect(received[0].key).toBe("soccer")
+    expect(received[0].location).toBeUndefined()
   })
 })
