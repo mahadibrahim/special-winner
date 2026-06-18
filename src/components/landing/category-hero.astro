@@ -1,0 +1,83 @@
+---
+// src/components/landing/category-hero.astro
+// Reusable bold-catalog hero for category pages (pickup, tournaments,
+// youth/leagues, youth/camps). Mirrors the hero on /adult/leagues: full-bleed
+// video, layered oklch overlay, display headline, sport/format tiles, and an
+// optional cross-link. Live tiles either link out (when `href` is set) or
+// scroll-and-filter the finder section identified by `finderId`.
+import { tileLinksOut, type HeroTile } from "@/lib/landing/hero-tiles"
+
+interface Props {
+  title: string
+  subhead: string
+  /** mp4 sources, highest quality first. */
+  videoSources: string[]
+  poster: string
+  tiles: HeroTile[]
+  /** Finder <section> id the tiles scroll to / filter (e.g. "sessions"). */
+  finderId: string
+  crosslink?: { prompt: string; href: string; label: string }
+}
+const { title, subhead, videoSources, poster, tiles, finderId, crosslink } = Astro.props
+---
+
+<section class="relative text-cream pt-16 px-9 pb-8 overflow-hidden">
+  <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover z-0" poster={poster}>
+    {videoSources.map((src) => <source src={src} type="video/mp4" />)}
+  </video>
+  <div class="absolute inset-0 z-[1]" style="background:linear-gradient(180deg,oklch(0.18 0.07 262/0.45),oklch(0.18 0.07 262/0.82)),linear-gradient(100deg,oklch(0.18 0.07 262/0.7),oklch(0.18 0.07 262/0.25))"></div>
+  <div class="relative z-[2] max-w-[1080px] mx-auto">
+    <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95">{title}</h1>
+    <p class="mt-3 text-base text-cream/90 max-w-[520px]">{subhead}</p>
+
+    <div class="grid sm:grid-cols-3 gap-3 mt-6">
+      {tiles.map((t) =>
+        tileLinksOut(t) ? (
+          <a href={t.href} data-sport-tile data-sport={t.key} data-state="live" class="relative rounded-2xl p-4 text-ink overflow-hidden" style={`background:${t.color}`}>
+            <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
+            <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
+            <div class="font-mono text-xs">{t.meta}</div>
+            <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+          </a>
+        ) : t.state === "live" ? (
+          <button type="button" data-sport-tile data-sport={t.key} data-state="live" data-finder={finderId} class="relative text-left rounded-2xl p-4 text-ink overflow-hidden cursor-pointer" style={`background:${t.color}`}>
+            <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
+            <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
+            <div class="font-mono text-xs">{t.meta}</div>
+            <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+          </button>
+        ) : (
+          <div data-sport-tile data-sport={t.key} data-state="coming_soon" class="rounded-2xl p-4 border border-cream/25 text-cream/80" style="background:oklch(0.2 0.06 262/0.7)">
+            <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
+            <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
+            <div class="font-mono text-xs">{t.meta}</div>
+          </div>
+        ),
+      )}
+    </div>
+
+    {crosslink && (
+      <p class="mt-5 text-sm text-cream/70">
+        {crosslink.prompt}{" "}
+        <a href={crosslink.href} class="underline underline-offset-2 hover:text-cream transition-colors">{crosslink.label}</a>
+      </p>
+    )}
+  </div>
+</section>
+
+<script>
+  import { trackCatalogSportTileClicked } from "@/lib/analytics/events"
+  import { dispatchFinderFilter } from "@/lib/landing/finder-filter"
+
+  document.querySelectorAll<HTMLElement>("[data-sport-tile]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const state = (el.dataset.state as "live" | "coming_soon") ?? "live"
+      trackCatalogSportTileClicked({ sport: el.dataset.sport ?? "", state })
+      // A live tile with a data-finder attr (no href) scroll-filters the finder.
+      const finderId = el.dataset.finder
+      if (state === "live" && finderId) {
+        dispatchFinderFilter({ key: el.dataset.sport ?? "", sectionId: finderId })
+      }
+    })
+  })
+</script>
