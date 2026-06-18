@@ -71,6 +71,11 @@ export default function SessionDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pollExhausted, setPollExhausted] = useState(false);
+  // Auto-advance: after a fresh, confirmed booking, signed-in users glide to
+  // their dashboard on a short countdown (with opt-out). Guests are never
+  // auto-advanced — the dashboard is auth-gated, so it'd dump them on /signin.
+  const [redirectIn, setRedirectIn] = useState<number | null>(null);
+  const [stayHere, setStayHere] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +123,34 @@ export default function SessionDetail({
     };
   }, [sessionId, bannerKind, checkoutSessionId]);
 
+  // Auto-advance to the dashboard for a signed-in user who just confirmed a
+  // booking (fresh ?booking=success). Guests are excluded — their dashboard is
+  // auth-gated. Opt out via "Stay here". 5s gives a beat to see the receipt.
+  const AUTO_ADVANCE_SECONDS = 5;
+  useEffect(() => {
+    if (!data || stayHere || bannerKind !== "success" || !isAuthenticated) {
+      return;
+    }
+    const phase = deriveDropInSuccessPhase({
+      bannerKind,
+      bookingStatus: data.alreadyBookedStatus,
+      pollExhausted,
+    });
+    if (phase !== "confirmed") return;
+
+    setRedirectIn(AUTO_ADVANCE_SECONDS);
+    const tick = setInterval(() => {
+      setRedirectIn((n) => (n !== null && n > 0 ? n - 1 : 0));
+    }, 1000);
+    const go = setTimeout(() => {
+      window.location.href = "/dashboard/bookings";
+    }, AUTO_ADVANCE_SECONDS * 1000);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(go);
+    };
+  }, [data, bannerKind, pollExhausted, isAuthenticated, stayHere]);
+
   if (loading) return <LoadingSkeleton />;
   if (error) return <ErrorBanner message={error} />;
   if (!data) return null;
@@ -140,7 +173,28 @@ export default function SessionDetail({
     <div className="max-w-3xl mx-auto space-y-6">
       {successPhase === "confirmed" && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
-          Booking confirmed. See it in your dashboard.
+          <p className="font-medium">Booking confirmed.</p>
+          {redirectIn !== null && !stayHere ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span>Taking you to your dashboard in {redirectIn}s…</span>
+              <a href="/dashboard/bookings" className="font-medium underline">
+                View now
+              </a>
+              <button
+                type="button"
+                onClick={() => setStayHere(true)}
+                className="underline"
+              >
+                Stay here
+              </button>
+            </p>
+          ) : (
+            <p className="mt-1 text-sm">
+              {isAuthenticated
+                ? "See it in your dashboard."
+                : "Sign in anytime to manage your booking."}
+            </p>
+          )}
         </div>
       )}
       {finalizing && (

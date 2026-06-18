@@ -265,9 +265,22 @@ export async function createConfirmedBookingFreePath(opts: {
     // via a microtask: the inserted row is committed when the tx body
     // returns and the dispatcher reads it from a fresh DB query.
     queueMicrotask(() => {
-      void dispatchBookingConfirmation(booking.id, opts.brand).catch((err) => {
-        console.error("[dropin] booking-confirmation dispatch failed", err);
-      });
+      void dispatchBookingConfirmation(booking.id, opts.brand)
+        .then((result) => {
+          // dispatch resolves {ok:false} on a send failure (it doesn't throw),
+          // so without this the email could silently never arrive with no log.
+          if (!result.ok) {
+            console.error("[dropin] booking-confirmation not delivered", {
+              bookingId: booking.id,
+              brand: opts.brand,
+              reason: result.reason,
+              error: result.error,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("[dropin] booking-confirmation dispatch threw", err);
+        });
     });
 
     return {

@@ -62,9 +62,19 @@ export function BookButton({
   }
 
   if (alreadyBookedStatus === "confirmed") {
+    // The dashboard is auth-gated. A guest who booked without signing in
+    // (existing-account guest — new guests get an auto-session) would be
+    // bounced to /signin from "View in dashboard", so send them there
+    // explicitly with a clearer label instead.
     return (
       <Button asChild size="lg" variant="outline" className="w-full">
-        <a href="/dashboard/bookings">View in dashboard</a>
+        {isAuthenticated ? (
+          <a href="/dashboard/bookings">View in dashboard</a>
+        ) : (
+          <a href="/signin?redirect=/dashboard/bookings">
+            Sign in to manage your booking
+          </a>
+        )}
       </Button>
     );
   }
