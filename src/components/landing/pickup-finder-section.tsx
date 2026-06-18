@@ -142,7 +142,7 @@ export function PickupFinderSection({
         {!loading && sessions.length > 0 && (
           <div className="mt-6 flex flex-col gap-2.5">
             <FilterChips label="Date" options={dateOptions} active={activeDate} onChange={setActiveDate} />
-            <FilterChips label="Sport" options={sportOptions} active={activeSport} onChange={setActiveSport} />
+            <FilterChips label="Sport" options={sportOptions} active={activeSport} onChange={(v) => { setActiveSport(v); setExternalSportKey(null) }} />
             <FilterChips label="Skill" options={skillOptions} active={activeSkill} onChange={setActiveSkill} />
             <FilterChips label="Venue" options={venueOptions} active={activeVenue} onChange={setActiveVenue} />
           </div>
