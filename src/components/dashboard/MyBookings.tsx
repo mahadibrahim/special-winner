@@ -44,6 +44,7 @@ export default function MyBookings() {
   const [dropinFailed, setDropinFailed] = useState(false);
   const [rentalFailed, setRentalFailed] = useState(false);
   const [checkingIn, setCheckingIn] = useState<Set<string>>(new Set());
+  const [successBanner, setSuccessBanner] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -68,6 +69,17 @@ export default function MyBookings() {
   };
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("rental") === "success") {
+      setSuccessBanner(true);
+      params.delete("rental");
+      const newSearch = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        newSearch ? `?${newSearch}` : window.location.pathname,
+      );
+    }
     void reload();
   }, []);
 
@@ -188,6 +200,19 @@ export default function MyBookings() {
           <p className="text-sm text-ink-2 mt-0.5">{upcoming.length} upcoming</p>
         )}
       </div>
+
+      {successBanner && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center justify-between text-sm text-emerald-900">
+          <span>Rental booked successfully</span>
+          <button
+            type="button"
+            onClick={() => setSuccessBanner(false)}
+            className="ml-4 text-emerald-700 hover:text-emerald-900 font-medium"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {(dropinFailed || rentalFailed) && (
         <p className="text-[11px] text-ink-muted">
