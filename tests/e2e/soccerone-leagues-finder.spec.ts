@@ -15,11 +15,10 @@ test("leagues finder filters by location without a page reload", async ({ page }
   // Sentinel: filtering must NOT reload the page.
   await page.evaluate(() => ((window as any).__noReload = true))
 
-  const downtownChip = finder.getByRole("button", { name: /downtown/i }).first()
-  // Only assert filtering when the catalog actually has a Downtown chip.
-  if (await downtownChip.count()) {
-    await downtownChip.click()
-    await expect(page.locator(".so-finder-count strong")).toBeVisible()
-    expect(await page.evaluate(() => (window as any).__noReload)).toBe(true)
-  }
+  const downtownChip = finder.getByRole("button", { name: /downtown/i })
+  const hasDowntown = (await downtownChip.count()) > 0
+  test.skip(!hasDowntown, "no Downtown SoccerOne season in seed — run scripts/seed-soccerone-org.ts first")
+  await downtownChip.click()
+  await expect(page.locator(".so-finder-count strong")).toBeVisible()
+  expect(await page.evaluate(() => (window as any).__noReload)).toBe(true)
 })
