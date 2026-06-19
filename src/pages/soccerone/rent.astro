@@ -6,6 +6,8 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { Toaster } from 'sonner';
 import { FieldCalendar } from '@/components/soccerone/FieldCalendar';
 import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
+import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
+import { getActiveMembershipForOrg } from '@/lib/memberships/get-active-membership';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
@@ -22,12 +24,26 @@ const venueList = organizationId
 // Venues are modeled one-per-physical-field; the calendar's Field selector
 // switches between them.
 const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
+
+const orgTimeZone = Astro.locals.organization?.timezone ?? 'America/New_York';
+let memberDiscountPct = 0;
+if (Astro.locals.user && organizationId) {
+  try {
+    const m = await getActiveMembershipForOrg(Astro.locals.user.id, organizationId);
+    memberDiscountPct = (m?.tier?.benefits?.rental_discount_pct as number | undefined) ?? 0;
+  } catch {
+    memberDiscountPct = 0;
+  }
+}
+
+// Helper to format cents as whole-dollar string
+const fmt = (cents: number) => `$${cents / 100}`;
 ---
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title={`Field Rentals — SoccerOne | ${facilityLabel}`}
-  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). $80/hr standard, members from $64/hr. Open 4pm–12am daily."
+  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). Seasonal tiered rates, members save 10–25%. Open 4pm–12am daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -63,33 +79,33 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
             </p>
           </div>
 
-          <!-- Rates block -->
-          <div class="rates-block">
-            <div class="rate-item">
-              <span class="ri-amount mono">$80</span>
-              <span class="ri-unit">/hr</span>
-              <span class="ri-label">Standard Rate</span>
-            </div>
-            <div class="rate-div" aria-hidden="true"></div>
-            <div class="rate-item">
-              <span class="ri-amount mono">$72</span>
-              <span class="ri-unit">/hr</span>
-              <span class="ri-label">Member Rate</span>
-              <span class="ri-save">−$8/hr</span>
-            </div>
-            <div class="rate-div" aria-hidden="true"></div>
-            <div class="rate-item">
-              <span class="ri-amount mono">$64</span>
-              <span class="ri-unit">/hr</span>
-              <span class="ri-label">Founder Rate</span>
-              <span class="ri-save">−$16/hr</span>
-            </div>
-            <div class="rate-div" aria-hidden="true"></div>
-            <div class="rate-item">
-              <span class="ri-amount mono">4PM</span>
-              <span class="ri-label">Open daily</span>
-              <span class="ri-sub">Through Midnight</span>
-            </div>
+          <!-- Tiered rates table -->
+          <div class="rates-table-wrap">
+            <table class="rates-table" aria-label="Field rental rates by season and time">
+              <thead>
+                <tr>
+                  <th class="rt-th rt-th--season">Season</th>
+                  <th class="rt-th">Weekday before 3 PM</th>
+                  <th class="rt-th">Weekday 3–6 PM</th>
+                  <th class="rt-th">Weekday after 6 PM &amp; weekends</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="rt-season mono">Apr – Sep</td>
+                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.summer.before3)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.summer.midday)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.summer.evening)}<span class="rt-per">/hr</span></td>
+                </tr>
+                <tr>
+                  <td class="rt-season mono">Oct – Mar</td>
+                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.winter.before3)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.winter.midday)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.winter.evening)}<span class="rt-per">/hr</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="rt-member-note">Members save 10% · founding members save 25%.</p>
           </div>
         </div>
 
@@ -140,7 +156,16 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
           </div>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} />
+        <!-- Availability disclaimer -->
+        <div class="avail-disclaimer" role="note">
+          <span class="avail-icon" aria-hidden="true">⚠</span>
+          <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
+        </div>
+
+        <FieldCalendar client:load venues={calendarVenues} timeZone={orgTimeZone} memberDiscountPct={memberDiscountPct} />
+
+        <!-- Cancellation policy -->
+        <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>
       </div>
     </div>
 
@@ -284,6 +309,98 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
     .ri-sub { font-family: var(--so-font-mono); font-size: 0.5rem; color: rgba(255,255,255,0.3); letter-spacing: 0.04em; }
     .rate-div { width: 1px; height: 48px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
 
+    /* Tiered rates table */
+    .rates-table-wrap {
+      flex-shrink: 0;
+      max-width: 560px;
+      width: 100%;
+    }
+    .rates-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--so-lime-a04);
+      border: 1px solid var(--so-lime-a15);
+      border-radius: var(--so-radius-md);
+      overflow: hidden;
+      font-size: 0.8125rem;
+    }
+    .rt-th {
+      font-family: var(--so-font-mono);
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.4);
+      text-align: left;
+      padding: 0.625rem 0.875rem;
+      border-bottom: 1px solid var(--so-lime-a10);
+      white-space: nowrap;
+    }
+    .rt-th--season { color: var(--so-lime-a50); }
+    .rt-season {
+      font-family: var(--so-font-mono);
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
+      padding: 0.625rem 0.875rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      white-space: nowrap;
+    }
+    .rt-rate {
+      font-family: var(--so-font-display);
+      font-size: 1.375rem;
+      color: var(--so-lime);
+      letter-spacing: 0.02em;
+      padding: 0.625rem 0.875rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      white-space: nowrap;
+    }
+    .rt-per {
+      font-family: var(--so-font-mono);
+      font-size: 0.5rem;
+      color: var(--so-lime-a60);
+      letter-spacing: 0.06em;
+      margin-left: 1px;
+    }
+    tbody tr:last-child .rt-season,
+    tbody tr:last-child .rt-rate { border-bottom: none; }
+    .rt-member-note {
+      font-family: var(--so-font-mono);
+      font-size: 0.5625rem;
+      letter-spacing: 0.08em;
+      color: #86efac;
+      margin-top: 0.5rem;
+    }
+
+    /* Availability disclaimer */
+    .avail-disclaimer {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: rgba(var(--so-lime-rgb, 163,230,53), 0.06);
+      border: 1px solid var(--so-lime-a20);
+      border-left: 3px solid var(--so-lime);
+      border-radius: var(--so-radius-sm);
+      padding: 0.875rem 1rem;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+    .avail-icon {
+      color: var(--so-lime);
+      font-size: 0.875rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Cancellation policy */
+    .cancel-policy {
+      font-family: var(--so-font-mono);
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.04em;
+      margin-top: 1.25rem;
+    }
+
     .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); }
     .ff-tab { font-family: var(--so-font-body); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
     .ff-tab:hover { color: rgba(255,255,255,0.7); }
@@ -350,8 +467,9 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
       .includes-grid { grid-template-columns: 1fr; }
       .rmc-inner { flex-direction: column; align-items: flex-start; }
       .fcb-inner { flex-direction: column; align-items: flex-start; }
-      .rates-block { flex-direction: column; gap: 1rem; }
-      .rate-div { display: none; }
+      .rates-table-wrap { max-width: 100%; overflow-x: auto; }
+      .rates-table { font-size: 0.75rem; }
+      .rt-rate { font-size: 1.125rem; }
     }
   </style>
 </BaseLayout>
