@@ -43,6 +43,7 @@ export const SOCCERONE_MARKETING_REWRITES: Readonly<Record<string, string>> = {
   "/downtown": "/soccerone/downtown",
   "/worthington": "/soccerone/worthington",
   "/join": "/soccerone/join",
+  "/sponsors": "/soccerone/sponsors",
 } as const;
 
 function normalizeHost(host: string): string {

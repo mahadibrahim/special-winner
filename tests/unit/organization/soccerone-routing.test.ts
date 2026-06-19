@@ -32,6 +32,7 @@ describe("soccerone-routing — constants", () => {
       "/downtown": "/soccerone/downtown",
       "/worthington": "/soccerone/worthington",
       "/join": "/soccerone/join",
+      "/sponsors": "/soccerone/sponsors",
     };
     expect(SOCCERONE_MARKETING_REWRITES).toEqual(expected);
   });
@@ -47,6 +48,7 @@ describe("rewriteSoccerOnePath()", () => {
     ["/downtown", "/soccerone/downtown"],
     ["/worthington", "/soccerone/worthington"],
     ["/join", "/soccerone/join"],
+    ["/sponsors", "/soccerone/sponsors"],
   ])("rewrites %s → %s", (input, expected) => {
     expect(rewriteSoccerOnePath(input)).toBe(expected);
   });
@@ -122,6 +124,7 @@ describe("getSoccerOneCanonicalRedirect()", () => {
     ["/soccerone/memberships", "/memberships"],
     ["/soccerone/downtown", "/downtown"],
     ["/soccerone/worthington", "/worthington"],
+    ["/soccerone/sponsors", "/sponsors"],
   ])("redirects long form %s → short form %s", (input, expected) => {
     expect(getSoccerOneCanonicalRedirect(input)).toBe(expected);
   });
