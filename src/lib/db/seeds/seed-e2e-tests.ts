@@ -2079,6 +2079,45 @@ async function seedE2ETests() {
   } else {
     const soccerOneOrgId = soccerOneOrgForMembership.id;
 
+    // Tier: "Founder" — $49/mo monthly, 25% rental discount (founding member benefit).
+    let [founderTier] = await db
+      .select()
+      .from(membershipTiers)
+      .where(
+        and(
+          eq(membershipTiers.organizationId, soccerOneOrgId),
+          eq(membershipTiers.name, "Founder"),
+        ),
+      )
+      .limit(1);
+    if (!founderTier) {
+      [founderTier] = await db
+        .insert(membershipTiers)
+        .values({
+          organizationId: soccerOneOrgId,
+          name: "Founder",
+          monthlyPriceCents: 4900,
+          annualPriceCents: 49000,
+          benefits: { rental_discount_pct: 25 },
+          stripePriceIdMonthly: "price_test_soccerone_founder_monthly",
+          stripePriceIdAnnual: "price_test_soccerone_founder_annual",
+          displayOrder: 1,
+          isActive: true,
+        })
+        .returning();
+      console.log(`   ✓ Created tier "Founder" (${founderTier.id})`);
+    } else {
+      // Idempotent: merge rental_discount_pct into existing benefits without
+      // clobbering any other benefit keys already set in prod/staging.
+      const merged = { ...(founderTier.benefits as Record<string, unknown>), rental_discount_pct: 25 };
+      [founderTier] = await db
+        .update(membershipTiers)
+        .set({ benefits: merged, updatedAt: new Date() })
+        .where(eq(membershipTiers.id, founderTier.id))
+        .returning();
+      console.log(`   ✓ Tier "Founder" already exists — rental_discount_pct ensured at 25`);
+    }
+
     // Tier: "Member" — $29/mo monthly, 10% rental discount.
     let [memberTier] = await db
       .select()
@@ -2107,7 +2146,14 @@ async function seedE2ETests() {
         .returning();
       console.log(`   ✓ Created tier "Member" (${memberTier.id})`);
     } else {
-      console.log(`   ✓ Tier "Member" already exists`);
+      // Idempotent: merge rental_discount_pct into existing benefits.
+      const merged = { ...(memberTier.benefits as Record<string, unknown>), rental_discount_pct: 10 };
+      [memberTier] = await db
+        .update(membershipTiers)
+        .set({ benefits: merged, updatedAt: new Date() })
+        .where(eq(membershipTiers.id, memberTier.id))
+        .returning();
+      console.log(`   ✓ Tier "Member" already exists — rental_discount_pct ensured at 10`);
     }
 
     // Member + pending user. No upsertUser helper exists in this file; mirror
