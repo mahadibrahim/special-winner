@@ -111,6 +111,8 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
           padding: 2px 7px;
         }
 
+        .lc-meta-row { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
+
         .lc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
 
         .lc-division { display: flex; flex-direction: column; gap: 2px; }
@@ -264,7 +266,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
       <div className={`lc-location-badge ${isDowntown ? "lc-location-badge--downtown" : ""}`}>{season.location.name.toUpperCase()}</div>
       <div className="lc-top">
         <div className="lc-division"><span className="lc-div-label">PROGRAM</span><span className="lc-div-name">{season.program.name}</span></div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexShrink: 0 }}>
+        <div className="lc-meta-row">
           {season.skillLevel && (
             <span className="lc-level-badge">
               {season.skillLevel === "open" ? "Open" : String(season.skillLevel).toUpperCase()}
