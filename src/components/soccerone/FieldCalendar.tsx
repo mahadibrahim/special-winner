@@ -119,12 +119,19 @@ export interface FieldCalendarProps {
    * user's membership status. Defaults to 0 (no discount shown).
    */
   memberDiscountPct?: number;
+  /**
+   * IANA timezone for the org/facility (e.g. "America/New_York"). Used to
+   * resolve the correct pricing tier from wall-clock hour. Defaults to
+   * "America/New_York" (SoccerOne's venue timezone).
+   */
+  timeZone?: string;
 }
 
 export function FieldCalendar({
   venues,
   initialDate,
   memberDiscountPct = 0,
+  timeZone = "America/New_York",
 }: FieldCalendarProps) {
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
@@ -219,10 +226,9 @@ export function FieldCalendar({
     : null;
 
   // Live total — recomputed whenever start or duration changes.
-  // Booking grid slot hours are stored as UTC wall-clock labeled as local facility hours;
-  // price in UTC so the tier matches the displayed hour.
+  // Price in the org timezone — slots are constructed in org tz (see zonedHourToUtc).
   // Same engine as the server, so the display matches the charged amount.
-  const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, "UTC") : null;
+  const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, timeZone) : null;
 
   const memberCents =
     standardCents !== null && memberDiscountPct > 0

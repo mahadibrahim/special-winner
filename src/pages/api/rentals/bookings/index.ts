@@ -136,11 +136,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     );
   }
 
-  // Booking grid slot hours are stored as UTC wall-clock labeled as local facility hours;
-  // price in UTC so the tier matches the displayed hour.
+  // Price in the org timezone — slots are constructed in org tz (see zonedHourToUtc).
   const baseAmountDueCents =
     locals.brandId === "soccerone"
-      ? quoteRentalCents(startsAt, endsAt, "UTC")
+      ? quoteRentalCents(startsAt, endsAt, locals.organization?.timezone ?? "America/New_York")
       : computeRentalPriceCents(
           startsAt,
           endsAt,

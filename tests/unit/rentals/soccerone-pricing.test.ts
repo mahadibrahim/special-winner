@@ -47,4 +47,11 @@ describe("soccerone rental pricing", () => {
     // and a "4 PM" slot (16:00Z) → 3–6pm tier $170
     expect(quoteRentalCents(utc("2026-07-15T16:00:00Z"), utc("2026-07-15T17:00:00Z"), "UTC")).toBe(17000)
   })
+
+  it("ET-correct instants price by the local tier (4pm ET summer = midday $170, 7pm = evening $190)", () => {
+    // 4 PM EDT = 20:00Z → 5 PM EDT = 21:00Z
+    expect(quoteRentalCents(utc("2026-07-15T20:00:00Z"), utc("2026-07-15T21:00:00Z"), "America/New_York")).toBe(17000)
+    // 7 PM EDT = 23:00Z → 8 PM EDT = 00:00Z next day
+    expect(quoteRentalCents(utc("2026-07-15T23:00:00Z"), utc("2026-07-16T00:00:00Z"), "America/New_York")).toBe(19000)
+  })
 })
