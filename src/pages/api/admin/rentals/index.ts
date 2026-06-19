@@ -170,6 +170,8 @@ export const POST: APIRoute = async (context) => {
       : computeRentalPriceCents(startsAt, endsAt, hourlyRate);
 
   if (paymentMethod === "cash" || paymentMethod === "comp") {
+    // brand omitted → defaults to "aspire". Admin-created rentals don't carry a host-derived brand;
+    // branding SoccerOne-venue rentals created via admin is a follow-up.
     const result = await createConfirmedRentalNonStripe({
       organizationId: orgId,
       venueId,
@@ -196,6 +198,8 @@ export const POST: APIRoute = async (context) => {
 
   if (paymentMethod === "card_present") {
     if (!stripe) return json({ error: "Stripe not configured" }, 500);
+    // brand omitted → defaults to "aspire". Admin-created rentals don't carry a host-derived brand;
+    // branding SoccerOne-venue rentals created via admin is a follow-up.
     const hold = await createRentalHold({
       organizationId: orgId,
       venueId,
@@ -267,6 +271,8 @@ export const POST: APIRoute = async (context) => {
   // (Inserted with placeholder paymentMethod "cash" because
   // createConfirmedRentalNonStripe's type union excludes card_online; we
   // immediately update both the method and the payment status after.)
+  // brand omitted → defaults to "aspire". Admin-created rentals don't carry a host-derived brand;
+  // branding SoccerOne-venue rentals created via admin is a follow-up.
   const result = await createConfirmedRentalNonStripe({
     organizationId: orgId,
     venueId,
