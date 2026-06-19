@@ -1,8 +1,9 @@
 /**
  * GET   /api/admin/rentals/:id → full rental detail.
- * PATCH /api/admin/rentals/:id → update notes/purpose, or cancel (without
- *        refund — use /refund for paid rentals). Body: { notes?, purpose?,
- *        cancel?: boolean }.
+ * PATCH /api/admin/rentals/:id → update notes/purpose; cancel (without
+ *        refund — use /refund for paid rentals); or reschedule:
+ *        Body: { notes?, purpose?, cancel?: boolean,
+ *                reschedule?: { date: "YYYY-MM-DD", startHour: number, durationMinutes: number } }
  *
  * Org- AND location-scoped: a venue manager can only read or mutate rentals
  * whose venue is in their assigned locations (super-admin is unscoped).
@@ -14,6 +15,9 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
+import { assertNoRentalConflict } from "@/lib/rentals/conflicts";
+import { syncRentalBlock } from "@/lib/scheduling/sync";
+import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 
 export const prerender = false;
 
@@ -54,7 +58,12 @@ export const PATCH: APIRoute = async (context) => {
   const rentalId = context.params.id;
   if (!rentalId) return json({ error: "rental id required" }, 400);
 
-  let body: { notes?: string; purpose?: string; cancel?: boolean };
+  let body: {
+    notes?: string;
+    purpose?: string;
+    cancel?: boolean;
+    reschedule?: { date: string; startHour: number; durationMinutes: number };
+  };
   try {
     body = await context.request.json();
   } catch {
@@ -74,6 +83,67 @@ export const PATCH: APIRoute = async (context) => {
     return json({ error: "Rental not found" }, 404);
   }
 
+  // --- reschedule action (conflict-checked + ledger re-sync) ---
+  if (body.reschedule) {
+    const { date, startHour, durationMinutes } = body.reschedule;
+    if (
+      typeof date !== "string" ||
+      !date.match(/^\d{4}-\d{2}-\d{2}$/) ||
+      typeof startHour !== "number" ||
+      startHour < 0 ||
+      startHour > 23 ||
+      typeof durationMinutes !== "number" ||
+      durationMinutes <= 0
+    ) {
+      return json(
+        { error: "reschedule requires date (YYYY-MM-DD), startHour (0-23), durationMinutes (>0)" },
+        400,
+      );
+    }
+
+    const orgTz = context.locals.organization?.timezone ?? "America/New_York";
+    const newStartsAt = zonedHourToUtc(date, startHour, orgTz);
+    const newEndsAt = new Date(newStartsAt.getTime() + durationMinutes * 60_000);
+
+    // Conflict check inside a transaction, excluding this rental's own block.
+    let conflictMsg: string | null = null;
+    let rescheduled: typeof rental | undefined;
+    try {
+      rescheduled = await db.transaction(async (tx) => {
+        conflictMsg = await assertNoRentalConflict(tx, {
+          venueId: rental.venueId,
+          fieldNumber: rental.fieldNumber,
+          startsAt: newStartsAt,
+          endsAt: newEndsAt,
+          excludeRentalId: rentalId,
+        });
+        if (conflictMsg) return undefined as unknown as typeof rental;
+
+        const [row] = await tx
+          .update(fieldRentals)
+          .set({ startsAt: newStartsAt, endsAt: newEndsAt, updatedAt: new Date() })
+          .where(eq(fieldRentals.id, rentalId))
+          .returning();
+        return row;
+      });
+    } catch {
+      return json({ error: "Database error during reschedule" }, 500);
+    }
+
+    if (conflictMsg) {
+      return json({ error: conflictMsg }, 409);
+    }
+    if (!rescheduled) {
+      return json({ error: "Reschedule failed" }, 500);
+    }
+
+    // Re-sync the ledger block to reflect the new window.
+    await syncRentalBlock(rentalId);
+
+    return json({ rental: rescheduled }, 200);
+  }
+
+  // --- standard notes/purpose/cancel mutations ---
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.notes !== undefined) updates.notes = body.notes;
   if (body.purpose !== undefined) updates.purpose = body.purpose;

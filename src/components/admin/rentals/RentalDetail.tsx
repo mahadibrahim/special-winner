@@ -88,6 +88,12 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Correct-time form state
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleStartHour, setRescheduleStartHour] = useState(8);
+  const [rescheduleDuration, setRescheduleDuration] = useState(60);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+
   const reload = async () => {
     try {
       const res = await fetch(`/api/admin/rentals/${rentalId}`);
@@ -150,6 +156,39 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
       }
       toast.success(isPaid ? "Refund issued and rental cancelled" : "Rental cancelled");
       await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rescheduleRental = async () => {
+    if (!data) return;
+    if (!rescheduleDate) {
+      setRescheduleError("Please select a date.");
+      return;
+    }
+    setRescheduleError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rentals/${rentalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reschedule: {
+            date: rescheduleDate,
+            startHour: rescheduleStartHour,
+            durationMinutes: rescheduleDuration,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setRescheduleError(json.error ?? "Reschedule failed");
+        return;
+      }
+      toast.success("Rental time updated");
+      setData({ ...data, rental: json.rental });
+      setRescheduleDate("");
     } finally {
       setBusy(false);
     }
@@ -300,6 +339,60 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
           {busy ? "Saving…" : "Save notes"}
         </Button>
       </section>
+
+      {/* Correct time */}
+      {!isCancelled && (
+        <section className="rounded-xl border border-border bg-cream-2 p-5 space-y-3">
+          <h2 className="font-semibold text-ink">Correct time</h2>
+          <p className="text-xs text-ink-muted">
+            Fix a mis-stored start time. Conflict-checked against other bookings; payment is not changed.
+          </p>
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wider text-ink-muted">Date</label>
+              <input
+                type="date"
+                value={rescheduleDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                className="rounded border border-border px-2 py-1.5 text-sm bg-cream"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wider text-ink-muted">Start hour</label>
+              <select
+                value={rescheduleStartHour}
+                onChange={(e) => setRescheduleStartHour(Number(e.target.value))}
+                className="rounded border border-border px-2 py-1.5 text-sm bg-cream"
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>
+                    {h === 0 ? "12:00 AM" : h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wider text-ink-muted">Duration</label>
+              <select
+                value={rescheduleDuration}
+                onChange={(e) => setRescheduleDuration(Number(e.target.value))}
+                className="rounded border border-border px-2 py-1.5 text-sm bg-cream"
+              >
+                <option value={60}>1 hour</option>
+                <option value={90}>1.5 hours</option>
+                <option value={120}>2 hours</option>
+                <option value={150}>2.5 hours</option>
+                <option value={180}>3 hours</option>
+                <option value={240}>4 hours</option>
+              </select>
+            </div>
+            <Button size="sm" onClick={rescheduleRental} disabled={busy || !rescheduleDate}>
+              {busy ? "Saving…" : "Save new time"}
+            </Button>
+          </div>
+          {rescheduleError && <ErrorBanner message={rescheduleError} />}
+        </section>
+      )}
 
       {rental.cancelledAt && (
         <p className="text-xs text-ink-muted">
