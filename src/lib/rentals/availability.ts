@@ -18,6 +18,7 @@ import { getDb } from "@/lib/db";
 import { venues } from "@/lib/db/schema/teams";
 import { resourceBlocks, venueResources, type BlockSource } from "@/lib/db/schema/scheduling";
 import { expandFamily } from "@/lib/scheduling/blocks";
+import { zonedMinuteToUtc } from "@/lib/activity-tracking/tz-day";
 import { subtractBusyBlocks, type TimeBlock } from "./overlap";
 
 /**
@@ -69,6 +70,16 @@ export async function getVenueRentalAvailability(
    * pre-computed UTC day bounds).
    */
   localDayStartUtc: Date = dayStart,
+  /**
+   * Calendar date (YYYY-MM-DD) of the day being queried. When provided with
+   * `tz`, the rental-window edges are computed instant-anchored via
+   * `zonedMinuteToUtc`, which is DST-correct on the two transition Sundays
+   * (the `localDayStartUtc + minutes` branch is a legacy fallback that's off
+   * by an hour when the tz offset changes between midnight and the edge).
+   */
+  date?: string,
+  /** Org IANA timezone — pair with `date` to enable the DST-correct path. */
+  tz?: string,
 ): Promise<{ venueName: string; fields: FieldAvailability[] } | null> {
   const db = getDb();
 
@@ -81,19 +92,24 @@ export async function getVenueRentalAvailability(
 
   const fieldCount = venue.fieldCount ?? 1;
 
-  // Venue rental window for the day, derived from the LOCAL day start so
-  // rentalOpenMinute/rentalCloseMinute (minutes of local wall-clock day) land
-  // at the correct UTC instants for the org's timezone. E.g. open=960 (4 PM
-  // ET summer) → localDayStartUtc(04:00Z) + 960 min = 20:00Z = 4 PM ET.
-  // Null open/close → full day bounds.
+  // Venue rental window for the day. When `date` + `tz` are supplied we use
+  // the instant-anchored zonedMinuteToUtc path, which is DST-correct on the
+  // two transition Sundays. Otherwise we fall back to the legacy
+  // localDayStartUtc + minutes math (off by an hour exactly twice a year, when
+  // the tz offset changes between local midnight and the window edge). E.g.
+  // open=960 (4 PM ET summer) → 20:00Z = 4 PM ET. Null open/close → full day.
   const windowStart =
-    venue.rentalOpenMinute != null
-      ? new Date(localDayStartUtc.getTime() + venue.rentalOpenMinute * 60_000)
-      : dayStart;
+    venue.rentalOpenMinute != null && date && tz
+      ? zonedMinuteToUtc(date, venue.rentalOpenMinute, tz)
+      : venue.rentalOpenMinute != null
+        ? new Date(localDayStartUtc.getTime() + venue.rentalOpenMinute * 60_000)
+        : dayStart;
   const windowEnd =
-    venue.rentalCloseMinute != null
-      ? new Date(localDayStartUtc.getTime() + venue.rentalCloseMinute * 60_000)
-      : dayEnd;
+    venue.rentalCloseMinute != null && date && tz
+      ? zonedMinuteToUtc(date, venue.rentalCloseMinute, tz)
+      : venue.rentalCloseMinute != null
+        ? new Date(localDayStartUtc.getTime() + venue.rentalCloseMinute * 60_000)
+        : dayEnd;
 
   // The venue's resource tree (all rows — family expansion needs
   // children even when only top-level fields are rentable units).

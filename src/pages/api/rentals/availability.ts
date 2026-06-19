@@ -36,7 +36,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const { startUtc, endUtc } = tzDayBoundsUtc(date, orgTimeZone);
 
   try {
-    const result = await getVenueRentalAvailability(venueId, startUtc, endUtc, startUtc);
+    const result = await getVenueRentalAvailability(venueId, startUtc, endUtc, startUtc, date, orgTimeZone);
     if (!result) return json({ error: "Venue not found or rentals disabled" }, 404);
 
     return json(
