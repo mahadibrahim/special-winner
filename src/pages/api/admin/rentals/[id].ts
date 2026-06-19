@@ -175,6 +175,16 @@ export const PATCH: APIRoute = async (context) => {
       await syncRentalBlock(rentalId);
     } catch (err) {
       if (err instanceof BlockConflictError) {
+        // The rental row was already committed at the new time, but the ledger
+        // rejected the move (a drop-in/external/maintenance block occupies the
+        // slot — assertNoRentalConflict can't see those). Revert the row so we
+        // never leave a committed-but-unsynced rental (double-book hole). The
+        // ledger block was never mutated (the upsert was rejected), so
+        // reverting the row alone restores full consistency.
+        await db
+          .update(fieldRentals)
+          .set({ startsAt: rental.startsAt, endsAt: rental.endsAt, updatedAt: new Date() })
+          .where(eq(fieldRentals.id, rentalId));
         return json({ error: `Ledger conflict: ${err.message}` }, 409);
       }
       throw err;
