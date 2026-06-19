@@ -3,8 +3,9 @@ export interface FinderSeason {
   divisionGender: string | null   // 'coed' | 'mens' | 'womens'
   dayOfWeek: string | null         // 'mon'..'sun'
   location: { slug: string; name: string }
+  skillLevel: string | null        // 'a' | 'b' | 'c' | 'd' | 'open' | null
   // Presentational fields (name, status, price, etc.) ride along untyped on the
-  // real payload; the finder only filters on the four fields above.
+  // real payload; the finder only filters on the five fields above.
   [extra: string]: unknown
 }
 
@@ -15,6 +16,7 @@ export interface FinderFilters {
   location: string  // slug | "all"
   division: string  // divisionGender | "all"
   night: string     // dayOfWeek | "all"
+  level: string     // skillLevel | "all"
 }
 
 export interface Chip { value: string; label: string }
@@ -27,7 +29,12 @@ export const NIGHT_LABELS: Record<string, string> = {
   mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",
 }
 
+export const LEVEL_LABELS: Record<string, string> = {
+  a: "A", b: "B", c: "C", d: "D", open: "Open",
+}
+
 const WEEK_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+const LEVEL_ORDER = ["a", "b", "c", "d", "open"]
 
 export function deriveLocationChips(seasons: FinderSeason[]): Chip[] {
   const seen = new Map<string, string>()
@@ -54,10 +61,16 @@ export function deriveNightChips(seasons: FinderSeason[]): Chip[] {
   return WEEK_ORDER.filter((d) => present.has(d)).map((value) => ({ value, label: NIGHT_LABELS[value] }))
 }
 
+export function deriveLevelChips(seasons: FinderSeason[]): Chip[] {
+  const present = new Set(seasons.map((s) => s.skillLevel).filter(Boolean) as string[])
+  return LEVEL_ORDER.filter((l) => present.has(l)).map((value) => ({ value, label: LEVEL_LABELS[value] ?? value }))
+}
+
 export function filterSeasons(seasons: FinderSeason[], f: FinderFilters): FinderSeason[] {
   return seasons.filter((s) =>
     (f.location === "all" || s.location.slug === f.location) &&
     (f.division === "all" || s.divisionGender === f.division) &&
-    (f.night === "all" || s.dayOfWeek === f.night),
+    (f.night === "all" || s.dayOfWeek === f.night) &&
+    (f.level === "all" || s.skillLevel === f.level),
   )
 }

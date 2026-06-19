@@ -3,12 +3,12 @@ import { useMemo, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 import {
-  deriveLocationChips, deriveDivisionChips, deriveNightChips, filterSeasons,
+  deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, filterSeasons,
   type FinderSeason, type FinderFilters,
 } from "@/lib/soccerone/leagues-finder"
 
 const SECTION_ID = "leagues-finder"
-const ALL: FinderFilters = { location: "all", division: "all", night: "all" }
+const ALL: FinderFilters = { location: "all", division: "all", night: "all", level: "all" }
 
 export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSeason[] }) {
   useHydrationBeacon()
@@ -35,6 +35,7 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
   const locationChips = useMemo(() => deriveLocationChips(seasons), [seasons])
   const divisionChips = useMemo(() => deriveDivisionChips(seasons), [seasons])
   const nightChips = useMemo(() => deriveNightChips(seasons), [seasons])
+  const levelChips = useMemo(() => deriveLevelChips(seasons), [seasons])
   const visible = useMemo(() => filterSeasons(seasons, filters), [seasons, filters])
 
   const set = (axis: keyof FinderFilters, value: string) =>
@@ -99,6 +100,18 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
           color: rgba(147,197,253,0.7);
           border-color: rgba(100,160,255,0.15);
         }
+
+        .lc-level-badge {
+          font-family: var(--so-font-mono);
+          font-size: 0.55rem;
+          letter-spacing: 0.08em;
+          color: var(--so-lime);
+          border: 1px solid var(--so-lime-a30);
+          border-radius: 99px;
+          padding: 2px 7px;
+        }
+
+        .lc-meta-row { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
 
         .lc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
 
@@ -190,11 +203,12 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
 
       <ChipRow label="Location" chips={locationChips} active={filters.location} onPick={(v) => set("location", v)} />
       <ChipRow label="Division" chips={divisionChips} active={filters.division} onPick={(v) => set("division", v)} />
+      <ChipRow label="Level" chips={levelChips} active={filters.level} onPick={(v) => set("level", v)} />
       <ChipRow label="Night" chips={nightChips} active={filters.night} onPick={(v) => set("night", v)} />
 
       <p className="so-finder-count">
         <strong>{visible.length}</strong> of {seasons.length} leagues
-        {(filters.location !== "all" || filters.division !== "all" || filters.night !== "all") && (
+        {(filters.location !== "all" || filters.division !== "all" || filters.level !== "all" || filters.night !== "all") && (
           <button type="button" className="so-finder-clear" onClick={() => { setFilters(ALL); setArrivedFrom(null) }}>clear filters</button>
         )}
       </p>
@@ -252,7 +266,14 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
       <div className={`lc-location-badge ${isDowntown ? "lc-location-badge--downtown" : ""}`}>{season.location.name.toUpperCase()}</div>
       <div className="lc-top">
         <div className="lc-division"><span className="lc-div-label">PROGRAM</span><span className="lc-div-name">{season.program.name}</span></div>
-        <span className={`lc-status lc-status--${statusKey}`}>{String(season.status).toUpperCase()}</span>
+        <div className="lc-meta-row">
+          {season.skillLevel && (
+            <span className="lc-level-badge">
+              {season.skillLevel === "open" ? "Open" : String(season.skillLevel).toUpperCase()}
+            </span>
+          )}
+          <span className={`lc-status lc-status--${statusKey}`}>{String(season.status).toUpperCase()}</span>
+        </div>
       </div>
       <h3 className="lc-name">{season.name}</h3>
       <div className="lc-details">

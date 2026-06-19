@@ -19,6 +19,7 @@
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:migrate:bootstrap": "tsx scripts/db-migrate-bootstrap.ts",
     "db:seed:e2e": "tsx src/lib/db/seeds/seed-e2e-tests.ts",
+    "seed:soccerone": "tsx scripts/seed-soccerone-org.ts",
     "test": "playwright test",
     "test:critical": "playwright test --grep @critical",
     "test:ui": "playwright test --ui",
