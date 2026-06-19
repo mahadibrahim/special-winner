@@ -49,6 +49,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
             startsAt: b.startsAt.toISOString(),
             endsAt: b.endsAt.toISOString(),
           })),
+          busy: f.busy.map((b) => ({
+            startsAt: b.startsAt.toISOString(),
+            endsAt: b.endsAt.toISOString(),
+            reason: b.reason,
+          })),
         })),
       },
       200,

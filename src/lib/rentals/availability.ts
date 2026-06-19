@@ -16,13 +16,43 @@
 import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { venues } from "@/lib/db/schema/teams";
-import { resourceBlocks, venueResources } from "@/lib/db/schema/scheduling";
+import { resourceBlocks, venueResources, type BlockSource } from "@/lib/db/schema/scheduling";
 import { expandFamily } from "@/lib/scheduling/blocks";
 import { subtractBusyBlocks, type TimeBlock } from "./overlap";
+
+/**
+ * Maps the resource_blocks.source_type discriminator to a human-readable
+ * label shown to renters in the booking calendar.
+ */
+export function blockReasonLabel(kind: string): string {
+  switch (kind as BlockSource) {
+    case "rental":
+      return "Rented";
+    case "drop_in":
+      return "Pickup Game";
+    case "game":
+      return "League Game";
+    case "maintenance":
+      return "Closed";
+    case "external":
+      return "Reserved";
+    case "practice":
+      return "Reserved";
+    default:
+      return "Unavailable";
+  }
+}
+
+export interface BusyBlock {
+  startsAt: Date;
+  endsAt: Date;
+  reason: string;
+}
 
 export interface FieldAvailability {
   fieldNumber: number;
   free: TimeBlock[];
+  busy: BusyBlock[];
 }
 
 export async function getVenueRentalAvailability(
@@ -88,6 +118,7 @@ export async function getVenueRentalAvailability(
             resourceId: resourceBlocks.resourceId,
             startsAt: resourceBlocks.startsAt,
             endsAt: resourceBlocks.endsAt,
+            sourceType: resourceBlocks.sourceType,
           })
           .from(resourceBlocks)
           .where(
@@ -103,10 +134,13 @@ export async function getVenueRentalAvailability(
           )
       : [];
 
-  const blocksByResource = new Map<string, TimeBlock[]>();
+  const blocksByResource = new Map<
+    string,
+    { startsAt: Date; endsAt: Date; sourceType: string }[]
+  >();
   for (const b of blockRows) {
     const list = blocksByResource.get(b.resourceId) ?? [];
-    list.push({ startsAt: b.startsAt, endsAt: b.endsAt });
+    list.push({ startsAt: b.startsAt, endsAt: b.endsAt, sourceType: b.sourceType });
     blocksByResource.set(b.resourceId, list);
   }
 
@@ -120,12 +154,22 @@ export async function getVenueRentalAvailability(
       // Busy = blocks on the field OR anything in its family (a booked
       // half blocks the full field for rental purposes).
       const familyIds = expandFamily(field.id, resourceRows);
-      const busy: TimeBlock[] = familyIds.flatMap(
+      const rawBlocks = familyIds.flatMap(
         (id) => blocksByResource.get(id) ?? [],
       );
+      const busyTimeBlocks: TimeBlock[] = rawBlocks.map((b) => ({
+        startsAt: b.startsAt,
+        endsAt: b.endsAt,
+      }));
+      const busyLabeled: BusyBlock[] = rawBlocks.map((b) => ({
+        startsAt: b.startsAt,
+        endsAt: b.endsAt,
+        reason: blockReasonLabel(b.sourceType),
+      }));
       fields.push({
         fieldNumber: field.fieldNumber,
-        free: subtractBusyBlocks(windowStart, windowEnd, busy),
+        free: subtractBusyBlocks(windowStart, windowEnd, busyTimeBlocks),
+        busy: busyLabeled,
       });
     }
   } else {
@@ -134,6 +178,7 @@ export async function getVenueRentalAvailability(
       fields.push({
         fieldNumber,
         free: subtractBusyBlocks(windowStart, windowEnd, []),
+        busy: [],
       });
     }
   }
