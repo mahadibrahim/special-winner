@@ -5,6 +5,7 @@ import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { Toaster } from 'sonner';
 import SoccerOneLeaguesFinder from '@/components/soccerone/SoccerOneLeaguesFinder';
+import SoccerOneLeagueLevels from '@/components/soccerone/SoccerOneLeagueLevels.astro';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
@@ -162,6 +163,7 @@ const featuredPrice = featured
           </div>
         )}
 
+        <SoccerOneLeagueLevels />
         <SoccerOneLeaguesFinder client:load seasons={seasons} />
       </div>
     </div>
