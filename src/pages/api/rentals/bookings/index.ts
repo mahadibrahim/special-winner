@@ -21,6 +21,7 @@ import {
   resolveRentalHourlyRateCents,
   computeRentalPriceCents,
 } from "@/lib/rentals/pricing";
+import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { validateRentalBookingRequest } from "@/lib/rentals/validators";
 import {
   createRentalHold,
@@ -135,11 +136,19 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     );
   }
 
-  const hourlyRate = resolveRentalHourlyRateCents(
-    venue.rentalHourlyRateCents,
-    rateCard.defaultHourlyRateCents,
-  );
-  const baseAmountDueCents = computeRentalPriceCents(startsAt, endsAt, hourlyRate);
+  const org = locals.organization!;
+  const orgTimeZone = org.timezone ?? "America/New_York";
+  const baseAmountDueCents =
+    org.slug === "soccerone"
+      ? quoteRentalCents(startsAt, endsAt, orgTimeZone)
+      : computeRentalPriceCents(
+          startsAt,
+          endsAt,
+          resolveRentalHourlyRateCents(
+            venue.rentalHourlyRateCents,
+            rateCard.defaultHourlyRateCents,
+          ),
+        );
 
   // Member rental discount — gated on the lookup returning a membership.
   // For Aspire (no tiers seeded), the lookup returns null and amountDueCents
