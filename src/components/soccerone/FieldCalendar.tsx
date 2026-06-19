@@ -7,6 +7,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 
 // --- Live availability types ---
 
@@ -125,6 +126,9 @@ export function FieldCalendar({
   initialDate,
   memberDiscountPct = 0,
 }: FieldCalendarProps) {
+  // Top-level client:load island on /rent; set the hydration beacon so e2e
+  // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
+  useHydrationBeacon();
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(initialDate ?? today);
   const [venueId, setVenueId] = useState<string | null>(venues[0]?.id ?? null);
