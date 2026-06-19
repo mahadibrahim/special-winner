@@ -4,12 +4,14 @@ import MyBookings from '@/components/dashboard/MyBookings';
 
 // Middleware guards /dashboard/** for auth.
 export const prerender = false;
+
+const timeZone = Astro.locals.organization?.timezone ?? "America/New_York";
 ---
 
 <BaseLayout title="My Bookings — Aspire Sports">
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
     <div class="max-w-3xl mx-auto">
-      <MyBookings client:load />
+      <MyBookings client:load timeZone={timeZone} />
     </div>
   </main>
 </BaseLayout>
