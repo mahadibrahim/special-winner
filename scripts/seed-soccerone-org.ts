@@ -26,6 +26,7 @@ import {
   locations,
   domainMappings,
 } from "../src/lib/db/schema/organizations";
+import { fieldRentalRateCard } from "../src/lib/db/schema/field-rentals";
 import { eq } from "drizzle-orm";
 
 const SAFE_HOST_FRAGMENTS = ["localhost", "switchyard", "staging"];
@@ -184,6 +185,43 @@ async function main() {
         `   ✓ ${domain} already mapped (status: ${existing.status}, isPrimary: ${existing.isPrimary})`,
       );
     }
+  }
+
+  console.log("\n5. Ensuring field_rental_rate_card (cancelWindowHours=336, 14-day window)...");
+  const [existingRateCard] = await db
+    .select()
+    .from(fieldRentalRateCard)
+    .where(eq(fieldRentalRateCard.organizationId, org.id))
+    .limit(1);
+
+  if (!existingRateCard) {
+    const [rateCard] = await db
+      .insert(fieldRentalRateCard)
+      .values({
+        organizationId: org.id,
+        cancelWindowHours: 336, // 14 days × 24 h
+        // All other columns left to schema defaults:
+        //   defaultHourlyRateCents: 8000 (tiered engine overrides at runtime)
+        //   bookingIncrementMinutes: 60
+        //   minDurationMinutes: 60
+        //   maxDurationMinutes: 240
+        //   checkInWindowMinutes: 60
+      })
+      .returning();
+    console.log(`   ✓ Created rate card ${rateCard.id} (cancelWindowHours: ${rateCard.cancelWindowHours})`);
+  } else if (existingRateCard.cancelWindowHours !== 336) {
+    const [updated] = await db
+      .update(fieldRentalRateCard)
+      .set({ cancelWindowHours: 336, updatedAt: new Date() })
+      .where(eq(fieldRentalRateCard.organizationId, org.id))
+      .returning();
+    console.log(
+      `   ✓ Updated rate card ${updated.id}: cancelWindowHours ${existingRateCard.cancelWindowHours} → ${updated.cancelWindowHours}`,
+    );
+  } else {
+    console.log(
+      `   ✓ Rate card already correct (cancelWindowHours: ${existingRateCard.cancelWindowHours})`,
+    );
   }
 
   console.log("\n✅ SoccerOne provisioning complete.");

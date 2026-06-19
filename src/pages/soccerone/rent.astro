@@ -6,6 +6,8 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { Toaster } from 'sonner';
 import { FieldCalendar } from '@/components/soccerone/FieldCalendar';
 import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
+import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
+import { getActiveMembershipForOrg } from '@/lib/memberships/get-active-membership';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
@@ -22,12 +24,28 @@ const venueList = organizationId
 // Venues are modeled one-per-physical-field; the calendar's Field selector
 // switches between them.
 const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
+
+let memberDiscountPct = 0;
+if (Astro.locals.user && organizationId) {
+  try {
+    const m = await getActiveMembershipForOrg(Astro.locals.user.id, organizationId);
+    memberDiscountPct = (m?.tier?.benefits?.rental_discount_pct as number | undefined) ?? 0;
+  } catch {
+    memberDiscountPct = 0;
+  }
+}
+
+// Helper to format cents as dollars (whole numbers shown without decimals)
+const fmt = (cents: number) => {
+  const dollars = cents / 100;
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
+};
 ---
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title={`Field Rentals — SoccerOne | ${facilityLabel}`}
-  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). $80/hr standard, members from $64/hr. Open 4pm–12am daily."
+  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). Seasonal tiered rates, members save 10–25%. Open 4pm–12am daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -63,33 +81,33 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
             </p>
           </div>
 
-          <!-- Rates block -->
-          <div class="rates-block">
-            <div class="rate-item">
-              <span class="ri-amount mono">$80</span>
-              <span class="ri-unit">/hr</span>
-              <span class="ri-label">Standard Rate</span>
-            </div>
-            <div class="rate-div" aria-hidden="true"></div>
-            <div class="rate-item">
-              <span class="ri-amount mono">$72</span>
-              <span class="ri-unit">/hr</span>
-              <span class="ri-label">Member Rate</span>
-              <span class="ri-save">−$8/hr</span>
-            </div>
-            <div class="rate-div" aria-hidden="true"></div>
-            <div class="rate-item">
-              <span class="ri-amount mono">$64</span>
-              <span class="ri-unit">/hr</span>
-              <span class="ri-label">Founder Rate</span>
-              <span class="ri-save">−$16/hr</span>
-            </div>
-            <div class="rate-div" aria-hidden="true"></div>
-            <div class="rate-item">
-              <span class="ri-amount mono">4PM</span>
-              <span class="ri-label">Open daily</span>
-              <span class="ri-sub">Through Midnight</span>
-            </div>
+          <!-- Tiered rates table -->
+          <div class="rates-table-wrap">
+            <table class="rates-table" aria-label="Field rental rates by season and time">
+              <thead>
+                <tr>
+                  <th class="rt-th rt-th--season">Season</th>
+                  <th class="rt-th">Weekday before 3 PM</th>
+                  <th class="rt-th">Weekday 3–6 PM</th>
+                  <th class="rt-th">Weekday after 6 PM &amp; weekends</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="rt-season mono">Apr – Sep</td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.summer.before3)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.summer.midday)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.summer.evening)}<span class="rt-per">/hr</span></td>
+                </tr>
+                <tr>
+                  <td class="rt-season mono">Oct – Mar</td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.winter.before3)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.winter.midday)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.winter.evening)}<span class="rt-per">/hr</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="rt-member-note">Members save 10% · founding members save 25%.</p>
           </div>
         </div>
 
@@ -140,7 +158,16 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
           </div>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} />
+        <!-- Availability disclaimer -->
+        <div class="avail-disclaimer" role="note">
+          <span class="avail-icon" aria-hidden="true">⚠</span>
+          <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
+        </div>
+
+        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} />
+
+        <!-- Cancellation policy -->
+        <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>
       </div>
     </div>
 
@@ -227,9 +254,137 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
         <div class="rmc-text">
           <span class="rmc-eyebrow">SAVE EVERY VISIT</span>
           <h2 class="rmc-title">Member and Founder rates apply automatically.</h2>
-          <p class="rmc-sub">One membership. Both facilities. Save $8–$16 per hour on every rental. Pays for itself in two bookings.</p>
+          <p class="rmc-sub">One membership. Both facilities. Members save 10% on every rental — founding members save 25%. Pays for itself in two bookings.</p>
         </div>
         <a href="/memberships" class="rmc-btn">View Membership Plans →</a>
+      </div>
+    </div>
+
+    <!-- Package request section -->
+    <div class="pkg-section" id="rental-package">
+      <div class="pkg-inner">
+        <div class="pkg-layout">
+
+          <!-- Left: copy -->
+          <div class="pkg-copy">
+            <div class="pkg-header">
+              <span class="section-num-sm">03.</span>
+              <h2 class="pkg-title">Need a package?</h2>
+            </div>
+            <p class="pkg-desc">Booking 10+ hours, a recurring slot, or a tournament block? Tell us what you need and we'll build a custom package.</p>
+            <ul class="pkg-perks">
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Bulk-hour discounts
+              </li>
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Weekly or bi-weekly reserved slots
+              </li>
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Multi-field tournament blocks
+              </li>
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Custom invoicing for clubs &amp; orgs
+              </li>
+            </ul>
+          </div>
+
+          <!-- Right: form -->
+          <div class="pkg-form-wrap">
+
+            <!-- Idle / error state -->
+            <form id="pkg-form" class="pkg-form" novalidate>
+              <div class="pf-row pf-row--2">
+                <label class="pf-field">
+                  <span class="pf-label">Organization / team name <span class="pf-opt">(optional)</span></span>
+                  <input
+                    type="text"
+                    id="pkg-org"
+                    name="orgName"
+                    maxlength="255"
+                    placeholder="Columbus FC, Individual, etc."
+                    class="pf-input"
+                    autocomplete="organization"
+                  />
+                </label>
+                <label class="pf-field">
+                  <span class="pf-label">Contact name <span class="pf-req" aria-label="required">*</span></span>
+                  <input
+                    type="text"
+                    id="pkg-name"
+                    name="contactName"
+                    required
+                    maxlength="200"
+                    placeholder="Your full name"
+                    class="pf-input"
+                    autocomplete="name"
+                  />
+                </label>
+              </div>
+
+              <label class="pf-field">
+                <span class="pf-label">Email <span class="pf-req" aria-label="required">*</span></span>
+                <input
+                  type="email"
+                  id="pkg-email"
+                  name="contactEmail"
+                  required
+                  maxlength="320"
+                  placeholder="you@example.com"
+                  class="pf-input"
+                  autocomplete="email"
+                />
+              </label>
+
+              <label class="pf-field">
+                <span class="pf-label">Desired dates, times &amp; duration <span class="pf-opt">(optional)</span></span>
+                <input
+                  type="text"
+                  id="pkg-dates"
+                  name="preferredStart"
+                  maxlength="100"
+                  placeholder="e.g. Sat mornings starting July, 2 hr blocks"
+                  class="pf-input"
+                />
+              </label>
+
+              <label class="pf-field">
+                <span class="pf-label">Anything else? <span class="pf-opt">(optional)</span></span>
+                <textarea
+                  id="pkg-msg"
+                  name="message"
+                  rows="4"
+                  maxlength="1900"
+                  placeholder="Number of fields, add-ons, tournament format, budget — whatever helps us scope the package."
+                  class="pf-textarea"
+                ></textarea>
+              </label>
+
+              <div id="pkg-error" class="pf-error" hidden></div>
+
+              <button type="submit" id="pkg-submit" class="pf-btn">
+                <span class="pf-btn-text">Request a Package →</span>
+                <span class="pf-btn-spinner" hidden aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pf-spin"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="10" stroke-linecap="round"/></svg>
+                  Sending…
+                </span>
+              </button>
+            </form>
+
+            <!-- Success state (hidden until submit OK) -->
+            <div id="pkg-success" class="pf-success" hidden>
+              <div class="pfs-icon" aria-hidden="true">✓</div>
+              <div class="pfs-body">
+                <h3 class="pfs-title">Thanks — we'll be in touch about your package.</h3>
+                <p class="pfs-sub">Expect a reply within one business day. Questions now? Email <a href="mailto:rentals@gosoccerone.com" class="pfs-link">rentals@gosoccerone.com</a>.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
 
@@ -264,25 +419,97 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
     .rh-title { font-family: var(--so-font-display); font-size: clamp(3.5rem, 8vw, 7.5rem); color: #ffffff; line-height: 0.92; letter-spacing: 0.01em; margin-bottom: 1rem; }
     .rh-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 440px; }
 
-    .rates-block {
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
+    /* Tiered rates table */
+    .rates-table-wrap {
+      flex-shrink: 0;
+      max-width: 560px;
+      width: 100%;
+    }
+    .rates-table {
+      width: 100%;
+      border-collapse: collapse;
       background: var(--so-lime-a04);
       border: 1px solid var(--so-lime-a15);
       border-radius: var(--so-radius-md);
-      padding: 1.25rem 1.5rem;
-      flex-shrink: 0;
-      flex-wrap: wrap;
+      overflow: hidden;
+      font-size: 0.8125rem;
+    }
+    .rt-th {
+      font-family: var(--so-font-mono);
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.4);
+      text-align: left;
+      padding: 0.625rem 0.875rem;
+      border-bottom: 1px solid var(--so-lime-a10);
+      white-space: nowrap;
+    }
+    .rt-th--season { color: var(--so-lime-a50); }
+    .rt-season {
+      font-family: var(--so-font-mono);
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
+      padding: 0.625rem 0.875rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      white-space: nowrap;
+    }
+    .rt-rate {
+      font-family: var(--so-font-display);
+      font-size: 1.375rem;
+      color: var(--so-lime);
+      letter-spacing: 0.02em;
+      padding: 0.625rem 0.875rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      white-space: nowrap;
+    }
+    .rt-per {
+      font-family: var(--so-font-mono);
+      font-size: 0.5rem;
+      color: var(--so-lime-a60);
+      letter-spacing: 0.06em;
+      margin-left: 1px;
+    }
+    tbody tr:last-child .rt-season,
+    tbody tr:last-child .rt-rate { border-bottom: none; }
+    .rt-member-note {
+      font-family: var(--so-font-mono);
+      font-size: 0.5625rem;
+      letter-spacing: 0.08em;
+      color: #86efac;
+      margin-top: 0.5rem;
     }
 
-    .rate-item { display: flex; flex-direction: column; gap: 2px; min-width: 70px; }
-    .ri-amount { font-family: var(--so-font-display); font-size: 2.25rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
-    .ri-unit { font-family: var(--so-font-mono); font-size: 0.625rem; color: var(--so-lime-a60); letter-spacing: 0.06em; }
-    .ri-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
-    .ri-save { font-family: var(--so-font-mono); font-size: 0.5rem; color: #86efac; letter-spacing: 0.06em; }
-    .ri-sub { font-family: var(--so-font-mono); font-size: 0.5rem; color: rgba(255,255,255,0.3); letter-spacing: 0.04em; }
-    .rate-div { width: 1px; height: 48px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+    /* Availability disclaimer */
+    .avail-disclaimer {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: rgba(var(--so-lime-rgb, 163,230,53), 0.06);
+      border: 1px solid var(--so-lime-a20);
+      border-left: 3px solid var(--so-lime);
+      border-radius: var(--so-radius-sm);
+      padding: 0.875rem 1rem;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+    .avail-icon {
+      color: var(--so-lime);
+      font-size: 0.875rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Cancellation policy */
+    .cancel-policy {
+      font-family: var(--so-font-mono);
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.04em;
+      margin-top: 1.25rem;
+    }
 
     .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); }
     .ff-tab { font-family: var(--so-font-body); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
@@ -344,14 +571,246 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
     .rmc-btn { display: inline-block; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: var(--so-radius-sm); transition: background 0.15s; flex-shrink: 0; white-space: nowrap; }
     .rmc-btn:hover { background: var(--so-lime-bright); }
 
+    /* Package request */
+    .pkg-section {
+      background: var(--so-ink);
+      border-top: 1px solid var(--so-lime-a10);
+      padding: 5rem 0;
+    }
+    .pkg-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+
+    .pkg-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 4rem;
+      align-items: flex-start;
+    }
+
+    /* Copy column */
+    .pkg-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.25rem; }
+    .pkg-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      line-height: 1;
+    }
+    .pkg-desc {
+      font-size: 1.0625rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 400px;
+      margin-bottom: 2rem;
+    }
+    .pkg-perks { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+    .pkg-perk {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.6);
+    }
+    .perk-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--so-lime);
+      flex-shrink: 0;
+    }
+
+    /* Form column */
+    .pkg-form-wrap {
+      background: var(--so-surface);
+      border: 1px solid var(--so-lime-a15);
+      border-radius: var(--so-radius-lg);
+      padding: 2rem;
+    }
+
+    .pkg-form { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    .pf-row { display: flex; gap: 1rem; }
+    .pf-row--2 > * { flex: 1 1 0; min-width: 0; }
+
+    .pf-field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .pf-label {
+      font-family: var(--so-font-mono);
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+    }
+    .pf-req { color: var(--so-lime); margin-left: 2px; }
+    .pf-opt { color: rgba(255,255,255,0.25); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.5rem; }
+
+    .pf-input,
+    .pf-textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--so-radius-sm);
+      color: #ffffff;
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      padding: 0.75rem 1rem;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    .pf-input::placeholder,
+    .pf-textarea::placeholder { color: rgba(255,255,255,0.2); }
+    .pf-input:focus,
+    .pf-textarea:focus { border-color: var(--so-lime-a50); }
+    .pf-textarea { resize: vertical; min-height: 100px; }
+
+    .pf-error {
+      font-size: 0.875rem;
+      color: #f87171;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.2);
+      border-radius: var(--so-radius-sm);
+      padding: 0.75rem 1rem;
+    }
+
+    .pf-btn {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--so-lime);
+      color: var(--so-ink);
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      border: none;
+      cursor: pointer;
+      padding: 0.875rem 1.75rem;
+      border-radius: var(--so-radius-sm);
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .pf-btn:hover:not(:disabled) { background: var(--so-lime-bright); }
+    .pf-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    @keyframes pf-spin { to { transform: rotate(360deg); } }
+    .pf-spin { animation: pf-spin 0.8s linear infinite; }
+
+    /* Success state */
+    .pf-success {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+      background: rgba(163,230,53,0.06);
+      border: 1px solid var(--so-lime-a25);
+      border-radius: var(--so-radius-md);
+      padding: 1.75rem;
+    }
+    .pfs-icon {
+      font-size: 1.375rem;
+      color: var(--so-lime);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .pfs-title {
+      font-family: var(--so-font-display);
+      font-size: 1.375rem;
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.5rem;
+    }
+    .pfs-sub { font-size: 0.9375rem; color: var(--muted); line-height: 1.55; }
+    .pfs-link { color: var(--so-lime); text-decoration: none; }
+    .pfs-link:hover { text-decoration: underline; }
+
     @media (max-width: 1100px) { .includes-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) {
       .rh-top { flex-direction: column; align-items: flex-start; }
       .includes-grid { grid-template-columns: 1fr; }
       .rmc-inner { flex-direction: column; align-items: flex-start; }
       .fcb-inner { flex-direction: column; align-items: flex-start; }
-      .rates-block { flex-direction: column; gap: 1rem; }
-      .rate-div { display: none; }
+      .rates-table-wrap { max-width: 100%; overflow-x: auto; }
+      .rates-table { font-size: 0.75rem; }
+      .rt-rate { font-size: 1.125rem; }
+      .pkg-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+      .pf-row--2 { flex-direction: column; }
     }
   </style>
+
+  <script>
+    // Package request form — plain JS, no framework dependency.
+    // Maps onto /api/public/corporate-inquiry exactly:
+    //   companyName  ← orgName (optional on form; fallback "Individual")
+    //   contactName  ← contactName (required)
+    //   contactEmail ← contactEmail (required)
+    //   preferredStart ← preferredStart (dates/times field)
+    //   sportInterest  = "Field Rental" (static tag)
+    //   notes          = "[rental-package] " + message (if any)
+    (() => {
+      const form = document.getElementById("pkg-form") as HTMLFormElement | null;
+      const successEl = document.getElementById("pkg-success") as HTMLElement | null;
+      const errorEl = document.getElementById("pkg-error") as HTMLElement | null;
+      const submitBtn = document.getElementById("pkg-submit") as HTMLButtonElement | null;
+      if (!form || !successEl || !errorEl || !submitBtn) return;
+
+      const btnText = submitBtn.querySelector(".pf-btn-text") as HTMLElement;
+      const btnSpinner = submitBtn.querySelector(".pf-btn-spinner") as HTMLElement;
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Read values
+        const orgName = (document.getElementById("pkg-org") as HTMLInputElement).value.trim();
+        const contactName = (document.getElementById("pkg-name") as HTMLInputElement).value.trim();
+        const contactEmail = (document.getElementById("pkg-email") as HTMLInputElement).value.trim();
+        const preferredStart = (document.getElementById("pkg-dates") as HTMLInputElement).value.trim();
+        const message = (document.getElementById("pkg-msg") as HTMLTextAreaElement).value.trim();
+
+        // Client-side required-field check
+        if (!contactName || !contactEmail) {
+          errorEl.textContent = "Please fill in your name and email.";
+          errorEl.hidden = false;
+          return;
+        }
+
+        // Build notes — prepend source tag so admin can identify these as rental-package inquiries
+        const notes = message ? `[rental-package] ${message}` : "[rental-package]";
+
+        // Submit state
+        errorEl.hidden = true;
+        submitBtn.disabled = true;
+        btnText.hidden = true;
+        btnSpinner.hidden = false;
+
+        try {
+          const res = await fetch("/api/public/corporate-inquiry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companyName: orgName || "Individual",
+              contactName,
+              contactEmail,
+              preferredStart: preferredStart || undefined,
+              sportInterest: "Field Rental",
+              notes,
+            }),
+          });
+
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({})) as { error?: string };
+            throw new Error(json.error ?? "Could not submit request");
+          }
+
+          // Show success, hide form
+          form.hidden = true;
+          successEl.hidden = false;
+        } catch (err) {
+          errorEl.textContent = err instanceof Error ? err.message : "Could not submit request. Please try again.";
+          errorEl.hidden = false;
+          submitBtn.disabled = false;
+          btnText.hidden = false;
+          btnSpinner.hidden = true;
+        }
+      });
+    })();
+  </script>
 </BaseLayout>

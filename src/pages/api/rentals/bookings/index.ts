@@ -21,6 +21,7 @@ import {
   resolveRentalHourlyRateCents,
   computeRentalPriceCents,
 } from "@/lib/rentals/pricing";
+import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { validateRentalBookingRequest } from "@/lib/rentals/validators";
 import {
   createRentalHold,
@@ -135,11 +136,19 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     );
   }
 
-  const hourlyRate = resolveRentalHourlyRateCents(
-    venue.rentalHourlyRateCents,
-    rateCard.defaultHourlyRateCents,
-  );
-  const baseAmountDueCents = computeRentalPriceCents(startsAt, endsAt, hourlyRate);
+  // Booking grid slot hours are stored as UTC wall-clock labeled as local facility hours;
+  // price in UTC so the tier matches the displayed hour.
+  const baseAmountDueCents =
+    locals.brandId === "soccerone"
+      ? quoteRentalCents(startsAt, endsAt, "UTC")
+      : computeRentalPriceCents(
+          startsAt,
+          endsAt,
+          resolveRentalHourlyRateCents(
+            venue.rentalHourlyRateCents,
+            rateCard.defaultHourlyRateCents,
+          ),
+        );
 
   // Member rental discount — gated on the lookup returning a membership.
   // For Aspire (no tiers seeded), the lookup returns null and amountDueCents
