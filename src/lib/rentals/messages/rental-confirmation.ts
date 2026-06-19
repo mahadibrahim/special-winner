@@ -48,7 +48,6 @@ export async function renderRentalConfirmation(
     FieldRentalConfirmationEmail({
       recipientName: ctx.recipientName,
       venueName: ctx.venueName,
-      fieldLabel,
       whenLabel,
       amountLabel,
       brand,

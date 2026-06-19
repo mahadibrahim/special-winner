@@ -25,7 +25,8 @@ describe("renderRentalConfirmation", () => {
     expect(v.email.subject.toLowerCase()).toContain("confirmed");
     expect(v.email.subject).toContain("Downtown Arena");
     expect(v.email.html).toContain("Downtown Arena");
-    expect(v.email.html).toContain("Field 3");
+    // WHERE shows venue name only — no redundant "Field N" in the email body
+    expect(v.email.html).not.toContain("Field 3");
     expect(v.email.html).toContain("$80.00");
     expect(v.email.text.length).toBeGreaterThan(0);
   });
