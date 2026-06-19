@@ -78,12 +78,6 @@ const featuredPrice = featured
     <!-- Page header -->
     <div class="leagues-header">
       <div class="lh-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/" class="bc-link">SoccerOne</a>
-          <span class="bc-sep" aria-hidden="true">—</span>
-          <span class="bc-current">Leagues</span>
-        </nav>
-
         <div class="lh-top">
           <div class="lh-text">
             <h1 class="lh-title">{audience === 'youth' ? 'YOUTH LEAGUES' : 'LEAGUES'}</h1>
@@ -210,12 +204,6 @@ const featuredPrice = featured
       padding: 4rem 0 0;
     }
     .lh-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
-
-    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
-    .bc-link { font-size: 0.8125rem; color: var(--so-lime-a60); text-decoration: none; font-weight: 500; transition: color 0.15s; }
-    .bc-link:hover { color: var(--so-lime); }
-    .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
-    .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
 
     .lh-top {
       display: flex;

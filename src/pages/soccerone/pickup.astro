@@ -53,18 +53,13 @@ if (orgId) {
     <!-- Page header -->
     <div class="pickup-header">
       <div class="ph-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/" class="bc-link">SoccerOne</a>
-          <span class="bc-sep">—</span>
-          <span class="bc-current">Drop-In Pickup</span>
-        </nav>
-
         <div class="ph-top">
           <div class="ph-text">
             <h1 class="ph-title">PICKUP</h1>
             <p class="ph-desc">
               No team. No commitment. Show up, pay at the door, and play. Seven days a week across both locations. Multiple skill levels every day.
             </p>
+            <a href="#sessions" class="ph-jump">See tonight's sessions ↓</a>
           </div>
           <div class="ph-quickstats">
             <div class="pqs-item">
@@ -88,15 +83,27 @@ if (orgId) {
             </div>
           </div>
         </div>
-
-        <!-- Facility filter tabs -->
-        <div class="facility-filter-row" role="group" aria-label="Filter by facility">
-          <a href="/pickup" class={`ff-tab ${facility === 'all' ? 'ff-tab--active' : ''}`}>ALL LOCATIONS</a>
-          <a href="/pickup?facility=worthington" class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}>WORTHINGTON · 3 FIELDS</a>
-          <a href="/pickup?facility=downtown" class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}>DOWNTOWN · 1 FIELD</a>
-        </div>
       </div>
     </div>
+
+    <SoccerOnePricingBand rate={rate} />
+
+    <SoccerOneLevels />
+
+    <!-- Sessions: location switcher + games listing -->
+    <section id="sessions">
+      <!-- Facility filter tabs -->
+      <div class="facility-filter-row" role="group" aria-label="Filter by facility">
+        <a href="/pickup" class={`ff-tab ${facility === 'all' ? 'ff-tab--active' : ''}`}>ALL LOCATIONS</a>
+        <a href="/pickup?facility=worthington" class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}>WORTHINGTON · 3 FIELDS</a>
+        <a href="/pickup?facility=downtown" class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}>DOWNTOWN · 1 FIELD</a>
+      </div>
+
+      <!-- Games listing component -->
+      <div class="pickup-games-wrap">
+        <PickupGames client:visible facility={facility} />
+      </div>
+    </section>
 
     <!-- How it works strip -->
     <div class="how-strip">
@@ -123,15 +130,6 @@ if (orgId) {
       </div>
     </div>
 
-    <SoccerOnePricingBand rate={rate} />
-
-    <SoccerOneLevels />
-
-    <!-- Games listing component -->
-    <div class="pickup-games-wrap">
-      <PickupGames client:visible facility={facility} />
-    </div>
-
   </main>
 
   <SoccerOneFooter />
@@ -149,19 +147,30 @@ if (orgId) {
 
     .pickup-main { flex: 1; font-family: var(--so-font-body); }
 
-    .pickup-header { background: var(--so-ink); border-bottom: 1px solid var(--so-lime-a10); padding: 4rem 0 0; }
+    .pickup-header { background: var(--so-ink); border-bottom: 1px solid var(--so-lime-a10); padding: 4rem 0 2.5rem; }
     .ph-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 
-    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
-    .bc-link { font-size: 0.8125rem; color: var(--so-lime-a60); text-decoration: none; font-weight: 500; transition: color 0.15s; }
-    .bc-link:hover { color: var(--so-lime); }
-    .bc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
-    .bc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
-
-    .ph-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+    .ph-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
 
     .ph-title { font-family: var(--so-font-display); font-size: clamp(4rem, 10vw, 9rem); color: #ffffff; line-height: 0.9; letter-spacing: 0.01em; margin-bottom: 1rem; }
     .ph-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 500px; }
+
+    .ph-jump {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      margin-top: 1rem;
+      font-family: var(--so-font-mono);
+      font-size: .8rem;
+      letter-spacing: .04em;
+      color: var(--so-ink);
+      background: var(--so-lime);
+      border-radius: var(--so-radius-sm);
+      padding: .6rem 1.1rem;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .ph-jump:hover { background: var(--so-lime-bright); }
 
     .ph-quickstats { display: flex; align-items: center; gap: 1.5rem; background: var(--so-lime-a04); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-md); padding: 1.25rem 1.75rem; flex-shrink: 0; }
     .pqs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
@@ -169,7 +178,9 @@ if (orgId) {
     .pqs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
     .pqs-div { width: 1px; height: 36px; background: rgba(255,255,255,0.08); }
 
-    .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); }
+    #sessions { background: var(--bg); }
+
+    .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--so-ink); }
     .ff-tab { font-family: var(--so-font-body); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
     .ff-tab:hover { color: rgba(255,255,255,0.7); }
     .ff-tab--active { color: var(--so-lime); border-bottom-color: var(--so-lime); }
