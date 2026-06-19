@@ -62,7 +62,7 @@ setMarketingEdgeCache(Astro);
 
         <p class="hero-sub">
           Four indoor fields across <span class="hero-loc">Worthington &amp; Downtown Columbus</span>.<br />
-          Leagues, pickup, and rentals — every night, year-round.
+          Leagues, pickup, and rentals — every night, year-round. Youth programs coming 2027.
         </p>
 
         <!-- Facility selector -->
@@ -130,9 +130,9 @@ setMarketingEdgeCache(Astro);
           </div>
           <div class="stat-divider" aria-hidden="true"></div>
           <div class="stat-block">
-            <div class="stat-num">3</div>
+            <div class="stat-num">04</div>
             <div class="stat-name">Ways to Play</div>
-            <div class="stat-sub">Leagues · Pickup · Rentals</div>
+            <div class="stat-sub">Leagues · Pickup · Rentals · Youth</div>
           </div>
           <div class="stat-divider" aria-hidden="true"></div>
           <div class="stat-block">
@@ -401,11 +401,11 @@ setMarketingEdgeCache(Astro);
             <p class="pc-desc">Clinics, academies, and training camps. Ages 5–18. Both facilities.</p>
             <div class="pc-detail">
               <span class="pc-detail-item">
-                <span class="detail-label">YEAR-ROUND</span>
-                <span class="detail-val">All ages</span>
+                <span class="detail-label">LAUNCHING</span>
+                <span class="detail-val">2027</span>
               </span>
             </div>
-            <span class="pc-live"><span class="pc-dot"></span> Youth clinics open</span>
+            <span class="pc-soon">Coming 2027</span>
           </a>
         </div>
       </div>
@@ -1101,6 +1101,17 @@ setMarketingEdgeCache(Astro);
       border-radius: 50%;
       background: var(--so-lime);
       animation: pc-pulse 2s ease-in-out infinite;
+    }
+
+    /* Muted, non-"live" status for not-yet-launched offerings. */
+    .pc-soon {
+      display: inline-flex;
+      align-items: center;
+      font-family: var(--so-font-mono);
+      font-size: 0.625rem;
+      letter-spacing: 0.04em;
+      color: rgba(255, 255, 255, 0.45);
+      margin-top: 0.5rem;
     }
 
     @keyframes pc-drift {
