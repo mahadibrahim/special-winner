@@ -36,8 +36,11 @@ if (Astro.locals.user && organizationId) {
   }
 }
 
-// Helper to format cents as whole-dollar string
-const fmt = (cents: number) => `$${cents / 100}`;
+// Helper to format cents as dollars (whole numbers shown without decimals)
+const fmt = (cents: number) => {
+  const dollars = cents / 100;
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
+};
 ---
 
 <BaseLayout
@@ -93,15 +96,15 @@ const fmt = (cents: number) => `$${cents / 100}`;
               <tbody>
                 <tr>
                   <td class="rt-season mono">Apr – Sep</td>
-                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.summer.before3)}<span class="rt-per">/hr</span></td>
-                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.summer.midday)}<span class="rt-per">/hr</span></td>
-                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.summer.evening)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.summer.before3)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.summer.midday)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.summer.evening)}<span class="rt-per">/hr</span></td>
                 </tr>
                 <tr>
                   <td class="rt-season mono">Oct – Mar</td>
-                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.winter.before3)}<span class="rt-per">/hr</span></td>
-                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.winter.midday)}<span class="rt-per">/hr</span></td>
-                  <td class="rt-rate mono">{fmt(RENTAL_RATE_SCHEDULE.winter.evening)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.winter.before3)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.winter.midday)}<span class="rt-per">/hr</span></td>
+                  <td class="rt-rate">{fmt(RENTAL_RATE_SCHEDULE.winter.evening)}<span class="rt-per">/hr</span></td>
                 </tr>
               </tbody>
             </table>
@@ -252,7 +255,7 @@ const fmt = (cents: number) => `$${cents / 100}`;
         <div class="rmc-text">
           <span class="rmc-eyebrow">SAVE EVERY VISIT</span>
           <h2 class="rmc-title">Member and Founder rates apply automatically.</h2>
-          <p class="rmc-sub">One membership. Both facilities. Save $8–$16 per hour on every rental. Pays for itself in two bookings.</p>
+          <p class="rmc-sub">One membership. Both facilities. Members save 10% on every rental — founding members save 25%. Pays for itself in two bookings.</p>
         </div>
         <a href="/memberships" class="rmc-btn">View Membership Plans →</a>
       </div>
@@ -288,26 +291,6 @@ const fmt = (cents: number) => `$${cents / 100}`;
 
     .rh-title { font-family: var(--so-font-display); font-size: clamp(3.5rem, 8vw, 7.5rem); color: #ffffff; line-height: 0.92; letter-spacing: 0.01em; margin-bottom: 1rem; }
     .rh-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.6; max-width: 440px; }
-
-    .rates-block {
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-      background: var(--so-lime-a04);
-      border: 1px solid var(--so-lime-a15);
-      border-radius: var(--so-radius-md);
-      padding: 1.25rem 1.5rem;
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-
-    .rate-item { display: flex; flex-direction: column; gap: 2px; min-width: 70px; }
-    .ri-amount { font-family: var(--so-font-display); font-size: 2.25rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
-    .ri-unit { font-family: var(--so-font-mono); font-size: 0.625rem; color: var(--so-lime-a60); letter-spacing: 0.06em; }
-    .ri-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
-    .ri-save { font-family: var(--so-font-mono); font-size: 0.5rem; color: #86efac; letter-spacing: 0.06em; }
-    .ri-sub { font-family: var(--so-font-mono); font-size: 0.5rem; color: rgba(255,255,255,0.3); letter-spacing: 0.04em; }
-    .rate-div { width: 1px; height: 48px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
 
     /* Tiered rates table */
     .rates-table-wrap {
