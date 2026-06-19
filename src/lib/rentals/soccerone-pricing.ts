@@ -19,11 +19,10 @@ interface LocalParts { month: number; weekday: number; hour: number }
 /** Wall-clock parts of `date` in the given IANA timezone. */
 function localParts(date: Date, timeZone: string): LocalParts {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone, month: "numeric", weekday: "short", hour: "numeric", hour12: false,
+    timeZone, month: "numeric", weekday: "short", hour: "numeric", hourCycle: "h23",
   }).formatToParts(date)
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ""
-  let hour = parseInt(get("hour"), 10)
-  if (hour === 24) hour = 0 // hour12:false can render midnight as "24"
+  const hour = parseInt(get("hour"), 10)
   return { month: parseInt(get("month"), 10), weekday: WEEKDAY[get("weekday")], hour }
 }
 
@@ -44,7 +43,7 @@ export function resolveHourRateCents(hourStart: Date, timeZone: string): number 
 export function quoteRentalCents(startsAt: Date, endsAt: Date, timeZone: string): number {
   const ms = endsAt.getTime() - startsAt.getTime()
   if (ms <= 0) return 0
-  const hours = Math.round(ms / 3_600_000)
+  const hours = Math.floor(ms / 3_600_000) // Whole-hour bookings; floor is conservative if a partial hour ever slips the UI contract.
   let total = 0
   for (let i = 0; i < hours; i++) {
     total += resolveHourRateCents(new Date(startsAt.getTime() + i * 3_600_000), timeZone)
