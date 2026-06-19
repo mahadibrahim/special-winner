@@ -8,7 +8,7 @@ import {
 } from "@/lib/soccerone/leagues-finder"
 
 const SECTION_ID = "leagues-finder"
-const ALL: FinderFilters = { location: "all", division: "all", night: "all" }
+const ALL: FinderFilters = { location: "all", division: "all", night: "all", level: "all" }
 
 export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSeason[] }) {
   useHydrationBeacon()
