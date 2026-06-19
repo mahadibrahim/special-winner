@@ -261,6 +261,134 @@ const fmt = (cents: number) => {
       </div>
     </div>
 
+    <!-- Package request section -->
+    <div class="pkg-section" id="rental-package">
+      <div class="pkg-inner">
+        <div class="pkg-layout">
+
+          <!-- Left: copy -->
+          <div class="pkg-copy">
+            <div class="pkg-header">
+              <span class="section-num-sm">03.</span>
+              <h2 class="pkg-title">Need a package?</h2>
+            </div>
+            <p class="pkg-desc">Booking 10+ hours, a recurring slot, or a tournament block? Tell us what you need and we'll build a custom package.</p>
+            <ul class="pkg-perks">
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Bulk-hour discounts
+              </li>
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Weekly or bi-weekly reserved slots
+              </li>
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Multi-field tournament blocks
+              </li>
+              <li class="pkg-perk">
+                <span class="perk-dot" aria-hidden="true"></span>
+                Custom invoicing for clubs &amp; orgs
+              </li>
+            </ul>
+          </div>
+
+          <!-- Right: form -->
+          <div class="pkg-form-wrap">
+
+            <!-- Idle / error state -->
+            <form id="pkg-form" class="pkg-form" novalidate>
+              <div class="pf-row pf-row--2">
+                <label class="pf-field">
+                  <span class="pf-label">Organization / team name <span class="pf-opt">(optional)</span></span>
+                  <input
+                    type="text"
+                    id="pkg-org"
+                    name="orgName"
+                    maxlength="255"
+                    placeholder="Columbus FC, Individual, etc."
+                    class="pf-input"
+                    autocomplete="organization"
+                  />
+                </label>
+                <label class="pf-field">
+                  <span class="pf-label">Contact name <span class="pf-req" aria-label="required">*</span></span>
+                  <input
+                    type="text"
+                    id="pkg-name"
+                    name="contactName"
+                    required
+                    maxlength="200"
+                    placeholder="Your full name"
+                    class="pf-input"
+                    autocomplete="name"
+                  />
+                </label>
+              </div>
+
+              <label class="pf-field">
+                <span class="pf-label">Email <span class="pf-req" aria-label="required">*</span></span>
+                <input
+                  type="email"
+                  id="pkg-email"
+                  name="contactEmail"
+                  required
+                  maxlength="320"
+                  placeholder="you@example.com"
+                  class="pf-input"
+                  autocomplete="email"
+                />
+              </label>
+
+              <label class="pf-field">
+                <span class="pf-label">Desired dates, times &amp; duration <span class="pf-opt">(optional)</span></span>
+                <input
+                  type="text"
+                  id="pkg-dates"
+                  name="preferredStart"
+                  maxlength="100"
+                  placeholder="e.g. Sat mornings starting July, 2 hr blocks"
+                  class="pf-input"
+                />
+              </label>
+
+              <label class="pf-field">
+                <span class="pf-label">Anything else? <span class="pf-opt">(optional)</span></span>
+                <textarea
+                  id="pkg-msg"
+                  name="message"
+                  rows="4"
+                  maxlength="1900"
+                  placeholder="Number of fields, add-ons, tournament format, budget — whatever helps us scope the package."
+                  class="pf-textarea"
+                ></textarea>
+              </label>
+
+              <div id="pkg-error" class="pf-error" hidden></div>
+
+              <button type="submit" id="pkg-submit" class="pf-btn">
+                <span class="pf-btn-text">Request a Package →</span>
+                <span class="pf-btn-spinner" hidden aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pf-spin"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="10" stroke-linecap="round"/></svg>
+                  Sending…
+                </span>
+              </button>
+            </form>
+
+            <!-- Success state (hidden until submit OK) -->
+            <div id="pkg-success" class="pf-success" hidden>
+              <div class="pfs-icon" aria-hidden="true">✓</div>
+              <div class="pfs-body">
+                <h3 class="pfs-title">Thanks — we'll be in touch about your package.</h3>
+                <p class="pfs-sub">Expect a reply within one business day. Questions now? Email <a href="mailto:rentals@gosoccerone.com" class="pfs-link">rentals@gosoccerone.com</a>.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <SoccerOneFooter />
@@ -444,6 +572,157 @@ const fmt = (cents: number) => {
     .rmc-btn { display: inline-block; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: var(--so-radius-sm); transition: background 0.15s; flex-shrink: 0; white-space: nowrap; }
     .rmc-btn:hover { background: var(--so-lime-bright); }
 
+    /* Package request */
+    .pkg-section {
+      background: var(--so-ink);
+      border-top: 1px solid var(--so-lime-a10);
+      padding: 5rem 0;
+    }
+    .pkg-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+
+    .pkg-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 4rem;
+      align-items: flex-start;
+    }
+
+    /* Copy column */
+    .pkg-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.25rem; }
+    .pkg-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      line-height: 1;
+    }
+    .pkg-desc {
+      font-size: 1.0625rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 400px;
+      margin-bottom: 2rem;
+    }
+    .pkg-perks { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+    .pkg-perk {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.6);
+    }
+    .perk-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--so-lime);
+      flex-shrink: 0;
+    }
+
+    /* Form column */
+    .pkg-form-wrap {
+      background: var(--so-surface);
+      border: 1px solid var(--so-lime-a15);
+      border-radius: var(--so-radius-lg);
+      padding: 2rem;
+    }
+
+    .pkg-form { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    .pf-row { display: flex; gap: 1rem; }
+    .pf-row--2 > * { flex: 1 1 0; min-width: 0; }
+
+    .pf-field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .pf-label {
+      font-family: var(--so-font-mono);
+      font-size: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+    }
+    .pf-req { color: var(--so-lime); margin-left: 2px; }
+    .pf-opt { color: rgba(255,255,255,0.25); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.5rem; }
+
+    .pf-input,
+    .pf-textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--so-radius-sm);
+      color: #ffffff;
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      padding: 0.75rem 1rem;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    .pf-input::placeholder,
+    .pf-textarea::placeholder { color: rgba(255,255,255,0.2); }
+    .pf-input:focus,
+    .pf-textarea:focus { border-color: var(--so-lime-a50); }
+    .pf-textarea { resize: vertical; min-height: 100px; }
+
+    .pf-error {
+      font-size: 0.875rem;
+      color: #f87171;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.2);
+      border-radius: var(--so-radius-sm);
+      padding: 0.75rem 1rem;
+    }
+
+    .pf-btn {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--so-lime);
+      color: var(--so-ink);
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      border: none;
+      cursor: pointer;
+      padding: 0.875rem 1.75rem;
+      border-radius: var(--so-radius-sm);
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .pf-btn:hover:not(:disabled) { background: var(--so-lime-bright); }
+    .pf-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    @keyframes pf-spin { to { transform: rotate(360deg); } }
+    .pf-spin { animation: pf-spin 0.8s linear infinite; }
+
+    /* Success state */
+    .pf-success {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+      background: rgba(163,230,53,0.06);
+      border: 1px solid var(--so-lime-a25);
+      border-radius: var(--so-radius-md);
+      padding: 1.75rem;
+    }
+    .pfs-icon {
+      font-size: 1.375rem;
+      color: var(--so-lime);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .pfs-title {
+      font-family: var(--so-font-display);
+      font-size: 1.375rem;
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.5rem;
+    }
+    .pfs-sub { font-size: 0.9375rem; color: var(--muted); line-height: 1.55; }
+    .pfs-link { color: var(--so-lime); text-decoration: none; }
+    .pfs-link:hover { text-decoration: underline; }
+
     @media (max-width: 1100px) { .includes-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) {
       .rh-top { flex-direction: column; align-items: flex-start; }
@@ -453,6 +732,86 @@ const fmt = (cents: number) => {
       .rates-table-wrap { max-width: 100%; overflow-x: auto; }
       .rates-table { font-size: 0.75rem; }
       .rt-rate { font-size: 1.125rem; }
+      .pkg-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+      .pf-row--2 { flex-direction: column; }
     }
   </style>
+
+  <script>
+    // Package request form — plain JS, no framework dependency.
+    // Maps onto /api/public/corporate-inquiry exactly:
+    //   companyName  ← orgName (optional on form; fallback "Individual")
+    //   contactName  ← contactName (required)
+    //   contactEmail ← contactEmail (required)
+    //   preferredStart ← preferredStart (dates/times field)
+    //   sportInterest  = "Field Rental" (static tag)
+    //   notes          = "[rental-package] " + message (if any)
+    (() => {
+      const form = document.getElementById("pkg-form") as HTMLFormElement | null;
+      const successEl = document.getElementById("pkg-success") as HTMLElement | null;
+      const errorEl = document.getElementById("pkg-error") as HTMLElement | null;
+      const submitBtn = document.getElementById("pkg-submit") as HTMLButtonElement | null;
+      if (!form || !successEl || !errorEl || !submitBtn) return;
+
+      const btnText = submitBtn.querySelector(".pf-btn-text") as HTMLElement;
+      const btnSpinner = submitBtn.querySelector(".pf-btn-spinner") as HTMLElement;
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Read values
+        const orgName = (document.getElementById("pkg-org") as HTMLInputElement).value.trim();
+        const contactName = (document.getElementById("pkg-name") as HTMLInputElement).value.trim();
+        const contactEmail = (document.getElementById("pkg-email") as HTMLInputElement).value.trim();
+        const preferredStart = (document.getElementById("pkg-dates") as HTMLInputElement).value.trim();
+        const message = (document.getElementById("pkg-msg") as HTMLTextAreaElement).value.trim();
+
+        // Client-side required-field check
+        if (!contactName || !contactEmail) {
+          errorEl.textContent = "Please fill in your name and email.";
+          errorEl.hidden = false;
+          return;
+        }
+
+        // Build notes — prepend source tag so admin can identify these as rental-package inquiries
+        const notes = message ? `[rental-package] ${message}` : "[rental-package]";
+
+        // Submit state
+        errorEl.hidden = true;
+        submitBtn.disabled = true;
+        btnText.hidden = true;
+        btnSpinner.hidden = false;
+
+        try {
+          const res = await fetch("/api/public/corporate-inquiry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companyName: orgName || "Individual",
+              contactName,
+              contactEmail,
+              preferredStart: preferredStart || undefined,
+              sportInterest: "Field Rental",
+              notes,
+            }),
+          });
+
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({})) as { error?: string };
+            throw new Error(json.error ?? "Could not submit request");
+          }
+
+          // Show success, hide form
+          form.hidden = true;
+          successEl.hidden = false;
+        } catch (err) {
+          errorEl.textContent = err instanceof Error ? err.message : "Could not submit request. Please try again.";
+          errorEl.hidden = false;
+          submitBtn.disabled = false;
+          btnText.hidden = false;
+          btnSpinner.hidden = true;
+        }
+      });
+    })();
+  </script>
 </BaseLayout>
