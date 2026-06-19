@@ -52,52 +52,42 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 
       <!-- Hero content -->
       <div class="hero-content">
-        <!-- Pre-headline label -->
-        <div class="hero-label" aria-hidden="true">
-          <span class="label-dot"></span>
-          <span class="label-text">COLUMBUS, OHIO</span>
-        </div>
-
         <!-- Main headline -->
         <h1 class="hero-headline">
-          <span class="hero-line-1">INDOOR</span>
-          <span class="hero-line-2">SOCCER.</span>
+          <span class="hero-line-1">YOUR GAME.</span>
+          <span class="hero-line-2">ANY NIGHT.</span>
         </h1>
 
         <p class="hero-sub">
-          Two facilities. Four fields. One city.<br />
-          Leagues, pickup, and rentals — year-round.
+          Four indoor fields across <span class="hero-loc">Worthington &amp; Downtown Columbus</span>.<br />
+          Leagues, pickup, and rentals — every night, year-round.
         </p>
 
         <!-- Facility selector -->
         <div class="hero-facility-selector" role="group" aria-label="Select a facility">
-          <a href="/worthington" class="hero-facility-btn hero-facility-btn--primary">
-            <div class="hfb-inner">
-              <div class="hfb-header">
-                <span class="hfb-name">WORTHINGTON</span>
-                <span class="hfb-badge">3 FIELDS</span>
-              </div>
+          <div class="hero-facility-card hero-facility-card--primary">
+            <a href="/worthington" class="hfc-main">
+              <div class="hfb-header"><span class="hfb-name">WORTHINGTON</span><span class="hfb-badge">3 FIELDS</span></div>
               <div class="hfb-address">535 Lakeview Plaza Blvd · 4pm–12am daily</div>
-              <div class="hfb-features">Adult leagues · Youth · Pickup · Rentals</div>
+            </a>
+            <div class="hfc-formats">
+              <a href="/leagues?location=worthington" class="hfc-fmt" aria-label="Leagues at Worthington">Leagues</a>
+              <a href="/pickup?facility=worthington" class="hfc-fmt" aria-label="Pickup at Worthington">Pickup</a>
+              <a href="/rent?facility=worthington" class="hfc-fmt" aria-label="Rent a field at Worthington">Rent</a>
             </div>
-            <svg class="hfb-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
+          </div>
 
-          <a href="/downtown" class="hero-facility-btn">
-            <div class="hfb-inner">
-              <div class="hfb-header">
-                <span class="hfb-name">DOWNTOWN</span>
-                <span class="hfb-badge">1 FIELD</span>
-              </div>
+          <div class="hero-facility-card">
+            <a href="/downtown" class="hfc-main">
+              <div class="hfb-header"><span class="hfb-name">DOWNTOWN</span><span class="hfb-badge">1 FIELD</span></div>
               <div class="hfb-address">980 E Starr Ave · 4pm–12am daily</div>
-              <div class="hfb-features">After-work pickup · Corporate leagues · Rentals</div>
+            </a>
+            <div class="hfc-formats">
+              <a href="/leagues?location=downtown" class="hfc-fmt" aria-label="Leagues at Downtown">Leagues</a>
+              <a href="/pickup?facility=downtown" class="hfc-fmt" aria-label="Pickup at Downtown">Pickup</a>
+              <a href="/rent?facility=downtown" class="hfc-fmt" aria-label="Rent a field at Downtown">Rent</a>
             </div>
-            <svg class="hfb-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
+          </div>
 
           <span class="hero-future-chip">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -323,6 +313,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
         <div class="play-grid">
           <!-- Leagues -->
           <a href="/leagues" class="play-card play-card--featured">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">01</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -332,7 +323,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
               </svg>
             </div>
             <h3 class="pc-title">Adult Leagues</h3>
-            <p class="pc-desc">Coed, Premier, and Women's divisions. 8-week seasons with playoffs.</p>
+            <p class="pc-desc">Coed, Premier, and Women's divisions. 7-game seasons across both sites.</p>
             <div class="pc-detail">
               <span class="pc-detail-item">
                 <span class="detail-label">SEASONS</span>
@@ -343,11 +334,13 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
                 <span class="detail-val">Available</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Now registering</span>
             <a href="/leagues" class="pc-cta">See Leagues</a>
           </a>
 
           <!-- Pickup -->
           <a href="/pickup" class="play-card">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">02</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -361,13 +354,15 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
             <div class="pc-detail">
               <span class="pc-detail-item">
                 <span class="detail-label">SESSION RATE</span>
-                <span class="detail-val">From $12/game</span>
+                <span class="detail-val">Members from $12 · drop in any night</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Open every night</span>
           </a>
 
           <!-- Rentals -->
           <a href="/rent" class="play-card">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">03</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -382,14 +377,16 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
             <p class="pc-desc">Book a field by the hour. Training, parties, team practices. All 4 fields available.</p>
             <div class="pc-detail">
               <span class="pc-detail-item">
-                <span class="detail-label">FROM</span>
-                <span class="detail-val">$80/hr</span>
+                <span class="detail-label">PRICING</span>
+                <span class="detail-val">By the hour · all 4 fields</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Open for booking</span>
           </a>
 
           <!-- Youth -->
-          <a href="/leagues" class="play-card">
+          <a href="/leagues?audience=youth" class="play-card">
+            <span class="pc-aurora" aria-hidden="true"></span>
             <div class="pc-num">04</div>
             <div class="pc-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -406,6 +403,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
                 <span class="detail-val">All ages</span>
               </span>
             </div>
+            <span class="pc-live"><span class="pc-dot"></span> Youth clinics open</span>
           </a>
         </div>
       </div>
@@ -614,33 +612,6 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .hero-label {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 1.5rem;
-      animation: heroReveal 1s ease-out 0.15s both;
-    }
-    .label-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--so-lime);
-      box-shadow: 0 0 8px var(--so-lime);
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .label-text {
-      font-family: var(--so-font-mono);
-      font-size: 0.6875rem;
-      font-weight: 500;
-      letter-spacing: 0.14em;
-      color: var(--so-lime-a80);
-    }
-
     .hero-headline {
       display: flex;
       flex-direction: column;
@@ -671,6 +642,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       max-width: 480px;
       animation: heroReveal 1s ease-out 0.5s both;
     }
+    .hero-loc { color: var(--so-lime); font-weight: 500; }
 
     /* Facility selector in hero */
     .hero-facility-selector {
@@ -681,34 +653,6 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       animation: heroReveal 1s ease-out 0.65s both;
     }
 
-    .hero-facility-btn {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1.5rem;
-      background: rgba(14,14,16,0.85);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: var(--so-radius-md);
-      padding: 1rem 1.25rem;
-      text-decoration: none;
-      transition: border-color 0.2s, background 0.2s;
-      flex: 1;
-      min-width: 260px;
-      max-width: 420px;
-      backdrop-filter: blur(8px);
-    }
-    .hero-facility-btn:hover {
-      border-color: var(--so-lime-a40);
-      background: var(--so-lime-a06);
-    }
-    .hero-facility-btn--primary {
-      border-color: var(--so-lime-a35);
-    }
-    .hero-facility-btn--primary:hover {
-      border-color: var(--so-lime);
-    }
-
-    .hfb-inner { display: flex; flex-direction: column; gap: 4px; }
     .hfb-header { display: flex; align-items: center; gap: 0.625rem; }
 
     .hfb-name {
@@ -734,22 +678,6 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       font-size: 0.8125rem;
       color: rgba(255,255,255,0.45);
     }
-    .hfb-features {
-      font-size: 0.75rem;
-      color: var(--so-lime-a60);
-      letter-spacing: 0.02em;
-    }
-
-    .hfb-arrow {
-      color: var(--so-lime-a50);
-      flex-shrink: 0;
-      transition: transform 0.2s;
-    }
-    .hero-facility-btn:hover .hfb-arrow {
-      transform: translateX(4px);
-      color: var(--so-lime);
-    }
-
     .hero-future-chip {
       display: flex;
       align-items: center;
@@ -763,6 +691,14 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: var(--so-radius-pill);
     }
+
+    /* Hero facility cards — launchpad style */
+    .hero-facility-card { background: rgba(255,255,255,0.05); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-md); padding: 1rem 1.1rem; flex: 1; min-width: 260px; max-width: 420px; }
+    .hero-facility-card--primary { background: var(--so-lime-a08); border-color: var(--so-lime-a30); }
+    .hfc-main { display: block; text-decoration: none; color: #fff; }
+    .hfc-formats { display: flex; gap: 0.45rem; margin-top: 0.75rem; }
+    .hfc-fmt { flex: 1; text-align: center; font-family: var(--so-font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #fff; background: rgba(0,0,0,0.35); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-sm); padding: 0.55rem 0.4rem; text-decoration: none; transition: all 0.14s; }
+    .hfc-fmt:hover { background: var(--so-lime); color: var(--so-ink); border-color: var(--so-lime); font-weight: 600; }
 
     /* Scroll indicator */
     .hero-scroll {
@@ -1001,6 +937,10 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       font-size: 0.75rem;
       color: rgba(255,255,255,0.5);
     }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
     .status-dot {
       width: 6px;
       height: 6px;
@@ -1127,6 +1067,53 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     .play-card--featured {
       border-color: var(--so-lime-a25);
       background: var(--so-lime-a04);
+    }
+    .play-card:hover .pc-aurora { animation-duration: 6s; }
+    .play-card > * { position: relative; z-index: 1; }
+
+    .pc-aurora {
+      position: absolute;
+      inset: -40%;
+      z-index: 0;
+      filter: blur(34px);
+      opacity: 0.45;
+      background: radial-gradient(circle at 30% 30%, var(--so-lime-a50), transparent 55%),
+                  radial-gradient(circle at 70% 70%, var(--so-lime-a20), transparent 60%);
+      animation: pc-drift 14s ease-in-out infinite;
+    }
+
+    .pc-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--so-font-mono);
+      font-size: 0.625rem;
+      letter-spacing: 0.04em;
+      color: var(--so-lime);
+      margin-top: 0.5rem;
+    }
+
+    .pc-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--so-lime);
+      animation: pc-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pc-drift {
+      0%, 100% { transform: translate(0, 0) scale(1.05); }
+      50% { transform: translate(3%, -3%) scale(1.12); }
+    }
+
+    @keyframes pc-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--so-lime-a50); }
+      50% { box-shadow: 0 0 0 7px transparent; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pc-aurora, .pc-dot { animation: none; }
+      .play-card:hover { transform: none; }
     }
 
     .pc-num {
@@ -1612,7 +1599,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
       .hero { min-height: 85vh; }
       .hero-content { padding: 0 1.5rem 3rem; }
       .hero-facility-selector { flex-direction: column; }
-      .hero-facility-btn { max-width: 100%; }
+      .hero-facility-card { max-width: 100%; }
       .numbers-grid { flex-wrap: wrap; gap: 1.5rem; }
       .stat-divider { display: none; }
       .stat-block { min-width: 120px; }

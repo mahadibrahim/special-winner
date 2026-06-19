@@ -4,26 +4,18 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { Toaster } from 'sonner';
-
-const facility = Astro.url.searchParams.get('facility') || 'all';
-const facilityLabel = facility === 'worthington' ? 'Worthington' : facility === 'downtown' ? 'Downtown' : 'All Locations';
+import SoccerOneLeaguesFinder from '@/components/soccerone/SoccerOneLeaguesFinder';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
 // so this page sees only SoccerOne seasons when rendered in SoccerOne context.
-// Optional ?facility=downtown|worthington filters by location slug — matches
-// the existing UI affordance. The location slugs in the DB are bare
-// ('downtown' / 'worthington'), not 'soccerone-' prefixed, so the tab value
-// maps straight through; the old prefixed slugs matched no location and made
-// both tabs return zero leagues.
-const locationSlug =
-  facility === 'downtown' || facility === 'worthington' ? facility : null;
-
+// Fetch ALL seasons for the requested audience (no location filter) so the
+// client-side finder can filter across all locations.
+const audience = Astro.url.searchParams.get('audience') === 'youth' ? 'youth' : 'adult';
 let seasons: any[] = [];
 try {
   const url = new URL('/api/public/seasons', Astro.url);
-  url.searchParams.set('audience', 'adult');
-  if (locationSlug) url.searchParams.set('location', locationSlug);
+  url.searchParams.set('audience', audience);
   const res = await fetch(url, {
     headers: { Host: Astro.request.headers.get('host') ?? '' },
   });
@@ -60,8 +52,10 @@ const featuredPrice = featured
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
-  title={`Leagues — SoccerOne | ${facilityLabel}`}
-  description="Adult coed, premier, and corporate indoor soccer leagues at SoccerOne Columbus. Worthington (3 fields) and Downtown (1 field). Register now for the upcoming season."
+  title={audience === 'youth' ? 'Youth Leagues — SoccerOne' : 'Leagues — SoccerOne'}
+  description={audience === 'youth'
+    ? 'Youth indoor soccer leagues at SoccerOne Columbus — Worthington and Downtown. Register now for the upcoming season.'
+    : 'Adult coed, premier, and corporate indoor soccer leagues at SoccerOne Columbus. Worthington (3 fields) and Downtown (1 field). Register now for the upcoming season.'}
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -91,9 +85,11 @@ const featuredPrice = featured
 
         <div class="lh-top">
           <div class="lh-text">
-            <h1 class="lh-title">LEAGUES</h1>
+            <h1 class="lh-title">{audience === 'youth' ? 'YOUTH LEAGUES' : 'LEAGUES'}</h1>
             <p class="lh-desc">
-              Competitive indoor soccer, season by season. Adult Coed, Premier, Women's, and Corporate divisions across both locations.
+              {audience === 'youth'
+                ? 'Youth indoor soccer leagues and academies across both locations.'
+                : 'Competitive indoor soccer, season by season. Adult Coed, Premier, Women\'s, and Corporate divisions across both locations.'}
             </p>
           </div>
           <div class="lh-stats">
@@ -114,27 +110,6 @@ const featuredPrice = featured
           </div>
         </div>
 
-        <!-- Facility filter tabs -->
-        <div class="facility-filter-row" role="group" aria-label="Filter by facility">
-          <a
-            href="/leagues"
-            class={`ff-tab ${facility === 'all' ? 'ff-tab--active' : ''}`}
-          >
-            ALL LOCATIONS
-          </a>
-          <a
-            href="/leagues?facility=worthington"
-            class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}
-          >
-            WORTHINGTON · 3 FIELDS
-          </a>
-          <a
-            href="/leagues?facility=downtown"
-            class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}
-          >
-            DOWNTOWN · 1 FIELD
-          </a>
-        </div>
       </div>
     </div>
 
@@ -187,88 +162,7 @@ const featuredPrice = featured
           </div>
         )}
 
-        <!-- League cards grid — data-driven from /api/public/seasons -->
-        {seasons.length === 0 ? (
-          <div class="leagues-empty">
-            <p class="le-title">No open leagues right now</p>
-            <p class="le-body">
-              New seasons open before each cycle — leave your email and you'll
-              hear the moment registration opens.
-            </p>
-            <form id="le-notify-form" class="le-form" novalidate>
-              <label class="sr-only" for="le-notify-email">Email address</label>
-              <input
-                id="le-notify-email"
-                class="le-input"
-                type="email"
-                required
-                autocomplete="email"
-                placeholder="you@email.com"
-              />
-              <button type="submit" class="le-btn">Notify me</button>
-            </form>
-            <p id="le-notify-msg" class="le-msg" role="status" hidden></p>
-          </div>
-        ) : (
-          <div class="leagues-grid">
-            {seasons.map((season: any) => {
-              const isDowntown = season.location.slug?.includes('downtown');
-              const statusKey = season.status === 'open' ? 'open' : season.status === 'filling' ? 'filling' : 'coming';
-              const cardMod = isDowntown ? 'league-card--downtown' : 'league-card--active';
-              const badgeMod = isDowntown ? 'lc-location-badge--downtown' : '';
-              const locationLabel = season.location.name.toUpperCase();
-              const statusLabel = season.status.toUpperCase();
-              const priceLabel = season.teamPrice
-                ? `$${season.price}/player · $${season.teamPrice}/team`
-                : `$${season.price}/player`;
-              return (
-                <div class={`league-card ${cardMod}`}>
-                  <div class={`lc-location-badge ${badgeMod}`}>{locationLabel}</div>
-                  <div class="lc-top">
-                    <div class="lc-division">
-                      <span class="lc-div-label">PROGRAM</span>
-                      <span class="lc-div-name">{season.program.name}</span>
-                    </div>
-                    <span class={`lc-status lc-status--${statusKey}`}>{statusLabel}</span>
-                  </div>
-
-                  <h3 class="lc-name">{season.name}</h3>
-
-                  <div class="lc-details">
-                    {season.startDate && (
-                      <div class="lc-detail-row">
-                        <span class="lcd-label">STARTS</span>
-                        <span class="lcd-val">{new Date(season.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      </div>
-                    )}
-                    {season.scheduleNotes && (
-                      <div class="lc-detail-row">
-                        <span class="lcd-label">SCHEDULE</span>
-                        <span class="lcd-val">{season.scheduleNotes}</span>
-                      </div>
-                    )}
-                    <div class="lc-detail-row">
-                      <span class="lcd-label">SPOTS</span>
-                      <span class="lcd-val">
-                        {season.spotsLeft != null
-                          ? `${season.spotsLeft} left of ${season.maxParticipants}`
-                          : 'Open'}
-                      </span>
-                    </div>
-                    <div class="lc-detail-row">
-                      <span class="lcd-label">PRICE</span>
-                      <span class="lcd-val mono accent">{priceLabel}</span>
-                    </div>
-                  </div>
-
-                  <a href={`/register/${season.id}`} class="lc-cta">
-                    Register Now →
-                  </a>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <SoccerOneLeaguesFinder client:load seasons={seasons} />
       </div>
     </div>
 
@@ -360,28 +254,6 @@ const featuredPrice = featured
     .lhs-num { font-family: var(--so-font-display); font-size: 2.25rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
     .lhs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
     .lhs-div { width: 1px; height: 40px; background: rgba(255,255,255,0.08); }
-
-    /* Facility filter tabs */
-    .facility-filter-row {
-      display: flex;
-      gap: 0;
-      border-top: 1px solid var(--border);
-    }
-
-    .ff-tab {
-      font-family: var(--so-font-body);
-      font-size: 0.8125rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      color: rgba(255,255,255,0.4);
-      text-decoration: none;
-      padding: 1rem 1.5rem;
-      border-bottom: 2px solid transparent;
-      transition: color 0.15s, border-color 0.15s;
-      white-space: nowrap;
-    }
-    .ff-tab:hover { color: rgba(255,255,255,0.7); }
-    .ff-tab--active { color: var(--so-lime); border-bottom-color: var(--so-lime); }
 
     /* ---- LEAGUES SECTION ---- */
     .leagues-section { background: var(--bg); padding: 4rem 0; }
@@ -568,8 +440,6 @@ const featuredPrice = featured
       border-top: none;
     }
     .lc-cta:hover { border-bottom-color: var(--so-lime); }
-    .lc-cta--notify { color: rgba(255,255,255,0.5); border-bottom-color: rgba(255,255,255,0.15); }
-    .lc-cta--notify:hover { color: rgba(255,255,255,0.7); border-bottom-color: rgba(255,255,255,0.3); }
 
     /* ---- BOTTOM CTA ---- */
     .leagues-bottom-cta {
@@ -594,53 +464,6 @@ const featuredPrice = featured
     .lbc-btn-secondary { display: inline-block; background: rgba(10,10,13,0.1); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: var(--so-radius-sm); border: 1px solid rgba(10,10,13,0.25); transition: background 0.15s; white-space: nowrap; }
     .lbc-btn-secondary:hover { background: rgba(10,10,13,0.18); }
 
-    /* Empty state */
-    .leagues-empty {
-      padding: 4rem 0;
-      text-align: center;
-    }
-    .le-form {
-      margin: 1.5rem auto 0;
-      display: flex;
-      gap: 0.5rem;
-      max-width: 26rem;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .le-input {
-      flex: 1 1 14rem;
-      padding: 0.75rem 1rem;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: var(--so-radius-md);
-      color: #ffffff;
-      font-size: 0.9375rem;
-    }
-    .le-input::placeholder { color: rgba(255, 255, 255, 0.4); }
-    .le-input:focus {
-      outline: none;
-      border-color: var(--so-lime);
-    }
-    .le-btn {
-      padding: 0.75rem 1.25rem;
-      background: var(--so-lime);
-      color: var(--so-ink);
-      font-family: var(--so-font-display);
-      font-size: 0.9375rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      border: none;
-      border-radius: var(--so-radius-md);
-      cursor: pointer;
-    }
-    .le-btn:hover { background: var(--so-lime-bright); }
-    .le-btn:disabled { opacity: 0.6; cursor: default; }
-    .le-msg {
-      margin-top: 0.75rem;
-      font-size: 0.9375rem;
-      color: var(--so-lime);
-    }
-    .le-msg.le-msg--error { color: #f87171; }
     .le-title {
       font-family: var(--so-font-display);
       font-size: 1.5rem;
@@ -661,49 +484,22 @@ const featuredPrice = featured
       .lfcta-right { align-items: flex-start; }
       .lbc-inner { flex-direction: column; align-items: flex-start; }
     }
+
+    /* ---- FINDER ISLAND ---- */
+    .so-finder { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    .so-finder-group { margin-bottom: 0.875rem; }
+    .so-finder-glabel { font-family: var(--so-font-mono); font-size: 0.55rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--so-lime-a50); display: block; margin-bottom: 0.5rem; }
+    .so-finder-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .so-chip { font-family: var(--so-font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #fff; background: var(--so-surface); border: 1px solid var(--so-lime-a15); border-radius: 99px; padding: 0.5rem 0.9rem; cursor: pointer; transition: all 0.14s; }
+    .so-chip:hover { border-color: var(--so-lime-a40); }
+    .so-chip.on { background: var(--so-lime); color: var(--so-ink); border-color: var(--so-lime); font-weight: 600; }
+    .so-finder-count { font-family: var(--so-font-mono); font-size: 0.8rem; color: var(--muted); margin: 1rem 0; }
+    .so-finder-count strong { color: var(--so-lime); }
+    .so-finder-clear, .so-finder-arrived button { background: none; border: none; color: var(--muted); text-decoration: underline; cursor: pointer; margin-left: 0.75rem; font-size: 0.8rem; }
+    .so-finder-arrived { display: flex; align-items: center; gap: 0.5rem; background: var(--so-lime-a08); border: 1px solid var(--so-lime-a30); border-radius: var(--so-radius-md); padding: 0.625rem 0.875rem; margin-bottom: 1rem; font-family: var(--so-font-mono); font-size: 0.75rem; color: var(--so-lime); }
+    .so-finder-arrived button { margin-left: auto; }
+    .so-finder-empty { padding: 3rem 0; text-align: center; }
   </style>
 
-  <script>
-    // Empty-state email capture — posts to the org-scoped newsletter
-    // endpoint (rate-limited, upserts by email). Only present when the
-    // page rendered with zero open seasons.
-    const form = document.getElementById("le-notify-form") as HTMLFormElement | null;
-    const input = document.getElementById("le-notify-email") as HTMLInputElement | null;
-    const msg = document.getElementById("le-notify-msg");
-    const btn = form?.querySelector("button");
-
-    form?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!input || !msg || !input.value.trim()) return;
-      if (btn) btn.disabled = true;
-      msg.hidden = true;
-      try {
-        const res = await fetch("/api/public/newsletter", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: input.value.trim(),
-            audience: "adult",
-            source: "soccerone-leagues-empty",
-          }),
-        });
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          throw new Error(json.error ?? "Could not save your email");
-        }
-        msg.textContent =
-          "You're on the list — we'll email you the moment registration opens.";
-        msg.classList.remove("le-msg--error");
-        msg.hidden = false;
-        form.hidden = true;
-      } catch (err) {
-        msg.textContent =
-          err instanceof Error ? err.message : "Could not save your email";
-        msg.classList.add("le-msg--error");
-        msg.hidden = false;
-        if (btn) btn.disabled = false;
-      }
-    });
-  </script>
 
 </BaseLayout>

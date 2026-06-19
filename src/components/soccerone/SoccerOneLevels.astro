@@ -1,0 +1,36 @@
+---
+import { SKILL_LEVEL_TIERS } from "@/lib/landing/skill-levels"
+const bars: Record<string, number> = { recreational: 1, intermediate: 2, advanced: 3 }
+---
+<section class="so-levels" aria-label="Find your level">
+  <h2 class="so-levels-h">Find your run.</h2>
+  <p class="so-levels-sub">Every level plays at SoccerOne. Not sure where you fit? Start here.</p>
+  <div class="so-levels-grid">
+    {SKILL_LEVEL_TIERS.map((t) => (
+      <div class={`so-lv so-lv--${bars[t.level]}`}>
+        <div class="so-lv-bars">{[1,2,3].map((n) => <span class={`so-lv-bar ${n <= bars[t.level] ? "f" : ""}`}></span>)}</div>
+        <span class="so-lv-tag">{t.display.label}</span>
+        <h3 class="so-lv-name">{t.headline}</h3>
+        <p class="so-lv-blurb">{t.blurb}</p>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .so-levels { max-width: 1100px; margin: 0 auto; padding: 3rem 2rem; }
+  .so-levels-h { font-family: var(--so-font-display); text-transform: uppercase; font-size: 1.5rem; color: #fff; }
+  .so-levels-sub { color: rgba(255,255,255,0.55); font-size: 0.9rem; margin-bottom: 1.4rem; }
+  .so-levels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+  .so-lv { border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-md); padding: 1.4rem 1.25rem; background: var(--so-surface); }
+  .so-lv--1 { background: linear-gradient(160deg, var(--so-lime-a04), transparent); }
+  .so-lv--2 { background: linear-gradient(160deg, var(--so-lime-a08), transparent); border-color: var(--so-lime-a30); }
+  .so-lv--3 { background: linear-gradient(160deg, var(--so-lime-a12), transparent); border-color: var(--so-lime); }
+  .so-lv-bars { display: flex; gap: 4px; margin-bottom: 1rem; }
+  .so-lv-bar { width: 22px; height: 6px; border-radius: 2px; background: var(--so-lime-a15); }
+  .so-lv-bar.f { background: var(--so-lime); }
+  .so-lv-tag { font-family: var(--so-font-mono); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--so-lime); }
+  .so-lv-name { font-family: var(--so-font-display); text-transform: uppercase; font-size: 1.4rem; line-height: 1; margin: 0.6rem 0; color: #fff; }
+  .so-lv-blurb { color: rgba(255,255,255,0.55); font-size: 0.82rem; line-height: 1.5; }
+  @media (max-width: 680px) { .so-levels-grid { grid-template-columns: 1fr; } }
+</style>
