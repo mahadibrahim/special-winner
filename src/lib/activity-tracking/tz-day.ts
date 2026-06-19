@@ -37,6 +37,19 @@ function computeTzOffsetMs(at: Date, tz: string): number {
 }
 
 /**
+ * UTC instant for `hour:00` local wall-clock on `date` (YYYY-MM-DD) in `tz`.
+ * Inverse of resolving a UTC instant's local hour. Whole-hour only.
+ */
+export function zonedHourToUtc(date: string, hour: number, tz: string): Date {
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) throw new Error(`zonedHourToUtc: invalid date '${date}', expected YYYY-MM-DD`)
+  const [, y, mo, d] = m
+  // Wall-clock as-if-UTC, then subtract the tz offset at that instant.
+  const asUtc = new Date(`${y}-${mo}-${d}T${String(hour).padStart(2, "0")}:00:00.000Z`)
+  return new Date(asUtc.getTime() - computeTzOffsetMs(asUtc, tz))
+}
+
+/**
  * Given a YYYY-MM-DD calendar date and IANA tz, return the UTC bounds
  * of that local day: 00:00:00.000 → 23:59:59.999 wall-clock in tz.
  */
