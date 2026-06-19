@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
+import { ErrorBanner } from "@/components/ui/error-banner"
 
 interface Program {
   id: string
@@ -266,21 +268,33 @@ function ChildCard({ child }: { child: Child }) {
 
 export default function ChildrenOverview() {
   const [children, setChildren] = useState<Child[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
+    setError(false)
     ;(async () => {
       try {
         const [familyRes, regsRes] = await Promise.all([
           fetch("/api/family-members"),
           fetch("/api/registrations"),
         ])
-        if (cancelled || !familyRes.ok) return
+        if (cancelled) return
+        // family-members is the source of truth for the athlete list; if it
+        // fails, surface an error rather than a misleading "no athletes" state.
+        if (!familyRes.ok) {
+          setError(true)
+          return
+        }
         const familyData = await familyRes.json()
         const members: FamilyMemberApi[] = familyData.familyMembers ?? []
         const regs: RegistrationApiRow[] = regsRes.ok
           ? ((await regsRes.json()).registrations ?? [])
           : []
+        if (cancelled) return
         const kids: Child[] = members.map((m) => ({
           id: m.id,
           firstName: m.firstName,
@@ -299,13 +313,18 @@ export default function ChildrenOverview() {
         }))
         setChildren(kids)
       } catch (err) {
-        console.error("Failed to load children:", err)
+        if (!cancelled) {
+          console.error("Failed to load children:", err)
+          setError(true)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
 
   return (
     <div className="space-y-5">
@@ -313,9 +332,11 @@ export default function ChildrenOverview() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-ink">Your Athletes</h2>
-          <p className="text-sm text-ink-muted mt-0.5">
-            {children.length} registered {children.length === 1 ? "child" : "children"}
-          </p>
+          {!loading && !error && (
+            <p className="text-sm text-ink-muted mt-0.5">
+              {children.length} registered {children.length === 1 ? "child" : "children"}
+            </p>
+          )}
         </div>
         <Button size="sm" className="gap-1.5" asChild>
           <a href="/programs">
@@ -325,15 +346,31 @@ export default function ChildrenOverview() {
         </Button>
       </div>
 
+      {/* Loading */}
+      {loading && <LoadingSkeleton rows={2} variant="card" />}
+
+      {/* Error — distinct from the empty state so a fetch failure isn't
+          mistaken for "no athletes" */}
+      {!loading && error && (
+        <div className="space-y-3">
+          <ErrorBanner message="We couldn't load your athletes. Please try again." />
+          <Button size="sm" variant="outline" onClick={() => setReloadKey((k) => k + 1)}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Children Grid */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {children.map((child) => (
-          <ChildCard key={child.id} child={child} />
-        ))}
-      </div>
+      {!loading && !error && children.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {children.map((child) => (
+            <ChildCard key={child.id} child={child} />
+          ))}
+        </div>
+      )}
 
       {/* Empty State */}
-      {children.length === 0 && (
+      {!loading && !error && children.length === 0 && (
         <div className="text-center py-12 px-6 rounded-2xl bg-paper border border-border border-dashed">
           <div className="w-16 h-16 rounded-full bg-cream-2 flex items-center justify-center mx-auto mb-4">
             <Plus className="w-8 h-8 text-ink-faint" />
