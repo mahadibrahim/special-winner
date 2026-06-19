@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -206,9 +206,11 @@ export function FieldCalendar({
       : DURATIONS;
 
   // If the current selection no longer fits, reset to the largest available.
-  if (availableDurations.length > 0 && !availableDurations.includes(durationMinutes)) {
-    setDurationMinutes(availableDurations[availableDurations.length - 1]!);
-  }
+  useEffect(() => {
+    if (availableDurations.length > 0 && !availableDurations.includes(durationMinutes)) {
+      setDurationMinutes(availableDurations[availableDurations.length - 1]!);
+    }
+  }, [availableDurations, durationMinutes]);
 
   // Derived end time
   const endsAt = startsAt
@@ -217,10 +219,7 @@ export function FieldCalendar({
 
   // Live total — recomputed whenever start, duration, or timezone changes.
   // Same engine as the server, so the display matches the charged amount.
-  const standardCents = useMemo(() => {
-    if (!startsAt || !endsAt) return null;
-    return quoteRentalCents(startsAt, endsAt, timeZone);
-  }, [startsAt, endsAt, timeZone]); // eslint-disable-line react-hooks/exhaustive-deps
+  const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, timeZone) : null;
 
   const memberCents =
     standardCents !== null && memberDiscountPct > 0
