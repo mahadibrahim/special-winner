@@ -140,6 +140,22 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
     }
 
+    // Verify the registration belongs to the same season as the team (which is
+    // itself org-scoped above). Without this a super_admin could roster another
+    // org's / another season's registration onto this team just by posting its
+    // id. Same-season implies same-org, so this is the tightest correct check.
+    const [reg] = await getDb()
+      .select({ seasonId: registrations.seasonId })
+      .from(registrations)
+      .where(eq(registrations.id, result.data.registrationId))
+      .limit(1);
+
+    if (!reg || reg.seasonId !== team.seasonId) {
+      // 404 (not 400) — conflate "not yours" with "not found" to avoid leaking
+      // the existence of cross-tenant registrations.
+      return new Response(JSON.stringify({ error: "Registration not found" }), { status: 404 });
+    }
+
     // Check if player is already on this team
     const existingRoster = await getDb().query.rosters.findFirst({
       where: and(
