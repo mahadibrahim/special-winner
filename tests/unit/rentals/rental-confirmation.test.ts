@@ -31,10 +31,11 @@ describe("renderRentalConfirmation", () => {
     expect(v.email.text.length).toBeGreaterThan(0);
   });
 
-  it("produces an SMS body with venue, field, and amount", async () => {
+  it("produces an SMS body with venue and amount (venue name only — no redundant field label)", async () => {
     const v = await renderRentalConfirmation(baseCtx);
     expect(v.sms.body).toContain("Downtown Arena");
-    expect(v.sms.body).toContain("Field 3");
+    // One-venue-per-field model: "Field N at <venue>" is a contradiction.
+    expect(v.sms.body).not.toContain("Field 3");
     expect(v.sms.body).toContain("$80.00");
   });
 

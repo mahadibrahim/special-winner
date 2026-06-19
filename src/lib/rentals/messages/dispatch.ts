@@ -21,6 +21,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { organizations } from "@/lib/db/schema/organizations";
 import { sendEmail, isEmailConfigured, fromForBrand } from "@/lib/email";
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { renderRentalConfirmation } from "./rental-confirmation";
 
 export interface RentalDispatchResult {
@@ -61,7 +62,7 @@ export async function dispatchRentalConfirmation(
   const hasPhone = Boolean(row.renterPhone);
   if (!hasEmail && !hasPhone) return { ok: false, reason: "no_contact_info" };
 
-  const brand = (row.brand ?? "aspire") as "aspire" | "soccerone";
+  const brand = normalizeBrand(row.brand);
 
   const variants = await renderRentalConfirmation({
     recipientName: row.renterName,

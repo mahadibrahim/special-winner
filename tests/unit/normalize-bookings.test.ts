@@ -92,7 +92,7 @@ describe("normalizeBookings", () => {
     const byId = Object.fromEntries(upcoming.map((i) => [i.id, i]));
     expect(byId.d.title).toBe("Soccer · 7v7");
     expect(byId.d.status).toEqual({ label: "Waitlisted", tone: "pending" });
-    expect(byId.r.title).toBe("Field 3");
+    expect(byId.r.title).toBe("Worthington");
     expect(byId.r.status).toEqual({ label: "Pending payment", tone: "action" });
   });
 

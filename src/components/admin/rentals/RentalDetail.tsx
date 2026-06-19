@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 import { toast } from "sonner";
 
 interface Rental {
@@ -48,6 +49,8 @@ interface DetailResponse {
 
 interface RentalDetailProps {
   rentalId: string;
+  /** Org IANA timezone — rental times are stored/interpreted in this zone. */
+  timeZone?: string;
 }
 
 function statusColor(s: Rental["status"]): string {
@@ -65,8 +68,9 @@ function statusColor(s: Rental["status"]): string {
   }
 }
 
-function fmtDateTime(iso: string): string {
+function fmtDateTime(iso: string, timeZone: string): string {
   return new Date(iso).toLocaleString(undefined, {
+    timeZone,
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -79,7 +83,7 @@ function fmtCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export function RentalDetail({ rentalId }: RentalDetailProps) {
+export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalDetailProps) {
   useHydrationBeacon();
 
   const [data, setData] = useState<DetailResponse | null>(null);
@@ -219,7 +223,7 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
             {venue?.name ?? "—"} &mdash; Field {rental.fieldNumber}
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
-            {fmtDateTime(rental.startsAt)} &ndash; {fmtDateTime(rental.endsAt)}
+            {fmtDateTime(rental.startsAt, timeZone)} &ndash; {fmtDateTime(rental.endsAt, timeZone)}
           </p>
           <div className="mt-2">
             <Badge variant="outline" className={statusColor(rental.status)}>
