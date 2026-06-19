@@ -42,4 +42,17 @@ describe("renderRentalConfirmation", () => {
     expect(v.email.html).not.toContain("$0.00");
     expect(v.sms.body).not.toContain("$0.00");
   });
+
+  it("uses SoccerOne branding when brand is soccerone", async () => {
+    const v = await renderRentalConfirmation({ ...baseCtx, brand: "soccerone" });
+    // SMS prefix should be SoccerOne, not Aspire
+    expect(v.sms.body).toContain("[SoccerOne]");
+    expect(v.sms.body).not.toContain("[Aspire]");
+  });
+
+  it("uses Aspire branding when brand is aspire (default)", async () => {
+    const v = await renderRentalConfirmation({ ...baseCtx, brand: "aspire" });
+    expect(v.sms.body).toContain("[Aspire]");
+    expect(v.sms.body).not.toContain("[SoccerOne]");
+  });
 });

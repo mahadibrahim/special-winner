@@ -43,6 +43,7 @@ export interface RentalHoldInput {
   createdByUserId: string | null;
   waiverSigned: boolean;
   waiverSignedBy: string | null;
+  brand?: string;
 }
 
 export type RentalHoldResult =
@@ -111,6 +112,7 @@ export async function createRentalHold(
         waiverSigned: input.waiverSigned,
         waiverSignedAt: input.waiverSigned ? new Date() : null,
         waiverSignedBy: input.waiverSignedBy,
+        brand: input.brand ?? "aspire",
       })
       .returning();
     return { ok: true as const, rental };
@@ -162,6 +164,7 @@ export async function createConfirmedRentalNonStripe(
         waiverSigned: input.waiverSigned,
         waiverSignedAt: input.waiverSigned ? new Date() : null,
         waiverSignedBy: input.waiverSignedBy,
+        brand: input.brand ?? "aspire",
       })
       .returning();
     return { ok: true as const, rental };

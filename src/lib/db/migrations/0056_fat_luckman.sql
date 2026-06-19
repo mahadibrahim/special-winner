@@ -1,0 +1,1 @@
+ALTER TABLE "field_rentals" ADD COLUMN "brand" varchar(20) DEFAULT 'aspire' NOT NULL;
