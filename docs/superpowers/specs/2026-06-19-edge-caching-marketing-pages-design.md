@@ -1,7 +1,7 @@
 # Edge-caching anonymous marketing pages — design
 
 **Date:** 2026-06-19
-**Status:** Approved (design); pending implementation plan
+**Status:** Implemented
 **Branch:** `perf/defer-hydration`
 
 ## Problem
@@ -66,6 +66,7 @@ state.
   itself. `<Navigation>` is hydrated `client:idle` (per the hydration-deferral
   work on this branch).
 - **Session cookie:** Lucia default name `auth_session`.
+- **Second per-user vector — `posthog.astro`:** During implementation a second component was found to bake per-user data into the HTML: `src/components/posthog.astro` passes the authed user's email into a `<script>` block via `define:vars`. This is the same class of invariance problem as `BaseLayout`'s `navUser`. It was fixed with an identical guard: when `Netlify-CDN-Cache-Control` is present on the response, the user payload passed to the PostHog `identify` call is nulled out and identity resolution falls back to client-side (the PostHog JS SDK picks up the session on load). This makes `posthog.astro` user-invariant on cached pages without changing its behavior on uncached SSR pages.
 
 ## Approach (chosen: A — make the HTML user-invariant, then cache for all)
 
