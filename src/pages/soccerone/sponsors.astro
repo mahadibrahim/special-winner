@@ -68,6 +68,8 @@ const FAQS = [
   { q: 'How does the digital recognition work?', a: 'Your logo and link go on our website and rotate on the lobby screens; we tag you in social posts and the newsletter.' },
   { q: 'Not sure which tier fits?', a: 'Tell us your goals and budget in the form below and we\'ll tailor a package.' },
 ];
+import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

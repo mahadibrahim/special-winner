@@ -49,6 +49,8 @@ const featuredPrice = featured
       ? `$${featured.price}/player · $${featured.teamPrice}/team`
       : `$${featured.price}/player`)
   : null;
+import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
