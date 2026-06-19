@@ -106,8 +106,8 @@ const navUser = Astro.isPrerendered
   </head>
   <body class={bodyClass}>
     <GoogleTagManagerNoscript containerId={gtmContainerId} />
-    {navigation && theme.chrome === "aspire" && <RegistrationRibbon client:load />}
-    {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:load {...(navUser !== undefined ? { initialUser: navUser } : {})} />)}
+    {navigation && theme.chrome === "aspire" && <RegistrationRibbon client:idle />}
+    {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:idle {...(navUser !== undefined ? { initialUser: navUser } : {})} />)}
     <slot />
     {footer && (theme.chrome === "soccerone" ? <SoccerOneFooter /> : <Footer />)}
   </body>

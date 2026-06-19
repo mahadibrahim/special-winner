@@ -25,7 +25,7 @@ const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "home"
     <DualCtaHero client:load announcement={announcement ?? undefined} />
     <BenefitTrio />
     <section id="programs">
-      <HomepageProgramsPreview client:load />
+      <HomepageProgramsPreview client:visible />
     </section>
     <Testimonials client:visible />
     <PartnersSection client:visible />
