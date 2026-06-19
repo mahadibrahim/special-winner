@@ -127,7 +127,7 @@ export default function SponsorInquiryForm() {
         <Field label="Facility">
           <select className="sf-input" value={facility}
             onChange={(e) => setFacility(e.target.value as "" | Facility)}>
-            <option value="">No preference</option>
+            <option value="">Select…</option>
             <option value="worthington">Worthington</option>
             <option value="downtown">Downtown</option>
             <option value="both">Both</option>
