@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { toast } from "sonner";
+import { RENTAL_RATE_SCHEDULE } from "@/lib/rentals/soccerone-pricing";
 
 interface RateCard {
   defaultHourlyRateCents: number;
@@ -85,6 +86,61 @@ export function RentalRateCardEditor() {
       </header>
 
       {error && <ErrorBanner message={error} />}
+
+      {/* SoccerOne tiered-rate schedule — read-only, informational */}
+      <div className="rounded-lg border border-border bg-cream-50 p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">
+            SoccerOne (gosoccerone.com) — tiered rental schedule
+          </h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            SoccerOne field rentals use this fixed seasonal / time-of-day schedule, defined in
+            code. To change these rates, update{" "}
+            <code className="font-mono bg-cream-100 px-1 rounded">
+              src/lib/rentals/soccerone-pricing.ts
+            </code>{" "}
+            (changes are infrequent). The default hourly rate below applies to non-SoccerOne
+            (Aspire) rentals; the cancel window applies to all.
+          </p>
+        </div>
+
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="text-left text-ink-muted">
+              <th className="py-1 pr-4 font-medium">Season</th>
+              <th className="py-1 pr-4 font-medium">Weekday before 3 pm</th>
+              <th className="py-1 pr-4 font-medium">Weekday 3–6 pm</th>
+              <th className="py-1 font-medium">After 6 pm &amp; weekends</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            <tr>
+              <td className="py-1.5 pr-4 font-medium text-ink">Apr – Sep</td>
+              <td className="py-1.5 pr-4 text-ink">
+                ${RENTAL_RATE_SCHEDULE.summer.before3 / 100}/hr
+              </td>
+              <td className="py-1.5 pr-4 text-ink">
+                ${RENTAL_RATE_SCHEDULE.summer.midday / 100}/hr
+              </td>
+              <td className="py-1.5 text-ink">
+                ${RENTAL_RATE_SCHEDULE.summer.evening / 100}/hr
+              </td>
+            </tr>
+            <tr>
+              <td className="py-1.5 pr-4 font-medium text-ink">Oct – Mar</td>
+              <td className="py-1.5 pr-4 text-ink">
+                ${RENTAL_RATE_SCHEDULE.winter.before3 / 100}/hr
+              </td>
+              <td className="py-1.5 pr-4 text-ink">
+                ${RENTAL_RATE_SCHEDULE.winter.midday / 100}/hr
+              </td>
+              <td className="py-1.5 text-ink">
+                ${RENTAL_RATE_SCHEDULE.winter.evening / 100}/hr
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       {card && (
         <form onSubmit={submit} className="space-y-5">
