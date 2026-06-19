@@ -7,6 +7,7 @@ import HubHero from "@/components/landing/hub-hero.astro";
 import CategoryCard from "@/components/landing/category-card.astro";
 import NextUpCard from "@/components/marketing/next-up-card.astro";
 import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
 
 const doors = [
@@ -17,6 +18,7 @@ const doors = [
     title: "Camps", blurb: "School-break and summer day camps — real coaching, tight logistics.",
     statusLabel: "Booking now", live: true, ctaLabel: "Browse camps" },
 ];
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

@@ -1,9 +1,11 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getPublicLocations } from "@/lib/programs/public-filters";
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 
 const orgId = Astro.locals.organization?.id ?? null;
 const locations = orgId ? await getPublicLocations(orgId) : [];
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

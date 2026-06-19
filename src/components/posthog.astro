@@ -17,7 +17,12 @@
 // the browser) to the person. Null on prerendered pages (no request user at
 // build time); those are anonymous marketing pages and identity carries over
 // from any SSR page the user hits in the same session.
-const phUser = Astro.locals.user
+// Also null on edge-cached pages: the response header signals that this page
+// will be served from CDN to every visitor, so we must not bake per-user PII
+// (email, id) into the HTML. PostHog will defer identify() to the next
+// authenticated SSR page the user visits in the same session.
+const edgeCached = Astro.response.headers.has("Netlify-CDN-Cache-Control");
+const phUser = (!Astro.isPrerendered && !edgeCached && Astro.locals.user)
   ? {
       id: Astro.locals.user.id,
       email: Astro.locals.user.email,

@@ -4,6 +4,8 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import CategoryFinder from "@/components/landing/category-finder.tsx";
 import CTABanner from "@/components/cta-banner";
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

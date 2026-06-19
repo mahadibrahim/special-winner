@@ -3,9 +3,11 @@
 // Scoped to Astro.locals.organization (Phase 0 — 2026-05-22).
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getPublicSports } from "@/lib/programs/public-filters";
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 
 const orgId = Astro.locals.organization?.id ?? null;
 const sports = orgId ? await getPublicSports(orgId) : [];
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
