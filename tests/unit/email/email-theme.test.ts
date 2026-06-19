@@ -21,12 +21,20 @@ describe("email themes", () => {
     expect(ASPIRE_EMAIL_THEME.brandName).toBe("Aspire Sports Ohio");
   });
 
-  it("soccerone theme is dark/lime with a text wordmark", () => {
+  it("soccerone theme is dark/lime with the Anton wordmark image + bold DM Sans headings", () => {
     expect(SOCCERONE_EMAIL_THEME.tokens.cream).toBe("#0a0a0d");
     expect(SOCCERONE_EMAIL_THEME.tokens.primary).toBe("#a3e635");
-    expect(SOCCERONE_EMAIL_THEME.logo.kind).toBe("wordmark");
     expect(SOCCERONE_EMAIL_THEME.brandName).toBe("SoccerOne");
-    expect(SOCCERONE_EMAIL_THEME.fonts.display).toContain("Anton");
+    // Wordmark ships as a pre-rendered image, not live text (mail clients
+    // strip the Anton web font).
+    expect(SOCCERONE_EMAIL_THEME.logo.kind).toBe("img");
+    expect(SOCCERONE_EMAIL_THEME.logo.path).toBe(
+      "/images/soccerone-wordmark.png",
+    );
+    // Headings are bold DM Sans, not Anton, so they render in every client.
+    expect(SOCCERONE_EMAIL_THEME.fonts.display).toContain("DM Sans");
+    expect(SOCCERONE_EMAIL_THEME.fonts.display).not.toContain("Anton");
+    expect(SOCCERONE_EMAIL_THEME.displayWeight).toBe(700);
   });
 
   it("both themes define the full token set (primitives depend on every key)", () => {

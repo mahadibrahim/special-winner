@@ -44,8 +44,23 @@ export interface EmailTheme {
   tokens: EmailTokens;
   fonts: { display: string; body: string; mono: string };
   fontsHref: string;
-  /** Aspire renders an <Img> wordmark; SoccerOne a styled text wordmark. */
-  logo: { kind: "img"; path: string; alt: string } | { kind: "wordmark" };
+  /** Weight for display/heading text (H1/H2). Aspire's Newsreader reads as a
+   *  medium (500); SoccerOne's email headings are bold DM Sans (700) since
+   *  Anton can't be relied on to load in mail clients — see fonts.display. */
+  displayWeight: number;
+  /**
+   * Header lockup. Both brands render an <Img>: a text wordmark would fall
+   * back to a generic sans in clients that strip web fonts (Gmail/Outlook),
+   * so the brand mark ships as a pre-rendered PNG. width/height are the
+   * display dimensions (px); the source is hi-DPI and downscaled.
+   */
+  logo: {
+    kind: "img";
+    path: string;
+    alt: string;
+    width: number;
+    height: number;
+  };
   footerAddress: string;
 }
 
@@ -83,7 +98,14 @@ export const ASPIRE_EMAIL_THEME: EmailTheme = {
   },
   fontsHref:
     "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap",
-  logo: { kind: "img", path: "/images/logo-black.png", alt: "Aspire Sports" },
+  displayWeight: 500,
+  logo: {
+    kind: "img",
+    path: "/images/logo-black.png",
+    alt: "Aspire Sports",
+    width: 140,
+    height: 34,
+  },
   footerAddress: "3989 Presidential Pkwy \u00A0\u00B7\u00A0 Powell, OH 43065",
 };
 
@@ -115,13 +137,26 @@ export const SOCCERONE_EMAIL_THEME: EmailTheme = {
     deniedFg: "#f87171",
   },
   fonts: {
-    display: "'Anton', 'Arial Narrow', sans-serif",
+    // Headings render in DM Sans, NOT Anton. Anton is the brand display face
+    // (used in the wordmark image + on the web), but mail clients strip web
+    // fonts, so a live-text Anton heading degrades to a generic sans. Bold
+    // DM Sans renders consistently everywhere and reads as an intentional
+    // headline; the Anton lockup is preserved as the wordmark PNG instead.
+    display:
+      "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif",
     body: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif",
     mono: "'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace",
   },
   fontsHref:
-    "https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
-  logo: { kind: "wordmark" },
+    "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+  displayWeight: 700,
+  logo: {
+    kind: "img",
+    path: "/images/soccerone-wordmark.png",
+    alt: "SoccerOne",
+    width: 126,
+    height: 34,
+  },
   // Addresses from SoccerOneFooter.astro
   footerAddress:
     "Worthington — 535 Lakeview Plaza Blvd, OH 43085 · Downtown — 980 E Starr Ave, OH 43201",

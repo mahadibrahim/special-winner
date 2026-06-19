@@ -72,19 +72,13 @@ export function EmailLayout({
             <div style={accentStripeStyle(t)} />
 
             <Section style={logoSectionStyle(t)}>
-              {t.logo.kind === "img" ? (
-                <Img
-                  src={`${resolvedAppUrl}${t.logo.path}`}
-                  alt={t.logo.alt}
-                  width="140"
-                  height="34"
-                  style={logoImgStyle}
-                />
-              ) : (
-                <Text style={wordmarkStyle(t)}>
-                  SOCCER<span style={{ color: t.tokens.primary }}>ONE</span>
-                </Text>
-              )}
+              <Img
+                src={`${resolvedAppUrl}${t.logo.path}`}
+                alt={t.logo.alt}
+                width={String(t.logo.width)}
+                height={String(t.logo.height)}
+                style={logoImgStyle(t)}
+              />
             </Section>
 
             {children}
@@ -301,21 +295,11 @@ const logoSectionStyle = (t: EmailTheme): CSSProperties => ({
   borderBottom: `1px solid ${t.tokens.border}`,
 });
 
-const logoImgStyle: CSSProperties = {
+const logoImgStyle = (t: EmailTheme): CSSProperties => ({
   display: "block",
   margin: "0 auto",
-  height: "34px",
+  height: `${t.logo.height}px`,
   width: "auto",
-};
-
-const wordmarkStyle = (t: EmailTheme): CSSProperties => ({
-  fontFamily: t.fonts.display,
-  fontSize: "26px",
-  fontWeight: 400,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: t.tokens.ink,
-  margin: 0,
 });
 
 const ruleStyle = (t: EmailTheme): CSSProperties => ({
@@ -333,7 +317,7 @@ const contentSectionStyle: CSSProperties = {
 const h1Style = (t: EmailTheme): CSSProperties => ({
   fontFamily: t.fonts.display,
   fontSize: "32px",
-  fontWeight: 500,
+  fontWeight: t.displayWeight,
   lineHeight: "1.15",
   letterSpacing: "-0.01em",
   color: t.tokens.ink,
@@ -343,7 +327,7 @@ const h1Style = (t: EmailTheme): CSSProperties => ({
 const h2Style = (t: EmailTheme): CSSProperties => ({
   fontFamily: t.fonts.display,
   fontSize: "22px",
-  fontWeight: 500,
+  fontWeight: t.displayWeight,
   lineHeight: "1.2",
   letterSpacing: "-0.005em",
   color: t.tokens.ink,

@@ -505,6 +505,9 @@ export interface SendAnnouncementParams {
   publishedAt: string;
   organizationName: string;
   dashboardUrl: string;
+  /** Brand attribution for the recipient — controls email theme + sender.
+   *  Defaults to aspire. */
+  brand?: BrandId;
 }
 
 export async function sendAnnouncementEmail(params: SendAnnouncementParams) {
@@ -522,6 +525,7 @@ export async function sendAnnouncementEmail(params: SendAnnouncementParams) {
       publishedAt: params.publishedAt,
       organizationName: params.organizationName,
       dashboardUrl: params.dashboardUrl,
+      brand: params.brand,
     }),
   );
 
@@ -534,6 +538,7 @@ export async function sendAnnouncementEmail(params: SendAnnouncementParams) {
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 }
 
@@ -685,22 +690,38 @@ export async function sendEmailVerificationEmail(
 // Welcome-series marketing email. Unlike sendTransactionalEmail this is
 // opt-out marketing: it carries a List-Unsubscribe header and a body
 // unsubscribe link. The caller (the cron) has already checked opt-out state.
+// Subjects are brand-aware: SoccerOne is the consumer-facing brand, so a
+// SoccerOne-themed welcome can't carry an "Aspire" subject line. emailType
+// stays brand-neutral — it's the dedupe key in email_logs.
 const WELCOME_STEP_META: Record<
   1 | 2 | 3,
-  { subject: string; emailType: string; Component: typeof WelcomeEmail1 }
+  {
+    subject: Record<BrandId, string>;
+    emailType: string;
+    Component: typeof WelcomeEmail1;
+  }
 > = {
   1: {
-    subject: "Welcome to Aspire Sports",
+    subject: {
+      aspire: "Welcome to Aspire Sports",
+      soccerone: "Welcome to SoccerOne",
+    },
     emailType: "welcome_series_1",
     Component: WelcomeEmail1,
   },
   2: {
-    subject: "What makes an Aspire league different",
+    subject: {
+      aspire: "What makes an Aspire league different",
+      soccerone: "What makes a SoccerOne league different",
+    },
     emailType: "welcome_series_2",
     Component: WelcomeEmail2,
   },
   3: {
-    subject: "Bring your people",
+    subject: {
+      aspire: "Bring your people",
+      soccerone: "Bring your people",
+    },
     emailType: "welcome_series_3",
     Component: WelcomeEmail3,
   },
@@ -711,8 +732,13 @@ export async function sendWelcomeSeriesEmail(params: {
   step: 1 | 2 | 3;
   recipientEmail: string;
   recipientName: string;
+  /** Brand attribution for the recipient — controls template theme/copy,
+   *  subject, sender, and link origin. Defaults to aspire. */
+  brand?: BrandId;
 }) {
   const meta = WELCOME_STEP_META[params.step];
+  const brand = params.brand ?? "aspire";
+  const subject = meta.subject[brand];
 
   if (!isEmailConfigured()) {
     console.warn("Email not configured, skipping welcome-series email");
@@ -723,13 +749,14 @@ export async function sendWelcomeSeriesEmail(params: {
       userId: params.userId,
       emailType: meta.emailType,
       recipientEmail: params.recipientEmail,
-      subject: meta.subject,
+      subject,
       status: "skipped",
     });
     return { success: false, error: "Email not configured" };
   }
 
-  const appUrl = env.PUBLIC_APP_URL;
+  // Unsubscribe + dashboard links resolve to the brand's own origin.
+  const appUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
   const token = signUnsubscribeToken(params.userId, getUnsubscribeSecret());
   const unsubscribeUrl = `${appUrl}/api/marketing/unsubscribe?token=${encodeURIComponent(token)}`;
 
@@ -738,14 +765,16 @@ export async function sendWelcomeSeriesEmail(params: {
       recipientName: params.recipientName,
       dashboardUrl: `${appUrl}/dashboard`,
       unsubscribeUrl,
+      brand,
     }),
   );
 
   const result = await sendEmail({
     to: params.recipientEmail,
-    subject: meta.subject,
+    subject,
     html,
     text,
+    from: fromForBrand(brand),
     headers: {
       "List-Unsubscribe": `<${unsubscribeUrl}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -756,7 +785,7 @@ export async function sendWelcomeSeriesEmail(params: {
     userId: params.userId,
     emailType: meta.emailType,
     recipientEmail: params.recipientEmail,
-    subject: meta.subject,
+    subject,
     resendMessageId: result.messageId,
     status: result.success ? "sent" : "failed",
   });
