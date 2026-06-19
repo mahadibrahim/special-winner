@@ -49,7 +49,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     return json({ error: "targetId required" }, 400);
   }
 
-  const signer = await resolveSigner(kind, targetId);
+  const signer = await resolveSigner(kind, targetId, location.organizationId);
   if (!signer) return json({ error: "Target not found" }, 404);
 
   const token = await mintToken({

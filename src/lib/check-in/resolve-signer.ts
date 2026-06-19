@@ -14,13 +14,21 @@
  *   kiosk form. Returns null to signal "the token row carries it" —
  *   the caller (the self-serve context endpoint) should read directly
  *   from selfServiceTokens.recipientEmail/Phone/UserId in that case.
+ *
+ * Every lookup is scoped to `orgId` (the caller's organization). A target
+ * that belongs to another org resolves to null — identical to "not found" —
+ * so callers can return a 404 without leaking cross-tenant existence. This
+ * scoping is the security boundary for the admin send-link / upload-photo /
+ * check-in endpoints, which take a client-supplied targetId.
  */
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
-import { rosters } from "@/lib/db/schema/teams";
+import { rosters, teams } from "@/lib/db/schema/teams";
+import { seasons, programs } from "@/lib/db/schema/programs";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
+import { locations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
 
 export type SelfServiceKind =
@@ -43,6 +51,7 @@ export interface ResolvedSigner {
 export async function resolveSigner(
   kind: SelfServiceKind,
   targetId: string,
+  orgId: string,
 ): Promise<ResolvedSigner | null> {
   const db = getDb();
 
@@ -58,7 +67,13 @@ export async function resolveSigner(
       })
       .from(dropInBookings)
       .innerJoin(users, eq(users.id, dropInBookings.userId))
-      .where(eq(dropInBookings.id, targetId))
+      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+      .where(
+        and(
+          eq(dropInBookings.id, targetId),
+          eq(dropInSessions.organizationId, orgId),
+        ),
+      )
       .limit(1);
     if (!row) return null;
     const name =
@@ -78,7 +93,12 @@ export async function resolveSigner(
     const [row] = await db
       .select()
       .from(fieldRentals)
-      .where(eq(fieldRentals.id, targetId))
+      .where(
+        and(
+          eq(fieldRentals.id, targetId),
+          eq(fieldRentals.organizationId, orgId),
+        ),
+      )
       .limit(1);
     if (!row) return null;
     if (row.renterUserId) {
@@ -132,7 +152,16 @@ export async function resolveSigner(
         familyMembers,
         eq(familyMembers.id, registrations.familyMemberId),
       )
-      .where(eq(rosters.id, targetId))
+      .innerJoin(teams, eq(teams.id, rosters.teamId))
+      .innerJoin(seasons, eq(seasons.id, teams.seasonId))
+      .innerJoin(programs, eq(programs.id, seasons.programId))
+      .innerJoin(locations, eq(locations.id, programs.locationId))
+      .where(
+        and(
+          eq(rosters.id, targetId),
+          eq(locations.organizationId, orgId),
+        ),
+      )
       .limit(1);
     if (!row) return null;
     const playerName = `${row.fmFirstName} ${row.fmLastName}`.trim();

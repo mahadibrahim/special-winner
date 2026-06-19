@@ -61,7 +61,7 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "channel must be email | sms | qr" }, 400);
   if (!targetId) return json({ error: "targetId required" }, 400);
 
-  const signer = await resolveSigner(kind, targetId);
+  const signer = await resolveSigner(kind, targetId, orgId);
   if (!signer) return json({ error: "Target not found" }, 404);
 
   if (channel === "email" && !signer.recipientEmail)
