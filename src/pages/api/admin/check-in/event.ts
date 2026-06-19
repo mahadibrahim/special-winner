@@ -14,6 +14,7 @@ import { venues, games, rosters, teams } from "@/lib/db/schema/teams";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
 import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireSameOrgGame } from "@/lib/auth/require-resource-ownership";
 import { formatPhone } from "@/lib/phone";
 
 export const prerender = false;
@@ -147,6 +148,11 @@ export const GET: APIRoute = async (context) => {
 
   // ── Game ─────────────────────────────────────────────────────────────────
   if (kind === "game") {
+    // game → season → program → location.organizationId. Without this a
+    // cross-org admin could read any game's full roster (player PII) by id.
+    const owned = await requireSameOrgGame(orgId, id);
+    if (!owned.ok) return json({ error: "Not found" }, 404);
+
     const [game] = await db
       .select({
         id: games.id,

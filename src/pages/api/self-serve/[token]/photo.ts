@@ -21,7 +21,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   const file = form.get("file") as File | null;
   if (!file) return json({ error: "file required" }, 400);
 
-  const signer = await resolveSigner(tok.kind, tok.targetId);
+  const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
   // walkin_session: resolveSigner returns null by design — the token row
   // carries the freshly-minted user's id in recipientUserId. Other kinds
   // populate signer.recipientUserId.

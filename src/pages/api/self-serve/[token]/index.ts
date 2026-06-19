@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ params }) => {
   }
   const tok = v.token;
 
-  const signer = await resolveSigner(tok.kind, tok.targetId);
+  const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
   // walkin_session legitimately returns null from resolveSigner — the token
   // row carries contact info. All other kinds must resolve.
   if (!signer && tok.kind !== "walkin_session") {

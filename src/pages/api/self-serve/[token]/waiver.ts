@@ -85,7 +85,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   // Both familyMemberId and signedByUserId are NOT NULL in the consents schema,
   // so we gate this insert on both being present.
   try {
-    const signer = await resolveSigner(tok.kind, tok.targetId);
+    const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
     const signerUserId = signer?.recipientUserId ?? tok.recipientUserId;
     if (signer?.familyMemberId && signerUserId) {
       // Liability consents expire after 365 days (per the schema comment).

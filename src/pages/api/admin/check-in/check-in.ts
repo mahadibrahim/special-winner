@@ -7,7 +7,7 @@
 import type { APIRoute } from "astro";
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { requireAdminAccess } from "@/lib/auth/roles";
 
@@ -36,6 +36,17 @@ export const POST: APIRoute = async (context) => {
   const now = new Date();
 
   if (kind === "drop_in_booking") {
+    // dropInBookings has no organizationId column — scope via its session.
+    // Verify ownership before touching the row so a cross-org admin can
+    // neither check in nor read back another org's booking.
+    const [owned] = await db
+      .select({ id: dropInBookings.id })
+      .from(dropInBookings)
+      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+      .where(and(eq(dropInBookings.id, targetId), eq(dropInSessions.organizationId, orgId)))
+      .limit(1);
+    if (!owned) return json({ error: "Booking not found" }, 404);
+
     const [updated] = await db
       .update(dropInBookings)
       .set({ checkedInAt: now, updatedAt: now })

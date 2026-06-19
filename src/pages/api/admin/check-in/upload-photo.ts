@@ -16,6 +16,8 @@ const json = (b: unknown, s: number) =>
 export const POST: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
+  const orgId = context.locals.organization?.id;
+  if (!orgId) return json({ error: "No organization context" }, 400);
 
   const form = await context.request.formData();
   const kind = form.get("kind") as string | null;
@@ -24,7 +26,7 @@ export const POST: APIRoute = async (context) => {
   if (!kind || !targetId || !file)
     return json({ error: "kind, targetId, and file are required" }, 400);
 
-  const signer = await resolveSigner(kind as SelfServiceKind, targetId);
+  const signer = await resolveSigner(kind as SelfServiceKind, targetId, orgId);
   if (!signer) return json({ error: "Target not found" }, 404);
 
   // Choose target: family_member for minors (with familyMemberId); else user.
