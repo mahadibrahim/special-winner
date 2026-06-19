@@ -136,10 +136,9 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     );
   }
 
-  const org = locals.organization!;
-  const orgTimeZone = org.timezone ?? "America/New_York";
+  const orgTimeZone = locals.organization?.timezone ?? "America/New_York";
   const baseAmountDueCents =
-    org.slug === "soccerone"
+    locals.brandId === "soccerone"
       ? quoteRentalCents(startsAt, endsAt, orgTimeZone)
       : computeRentalPriceCents(
           startsAt,
