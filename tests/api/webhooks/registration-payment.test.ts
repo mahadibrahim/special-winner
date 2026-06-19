@@ -28,6 +28,10 @@ function makeRegistrationPaymentIntent(overrides: {
   registrationId: string;
   amountReceived: number;
   receiptEmail?: string;
+  /** Card surcharge included in amountReceived, mirrored into metadata. */
+  surchargeCents?: number;
+  /** Charge id Stripe attaches once captured (string or expanded object). */
+  latestCharge?: string;
 }): Stripe.PaymentIntent {
   return {
     id: overrides.paymentIntentId,
@@ -37,9 +41,13 @@ function makeRegistrationPaymentIntent(overrides: {
     currency: "usd",
     status: "succeeded",
     receipt_email: overrides.receiptEmail ?? "pat@test.example",
+    latest_charge: overrides.latestCharge ?? null,
     metadata: {
       registrationId: overrides.registrationId,
       type: "registration_payment",
+      ...(overrides.surchargeCents
+        ? { surcharge_cents: overrides.surchargeCents.toString() }
+        : {}),
     },
   } as unknown as Stripe.PaymentIntent;
 }
@@ -264,6 +272,95 @@ describe("handleRegistrationPaymentSucceeded", () => {
     expect(paymentRows).toHaveLength(1);
     expect(paymentRows[0].amountCents).toBe(5000);
     expect(paymentRows[0].paymentType).toBe("deposit");
+  });
+
+  it("credits only the base (excludes card surcharge) toward the registration", async () => {
+    const db = getDb();
+    const { registrationId } = await seedPendingRegistration({
+      amountDueCents: 12500,
+    });
+
+    // Customer charged 12500 base + 393 card surcharge = 12893 received.
+    const result = await handleRegistrationPaymentSucceeded(
+      makeRegistrationPaymentIntent({
+        paymentIntentId: `pi_test_surcharge_${Math.random().toString(36).slice(2)}`,
+        registrationId,
+        amountReceived: 12893,
+        surchargeCents: 393,
+      }),
+    );
+
+    expect(result.status).toBe("processed");
+
+    const [reg] = await db
+      .select()
+      .from(registrations)
+      .where(eq(registrations.id, registrationId));
+
+    // Base (12500), NOT gross (12893) — otherwise the money trail and the
+    // refund cap (registration.amountPaidCents) are inflated by the fee.
+    expect(reg.paymentStatus).toBe("paid");
+    expect(reg.amountPaidCents).toBe(12500);
+    expect(reg.amountDueCents).toBe(0);
+
+    const [payment] = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.registrationId, registrationId));
+    expect(payment.amountCents).toBe(12500);
+    expect((payment.metadata as { surchargeCents?: number })?.surchargeCents).toBe(393);
+  });
+
+  it("does not over-credit a partial/balance payment when surcharge is added", async () => {
+    const db = getDb();
+    // Full-price registration (amountDueCents 20000); pay a partial
+    // 5000 base + 175 surcharge = 5175 received.
+    const { registrationId } = await seedPendingRegistration({
+      amountDueCents: 20000,
+    });
+
+    const result = await handleRegistrationPaymentSucceeded(
+      makeRegistrationPaymentIntent({
+        paymentIntentId: `pi_test_partial_${Math.random().toString(36).slice(2)}`,
+        registrationId,
+        amountReceived: 5175,
+        surchargeCents: 175,
+      }),
+    );
+
+    expect(result.status).toBe("processed");
+
+    const [reg] = await db
+      .select()
+      .from(registrations)
+      .where(eq(registrations.id, registrationId));
+    // 5000 base applied — NOT 5175. Remaining balance 15000, not 14825.
+    expect(reg.paymentStatus).toBe("deposit_paid");
+    expect(reg.amountPaidCents).toBe(5000);
+    expect(reg.amountDueCents).toBe(15000);
+  });
+
+  it("records the Stripe charge id so dispute events can map back", async () => {
+    const db = getDb();
+    const { registrationId } = await seedPendingRegistration({
+      amountDueCents: 8000,
+    });
+    const chargeId = `ch_test_${Math.random().toString(36).slice(2)}`;
+
+    await handleRegistrationPaymentSucceeded(
+      makeRegistrationPaymentIntent({
+        paymentIntentId: `pi_test_charge_${Math.random().toString(36).slice(2)}`,
+        registrationId,
+        amountReceived: 8000,
+        latestCharge: chargeId,
+      }),
+    );
+
+    const [payment] = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.registrationId, registrationId));
+    expect(payment.stripeChargeId).toBe(chargeId);
   });
 
   it("sends the registration confirmation email on successful payment", async () => {

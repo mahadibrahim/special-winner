@@ -66,10 +66,29 @@ export async function handleRegistrationPaymentSucceeded(
     return { status: "skipped", reason: `registration ${registrationId} not found` };
   }
 
-  const amountPaid = paymentIntent.amount_received || paymentIntent.amount || 0;
+  // The card surcharge is added to the PaymentIntent total at checkout (see
+  // createPaymentIntent), so amount_received = registration base + surcharge.
+  // The surcharge is a pass-through processing fee, NOT part of the
+  // registration price or org revenue. Credit only the base toward the
+  // registration balance — crediting the gross inflates registration
+  // .amountPaidCents, which corrupts the money trail, the SUM(amountCents)
+  // revenue reports, and the admin-refund cap (it caps at amountPaidCents).
+  // It would also over-credit a partial/balance payment toward amountDueCents.
+  // The surcharge is preserved in the payment row metadata for reconciliation.
+  const grossPaidCents = paymentIntent.amount_received || paymentIntent.amount || 0;
+  const surchargeCents =
+    Number.parseInt(paymentIntent.metadata?.surcharge_cents ?? "", 10) || 0;
+  const amountPaid = Math.max(0, grossPaidCents - surchargeCents);
   const newAmountPaid = registration.amountPaidCents + amountPaid;
   const isFullyPaid = newAmountPaid >= registration.amountDueCents;
   const newAmountDue = Math.max(0, registration.amountDueCents - amountPaid);
+
+  // latest_charge maps the PaymentIntent to its Charge — required so
+  // charge.dispute.* events can find this payment row by stripeChargeId.
+  const stripeChargeId =
+    typeof paymentIntent.latest_charge === "string"
+      ? paymentIntent.latest_charge
+      : paymentIntent.latest_charge?.id ?? null;
 
   let paymentTypeValue: "deposit" | "balance" | "full";
   if (registration.amountPaidCents > 0) {
@@ -102,8 +121,10 @@ export async function handleRegistrationPaymentSucceeded(
       paymentType: paymentTypeValue as "deposit" | "full" | "balance" | "refund" | "installment",
       status: "succeeded",
       stripePaymentIntentId: paymentIntent.id,
+      stripeChargeId,
       metadata: {
         customerEmail: paymentIntent.receipt_email,
+        ...(surchargeCents > 0 ? { surchargeCents } : {}),
       },
     });
   });
