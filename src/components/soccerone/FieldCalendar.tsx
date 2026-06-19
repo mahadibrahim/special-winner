@@ -113,8 +113,6 @@ export interface FieldCalendarProps {
   venues: FieldCalendarVenue[];
   /** Initial date (YYYY-MM-DD). Defaults to today. */
   initialDate?: string;
-  /** IANA timezone for the venue (e.g. "America/New_York"). Used for tiered pricing. */
-  timeZone?: string;
   /**
    * Member discount percentage (0–100). Pass from the server based on signed-in
    * user's membership status. Defaults to 0 (no discount shown).
@@ -125,7 +123,6 @@ export interface FieldCalendarProps {
 export function FieldCalendar({
   venues,
   initialDate,
-  timeZone = "America/New_York",
   memberDiscountPct = 0,
 }: FieldCalendarProps) {
   const today = new Date().toISOString().slice(0, 10);
@@ -217,9 +214,11 @@ export function FieldCalendar({
     ? new Date(startsAt.getTime() + durationMinutes * 60_000)
     : null;
 
-  // Live total — recomputed whenever start, duration, or timezone changes.
+  // Live total — recomputed whenever start or duration changes.
+  // Booking grid slot hours are stored as UTC wall-clock labeled as local facility hours;
+  // price in UTC so the tier matches the displayed hour.
   // Same engine as the server, so the display matches the charged amount.
-  const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, timeZone) : null;
+  const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, "UTC") : null;
 
   const memberCents =
     standardCents !== null && memberDiscountPct > 0
@@ -571,7 +570,7 @@ export function FieldCalendar({
               {submitError && <p className="panel-error" role="alert">{submitError}</p>}
 
               <p className="panel-note">
-                Cancellations 24h+ in advance receive a full refund.
+                Cancel 14+ days out for a full refund. Within 14 days, bookings are final.
               </p>
             </>
           ) : (

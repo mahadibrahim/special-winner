@@ -40,4 +40,11 @@ describe("soccerone rental pricing", () => {
   it("quoteRentalCents returns 0 when endsAt <= startsAt", () => {
     expect(quoteRentalCents(utc("2026-07-15T21:00:00Z"), utc("2026-07-15T21:00:00Z"), TZ)).toBe(0)
   })
+
+  it("grid slot priced in UTC matches the displayed hour (7pm weekday summer = evening)", () => {
+    // Grid builds "7 PM" as 19:00Z; pricing in UTC must see hour 19 → evening $190
+    expect(quoteRentalCents(utc("2026-07-15T19:00:00Z"), utc("2026-07-15T20:00:00Z"), "UTC")).toBe(19000)
+    // and a "4 PM" slot (16:00Z) → 3–6pm tier $170
+    expect(quoteRentalCents(utc("2026-07-15T16:00:00Z"), utc("2026-07-15T17:00:00Z"), "UTC")).toBe(17000)
+  })
 })

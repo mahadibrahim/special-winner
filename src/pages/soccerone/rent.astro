@@ -25,7 +25,6 @@ const venueList = organizationId
 // switches between them.
 const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
 
-const orgTimeZone = Astro.locals.organization?.timezone ?? 'America/New_York';
 let memberDiscountPct = 0;
 if (Astro.locals.user && organizationId) {
   try {
@@ -165,7 +164,7 @@ const fmt = (cents: number) => {
           <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} timeZone={orgTimeZone} memberDiscountPct={memberDiscountPct} />
+        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} />
 
         <!-- Cancellation policy -->
         <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>
