@@ -18,9 +18,17 @@ interface FreeBlock {
   endsAt: string;   // ISO
 }
 
+/** A busy time block returned by /api/rentals/availability. */
+interface BusyBlock {
+  startsAt: string; // ISO
+  endsAt: string;   // ISO
+  reason: string;   // "Rented" | "Pickup Game" | "League Game" | "Closed" | "Reserved" | "Unavailable"
+}
+
 interface FieldAvailability {
   fieldNumber: number;
   free: FreeBlock[];
+  busy: BusyBlock[];
 }
 
 interface AvailabilityResponse {
@@ -67,6 +75,27 @@ function isHourBookable(
     const blockEnd = new Date(b.endsAt).getTime();
     return blockStart <= hourStart && blockEnd >= hourEnd;
   });
+}
+
+/**
+ * Return the reason string for the busy block covering the given hour slot,
+ * or null if no busy block covers it (fallback: "Unavailable").
+ */
+function hourReason(
+  field: FieldAvailability | undefined,
+  dateStr: string,
+  h: number,
+  timeZone: string,
+): string | null {
+  if (!field) return null;
+  const hourStart = zonedHourToUtc(dateStr, h, timeZone).getTime();
+  const hourEnd = hourStart + 60 * 60 * 1000;
+  const block = field.busy.find((b) => {
+    const blockStart = new Date(b.startsAt).getTime();
+    const blockEnd = new Date(b.endsAt).getTime();
+    return blockStart <= hourStart && blockEnd >= hourEnd;
+  });
+  return block ? block.reason : null;
 }
 
 /**
@@ -436,7 +465,9 @@ export function FieldCalendar({
                     <span className="row-time">{formatHour(h)}</span>
                     {!bookable && (
                       <div className="row-event">
-                        <span className="event-name">Unavailable</span>
+                        <span className="event-reason-chip">
+                          {hourReason(currentField, date, h, timeZone) ?? "Unavailable"}
+                        </span>
                       </div>
                     )}
                     {bookable && (
@@ -752,6 +783,22 @@ export function FieldCalendar({
           font-size: 0.9375rem;
           font-weight: 600;
           color: rgba(255,255,255,0.3);
+        }
+        /* Reason chip — bolder status badge on unavailable rows */
+        .event-reason-chip {
+          display: inline-flex;
+          align-items: center;
+          font-family: var(--so-font-body);
+          font-size: 0.6875rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.75);
+          background: rgba(255,255,255,0.09);
+          border: 1px solid rgba(255,255,255,0.18);
+          border-radius: var(--so-radius-pill);
+          padding: 3px 10px;
+          white-space: nowrap;
         }
         .row-available-label {
           display: flex;
