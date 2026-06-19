@@ -23,8 +23,9 @@ import {
 const SUB_HEADER_CLS =
   "text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2";
 
-function fmtDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+function fmtDateTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    timeZone,
     weekday: "short", month: "short", day: "numeric",
     hour: "numeric", minute: "2-digit",
   });
@@ -33,7 +34,7 @@ function isNearStart(iso: string): boolean {
   return Math.abs(new Date(iso).getTime() - Date.now()) <= 2 * 60 * 60 * 1000;
 }
 
-export default function MyBookings() {
+export default function MyBookings({ timeZone = "America/New_York" }: { timeZone?: string }) {
   useHydrationBeacon();
   const brand = useBrandId();
 
@@ -229,7 +230,7 @@ export default function MyBookings() {
               type={item.cardType}
               hero={i === 0}
               title={item.title}
-              meta={fmtDateTime(item.startsAt)}
+              meta={fmtDateTime(item.startsAt, timeZone)}
               venue={item.venueName ? { label: item.venueName, mapsUrl: directionsUrl({ name: item.venueName }) } : undefined}
               status={item.status}
               action={actionFor(item)}
@@ -248,7 +249,7 @@ export default function MyBookings() {
               key={`${item.kind}-${item.id}`}
               type={item.cardType}
               title={item.title}
-              meta={fmtDateTime(item.startsAt)}
+              meta={fmtDateTime(item.startsAt, timeZone)}
               status={item.status}
             />
           ))}

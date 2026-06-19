@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 
 // --- Live availability types ---
 
@@ -17,9 +18,17 @@ interface FreeBlock {
   endsAt: string;   // ISO
 }
 
+/** A busy time block returned by /api/rentals/availability. */
+interface BusyBlock {
+  startsAt: string; // ISO
+  endsAt: string;   // ISO
+  reason: string;   // "Rented" | "Pickup Game" | "League Game" | "Closed" | "Reserved" | "Unavailable"
+}
+
 interface FieldAvailability {
   fieldNumber: number;
   free: FreeBlock[];
+  busy: BusyBlock[];
 }
 
 interface AvailabilityResponse {
@@ -50,25 +59,43 @@ function formatDuration(mins: number): string {
 /**
  * True if the integer hour `h` (e.g. 19 = 7pm) is inside any free block
  * for the given field on the selected date.
- * NOTE: The availability API returns free blocks in UTC. The hour is treated
- * as a wall-clock hour on the selected date (assumed local to the venue).
- * For now we do a simple hour-in-block check using the date string directly.
+ * hour is local wall-clock in the org tz; convert to the UTC instant to match availability blocks.
  */
 function isHourBookable(
   field: FieldAvailability | undefined,
   dateStr: string,
   h: number,
+  timeZone: string,
 ): boolean {
   if (!field) return false;
-  const hourStart = new Date(
-    `${dateStr}T${String(h).padStart(2, "0")}:00:00.000Z`,
-  ).getTime();
+  const hourStart = zonedHourToUtc(dateStr, h, timeZone).getTime();
   const hourEnd = hourStart + 60 * 60 * 1000;
   return field.free.some((b) => {
     const blockStart = new Date(b.startsAt).getTime();
     const blockEnd = new Date(b.endsAt).getTime();
     return blockStart <= hourStart && blockEnd >= hourEnd;
   });
+}
+
+/**
+ * Return the reason string for the busy block covering the given hour slot,
+ * or null if no busy block covers it (fallback: "Unavailable").
+ */
+function hourReason(
+  field: FieldAvailability | undefined,
+  dateStr: string,
+  h: number,
+  timeZone: string,
+): string | null {
+  if (!field) return null;
+  const hourStart = zonedHourToUtc(dateStr, h, timeZone).getTime();
+  const hourEnd = hourStart + 60 * 60 * 1000;
+  const block = field.busy.find((b) => {
+    const blockStart = new Date(b.startsAt).getTime();
+    const blockEnd = new Date(b.endsAt).getTime();
+    return blockStart <= hourStart && blockEnd >= hourEnd;
+  });
+  return block ? block.reason : null;
 }
 
 /**
@@ -79,11 +106,10 @@ function getFreeBlockEnd(
   field: FieldAvailability | undefined,
   dateStr: string,
   h: number,
+  timeZone: string,
 ): Date | null {
   if (!field) return null;
-  const hourStart = new Date(
-    `${dateStr}T${String(h).padStart(2, "0")}:00:00.000Z`,
-  ).getTime();
+  const hourStart = zonedHourToUtc(dateStr, h, timeZone).getTime();
   const hourEnd = hourStart + 60 * 60 * 1000;
   const block = field.free.find((b) => {
     const blockStart = new Date(b.startsAt).getTime();
@@ -119,12 +145,19 @@ export interface FieldCalendarProps {
    * user's membership status. Defaults to 0 (no discount shown).
    */
   memberDiscountPct?: number;
+  /**
+   * IANA timezone for the org/facility (e.g. "America/New_York"). Used to
+   * resolve the correct pricing tier from wall-clock hour. Defaults to
+   * "America/New_York" (SoccerOne's venue timezone).
+   */
+  timeZone?: string;
 }
 
 export function FieldCalendar({
   venues,
   initialDate,
   memberDiscountPct = 0,
+  timeZone = "America/New_York",
 }: FieldCalendarProps) {
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
@@ -190,11 +223,11 @@ export function FieldCalendar({
 
   // Derive start Date and free block end for duration capping.
   const startsAt = selectedSlot
-    ? new Date(`${date}T${String(selectedSlot.hour).padStart(2, "0")}:00:00.000Z`)
+    ? zonedHourToUtc(date, selectedSlot.hour, timeZone)
     : null;
 
   const freeBlockEnd = selectedSlot
-    ? getFreeBlockEnd(currentField, date, selectedSlot.hour)
+    ? getFreeBlockEnd(currentField, date, selectedSlot.hour, timeZone)
     : null;
 
   // Available durations: whole hours only, capped by remaining free block and
@@ -219,10 +252,9 @@ export function FieldCalendar({
     : null;
 
   // Live total — recomputed whenever start or duration changes.
-  // Booking grid slot hours are stored as UTC wall-clock labeled as local facility hours;
-  // price in UTC so the tier matches the displayed hour.
+  // Price in the org timezone — slots are constructed in org tz (see zonedHourToUtc).
   // Same engine as the server, so the display matches the charged amount.
-  const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, "UTC") : null;
+  const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, timeZone) : null;
 
   const memberCents =
     standardCents !== null && memberDiscountPct > 0
@@ -230,7 +262,7 @@ export function FieldCalendar({
       : null;
 
   const handleSlotClick = (h: number) => {
-    if (!isHourBookable(currentField, date, h)) return;
+    if (!isHourBookable(currentField, date, h, timeZone)) return;
     setSelectedSlot({ field: selectedField, hour: h });
     setSubmitError(null);
     setNeedsSignIn(false);
@@ -405,7 +437,7 @@ export function FieldCalendar({
           {!loading && !error && availability && availability.fields.length > 0 && (
             <div className="calendar-grid">
               {HOURS.map((h) => {
-                const bookable = isHourBookable(currentField, date, h);
+                const bookable = isHourBookable(currentField, date, h, timeZone);
                 const isSelected =
                   selectedSlot?.hour === h && selectedSlot?.field === selectedField;
 
@@ -433,7 +465,9 @@ export function FieldCalendar({
                     <span className="row-time">{formatHour(h)}</span>
                     {!bookable && (
                       <div className="row-event">
-                        <span className="event-name">Unavailable</span>
+                        <span className="event-reason-chip">
+                          {hourReason(currentField, date, h, timeZone) ?? "Unavailable"}
+                        </span>
                       </div>
                     )}
                     {bookable && (
@@ -749,6 +783,22 @@ export function FieldCalendar({
           font-size: 0.9375rem;
           font-weight: 600;
           color: rgba(255,255,255,0.3);
+        }
+        /* Reason chip — bolder status badge on unavailable rows */
+        .event-reason-chip {
+          display: inline-flex;
+          align-items: center;
+          font-family: var(--so-font-body);
+          font-size: 0.6875rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.75);
+          background: rgba(255,255,255,0.09);
+          border: 1px solid rgba(255,255,255,0.18);
+          border-radius: var(--so-radius-pill);
+          padding: 3px 10px;
+          white-space: nowrap;
         }
         .row-available-label {
           display: flex;

@@ -136,11 +136,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     );
   }
 
-  // Booking grid slot hours are stored as UTC wall-clock labeled as local facility hours;
-  // price in UTC so the tier matches the displayed hour.
+  // Price in the org timezone — slots are constructed in org tz (see zonedHourToUtc).
   const baseAmountDueCents =
     locals.brandId === "soccerone"
-      ? quoteRentalCents(startsAt, endsAt, "UTC")
+      ? quoteRentalCents(startsAt, endsAt, locals.organization?.timezone ?? "America/New_York")
       : computeRentalPriceCents(
           startsAt,
           endsAt,
@@ -171,6 +170,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     console.error("[rentals] membership lookup failed (continuing at base price)", err);
   }
 
+  const bookingBrand = brandFromHost(request.headers.get("host") ?? "");
+
   if (amountDueCents === 0) {
     const result = await createConfirmedRentalNonStripe({
       organizationId: orgId,
@@ -191,6 +192,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       createdByUserId: locals.user.id,
       waiverSigned: true,
       waiverSignedBy: waiverName,
+      brand: bookingBrand,
     });
     if (!result.ok) return json({ error: result.error }, 409);
     return json({ paymentRequired: false, rentalId: result.rental.id }, 200);
@@ -218,6 +220,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     createdByUserId: locals.user.id,
     waiverSigned: true,
     waiverSignedBy: waiverName,
+    brand: bookingBrand,
   });
   if (!hold.ok) return json({ error: hold.error }, 409);
 
@@ -262,7 +265,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           membership_id: memberDiscountMembershipId ?? "",
           base_amount_cents: String(baseAmountDueCents),
           // Storefront brand — host-derived, since both brands share one org.
-          brand: brandFromHost(request.headers.get("host") ?? ""),
+          brand: bookingBrand,
           // Carried for the webhook's revenue + ad-conversion fires.
           user_id: locals.user.id,
           venue_name: venue.name,

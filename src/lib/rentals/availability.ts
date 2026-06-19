@@ -16,21 +16,70 @@
 import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { venues } from "@/lib/db/schema/teams";
-import { resourceBlocks, venueResources } from "@/lib/db/schema/scheduling";
+import { resourceBlocks, venueResources, type BlockSource } from "@/lib/db/schema/scheduling";
 import { expandFamily } from "@/lib/scheduling/blocks";
+import { zonedMinuteToUtc } from "@/lib/activity-tracking/tz-day";
 import { subtractBusyBlocks, type TimeBlock } from "./overlap";
+
+/**
+ * Maps the resource_blocks.source_type discriminator to a human-readable
+ * label shown to renters in the booking calendar.
+ */
+export function blockReasonLabel(kind: string): string {
+  switch (kind as BlockSource) {
+    case "rental":
+      return "Rented";
+    case "drop_in":
+      return "Pickup Game";
+    case "game":
+      return "League Game";
+    case "maintenance":
+      return "Closed";
+    case "external":
+      return "Reserved";
+    case "practice":
+      return "Reserved";
+    default:
+      return "Unavailable";
+  }
+}
+
+export interface BusyBlock {
+  startsAt: Date;
+  endsAt: Date;
+  reason: string;
+}
 
 export interface FieldAvailability {
   fieldNumber: number;
   free: TimeBlock[];
+  busy: BusyBlock[];
 }
 
 export async function getVenueRentalAvailability(
   venueId: string,
-  /** Start of the calendar day, UTC instant for the org's local midnight. */
+  /** UTC instant for the org's local midnight (start of the calendar day in org tz). */
   dayStart: Date,
-  /** End of the calendar day (dayStart + 24h). */
+  /** UTC instant for the org's local 23:59:59.999 (end of the calendar day in org tz). */
   dayEnd: Date,
+  /**
+   * UTC instant for the org's local 00:00:00 — identical to dayStart, passed
+   * explicitly so rentalOpenMinute/rentalCloseMinute (minutes of LOCAL day) are
+   * anchored to the local midnight rather than UTC midnight. When omitted falls
+   * back to dayStart (preserves backward-compatibility for callers that pass
+   * pre-computed UTC day bounds).
+   */
+  localDayStartUtc: Date = dayStart,
+  /**
+   * Calendar date (YYYY-MM-DD) of the day being queried. When provided with
+   * `tz`, the rental-window edges are computed instant-anchored via
+   * `zonedMinuteToUtc`, which is DST-correct on the two transition Sundays
+   * (the `localDayStartUtc + minutes` branch is a legacy fallback that's off
+   * by an hour when the tz offset changes between midnight and the edge).
+   */
+  date?: string,
+  /** Org IANA timezone — pair with `date` to enable the DST-correct path. */
+  tz?: string,
 ): Promise<{ venueName: string; fields: FieldAvailability[] } | null> {
   const db = getDb();
 
@@ -43,15 +92,24 @@ export async function getVenueRentalAvailability(
 
   const fieldCount = venue.fieldCount ?? 1;
 
-  // Venue rental window for the day. Null open/close → full day.
+  // Venue rental window for the day. When `date` + `tz` are supplied we use
+  // the instant-anchored zonedMinuteToUtc path, which is DST-correct on the
+  // two transition Sundays. Otherwise we fall back to the legacy
+  // localDayStartUtc + minutes math (off by an hour exactly twice a year, when
+  // the tz offset changes between local midnight and the window edge). E.g.
+  // open=960 (4 PM ET summer) → 20:00Z = 4 PM ET. Null open/close → full day.
   const windowStart =
-    venue.rentalOpenMinute != null
-      ? new Date(dayStart.getTime() + venue.rentalOpenMinute * 60_000)
-      : dayStart;
+    venue.rentalOpenMinute != null && date && tz
+      ? zonedMinuteToUtc(date, venue.rentalOpenMinute, tz)
+      : venue.rentalOpenMinute != null
+        ? new Date(localDayStartUtc.getTime() + venue.rentalOpenMinute * 60_000)
+        : dayStart;
   const windowEnd =
-    venue.rentalCloseMinute != null
-      ? new Date(dayStart.getTime() + venue.rentalCloseMinute * 60_000)
-      : dayEnd;
+    venue.rentalCloseMinute != null && date && tz
+      ? zonedMinuteToUtc(date, venue.rentalCloseMinute, tz)
+      : venue.rentalCloseMinute != null
+        ? new Date(localDayStartUtc.getTime() + venue.rentalCloseMinute * 60_000)
+        : dayEnd;
 
   // The venue's resource tree (all rows — family expansion needs
   // children even when only top-level fields are rentable units).
@@ -76,6 +134,7 @@ export async function getVenueRentalAvailability(
             resourceId: resourceBlocks.resourceId,
             startsAt: resourceBlocks.startsAt,
             endsAt: resourceBlocks.endsAt,
+            sourceType: resourceBlocks.sourceType,
           })
           .from(resourceBlocks)
           .where(
@@ -91,10 +150,13 @@ export async function getVenueRentalAvailability(
           )
       : [];
 
-  const blocksByResource = new Map<string, TimeBlock[]>();
+  const blocksByResource = new Map<
+    string,
+    { startsAt: Date; endsAt: Date; sourceType: string }[]
+  >();
   for (const b of blockRows) {
     const list = blocksByResource.get(b.resourceId) ?? [];
-    list.push({ startsAt: b.startsAt, endsAt: b.endsAt });
+    list.push({ startsAt: b.startsAt, endsAt: b.endsAt, sourceType: b.sourceType });
     blocksByResource.set(b.resourceId, list);
   }
 
@@ -108,12 +170,22 @@ export async function getVenueRentalAvailability(
       // Busy = blocks on the field OR anything in its family (a booked
       // half blocks the full field for rental purposes).
       const familyIds = expandFamily(field.id, resourceRows);
-      const busy: TimeBlock[] = familyIds.flatMap(
+      const rawBlocks = familyIds.flatMap(
         (id) => blocksByResource.get(id) ?? [],
       );
+      const busyTimeBlocks: TimeBlock[] = rawBlocks.map((b) => ({
+        startsAt: b.startsAt,
+        endsAt: b.endsAt,
+      }));
+      const busyLabeled: BusyBlock[] = rawBlocks.map((b) => ({
+        startsAt: b.startsAt,
+        endsAt: b.endsAt,
+        reason: blockReasonLabel(b.sourceType),
+      }));
       fields.push({
         fieldNumber: field.fieldNumber,
-        free: subtractBusyBlocks(windowStart, windowEnd, busy),
+        free: subtractBusyBlocks(windowStart, windowEnd, busyTimeBlocks),
+        busy: busyLabeled,
       });
     }
   } else {
@@ -122,6 +194,7 @@ export async function getVenueRentalAvailability(
       fields.push({
         fieldNumber,
         free: subtractBusyBlocks(windowStart, windowEnd, []),
+        busy: [],
       });
     }
   }

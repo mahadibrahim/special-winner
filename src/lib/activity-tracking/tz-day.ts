@@ -37,6 +37,38 @@ function computeTzOffsetMs(at: Date, tz: string): number {
 }
 
 /**
+ * UTC instant for `hour:00` local wall-clock on `date` (YYYY-MM-DD) in `tz`.
+ * Inverse of resolving a UTC instant's local hour. Whole-hour only.
+ */
+export function zonedHourToUtc(date: string, hour: number, tz: string): Date {
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) throw new Error(`zonedHourToUtc: invalid date '${date}', expected YYYY-MM-DD`)
+  const [, y, mo, d] = m
+  // Wall-clock as-if-UTC, then subtract the tz offset at that instant.
+  const asUtc = new Date(`${y}-${mo}-${d}T${String(hour).padStart(2, "0")}:00:00.000Z`)
+  return new Date(asUtc.getTime() - computeTzOffsetMs(asUtc, tz))
+}
+
+/**
+ * UTC instant for `minute`-of-day (minutes after local midnight) on `date`
+ * (YYYY-MM-DD) in `tz`. Generalizes zonedHourToUtc to arbitrary minutes;
+ * instant-anchored so it's correct across DST transitions. 0..1440.
+ */
+export function zonedMinuteToUtc(date: string, minute: number, tz: string): Date {
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) throw new Error(`zonedMinuteToUtc: invalid date '${date}', expected YYYY-MM-DD`);
+  if (!Number.isInteger(minute) || minute < 0 || minute > 1440)
+    throw new Error(`zonedMinuteToUtc: minute ${minute} out of range 0..1440`);
+  const [, y, mo, d] = m;
+  const hh = Math.floor(minute / 60);
+  const mm = minute % 60;
+  // Wall-clock as-if-UTC. For minute=1440 (24:00 = next midnight) JS rolls the
+  // date forward correctly via Date.UTC arithmetic.
+  const asUtc = new Date(Date.UTC(+y, +mo - 1, +d, hh, mm, 0, 0));
+  return new Date(asUtc.getTime() - computeTzOffsetMs(asUtc, tz));
+}
+
+/**
  * Given a YYYY-MM-DD calendar date and IANA tz, return the UTC bounds
  * of that local day: 00:00:00.000 → 23:59:59.999 wall-clock in tz.
  */

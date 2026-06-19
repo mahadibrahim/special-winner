@@ -37,7 +37,6 @@ export async function renderRentalConfirmation(
 ): Promise<RentalMessageVariants> {
   const brand = normalizeBrand(ctx.brand);
   const brandLabel = brand === "soccerone" ? "SoccerOne" : "Aspire";
-  const fieldLabel = `Field ${ctx.fieldNumber}`;
   const whenLabel = formatRentalWindow(ctx.startsAt, ctx.endsAt, ctx.timezone);
   const amountLabel =
     ctx.amountPaidCents > 0 ? `${dollars(ctx.amountPaidCents)} paid` : null;
@@ -48,7 +47,6 @@ export async function renderRentalConfirmation(
     FieldRentalConfirmationEmail({
       recipientName: ctx.recipientName,
       venueName: ctx.venueName,
-      fieldLabel,
       whenLabel,
       amountLabel,
       brand,
@@ -57,7 +55,7 @@ export async function renderRentalConfirmation(
 
   const paidStr = amountLabel ? ` ${dollars(ctx.amountPaidCents)} paid.` : "";
   const smsBody =
-    `[${brandLabel}] Your rental is confirmed: ${fieldLabel} at ${ctx.venueName}, ${whenLabel}.${paidStr} See you there!`;
+    `[${brandLabel}] Your rental is confirmed: ${ctx.venueName}, ${whenLabel}.${paidStr} See you there!`;
 
   return {
     email: { subject, html, text },

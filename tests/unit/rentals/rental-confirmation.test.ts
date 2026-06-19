@@ -25,15 +25,17 @@ describe("renderRentalConfirmation", () => {
     expect(v.email.subject.toLowerCase()).toContain("confirmed");
     expect(v.email.subject).toContain("Downtown Arena");
     expect(v.email.html).toContain("Downtown Arena");
-    expect(v.email.html).toContain("Field 3");
+    // WHERE shows venue name only — no redundant "Field N" in the email body
+    expect(v.email.html).not.toContain("Field 3");
     expect(v.email.html).toContain("$80.00");
     expect(v.email.text.length).toBeGreaterThan(0);
   });
 
-  it("produces an SMS body with venue, field, and amount", async () => {
+  it("produces an SMS body with venue and amount (venue name only — no redundant field label)", async () => {
     const v = await renderRentalConfirmation(baseCtx);
     expect(v.sms.body).toContain("Downtown Arena");
-    expect(v.sms.body).toContain("Field 3");
+    // One-venue-per-field model: "Field N at <venue>" is a contradiction.
+    expect(v.sms.body).not.toContain("Field 3");
     expect(v.sms.body).toContain("$80.00");
   });
 
@@ -41,5 +43,18 @@ describe("renderRentalConfirmation", () => {
     const v = await renderRentalConfirmation({ ...baseCtx, amountPaidCents: 0 });
     expect(v.email.html).not.toContain("$0.00");
     expect(v.sms.body).not.toContain("$0.00");
+  });
+
+  it("uses SoccerOne branding when brand is soccerone", async () => {
+    const v = await renderRentalConfirmation({ ...baseCtx, brand: "soccerone" });
+    // SMS prefix should be SoccerOne, not Aspire
+    expect(v.sms.body).toContain("[SoccerOne]");
+    expect(v.sms.body).not.toContain("[Aspire]");
+  });
+
+  it("uses Aspire branding when brand is aspire (default)", async () => {
+    const v = await renderRentalConfirmation({ ...baseCtx, brand: "aspire" });
+    expect(v.sms.body).toContain("[Aspire]");
+    expect(v.sms.body).not.toContain("[SoccerOne]");
   });
 });

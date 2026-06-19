@@ -10,8 +10,9 @@
  * double-notified). `sendSms` enforces its own opt-in gate, so a guest who
  * never opted in simply gets no SMS.
  *
- * Rentals have no brand column, so confirmations send under the default
- * ("aspire") brand identity.
+ * Brand is read from the `field_rentals.brand` column (persisted at booking
+ * creation from the host header), so SoccerOne rentals send SoccerOne-branded
+ * confirmations.
  */
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -20,6 +21,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { organizations } from "@/lib/db/schema/organizations";
 import { sendEmail, isEmailConfigured, fromForBrand } from "@/lib/email";
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { renderRentalConfirmation } from "./rental-confirmation";
 
 export interface RentalDispatchResult {
@@ -44,6 +46,7 @@ export async function dispatchRentalConfirmation(
       renterName: fieldRentals.renterName,
       renterEmail: fieldRentals.renterEmail,
       renterPhone: fieldRentals.renterPhone,
+      brand: fieldRentals.brand,
       venueName: venues.name,
       orgTimezone: organizations.timezone,
     })
@@ -59,6 +62,8 @@ export async function dispatchRentalConfirmation(
   const hasPhone = Boolean(row.renterPhone);
   if (!hasEmail && !hasPhone) return { ok: false, reason: "no_contact_info" };
 
+  const brand = normalizeBrand(row.brand);
+
   const variants = await renderRentalConfirmation({
     recipientName: row.renterName,
     venueName: row.venueName ?? "the facility",
@@ -67,7 +72,7 @@ export async function dispatchRentalConfirmation(
     endsAt: row.endsAt,
     timezone: row.orgTimezone ?? null,
     amountPaidCents: row.amountPaidCents,
-    brand: "aspire",
+    brand,
   });
 
   let lastReason: string | undefined;
@@ -82,7 +87,7 @@ export async function dispatchRentalConfirmation(
         subject: variants.email.subject,
         html: variants.email.html,
         text: variants.email.text,
-        from: fromForBrand("aspire"),
+        from: fromForBrand(brand),
       });
       if (r.success) return { ok: true, channel: "email" };
       lastReason = "email_failed";

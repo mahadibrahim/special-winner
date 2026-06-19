@@ -8,6 +8,7 @@ export const prerender = false;
 const user = Astro.locals.user!;
 const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 const rentalId = Astro.params.id!;
+const orgTimeZone = Astro.locals.organization?.timezone ?? "America/New_York";
 ---
 
 <BaseLayout title="Rental Detail — Admin — Aspire Sports" navigation={false} footer={false}>
@@ -17,6 +18,6 @@ const rentalId = Astro.params.id!;
     currentPath="/admin/rentals"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <RentalDetail client:load rentalId={rentalId} />
+    <RentalDetail client:load rentalId={rentalId} timeZone={orgTimeZone} />
   </AdminLayout>
 </BaseLayout>

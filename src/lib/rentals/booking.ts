@@ -16,6 +16,7 @@ import { fieldRentals, type FieldRental } from "@/lib/db/schema/field-rentals";
 import { assertNoRentalConflict } from "./conflicts";
 import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
+import type { BrandId } from "@/lib/branding/themes";
 
 // Window the field is held for the customer after they POST the booking
 // and before Stripe Checkout confirms. Short enough that an abandoned
@@ -43,6 +44,7 @@ export interface RentalHoldInput {
   createdByUserId: string | null;
   waiverSigned: boolean;
   waiverSignedBy: string | null;
+  brand?: BrandId;
 }
 
 export type RentalHoldResult =
@@ -111,6 +113,7 @@ export async function createRentalHold(
         waiverSigned: input.waiverSigned,
         waiverSignedAt: input.waiverSigned ? new Date() : null,
         waiverSignedBy: input.waiverSignedBy,
+        brand: input.brand ?? "aspire",
       })
       .returning();
     return { ok: true as const, rental };
@@ -162,6 +165,7 @@ export async function createConfirmedRentalNonStripe(
         waiverSigned: input.waiverSigned,
         waiverSignedAt: input.waiverSigned ? new Date() : null,
         waiverSignedBy: input.waiverSignedBy,
+        brand: input.brand ?? "aspire",
       })
       .returning();
     return { ok: true as const, rental };

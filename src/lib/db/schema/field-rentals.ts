@@ -3,6 +3,7 @@ import {
   pgEnum,
   uuid,
   text,
+  varchar,
   timestamp,
   integer,
   boolean,
@@ -89,6 +90,9 @@ export const fieldRentals = pgTable(
     }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancellationReason: fieldRentalCancellationReasonEnum("cancellation_reason"),
+    // Storefront brand the rental was booked through. Default covers
+    // pre-cutover rows and at-facility bookings (no host signal).
+    brand: varchar("brand", { length: 20 }).default("aspire").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

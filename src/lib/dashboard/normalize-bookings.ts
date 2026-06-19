@@ -105,7 +105,7 @@ export function normalizeBookings(
       id: r.id,
       kind: "rental",
       cardType: "field_rental",
-      title: `Field ${r.fieldNumber}`,
+      title: r.venueName ?? `Field ${r.fieldNumber}`,
       startsAt: r.startsAt,
       endsAt: r.endsAt,
       venueName: r.venueName,

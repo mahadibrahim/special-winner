@@ -17,8 +17,6 @@ interface FieldRentalConfirmationEmailProps {
   recipientName: string;
   /** Venue (space) name. */
   venueName: string;
-  /** Field label, e.g. "Field 3". */
-  fieldLabel: string;
   /** Formatted booking window, e.g. "Sat, Jun 20 · 6:00 – 7:30 PM". */
   whenLabel: string;
   /**
@@ -38,7 +36,6 @@ interface FieldRentalConfirmationEmailProps {
 export function FieldRentalConfirmationEmail({
   recipientName,
   venueName,
-  fieldLabel,
   whenLabel,
   amountLabel,
   brand,
@@ -58,9 +55,7 @@ export function FieldRentalConfirmationEmail({
 
         <DetailPanel>
           <Detail label="When">{whenLabel}</Detail>
-          <Detail label="Where">
-            {venueName} — {fieldLabel}
-          </Detail>
+          <Detail label="Where">{venueName}</Detail>
           {amountLabel ? (
             <>
               <Hr style={{ borderColor: t.tokens.border, margin: "12px 0" }} />

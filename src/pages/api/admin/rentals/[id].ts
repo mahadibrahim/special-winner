@@ -1,8 +1,9 @@
 /**
  * GET   /api/admin/rentals/:id → full rental detail.
- * PATCH /api/admin/rentals/:id → update notes/purpose, or cancel (without
- *        refund — use /refund for paid rentals). Body: { notes?, purpose?,
- *        cancel?: boolean }.
+ * PATCH /api/admin/rentals/:id → update notes/purpose; cancel (without
+ *        refund — use /refund for paid rentals); or reschedule:
+ *        Body: { notes?, purpose?, cancel?: boolean,
+ *                reschedule?: { date: "YYYY-MM-DD", startHour: number, durationMinutes: number } }
  *
  * Org- AND location-scoped: a venue manager can only read or mutate rentals
  * whose venue is in their assigned locations (super-admin is unscoped).
@@ -14,6 +15,10 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
+import { assertNoRentalConflict } from "@/lib/rentals/conflicts";
+import { BlockConflictError } from "@/lib/scheduling/blocks";
+import { syncRentalBlock } from "@/lib/scheduling/sync";
+import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 
 export const prerender = false;
 
@@ -54,7 +59,12 @@ export const PATCH: APIRoute = async (context) => {
   const rentalId = context.params.id;
   if (!rentalId) return json({ error: "rental id required" }, 400);
 
-  let body: { notes?: string; purpose?: string; cancel?: boolean };
+  let body: {
+    notes?: string;
+    purpose?: string;
+    cancel?: boolean;
+    reschedule?: { date: string; startHour: number; durationMinutes: number };
+  };
   try {
     body = await context.request.json();
   } catch {
@@ -74,6 +84,116 @@ export const PATCH: APIRoute = async (context) => {
     return json({ error: "Rental not found" }, 404);
   }
 
+  // --- reschedule action (conflict-checked + ledger re-sync) ---
+  if (body.reschedule) {
+    const { date, startHour, durationMinutes } = body.reschedule;
+
+    // Validate date: must match YYYY-MM-DD AND be a real calendar date.
+    if (
+      typeof date !== "string" ||
+      !date.match(/^\d{4}-\d{2}-\d{2}$/) ||
+      Number.isNaN(new Date(`${date}T00:00:00.000Z`).getTime())
+    ) {
+      return json(
+        { error: "reschedule.date must be a valid calendar date (YYYY-MM-DD)" },
+        400,
+      );
+    }
+
+    // Validate startHour: must be a whole integer 0–23.
+    if (
+      typeof startHour !== "number" ||
+      !Number.isInteger(startHour) ||
+      startHour < 0 ||
+      startHour > 23
+    ) {
+      return json(
+        { error: "reschedule.startHour must be a whole-number integer between 0 and 23" },
+        400,
+      );
+    }
+
+    // Validate durationMinutes: whole-hour multiples only, 60–240.
+    if (
+      typeof durationMinutes !== "number" ||
+      !Number.isInteger(durationMinutes) ||
+      durationMinutes < 60 ||
+      durationMinutes > 240 ||
+      durationMinutes % 60 !== 0
+    ) {
+      return json(
+        { error: "reschedule.durationMinutes must be a whole-hour multiple (60, 120, 180, or 240)" },
+        400,
+      );
+    }
+
+    // Status guard: only active rentals may be rescheduled.
+    if (rental.status !== "pending_payment" && rental.status !== "confirmed") {
+      return json({ error: "Only active rentals can be rescheduled" }, 422);
+    }
+
+    const orgTz = context.locals.organization?.timezone ?? "America/New_York";
+    const newStartsAt = zonedHourToUtc(date, startHour, orgTz);
+    const newEndsAt = new Date(newStartsAt.getTime() + durationMinutes * 60_000);
+
+    // Conflict check inside a transaction, excluding this rental's own block.
+    let conflictMsg: string | null = null;
+    let rescheduled: typeof rental | undefined;
+    try {
+      rescheduled = await db.transaction(async (tx) => {
+        conflictMsg = await assertNoRentalConflict(tx, {
+          venueId: rental.venueId,
+          fieldNumber: rental.fieldNumber,
+          startsAt: newStartsAt,
+          endsAt: newEndsAt,
+          excludeRentalId: rentalId,
+        });
+        if (conflictMsg) return undefined as unknown as typeof rental;
+
+        const [row] = await tx
+          .update(fieldRentals)
+          .set({ startsAt: newStartsAt, endsAt: newEndsAt, updatedAt: new Date() })
+          .where(eq(fieldRentals.id, rentalId))
+          .returning();
+        return row;
+      });
+    } catch {
+      return json({ error: "Database error during reschedule" }, 500);
+    }
+
+    if (conflictMsg) {
+      return json({ error: conflictMsg }, 409);
+    }
+    if (!rescheduled) {
+      return json({ error: "Reschedule failed" }, 500);
+    }
+
+    // Re-sync the ledger block to reflect the new window.
+    // Mirror booking.ts's withLedgerSync pattern: BlockConflictError → 409;
+    // unexpected errors re-throw rather than swallowing a committed-but-unsynced state.
+    try {
+      await syncRentalBlock(rentalId);
+    } catch (err) {
+      if (err instanceof BlockConflictError) {
+        // The rental row was already committed at the new time, but the ledger
+        // rejected the move (a drop-in/external/maintenance block occupies the
+        // slot — assertNoRentalConflict can't see those). Revert the row so we
+        // never leave a committed-but-unsynced rental (double-book hole). The
+        // ledger block was never mutated (the upsert was rejected), so
+        // reverting the row alone restores full consistency.
+        await db
+          .update(fieldRentals)
+          .set({ startsAt: rental.startsAt, endsAt: rental.endsAt, updatedAt: new Date() })
+          .where(eq(fieldRentals.id, rentalId));
+        return json({ error: `Ledger conflict: ${err.message}` }, 409);
+      }
+      throw err;
+    }
+
+    return json({ rental: rescheduled }, 200);
+  }
+
+  // --- standard notes/purpose/cancel mutations ---
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.notes !== undefined) updates.notes = body.notes;
   if (body.purpose !== undefined) updates.purpose = body.purpose;
