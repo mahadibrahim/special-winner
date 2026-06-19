@@ -60,7 +60,7 @@ const fmt = (cents: number) => {
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:load richColors position="bottom-right" />
+  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="rent-main">
 
@@ -164,7 +164,7 @@ const fmt = (cents: number) => {
           <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} />
+        <FieldCalendar client:visible venues={calendarVenues} memberDiscountPct={memberDiscountPct} />
 
         <!-- Cancellation policy -->
         <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>

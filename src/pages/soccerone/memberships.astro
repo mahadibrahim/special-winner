@@ -35,7 +35,7 @@ const authed = !!Astro.locals.user;
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:load richColors position="bottom-right" />
+  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="mem-main">
 
@@ -137,7 +137,7 @@ const authed = !!Astro.locals.user;
         </div>
 
         <div class="tiers-grid">
-          <MembershipTiersLive client:load tiers={tiers} authed={authed} />
+          <MembershipTiersLive client:visible tiers={tiers} authed={authed} />
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@ import CTABanner from "@/components/cta-banner"
 import { getDb } from "@/lib/db"
 import { dropInRateCard } from "@/lib/db/schema/drop-in"
 import type { HeroTile } from "@/lib/landing/hero-tiles"
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const orgId = Astro.locals.organization?.id ?? null
 let rate = { defaultSessionRateCents: 1500, defaultMemberRateCents: 1200 }
@@ -34,6 +35,7 @@ const tiles: HeroTile[] = [
   { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
   { label: "Volleyball", key: "volleyball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
 ]
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

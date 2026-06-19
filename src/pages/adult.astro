@@ -7,6 +7,7 @@ import HubHero from "@/components/landing/hub-hero.astro";
 import CategoryCard from "@/components/landing/category-card.astro";
 import NextUpCard from "@/components/marketing/next-up-card.astro";
 import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "adult");
 
 const doors = [
@@ -20,6 +21,7 @@ const doors = [
     title: "Tournaments", blurb: "Bring a team or get placed. A winner by sundown.",
     statusLabel: "One-day brackets", live: false, ctaLabel: "Browse tournaments" },
 ];
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

@@ -6,12 +6,14 @@ import CategoryHero from "@/components/landing/category-hero.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
 import CTABanner from "@/components/cta-banner"
 import type { HeroTile } from "@/lib/landing/hero-tiles"
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const tiles: HeroTile[] = [
   { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Booking now", meta: "School-break & summer", color: "oklch(0.66 0.21 35)" },
   { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
   { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
 ]
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

@@ -14,7 +14,9 @@ import FAQSection from '../components/faq-section';
 import CTABanner from '../components/cta-banner';
 import CaptureBand from '../components/marketing/capture-band';
 import { getActiveSiteAnnouncement } from '@/lib/marketing/site-announcement';
+import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "home");
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
@@ -25,7 +27,7 @@ const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "home"
     <DualCtaHero client:load announcement={announcement ?? undefined} />
     <BenefitTrio />
     <section id="programs">
-      <HomepageProgramsPreview client:load />
+      <HomepageProgramsPreview client:visible />
     </section>
     <Testimonials client:visible />
     <PartnersSection client:visible />

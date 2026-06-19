@@ -49,6 +49,8 @@ const featuredPrice = featured
       ? `$${featured.price}/player · $${featured.teamPrice}/team`
       : `$${featured.price}/player`)
   : null;
+import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
@@ -71,7 +73,7 @@ const featuredPrice = featured
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:load richColors position="bottom-right" />
+  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="leagues-main">
 
@@ -158,7 +160,7 @@ const featuredPrice = featured
         )}
 
         <SoccerOneLeagueLevels />
-        <SoccerOneLeaguesFinder client:load seasons={seasons} />
+        <SoccerOneLeaguesFinder client:visible seasons={seasons} />
       </div>
     </div>
 

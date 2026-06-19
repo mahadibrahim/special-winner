@@ -4,6 +4,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
+import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout

@@ -26,6 +26,8 @@ if (orgId) {
     .limit(1);
   if (card) rate = card;
 }
+import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
@@ -46,7 +48,7 @@ if (orgId) {
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:load richColors position="bottom-right" />
+  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="pickup-main">
 

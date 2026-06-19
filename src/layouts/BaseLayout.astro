@@ -11,6 +11,7 @@ import { isSoccerOneHost } from "@/lib/organization/soccerone-routing";
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { getBrandTheme } from '@/lib/branding/themes';
+import { resolveNavUser } from '@/lib/branding/nav-user';
 
 const theme = getBrandTheme(Astro.locals.brandId);
 
@@ -69,16 +70,15 @@ const brandCss = theme.cssVars
 // prerendered pages auth state is unknowable at build time — leave the prop
 // unset so Navigation falls back to fetching. `null` therefore means
 // "known anonymous", absent means "unknown, go fetch".
-const navUser = Astro.isPrerendered
-  ? undefined
-  : Astro.locals.user
-    ? {
-        id: Astro.locals.user.id,
-        email: Astro.locals.user.email,
-        firstName: Astro.locals.user.firstName,
-        lastName: Astro.locals.user.lastName,
-      }
-    : null;
+// `navUser` is undefined when the page is prerendered OR opted into edge
+// caching (setMarketingEdgeCache sets Netlify-CDN-Cache-Control before this
+// layout renders). Undefined => Navigation resolves auth client-side, so the
+// cached HTML carries no per-user data. See resolveNavUser.
+const navUser = resolveNavUser({
+  isPrerendered: Astro.isPrerendered,
+  edgeCached: Astro.response.headers.has("Netlify-CDN-Cache-Control"),
+  user: Astro.locals.user,
+});
 ---
 <!DOCTYPE html>
 <html lang="en" data-brand={theme.id}>
@@ -106,8 +106,8 @@ const navUser = Astro.isPrerendered
   </head>
   <body class={bodyClass}>
     <GoogleTagManagerNoscript containerId={gtmContainerId} />
-    {navigation && theme.chrome === "aspire" && <RegistrationRibbon client:load />}
-    {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:load {...(navUser !== undefined ? { initialUser: navUser } : {})} />)}
+    {navigation && theme.chrome === "aspire" && <RegistrationRibbon client:idle />}
+    {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:idle {...(navUser !== undefined ? { initialUser: navUser } : {})} />)}
     <slot />
     {footer && (theme.chrome === "soccerone" ? <SoccerOneFooter /> : <Footer />)}
   </body>
