@@ -9,13 +9,17 @@ import {
   locations,
   organizations,
 } from "@/lib/db/schema";
-import { eq, desc, and, or, isNull, gte, inArray } from "drizzle-orm";
+import { eq, desc, and, or, isNull, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { sendAnnouncementEmail } from "@/lib/email/send";
 import { formatEmailDate } from "@/lib/email/format";
+import {
+  normalizeBrand,
+  originForBrand,
+} from "@/lib/organization/soccerone-routing";
 import { env } from "@/lib/env";
 
 // Per-location scoping (backlog #28):
@@ -311,18 +315,24 @@ async function fanOutAnnouncementEmails(
   if (announcement.locationId) {
     recipientConditions.push(eq(locations.id, announcement.locationId));
   }
+  // Group by user (not selectDistinct) so a recipient with registrations
+  // under more than one brand still gets exactly one email. max(brand)
+  // resolves a mixed-brand user to "soccerone" (the lead consumer brand,
+  // and alphabetically after "aspire") deterministically.
   const recipients = await db
-    .selectDistinct({
+    .select({
       id: users.id,
       email: users.email,
       firstName: users.firstName,
+      brand: sql<string>`max(${registrations.brand})`.as("brand"),
     })
     .from(users)
     .innerJoin(registrations, eq(registrations.registeredByUserId, users.id))
     .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
     .innerJoin(programs, eq(programs.id, seasons.programId))
     .innerJoin(locations, eq(locations.id, programs.locationId))
-    .where(and(...recipientConditions));
+    .where(and(...recipientConditions))
+    .groupBy(users.id, users.email, users.firstName);
 
   if (recipients.length === 0) {
     await db
@@ -336,14 +346,15 @@ async function fanOutAnnouncementEmails(
     author.firstName ??
     (author.email ? author.email.split("@")[0] : "Aspire Sports");
   const publishedAt = formatEmailDate(announcement.publishedAt ?? new Date());
-  const dashboardUrl = `${env.PUBLIC_APP_URL}/dashboard`;
 
   const BATCH_SIZE = 50;
   for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
     const batch = recipients.slice(i, i + BATCH_SIZE);
     await Promise.allSettled(
-      batch.map((r) =>
-        sendAnnouncementEmail({
+      batch.map((r) => {
+        const brand = normalizeBrand(r.brand);
+        const dashboardUrl = `${originForBrand(brand) ?? env.PUBLIC_APP_URL}/dashboard`;
+        return sendAnnouncementEmail({
           userId: r.id,
           organizationId: org.id,
           recipientEmail: r.email,
@@ -354,8 +365,9 @@ async function fanOutAnnouncementEmails(
           publishedAt,
           organizationName: org.name,
           dashboardUrl,
-        }),
-      ),
+          brand,
+        });
+      }),
     );
   }
 

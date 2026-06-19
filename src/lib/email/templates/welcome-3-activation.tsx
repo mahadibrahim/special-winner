@@ -7,22 +7,30 @@ import {
   H1,
   P,
   PMuted,
-  tokens,
 } from "@/lib/email/components/email-layout";
+import { emailThemeFor } from "@/lib/email/components/email-theme";
+import type { BrandId } from "@/lib/branding/themes";
 
 interface WelcomeEmail3Props {
   recipientName: string;
   dashboardUrl: string;
   unsubscribeUrl: string;
+  brand?: BrandId;
 }
 
 export function WelcomeEmail3({
   recipientName,
   dashboardUrl,
   unsubscribeUrl,
+  brand = "aspire",
 }: WelcomeEmail3Props) {
+  const t = emailThemeFor(brand);
+  const brandName = brand === "soccerone" ? "SoccerOne" : "Aspire Sports";
   return (
-    <EmailLayout preview="The best leagues are the ones you bring friends to">
+    <EmailLayout
+      preview="The best leagues are the ones you bring friends to"
+      brand={brand}
+    >
       <Content>
         <H1>Bring your people.</H1>
         <P>Hi {recipientName || "there"},</P>
@@ -37,8 +45,8 @@ export function WelcomeEmail3({
         </P>
         <Button href={dashboardUrl}>Visit your dashboard →</Button>
         <PMuted>
-          You're getting this because you registered with Aspire Sports.{" "}
-          <Link href={unsubscribeUrl} style={{ color: tokens.inkMuted }}>
+          You're getting this because you registered with {brandName}.{" "}
+          <Link href={unsubscribeUrl} style={{ color: t.tokens.inkMuted }}>
             Unsubscribe from these emails
           </Link>
           .

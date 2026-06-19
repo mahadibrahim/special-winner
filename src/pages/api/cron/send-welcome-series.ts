@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull, isNotNull, gte, exists, sql } from "drizzle-o
 import { getDb } from "@/lib/db";
 import { users, registrations, emailLogs } from "@/lib/db/schema";
 import { sendWelcomeSeriesEmail } from "@/lib/email/send";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import {
   WELCOME_SERIES_STEPS,
   WELCOME_SERIES_WINDOW_DAYS,
@@ -77,6 +78,15 @@ export const POST: APIRoute = async ({ request }) => {
       firstName: users.firstName,
       enrolledAt: users.welcomeSeriesEnrolledAt,
       optedOutAt: users.marketingOptedOutAt,
+      // Brand attribution from the user's confirmed registration(s). A user
+      // with mixed-brand registrations resolves to "soccerone" (the lead
+      // consumer brand; alphabetically after "aspire"), deterministically.
+      brand: sql<string | null>`(
+        select max(${registrations.brand})
+        from ${registrations}
+        where ${registrations.registeredByUserId} = ${users.id}
+          and ${registrations.status} = 'confirmed'
+      )`.as("welcome_brand"),
     })
     .from(users)
     .where(
@@ -133,6 +143,7 @@ export const POST: APIRoute = async ({ request }) => {
           step: step.step,
           recipientEmail: u.email,
           recipientName: u.firstName ?? "",
+          brand: normalizeBrand(u.brand),
         });
         if (result.success) sent += 1;
         else errored += 1;

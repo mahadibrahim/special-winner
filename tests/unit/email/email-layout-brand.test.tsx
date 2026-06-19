@@ -5,6 +5,10 @@ import { EmailLayout, P, StatusPill } from "@/lib/email/components/email-layout"
 import { StatusBanner } from "@/lib/email/components/status-banner";
 import { RegistrationConfirmationEmail } from "@/lib/email/templates/registration-confirmation";
 import { PaymentReceiptEmail } from "@/lib/email/templates/payment-receipt";
+import { AnnouncementEmail } from "@/lib/email/templates/announcement";
+import { WelcomeEmail1 } from "@/lib/email/templates/welcome-1-welcome";
+import { WelcomeEmail2 } from "@/lib/email/templates/welcome-2-story";
+import { WelcomeEmail3 } from "@/lib/email/templates/welcome-3-activation";
 
 describe("EmailLayout brand rendering", () => {
   it("renders the Aspire image logo and cream palette by default", async () => {
@@ -18,16 +22,18 @@ describe("EmailLayout brand rendering", () => {
     expect(html).toContain("Aspire Sports Ohio");
   });
 
-  it("renders the SoccerOne wordmark and dark palette for brand=soccerone", async () => {
+  it("renders the SoccerOne wordmark image and dark palette for brand=soccerone", async () => {
     const { html } = await renderEmail(
       <EmailLayout preview="test" brand="soccerone">
         <P>hello</P>
       </EmailLayout>,
     );
     expect(html).not.toContain("/images/logo-black.png");
-    expect(html).toContain("SOCCER");
+    // Wordmark is a pre-rendered image, not live text.
+    expect(html).toContain("/images/soccerone-wordmark.png");
+    expect(html).toContain('alt="SoccerOne"');
     expect(html).toContain("#0a0a0d");
-    expect(html).toContain("#a3e635");
+    expect(html).toContain("#a3e635"); // lime still drives the accent stripe + CTA
     expect(html).toContain("SoccerOne");
   });
 
@@ -123,5 +129,66 @@ describe("booking templates accept a brand", () => {
     expect(html).toContain("#F5EFE3");
     expect(html).toContain("Aspire Sports Ohio");
     expect(html).not.toContain("#0a0a0d");
+  });
+});
+
+describe("announcement + welcome-series templates are brand-aware", () => {
+  const announcementProps = {
+    recipientName: "Sam",
+    announcementTitle: "Week 1 schedule is up",
+    announcementContent: "Kickoff is 7pm on field 2.",
+    authorName: "Jordan",
+    publishedAt: "June 1, 2026",
+    organizationName: "",
+    dashboardUrl: "https://www.gosoccerone.com/dashboard",
+  };
+
+  const welcomeProps = {
+    recipientName: "Sam",
+    dashboardUrl: "https://www.gosoccerone.com/dashboard",
+    unsubscribeUrl: "https://www.gosoccerone.com/unsub",
+  };
+
+  it("AnnouncementEmail with brand=soccerone uses dark palette and SoccerOne chrome", async () => {
+    const { html } = await renderEmail(
+      <AnnouncementEmail {...announcementProps} brand="soccerone" />,
+    );
+    expect(html).toContain("#0a0a0d");
+    expect(html).toContain("SoccerOne");
+    expect(html).not.toContain("#F5EFE3");
+  });
+
+  it("AnnouncementEmail without brand uses cream palette", async () => {
+    const { html } = await renderEmail(
+      <AnnouncementEmail {...announcementProps} />,
+    );
+    expect(html).toContain("#F5EFE3");
+    expect(html).not.toContain("#0a0a0d");
+  });
+
+  it("welcome series under brand=soccerone uses dark palette and SoccerOne copy, no Aspire branding leaks in", async () => {
+    for (const Email of [WelcomeEmail1, WelcomeEmail2, WelcomeEmail3]) {
+      const { html } = await renderEmail(
+        <Email {...welcomeProps} brand="soccerone" />,
+      );
+      expect(html).toContain("#0a0a0d");
+      expect(html).toContain("SoccerOne");
+      expect(html).not.toContain("#F5EFE3");
+      // The Aspire-specific copy must not survive into a SoccerOne render.
+      // (Scoped to the brand copy, not a blanket "Aspire" ban — the brand
+      // kit allows a subtle "Powered by Aspire Sports" mark.)
+      expect(html).not.toContain("Welcome to Aspire");
+      expect(html).not.toContain("registered with Aspire Sports");
+      expect(html).not.toContain("an Aspire league");
+    }
+  });
+
+  it("welcome series without brand keeps Aspire copy + cream palette", async () => {
+    for (const Email of [WelcomeEmail1, WelcomeEmail2, WelcomeEmail3]) {
+      const { html } = await renderEmail(<Email {...welcomeProps} />);
+      expect(html).toContain("#F5EFE3");
+      expect(html).toContain("Aspire Sports");
+      expect(html).not.toContain("#0a0a0d");
+    }
   });
 });
