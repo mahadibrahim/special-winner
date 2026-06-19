@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 
 // --- Live availability types ---
 
@@ -31,11 +32,18 @@ interface AvailabilityResponse {
 // render as midnight.
 const HOURS = Array.from({ length: 8 }, (_, i) => i + 16); // 4pm to midnight
 
+// Whole-hour duration options in minutes; max 4h = 240 min.
+const DURATIONS = [60, 120, 180, 240];
+
 function formatHour(h: number) {
   if (h === 0 || h === 24) return "12:00 AM";
   if (h === 12) return "12:00 PM";
   if (h < 12) return `${h}:00 AM`;
   return `${h - 12}:00 PM`;
+}
+
+function formatDuration(mins: number): string {
+  return `${mins / 60}h`;
 }
 
 /**
@@ -62,6 +70,28 @@ function isHourBookable(
   });
 }
 
+/**
+ * Find the end of the free block that contains the given hour slot.
+ * Returns the block end time as a Date, or null if the slot isn't in any block.
+ */
+function getFreeBlockEnd(
+  field: FieldAvailability | undefined,
+  dateStr: string,
+  h: number,
+): Date | null {
+  if (!field) return null;
+  const hourStart = new Date(
+    `${dateStr}T${String(h).padStart(2, "0")}:00:00.000Z`,
+  ).getTime();
+  const hourEnd = hourStart + 60 * 60 * 1000;
+  const block = field.free.find((b) => {
+    const blockStart = new Date(b.startsAt).getTime();
+    const blockEnd = new Date(b.endsAt).getTime();
+    return blockStart <= hourStart && blockEnd >= hourEnd;
+  });
+  return block ? new Date(block.endsAt) : null;
+}
+
 interface SelectedSlot {
   field: number;
   hour: number;
@@ -83,9 +113,21 @@ export interface FieldCalendarProps {
   venues: FieldCalendarVenue[];
   /** Initial date (YYYY-MM-DD). Defaults to today. */
   initialDate?: string;
+  /** IANA timezone for the venue (e.g. "America/New_York"). Used for tiered pricing. */
+  timeZone?: string;
+  /**
+   * Member discount percentage (0–100). Pass from the server based on signed-in
+   * user's membership status. Defaults to 0 (no discount shown).
+   */
+  memberDiscountPct?: number;
 }
 
-export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
+export function FieldCalendar({
+  venues,
+  initialDate,
+  timeZone = "America/New_York",
+  memberDiscountPct = 0,
+}: FieldCalendarProps) {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(initialDate ?? today);
   const [venueId, setVenueId] = useState<string | null>(venues[0]?.id ?? null);
@@ -95,6 +137,9 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
 
   const [selectedField, setSelectedField] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
+
+  // Duration in whole-hour increments (60, 120, 180, or 240 minutes).
+  const [durationMinutes, setDurationMinutes] = useState(60);
 
   // Real booking state — this panel drives the same flow as the Aspire
   // /rentals page: waiver → POST /api/rentals/bookings → Stripe Checkout.
@@ -142,30 +187,63 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
 
   const currentField = availability?.fields.find((f) => f.fieldNumber === selectedField);
 
-  // Display rate only — the server prices the booking (rate card +
-  // member discount) when the Checkout Session is created.
-  const baseRate = 80;
-  const hourlyRate = baseRate;
+  // Derive start Date and free block end for duration capping.
+  const startsAt = selectedSlot
+    ? new Date(`${date}T${String(selectedSlot.hour).padStart(2, "0")}:00:00.000Z`)
+    : null;
+
+  const freeBlockEnd = selectedSlot
+    ? getFreeBlockEnd(currentField, date, selectedSlot.hour)
+    : null;
+
+  // Available durations: whole hours only, capped by remaining free block and
+  // by the 4h maximum. Port of the RentalBooking capping pattern.
+  const availableDurations =
+    startsAt && freeBlockEnd
+      ? DURATIONS.filter(
+          (d) => startsAt.getTime() + d * 60_000 <= freeBlockEnd.getTime(),
+        )
+      : DURATIONS;
+
+  // If the current selection no longer fits, reset to the largest available.
+  if (availableDurations.length > 0 && !availableDurations.includes(durationMinutes)) {
+    setDurationMinutes(availableDurations[availableDurations.length - 1]!);
+  }
+
+  // Derived end time
+  const endsAt = startsAt
+    ? new Date(startsAt.getTime() + durationMinutes * 60_000)
+    : null;
+
+  // Live total — recomputed whenever start, duration, or timezone changes.
+  // Same engine as the server, so the display matches the charged amount.
+  const standardCents = useMemo(() => {
+    if (!startsAt || !endsAt) return null;
+    return quoteRentalCents(startsAt, endsAt, timeZone);
+  }, [startsAt, endsAt, timeZone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const memberCents =
+    standardCents !== null && memberDiscountPct > 0
+      ? Math.round(standardCents * (1 - memberDiscountPct / 100))
+      : null;
 
   const handleSlotClick = (h: number) => {
     if (!isHourBookable(currentField, date, h)) return;
     setSelectedSlot({ field: selectedField, hour: h });
     setSubmitError(null);
     setNeedsSignIn(false);
+    // Reset duration to 1h so we always start fresh on a new selection.
+    setDurationMinutes(60);
   };
 
   // Same booking flow as the Aspire /rentals page (RentalBooking.tsx):
   // POST creates a 10-minute hold and returns a Stripe Checkout URL.
   // Pricing, member discounts, and conflicts are all server-side.
   const handleBook = async () => {
-    if (!venueId || !selectedSlot) return;
+    if (!venueId || !selectedSlot || !startsAt || !endsAt) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const startsAt = new Date(
-        `${date}T${String(selectedSlot.hour).padStart(2, "0")}:00:00.000Z`,
-      );
-      const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
       const res = await fetch("/api/rentals/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -280,11 +358,13 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
           </select>
         </div>
 
-        {/* Member discounts apply automatically at checkout (priced
-            server-side from the signed-in account) — no self-declared
-            toggle. */}
+        {/* Member savings note — contextual per discount status */}
         <div className="member-toggle-group">
-          <span className="member-note">Members save $8/hr — applied automatically at checkout</span>
+          {memberDiscountPct > 0 ? (
+            <span className="member-note">Member discount ({memberDiscountPct}%) applied at checkout</span>
+          ) : (
+            <span className="member-note">Members save up to 25% — sign in</span>
+          )}
         </div>
       </div>
 
@@ -357,7 +437,6 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
                     {bookable && (
                       <div className="row-available-label">
                         <span>Available — click to select</span>
-                        <span className="available-rate">${hourlyRate}/hr</span>
                       </div>
                     )}
                     {isSelected && (
@@ -389,22 +468,58 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
                   <span className="slot-info-value">{selectedUnitLabel}</span>
                 </div>
                 <div className="slot-info-row">
-                  <span className="slot-info-label">Time</span>
+                  <span className="slot-info-label">Start</span>
                   <span className="slot-info-value">
-                    {formatHour(selectedSlot.hour)} – {formatHour(selectedSlot.hour + 1)}
+                    {formatHour(selectedSlot.hour)}
                   </span>
                 </div>
                 <div className="slot-info-row">
                   <span className="slot-info-label">Duration</span>
-                  <span className="slot-info-value">1 hour</span>
+                  <span className="slot-info-value">
+                    <select
+                      className="duration-select"
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                      aria-label="Duration"
+                    >
+                      {availableDurations.map((d) => (
+                        <option key={d} value={d}>{formatDuration(d)}</option>
+                      ))}
+                    </select>
+                  </span>
                 </div>
                 <div className="slot-info-row">
-                  <span className="slot-info-label">Rate</span>
-                  <span className="slot-info-value slot-rate">${hourlyRate}/hr</span>
+                  <span className="slot-info-label">Ends</span>
+                  <span className="slot-info-value">
+                    {endsAt ? formatHour(selectedSlot.hour + durationMinutes / 60) : "—"}
+                  </span>
                 </div>
-                <p className="member-upsell">
-                  Members save $8/hr — discount applies automatically at checkout.
-                </p>
+              </div>
+
+              {/* Live total pricing */}
+              <div className="panel-pricing">
+                {standardCents !== null && (
+                  <div className="panel-total">
+                    <span className="total-label">Total</span>
+                    <span className="total-amount">${(standardCents / 100).toFixed(0)}</span>
+                  </div>
+                )}
+                {memberCents !== null ? (
+                  <p className="member-price-line">
+                    Members: ${(memberCents / 100).toFixed(0)}{" "}
+                    <span className="member-savings-badge">−{memberDiscountPct}%</span>
+                  </p>
+                ) : (
+                  <p className="member-nudge">
+                    Members save up to 25% —{" "}
+                    <a
+                      className="nudge-link"
+                      href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
+                    >
+                      sign in
+                    </a>
+                  </p>
+                )}
               </div>
 
               {/* Waiver — required by POST /api/rentals/bookings, same as
@@ -435,11 +550,7 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
                 />
               </div>
 
-              <div className="panel-total">
-                <span className="total-label">Total</span>
-                <span className="total-amount">${hourlyRate}</span>
-              </div>
-              <p className="panel-note">Final price at checkout — member discounts apply there.</p>
+              <p className="panel-note">Final price confirmed at checkout · slot held 10 min while you pay</p>
 
               {needsSignIn ? (
                 <a
@@ -461,8 +572,7 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
               {submitError && <p className="panel-error" role="alert">{submitError}</p>}
 
               <p className="panel-note">
-                Your slot is held for 10 minutes while you pay. Cancellations
-                24h+ in advance receive a full refund.
+                Cancellations 24h+ in advance receive a full refund.
               </p>
             </>
           ) : (
@@ -475,7 +585,10 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
               </div>
               <p className="panel-empty-text">Select an available time slot on the calendar to book {selectedUnitLabel}.</p>
               <p className="panel-empty-rate">
-                From <strong>$80/hr</strong> · members from $72/hr
+                Tiered rates — peak evenings from <strong>$190</strong>
+                {memberDiscountPct > 0
+                  ? ` · member rate (${memberDiscountPct}% off) applied at checkout`
+                  : " · members save up to 25%"}
               </p>
             </div>
           )}
@@ -537,21 +650,6 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
           flex-direction: column;
           gap: 0.25rem;
           padding-bottom: 2px;
-        }
-        .member-toggle-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          font-size: 0.9375rem;
-          font-weight: 600;
-          color: rgba(255,255,255,0.85);
-        }
-        .member-toggle-check {
-          width: 16px;
-          height: 16px;
-          accent-color: #facc15;
-          cursor: pointer;
         }
         .member-note {
           font-size: 0.8125rem;
@@ -661,11 +759,6 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
           font-size: 0.875rem;
           color: rgba(255,255,255,0.3);
         }
-        .available-rate {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: rgba(250,204,21,0.7);
-        }
         .row-selected-badge {
           font-size: 0.6875rem;
           font-weight: 700;
@@ -741,12 +834,67 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
           font-weight: 600;
           color: white;
         }
-        .slot-rate {
+        /* Duration select inside panel info — inherits slot-info-value sizing */
+        .duration-select {
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.2);
+          border-radius: var(--so-radius-sm);
+          color: white;
+          font-size: 0.9375rem;
+          font-weight: 600;
+          padding: 0.125rem 0.5rem;
+          outline: none;
+          cursor: pointer;
+          transition: border-color 0.15s;
+        }
+        .duration-select:hover {
+          border-color: rgba(250,204,21,0.5);
+        }
+        .duration-select:focus {
+          border-color: #facc15;
+        }
+        .duration-select option {
+          background: var(--so-navy);
+          color: white;
+        }
+        /* Live pricing block */
+        .panel-pricing {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+        .panel-total {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          justify-content: space-between;
+          padding: 0.5rem 0;
+          border-top: 1px solid rgba(255,255,255,0.1);
         }
-        .member-badge {
+        .total-label {
+          font-size: 0.875rem;
+          color: rgba(255,255,255,0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-weight: 600;
+        }
+        .total-amount {
+          font-family: var(--so-font-body);
+          font-size: 1.75rem;
+          font-weight: 800;
+          color: #facc15;
+          letter-spacing: -0.03em;
+        }
+        .member-price-line {
+          font-size: 0.8125rem;
+          color: rgba(74,222,128,0.85);
+          margin: 0;
+          text-align: right;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.375rem;
+        }
+        .member-savings-badge {
           font-size: 0.6875rem;
           font-weight: 700;
           background: rgba(74,222,128,0.15);
@@ -755,21 +903,16 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
           border-radius: var(--so-radius-pill);
           letter-spacing: 0.04em;
         }
-        .member-upsell {
+        .member-nudge {
           font-size: 0.8125rem;
           color: rgba(250,204,21,0.65);
           margin: 0;
           text-align: right;
         }
-        .upsell-link {
-          background: none;
-          border: none;
+        .nudge-link {
           color: #facc15;
-          cursor: pointer;
-          font-size: 0.8125rem;
           font-weight: 600;
           text-decoration: underline;
-          padding: 0;
         }
         .panel-addons {
           display: flex;
@@ -803,32 +946,6 @@ export function FieldCalendar({ venues, initialDate }: FieldCalendarProps) {
           flex: 1;
           font-size: 0.875rem;
           color: rgba(255,255,255,0.75);
-        }
-        .addon-price {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: rgba(250,204,21,0.7);
-        }
-        .panel-total {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.75rem 0;
-          border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        .total-label {
-          font-size: 0.875rem;
-          color: rgba(255,255,255,0.5);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          font-weight: 600;
-        }
-        .total-amount {
-          font-family: var(--so-font-body);
-          font-size: 1.75rem;
-          font-weight: 800;
-          color: #facc15;
-          letter-spacing: -0.03em;
         }
         .panel-book-btn {
           background: #facc15;
