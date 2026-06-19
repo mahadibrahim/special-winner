@@ -189,6 +189,8 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
       toast.success("Rental time updated");
       setData({ ...data, rental: json.rental });
       setRescheduleDate("");
+      setRescheduleStartHour(8);
+      setRescheduleDuration(60);
     } finally {
       setBusy(false);
     }
@@ -199,7 +201,7 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
   if (!data) return null;
 
   const { rental, venue } = data;
-  const isCancelled = rental.status === "cancelled";
+  const isTerminal = ["cancelled", "completed", "no_show"].includes(rental.status);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -225,7 +227,7 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
             </Badge>
           </div>
         </div>
-        {!isCancelled && (
+        {!isTerminal && (
           <Button
             variant="outline"
             disabled={busy}
@@ -341,7 +343,7 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
       </section>
 
       {/* Correct time */}
-      {!isCancelled && (
+      {!isTerminal && (
         <section className="rounded-xl border border-border bg-cream-2 p-5 space-y-3">
           <h2 className="font-semibold text-ink">Correct time</h2>
           <p className="text-xs text-ink-muted">
@@ -379,9 +381,7 @@ export function RentalDetail({ rentalId }: RentalDetailProps) {
                 className="rounded border border-border px-2 py-1.5 text-sm bg-cream"
               >
                 <option value={60}>1 hour</option>
-                <option value={90}>1.5 hours</option>
                 <option value={120}>2 hours</option>
-                <option value={150}>2.5 hours</option>
                 <option value={180}>3 hours</option>
                 <option value={240}>4 hours</option>
               </select>

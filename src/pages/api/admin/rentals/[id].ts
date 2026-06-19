@@ -16,6 +16,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { requireAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { assertNoRentalConflict } from "@/lib/rentals/conflicts";
+import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 
@@ -86,19 +87,49 @@ export const PATCH: APIRoute = async (context) => {
   // --- reschedule action (conflict-checked + ledger re-sync) ---
   if (body.reschedule) {
     const { date, startHour, durationMinutes } = body.reschedule;
+
+    // Validate date: must match YYYY-MM-DD AND be a real calendar date.
     if (
       typeof date !== "string" ||
       !date.match(/^\d{4}-\d{2}-\d{2}$/) ||
-      typeof startHour !== "number" ||
-      startHour < 0 ||
-      startHour > 23 ||
-      typeof durationMinutes !== "number" ||
-      durationMinutes <= 0
+      Number.isNaN(new Date(`${date}T00:00:00.000Z`).getTime())
     ) {
       return json(
-        { error: "reschedule requires date (YYYY-MM-DD), startHour (0-23), durationMinutes (>0)" },
+        { error: "reschedule.date must be a valid calendar date (YYYY-MM-DD)" },
         400,
       );
+    }
+
+    // Validate startHour: must be a whole integer 0–23.
+    if (
+      typeof startHour !== "number" ||
+      !Number.isInteger(startHour) ||
+      startHour < 0 ||
+      startHour > 23
+    ) {
+      return json(
+        { error: "reschedule.startHour must be a whole-number integer between 0 and 23" },
+        400,
+      );
+    }
+
+    // Validate durationMinutes: whole-hour multiples only, 60–240.
+    if (
+      typeof durationMinutes !== "number" ||
+      !Number.isInteger(durationMinutes) ||
+      durationMinutes < 60 ||
+      durationMinutes > 240 ||
+      durationMinutes % 60 !== 0
+    ) {
+      return json(
+        { error: "reschedule.durationMinutes must be a whole-hour multiple (60, 120, 180, or 240)" },
+        400,
+      );
+    }
+
+    // Status guard: only active rentals may be rescheduled.
+    if (rental.status !== "pending_payment" && rental.status !== "confirmed") {
+      return json({ error: "Only active rentals can be rescheduled" }, 422);
     }
 
     const orgTz = context.locals.organization?.timezone ?? "America/New_York";
@@ -138,7 +169,16 @@ export const PATCH: APIRoute = async (context) => {
     }
 
     // Re-sync the ledger block to reflect the new window.
-    await syncRentalBlock(rentalId);
+    // Mirror booking.ts's withLedgerSync pattern: BlockConflictError → 409;
+    // unexpected errors re-throw rather than swallowing a committed-but-unsynced state.
+    try {
+      await syncRentalBlock(rentalId);
+    } catch (err) {
+      if (err instanceof BlockConflictError) {
+        return json({ error: `Ledger conflict: ${err.message}` }, 409);
+      }
+      throw err;
+    }
 
     return json({ rental: rescheduled }, 200);
   }
