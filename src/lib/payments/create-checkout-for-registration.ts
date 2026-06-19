@@ -120,82 +120,86 @@ export async function createCheckoutForRegistration(
     throw new CheckoutError(400, "No payment required");
   }
 
-  // 5. Validate and apply discount code if provided
+  // 5. Validate and redeem the discount code in one transaction.
+  //    The discount row is locked FOR UPDATE so two concurrent checkouts
+  //    can't both pass the maxUses / maxUsesPerUser check and both redeem.
+  //    (The previous code validated with a plain SELECT, then inserted the
+  //    usage row + incremented usedCount later, outside any transaction — a
+  //    TOCTOU window that let a limited code be over-redeemed under load.)
+  //
+  //    Known limitation, unchanged here: redemption happens at checkout
+  //    creation, so an abandoned (never-paid) checkout still consumes a use.
+  //    Moving redemption to payment-success is a separate, larger change.
   let discountAmountCents = 0;
-  let appliedDiscountCode: typeof discountCodes.$inferSelect | null = null;
+  let appliedDiscountCodeId: string | null = null;
 
   if (discountCode) {
-    const [foundDiscount] = await db
-      .select()
-      .from(discountCodes)
-      .where(eq(discountCodes.code, discountCode.toUpperCase()));
+    const redeemed = await db.transaction(async (tx) => {
+      const [found] = await tx
+        .select()
+        .from(discountCodes)
+        .where(eq(discountCodes.code, discountCode.toUpperCase()))
+        .for("update");
+      if (!found) return null;
 
-    if (foundDiscount) {
       const now = new Date();
-      const isValid =
-        foundDiscount.active &&
-        (!foundDiscount.startsAt || now >= foundDiscount.startsAt) &&
-        (!foundDiscount.expiresAt || now <= foundDiscount.expiresAt) &&
-        (!foundDiscount.maxUses || foundDiscount.usedCount < foundDiscount.maxUses) &&
-        (!foundDiscount.seasonId || foundDiscount.seasonId === season.id) &&
-        (!foundDiscount.minPurchaseCents || amountDue >= foundDiscount.minPurchaseCents);
+      const baseValid =
+        found.active &&
+        (!found.startsAt || now >= found.startsAt) &&
+        (!found.expiresAt || now <= found.expiresAt) &&
+        (!found.maxUses || found.usedCount < found.maxUses) &&
+        (!found.seasonId || found.seasonId === season.id) &&
+        (!found.minPurchaseCents || amountDue >= found.minPurchaseCents);
+      if (!baseValid) return null;
 
-      if (isValid) {
-        // Check per-user limit
-        let userCanUse = true;
-        if (foundDiscount.maxUsesPerUser) {
-          const userUsageCount = await db
-            .select({ count: sql<number>`count(*)` })
-            .from(discountUsages)
-            .where(
-              and(
-                eq(discountUsages.discountCodeId, foundDiscount.id),
-                eq(discountUsages.userId, userId),
-              ),
-            );
-
-          if (userUsageCount[0].count >= foundDiscount.maxUsesPerUser) {
-            userCanUse = false;
-          }
-        }
-
-        if (userCanUse) {
-          // Calculate discount amount
-          if (foundDiscount.discountType === "percentage") {
-            discountAmountCents = Math.round((amountDue * foundDiscount.discountValue) / 10000);
-            if (
-              foundDiscount.maxDiscountCents &&
-              discountAmountCents > foundDiscount.maxDiscountCents
-            ) {
-              discountAmountCents = foundDiscount.maxDiscountCents;
-            }
-          } else {
-            discountAmountCents = Math.min(foundDiscount.discountValue, amountDue);
-          }
-
-          appliedDiscountCode = foundDiscount;
-          amountDue = Math.max(0, amountDue - discountAmountCents);
-        }
+      if (found.maxUsesPerUser) {
+        const [{ count }] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(discountUsages)
+          .where(
+            and(
+              eq(discountUsages.discountCodeId, found.id),
+              eq(discountUsages.userId, userId),
+            ),
+          );
+        if (count >= found.maxUsesPerUser) return null;
       }
+
+      let amount = 0;
+      if (found.discountType === "percentage") {
+        amount = Math.round((amountDue * found.discountValue) / 10000);
+        if (found.maxDiscountCents && amount > found.maxDiscountCents) {
+          amount = found.maxDiscountCents;
+        }
+      } else {
+        amount = Math.min(found.discountValue, amountDue);
+      }
+
+      // Redeem under the same row lock that gated the caps above.
+      await tx.insert(discountUsages).values({
+        discountCodeId: found.id,
+        userId,
+        registrationId,
+        discountAmountCents: amount,
+      });
+      await tx
+        .update(discountCodes)
+        .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
+        .where(eq(discountCodes.id, found.id));
+
+      return { id: found.id, amount };
+    });
+
+    if (redeemed) {
+      appliedDiscountCodeId = redeemed.id;
+      discountAmountCents = redeemed.amount;
+      amountDue = Math.max(0, amountDue - discountAmountCents);
     }
   }
 
-  // 6. Zero after discount — mark paid and return
+  // 6. Zero after discount — mark paid and return. (Usage was already
+  //    recorded in the redemption transaction above.)
   if (amountDue <= 0) {
-    if (appliedDiscountCode) {
-      await db.insert(discountUsages).values({
-        discountCodeId: appliedDiscountCode.id,
-        userId,
-        registrationId,
-        discountAmountCents,
-      });
-
-      await db
-        .update(discountCodes)
-        .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
-        .where(eq(discountCodes.id, appliedDiscountCode.id));
-    }
-
     await db
       .update(registrations)
       .set({
@@ -210,20 +214,9 @@ export async function createCheckoutForRegistration(
     return { kind: "paid_zero", registrationId };
   }
 
-  // 7. Discount applied but amount > 0 — record usage and update amountDueCents
-  if (appliedDiscountCode && discountAmountCents > 0) {
-    await db.insert(discountUsages).values({
-      discountCodeId: appliedDiscountCode.id,
-      userId,
-      registrationId,
-      discountAmountCents,
-    });
-
-    await db
-      .update(discountCodes)
-      .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
-      .where(eq(discountCodes.id, appliedDiscountCode.id));
-
+  // 7. Discount applied but amount > 0 — update amountDueCents. (Usage was
+  //    already recorded in the redemption transaction above.)
+  if (appliedDiscountCodeId && discountAmountCents > 0) {
     await db
       .update(registrations)
       .set({
@@ -260,7 +253,9 @@ export async function createCheckoutForRegistration(
     registrationId,
     type: "registration_payment",
     organization_id: orgId ?? "",
-    ...(appliedDiscountCode ? { discount_code: appliedDiscountCode.code } : {}),
+    ...(appliedDiscountCodeId && discountCode
+      ? { discount_code: discountCode.toUpperCase() }
+      : {}),
     ...(extraMetadata ?? {}),
   };
 

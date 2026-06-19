@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
@@ -402,37 +402,19 @@ export const POST: APIRoute = async (context) => {
       phone: data.parent.phone,
     });
 
-    // Step 2: resolve family member (dedupe by parent + lower(name) + DOB)
-    const childFirstLower = data.child.firstName.toLowerCase();
-    const childLastLower = data.child.lastName.toLowerCase();
-    let familyMemberRow = (
-      await db
-        .select()
-        .from(familyMembersTable)
-        .where(
-          and(
-            eq(familyMembersTable.parentUserId, userRow.id),
-            sql`lower(${familyMembersTable.firstName}) = ${childFirstLower}`,
-            sql`lower(${familyMembersTable.lastName}) = ${childLastLower}`,
-            eq(familyMembersTable.birthDate, data.child.birthDate),
-          ),
-        )
-        .orderBy(asc(familyMembersTable.createdAt))
-        .limit(1)
-    )[0];
-    if (!familyMemberRow) {
-      const [inserted] = await db
-        .insert(familyMembersTable)
-        .values({
-          parentUserId: userRow.id,
-          firstName: data.child.firstName,
-          lastName: data.child.lastName,
-          birthDate: data.child.birthDate,
-          gender: data.child.gender || null,
-        })
-        .returning();
-      familyMemberRow = inserted;
-    }
+    // Step 2: resolve family member (find-or-create the dependent row,
+    // deduped by parent + lower(name) + DOB). Use the shared resolvePerson
+    // helper rather than an inline SELECT-then-INSERT so all family_members
+    // creation goes through one code path (matches the adult-self branch
+    // above and the project convention).
+    const familyMemberRow = await resolvePerson(db, {
+      kind: "dependent",
+      parentUserId: userRow.id,
+      firstName: data.child.firstName,
+      lastName: data.child.lastName,
+      birthDate: data.child.birthDate,
+      gender: data.child.gender || null,
+    });
 
     return runCheckout({
       userRow,
