@@ -153,7 +153,7 @@ Aspire: `/`, `/youth`, `/youth/leagues`, `/youth/camps`, `/adult`,
 `/adult/leagues`, `/adult/pickup`, `/adult/tournaments`, `/locations`, `/sports`.
 
 SoccerOne: `/soccerone` (index), `/soccerone/leagues`, `/soccerone/pickup`,
-`/soccerone/rent`, `/soccerone/sponsors`, `/soccerone/downtown`,
+`/soccerone/sponsors`, `/soccerone/downtown`,
 `/soccerone/worthington`.
 
 All of these read only host-derived data at request time (org announcements,
@@ -166,6 +166,9 @@ already keyed per-host in the cache. `?audience` (leagues) and `?facility`
 - `/soccerone/memberships` — reads `Astro.locals.user` to render an auth-gated
   CTA (`authed` prop to `MembershipTiersLive`); genuinely user-variant.
 - `/soccerone/join` — conversion form entry; reads `?src` attribution + brandId.
+- `/soccerone/rent` — reads `Astro.locals.user` to compute a per-user member
+  discount that is serialized into the FieldCalendar island — user-variant, must
+  stay SSR.
 - All middleware-gated surfaces (`/dashboard`, `/admin`, `/coach`, `/account`,
   `/messages`, `/media`) and auth pages — never marketing, never cached.
 

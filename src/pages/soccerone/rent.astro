@@ -40,8 +40,6 @@ const fmt = (cents: number) => {
   const dollars = cents / 100;
   return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
 };
-import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
-setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
