@@ -27,10 +27,18 @@ export interface FieldAvailability {
 
 export async function getVenueRentalAvailability(
   venueId: string,
-  /** Start of the calendar day, UTC instant for the org's local midnight. */
+  /** UTC instant for the org's local midnight (start of the calendar day in org tz). */
   dayStart: Date,
-  /** End of the calendar day (dayStart + 24h). */
+  /** UTC instant for the org's local 23:59:59.999 (end of the calendar day in org tz). */
   dayEnd: Date,
+  /**
+   * UTC instant for the org's local 00:00:00 — identical to dayStart, passed
+   * explicitly so rentalOpenMinute/rentalCloseMinute (minutes of LOCAL day) are
+   * anchored to the local midnight rather than UTC midnight. When omitted falls
+   * back to dayStart (preserves backward-compatibility for callers that pass
+   * pre-computed UTC day bounds).
+   */
+  localDayStartUtc: Date = dayStart,
 ): Promise<{ venueName: string; fields: FieldAvailability[] } | null> {
   const db = getDb();
 
@@ -43,14 +51,18 @@ export async function getVenueRentalAvailability(
 
   const fieldCount = venue.fieldCount ?? 1;
 
-  // Venue rental window for the day. Null open/close → full day.
+  // Venue rental window for the day, derived from the LOCAL day start so
+  // rentalOpenMinute/rentalCloseMinute (minutes of local wall-clock day) land
+  // at the correct UTC instants for the org's timezone. E.g. open=960 (4 PM
+  // ET summer) → localDayStartUtc(04:00Z) + 960 min = 20:00Z = 4 PM ET.
+  // Null open/close → full day bounds.
   const windowStart =
     venue.rentalOpenMinute != null
-      ? new Date(dayStart.getTime() + venue.rentalOpenMinute * 60_000)
+      ? new Date(localDayStartUtc.getTime() + venue.rentalOpenMinute * 60_000)
       : dayStart;
   const windowEnd =
     venue.rentalCloseMinute != null
-      ? new Date(dayStart.getTime() + venue.rentalCloseMinute * 60_000)
+      ? new Date(localDayStartUtc.getTime() + venue.rentalCloseMinute * 60_000)
       : dayEnd;
 
   // The venue's resource tree (all rows — family expansion needs

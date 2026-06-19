@@ -6,6 +6,7 @@
  */
 import type { APIRoute } from "astro";
 import { getVenueRentalAvailability } from "@/lib/rentals/availability";
+import { tzDayBoundsUtc } from "@/lib/activity-tracking/tz-day";
 
 export const prerender = false;
 
@@ -19,7 +20,7 @@ const DATE_RX = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_RX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   const venueId = url.searchParams.get("venueId");
   const date = url.searchParams.get("date");
   if (!venueId) return json({ error: "venueId required" }, 400);
@@ -28,14 +29,14 @@ export const GET: APIRoute = async ({ url }) => {
     return json({ error: "date required (YYYY-MM-DD)" }, 400);
   }
 
-  // Treat the date as a UTC calendar day. (Org-timezone handling is a
-  // follow-up; for launch all venues are US/Eastern and the booking grid
-  // shows local times client-side.)
-  const dayStart = new Date(`${date}T00:00:00.000Z`);
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  // Compute day bounds in the org's local timezone so the rental window
+  // (rentalOpenMinute/rentalCloseMinute, expressed as minutes of local day)
+  // lines up with the tz-aware slots the booking grid constructs client-side.
+  const orgTimeZone = locals.organization?.timezone ?? "America/New_York";
+  const { startUtc, endUtc } = tzDayBoundsUtc(date, orgTimeZone);
 
   try {
-    const result = await getVenueRentalAvailability(venueId, dayStart, dayEnd);
+    const result = await getVenueRentalAvailability(venueId, startUtc, endUtc, startUtc);
     if (!result) return json({ error: "Venue not found or rentals disabled" }, 404);
 
     return json(

@@ -35,6 +35,8 @@ if (Astro.locals.user && organizationId) {
   }
 }
 
+const orgTimeZone = Astro.locals.organization?.timezone ?? "America/New_York";
+
 // Helper to format cents as dollars (whole numbers shown without decimals)
 const fmt = (cents: number) => {
   const dollars = cents / 100;
@@ -164,7 +166,7 @@ const fmt = (cents: number) => {
           <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} />
+        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} timeZone={orgTimeZone} />
 
         <!-- Cancellation policy -->
         <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>
