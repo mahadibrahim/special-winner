@@ -32,4 +32,23 @@ describe("draftToOfferingPayload", () => {
     expect(t.season.signupModes).toEqual(["team"]);
     expect(t.season.teamPriceCents).toBe(105000);
   });
+
+  it("derives slug from name when slug is empty", () => {
+    const draft = { ...campDraft, name: "Summer Camp", slug: "" };
+    const p = draftToOfferingPayload("camp", draft, ctx) as any;
+    expect(p.slug).toBe("summer-camp");
+    expect(p.season.slug).toBe("summer-camp");
+  });
+
+  it("league with teamPrice sets both individual and team signup modes and teamPriceCents", () => {
+    const leagueDraft = {
+      ...campDraft,
+      individualPrice: "150",
+      teamPrice: "500",
+      fullDayPrice: "",
+    };
+    const p = draftToOfferingPayload("league", leagueDraft, ctx) as any;
+    expect(p.season.signupModes).toEqual(["individual", "team"]);
+    expect(p.season.teamPriceCents).toBe(50000);
+  });
 });

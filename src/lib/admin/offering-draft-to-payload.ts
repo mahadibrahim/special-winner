@@ -3,12 +3,16 @@ import type { OfferingDraft } from "@/components/admin/offering-wizard/DetailsSt
 
 const cents = (s: string) => (s.trim() === "" ? null : Math.round(parseFloat(s) * 100));
 const intOrNull = (s: string) => (s.trim() === "" ? null : parseInt(s, 10));
+const slugify = (s: string) =>
+  s.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 
 export function draftToOfferingPayload(
   type: OfferingType,
   d: OfferingDraft,
   ctx: { locationId: string; sportId: string; publish: boolean },
 ) {
+  const slug = d.slug.trim() !== "" ? d.slug.trim() : slugify(d.name);
+
   const signupModes: ("individual" | "team")[] =
     type === "tournament"
       ? ["team"]
@@ -28,10 +32,10 @@ export function draftToOfferingPayload(
     locationId: ctx.locationId,
     sportId: ctx.sportId,
     name: d.name,
-    slug: d.slug,
+    slug,
     season: {
       name: d.name,
-      slug: d.slug,
+      slug,
       startDate: d.startDate,
       endDate: d.endDate,
       startTime: d.dailyStartTime.trim() === "" ? null : d.dailyStartTime,
