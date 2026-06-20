@@ -22,6 +22,7 @@ import {
 import { SeasonScaffoldPicker, type ScaffoldChoice } from "./season-scaffold-picker"
 import { toast } from "sonner"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
+import { formatDateOnly } from "@/lib/time/format-date"
 
 interface Season {
   id: string
@@ -362,7 +363,9 @@ export function SeasonsList() {
   }
 
   function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    // startDate/endDate are date-only columns — parse UTC-safe so they don't
+    // render a day early in timezones behind UTC.
+    return formatDateOnly(dateStr)
   }
 
   if (isLoading) {

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { formatDateOnly } from "@/lib/time/format-date"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -190,11 +191,9 @@ export function RefundsManagement() {
   }
 
   function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
+    // Safe for both date-only season dates and full timestamps (cancelledAt):
+    // formatDateOnly only special-cases "YYYY-MM-DD" and passes timestamps through.
+    return formatDateOnly(dateString)
   }
 
   return (
