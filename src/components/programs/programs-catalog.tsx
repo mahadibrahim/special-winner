@@ -29,6 +29,8 @@ interface ApiSeason {
   sport: { id: string; name: string; slug: string; icon: string | null; color: string | null }
   location: { id: string; name: string; slug: string; city: string | null; state: string | null }
   ageGroup: { id: string; name: string; minAge: number; maxAge: number } | null
+  minAge: number | null
+  maxAge: number | null
 }
 
 interface Props {
@@ -135,9 +137,33 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
   const ageBands = useMemo(() => {
     if (audience !== "youth") return []
     const bands = [
-      { key: "4-8", label: "Ages 4–8", match: (s: ApiSeason) => s.ageGroup && s.ageGroup.maxAge <= 8 },
-      { key: "9-12", label: "Ages 9–12", match: (s: ApiSeason) => s.ageGroup && s.ageGroup.minAge >= 9 && s.ageGroup.maxAge <= 12 },
-      { key: "13-18", label: "Ages 13–18", match: (s: ApiSeason) => s.ageGroup && s.ageGroup.minAge >= 13 },
+      {
+        key: "4-8",
+        label: "Ages 4–8",
+        match: (s: ApiSeason) => {
+          // Prefer ageGroup bounds; fall back to season's own minAge/maxAge.
+          const hi = s.ageGroup?.maxAge ?? s.maxAge
+          const lo = s.ageGroup?.minAge ?? s.minAge
+          return hi != null && hi <= 8 && (lo == null || lo <= 8)
+        },
+      },
+      {
+        key: "9-12",
+        label: "Ages 9–12",
+        match: (s: ApiSeason) => {
+          const lo = s.ageGroup?.minAge ?? s.minAge
+          const hi = s.ageGroup?.maxAge ?? s.maxAge
+          return lo != null && lo >= 9 && hi != null && hi <= 12
+        },
+      },
+      {
+        key: "13-18",
+        label: "Ages 13–18",
+        match: (s: ApiSeason) => {
+          const lo = s.ageGroup?.minAge ?? s.minAge
+          return lo != null && lo >= 13
+        },
+      },
     ]
     return bands.map((b) => ({ ...b, count: segmentSeasons.filter(b.match).length })).filter((b) => b.count > 0)
   }, [segmentSeasons, audience])

@@ -30,7 +30,7 @@ const scaffoldSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("bulk"), count: z.number().int().min(0).max(50) }),
 ]);
 
-const seasonSchema = z.object({
+export const seasonSchema = z.object({
   programId: z.string().uuid("Invalid program"),
   ageGroupId: z.string().uuid().optional().nullable(),
   venueId: z.string().uuid().optional().nullable(),
@@ -43,6 +43,9 @@ const seasonSchema = z.object({
   maxParticipants: z.number().int().positive().optional().nullable(),
   priceCents: z.number().int().min(0, "Price must be positive"),
   teamPriceCents: z.number().int().min(0).optional().nullable(),
+  halfDayPriceCents: z.number().int().min(0).optional().nullable(),
+  minAge: z.number().int().min(0).optional().nullable(),
+  maxAge: z.number().int().min(0).optional().nullable(),
   signupModes: z.array(z.enum(["individual", "team"])).min(1, "At least one signup mode is required").default(["individual"]),
   depositCents: z.number().int().min(0).optional().nullable(),
   allowDeposit: z.boolean().default(true),
@@ -63,6 +66,9 @@ const seasonSchema = z.object({
   // status-only change (e.g. cancelling) was rejected with "Validation failed".
   (data) => !data.signupModes.includes("team") || data.teamPriceCents != null,
   { message: "Team price is required when team signup is enabled (enter 0 for a free season)", path: ["teamPriceCents"] },
+).refine(
+  (data) => data.minAge == null || data.maxAge == null || data.maxAge >= data.minAge,
+  { message: "Oldest age must be greater than or equal to youngest age", path: ["maxAge"] },
 );
 
 export const GET: APIRoute = async (context) => {
@@ -237,6 +243,9 @@ export const POST: APIRoute = async (context) => {
           maxParticipants: data.maxParticipants || null,
           priceCents: data.priceCents,
           teamPriceCents: data.teamPriceCents ?? null,
+          halfDayPriceCents: data.halfDayPriceCents ?? null,
+          minAge: data.minAge ?? null,
+          maxAge: data.maxAge ?? null,
           signupModes: data.signupModes,
           // Keep legacy pricing_mode synced with signupModes for any caller
           // still reading it; remove once all callsites use signupModes.
@@ -379,6 +388,9 @@ export const PUT: APIRoute = async (context) => {
         maxParticipants: validData.maxParticipants || null,
         priceCents: validData.priceCents,
         teamPriceCents: validData.teamPriceCents ?? null,
+        halfDayPriceCents: validData.halfDayPriceCents ?? null,
+        minAge: validData.minAge ?? null,
+        maxAge: validData.maxAge ?? null,
         signupModes: validData.signupModes,
         // Keep legacy pricing_mode synced with signupModes
         pricingMode:

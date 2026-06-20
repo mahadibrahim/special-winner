@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { SeasonScaffoldPicker, type ScaffoldChoice } from "./season-scaffold-picker"
+import { OfferingWizard } from "./offering-wizard/OfferingWizard"
 import { toast } from "sonner"
 import { toTimeInputValue } from "@/lib/time/time-of-day"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -57,8 +58,8 @@ interface Season {
 interface Program {
   id: string
   name: string
-  sport: { name: string; icon: string | null }
-  location: { name: string }
+  sport: { id: string; name: string; icon: string | null }
+  location: { id: string; name: string }
 }
 
 interface AgeGroup {
@@ -97,6 +98,9 @@ export function SeasonsList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editingSeason, setEditingSeason] = useState<Season | null>(null)
+  const [isWizardOpen, setIsWizardOpen] = useState(false)
+  const [wizardLocationId, setWizardLocationId] = useState("")
+  const [wizardSportId, setWizardSportId] = useState("")
   const [scaffold, setScaffold] = useState<ScaffoldChoice>({ type: "empty" })
   const [formData, setFormData] = useState({
     programId: "",
@@ -396,10 +400,25 @@ export function SeasonsList() {
           <h1 className="text-3xl font-bold text-gray-900">Seasons</h1>
           <p className="text-gray-600 mt-1">Manage program seasons and registrations</p>
         </div>
-        <Button onClick={openCreateDialog} disabled={programs.length === 0}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Season
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={programs.length === 0}
+            onClick={() => {
+              const first = programs[0]
+              setWizardLocationId(first?.location.id ?? "")
+              setWizardSportId(first?.sport.id ?? "")
+              setIsWizardOpen(true)
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New offering
+          </Button>
+          <Button onClick={openCreateDialog} disabled={programs.length === 0}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Season
+          </Button>
+        </div>
       </div>
 
       {programs.length === 0 ? (
@@ -497,6 +516,80 @@ export function SeasonsList() {
           })}
         </div>
       )}
+
+      {/* Offering wizard dialog — creates a new program + season via the wizard flow */}
+      <Dialog open={isWizardOpen} onOpenChange={setIsWizardOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>New offering</DialogTitle>
+            <DialogDescription>
+              Choose a location and sport, then follow the steps to create a new program offering.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Select
+                  value={wizardLocationId}
+                  onValueChange={(v) => {
+                    setWizardLocationId(v)
+                    // Reset sport when location changes — pick first matching sport
+                    const match = programs.find((p) => p.location.id === v)
+                    setWizardSportId(match?.sport.id ?? "")
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* v1 limit: only offer location/sport combos that already have a program — so admins can't create an orphaned program+season. */}
+                    {Array.from(new Map(programs.map((p) => [p.location.id, p.location])).values()).map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Sport</Label>
+                <Select
+                  value={wizardSportId}
+                  onValueChange={setWizardSportId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sport" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from(
+                      new Map(
+                        programs
+                          .filter((p) => !wizardLocationId || p.location.id === wizardLocationId)
+                          .map((p) => [p.sport.id, p.sport])
+                      ).values()
+                    ).map((sport) => (
+                      <SelectItem key={sport.id} value={sport.id}>{sport.icon} {sport.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {wizardLocationId && wizardSportId && (
+              <OfferingWizard
+                locationId={wizardLocationId}
+                sportId={wizardSportId}
+                onDone={() => {
+                  setIsWizardOpen(false)
+                  fetchData()
+                  toast.success("Offering created!")
+                }}
+              />
+            )}
+            {(!wizardLocationId || !wizardSportId) && (
+              <p className="text-sm text-ink-muted">Select a location and sport above to begin.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
