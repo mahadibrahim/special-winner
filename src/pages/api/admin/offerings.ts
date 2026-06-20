@@ -11,9 +11,11 @@ import {
 import { seasonSchema } from "@/pages/api/admin/seasons";
 
 // offeringSchema validates the top-level shape. The season half is kept as
-// z.record(z.any()) because seasonSchema is a ZodEffects object (it has
-// .refine() calls) and cannot be decomposed via .shape. Instead we call
-// seasonSchema.safeParse() inside the transaction once the programId is known.
+// z.record(z.string(), z.any()) because seasonSchema is a ZodEffects object
+// (it has .refine() calls) and cannot be decomposed via .shape or .innerType.
+// We call seasonSchema.safeParse() with a placeholder programId before the
+// transaction (to catch bad-season requests early) and again inside it with
+// the real programId (authoritative).
 const offeringSchema = z.object({
   programType: z.enum(["camp", "tournament", "league"]),
   locationId: z.string().uuid(),
@@ -68,6 +70,22 @@ export const POST: APIRoute = async (context) => {
     );
     if (!sportCheck.ok) return ownershipDeniedResponse();
 
+    // Pre-validate the season payload before opening a transaction, so a
+    // bad-season request doesn't insert-then-rollback a program row.
+    const preSeasonCheck = seasonSchema.safeParse({
+      ...data.season,
+      programId: "00000000-0000-0000-0000-000000000000", // placeholder to satisfy required field
+    });
+    if (!preSeasonCheck.success) {
+      return new Response(
+        JSON.stringify({
+          error: "Season validation failed",
+          details: preSeasonCheck.error.flatten().fieldErrors,
+        }),
+        { status: 400 },
+      );
+    }
+
     const result = await getDb().transaction(async (tx) => {
       // 1. Create the program.
       const [program] = await tx
@@ -85,9 +103,8 @@ export const POST: APIRoute = async (context) => {
         })
         .returning();
 
-      // 2. Validate the season half now that we have the programId.
-      //    seasonSchema is a ZodEffects (has .refine()); must use safeParse,
-      //    not .shape / .innerType.
+      // 2. Re-validate the season with the real programId (authoritative).
+      //    seasonSchema is a ZodEffects (has .refine()); must use safeParse.
       const seasonParsed = seasonSchema.safeParse({
         ...data.season,
         programId: program.id,

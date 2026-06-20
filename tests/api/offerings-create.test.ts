@@ -67,7 +67,7 @@ describe("POST /api/admin/offerings", () => {
     expect(body.season.status).toBe("open");
   });
 
-  it("returns 400 when season validation fails (endDate before startDate age check)", async () => {
+  it("returns 400 when season validation fails (maxAge < minAge)", async () => {
     const suffix = Date.now();
     const res = await apiFetch("/api/admin/offerings", {
       method: "POST",
