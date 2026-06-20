@@ -101,6 +101,10 @@ export const seasons = pgTable(
     priceCents: integer("price_cents").notNull(),
     // Team registration price. NULL when team signup is not offered.
     teamPriceCents: integer("team_price_cents"),
+    // Camp/class economics + age range. Nullable: only some offering types use them.
+    halfDayPriceCents: integer("half_day_price_cents"),
+    minAge: integer("min_age"),
+    maxAge: integer("max_age"),
     // Which signup paths the season accepts: any combination of
     // ['individual', 'team']. Drives card display + which CTAs show.
     // Default '{individual}' covers the youth catalog; adult leagues are
