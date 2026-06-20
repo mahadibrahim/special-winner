@@ -539,6 +539,7 @@ export function SeasonsList() {
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* v1 limit: only offer location/sport combos that already have a program — so admins can't create an orphaned program+season. */}
                     {Array.from(new Map(programs.map((p) => [p.location.id, p.location])).values()).map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                     ))}

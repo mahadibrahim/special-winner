@@ -41,7 +41,7 @@ export function OfferingWizard({
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
-        throw new Error((b as any).error ?? "Failed to create offering");
+        throw new Error((b as { error?: string }).error ?? "Failed to create offering");
       }
       onDone();
     } catch (e: any) {

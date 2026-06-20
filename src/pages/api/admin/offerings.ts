@@ -96,6 +96,10 @@ export const POST: APIRoute = async (context) => {
           name: data.name,
           slug: data.slug,
           programType: data.programType,
+          // Fallback default: leagues default to "adults", everything else to "parents".
+          // The authoritative youth/adult signal on the catalog is the season's own
+          // minAge/maxAge (emitted by the public seasons API); this is a program-level
+          // fallback for when age bounds are unset.
           audienceType:
             data.audienceType ??
             (data.programType === "league" ? "adults" : "parents"),

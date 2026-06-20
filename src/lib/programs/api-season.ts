@@ -28,4 +28,6 @@ export interface ApiSeason extends SeasonForDerive {
   sport: { id: string; name: string; slug: string; icon: string | null; color: string | null }
   location: { id: string; name: string; slug: string; city: string | null; state: string | null }
   ageGroup: { id: string; name: string; minAge: number; maxAge: number } | null
+  minAge: number | null
+  maxAge: number | null
 }

@@ -145,6 +145,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         endTime: r.season.endTime,
         status: r.season.status,
         signupMode: r.season.status === "forming" ? "interest" : "register",
+        minAge: r.season.minAge,
+        maxAge: r.season.maxAge,
         program: {
           id: r.program.id,
           name: r.program.name,
