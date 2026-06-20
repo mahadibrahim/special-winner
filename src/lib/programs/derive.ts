@@ -12,6 +12,8 @@ export interface SeasonForDerive {
   signupModes?: string[]; // ['individual'] | ['team'] | ['individual','team']
   registrationCloses?: string | null;
   scheduleNotes?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   program: {
     programType: string; // 'league' | 'camp' | 'clinic' | 'tournament' | 'training'
     audienceType: string; // 'parents' | 'adults'
@@ -124,6 +126,10 @@ export function deriveDayBucket(s: SeasonForDerive): string {
 
 /** Audience inferred from age group (best-effort) and program audience type. */
 export function deriveAudience(s: SeasonForDerive): "youth" | "adult" {
+  // Explicit age range takes precedence
+  if (s.maxAge != null && s.maxAge < 18) return "youth";
+  if (s.minAge != null && s.minAge >= 18) return "adult";
+  // Fall back to age group
   if (s.ageGroup?.minAge != null && s.ageGroup.minAge >= 18) return "adult";
   if (s.ageGroup?.minAge != null && s.ageGroup.maxAge < 18) return "youth";
   // audience_type is free-text varchar(20) with no enum constraint; tolerate
