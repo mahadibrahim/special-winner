@@ -11,6 +11,7 @@ import {
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 import { bulkCreateTeams, cloneSeasonTeams } from "@/lib/seasons/scaffold";
+import { TIME_OF_DAY_PATTERN } from "@/lib/time/time-of-day";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -52,8 +53,8 @@ const seasonSchema = z.object({
   divisionGender: z.enum(["coed", "mens", "womens"]).optional().nullable(),
   skillLevel: z.enum(["a", "b", "c", "d", "open"]).optional().nullable(),
   dayOfWeek: z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]).optional().nullable(),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").optional().nullable(),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").optional().nullable(),
+  startTime: z.string().regex(TIME_OF_DAY_PATTERN, "Use HH:MM").optional().nullable(),
+  endTime: z.string().regex(TIME_OF_DAY_PATTERN, "Use HH:MM").optional().nullable(),
   scaffold: scaffoldSchema.optional(),
 }).refine(
   // Team seasons must carry a team price, but $0 is valid (free tournaments /

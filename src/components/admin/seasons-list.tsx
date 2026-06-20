@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { SeasonScaffoldPicker, type ScaffoldChoice } from "./season-scaffold-picker"
 import { toast } from "sonner"
+import { toTimeInputValue } from "@/lib/time/time-of-day"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Season {
@@ -218,8 +219,8 @@ export function SeasonsList() {
       divisionGender: season.divisionGender || "",
       skillLevel: season.skillLevel || "",
       dayOfWeek: season.dayOfWeek || "",
-      startTime: season.startTime || "",
-      endTime: season.endTime || "",
+      startTime: toTimeInputValue(season.startTime),
+      endTime: toTimeInputValue(season.endTime),
     })
     setScaffold({ type: "empty" })
     setIsDialogOpen(true)
@@ -254,8 +255,8 @@ export function SeasonsList() {
       divisionGender: source.divisionGender || "",
       skillLevel: source.skillLevel || "",
       dayOfWeek: source.dayOfWeek || "",
-      startTime: source.startTime || "",
-      endTime: source.endTime || "",
+      startTime: toTimeInputValue(source.startTime),
+      endTime: toTimeInputValue(source.endTime),
     }))
   }
 
