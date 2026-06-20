@@ -1,5 +1,6 @@
 "use client";
 import { tierColorClass, priceLabel, formatDayTime, type RailMode } from "@/lib/leagues/rail-content";
+import { formatDateOnly } from "@/lib/time/format-date";
 
 export interface RailSeason {
   name: string;
@@ -27,7 +28,7 @@ interface Props {
 }
 
 const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+  iso ? formatDateOnly(iso, { month: "short", day: "numeric" }) : null;
 
 export default function LeagueContextRail({ season, mode, step, stepCount, variant = "active", children }: Props) {
   const tier = (season.skillLevel ?? "").toUpperCase();

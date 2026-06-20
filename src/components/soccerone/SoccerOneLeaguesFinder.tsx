@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
+import { formatDateOnly } from "@/lib/time/format-date"
 import {
   deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, filterSeasons,
   type FinderSeason, type FinderFilters,
@@ -277,7 +278,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
       </div>
       <h3 className="lc-name">{season.name}</h3>
       <div className="lc-details">
-        {season.startDate && <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{new Date(season.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div>}
+        {season.startDate && <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{formatDateOnly(season.startDate)}</span></div>}
         {season.scheduleNotes && <div className="lc-detail-row"><span className="lcd-label">SCHEDULE</span><span className="lcd-val">{season.scheduleNotes}</span></div>}
         <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>
         <div className="lc-detail-row"><span className="lcd-label">PRICE</span><span className="lcd-val mono accent">{priceLabel}</span></div>

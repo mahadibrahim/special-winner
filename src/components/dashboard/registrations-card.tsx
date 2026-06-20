@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { ClipboardList, Calendar, MapPin, Loader2, ArrowRight, Clock, CheckCircle2, AlertCircle, XCircle, X, Ban, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { parseDateOnly } from "@/lib/time/format-date"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -167,8 +168,8 @@ export default function RegistrationsCard() {
   }
 
   const formatDateRange = (start: string, end: string) => {
-    const startDate = new Date(start)
-    const endDate = new Date(end)
+    const startDate = parseDateOnly(start)
+    const endDate = parseDateOnly(end)
     const startMonth = startDate.toLocaleDateString("en-US", { month: "short" })
     const endMonth = endDate.toLocaleDateString("en-US", { month: "short" })
     const startDay = startDate.getDate()
