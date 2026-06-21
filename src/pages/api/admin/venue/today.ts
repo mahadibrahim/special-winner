@@ -7,8 +7,9 @@
  * Scoping: super_admins can read any location; location_admins are restricted
  *   to their assigned locations via requireSameLocation.
  *
- * When locationId is omitted/empty, uses the first location the caller is
- * scoped to (for super_admin: requires an explicit locationId).
+ * When locationId is omitted/empty, uses a default location: the first
+ * scoped location for a location_admin, or the org's earliest-created
+ * location for a super_admin (mirroring the /admin/venue page resolution).
  */
 
 import type { APIRoute } from "astro";
@@ -17,6 +18,9 @@ import { buildVenueToday } from "@/lib/venue/build-today";
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { requireSameLocation } from "@/lib/auth/require-resource-ownership";
 import { parseStripDate } from "@/lib/admin/week-strip";
+import { getDb } from "@/lib/db";
+import { locations } from "@/lib/db/schema";
+import { eq, asc } from "drizzle-orm";
 
 export const prerender = false;
 
@@ -57,12 +61,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
   let allowedIds: string[];
 
   if (isSuperAdmin) {
-    // Super-admin: locationId must be provided explicitly.
-    if (!locationIdParam) {
-      return json({ error: "locationId is required for super_admin" }, 400);
+    if (locationIdParam) {
+      locationId = locationIdParam;
+      allowedIds = [locationId];
+    } else {
+      // No locationId → fall back to the org's earliest-created location,
+      // mirroring how /admin/venue index.astro + day/[date].astro resolve the
+      // default location for a super-admin.
+      const superOrgId = locals.organization?.id;
+      if (!superOrgId) {
+        return json({ error: "Organization context missing" }, 400);
+      }
+      const [firstLocation] = await getDb()
+        .select({ id: locations.id })
+        .from(locations)
+        .where(eq(locations.organizationId, superOrgId))
+        .orderBy(asc(locations.createdAt))
+        .limit(1);
+      if (!firstLocation) {
+        return json({ error: "No location found for organization" }, 404);
+      }
+      locationId = firstLocation.id;
+      allowedIds = [locationId];
     }
-    locationId = locationIdParam;
-    allowedIds = [locationId];
   } else {
     // Location-admin: resolve allowed location IDs from the user's role scope.
     allowedIds = await getLocationIdsForUser(locals.user.id);
