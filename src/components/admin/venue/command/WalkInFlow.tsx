@@ -119,6 +119,7 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
     amountDueCents: number;
     method: PayMethod;
   } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const set = (k: keyof FormState, v: string) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -240,23 +241,42 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                 {result.method === "link_email" ? "📧" : "📲"}
               </div>
               <h3 className="text-lg font-bold text-[#1c1a17]">
-                Pay link sent!
+                Booking created — share the link
               </h3>
               <p className="text-sm text-[#4b463e] max-w-xs">
-                A payment link for <strong>{amtStr}</strong> was sent to{" "}
+                Share this payment link (<strong>{amtStr}</strong>) with{" "}
                 <strong>
-                  {result.method === "link_email" ? form.email : form.phone}
-                </strong>
+                  {form.firstName} {form.lastName}
+                </strong>{" "}
+                via{" "}
+                {result.method === "link_email"
+                  ? form.email
+                    ? `email (${form.email})`
+                    : "email"
+                  : form.phone
+                    ? `SMS (${form.phone})`
+                    : "SMS"}
                 . The slot is held for 2 hours.
               </p>
-              <a
-                href={result.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#8a8175] underline break-all max-w-xs"
-              >
-                {result.url}
-              </a>
+              <div className="w-full max-w-xs">
+                <div className="flex items-center gap-2 border border-[#e4ddcf] rounded-lg px-3 py-2 bg-[#f6f1e7]">
+                  <span className="flex-1 text-xs text-[#4b463e] break-all leading-tight">
+                    {result.url}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(result.url).then(() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      });
+                    }}
+                    className="flex-shrink-0 text-xs px-2 py-1 rounded bg-[#1c1a17] text-[#fffdf8] font-semibold"
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              </div>
             </>
           )}
 
