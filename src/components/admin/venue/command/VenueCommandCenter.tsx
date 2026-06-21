@@ -17,7 +17,8 @@
  *
  * Panel interactions:
  *   Clicking a calendar ActivityBlock / NowStrip card → open ActivityDetailPanel.
- *   Clicking an open slot in the calendar → open WalkInFlow directly.
+ *   Walk-ins are started from the ActivityDetailPanel's roster panel (open-slot
+ *   "+ add walk-in" rows), not from a direct calendar cell click.
  *   Clicking a NeedsAttentionQueue action → currently logs to console (hook for
  *   future detail panel / external links).
  */
@@ -29,6 +30,7 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
 import { NowStrip } from "./NowStrip"
 import { ScheduleCalendar } from "./ScheduleCalendar"
 import { NeedsAttentionQueue } from "./NeedsAttentionQueue"
@@ -119,6 +121,9 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
     } else if (item.kind === "request") {
       window.location.href = "/admin/registrations"
     }
+    // Items without a sessionId (waiver, photo, ref) currently no-op; they link
+    // to their session when sessionId is present; a future detail panel could
+    // be wired for standalone waiver/photo/ref actions.
   }, [])
 
   // ── Derived data ───────────────────────────────────────────────────────────
@@ -195,7 +200,11 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
         {data ? (
           <NowStrip sessions={data.sessions} onOpenActivity={handleOpenActivity} />
         ) : (
-          <div className="text-sm text-[#8a8175] py-2">No sessions loaded.</div>
+          <EmptyState
+            title="No sessions loaded"
+            description="Sessions will appear here once the schedule loads."
+            className="bg-[#fffdf8] border border-[#e4ddcf] rounded-2xl"
+          />
         )}
       </div>
 

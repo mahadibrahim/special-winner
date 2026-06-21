@@ -17,6 +17,7 @@
 
 import { useState } from "react"
 import { attentionTotal } from "@/lib/venue/group-attention"
+import { EmptyState } from "@/components/ui/empty-state"
 import type { VenueAttentionItem } from "@/lib/venue/today-types"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -106,7 +107,6 @@ function AttentionGroupSection({
   const [expanded, setExpanded] = useState(false)
 
   const visible = expanded ? group.items : group.items.slice(0, PREVIEW_COUNT)
-  const hiddenCount = group.count - PREVIEW_COUNT
 
   return (
     <div className="px-3.5 py-2.5 border-b border-[#efe9dc] last:border-b-0">
@@ -171,9 +171,11 @@ export function NeedsAttentionQueue({ groups, onAction }: Props) {
 
       {/* Empty state */}
       {groups.length === 0 && (
-        <div className="px-4 py-8 text-sm text-[#8a8175] text-center">
-          All clear — nothing needs attention right now.
-        </div>
+        <EmptyState
+          title="All clear"
+          description="Nothing needs attention right now."
+          className="py-8"
+        />
       )}
 
       {/* Groups */}
