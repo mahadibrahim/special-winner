@@ -454,7 +454,7 @@ async function buildUserProfile(
 // Org-scope check (mirrors lookup.ts userIdsInOrg gate)
 // ---------------------------------------------------------------------------
 
-async function isUserInOrg(
+export async function isUserInOrg(
   userId: string,
   orgId: string,
   allowedLocationIds: string[],

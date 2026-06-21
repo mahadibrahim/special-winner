@@ -10,11 +10,11 @@
  */
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { locations } from "@/lib/db/schema";
+import { locations, familyMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
-import { buildPersonProfile } from "@/lib/person/build-person-profile";
+import { isUserInOrg } from "@/lib/person/build-person-profile";
 import { uploadPhoto } from "@/lib/check-in/photo-upload";
 
 export const prerender = false;
@@ -83,17 +83,35 @@ export const POST: APIRoute = async (context) => {
     }
 
     // ── Org-scope check: confirm person belongs to this org ────────────────
-    // We use buildPersonProfile as the org-scope oracle — it returns null if
-    // the person is not in the caller's org. We don't need the full profile
-    // data; we just need confirmation the person exists and is in-scope.
-    const profile = await buildPersonProfile({
-      id,
-      as: asParam,
-      orgId: orgContext.organizationId,
-      allowedLocationIds,
-    });
+    // Light check — resolves the linked userId from the family_member row (or
+    // uses the id directly for the user path) and calls isUserInOrg. This
+    // avoids the full buildPersonProfile aggregation (registrations, payments,
+    // consents, membership, family) that is not needed for a photo write.
+    // 404 is returned before any write for both not-found and cross-org cases.
+    let linkedUserId: string;
+    if (asParam === "family_member") {
+      const [fm] = await getDb()
+        .select({
+          parentUserId: familyMembers.parentUserId,
+          selfUserId: familyMembers.selfUserId,
+        })
+        .from(familyMembers)
+        .where(eq(familyMembers.id, id))
+        .limit(1);
+      if (!fm) {
+        return json({ error: "Not found" }, 404);
+      }
+      linkedUserId = (fm.parentUserId ?? fm.selfUserId)!;
+    } else {
+      linkedUserId = id;
+    }
 
-    if (!profile) {
+    const inOrg = await isUserInOrg(
+      linkedUserId,
+      orgContext.organizationId,
+      allowedLocationIds,
+    );
+    if (!inOrg) {
       return json({ error: "Not found" }, 404);
     }
 
