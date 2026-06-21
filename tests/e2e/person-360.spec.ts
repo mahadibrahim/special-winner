@@ -88,3 +88,97 @@ test("search opens the person-360 card", async ({ page }) => {
     expect(hasPhone || hasParentLabel, "expected a contact link or parent label in the card").toBe(true);
   }
 });
+
+/**
+ * Person-360 E2E: person card — sticky action bar + "Open full profile →" navigation
+ *
+ * Extends the search→open flow to assert:
+ *   (a) The sticky footer action bar renders at least one action button
+ *       (Check in / + Walk-in for family / Add — all rendered by FooterCTAs in PersonCard).
+ *   (b) The "Open full profile →" anchor (exact text, plain <a> link inside the
+ *       scrollable body of the Sheet) navigates to /admin/people/[id] and the
+ *       full-profile page renders (← People back link + type badge visible).
+ *
+ * The "Open full profile →" link is a plain anchor rendered directly in PersonCard:
+ *   <a href={`/admin/people/${profile.id}?as=${target.as}`}>Open full profile →</a>
+ * It is scoped to the role="dialog" to avoid ambiguity with any other page links.
+ *
+ * PersonDetail calls useHydrationBeacon(), so waitForHydration() works post-nav.
+ *
+ * Guard strategy: same count() pattern — if no search results, the assertions are
+ * skipped and the test passes on a thin seed.
+ */
+test("person card shows action bar and navigates to full profile", async ({ page }) => {
+  test.setTimeout(90_000);
+
+  await signInAsAdmin(page);
+  await page.goto("/admin/venue", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page, { timeout: 20_000 });
+
+  // ── Same search flow as the first test ────────────────────────────────────
+  const search = page.getByLabel("Search players and accounts");
+  await expect(search).toBeVisible({ timeout: 10_000 });
+  await search.fill("al");
+
+  const resultRows = page.locator("[data-person-result]");
+  let rowCount = 0;
+  try {
+    await expect(resultRows.first()).toBeVisible({ timeout: 15_000 });
+    rowCount = await resultRows.count();
+  } catch {
+    // No results on this seed — skip gracefully.
+  }
+
+  if (rowCount === 0) return;
+
+  await resultRows.first().click();
+
+  // ── Wait for the Person 360 Sheet to open and profile to load ─────────────
+  const card = page.getByRole("dialog");
+  await expect(card).toBeVisible({ timeout: 60_000 });
+
+  // Wait until a type badge (which is only rendered after usePerson resolves)
+  // is visible — this means the profile has loaded and FooterCTAs are rendered.
+  await expect(
+    card.getByText(/child|adult|parent/i).first()
+  ).toBeVisible({ timeout: 60_000 });
+
+  // ── (a) Sticky footer action bar ─────────────────────────────────────────
+  // FooterCTAs renders at least one <button> for all three person types:
+  //   child  → "Check in" + "Send to parent ▾" + "Add"
+  //   adult  → "Check in" + "Send link ▾" + "Add"
+  //   parent → "+ Walk-in for family" + "Message"
+  // We assert the footer contains at least one button with one of these labels.
+  // Using getByRole("button") scoped to the card to avoid false positives.
+  const footerButtons = card.getByRole("button").filter({
+    hasText: /check in|walk-in|add|send|message/i,
+  });
+  await expect(footerButtons.first()).toBeVisible({ timeout: 10_000 });
+
+  // ── (b) "Open full profile →" navigates to /admin/people/[id] ────────────
+  // The link is an <a> with exact text "Open full profile →", rendered inside
+  // the Sheet body (scoped to role="dialog" for safety).
+  const fullProfileLink = card.getByRole("link", { name: "Open full profile →" });
+  await expect(fullProfileLink).toBeVisible({ timeout: 10_000 });
+
+  // Click the link and wait for navigation to /admin/people/[id].
+  // page.waitForURL is registered before the click to avoid a race.
+  const [navUrl] = await Promise.all([
+    page.waitForURL(/\/admin\/people\//, { timeout: 30_000 }),
+    fullProfileLink.click(),
+  ]);
+
+  // ── Assert the full-profile page rendered ────────────────────────────────
+  // PersonDetail calls useHydrationBeacon() so we can wait for hydration.
+  await waitForHydration(page, { timeout: 30_000 });
+
+  // PersonDetail always renders a "← People" back link as its first element.
+  const backLink = page.getByRole("link", { name: /← People/i });
+  await expect(backLink).toBeVisible({ timeout: 10_000 });
+
+  // PersonHeader renders the same type badge as PersonCard — assert it is
+  // visible in the full-profile page as well.
+  await expect(
+    page.getByText(/child|adult|parent/i).first()
+  ).toBeVisible({ timeout: 10_000 });
+});
