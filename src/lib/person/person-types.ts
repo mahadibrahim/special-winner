@@ -8,6 +8,17 @@ export interface PersonContact {
 }
 
 export interface PersonTodayItem {
+  /** The source record kind — drives which check-in/send-link action the card uses. */
+  kind: "drop_in_booking" | "field_rental" | "roster_entry";
+  /**
+   * The id of the backing record:
+   *   drop_in_booking → dropInBookings.id
+   *   field_rental    → fieldRentals.id
+   *   roster_entry    → rosters.id
+   */
+  targetId: string;
+  /** True for drop_in_booking and field_rental; false for roster_entry (game attendance not tracked). */
+  canCheckIn: boolean;
   sessionId: string;
   title: string;
   timeLabel: string;
@@ -50,6 +61,8 @@ export interface PersonProfile {
   name: string;
   age: number | null;
   birthDate: string | null;
+  /** Current photo URL (family_member.photoUrl or users.avatarUrl). Null if none on file. */
+  photoUrl: string | null;
   contact: PersonContact;
   flags: string[];
   today: PersonTodayItem[];

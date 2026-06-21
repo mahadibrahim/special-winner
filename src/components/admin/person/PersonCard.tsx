@@ -14,7 +14,8 @@
  * Error   → ErrorBanner inside the sheet.
  */
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -24,6 +25,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { usePerson } from "@/lib/hooks/use-person";
 import type { PersonType } from "@/lib/person/person-types";
+import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
 import {
   PersonHeader,
   TodaySection,
@@ -64,29 +66,44 @@ const TYPE_ACCENT: Record<PersonType, string> = {
 export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
   const { data: profile, isLoading, error } = usePerson(target);
 
-  // Photo upload: the PersonHeader passes this up; we hold the override locally
-  // so the card doesn't need to re-fetch just because a photo was added.
-  const [_photoOverride, setPhotoOverride] = useState<string | null>(null);
+  // Photo upload: PersonHeader manages local photoUrl state internally;
+  // we receive the callback here in case callers need to react to the change.
+  // (Currently unused at the card level — the header updates itself immediately.)
 
   const isOpen = target !== null;
 
-  // ── Check-in handler (fire-and-forget) ────────────────────────────────────
-  const handleCheckIn = async (sessionId: string) => {
-    if (!target) return;
-    // FIXME: kind "roster_entry" is NOT accepted by /api/admin/check-in/check-in
-    // (that endpoint only accepts drop_in_booking | field_rental). This is latent
-    // in v1 because profile.today is always [] so this branch never fires. When
-    // `today` is wired up, derive `kind` from the today item's row kind, or the
-    // check-in POST will 400.
-    await fetch("/api/admin/check-in/check-in", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        kind: "roster_entry",
-        targetId: sessionId,
-      }),
-    }).catch(() => {/* optimistic — polling will correct */});
-  };
+  // ── Footer send-link disclosure state ─────────────────────────────────────
+  const [footerSendOpen, setFooterSendOpen] = useState(false);
+
+  // ── Footer check-in state (applies to first today item) ───────────────────
+  const [footerCheckedIn, setFooterCheckedIn] = useState(false);
+  const [footerCheckingIn, setFooterCheckingIn] = useState(false);
+
+  async function handleFooterCheckIn() {
+    if (!profile?.today[0]) return;
+    const item = profile.today[0];
+    if (!item.canCheckIn) return;
+    if (footerCheckedIn || footerCheckingIn) return;
+
+    setFooterCheckingIn(true);
+    try {
+      const res = await fetch("/api/admin/check-in/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: item.kind, targetId: item.targetId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? `Check-in failed (${res.status})`);
+      } else {
+        setFooterCheckedIn(true);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error — check-in failed");
+    } finally {
+      setFooterCheckingIn(false);
+    }
+  }
 
   // ── Footer CTA set by type ─────────────────────────────────────────────────
   function FooterCTAs() {
@@ -98,24 +115,44 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
       color: "#fffdf8",
     } as React.CSSProperties;
 
+    const firstItem = profile.today[0];
+    const canCheckIn =
+      !!firstItem &&
+      firstItem.canCheckIn &&
+      !footerCheckedIn &&
+      !firstItem.checkedIn;
+
     if (profile.type === "child") {
       return (
         <>
           <button
             type="button"
-            onClick={() => profile.today[0] && handleCheckIn(profile.today[0].sessionId)}
-            disabled={!profile.today.length}
+            onClick={handleFooterCheckIn}
+            disabled={!canCheckIn || footerCheckingIn}
             style={primaryStyle}
             className="flex-1 border rounded-[9px] px-3 py-[9px] text-[13px] font-[700] cursor-pointer disabled:opacity-40"
           >
-            Check in
+            {footerCheckedIn ? "Checked in ✓" : footerCheckingIn ? "…" : "Check in"}
           </button>
-          <button
-            type="button"
-            className="flex-1 border border-[#e4ddcf] bg-[#f6f1e7] text-[#1c1a17] rounded-[9px] px-3 py-[9px] text-[13px] font-[700] cursor-pointer"
-          >
-            Send to parent ▾
-          </button>
+          <div className="flex-1 flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => setFooterSendOpen((v) => !v)}
+              disabled={!firstItem}
+              className="w-full border border-[#e4ddcf] bg-[#f6f1e7] text-[#1c1a17] rounded-[9px] px-3 py-[9px] text-[13px] font-[700] cursor-pointer disabled:opacity-40"
+            >
+              Send to parent ▾
+            </button>
+            {footerSendOpen && firstItem && (
+              <div className="border border-[#e4ddcf] rounded-[9px] p-[10px] bg-[#fffdf8]">
+                <SendLinkActions
+                  kind={firstItem.kind}
+                  targetId={firstItem.targetId}
+                  onSent={() => setFooterSendOpen(false)}
+                />
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => onWalkIn()}
@@ -132,19 +169,32 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
         <>
           <button
             type="button"
-            onClick={() => profile.today[0] && handleCheckIn(profile.today[0].sessionId)}
-            disabled={!profile.today.length}
+            onClick={handleFooterCheckIn}
+            disabled={!canCheckIn || footerCheckingIn}
             style={primaryStyle}
             className="flex-1 border rounded-[9px] px-3 py-[9px] text-[13px] font-[700] cursor-pointer disabled:opacity-40"
           >
-            Check in
+            {footerCheckedIn ? "Checked in ✓" : footerCheckingIn ? "…" : "Check in"}
           </button>
-          <button
-            type="button"
-            className="flex-1 border border-[#e4ddcf] bg-[#f6f1e7] text-[#1c1a17] rounded-[9px] px-3 py-[9px] text-[13px] font-[700] cursor-pointer"
-          >
-            Send link ▾
-          </button>
+          <div className="flex-1 flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => setFooterSendOpen((v) => !v)}
+              disabled={!firstItem}
+              className="w-full border border-[#e4ddcf] bg-[#f6f1e7] text-[#1c1a17] rounded-[9px] px-3 py-[9px] text-[13px] font-[700] cursor-pointer disabled:opacity-40"
+            >
+              Send link ▾
+            </button>
+            {footerSendOpen && firstItem && (
+              <div className="border border-[#e4ddcf] rounded-[9px] p-[10px] bg-[#fffdf8]">
+                <SendLinkActions
+                  kind={firstItem.kind}
+                  targetId={firstItem.targetId}
+                  onSent={() => setFooterSendOpen(false)}
+                />
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => onWalkIn()}
@@ -215,7 +265,7 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
             {/* Header */}
             <PersonHeader
               profile={profile}
-              onPhotoUploaded={(url) => setPhotoOverride(url)}
+              personAs={target!.as}
             />
 
             {/* Scrollable body */}
@@ -227,7 +277,6 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
                     today={profile.today}
                     personType="child"
                     isParentContact={profile.contact.isParentContact}
-                    onCheckIn={handleCheckIn}
                   />
                   <RegistrationsSection registrations={profile.registrations} />
                   <PaymentsSection payments={profile.payments} />
@@ -242,7 +291,6 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
                     today={profile.today}
                     personType="adult"
                     isParentContact={false}
-                    onCheckIn={handleCheckIn}
                   />
                   <RegistrationsSection registrations={profile.registrations} />
                   <PaymentsSection payments={profile.payments} />
@@ -267,7 +315,7 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
 
               {/* "Open full profile" link */}
               <a
-                href={`/admin/people/${profile.id}`}
+                href={`/admin/people/${profile.id}?as=${target!.as}`}
                 className="block text-center text-[12px] text-[#4b463e] py-[9px] font-[600] border-t border-[#efe9dc] hover:underline"
               >
                 Open full profile →

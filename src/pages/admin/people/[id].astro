@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
+import { PersonDetail } from '../../../components/admin/people/PersonDetail';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const personId = Astro.params.id!;
+const personAs = (Astro.url.searchParams.get("as") ?? "family_member") as "family_member" | "user";
+---
+
+<BaseLayout title="Person Profile — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/venue"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <PersonDetail client:load personId={personId} personAs={personAs} />
+  </AdminLayout>
+</BaseLayout>

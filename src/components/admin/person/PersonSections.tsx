@@ -13,6 +13,9 @@
  *   FamilySection      — family roster rows (parent view)
  */
 
+import { useRef, useState } from "react";
+import { Camera } from "lucide-react";
+import { toast } from "sonner";
 import type {
   PersonProfile,
   PersonType,
@@ -21,8 +24,8 @@ import type {
   PersonPaymentsSummary,
   PersonFamilyMember,
 } from "@/lib/person/person-types";
-import { AvatarUploader } from "@/components/admin/check-in/AvatarUploader";
 import { cn } from "@/lib/utils";
+import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
 
 // ─── Design tokens (editorial cream/ink) ─────────────────────────────────────
 
@@ -120,38 +123,95 @@ function SectionShell({
 
 interface PersonHeaderProps {
   profile: PersonProfile;
+  /** `as` param passed to the photo endpoint — determines upload target kind. */
+  personAs: "family_member" | "user";
   onPhotoUploaded?: (url: string) => void;
 }
 
-export function PersonHeader({ profile, onPhotoUploaded }: PersonHeaderProps) {
+export function PersonHeader({ profile, personAs, onPhotoUploaded }: PersonHeaderProps) {
   const accent = accentColor(profile.type);
   const contact = profile.contact;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Local photo URL — initialised from profile, updated immediately after upload.
+  const [photoUrl, setPhotoUrl] = useState<string | null>(profile.photoUrl ?? null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset the input so the same file can be re-selected after a failure.
+    e.target.value = "";
+
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(
+        `/api/admin/person/${profile.id}/photo?as=${personAs}`,
+        { method: "POST", body: form },
+      );
+      if (res.ok) {
+        const { url } = (await res.json()) as { url: string };
+        setPhotoUrl(url);
+        onPhotoUploaded?.(url);
+      } else {
+        console.error("[PersonHeader] photo upload failed", res.status);
+        toast.error("Couldn't upload photo");
+      }
+    } catch (err) {
+      console.error("[PersonHeader] photo upload error", err);
+      toast.error("Couldn't upload photo");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div className="px-[18px] py-[16px] border-b border-[#e4ddcf] relative">
       {/* Top: avatar + name block */}
       <div className="flex gap-[13px]">
-        {/* Avatar with camera badge via AvatarUploader — but the uploader
-            doesn't show a colored avatar. We wrap it to keep the colored
-            circle when there's no photo. */}
+        {/* Avatar: shows photo when present, colored-initials circle otherwise */}
         <div className="relative flex-shrink-0">
           <div
-            className="w-14 h-14 rounded-full flex items-center justify-center font-[800] text-xl text-white"
+            className="w-14 h-14 rounded-full flex items-center justify-center font-[800] text-xl text-white overflow-hidden"
             style={{ background: accent }}
           >
-            {initials(profile.name)}
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={profile.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              initials(profile.name)
+            )}
           </div>
-          {/* Camera overlay button using AvatarUploader's inner logic.
-              We use AvatarUploader in a minimal wrapper for the family_member kind. */}
-          <div className="absolute -right-1 -bottom-1">
-            <AvatarUploader
-              kind="roster_entry"
-              targetId={profile.id}
-              photoUrl={null}
-              name={profile.name}
-              onUploaded={onPhotoUploaded}
-            />
-          </div>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            className="sr-only"
+            onChange={handleFileChange}
+          />
+          {/* Camera badge button */}
+          <button
+            type="button"
+            aria-label="Upload photo"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "absolute -right-1 -bottom-1 w-[22px] h-[22px] rounded-full border-2 border-[#fffdf8] bg-[#1c1a17] text-[#fffdf8] flex items-center justify-center cursor-pointer transition-opacity",
+              uploading && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            {uploading ? (
+              <span className="text-[11px]">…</span>
+            ) : (
+              <Camera size={11} strokeWidth={2.5} />
+            )}
+          </button>
         </div>
 
         <div className="min-w-0">
@@ -232,11 +292,77 @@ interface TodaySectionProps {
   personType: PersonType;
   /** If the person is a child, link actions are labeled "Send to parent" */
   isParentContact: boolean;
-  onCheckIn: (sessionId: string) => void;
+  /** Optional callback so callers can refetch after a check-in if needed. */
+  onRefetch?: () => void;
   last?: boolean;
 }
 
-export function TodaySection({ today, personType, isParentContact, onCheckIn, last }: TodaySectionProps) {
+/**
+ * Per-item mutable state — keyed by sessionId.
+ * `checkedIn` overrides the server value after an optimistic check-in.
+ */
+interface ItemState {
+  checkedIn: boolean;
+  checkingIn: boolean;
+  sendLinkOpen: boolean;
+}
+
+export function TodaySection({ today, personType, isParentContact, onRefetch, last }: TodaySectionProps) {
+  // Keyed by sessionId.
+  const [itemState, setItemState] = useState<Record<string, ItemState>>(() =>
+    Object.fromEntries(
+      today.map((item) => [
+        item.sessionId,
+        { checkedIn: item.checkedIn, checkingIn: false, sendLinkOpen: false },
+      ]),
+    ),
+  );
+
+  function getState(item: PersonTodayItem): ItemState {
+    return itemState[item.sessionId] ?? {
+      checkedIn: item.checkedIn,
+      checkingIn: false,
+      sendLinkOpen: false,
+    };
+  }
+
+  function patchState(sessionId: string, patch: Partial<ItemState>) {
+    setItemState((prev) => ({
+      ...prev,
+      [sessionId]: { ...getStateById(sessionId, prev), ...patch },
+    }));
+  }
+
+  function getStateById(sessionId: string, map: Record<string, ItemState>): ItemState {
+    return map[sessionId] ?? { checkedIn: false, checkingIn: false, sendLinkOpen: false };
+  }
+
+  async function handleCheckIn(item: PersonTodayItem) {
+    if (!item.canCheckIn) return;
+    const st = getState(item);
+    if (st.checkedIn || st.checkingIn) return;
+
+    patchState(item.sessionId, { checkingIn: true });
+    try {
+      const res = await fetch("/api/admin/check-in/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: item.kind, targetId: item.targetId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? `Check-in failed (${res.status})`);
+      } else {
+        patchState(item.sessionId, { checkedIn: true });
+        onRefetch?.();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error — check-in failed");
+    } finally {
+      patchState(item.sessionId, { checkingIn: false });
+    }
+  }
+
   const sendLabel = isParentContact ? "Send to parent ▾" : "Send link ▾";
 
   return (
@@ -245,64 +371,110 @@ export function TodaySection({ today, personType, isParentContact, onCheckIn, la
         <p className="text-[12.5px] text-[#8a8175]">Nothing scheduled today.</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {today.map((item) => (
-            <div
-              key={item.sessionId}
-              className="border border-[#e4ddcf] rounded-[11px] px-[12px] py-[11px] bg-[#f6f1e7]"
-            >
-              {/* Title + time */}
-              <div className="font-[700] text-[14px] flex items-center gap-1.5 text-[#1c1a17]">
-                🎯 {item.title}
-              </div>
-              <div className="text-[12px] text-[#8a8175] mt-0.5 mb-[8px]">
-                {item.timeLabel}
-              </div>
+          {today.map((item) => {
+            const st = getState(item);
+            const isCheckedIn = st.checkedIn;
+            const isCheckingIn = st.checkingIn;
+            const canCheckIn = item.canCheckIn && !isCheckedIn;
 
-              {/* Status chips */}
-              <div className="flex flex-wrap gap-1.5 mb-[9px]">
-                <StatusChip ok={item.waiverSigned} okLabel="waiver ✓" badLabel="waiver out" />
-                <StatusChip ok={item.hasPhoto} okLabel="photo ✓" badLabel="no photo" />
-                <StatusChip ok={item.paid} okLabel="paid ✓" badLabel="unpaid" />
-                <StatusChip
-                  ok={item.checkedIn}
-                  okLabel="checked in ✓"
-                  badLabel="not checked in"
-                  warnVariant={false}
-                />
-              </div>
-
-              {/* Child callout */}
-              {personType === "child" && (
-                <div className="text-[11px] font-[700] text-[#2f7d8a] mb-[7px]">
-                  ↳ Send link sends to the parent
+            return (
+              <div
+                key={item.sessionId}
+                className="border border-[#e4ddcf] rounded-[11px] px-[12px] py-[11px] bg-[#f6f1e7]"
+              >
+                {/* Title + time */}
+                <div className="font-[700] text-[14px] flex items-center gap-1.5 text-[#1c1a17]">
+                  🎯 {item.title}
                 </div>
-              )}
+                <div className="text-[12px] text-[#8a8175] mt-0.5 mb-[8px]">
+                  {item.timeLabel}
+                </div>
 
-              {/* Mini actions */}
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onCheckIn(item.sessionId)}
-                  disabled={item.checkedIn}
-                  className="flex-1 border border-[#1c1a17] bg-[#1c1a17] text-[#fffdf8] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {item.checkedIn ? "Checked in ✓" : "Check in"}
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 border border-[#e4ddcf] bg-[#fffdf8] text-[#1c1a17] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer"
-                >
-                  {sendLabel}
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 border border-[#e4ddcf] bg-[#fffdf8] text-[#1c1a17] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer"
-                >
-                  Capture photo
-                </button>
+                {/* Status chips */}
+                <div className="flex flex-wrap gap-1.5 mb-[9px]">
+                  <StatusChip ok={item.waiverSigned} okLabel="waiver ✓" badLabel="waiver out" />
+                  <StatusChip ok={item.hasPhoto} okLabel="photo ✓" badLabel="no photo" />
+                  <StatusChip ok={item.paid} okLabel="paid ✓" badLabel="unpaid" />
+                  <StatusChip
+                    ok={isCheckedIn}
+                    okLabel="checked in ✓"
+                    badLabel="not checked in"
+                    warnVariant={false}
+                  />
+                </div>
+
+                {/* Child callout */}
+                {personType === "child" && (
+                  <div className="text-[11px] font-[700] text-[#2f7d8a] mb-[7px]">
+                    ↳ Send link sends to the parent
+                  </div>
+                )}
+
+                {/* Mini actions */}
+                <div className="flex gap-1.5">
+                  {/* Check-in button */}
+                  {isCheckedIn ? (
+                    <span className="flex-1 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg px-3 py-[7px] text-[12px] font-[700] text-center">
+                      Checked in ✓
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleCheckIn(item)}
+                      disabled={!canCheckIn || isCheckingIn}
+                      title={
+                        item.kind === "roster_entry"
+                          ? "Game check-in isn't tracked"
+                          : undefined
+                      }
+                      className="flex-1 border border-[#1c1a17] bg-[#1c1a17] text-[#fffdf8] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isCheckingIn ? "…" : "Check in"}
+                    </button>
+                  )}
+
+                  {/* Send link — toggles SendLinkActions popover */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      patchState(item.sessionId, { sendLinkOpen: !st.sendLinkOpen })
+                    }
+                    className={cn(
+                      "flex-1 border rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer transition-colors",
+                      st.sendLinkOpen
+                        ? "border-[#1c1a17] bg-[#1c1a17] text-[#fffdf8]"
+                        : "border-[#e4ddcf] bg-[#fffdf8] text-[#1c1a17]",
+                    )}
+                  >
+                    {sendLabel}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="flex-1 border border-[#e4ddcf] bg-[#fffdf8] text-[#1c1a17] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer"
+                  >
+                    Capture photo
+                  </button>
+                </div>
+
+                {/* Send-link disclosure — shown when the button above is toggled */}
+                {st.sendLinkOpen && (
+                  <div className="mt-[9px] pt-[9px] border-t border-[#e4ddcf]">
+                    <div className="text-[11px] text-[#8a8175] font-[700] mb-[5px] uppercase tracking-[.07em]">
+                      {isParentContact ? "Send to parent" : "Send link"}
+                    </div>
+                    <SendLinkActions
+                      kind={item.kind}
+                      targetId={item.targetId}
+                      onSent={() =>
+                        patchState(item.sessionId, { sendLinkOpen: false })
+                      }
+                    />
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </SectionShell>
