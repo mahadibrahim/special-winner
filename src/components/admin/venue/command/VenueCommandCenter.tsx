@@ -30,6 +30,7 @@
  */
 
 import { useState, useCallback } from "react"
+import { Zap } from "lucide-react"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -45,6 +46,8 @@ import { CommandSearchBar } from "./CommandSearchBar"
 import { PersonCard, type PersonCardTarget } from "@/components/admin/person/PersonCard"
 import { WalkInSessionPicker } from "./WalkInSessionPicker"
 import { FindBookingPanel } from "./FindBookingPanel"
+import { StartPickupGame } from "./StartPickupGame"
+import { PickupRollCall } from "./PickupRollCall"
 import type { VenueAttentionItem, VenueTodaySession } from "@/lib/venue/today-types"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -129,6 +132,15 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
   // ── Find-booking panel state ───────────────────────────────────────────────
   const [findBookingOpen, setFindBookingOpen] = useState(false)
 
+  // ── Start-pickup-game panel state ──────────────────────────────────────────
+  const [startPickupOpen, setStartPickupOpen] = useState(false)
+
+  // ── Active pickup roll-call state ──────────────────────────────────────────
+  const [pickupRollCall, setPickupRollCall] = useState<{
+    sessionId: string
+    sessionTitle: string
+  } | null>(null)
+
   // ── PersonCard state ───────────────────────────────────────────────────────
   const [personTarget, setPersonTarget] = useState<PersonCardTarget | null>(null)
 
@@ -151,6 +163,20 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
   const handleFindBooking = useCallback(() => {
     setFindBookingOpen(true)
   }, [])
+
+  // ── Start-pickup-game handler ──────────────────────────────────────────────
+  const handleStartPickup = useCallback(() => {
+    setStartPickupOpen(true)
+  }, [])
+
+  // ── Pickup created: close the create form, open the roll call ─────────────
+  const handlePickupCreated = useCallback(
+    (sessionId: string, title: string) => {
+      setStartPickupOpen(false)
+      setPickupRollCall({ sessionId, sessionTitle: title })
+    },
+    [],
+  )
 
   // ── Attention action handler ────────────────────────────────────────────────
   const handleAttentionAction = useCallback((item: VenueAttentionItem) => {
@@ -231,6 +257,18 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
               )}
             </span>
           </h1>
+        </div>
+
+        {/* ── Header actions ─────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 flex-wrap mt-1">
+          <button
+            type="button"
+            onClick={handleStartPickup}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-300 bg-teal-50 text-teal-800 text-[12.5px] font-bold hover:bg-teal-100 hover:border-teal-400 transition-colors"
+          >
+            <Zap className="size-3.5" />
+            Start pickup game
+          </button>
         </div>
       </div>
 
@@ -366,6 +404,24 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
       {/* ── Find booking panel (sheet) ──────────────────────────────────────── */}
       {findBookingOpen && (
         <FindBookingPanel onClose={() => setFindBookingOpen(false)} />
+      )}
+
+      {/* ── Start pickup game (sheet) ───────────────────────────────────────── */}
+      {startPickupOpen && data && (
+        <StartPickupGame
+          spaces={data.spaces}
+          onCreated={handlePickupCreated}
+          onCancel={() => setStartPickupOpen(false)}
+        />
+      )}
+
+      {/* ── Pickup roll call (full-panel overlay) ──────────────────────────── */}
+      {pickupRollCall && (
+        <PickupRollCall
+          sessionId={pickupRollCall.sessionId}
+          sessionTitle={pickupRollCall.sessionTitle}
+          onClose={() => setPickupRollCall(null)}
+        />
       )}
     </div>
   )
