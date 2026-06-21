@@ -1,16 +1,29 @@
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, waitForHydration } from "../utils/test-helpers";
 
+// The /api/admin/venue/today aggregation is heavy and slow against the
+// accumulated staging DB used in CI (tens of seconds — same data-bloat caveat
+// CLAUDE.md notes for tag-queue; it's fast on prod's co-located DB). Give the
+// data-dependent assertions a realistic budget.
 test("venue command center renders and opens an activity roster", async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   await signInAsAdmin(page);
   await page.goto("/admin/venue", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
 
-  // NeedsAttentionQueue always renders the "Needs attention" h2 heading —
-  // either with grouped items or with the "All clear" empty state beneath it.
-  await expect(page.getByText(/needs attention/i)).toBeVisible();
+  // The page title is server-rendered, so it proves the command-center route
+  // loaded (not a redirect/error) without waiting for the data fetch.
+  await expect(page).toHaveTitle(/command center/i);
+
+  // NeedsAttentionQueue renders the "Needs attention" h2 once data loads.
+  // Target the heading specifically: the "Nothing needs attention right now"
+  // empty-state text also matches /needs attention/i, so a plain getByText is
+  // a strict-mode violation (2 matches).
+  await expect(
+    page.getByRole("heading", { name: /needs attention/i }),
+  ).toBeVisible({ timeout: 60_000 });
 
   // ActivityBlock renders with data-activity-block on its root div.
   // Guard with count() so the test passes when the seeded venue has no sessions.

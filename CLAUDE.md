@@ -234,6 +234,8 @@ For non-trivial changes, state the plan in 1-2 sentences and wait for "go" befor
 
 The pattern is a brief "here's what I'm about to do, confirm?" — not a full brainstorm, just enough framing to catch wrong-direction starts before they become rework.
 
+**Fix issues you notice — new and pre-existing.** When you spot a bug, broken test, regression, or other clearly-wrong thing while working — including ones you didn't introduce — fix it on your branch rather than only flagging it. In particular, when a change you make alters behavior that existing tests cover, update those tests as part of the same change. Be especially careful with E2E specs that only run **post-merge** via the `test-full` job (full Playwright runs are skipped on PRs in this repo) — they will not gate your PR, so changing a route/page (e.g. `/admin/venue`) can silently break the post-merge run. Before merging anything that changes admin routes or shared pages, grep `tests/e2e/` for specs that exercise the changed surface and update them, or run the affected specs locally (`PLAYWRIGHT_BASE_URL=http://localhost:4321 npm test -- <spec>`).
+
 ## Branch hygiene
 
 - **Confirm the branch before editing.** Run `git branch --show-current` at the start of any edit session — there have been incidents where the main repo got switched off an active feature branch mid-work, mixing edits across branches.

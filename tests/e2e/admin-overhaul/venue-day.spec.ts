@@ -1,15 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { signIn, waitForHydration } from "../../utils/test-helpers";
 
-// Phase 2 E2E for the Venue Day route.
+// E2E for the venue area after the command-center migration.
 //
-// Uses the existing e2e seed users:
+// /admin/venue is now the COMMAND CENTER (it used to redirect to the day
+// view). The day view still lives at /admin/venue/day/[date]; the tests below
+// navigate to it directly rather than relying on the (removed) redirect.
+//
+// Seed users:
 //   admin-orgb@test.aspiresports.com → location_admin scoped to orgB.
-//
-// Note: this spec doesn't require seeded activity data to assert the
-// shell renders. Block-rendering assertions (color/icon labels) are
-// gated on the seed having at least one game/drop-in/rental for the
-// current date — they skip when that fixture isn't present.
+//   admin@test.aspiresports.com      → super_admin.
 
 const LOCATION_ADMIN = {
   email: "admin-orgb@test.aspiresports.com",
@@ -21,21 +21,50 @@ const SUPER_ADMIN = {
   password: "TestAdmin123!",
 };
 
-test.describe("Venue Day route", () => {
-  test("location_admin lands on today's Venue Day", async ({ page }) => {
+// Matches the app's formatStripDate(new Date()) — YYYY-MM-DD in UTC — so the
+// day view's "Today" button produces the same value we navigate to here.
+const today = () => new Date().toISOString().slice(0, 10);
+
+test.describe("Venue command center + day route", () => {
+  // The /api/admin/venue/today aggregation is slow against the accumulated
+  // staging DB used in CI (tens of seconds; fast on prod's co-located DB).
+  // Assert the server-rendered title immediately (proves the command-center
+  // route renders) and give the data-dependent heading a realistic budget.
+  test("location_admin sees the command center at /admin/venue", async ({ page }) => {
+    test.setTimeout(90_000);
     await signIn(page, LOCATION_ADMIN.email, LOCATION_ADMIN.password);
-    await page.waitForURL(/\/admin\/venue\/day\/\d{4}-\d{2}-\d{2}/, { timeout: 10_000 });
+    await page.goto("/admin/venue");
+    await waitForHydration(page);
+    await expect(page).toHaveTitle(/command center/i);
+    await expect(
+      page.getByRole("heading", { name: /needs attention/i }),
+    ).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("super_admin sees the command center at /admin/venue", async ({ page }) => {
+    test.setTimeout(90_000);
+    await signIn(page, SUPER_ADMIN.email, SUPER_ADMIN.password);
+    await page.goto("/admin/venue");
+    await waitForHydration(page);
+    await expect(page).toHaveTitle(/command center/i);
+    await expect(
+      page.getByRole("heading", { name: /needs attention/i }),
+    ).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("day view renders for a location_admin", async ({ page }) => {
+    await signIn(page, LOCATION_ADMIN.email, LOCATION_ADMIN.password);
+    await page.goto(`/admin/venue/day/${today()}`);
     await waitForHydration(page);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
   test("date arrow navigates forward to next day", async ({ page }) => {
     await signIn(page, LOCATION_ADMIN.email, LOCATION_ADMIN.password);
-    await page.waitForURL(/\/admin\/venue\/day\/\d{4}-\d{2}-\d{2}/, { timeout: 10_000 });
+    await page.goto(`/admin/venue/day/${today()}`);
     await waitForHydration(page);
 
-    const startUrl = new URL(page.url());
-    const startDate = startUrl.pathname.split("/").pop()!;
+    const startDate = new URL(page.url()).pathname.split("/").pop()!;
 
     await page.getByRole("button", { name: /next day/i }).click();
 
@@ -45,14 +74,13 @@ test.describe("Venue Day route", () => {
       startDate,
       { timeout: 5_000 },
     );
-    const newUrl = new URL(page.url());
-    const newDate = newUrl.pathname.split("/").pop()!;
+    const newDate = new URL(page.url()).pathname.split("/").pop()!;
     expect(newDate > startDate).toBe(true);
   });
 
   test("Today button returns to current day after navigating away", async ({ page }) => {
     await signIn(page, LOCATION_ADMIN.email, LOCATION_ADMIN.password);
-    await page.waitForURL(/\/admin\/venue\/day\/\d{4}-\d{2}-\d{2}/, { timeout: 10_000 });
+    await page.goto(`/admin/venue/day/${today()}`);
     await waitForHydration(page);
 
     const originalUrl = page.url();
@@ -74,7 +102,7 @@ test.describe("Venue Day route", () => {
 
   test("activity legend renders all 6 types", async ({ page }) => {
     await signIn(page, LOCATION_ADMIN.email, LOCATION_ADMIN.password);
-    await page.waitForURL(/\/admin\/venue\/day\/\d{4}-\d{2}-\d{2}/, { timeout: 10_000 });
+    await page.goto(`/admin/venue/day/${today()}`);
     await waitForHydration(page);
 
     for (const label of ["League", "Tournament", "Drop-in", "Class", "Camp", "Rental"]) {
@@ -88,7 +116,7 @@ test.describe("Venue Day route", () => {
     // icon-rail zone (768–1023) where labels are intentionally hidden.
     await page.setViewportSize({ width: 1023, height: 768 });
     await signIn(page, LOCATION_ADMIN.email, LOCATION_ADMIN.password);
-    await page.waitForURL(/\/admin\/venue\/day\/\d{4}-\d{2}-\d{2}/, { timeout: 10_000 });
+    await page.goto(`/admin/venue/day/${today()}`);
     await waitForHydration(page);
 
     // Item labels should be hidden at the md breakpoint (icon rail).
@@ -96,15 +124,5 @@ test.describe("Venue Day route", () => {
     // text that happens to match.
     const venueDayLabel = page.locator("aside").getByText("Venue Day").first();
     await expect(venueDayLabel).toBeHidden();
-  });
-
-  test("super_admin can also see /admin/venue (with venue chooser)", async ({ page }) => {
-    await signIn(page, SUPER_ADMIN.email, SUPER_ADMIN.password);
-    await page.goto("/admin/venue");
-    // Redirects to /admin/venue/day/<today>; super-admin uses the org's
-    // default-first location.
-    await page.waitForURL(/\/admin\/venue\/day\/\d{4}-\d{2}-\d{2}/, { timeout: 10_000 });
-    await waitForHydration(page);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 });
