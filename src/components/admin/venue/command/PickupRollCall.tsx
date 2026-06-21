@@ -47,6 +47,7 @@ interface RowData {
   isMinor: boolean;
   familyMemberId: string | null;
   recipientUserId: string | null;
+  paid: boolean;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -342,8 +343,7 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
           {/* Roster rows */}
           {rows?.map((row) => {
             const isCheckedIn = row.checkedInAt !== null;
-            // Pickup mode: all walk-ups are confirmed + checked in, so paid = true
-            const isPaid = true;
+            const isPaid = row.paid;
 
             return (
               <div

@@ -64,9 +64,13 @@ export const GET: APIRoute = async (context) => {
         avatarUrl: users.avatarUrl,
         waiverSigned: dropInBookings.waiverSigned,
         checkedInAt: dropInBookings.checkedInAt,
+        amountPaidCents: dropInBookings.amountPaidCents,
+        sessionRateCents: dropInSessions.sessionRateCents,
+        walkUpRateCents: dropInSessions.walkUpRateCents,
       })
       .from(dropInBookings)
       .innerJoin(users, eq(users.id, dropInBookings.userId))
+      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
       .where(
         and(
           eq(dropInBookings.sessionId, id),
@@ -85,18 +89,26 @@ export const GET: APIRoute = async (context) => {
           fieldNumber: null,
           venueName: session.venueName,
         },
-        rows: rows.map((r) => ({
-          rowKind: "drop_in_booking" as const,
-          targetId: r.bookingId,
-          name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email,
-          subtitle: `adult · ${formatPhone(r.phone)}`,
-          photoUrl: r.avatarUrl,
-          waiverSigned: r.waiverSigned,
-          checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
-          isMinor: false,
-          familyMemberId: null,
-          recipientUserId: r.userId,
-        })),
+        rows: rows.map((r) => {
+          // Effective rate for this booking: walk-up rate takes precedence when set,
+          // otherwise fall back to session rate. A null/0 rate means the session is
+          // free, so the booking is implicitly paid.
+          const effectiveRate = r.walkUpRateCents ?? r.sessionRateCents ?? 0;
+          const paid = r.amountPaidCents > 0 || effectiveRate === 0;
+          return {
+            rowKind: "drop_in_booking" as const,
+            targetId: r.bookingId,
+            name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email,
+            subtitle: `adult · ${formatPhone(r.phone)}`,
+            photoUrl: r.avatarUrl,
+            waiverSigned: r.waiverSigned,
+            checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
+            isMinor: false,
+            familyMemberId: null,
+            recipientUserId: r.userId,
+            paid,
+          };
+        }),
       },
       200,
     );
@@ -139,6 +151,7 @@ export const GET: APIRoute = async (context) => {
             isMinor: false,
             familyMemberId: null,
             recipientUserId: r.renterUserId,
+            paid: true, // field rentals are always paid at booking time
           },
         ],
       },
@@ -233,6 +246,7 @@ export const GET: APIRoute = async (context) => {
             isMinor,
             familyMemberId: r.familyMemberId,
             recipientUserId: r.parentUserId ?? r.selfUserId,
+            paid: true, // rostered players paid at registration
           };
         }),
       },
