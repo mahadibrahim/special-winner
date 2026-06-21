@@ -218,10 +218,14 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
             <div className="flex gap-2 items-end">
               {/* First name */}
               <div className="flex-1 min-w-0">
-                <label className="block text-[11px] font-bold text-[#4b463e] mb-1">
+                <label
+                  htmlFor="pickup-first-name"
+                  className="block text-[11px] font-bold text-[#4b463e] mb-1"
+                >
                   First name
                 </label>
                 <input
+                  id="pickup-first-name"
                   ref={firstNameRef}
                   type="text"
                   autoFocus
@@ -237,10 +241,14 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
 
               {/* Last name */}
               <div className="flex-1 min-w-0">
-                <label className="block text-[11px] font-bold text-[#4b463e] mb-1">
+                <label
+                  htmlFor="pickup-last-name"
+                  className="block text-[11px] font-bold text-[#4b463e] mb-1"
+                >
                   Last name
                 </label>
                 <input
+                  id="pickup-last-name"
                   type="text"
                   autoComplete="off"
                   value={lastName}
@@ -254,10 +262,14 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
 
               {/* Phone */}
               <div className="flex-1 min-w-0">
-                <label className="block text-[11px] font-bold text-[#4b463e] mb-1">
+                <label
+                  htmlFor="pickup-mobile"
+                  className="block text-[11px] font-bold text-[#4b463e] mb-1"
+                >
                   Mobile
                 </label>
                 <input
+                  id="pickup-mobile"
                   type="tel"
                   autoComplete="off"
                   value={phone}
