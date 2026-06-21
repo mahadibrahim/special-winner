@@ -315,7 +315,7 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
 
               {/* "Open full profile" link */}
               <a
-                href={`/admin/people/${profile.id}`}
+                href={`/admin/people/${profile.id}?as=${target!.as}`}
                 className="block text-center text-[12px] text-[#4b463e] py-[9px] font-[600] border-t border-[#efe9dc] hover:underline"
               >
                 Open full profile →
