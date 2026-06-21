@@ -32,6 +32,9 @@ const json = (body: unknown, status: number) =>
   });
 
 const MAX_RESULTS = 20;
+// Each kind (drop-in, field rental) gets at most this many results to ensure
+// neither is fully crowded out; final result is still capped at MAX_RESULTS.
+const PER_KIND_LIMIT = Math.ceil(MAX_RESULTS / 2);
 
 export const GET: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
@@ -130,7 +133,7 @@ export const GET: APIRoute = async (context) => {
           ),
         ),
       )
-      .limit(MAX_RESULTS);
+      .limit(PER_KIND_LIMIT);
 
     // ---- Field rentals ----
     const rentalRows = await db
@@ -157,7 +160,7 @@ export const GET: APIRoute = async (context) => {
           ),
         ),
       )
-      .limit(MAX_RESULTS);
+      .limit(PER_KIND_LIMIT);
 
     type Result = {
       kind: "drop_in_booking" | "field_rental";
