@@ -44,6 +44,7 @@ export async function buildVenueToday(
   orgId: string,
   userId: string,
   locationIds: string[],
+  timezone: string = "America/New_York",
 ): Promise<VenueTodayPayload> {
   // Build a map of resourceName → resource for spaceId resolution.
   // We key on resourceName (string) because ActivityBlock exposes resourceName
@@ -100,8 +101,8 @@ export async function buildVenueToday(
       id: `ref-${b.id}`,
       title: b.title,
       subtitle: b.resourceName
-        ? `${b.resourceName} · ${new Date(b.startAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`
-        : new Date(b.startAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }),
+        ? `${b.resourceName} · ${new Date(b.startAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone })}`
+        : new Date(b.startAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone }),
       sessionId: b.id,
     }));
 

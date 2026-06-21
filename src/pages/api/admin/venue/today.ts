@@ -54,6 +54,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const locationIdParam = url.searchParams.get("locationId") ?? "";
 
   let locationId: string;
+  let allowedIds: string[];
 
   if (isSuperAdmin) {
     // Super-admin: locationId must be provided explicitly.
@@ -61,9 +62,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       return json({ error: "locationId is required for super_admin" }, 400);
     }
     locationId = locationIdParam;
+    allowedIds = [locationId];
   } else {
     // Location-admin: resolve allowed location IDs from the user's role scope.
-    const allowedIds = await getLocationIdsForUser(locals.user.id);
+    allowedIds = await getLocationIdsForUser(locals.user.id);
 
     if (locationIdParam) {
       // Explicit locationId requested — enforce scoping.
@@ -93,15 +95,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
       return json({ error: "Location not found" }, 404);
     }
 
-    const allowedIds = isSuperAdmin
-      ? [locationId]
-      : await getLocationIdsForUser(locals.user.id);
-
+    const timezone = locals.organization?.timezone ?? "America/New_York";
     const payload = await buildVenueToday(
       dayData,
       orgId,
       locals.user.id,
       allowedIds,
+      timezone,
     );
 
     return json(payload);
