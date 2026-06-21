@@ -30,6 +30,7 @@
  */
 
 import { useState, useCallback } from "react"
+import { toast } from "sonner"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -146,7 +147,7 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
     )
     // TODO(fast-follow): open a session-picker modal that lets staff choose a session,
     // then launches WalkInFlow in context. Tracked as a concern in task-7-report.md.
-    window.alert(
+    toast.info(
       "To add a walk-in, open a session from the schedule calendar first, " +
       "then click an open slot in the session panel.",
     )
@@ -158,7 +159,7 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
   const handleFindBooking = useCallback(() => {
     // eslint-disable-next-line no-console
     console.warn("[VenueCommandCenter] Find booking: no flow implemented yet.")
-    window.alert("Find booking is not yet implemented. Coming soon.")
+    toast.info("Find booking is not yet implemented. Coming soon.")
   }, [])
 
   // ── Attention action handler ────────────────────────────────────────────────

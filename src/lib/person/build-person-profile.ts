@@ -20,13 +20,15 @@
 import { getDb } from "@/lib/db";
 import {
   users,
+  userRoles,
   familyMembers,
   registrations,
   payments,
   programs,
   seasons,
-  locations,
+  teams,
 } from "@/lib/db/schema";
+import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { consents } from "@/lib/db/schema/consents";
 import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
@@ -255,6 +257,10 @@ async function buildFamilyMemberProfile(
   if (membership) {
     flags.push("has_membership");
   }
+  // NOTE (v1 simplification): outstandingCents reflects only failed/owed payment
+  // ROWS (status = "failed" | "owed"). It does NOT include registrations whose
+  // paymentStatus is "unpaid" or "deposit_paid" but have no charge row yet — so
+  // this can read $0 even when money is genuinely owed. Fix in a follow-up.
   const outstandingBalance = paymentSummary.outstandingCents;
   if (outstandingBalance > 0) {
     flags.push("outstanding_balance");
@@ -404,10 +410,6 @@ async function isUserInOrg(
   allowedLocationIds: string[],
 ): Promise<boolean> {
   const db = getDb();
-  const { userRoles, roles, userOrganizationAccess } = await import(
-    "@/lib/db/schema"
-  );
-  const { teams, seasons, programs } = await import("@/lib/db/schema");
 
   // Replicate the same multi-scope query as lookup.ts
   // Build the scope conditions dynamically based on available location ids.

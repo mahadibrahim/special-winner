@@ -22,7 +22,6 @@ import type {
   PersonFamilyMember,
 } from "@/lib/person/person-types";
 import { AvatarUploader } from "@/components/admin/check-in/AvatarUploader";
-import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
 import { cn } from "@/lib/utils";
 
 // ─── Design tokens (editorial cream/ink) ─────────────────────────────────────

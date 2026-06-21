@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Search, Loader2, UserRound } from "lucide-react"
+import type { PersonCardTarget } from "@/components/admin/person/PersonCard"
 
 // ─── Result types (from /api/admin/lookup) ────────────────────────────────────
 
@@ -32,7 +33,7 @@ type LookupResponse = {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onOpenPerson: (target: { id: string; as: "family_member" | "user" }) => void
+  onOpenPerson: (target: PersonCardTarget) => void
   onWalkIn: () => void
   onFindBooking: () => void
 }
@@ -134,7 +135,7 @@ export function CommandSearchBar({ onOpenPerson, onWalkIn, onFindBooking }: Prop
     }
   }, [debounced])
 
-  const handleSelect = (target: { id: string; as: "family_member" | "user" }) => {
+  const handleSelect = (target: PersonCardTarget) => {
     onOpenPerson(target)
     setOpen(false)
     setQ("")

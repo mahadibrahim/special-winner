@@ -73,6 +73,11 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
   // ── Check-in handler (fire-and-forget) ────────────────────────────────────
   const handleCheckIn = async (sessionId: string) => {
     if (!target) return;
+    // FIXME: kind "roster_entry" is NOT accepted by /api/admin/check-in/check-in
+    // (that endpoint only accepts drop_in_booking | field_rental). This is latent
+    // in v1 because profile.today is always [] so this branch never fires. When
+    // `today` is wired up, derive `kind` from the today item's row kind, or the
+    // check-in POST will 400.
     await fetch("/api/admin/check-in/check-in", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
