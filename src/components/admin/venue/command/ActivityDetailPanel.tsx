@@ -24,6 +24,7 @@ import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
 import { AvatarUploader } from "@/components/admin/check-in/AvatarUploader";
 import { WalkInFlow } from "./WalkInFlow";
 import type { VenueTodaySession } from "@/lib/venue/today-types";
+import type { PersonCardTarget } from "@/components/admin/person/PersonCard";
 
 // ─── Types matching the check-in event endpoint response ─────────────────────
 
@@ -48,6 +49,8 @@ interface Props {
   timezone: string;
   onClose: () => void;
   onAction?: (sessionId: string) => void;
+  /** Optional: called when a roster row name is clicked to open the Person 360 card. */
+  onOpenPerson?: (target: PersonCardTarget) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -106,7 +109,7 @@ function StatusChip({ ok, okLabel, badLabel }: ChipProps) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ActivityDetailPanel({ session, locationId, timezone, onClose, onAction }: Props) {
+export function ActivityDetailPanel({ session, locationId, timezone, onClose, onAction, onOpenPerson }: Props) {
   const [rows, setRows] = useState<RowData[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -286,9 +289,26 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
 
                 {/* Name + status chips */}
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[#1c1a17] truncate text-sm">
-                    {row.name}
-                  </div>
+                  {/* Name — clickable if we have a person target to open */}
+                  {onOpenPerson && (row.familyMemberId || row.recipientUserId) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = row.familyMemberId ?? row.recipientUserId!
+                        const as: PersonCardTarget["as"] = row.familyMemberId
+                          ? "family_member"
+                          : "user"
+                        onOpenPerson({ id, as })
+                      }}
+                      className="font-semibold text-[#1c1a17] truncate text-sm text-left hover:underline cursor-pointer max-w-full"
+                    >
+                      {row.name}
+                    </button>
+                  ) : (
+                    <div className="font-semibold text-[#1c1a17] truncate text-sm">
+                      {row.name}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-1 mt-1">
                     <StatusChip
                       ok={row.waiverSigned}

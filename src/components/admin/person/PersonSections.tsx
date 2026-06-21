@@ -1,0 +1,532 @@
+"use client";
+
+/**
+ * PersonSections — section components that compose the Person 360 card body.
+ *
+ * Exports:
+ *   PersonHeader       — avatar, name, type-badge, flags, contact row
+ *   TodaySection       — today's session(s) with status chips + mini-actions
+ *   RegistrationsSection — registration list
+ *   PaymentsSection    — payments & balance summary
+ *   ConsentsSection    — waivers / COPPA consents chips
+ *   MembershipSection  — membership plan + renewal
+ *   FamilySection      — family roster rows (parent view)
+ */
+
+import type {
+  PersonProfile,
+  PersonType,
+  PersonTodayItem,
+  PersonRegistration,
+  PersonPaymentsSummary,
+  PersonFamilyMember,
+} from "@/lib/person/person-types";
+import { AvatarUploader } from "@/components/admin/check-in/AvatarUploader";
+import { cn } from "@/lib/utils";
+
+// ─── Design tokens (editorial cream/ink) ─────────────────────────────────────
+
+const CHILD_ACCENT = "#2f7d8a";  // teal
+const ADULT_ACCENT = "#3a3550";  // slate
+const PARENT_ACCENT = "#9a5a2a"; // ochre
+
+function accentColor(type: PersonType): string {
+  if (type === "child") return CHILD_ACCENT;
+  if (type === "adult") return ADULT_ACCENT;
+  return PARENT_ACCENT;
+}
+
+function typeBadgeLabel(profile: PersonProfile): string {
+  if (profile.type === "child") return `Child · age ${profile.age ?? "?"}`;
+  if (profile.type === "adult") return "Adult player";
+  return "Parent · account";
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function fmtCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+function fmtDate(isoDate: string | null): string {
+  if (!isoDate) return "";
+  const d = new Date(isoDate);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// ─── StatusChip ───────────────────────────────────────────────────────────────
+
+interface ChipProps {
+  ok: boolean;
+  okLabel: string;
+  badLabel: string;
+  warnVariant?: boolean; // amber instead of rose when not ok
+}
+
+export function StatusChip({ ok, okLabel, badLabel, warnVariant = true }: ChipProps) {
+  if (ok) {
+    return (
+      <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200">
+        {okLabel}
+      </span>
+    );
+  }
+  if (warnVariant) {
+    return (
+      <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200">
+        {badLabel}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200">
+      {badLabel}
+    </span>
+  );
+}
+
+// ─── SectionShell ─────────────────────────────────────────────────────────────
+
+function SectionShell({
+  title,
+  last = false,
+  children,
+}: {
+  title: string;
+  last?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("px-[18px] py-[13px]", !last && "border-b border-[#efe9dc]")}>
+      <h4 className="m-0 mb-[9px] text-[11px] tracking-[.1em] uppercase text-[#8a8175] font-[800]">
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}
+
+// ─── PersonHeader ─────────────────────────────────────────────────────────────
+
+interface PersonHeaderProps {
+  profile: PersonProfile;
+  onPhotoUploaded?: (url: string) => void;
+}
+
+export function PersonHeader({ profile, onPhotoUploaded }: PersonHeaderProps) {
+  const accent = accentColor(profile.type);
+  const contact = profile.contact;
+
+  return (
+    <div className="px-[18px] py-[16px] border-b border-[#e4ddcf] relative">
+      {/* Top: avatar + name block */}
+      <div className="flex gap-[13px]">
+        {/* Avatar with camera badge via AvatarUploader — but the uploader
+            doesn't show a colored avatar. We wrap it to keep the colored
+            circle when there's no photo. */}
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center font-[800] text-xl text-white"
+            style={{ background: accent }}
+          >
+            {initials(profile.name)}
+          </div>
+          {/* Camera overlay button using AvatarUploader's inner logic.
+              We use AvatarUploader in a minimal wrapper for the family_member kind. */}
+          <div className="absolute -right-1 -bottom-1">
+            <AvatarUploader
+              kind="roster_entry"
+              targetId={profile.id}
+              photoUrl={null}
+              name={profile.name}
+              onUploaded={onPhotoUploaded}
+            />
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <div className="text-[21px] font-[700] leading-[1.1] text-[#1c1a17]">
+            {profile.name}
+          </div>
+          {/* Type badge */}
+          <span
+            className="inline-block text-[10px] font-[800] tracking-[.08em] uppercase rounded-full px-2 py-0.5 mt-1 text-white"
+            style={{ background: accent }}
+          >
+            {typeBadgeLabel(profile)}
+          </span>
+          {/* Meta: birth date */}
+          {profile.birthDate && (
+            <div className="text-[12px] text-[#4b463e] mt-1">
+              born {fmtDate(profile.birthDate)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Flags */}
+      {profile.flags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-[9px]">
+          {profile.flags.map((flag, i) => {
+            const isMed = flag.toLowerCase().includes("allergy") || flag.startsWith("⚠");
+            const isOk = flag.toLowerCase().includes("member") || flag.toLowerCase().includes("active");
+            return (
+              <span
+                key={i}
+                className={cn(
+                  "text-[11px] font-[700] rounded-full px-[9px] py-0.5 border",
+                  isMed && "bg-[#f7e7e9] text-[#b3454f] border-[#eccfd3]",
+                  isOk && !isMed && "bg-[#e8f3ec] text-[#2f7d4f] border-[#cfe6d7]",
+                  !isMed && !isOk && "bg-[#f6f1e7] text-[#4b463e] border-[#e4ddcf]",
+                )}
+              >
+                {flag}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Contact row */}
+      <div className="flex flex-wrap gap-4 mt-[12px] text-[13px]">
+        {contact.isParentContact && (
+          <span className="text-[#8a8175] text-[12px] self-center">
+            parent: {contact.name}
+          </span>
+        )}
+        {contact.phone && (
+          <a
+            href={`tel:${contact.phone}`}
+            className="text-[#1c1a17] no-underline inline-flex items-center gap-1 hover:underline"
+          >
+            <span>📞</span> {contact.phone}
+          </a>
+        )}
+        {contact.email && (
+          <a
+            href={`mailto:${contact.email}`}
+            className="text-[#1c1a17] no-underline inline-flex items-center gap-1 hover:underline"
+          >
+            <span>✉️</span> {contact.email}
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── TodaySection ─────────────────────────────────────────────────────────────
+
+interface TodaySectionProps {
+  today: PersonTodayItem[];
+  personType: PersonType;
+  /** If the person is a child, link actions are labeled "Send to parent" */
+  isParentContact: boolean;
+  onCheckIn: (sessionId: string) => void;
+  last?: boolean;
+}
+
+export function TodaySection({ today, personType, isParentContact, onCheckIn, last }: TodaySectionProps) {
+  const sendLabel = isParentContact ? "Send to parent ▾" : "Send link ▾";
+
+  return (
+    <SectionShell title="Today" last={last}>
+      {today.length === 0 ? (
+        <p className="text-[12.5px] text-[#8a8175]">Nothing scheduled today.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {today.map((item) => (
+            <div
+              key={item.sessionId}
+              className="border border-[#e4ddcf] rounded-[11px] px-[12px] py-[11px] bg-[#f6f1e7]"
+            >
+              {/* Title + time */}
+              <div className="font-[700] text-[14px] flex items-center gap-1.5 text-[#1c1a17]">
+                🎯 {item.title}
+              </div>
+              <div className="text-[12px] text-[#8a8175] mt-0.5 mb-[8px]">
+                {item.timeLabel}
+              </div>
+
+              {/* Status chips */}
+              <div className="flex flex-wrap gap-1.5 mb-[9px]">
+                <StatusChip ok={item.waiverSigned} okLabel="waiver ✓" badLabel="waiver out" />
+                <StatusChip ok={item.hasPhoto} okLabel="photo ✓" badLabel="no photo" />
+                <StatusChip ok={item.paid} okLabel="paid ✓" badLabel="unpaid" />
+                <StatusChip
+                  ok={item.checkedIn}
+                  okLabel="checked in ✓"
+                  badLabel="not checked in"
+                  warnVariant={false}
+                />
+              </div>
+
+              {/* Child callout */}
+              {personType === "child" && (
+                <div className="text-[11px] font-[700] text-[#2f7d8a] mb-[7px]">
+                  ↳ Send link sends to the parent
+                </div>
+              )}
+
+              {/* Mini actions */}
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onCheckIn(item.sessionId)}
+                  disabled={item.checkedIn}
+                  className="flex-1 border border-[#1c1a17] bg-[#1c1a17] text-[#fffdf8] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {item.checkedIn ? "Checked in ✓" : "Check in"}
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 border border-[#e4ddcf] bg-[#fffdf8] text-[#1c1a17] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer"
+                >
+                  {sendLabel}
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 border border-[#e4ddcf] bg-[#fffdf8] text-[#1c1a17] rounded-lg px-3 py-[7px] text-[12px] font-[700] cursor-pointer"
+                >
+                  Capture photo
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionShell>
+  );
+}
+
+// ─── RegistrationsSection ─────────────────────────────────────────────────────
+
+interface RegistrationsSectionProps {
+  registrations: PersonRegistration[];
+  last?: boolean;
+}
+
+export function RegistrationsSection({ registrations, last }: RegistrationsSectionProps) {
+  return (
+    <SectionShell title="Registrations" last={last}>
+      {registrations.length === 0 ? (
+        <p className="text-[12.5px] text-[#8a8175]">No registrations.</p>
+      ) : (
+        <div>
+          {registrations.map((reg, i) => (
+            <div
+              key={reg.id}
+              className={cn(
+                "flex justify-between items-center py-[7px]",
+                i > 0 && "border-t border-[#efe9dc]",
+              )}
+            >
+              <div>
+                <div className="text-[13.5px] font-[600] text-[#1c1a17]">{reg.label}</div>
+                <div className="text-[11.5px] text-[#8a8175]">{reg.sublabel}</div>
+              </div>
+              <span
+                className={cn(
+                  "text-[11px] font-[700] rounded-lg px-2 py-0.5",
+                  reg.paid
+                    ? "bg-[#e8f3ec] text-[#2f7d4f]"
+                    : "bg-[#f8efd6] text-[#b8860b]",
+                )}
+              >
+                {reg.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionShell>
+  );
+}
+
+// ─── PaymentsSection ──────────────────────────────────────────────────────────
+
+interface PaymentsSectionProps {
+  payments: PersonPaymentsSummary;
+  last?: boolean;
+}
+
+export function PaymentsSection({ payments, last }: PaymentsSectionProps) {
+  return (
+    <SectionShell title="Payments & balance" last={last}>
+      <div className="flex flex-col gap-1">
+        <div className="flex justify-between text-[13.5px]">
+          <span>Total paid (12 mo)</span>
+          <b className="font-[700]">{fmtCents(payments.totalPaidCents)}</b>
+        </div>
+        <div className="flex justify-between text-[13.5px]">
+          <span>Outstanding balance</span>
+          <b
+            className={cn(
+              "font-[700]",
+              payments.outstandingCents === 0 ? "text-[#2f7d4f]" : "text-[#b3454f]",
+            )}
+          >
+            {fmtCents(payments.outstandingCents)}
+          </b>
+        </div>
+        {payments.lastPayment && (
+          <div className="flex justify-between text-[13.5px]">
+            <span>Last payment</span>
+            <span className="text-[#8a8175]">
+              {fmtDate(payments.lastPayment.dateIso)} · {fmtCents(payments.lastPayment.amountCents)} ·{" "}
+              {payments.lastPayment.method}
+            </span>
+          </div>
+        )}
+      </div>
+    </SectionShell>
+  );
+}
+
+// ─── ConsentsSection ─────────────────────────────────────────────────────────
+
+interface ConsentsSectionProps {
+  consents: { kind: string; granted: boolean }[];
+  last?: boolean;
+}
+
+export function ConsentsSection({ consents, last }: ConsentsSectionProps) {
+  return (
+    <SectionShell title="Waivers & consents" last={last}>
+      {consents.length === 0 ? (
+        <p className="text-[12.5px] text-[#8a8175]">No consents recorded.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {consents.map((c, i) => (
+            <StatusChip
+              key={i}
+              ok={c.granted}
+              okLabel={`${c.kind} ✓`}
+              badLabel={`${c.kind} pending`}
+              warnVariant
+            />
+          ))}
+        </div>
+      )}
+    </SectionShell>
+  );
+}
+
+// ─── MembershipSection ───────────────────────────────────────────────────────
+
+interface MembershipSectionProps {
+  membership: PersonProfile["membership"];
+  last?: boolean;
+}
+
+export function MembershipSection({ membership, last }: MembershipSectionProps) {
+  return (
+    <SectionShell title="Membership" last={last}>
+      {!membership ? (
+        <p className="text-[12.5px] text-[#8a8175]">No active membership.</p>
+      ) : (
+        <div>
+          <div className="text-[13px] font-[600] text-[#1c1a17]">{membership.plan}</div>
+          {membership.renewsIso && (
+            <div className="text-[11px] text-[#8a8175] mt-0.5">
+              Renews {fmtDate(membership.renewsIso)}
+            </div>
+          )}
+        </div>
+      )}
+    </SectionShell>
+  );
+}
+
+// ─── FamilySection ───────────────────────────────────────────────────────────
+
+interface FamilySectionProps {
+  family: PersonFamilyMember[];
+  onOpenPerson: (args: { id: string; as: "family_member" | "user" }) => void;
+  last?: boolean;
+}
+
+export function FamilySection({ family, onOpenPerson, last }: FamilySectionProps) {
+  return (
+    <SectionShell title="Family" last={last}>
+      {family.length === 0 ? (
+        <p className="text-[12.5px] text-[#8a8175]">No family members on file.</p>
+      ) : (
+        <div>
+          {family.map((member, i) => (
+            <button
+              key={member.familyMemberId}
+              type="button"
+              onClick={() =>
+                onOpenPerson({ id: member.familyMemberId, as: "family_member" })
+              }
+              className={cn(
+                "w-full flex items-center gap-2 py-[6px] text-left hover:bg-[#f6f1e7] transition-colors rounded",
+                i > 0 && "border-t border-[#efe9dc]",
+              )}
+            >
+              {/* Avatar */}
+              <div className="w-[26px] h-[26px] rounded-full bg-[#2f7d8a] text-white flex items-center justify-center text-[10px] font-[700] flex-shrink-0">
+                {initials(member.name)}
+              </div>
+              {/* Name + summary */}
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-[600] text-[#1c1a17]">
+                  {member.name}
+                  {member.age !== null && <span className="text-[#8a8175] font-normal"> · {member.age}</span>}
+                </div>
+                {member.summary && (
+                  <div className="text-[11px] text-[#8a8175] truncate">{member.summary}</div>
+                )}
+              </div>
+              {/* View arrow */}
+              <span className="text-[11px] text-[#1c1a17] bg-[#f6f1e7] border border-[#e4ddcf] rounded-md px-2 py-0.5 font-[700] flex-shrink-0">
+                View ›
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Callout: card pivots to family, not "today as a player" */}
+      {family.length > 0 && (
+        <div className="text-[11px] text-[#9a5a2a] font-[700] mt-[6px]">
+          ↳ Card pivots to the family, not "today as a player"
+        </div>
+      )}
+    </SectionShell>
+  );
+}
+
+// ─── AccountBillingSection ───────────────────────────────────────────────────
+
+interface AccountBillingSectionProps {
+  payments: PersonPaymentsSummary;
+  registrations: PersonRegistration[];
+  last?: boolean;
+}
+
+export function AccountBillingSection({ payments, registrations, last }: AccountBillingSectionProps) {
+  const outstanding = registrations.filter((r) => !r.paid).length;
+  return (
+    <SectionShell title="Account & billing" last={last}>
+      <div className="text-[12px] text-[#8a8175]">
+        Total paid (12 mo):{" "}
+        <b className="text-[#1c1a17]">{fmtCents(payments.totalPaidCents)}</b>
+        {" · "}
+        {registrations.length} registration{registrations.length !== 1 ? "s" : ""}
+        {" · "}
+        {outstanding} outstanding
+      </div>
+    </SectionShell>
+  );
+}

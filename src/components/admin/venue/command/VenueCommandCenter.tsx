@@ -4,11 +4,11 @@
  * VenueCommandCenter — top-level React island for /admin/venue.
  *
  * Layout (per approved command-center-layout.html mockup):
- *   Desktop (>820px): Now strip spanning full width, then
- *                     2-column grid: ScheduleCalendar (1.7fr) left /
+ *   Desktop (>820px): CommandSearchBar spanning full width, then Now strip spanning
+ *                     full width, then 2-column grid: ScheduleCalendar (1.7fr) left /
  *                     NeedsAttentionQueue (1fr) right.
  *   Mobile (≤820px): single-column stack in order:
- *                     Now strip → Needs-attention queue → ScheduleCalendar.
+ *                     Search bar → Now strip → Needs-attention queue → ScheduleCalendar.
  *
  * Data flow:
  *   useVenueToday polls /api/admin/venue/today every 7 s while visible.
@@ -16,14 +16,21 @@
  *   is shown but last-good data stays visible.
  *
  * Panel interactions:
+ *   CommandSearchBar → onOpenPerson → opens PersonCard slide-over.
+ *   PersonCard family row → onOpenPerson → re-targets the PersonCard.
+ *   CommandSearchBar → onWalkIn → stub (walk-in requires a session; use the open-slot
+ *     rows in ActivityDetailPanel, or open a session first from the calendar).
+ *   CommandSearchBar → onFindBooking → stub (no find-booking flow yet; fast-follow).
  *   Clicking a calendar ActivityBlock / NowStrip card → open ActivityDetailPanel.
  *   Walk-ins are started from the ActivityDetailPanel's roster panel (open-slot
  *   "+ add walk-in" rows), not from a direct calendar cell click.
  *   Clicking a NeedsAttentionQueue action → currently logs to console (hook for
  *   future detail panel / external links).
+ *   ActivityDetailPanel roster row name → opens PersonCard for that person.
  */
 
 import { useState, useCallback } from "react"
+import { toast } from "sonner"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -35,6 +42,8 @@ import { NowStrip } from "./NowStrip"
 import { ScheduleCalendar } from "./ScheduleCalendar"
 import { NeedsAttentionQueue } from "./NeedsAttentionQueue"
 import { ActivityDetailPanel } from "./ActivityDetailPanel"
+import { CommandSearchBar } from "./CommandSearchBar"
+import { PersonCard, type PersonCardTarget } from "@/components/admin/person/PersonCard"
 import type { VenueAttentionItem, VenueTodaySession } from "@/lib/venue/today-types"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,6 +122,46 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
     setOpenSessionId(null)
   }, [])
 
+  // ── PersonCard state ───────────────────────────────────────────────────────
+  const [personTarget, setPersonTarget] = useState<PersonCardTarget | null>(null)
+
+  const handleOpenPerson = useCallback((target: PersonCardTarget) => {
+    setPersonTarget(target)
+  }, [])
+
+  const handleClosePerson = useCallback(() => {
+    setPersonTarget(null)
+  }, [])
+
+  // ── Walk-in stub (requires a session context) ──────────────────────────────
+  // Walk-in from the global search bar has no session context — the WalkInFlow
+  // inside ActivityDetailPanel requires a specific session. Until a standalone
+  // walk-in session-picker modal exists, surface a console warning so it's clear
+  // this needs a follow-up. Users should open a session from the calendar first,
+  // then use the open-slot "+ Add walk-in" rows in the ActivityDetailPanel.
+  const handleWalkIn = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[VenueCommandCenter] Walk-in from search bar: no session context available. " +
+      "Open a session from the calendar first, then use the open-slot rows in the activity panel.",
+    )
+    // TODO(fast-follow): open a session-picker modal that lets staff choose a session,
+    // then launches WalkInFlow in context. Tracked as a concern in task-7-report.md.
+    toast.info(
+      "To add a walk-in, open a session from the schedule calendar first, " +
+      "then click an open slot in the session panel.",
+    )
+  }, [])
+
+  // ── Find-booking stub ──────────────────────────────────────────────────────
+  // No "find booking" flow exists yet. Stub that's clearly labeled for the
+  // fast-follow. Tracked as a concern in task-7-report.md.
+  const handleFindBooking = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.warn("[VenueCommandCenter] Find booking: no flow implemented yet.")
+    toast.info("Find booking is not yet implemented. Coming soon.")
+  }, [])
+
   // ── Attention action handler ────────────────────────────────────────────────
   const handleAttentionAction = useCallback((item: VenueAttentionItem) => {
     // If the item has a sessionId, open that session's detail panel
@@ -156,6 +205,15 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
 
   return (
     <div className="max-w-[1240px] mx-auto px-4 sm:px-5 py-4 pb-16">
+      {/* ── Command search bar ────────────────────────────────────────────── */}
+      <div className="-mx-4 sm:-mx-5 -mt-4 mb-4">
+        <CommandSearchBar
+          onOpenPerson={handleOpenPerson}
+          onWalkIn={handleWalkIn}
+          onFindBooking={handleFindBooking}
+        />
+      </div>
+
       {/* ── Page header ───────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div>
@@ -283,11 +341,28 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
           locationId={locationId}
           timezone={data?.timezone ?? "America/New_York"}
           onClose={handleClosePanel}
+          onOpenPerson={handleOpenPerson}
           onAction={() => {
             /* polling refetches automatically */
           }}
         />
       )}
+
+      {/* ── Person 360 card (slide-over) ───────────────────────────────────── */}
+      <PersonCard
+        target={personTarget}
+        onClose={handleClosePerson}
+        onWalkIn={(sessionId) => {
+          // If triggered from a PersonCard that already has a session context,
+          // open that session's detail panel (which hosts the WalkInFlow).
+          if (sessionId) {
+            setOpenSessionId(sessionId)
+          } else {
+            handleWalkIn()
+          }
+        }}
+        onOpenPerson={handleOpenPerson}
+      />
     </div>
   )
 }
