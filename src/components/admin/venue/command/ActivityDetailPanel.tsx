@@ -39,6 +39,7 @@ interface RowData {
   isMinor: boolean;
   familyMemberId: string | null;
   recipientUserId: string | null;
+  paid: boolean;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -263,10 +264,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
           {rows?.map((row) => {
             const effectivePhotoUrl = photoOverrides[row.targetId] ?? row.photoUrl;
             const isHere = row.checkedInAt !== null;
-            // For drop-in bookings: paid status is inferred from confirmed status
-            // (confirmed = paid in the existing data model). Roster entries are
-            // always paid (registered). Field rentals likewise.
-            const isPaid = true;
+            const isPaid = row.paid;
             const hasPhoto = effectivePhotoUrl !== null;
             const needsSendLink =
               !row.waiverSigned || !hasPhoto;

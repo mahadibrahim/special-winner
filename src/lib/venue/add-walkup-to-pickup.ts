@@ -33,14 +33,12 @@ import { normalizePhone } from "@/lib/venue/normalize-phone";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
+import { ADULT_SENTINEL_DOB } from "@/lib/person/dob";
 
 // Accept both the top-level db handle and a transaction handle.
 type Db = ReturnType<typeof getDb>;
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type Database = Db | Tx;
-
-/** Sentinel DOB for adults where no birth date is collected at roll-call. */
-const ADULT_SENTINEL_DOB = "1900-01-01";
 
 export interface AddWalkUpInput {
   sessionId: string;

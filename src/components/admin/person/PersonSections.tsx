@@ -26,6 +26,7 @@ import type {
 } from "@/lib/person/person-types";
 import { cn } from "@/lib/utils";
 import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
+import { isKnownDob } from "@/lib/person/dob";
 
 // ─── Design tokens (editorial cream/ink) ─────────────────────────────────────
 
@@ -225,8 +226,8 @@ export function PersonHeader({ profile, personAs, onPhotoUploaded }: PersonHeade
           >
             {typeBadgeLabel(profile)}
           </span>
-          {/* Meta: birth date */}
-          {profile.birthDate && (
+          {/* Meta: birth date — suppress sentinel/null DOBs */}
+          {isKnownDob(profile.birthDate) && (
             <div className="text-[12px] text-[#4b463e] mt-1">
               born {fmtDate(profile.birthDate)}
             </div>

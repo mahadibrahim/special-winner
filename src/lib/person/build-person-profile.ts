@@ -36,6 +36,7 @@ import { derivePersonType } from "./derive-person-type";
 import { summarizePayments } from "./summarize-payments";
 import { computeOutstandingCents } from "./compute-outstanding";
 import { collectTodayForPerson } from "./collect-today";
+import { isKnownDob } from "./dob";
 import type { PersonProfile, PersonFamilyMember } from "./person-types";
 
 // ---------------------------------------------------------------------------
@@ -43,9 +44,9 @@ import type { PersonProfile, PersonFamilyMember } from "./person-types";
 // ---------------------------------------------------------------------------
 
 function ageFromBirthDate(birthDate: string | null): number | null {
-  if (!birthDate) return null;
+  if (!isKnownDob(birthDate)) return null;
   const today = new Date();
-  const dob = new Date(birthDate);
+  const dob = new Date(birthDate!);
   let age = today.getFullYear() - dob.getFullYear();
   const m = today.getMonth() - dob.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
@@ -453,7 +454,7 @@ async function buildUserProfile(
 // Org-scope check (mirrors lookup.ts userIdsInOrg gate)
 // ---------------------------------------------------------------------------
 
-async function isUserInOrg(
+export async function isUserInOrg(
   userId: string,
   orgId: string,
   allowedLocationIds: string[],
