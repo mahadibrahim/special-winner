@@ -46,6 +46,10 @@ describe("walkInToPayload", () => {
     const p = walkInToPayload(childForm, { method: "link", linkChannel: "sms" }) as any;
     expect(p.contact.firstName).toBe("Jamie");
     expect(p.contact.dob).toBe("2015-06-20");
+    // contact.email must be set to the parent email so the kiosk endpoint's
+    // required-field check passes (Fix 2)
+    expect(p.contact.email).toBe("a@x.com");
+    expect(p.contact.phone).toBe("6145550142");
     expect(p.parent.firstName).toBe("Alex");
     expect(p.parent.email).toBe("a@x.com");
     expect(p.linkChannel).toBe("sms");

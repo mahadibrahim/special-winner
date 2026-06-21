@@ -149,6 +149,7 @@ export async function buildVenueToday(
     date: dayData.date,
     locationId: dayData.locationId,
     locationName: dayData.locationName,
+    timezone,
     spaces,
     sessions,
     attention,

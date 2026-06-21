@@ -26,6 +26,7 @@ export interface VenueTodayPayload {
   date: string;
   locationId: string;
   locationName: string;
+  timezone: string;
   spaces: { id: string; name: string }[];
   sessions: VenueTodaySession[];
   attention: VenueAttentionItem[];

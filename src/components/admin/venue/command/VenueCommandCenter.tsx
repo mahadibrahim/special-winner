@@ -87,6 +87,11 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
     // day is shown; only day→day "Today" button resets date.
   }, [])
 
+  const handleToday = useCallback(() => {
+    setDate(formatStripDate(new Date()))
+    setView("day")
+  }, [])
+
   // ── Data ───────────────────────────────────────────────────────────────────
   const { data, isLoading, isStale, lastUpdatedAt, error } = useVenueToday({
     date,
@@ -198,7 +203,7 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
       {/* ── Now / Next strip ──────────────────────────────────────────────── */}
       <div className="mb-4">
         {data ? (
-          <NowStrip sessions={data.sessions} onOpenActivity={handleOpenActivity} />
+          <NowStrip sessions={data.sessions} timezone={data.timezone} onOpenActivity={handleOpenActivity} />
         ) : (
           <EmptyState
             title="No sessions loaded"
@@ -252,6 +257,7 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
               onView={handleView}
               onPrev={handlePrev}
               onNext={handleNext}
+              onToday={handleToday}
               onOpenActivity={handleOpenActivity}
             />
           ) : (
@@ -275,6 +281,7 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
         <ActivityDetailPanel
           session={openSession}
           locationId={locationId}
+          timezone={data?.timezone ?? "America/New_York"}
           onClose={handleClosePanel}
           onAction={() => {
             /* polling refetches automatically */

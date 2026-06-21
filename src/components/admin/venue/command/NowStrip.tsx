@@ -39,12 +39,12 @@ const KIND_ICON: Record<VenueTodaySession["kind"], string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatTime(iso: string): string {
+function formatTime(iso: string, timeZone: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "UTC",
+    timeZone,
   })
 }
 
@@ -57,12 +57,13 @@ function fillPct(session: VenueTodaySession): number {
 
 type Props = {
   sessions: VenueTodaySession[]
+  timezone: string
   onOpenActivity: (sessionId: string) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function NowStrip({ sessions, onOpenActivity }: Props) {
+export function NowStrip({ sessions, timezone, onOpenActivity }: Props) {
   const { now, next } = useMemo(
     () => deriveNowNext(sessions, Date.now()),
     [sessions]
@@ -86,6 +87,7 @@ export function NowStrip({ sessions, onOpenActivity }: Props) {
           key={s.id}
           session={s}
           isNow={true}
+          timezone={timezone}
           onOpen={onOpenActivity}
         />
       ))}
@@ -94,6 +96,7 @@ export function NowStrip({ sessions, onOpenActivity }: Props) {
           key={s.id}
           session={s}
           isNow={false}
+          timezone={timezone}
           onOpen={onOpenActivity}
         />
       ))}
@@ -106,10 +109,11 @@ export function NowStrip({ sessions, onOpenActivity }: Props) {
 type CardProps = {
   session: VenueTodaySession
   isNow: boolean
+  timezone: string
   onOpen: (id: string) => void
 }
 
-function NowCard({ session, isNow, onOpen }: CardProps) {
+function NowCard({ session, isNow, timezone, onOpen }: CardProps) {
   const borderClass = KIND_BORDER[session.kind]
   const barClass = KIND_BAR[session.kind]
   const icon = KIND_ICON[session.kind]
@@ -129,7 +133,7 @@ function NowCard({ session, isNow, onOpen }: CardProps) {
       <div className="text-[10.5px] uppercase tracking-wider font-bold text-ink-muted leading-tight mb-1">
         {isNow
           ? `Now · ${session.spaceName}`
-          : `Next · ${formatTime(session.startsAt)} · ${session.spaceName}`}
+          : `Next · ${formatTime(session.startsAt, timezone)} · ${session.spaceName}`}
       </div>
 
       {/* Title */}

@@ -118,6 +118,8 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
     url: string;
     amountDueCents: number;
     method: PayMethod;
+    /** true if the send-link POST succeeded; false = copy-fallback mode */
+    sent: boolean;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -178,10 +180,33 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
         return;
       }
 
+      const bookingId: string = body.bookingId;
+      let sent = false;
+
+      // For link methods, attempt the real send-link call so the copy is true.
+      if (payMethod === "link_email" || payMethod === "link_sms") {
+        const channel = payMethod === "link_email" ? "email" : "sms";
+        try {
+          const sendRes = await fetch("/api/admin/check-in/send-link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: "drop_in_booking",
+              targetId: bookingId,
+              channel,
+            }),
+          });
+          sent = sendRes.ok;
+        } catch {
+          // send-link failed — fall through to copy-fallback below
+        }
+      }
+
       setResult({
         url: body.url,
         amountDueCents: body.amountDueCents ?? 0,
         method: payMethod,
+        sent,
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Network error");
@@ -240,24 +265,49 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               <div className="text-4xl">
                 {result.method === "link_email" ? "📧" : "📲"}
               </div>
-              <h3 className="text-lg font-bold text-[#1c1a17]">
-                Booking created — share the link
-              </h3>
-              <p className="text-sm text-[#4b463e] max-w-xs">
-                Share this payment link (<strong>{amtStr}</strong>) with{" "}
-                <strong>
-                  {form.firstName} {form.lastName}
-                </strong>{" "}
-                via{" "}
-                {result.method === "link_email"
-                  ? form.email
-                    ? `email (${form.email})`
-                    : "email"
-                  : form.phone
-                    ? `SMS (${form.phone})`
-                    : "SMS"}
-                . The slot is held for 2 hours.
-              </p>
+              {result.sent ? (
+                <>
+                  <h3 className="text-lg font-bold text-[#1c1a17]">
+                    Payment link sent
+                  </h3>
+                  <p className="text-sm text-[#4b463e] max-w-xs">
+                    Sent {amtStr} payment link to{" "}
+                    <strong>
+                      {form.firstName} {form.lastName}
+                    </strong>{" "}
+                    via{" "}
+                    {result.method === "link_email"
+                      ? form.mode === "child"
+                        ? form.parentEmail
+                          ? `email (${form.parentEmail})`
+                          : "email"
+                        : form.email
+                          ? `email (${form.email})`
+                          : "email"
+                      : form.mode === "child"
+                        ? form.parentPhone
+                          ? `SMS (${form.parentPhone})`
+                          : "SMS"
+                        : form.phone
+                          ? `SMS (${form.phone})`
+                          : "SMS"}
+                    . The slot is held for 2 hours.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-bold text-[#1c1a17]">
+                    Booking created — copy &amp; share the link
+                  </h3>
+                  <p className="text-sm text-[#4b463e] max-w-xs">
+                    Share this payment link (<strong>{amtStr}</strong>) with{" "}
+                    <strong>
+                      {form.firstName} {form.lastName}
+                    </strong>
+                    . The slot is held for 2 hours.
+                  </p>
+                </>
+              )}
               <div className="w-full max-w-xs">
                 <div className="flex items-center gap-2 border border-[#e4ddcf] rounded-lg px-3 py-2 bg-[#f6f1e7]">
                   <span className="flex-1 text-xs text-[#4b463e] break-all leading-tight">
@@ -565,7 +615,9 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               ? "Creating booking…"
               : payMethod === "kiosk"
                 ? "Create booking & hand off to kiosk ›"
-                : "Create booking & send pay link ›"}
+                : payMethod === "link_email"
+                  ? "Create booking & email pay link ›"
+                  : "Create booking & text pay link ›"}
           </button>
           <p className="text-[11.5px] text-[#8a8175] text-center mt-2">
             On success: added to the roster, slot held for payment.

@@ -38,6 +38,7 @@ type Props = {
   onView: (v: View) => void
   onPrev: () => void
   onNext: () => void
+  onToday?: () => void
   onOpenActivity: (sessionId: string) => void
 }
 
@@ -50,11 +51,12 @@ type Props = {
  */
 function openSlots(
   sessions: VenueTodaySession[],
-  spaceId: string
+  spaceId: string,
+  timeZone: string,
 ): Array<{ rowStart: number; rowEnd: number }> {
   const spaceSessions = sessions
     .filter((s) => s.spaceId === spaceId)
-    .map((s) => blockRows(s.startsAt, s.endsAt, DAY_START_HOUR))
+    .map((s) => blockRows(s.startsAt, s.endsAt, DAY_START_HOUR, timeZone))
     .sort((a, b) => a.rowStart - b.rowStart)
 
   const slots: Array<{ rowStart: number; rowEnd: number }> = []
@@ -90,9 +92,11 @@ export function ScheduleCalendar({
   onView,
   onPrev,
   onNext,
+  onToday,
   onOpenActivity,
 }: Props) {
   const spaces       = payload.spaces
+  const timeZone     = payload.timezone
   const spaceColumns = useMemo(() => columnsForSpaces(spaces), [spaces])
   const numSpaces    = spaces.length
 
@@ -100,10 +104,10 @@ export function ScheduleCalendar({
   const openSlotsBySpace = useMemo(() => {
     const map = new Map<string, Array<{ rowStart: number; rowEnd: number }>>()
     for (const sp of spaces) {
-      map.set(sp.id, openSlots(payload.sessions, sp.id))
+      map.set(sp.id, openSlots(payload.sessions, sp.id, timeZone))
     }
     return map
-  }, [payload.sessions, spaces])
+  }, [payload.sessions, spaces, timeZone])
 
   // The grid template: gutter col + one col per space
   const gridTemplate = `${GUTTER_WIDTH}px repeat(${numSpaces}, minmax(0, 1fr))`
@@ -125,7 +129,7 @@ export function ScheduleCalendar({
             ‹
           </button>
           <button
-            onClick={() => {/* Today handled by parent via onView reset */}}
+            onClick={() => onToday?.()}
             aria-label="Today"
             className={`px-3 py-1.5 border rounded text-sm font-semibold min-h-[36px] ${
               isToday
@@ -179,6 +183,7 @@ export function ScheduleCalendar({
           onPrev={onPrev}
           onNext={onNext}
           onOpenActivity={onOpenActivity}
+          timezone={timeZone}
         />
       )}
 
@@ -302,7 +307,8 @@ export function ScheduleCalendar({
                     const { rowStart, rowEnd } = blockRows(
                       session.startsAt,
                       session.endsAt,
-                      DAY_START_HOUR
+                      DAY_START_HOUR,
+                      timeZone,
                     )
                     return (
                       <div
@@ -317,6 +323,7 @@ export function ScheduleCalendar({
                           session={session}
                           onClick={onOpenActivity}
                           compact={(rowEnd - rowStart) <= 2}
+                          timezone={timeZone}
                         />
                       </div>
                     )

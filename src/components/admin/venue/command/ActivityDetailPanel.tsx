@@ -45,18 +45,19 @@ interface RowData {
 interface Props {
   session: VenueTodaySession;
   locationId: string;
+  timezone: string;
   onClose: () => void;
   onAction?: (sessionId: string) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function fmtTime(iso: string): string {
+function fmtTime(iso: string, timeZone: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "UTC",
+    timeZone,
   });
 }
 
@@ -105,7 +106,7 @@ function StatusChip({ ok, okLabel, badLabel }: ChipProps) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ActivityDetailPanel({ session, locationId, onClose, onAction }: Props) {
+export function ActivityDetailPanel({ session, locationId, timezone, onClose, onAction }: Props) {
   const [rows, setRows] = useState<RowData[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -204,7 +205,7 @@ export function ActivityDetailPanel({ session, locationId, onClose, onAction }: 
                 {session.title}
               </h3>
               <p className="text-xs text-[#4b463e] mt-0.5">
-                {fmtTime(session.startsAt)}–{fmtTime(session.endsAt)}
+                {fmtTime(session.startsAt, timezone)}–{fmtTime(session.endsAt, timezone)}
               </p>
             </div>
             <button

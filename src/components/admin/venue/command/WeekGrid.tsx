@@ -12,6 +12,7 @@ type Props = {
   onPrev: () => void
   onNext: () => void
   onOpenActivity: (sessionId: string) => void
+  timezone?: string
 }
 
 /**
@@ -22,7 +23,7 @@ type Props = {
  * activity blocks. The other six are shown as empty placeholders so the
  * operator can see the week structure and navigate to other days.
  */
-export function WeekGrid({ payload, onPrev, onNext, onOpenActivity }: Props) {
+export function WeekGrid({ payload, onPrev, onNext, onOpenActivity, timezone = "America/New_York" }: Props) {
   const anchor = useMemo(() => {
     const d = new Date(`${payload.date}T00:00:00.000Z`)
     return isNaN(d.getTime()) ? new Date() : d
@@ -133,6 +134,7 @@ export function WeekGrid({ payload, onPrev, onNext, onOpenActivity }: Props) {
                         session={s}
                         onClick={onOpenActivity}
                         compact={true}
+                        timezone={timezone}
                       />
                     </div>
                   ))

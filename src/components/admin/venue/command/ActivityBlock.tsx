@@ -32,28 +32,28 @@ type Props = {
   onClick: (sessionId: string) => void
   /** Compact mode: used by WeekGrid for condensed blocks. */
   compact?: boolean
+  timezone?: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleTimeString("en-US", {
+function formatTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "UTC",
+    timeZone,
   })
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ActivityBlock({ session, onClick, compact = false }: Props) {
+export function ActivityBlock({ session, onClick, compact = false, timezone = "America/New_York" }: Props) {
   const [showPop, setShowPop] = useState(false)
   const style = KIND_STYLES[session.kind]
   const refWarn = session.refAssigned === false
 
-  const timeRange = `${formatTime(session.startsAt)}–${formatTime(session.endsAt)}`
+  const timeRange = `${formatTime(session.startsAt, timezone)}–${formatTime(session.endsAt, timezone)}`
   const capStr =
     session.capacity !== null
       ? `${session.booked}/${session.capacity}`

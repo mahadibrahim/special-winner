@@ -53,13 +53,22 @@ export interface WalkInPayload {
 }
 
 export function walkInToPayload(form: WalkInForm, pay: WalkInPayment): WalkInPayload {
+  // For child mode the kiosk endpoint still requires contact.email (it is the
+  // email used to look up / create the booker record, which for a minor IS the
+  // parent). Copy parent contact onto the top-level contact so the endpoint's
+  // required-field check passes.
+  const contactEmail =
+    form.mode === "child" ? (form.parentEmail ?? form.email) : form.email;
+  const contactPhone =
+    form.mode === "child" ? (form.parentPhone ?? form.phone) : form.phone;
+
   const base: WalkInPayload = {
     sessionId: form.sessionId,
     contact: {
       firstName: form.firstName,
       lastName: form.lastName,
-      email: form.email,
-      phone: form.phone,
+      email: contactEmail,
+      phone: contactPhone,
       dob: form.dob,
     },
     paymentMethod: pay.method,
