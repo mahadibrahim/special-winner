@@ -34,6 +34,7 @@ import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { derivePersonType } from "./derive-person-type";
 import { summarizePayments } from "./summarize-payments";
+import { computeOutstandingCents } from "./compute-outstanding";
 import { collectTodayForPerson } from "./collect-today";
 import type { PersonProfile, PersonFamilyMember } from "./person-types";
 
@@ -140,6 +141,9 @@ async function buildFamilyMemberProfile(
   const regRows = await db
     .select({
       registration: registrations,
+      paymentStatus: registrations.paymentStatus,
+      amountDueCents: registrations.amountDueCents,
+      amountPaidCents: registrations.amountPaidCents,
       season: {
         id: seasons.id,
         name: seasons.name,
@@ -176,7 +180,7 @@ async function buildFamilyMemberProfile(
     paid: r.registration.paymentStatus === "paid",
   }));
 
-  const paymentSummary = summarizePayments(
+  let paymentSummary = summarizePayments(
     paymentRows.map((p) => ({
       amountCents: p.amountCents,
       status: p.status,
@@ -184,6 +188,16 @@ async function buildFamilyMemberProfile(
       method: p.paymentType,
     })),
   );
+
+  // Override outstanding balance with true computation from registrations
+  const outstandingCents = computeOutstandingCents(
+    regRows.map((r) => ({
+      paymentStatus: r.paymentStatus,
+      amountDueCents: r.amountDueCents,
+      amountPaidCents: r.amountPaidCents,
+    })),
+  );
+  paymentSummary = { ...paymentSummary, outstandingCents };
 
   // ----- Consents ----------------------------------------------------------
   // Active = most-recent row per (familyMemberId, type) with status='granted'
@@ -258,12 +272,7 @@ async function buildFamilyMemberProfile(
   if (membership) {
     flags.push("has_membership");
   }
-  // NOTE (v1 simplification): outstandingCents reflects only failed/owed payment
-  // ROWS (status = "failed" | "owed"). It does NOT include registrations whose
-  // paymentStatus is "unpaid" or "deposit_paid" but have no charge row yet — so
-  // this can read $0 even when money is genuinely owed. Fix in a follow-up.
-  const outstandingBalance = paymentSummary.outstandingCents;
-  if (outstandingBalance > 0) {
+  if (outstandingCents > 0) {
     flags.push("outstanding_balance");
   }
 
@@ -347,23 +356,43 @@ async function buildUserProfile(
   // ----- Account-level billing (aggregate across all family registrations) --
   const familyMemberIds = fmRows.map((fm) => fm.id);
 
-  let allRegistrationIds: string[] = [];
+  let allRegistrations: {
+    id: string;
+    paymentStatus: string;
+    amountDueCents: number;
+    amountPaidCents: number;
+  }[] = [];
+
   if (familyMemberIds.length > 0) {
     const regRows = await db
-      .select({ id: registrations.id })
+      .select({
+        id: registrations.id,
+        paymentStatus: registrations.paymentStatus,
+        amountDueCents: registrations.amountDueCents,
+        amountPaidCents: registrations.amountPaidCents,
+      })
       .from(registrations)
       .where(inArray(registrations.familyMemberId, familyMemberIds));
-    allRegistrationIds = regRows.map((r) => r.id);
+    allRegistrations.push(...regRows);
   }
 
   // Also include the user's own registrations (adult self-registrant path).
   const selfRegRows = await db
-    .select({ id: registrations.id })
+    .select({
+      id: registrations.id,
+      paymentStatus: registrations.paymentStatus,
+      amountDueCents: registrations.amountDueCents,
+      amountPaidCents: registrations.amountPaidCents,
+    })
     .from(registrations)
     .where(eq(registrations.registeredByUserId, id));
-  const allIds = [
-    ...new Set([...allRegistrationIds, ...selfRegRows.map((r) => r.id)]),
-  ];
+  allRegistrations.push(...selfRegRows);
+
+  // Deduplicate by ID
+  const uniqueRegs = Array.from(
+    new Map(allRegistrations.map((r) => [r.id, r])).values(),
+  );
+  const allIds = uniqueRegs.map((r) => r.id);
 
   const paymentRows =
     allIds.length > 0
@@ -374,7 +403,7 @@ async function buildUserProfile(
           .orderBy(desc(payments.createdAt))
       : [];
 
-  const paymentSummary = summarizePayments(
+  let paymentSummary = summarizePayments(
     paymentRows.map((p) => ({
       amountCents: p.amountCents,
       status: p.status,
@@ -382,6 +411,12 @@ async function buildUserProfile(
       method: p.paymentType,
     })),
   );
+
+  // Override outstanding balance with true computation from registrations
+  paymentSummary = {
+    ...paymentSummary,
+    outstandingCents: computeOutstandingCents(uniqueRegs),
+  };
 
   // ----- Flags -------------------------------------------------------------
   const flags: string[] = [];
