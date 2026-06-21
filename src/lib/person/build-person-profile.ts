@@ -289,9 +289,13 @@ async function buildFamilyMemberProfile(
     today: await collectTodayForPerson(db, {
       familyMemberId: id,
       linkedUserId,
-      orgId,
       allowedLocationIds,
       todayUtc: new Date(),
+      // Adult-self: fm.selfUserId is set. Child (COPPA): fm.parentUserId is set.
+      // Only adult-self should have drop-in / field-rental items (those are
+      // keyed by userId and belong to the account holder, not a child).
+      isSelf: fm.selfUserId !== null,
+      personPhotoUrl: fm.photoUrl ?? null,
     }),
     registrations: personRegistrations,
     payments: paymentSummary,

@@ -19,11 +19,24 @@ import type { PersonTodayItem } from "./person-types";
 export interface CollectTodayOptions {
   familyMemberId: string;
   linkedUserId: string;
-  orgId: string;
   allowedLocationIds: string[];
   /** UTC midnight at the start of "today". Caller passes new Date() truncated
    *  to day-boundary; we also accept a raw Date and truncate internally. */
   todayUtc: Date;
+  /**
+   * True when the family_member IS the account holder (adult-self, i.e.
+   * selfUserId is set). False for COPPA children (parentUserId is set).
+   *
+   * Drop-in bookings and field rentals are keyed by userId (the adult's
+   * account), so surfacing them on a child's card would mis-attribute the
+   * parent's activity to every child. Only collect them for adult-self.
+   */
+  isSelf: boolean;
+  /**
+   * The photo URL for this person (family_member.photoUrl or user.avatarUrl).
+   * Used to derive hasPhoto on each emitted item.
+   */
+  personPhotoUrl?: string | null;
 }
 
 /** Format a UTC Date as HH:MM (24-hour). */
@@ -40,7 +53,8 @@ export async function collectTodayForPerson(
   db: Database,
   opts: CollectTodayOptions,
 ): Promise<PersonTodayItem[]> {
-  const { familyMemberId, linkedUserId, allowedLocationIds, todayUtc } = opts;
+  const { familyMemberId, linkedUserId, allowedLocationIds, todayUtc, isSelf, personPhotoUrl } = opts;
+  const hasPhoto = Boolean(personPhotoUrl);
 
   // UTC day bounds — same pattern as check-in/day.ts
   const dayStart = new Date(
@@ -55,10 +69,14 @@ export async function collectTodayForPerson(
   const items: PersonTodayItem[] = [];
 
   // ── 1. Drop-in bookings ───────────────────────────────────────────────────
+  // Only for adult-self: these are keyed by userId (the account holder).
+  // Surfacing them on a child's card would show the parent's activity on every
+  // child row (mis-attribution). Children get only roster_entry items below.
+  //
   // Scope: session's venue must be in an allowed location.
   // We need to resolve venueIds whose locationId is in allowedLocationIds.
   let allowedVenueIds: string[] = [];
-  if (allowedLocationIds.length > 0) {
+  if (isSelf && allowedLocationIds.length > 0) {
     const venueRows = await db
       .select({ id: venues.id })
       .from(venues)
@@ -66,7 +84,7 @@ export async function collectTodayForPerson(
     allowedVenueIds = venueRows.map((v) => v.id);
   }
 
-  if (allowedVenueIds.length > 0) {
+  if (isSelf && allowedVenueIds.length > 0) {
     const bookingRows = await db
       .select({
         bookingId: dropInBookings.id,
@@ -99,7 +117,7 @@ export async function collectTodayForPerson(
         title: row.title,
         timeLabel: timeLabel(row.startsAt, row.endsAt),
         waiverSigned: row.waiverSigned,
-        hasPhoto: false, // drop-in bookings are on the user account; no per-booking photo
+        hasPhoto,
         paid: row.amountPaidCents > 0,
         checkedIn: row.checkedInAt !== null,
       });
@@ -107,9 +125,10 @@ export async function collectTodayForPerson(
   }
 
   // ── 2. Field rentals ──────────────────────────────────────────────────────
+  // Only for adult-self (same reasoning as drop-in bookings above).
   // Scope: rental's venue must be in an allowed location.
   // Only confirmed/completed rentals (not pending_payment, cancelled, no_show).
-  if (allowedVenueIds.length > 0) {
+  if (isSelf && allowedVenueIds.length > 0) {
     const rentalRows = await db
       .select({
         rentalId: fieldRentals.id,
@@ -140,7 +159,7 @@ export async function collectTodayForPerson(
         title: `Field Rental — ${row.renterName}`,
         timeLabel: timeLabel(row.startsAt, row.endsAt),
         waiverSigned: row.waiverSigned,
-        hasPhoto: false,
+        hasPhoto,
         paid: row.paymentStatus === "paid",
         checkedIn: row.checkedInAt !== null,
       });
@@ -237,7 +256,7 @@ export async function collectTodayForPerson(
           title: `${homeName} vs ${awayName}`,
           timeLabel: timeLabel(game.scheduledAt, endsAt),
           waiverSigned: true, // rostered players signed waiver at registration
-          hasPhoto: false,
+          hasPhoto,
           paid: true, // registration payment is handled separately
           checkedIn: false, // not tracked
         });

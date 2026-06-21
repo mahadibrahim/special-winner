@@ -16,7 +16,7 @@ const personAs = (Astro.url.searchParams.get("as") ?? "family_member") as "famil
   <AdminLayout
     client:load
     role={primaryRole}
-    currentPath="/admin/people"
+    currentPath="/admin/venue"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
     <PersonDetail client:load personId={personId} personAs={personAs} />

@@ -76,10 +76,10 @@ export function PersonDetail({ personId, personAs }: Props) {
     <div className="max-w-3xl mx-auto px-4 py-8">
       {/* Back link */}
       <a
-        href="/admin/people"
+        href="/admin/venue"
         className="inline-flex items-center gap-1 text-[13px] text-[#8a8175] hover:text-[#1c1a17] mb-6 font-[600] no-underline transition-colors"
       >
-        ← People
+        ← Back to command center
       </a>
 
       {/* Profile card */}

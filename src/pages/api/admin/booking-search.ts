@@ -13,7 +13,7 @@
  * unauthenticated or non-admin.
  */
 import type { APIRoute } from "astro";
-import { and, eq, gte, ilike, inArray, lt, or } from "drizzle-orm";
+import { and, asc, eq, gte, ilike, inArray, lt, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
@@ -59,7 +59,8 @@ export const GET: APIRoute = async (context) => {
       const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
-        .where(eq(locations.organizationId, orgContext.organizationId));
+        .where(eq(locations.organizationId, orgContext.organizationId))
+        .orderBy(asc(locations.createdAt));
       allowedLocationIds = orgLocations.map((l) => l.id);
     } else if (effectiveIds.length === 0) {
       return json({ results: [] }, 200);

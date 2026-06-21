@@ -14,6 +14,7 @@
  */
 
 import { useRef, useState } from "react";
+import { Camera } from "lucide-react";
 import { toast } from "sonner";
 import type {
   PersonProfile,
@@ -156,9 +157,11 @@ export function PersonHeader({ profile, personAs, onPhotoUploaded }: PersonHeade
         onPhotoUploaded?.(url);
       } else {
         console.error("[PersonHeader] photo upload failed", res.status);
+        toast.error("Couldn't upload photo");
       }
     } catch (err) {
       console.error("[PersonHeader] photo upload error", err);
+      toast.error("Couldn't upload photo");
     } finally {
       setUploading(false);
     }
@@ -199,11 +202,15 @@ export function PersonHeader({ profile, personAs, onPhotoUploaded }: PersonHeade
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
             className={cn(
-              "absolute -right-1 -bottom-1 w-[22px] h-[22px] rounded-full border-2 border-[#fffdf8] bg-[#1c1a17] text-[#fffdf8] flex items-center justify-center text-[11px] cursor-pointer transition-opacity",
+              "absolute -right-1 -bottom-1 w-[22px] h-[22px] rounded-full border-2 border-[#fffdf8] bg-[#1c1a17] text-[#fffdf8] flex items-center justify-center cursor-pointer transition-opacity",
               uploading && "opacity-50 cursor-not-allowed",
             )}
           >
-            {uploading ? "…" : "📷"}
+            {uploading ? (
+              <span className="text-[11px]">…</span>
+            ) : (
+              <Camera size={11} strokeWidth={2.5} />
+            )}
           </button>
         </div>
 
