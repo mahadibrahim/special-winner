@@ -15,6 +15,16 @@ describe("GET /api/admin/person/[id]", () => {
     expect(profile.contact).toBeTruthy();
     expect(Array.isArray(profile.registrations)).toBe(true);
     expect(profile.payments).toHaveProperty("totalPaidCents");
+    // today shape — assert on each item when present
+    expect(Array.isArray(profile.today)).toBe(true);
+    if (profile.today.length > 0) {
+      const validKinds = ["drop_in_booking", "field_rental", "roster_entry"];
+      for (const item of profile.today) {
+        expect(validKinds).toContain(item.kind);
+        expect(typeof item.targetId).toBe("string");
+        expect(typeof item.canCheckIn).toBe("boolean");
+      }
+    }
   });
 
   it("returns a type-discriminated profile for a user", async () => {

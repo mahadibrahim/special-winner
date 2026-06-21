@@ -34,6 +34,7 @@ import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { derivePersonType } from "./derive-person-type";
 import { summarizePayments } from "./summarize-payments";
+import { collectTodayForPerson } from "./collect-today";
 import type { PersonProfile, PersonFamilyMember } from "./person-types";
 
 // ---------------------------------------------------------------------------
@@ -275,7 +276,13 @@ async function buildFamilyMemberProfile(
     birthDate: fm.birthDate,
     contact,
     flags,
-    today: [], // NOTE: best-effort v1 — check-in roster join deferred to a later task
+    today: await collectTodayForPerson(db, {
+      familyMemberId: id,
+      linkedUserId,
+      orgId,
+      allowedLocationIds,
+      todayUtc: new Date(),
+    }),
     registrations: personRegistrations,
     payments: paymentSummary,
     membership,
