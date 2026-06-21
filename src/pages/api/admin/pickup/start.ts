@@ -23,11 +23,10 @@
  */
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { requireAdminAccess } from "@/lib/auth/roles";
 import { venueResources } from "@/lib/db/schema/scheduling";
-import { venues } from "@/lib/db/schema/teams";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { createPickupSession } from "@/lib/venue/create-pickup-session";
 import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
@@ -82,14 +81,8 @@ export const POST: APIRoute = async (context) => {
 
   // Tenant guard: venue must belong to a location in the caller's org.
   // callerCanActOnVenue handles both super-admin (unscoped) and venue-manager
-  // (location-scoped) — returning false means the venue is not in scope.
-  const [venue] = await db
-    .select({ id: venues.id })
-    .from(venues)
-    .where(eq(venues.id, space.venueId))
-    .limit(1);
-  if (!venue) return json({ error: "Venue not found" }, 404);
-
+  // (location-scoped) — returning false means the venue is not in scope
+  // (including non-existent venues).
   if (!(await callerCanActOnVenue(context, space.venueId))) {
     return json({ error: "Space not found" }, 404);
   }

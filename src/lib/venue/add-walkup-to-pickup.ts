@@ -24,10 +24,11 @@
  *   collected, we use the sentinel "1900-01-01". This is consistent with how
  *   pickup mode treats adults: no age verification at the door.
  */
-import { and, eq, sql } from "drizzle-orm";
+import { asc, and, eq, sql } from "drizzle-orm";
 import type { getDb } from "@/lib/db";
-import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
+import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { normalizePhone } from "@/lib/venue/normalize-phone";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { mintToken } from "@/lib/check-in/tokens-db";
@@ -79,17 +80,31 @@ export async function addWalkUpToPickup(
   const stubEmail = `phone-${normalizedDigits}@stub.aspiresports.com`;
 
   // ---- 1. Find or create user ----------------------------------------
-  // First: try to match by normalized phone (strip non-digits on both sides).
-  // We search with a SQL expression to normalize the stored value at query time.
+  // Phone match is scoped to users already associated with THIS org via
+  // userOrganizationAccess. This prevents cross-org user reuse: a phone
+  // registered only at another org won't be attached here. The join +
+  // orderBy(createdAt) satisfies the multi-tenant determinism rule
+  // (shared CI DB may have multiple matching rows without an order).
+  //
+  // When we create a new stub, we also insert a userOrganizationAccess row
+  // (role "parent") so the NEXT walk-up with the same phone dedupes in-org.
   let userId: string;
   let userPhone: string | null;
 
   const [byPhone] = await db
     .select({ id: users.id, phone: users.phone })
     .from(users)
+    .innerJoin(
+      userOrganizationAccess,
+      and(
+        eq(userOrganizationAccess.userId, users.id),
+        eq(userOrganizationAccess.organizationId, orgId),
+      ),
+    )
     .where(
       sql`regexp_replace(${users.phone}, '[^0-9]', '', 'g') = ${normalizedDigits}`,
     )
+    .orderBy(asc(users.createdAt))
     .limit(1);
 
   if (byPhone) {
@@ -115,15 +130,27 @@ export async function addWalkUpToPickup(
       userId = inserted[0].id;
       userPhone = inserted[0].phone;
     } else {
-      // Conflict raced — fetch the existing stub row by email.
-      const [existing] = await db
+      // Conflict raced — fetch the existing stub row by email (globally unique).
+      const [existingStub] = await db
         .select({ id: users.id, phone: users.phone })
         .from(users)
         .where(eq(users.email, stubEmail))
         .limit(1);
-      userId = existing.id;
-      userPhone = existing.phone;
+      userId = existingStub.id;
+      userPhone = existingStub.phone;
     }
+
+    // Associate the stub (or race-winner) with this org so the next walk-up
+    // with the same phone dedupes via the in-org phone lookup above.
+    await db
+      .insert(userOrganizationAccess)
+      .values({
+        userId,
+        organizationId: orgId,
+        role: "parent",
+        active: true,
+      })
+      .onConflictDoNothing();
   }
 
   // ---- 2. Ensure family_members row (self path) ----------------------
@@ -138,7 +165,7 @@ export async function addWalkUpToPickup(
   });
 
   // ---- 3. Dedupe: return existing confirmed booking if present --------
-  const [existing] = await db
+  const [existingBooking] = await db
     .select({ id: dropInBookings.id })
     .from(dropInBookings)
     .where(
@@ -152,10 +179,10 @@ export async function addWalkUpToPickup(
 
   const personName = `${firstName} ${lastName}`.trim();
 
-  if (existing) {
+  if (existingBooking) {
     // Already added — return idempotently without re-sending link.
     return {
-      bookingId: existing.id,
+      bookingId: existingBooking.id,
       personName,
       userId,
       linkResult: { sent: false },
