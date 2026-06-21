@@ -61,6 +61,8 @@ export interface PersonProfile {
   name: string;
   age: number | null;
   birthDate: string | null;
+  /** Current photo URL (family_member.photoUrl or users.avatarUrl). Null if none on file. */
+  photoUrl: string | null;
   contact: PersonContact;
   flags: string[];
   today: PersonTodayItem[];

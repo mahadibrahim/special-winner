@@ -283,6 +283,7 @@ async function buildFamilyMemberProfile(
     name: `${fm.firstName} ${fm.lastName}`,
     age: ageFromBirthDate(fm.birthDate),
     birthDate: fm.birthDate,
+    photoUrl: fm.photoUrl ?? null,
     contact,
     flags,
     today: await collectTodayForPerson(db, {
@@ -319,6 +320,7 @@ async function buildUserProfile(
       lastName: users.lastName,
       phone: users.phone,
       birthDate: users.birthDate,
+      avatarUrl: users.avatarUrl,
     })
     .from(users)
     .where(eq(users.id, id));
@@ -431,6 +433,7 @@ async function buildUserProfile(
     name: contact.name,
     age: ageFromBirthDate(user.birthDate ?? null),
     birthDate: user.birthDate ?? null,
+    photoUrl: user.avatarUrl ?? null,
     contact,
     flags,
     today: [], // NOTE: best-effort v1 — deferred

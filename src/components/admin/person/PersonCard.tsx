@@ -14,7 +14,7 @@
  * Error   → ErrorBanner inside the sheet.
  */
 
-import { useState } from "react";
+import React from "react";
 import {
   Sheet,
   SheetContent,
@@ -64,9 +64,9 @@ const TYPE_ACCENT: Record<PersonType, string> = {
 export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
   const { data: profile, isLoading, error } = usePerson(target);
 
-  // Photo upload: the PersonHeader passes this up; we hold the override locally
-  // so the card doesn't need to re-fetch just because a photo was added.
-  const [_photoOverride, setPhotoOverride] = useState<string | null>(null);
+  // Photo upload: PersonHeader manages local photoUrl state internally;
+  // we receive the callback here in case callers need to react to the change.
+  // (Currently unused at the card level — the header updates itself immediately.)
 
   const isOpen = target !== null;
 
@@ -215,7 +215,7 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
             {/* Header */}
             <PersonHeader
               profile={profile}
-              onPhotoUploaded={(url) => setPhotoOverride(url)}
+              personAs={target!.as}
             />
 
             {/* Scrollable body */}

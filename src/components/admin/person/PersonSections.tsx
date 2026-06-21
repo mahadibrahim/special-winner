@@ -13,6 +13,7 @@
  *   FamilySection      — family roster rows (parent view)
  */
 
+import { useRef, useState } from "react";
 import type {
   PersonProfile,
   PersonType,
@@ -21,7 +22,6 @@ import type {
   PersonPaymentsSummary,
   PersonFamilyMember,
 } from "@/lib/person/person-types";
-import { AvatarUploader } from "@/components/admin/check-in/AvatarUploader";
 import { cn } from "@/lib/utils";
 
 // ─── Design tokens (editorial cream/ink) ─────────────────────────────────────
@@ -120,38 +120,89 @@ function SectionShell({
 
 interface PersonHeaderProps {
   profile: PersonProfile;
+  /** `as` param passed to the photo endpoint — determines upload target kind. */
+  personAs: "family_member" | "user";
   onPhotoUploaded?: (url: string) => void;
 }
 
-export function PersonHeader({ profile, onPhotoUploaded }: PersonHeaderProps) {
+export function PersonHeader({ profile, personAs, onPhotoUploaded }: PersonHeaderProps) {
   const accent = accentColor(profile.type);
   const contact = profile.contact;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Local photo URL — initialised from profile, updated immediately after upload.
+  const [photoUrl, setPhotoUrl] = useState<string | null>(profile.photoUrl ?? null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset the input so the same file can be re-selected after a failure.
+    e.target.value = "";
+
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(
+        `/api/admin/person/${profile.id}/photo?as=${personAs}`,
+        { method: "POST", body: form },
+      );
+      if (res.ok) {
+        const { url } = (await res.json()) as { url: string };
+        setPhotoUrl(url);
+        onPhotoUploaded?.(url);
+      } else {
+        console.error("[PersonHeader] photo upload failed", res.status);
+      }
+    } catch (err) {
+      console.error("[PersonHeader] photo upload error", err);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div className="px-[18px] py-[16px] border-b border-[#e4ddcf] relative">
       {/* Top: avatar + name block */}
       <div className="flex gap-[13px]">
-        {/* Avatar with camera badge via AvatarUploader — but the uploader
-            doesn't show a colored avatar. We wrap it to keep the colored
-            circle when there's no photo. */}
+        {/* Avatar: shows photo when present, colored-initials circle otherwise */}
         <div className="relative flex-shrink-0">
           <div
-            className="w-14 h-14 rounded-full flex items-center justify-center font-[800] text-xl text-white"
+            className="w-14 h-14 rounded-full flex items-center justify-center font-[800] text-xl text-white overflow-hidden"
             style={{ background: accent }}
           >
-            {initials(profile.name)}
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={profile.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              initials(profile.name)
+            )}
           </div>
-          {/* Camera overlay button using AvatarUploader's inner logic.
-              We use AvatarUploader in a minimal wrapper for the family_member kind. */}
-          <div className="absolute -right-1 -bottom-1">
-            <AvatarUploader
-              kind="roster_entry"
-              targetId={profile.id}
-              photoUrl={null}
-              name={profile.name}
-              onUploaded={onPhotoUploaded}
-            />
-          </div>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            className="sr-only"
+            onChange={handleFileChange}
+          />
+          {/* Camera badge button */}
+          <button
+            type="button"
+            aria-label="Upload photo"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "absolute -right-1 -bottom-1 w-[22px] h-[22px] rounded-full border-2 border-[#fffdf8] bg-[#1c1a17] text-[#fffdf8] flex items-center justify-center text-[11px] cursor-pointer transition-opacity",
+              uploading && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            {uploading ? "…" : "📷"}
+          </button>
         </div>
 
         <div className="min-w-0">
