@@ -20,7 +20,7 @@
  *   PersonCard family row → onOpenPerson → re-targets the PersonCard.
  *   CommandSearchBar → onWalkIn → stub (walk-in requires a session; use the open-slot
  *     rows in ActivityDetailPanel, or open a session first from the calendar).
- *   CommandSearchBar → onFindBooking → stub (no find-booking flow yet; fast-follow).
+ *   CommandSearchBar → onFindBooking → opens FindBookingPanel (today's confirmed bookings search).
  *   Clicking a calendar ActivityBlock / NowStrip card → open ActivityDetailPanel.
  *   Walk-ins are started from the ActivityDetailPanel's roster panel (open-slot
  *   "+ add walk-in" rows), not from a direct calendar cell click.
@@ -30,7 +30,6 @@
  */
 
 import { useState, useCallback } from "react"
-import { toast } from "sonner"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -45,6 +44,7 @@ import { ActivityDetailPanel } from "./ActivityDetailPanel"
 import { CommandSearchBar } from "./CommandSearchBar"
 import { PersonCard, type PersonCardTarget } from "@/components/admin/person/PersonCard"
 import { WalkInSessionPicker } from "./WalkInSessionPicker"
+import { FindBookingPanel } from "./FindBookingPanel"
 import type { VenueAttentionItem, VenueTodaySession } from "@/lib/venue/today-types"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -126,6 +126,9 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
   // ── Walk-in session picker state ───────────────────────────────────────────
   const [walkInPickerOpen, setWalkInPickerOpen] = useState(false)
 
+  // ── Find-booking panel state ───────────────────────────────────────────────
+  const [findBookingOpen, setFindBookingOpen] = useState(false)
+
   // ── PersonCard state ───────────────────────────────────────────────────────
   const [personTarget, setPersonTarget] = useState<PersonCardTarget | null>(null)
 
@@ -144,13 +147,9 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
     setWalkInPickerOpen(true)
   }, [])
 
-  // ── Find-booking stub ──────────────────────────────────────────────────────
-  // No "find booking" flow exists yet. Stub that's clearly labeled for the
-  // fast-follow. Tracked as a concern in task-7-report.md.
+  // ── Find-booking handler ───────────────────────────────────────────────────
   const handleFindBooking = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.warn("[VenueCommandCenter] Find booking: no flow implemented yet.")
-    toast.info("Find booking is not yet implemented. Coming soon.")
+    setFindBookingOpen(true)
   }, [])
 
   // ── Attention action handler ────────────────────────────────────────────────
@@ -362,6 +361,11 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
           locationId={locationId}
           onClose={() => setWalkInPickerOpen(false)}
         />
+      )}
+
+      {/* ── Find booking panel (sheet) ──────────────────────────────────────── */}
+      {findBookingOpen && (
+        <FindBookingPanel onClose={() => setFindBookingOpen(false)} />
       )}
     </div>
   )
