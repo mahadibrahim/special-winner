@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { conversations } from "@/lib/db/schema/conversations";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 
 /**
  * POST /api/messaging/conversations/:id/archive
@@ -15,14 +15,13 @@ import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth/roles
 export const POST: APIRoute = async (context) => {
   const { params } = context;
 
-  // Staff-only management action. Require an admin role AND pin the conversation
-  // to the caller's resolved organization. A bare `locals.user` check (the
-  // previous behaviour) let any authenticated user archive any org's
-  // conversation — hiding active threads from staff org-wide.
-  const auth = await requireAdminAccess(context);
+  // Staff-only management action. Require an admin OF THIS ORG, then pin the
+  // conversation to that org. The original bare `locals.user` check let any
+  // authenticated user archive any org's conversation (hiding active threads
+  // from staff org-wide); requireOrgAdminAccess also blocks an admin of a
+  // different org.
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const conversationId = params.id;
   if (!conversationId) {
@@ -39,7 +38,7 @@ export const POST: APIRoute = async (context) => {
     .where(eq(conversations.id, conversationId))
     .limit(1);
 
-  if (!conversation || conversation.organizationId !== orgContext.organizationId) {
+  if (!conversation || conversation.organizationId !== auth.organizationId) {
     return json({ error: "Conversation not found" }, 404);
   }
 

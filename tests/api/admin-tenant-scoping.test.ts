@@ -586,6 +586,19 @@ describe("messaging management: authz + tenant isolation", () => {
       // Confirms the endpoint pins to org context instead of blindly writing.
       expect(res.status).toBe(404);
     });
+
+    it(`${ep.name}: admin of a DIFFERENT org → 403 (org-scoped admin)`, async () => {
+      // adminB is a location_admin scoped to Org B. Hitting Org A's context
+      // (localhost), requireOrgAdminAccess must reject them at the role gate —
+      // a global admin check would have let them through to the org pin. This
+      // is the org-scoped-admin guarantee (isAdminForOrg).
+      const res = await orgA(ep.path, {
+        method: "POST",
+        cookie: adminBCookie,
+        body: ep.body ? JSON.stringify(ep.body) : undefined,
+      });
+      expect(res.status).toBe(403);
+    });
   }
 });
 

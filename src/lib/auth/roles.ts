@@ -406,3 +406,85 @@ export async function requireOrganizationContext(context: APIContext): Promise<
 
   return { hasOrganization: true, organizationId };
 }
+
+/**
+ * Org-scoped admin check.
+ *
+ * `validateAdminAccess`/`isAdmin` are org-INDEPENDENT: they return true if the
+ * user holds an admin role in ANY organization. That is the right primitive
+ * for "is this person staff at all", but on its own it does NOT establish that
+ * the caller administers the *specific* org a request is scoped to — which is
+ * why admin endpoints must additionally pin every resource to the resolved org.
+ *
+ * This helper closes that gap at the role layer: it returns true only when the
+ * user administers `organizationId`:
+ *   - a platform `super_admin` (global scope) administers every org, OR
+ *   - a `super_admin`/`location_admin` role scoped to this organization.
+ *
+ * Admin roles in this codebase are stored at `scopeType: "organization"`
+ * (location/media roles use `scopeType: "location"`); see the role seed. A
+ * location-scoped admin role is not a pattern used here, so it is intentionally
+ * not granted org authority without an explicit location→org resolution.
+ */
+export function isAdminForOrg(
+  roles: UserRole[],
+  organizationId: string | null,
+): boolean {
+  return roles.some((role) => {
+    if (role.name !== "super_admin" && role.name !== "location_admin") {
+      return false;
+    }
+    // Platform-wide super admin administers every organization.
+    if (role.name === "super_admin" && role.scopeType === "global") {
+      return true;
+    }
+    if (!organizationId) return false;
+    return role.scopeType === "organization" && role.scopeId === organizationId;
+  });
+}
+
+/**
+ * Require that the caller is an admin OF THE RESOLVED ORGANIZATION.
+ *
+ * Composes the existing primitives into the org-aware guard new endpoints
+ * should prefer over `requireAdminAccess` (global) + a manual org pin:
+ *   1. `requireAdminAccess` — authenticated AND holds some admin role (401/403)
+ *   2. `requireOrganizationContext` — a host/context org is resolved (400)
+ *   3. `isAdminForOrg` — that admin role actually covers THIS org (403)
+ *
+ * Returns the resolved `organizationId` so the caller can pin resources to it.
+ */
+export async function requireOrgAdminAccess(context: APIContext): Promise<
+  | { authorized: false; response: Response }
+  | {
+      authorized: true;
+      user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>;
+      roles: UserRole[];
+      organizationId: string;
+    }
+> {
+  const adminResult = await requireAdminAccess(context);
+  if (!adminResult.authorized) return adminResult;
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) {
+    return { authorized: false, response: orgContext.response };
+  }
+
+  if (!isAdminForOrg(adminResult.roles, orgContext.organizationId)) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: not an admin of this organization" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      ),
+    };
+  }
+
+  return {
+    authorized: true,
+    user: adminResult.user,
+    roles: adminResult.roles,
+    organizationId: orgContext.organizationId,
+  };
+}

@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { botActionsLog } from "@/lib/db/schema/conversations";
 import { attendance } from "@/lib/db/schema/teams";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { findRosterForKidAndGame } from "@/lib/bot/actions/rsvp";
 
 /**
@@ -21,12 +21,11 @@ import { findRosterForKidAndGame } from "@/lib/bot/actions/rsvp";
 export const POST: APIRoute = async (context) => {
   const { params } = context;
 
-  // Admin-only, org-pinned. The previous bare `locals.user` check let any
-  // authenticated user (even a parent) reverse any org's bot action.
-  const auth = await requireAdminAccess(context);
+  // Admin-of-this-org only, then org-pinned. The original bare `locals.user`
+  // check let any authenticated user (even a parent) reverse any org's bot
+  // action; requireOrgAdminAccess also blocks an admin of a different org.
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const actionId = params.id;
   if (!actionId) {
@@ -40,7 +39,7 @@ export const POST: APIRoute = async (context) => {
     .where(eq(botActionsLog.id, actionId))
     .limit(1);
 
-  if (!action || action.organizationId !== orgContext.organizationId) {
+  if (!action || action.organizationId !== auth.organizationId) {
     // 404 on a cross-org or missing id — don't disclose another tenant's action.
     return json({ error: "Action not found" }, 404);
   }
