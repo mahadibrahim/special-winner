@@ -66,6 +66,11 @@ export const POST: APIRoute = async (context) => {
   const sessionId = context.params.id;
   if (!sessionId) return json({ error: "session id required" }, 400);
 
+  // Org context is required for tenant scoping (nullable on unresolved hosts).
+  // Fail fast so the ownership comparison below can never be skipped.
+  const org = context.locals.organization;
+  if (!org) return json({ error: "Organization context required" }, 400);
+
   let body: { userId?: string; newAccount?: NewAccount };
   try {
     body = await context.request.json();
@@ -81,10 +86,7 @@ export const POST: APIRoute = async (context) => {
     .limit(1);
   if (!session) return json({ error: "Session not found" }, 404);
 
-  if (
-    context.locals.organization &&
-    session.organizationId !== context.locals.organization.id
-  ) {
+  if (session.organizationId !== org.id) {
     return json({ error: "Forbidden" }, 403);
   }
 

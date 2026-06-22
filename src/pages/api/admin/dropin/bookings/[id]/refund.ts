@@ -27,6 +27,12 @@ export const POST: APIRoute = async (context) => {
   const id = context.params.id;
   if (!id) return json({ error: "Booking id required" }, 400);
 
+  // Org context is required for tenant scoping. It is legitimately nullable
+  // (unresolved host, or a swallowed resolution failure in middleware) — fail
+  // fast so the ownership comparison below can never be skipped.
+  const org = context.locals.organization;
+  if (!org) return json({ error: "Organization context required" }, 400);
+
   let body: { reason?: string } = {};
   try {
     if (context.request.headers.get("content-length")) {
@@ -51,10 +57,7 @@ export const POST: APIRoute = async (context) => {
     .where(eq(dropInBookings.id, id))
     .limit(1);
   if (!row) return json({ error: "Booking not found" }, 404);
-  if (
-    context.locals.organization &&
-    row.organizationId !== context.locals.organization.id
-  ) {
+  if (row.organizationId !== org.id) {
     return json({ error: "Forbidden" }, 403);
   }
 
