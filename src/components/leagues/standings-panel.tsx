@@ -92,8 +92,8 @@ export function StandingsPanel({ divisions, weekStart, term }: { divisions: Divi
 
       {hasTable && data && (
         <div className="grid lg:grid-cols-[1.65fr_1fr] gap-7 items-start">
-          <div>
-            <table className="w-full text-[13px] border-collapse" data-testid="standings-table">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[460px] text-[13px] border-collapse" data-testid="standings-table">
               <thead>
                 <tr className="text-ink-muted">
                   {["#", "Team", "P", "W", ...(allowDraws ? ["D"] : []), "L", "GF", "GA", "GD", "Pts"].map((h) => (

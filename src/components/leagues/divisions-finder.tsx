@@ -87,7 +87,7 @@ export function DivisionsFinder({ divisions, venues, term }: {
       ) : (
         <div className="border-t border-cream-3" data-testid="division-rows">
           {results.map((d) => (
-            <div key={d.id} className="grid grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] items-center gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
+            <div key={d.id} className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
               <Bars filled={BARS_FOR[d.level]} className={TIER_TEXT[d.level]} />
               <div>
                 <div className="font-display font-semibold text-base">{d.name}</div>
@@ -100,7 +100,7 @@ export function DivisionsFinder({ divisions, venues, term }: {
               <div className={cn("font-mono text-[11px] font-semibold", d.status === "forming" ? "text-ochre" : "text-sage")}>{d.spotsLabel}</div>
               <a href={registerHref(d)}
                  onClick={() => trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode: registerMode(d), term })}
-                 className={cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap",
+                 className={cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left mt-1.5 sm:mt-0",
                    d.status === "forming" ? "text-primary border border-primary" : "text-cream bg-primary")}>
                 {d.status === "forming" ? "Notify me" : "Register →"}
               </a>
