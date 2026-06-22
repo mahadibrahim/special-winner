@@ -12,6 +12,7 @@
 import type { APIRoute } from "astro";
 import { expireOverduePromotions } from "@/lib/dropin/promotion";
 import { captureServerException } from "@/lib/observability/server-error";
+import { warmDbConnection } from "@/lib/db/retry";
 
 export const prerender = false;
 
@@ -37,6 +38,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
+    // Warm the DB connection (with retry) before any work — rides out the
+    // transient Railway CONNECT_TIMEOUT blips that otherwise fail the run.
+    await warmDbConnection();
     const startedAt = Date.now();
     const result = await expireOverduePromotions();
     const elapsedMs = Date.now() - startedAt;
