@@ -35,7 +35,7 @@ import { users } from "@/lib/db/schema/users";
 type UserGender = "male" | "female" | "non_binary" | "prefer_not_to_say";
 import { venues } from "@/lib/db/schema/teams";
 import { stripe } from "@/lib/stripe/client";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { resolveRate } from "@/lib/dropin/pricing";
 import {
@@ -60,16 +60,12 @@ interface NewAccount {
 }
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
+  const orgId = auth.organizationId;
 
   const sessionId = context.params.id;
   if (!sessionId) return json({ error: "session id required" }, 400);
-
-  // Org context is required for tenant scoping (nullable on unresolved hosts).
-  // Fail fast so the ownership comparison below can never be skipped.
-  const org = context.locals.organization;
-  if (!org) return json({ error: "Organization context required" }, 400);
 
   let body: { userId?: string; newAccount?: NewAccount };
   try {
@@ -86,7 +82,7 @@ export const POST: APIRoute = async (context) => {
     .limit(1);
   if (!session) return json({ error: "Session not found" }, 404);
 
-  if (session.organizationId !== org.id) {
+  if (session.organizationId !== orgId) {
     return json({ error: "Forbidden" }, 403);
   }
 

@@ -19,7 +19,7 @@ import { venueResources } from "@/lib/db/schema/scheduling";
 import { BlockConflictError, removeSourceBlock } from "@/lib/scheduling/blocks";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
 export const prerender = false;
@@ -59,10 +59,9 @@ async function loadScoped(context: APIContext, sessionId: string, orgId: string)
 }
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
 
@@ -131,10 +130,9 @@ interface PutBody {
 }
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
 
@@ -221,10 +219,9 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
 

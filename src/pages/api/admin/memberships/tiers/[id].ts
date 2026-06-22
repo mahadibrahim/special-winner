@@ -7,7 +7,7 @@ import type { APIRoute } from "astro";
 import { eq, and, count } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { membershipTiers, memberships } from "@/lib/db/schema/memberships";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { tierInputSchema, dollarsToCents } from "@/lib/memberships/tier-units";
 import { applyTierStripeEdits } from "@/lib/memberships/admin-stripe";
 
@@ -25,20 +25,18 @@ async function loadOwned(orgId: string, id: string) {
 }
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const tier = await loadOwned(orgId, context.params.id!);
   if (!tier) return json({ error: "Tier not found" }, 404);
   return json({ tier }, 200);
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const existing = await loadOwned(orgId, context.params.id!);
   if (!existing) return json({ error: "Tier not found" }, 404);
@@ -92,10 +90,9 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const existing = await loadOwned(orgId, context.params.id!);
   if (!existing) return json({ error: "Tier not found" }, 404);

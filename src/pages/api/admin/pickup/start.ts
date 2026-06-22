@@ -25,7 +25,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { venueResources } from "@/lib/db/schema/scheduling";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { createPickupSession } from "@/lib/venue/create-pickup-session";
@@ -49,11 +49,10 @@ const StartBody = z.object({
 });
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   // Parse + validate body.
   let raw: unknown;

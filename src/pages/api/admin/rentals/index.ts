@@ -13,7 +13,7 @@ import { and, eq, gte, lte, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals, fieldRentalRateCard } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import {
   requireSameOrgVenue,
   ownershipDeniedResponse,
@@ -35,10 +35,9 @@ const json = (body: unknown, status: number) =>
   });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const url = context.url;
   const venueId = url.searchParams.get("venueId");
@@ -98,10 +97,9 @@ export const GET: APIRoute = async (context) => {
 // in their assigned locations (super-admin is unscoped). Enforced after the
 // org-ownership guard below via callerCanActOnVenue.
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   let body: Record<string, unknown>;
   try {

@@ -13,7 +13,7 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues, games, rosters, teams } from "@/lib/db/schema/teams";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { requireSameOrgGame } from "@/lib/auth/require-resource-ownership";
 import { formatPhone } from "@/lib/phone";
 
@@ -25,10 +25,9 @@ const json = (b: unknown, s: number) =>
   });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const kind = context.url.searchParams.get("kind");
   const id = context.url.searchParams.get("id");

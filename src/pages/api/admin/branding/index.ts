@@ -6,7 +6,7 @@ import type { APIRoute } from "astro";
 import { eq, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { brandProfiles } from "@/lib/db/schema/drop-in";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import {
   validateBrandProfilePut,
   type BrandProfilePutBody,
@@ -21,10 +21,9 @@ const json = (body: unknown, status: number) =>
   });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const db = getDb();
   const rows = await db
@@ -37,10 +36,9 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   let body: BrandProfilePutBody;
   try {

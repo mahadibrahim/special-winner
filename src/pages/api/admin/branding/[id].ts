@@ -9,7 +9,7 @@ import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { brandProfiles } from "@/lib/db/schema/drop-in";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import {
   validateBrandProfilePut,
   type BrandProfilePutBody,
@@ -39,10 +39,9 @@ async function loadOrgScoped(id: string, orgId: string) {
 }
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const id = context.params.id;
   if (!id) return json({ error: "id required" }, 400);
 
@@ -52,10 +51,9 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const id = context.params.id;
   if (!id) return json({ error: "id required" }, 400);
 
@@ -96,10 +94,9 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const id = context.params.id;
   if (!id) return json({ error: "id required" }, 400);
 

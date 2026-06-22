@@ -18,7 +18,7 @@ import { getDb } from "@/lib/db";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
 import { BlockConflictError } from "@/lib/scheduling/blocks";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
 export const prerender = false;
@@ -33,10 +33,9 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_COPIES = 26;
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
