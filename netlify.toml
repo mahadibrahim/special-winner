@@ -64,6 +64,23 @@
     Cache-Control = "public, max-age=86400"
 
 # ============================================================
+# SECURITY HEADERS
+# ============================================================
+# Applied to every response. The two enforced headers are zero-risk
+# hardening. The CSP is intentionally REPORT-ONLY: it never blocks a
+# request, so it cannot break the site — it surfaces violations (in the
+# browser console / a future report-uri) so the policy can be tightened
+# and promoted to an enforcing `Content-Security-Policy` once the real
+# source list is confirmed. Tighten `img-src`/`connect-src` and flip the
+# header name to enforce as a follow-up.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy-Report-Only = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://challenges.cloudflare.com https://upload-widget.cloudinary.com; connect-src 'self' https://api.stripe.com https://*.google-analytics.com https://*.googletagmanager.com https://api.cloudinary.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://upload-widget.cloudinary.com"
+
+# ============================================================
 # POSTHOG REVERSE PROXY
 # ============================================================
 # Serve PostHog ingestion first-party through /ingest/* so content/tracker

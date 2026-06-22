@@ -4,9 +4,13 @@ import { familyMembers } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { deleteImage, extractPublicId, isStorageConfigured } from "@/lib/storage";
+import { isAllowedPhotoUrl } from "@/lib/storage/photo-url";
 
 const updatePhotoSchema = z.object({
-  photoUrl: z.string().url("Invalid photo URL"),
+  photoUrl: z
+    .string()
+    .url("Invalid photo URL")
+    .refine(isAllowedPhotoUrl, "Photo URL host is not allowed"),
   // COPPA: explicit consent at upload time. Distinct from the parental
   // consent captured when the family member was created — uploading a
   // child's likeness is a separate decision (visible to coaches/staff/
