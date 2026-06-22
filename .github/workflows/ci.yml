@@ -91,6 +91,31 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+  # ── Migration drift gate (fast, no DB) ─────────────────────────────
+  # Catches the 0024-class incident: a PR edits src/lib/db/schema/* but
+  # forgets to commit the generated migration. `migrate-prod.yml` only
+  # applies COMMITTED migrations on merge, so an un-generated schema change
+  # ships code against a stale prod schema. `drizzle-kit generate` diffs
+  # the schema against the committed migration snapshots offline (no DB
+  # connection) — if it produces any new/changed files under the
+  # migrations dir, the schema change was never captured. Fail the PR.
+  migration-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Generate migrations from schema
+        run: npm run db:generate
+      - name: Fail if a migration is missing
+        run: |
+          if [ -n "$(git status --porcelain src/lib/db/migrations)" ]; then
+            echo "::error::Schema change detected without a committed migration. Run 'npm run db:generate' locally and commit the generated files under src/lib/db/migrations/."
+            git status --porcelain src/lib/db/migrations
+            git --no-pager diff -- src/lib/db/migrations
+            exit 1
+          fi
+          echo "No uncommitted migration drift."
+
   # ── Build ──────────────────────────────────────────────────────────
   # Needs a reachable, migrated DB: prerendered pages (e.g. /guides/*)
   # run real queries at build time (SELECT FROM sports …) and hard-fail
