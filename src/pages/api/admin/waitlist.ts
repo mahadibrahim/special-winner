@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { registrations, familyMembers, seasons, programs, sports, users, locations } from "@/lib/db/schema";
 import { eq, asc, and, inArray, isNull, sql } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 
@@ -15,11 +15,8 @@ import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 
 // GET - List all waitlisted registrations
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -42,7 +39,7 @@ export const GET: APIRoute = async (context) => {
 
     const conditions = [
       eq(registrations.status, "waitlisted"),
-      eq(locations.organizationId, orgContext.organizationId),
+      eq(locations.organizationId, auth.organizationId),
     ];
     if (scopedLocationIds) {
       conditions.push(inArray(locations.id, scopedLocationIds));
@@ -97,7 +94,7 @@ export const GET: APIRoute = async (context) => {
     // the dropdown matches what's actually visible.
     const seasonConditions = [
       eq(seasons.status, "active"),
-      eq(locations.organizationId, orgContext.organizationId),
+      eq(locations.organizationId, auth.organizationId),
     ];
     if (scopedLocationIds) {
       seasonConditions.push(inArray(locations.id, scopedLocationIds));
@@ -125,11 +122,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Promote registration from waitlist
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -145,7 +139,7 @@ export const POST: APIRoute = async (context) => {
     const isSuper = auth.roles.some((r) => r.name === "super_admin");
     const regConditions = [
       eq(registrations.id, registrationId),
-      eq(locations.organizationId, orgContext.organizationId),
+      eq(locations.organizationId, auth.organizationId),
     ];
     if (!isSuper) {
       const allowed = await getLocationIdsForUser(auth.user.id);
@@ -245,11 +239,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Reorder waitlist positions
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -264,7 +255,7 @@ export const PUT: APIRoute = async (context) => {
     const isSuper = auth.roles.some((r) => r.name === "super_admin");
     const regConditions = [
       eq(registrations.id, registrationId),
-      eq(locations.organizationId, orgContext.organizationId),
+      eq(locations.organizationId, auth.organizationId),
     ];
     if (!isSuper) {
       const allowed = await getLocationIdsForUser(auth.user.id);

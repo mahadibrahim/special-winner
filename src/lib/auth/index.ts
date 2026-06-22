@@ -20,6 +20,8 @@ export {
   requireCoachAccessToTeam,
   getOrganizationId,
   requireOrganizationContext,
+  isAdminForOrg,
+  requireOrgAdminAccess,
   type RoleName,
   type ScopeType,
   type UserRole,

@@ -20,7 +20,7 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 
 export const prerender = false;
@@ -37,11 +37,8 @@ const MAX_RESULTS = 20;
 const PER_KIND_LIMIT = Math.ceil(MAX_RESULTS / 2);
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const q = context.url.searchParams.get("q") ?? "";
   if (q.trim().length < 2) {
@@ -62,7 +59,7 @@ export const GET: APIRoute = async (context) => {
       const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
-        .where(eq(locations.organizationId, orgContext.organizationId))
+        .where(eq(locations.organizationId, auth.organizationId))
         .orderBy(asc(locations.createdAt));
       allowedLocationIds = orgLocations.map((l) => l.id);
     } else if (effectiveIds.length === 0) {
