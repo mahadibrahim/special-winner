@@ -520,6 +520,76 @@ describe("conversation reply: role derivation", () => {
 });
 
 // ============================================================================
+// 9b. Messaging management endpoints: authz + tenant isolation
+//
+// Regression for the messaging cross-tenant / missing-authz cluster: assign,
+// archive, and bot-action reverse previously had only an `if (!user)` gate, so
+// any authenticated user (even a parent) could mutate any org's conversation.
+// They now require an admin role AND pin the resource to the caller's org.
+// ============================================================================
+
+describe("messaging management: authz + tenant isolation", () => {
+  const fakeConvId = "00000000-0000-0000-0000-000000000010";
+  const fakeActionId = "00000000-0000-0000-0000-000000000011";
+  let parentCookie: string;
+
+  beforeAll(async () => {
+    parentCookie = await getAuthCookie(
+      "parent@test.aspiresports.com",
+      "TestParent123!",
+    );
+  });
+
+  const mgmtEndpoints: Array<{ name: string; path: string; body?: unknown }> = [
+    {
+      name: "assign",
+      path: `/api/messaging/conversations/${fakeConvId}/assign`,
+      body: { staffId: null, role: "admin" },
+    },
+    {
+      name: "archive",
+      path: `/api/messaging/conversations/${fakeConvId}/archive`,
+    },
+    {
+      name: "bot-action reverse",
+      path: `/api/messaging/bot-actions/${fakeActionId}/reverse`,
+    },
+  ];
+
+  for (const ep of mgmtEndpoints) {
+    it(`${ep.name}: unauthenticated → 401`, async () => {
+      const res = await orgA(ep.path, {
+        method: "POST",
+        body: ep.body ? JSON.stringify(ep.body) : undefined,
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it(`${ep.name}: parent (no admin role) → 403, never 200`, async () => {
+      const res = await orgA(ep.path, {
+        method: "POST",
+        cookie: parentCookie,
+        body: ep.body ? JSON.stringify(ep.body) : undefined,
+      });
+      // Admin gate fires before the resource lookup, so a parent is 403
+      // regardless of the (fake) id. Must never be a 2xx success.
+      expect(res.status).toBe(403);
+    });
+
+    it(`${ep.name}: Org A admin on an unknown id → 404, never 200`, async () => {
+      const res = await orgA(ep.path, {
+        method: "POST",
+        cookie: adminACookie,
+        body: ep.body ? JSON.stringify(ep.body) : undefined,
+      });
+      // Authorized admin, but the id doesn't resolve in their org → 404.
+      // Confirms the endpoint pins to org context instead of blindly writing.
+      expect(res.status).toBe(404);
+    });
+  }
+});
+
+// ============================================================================
 // 10. Same-org operations: legitimate flows still work (regression smoke)
 // ============================================================================
 

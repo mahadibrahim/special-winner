@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { conversations } from "@/lib/db/schema/conversations";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth/roles";
 
 /**
  * POST /api/messaging/conversations/:id/assign
@@ -19,11 +20,17 @@ const assignSchema = z.object({
   role: z.enum(["bot", "coach", "admin"]),
 });
 
-export const POST: APIRoute = async ({ params, request, locals }) => {
-  const user = locals.user;
-  if (!user) {
-    return json({ error: "Unauthorized" }, 401);
-  }
+export const POST: APIRoute = async (context) => {
+  const { params, request } = context;
+
+  // Staff-only management action. Require an admin role AND pin the conversation
+  // to the caller's resolved organization. A bare `locals.user` check (the
+  // previous behaviour) let ANY authenticated user — including a parent —
+  // reassign any org's conversation to an arbitrary staff id.
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   const conversationId = params.id;
   if (!conversationId) {
@@ -43,6 +50,21 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   }
 
   const db = getDb();
+  const [conversation] = await db
+    .select({
+      id: conversations.id,
+      organizationId: conversations.organizationId,
+    })
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
+
+  // 404 (not 403) on a cross-org or missing id so we don't disclose the
+  // existence of another tenant's conversation.
+  if (!conversation || conversation.organizationId !== orgContext.organizationId) {
+    return json({ error: "Conversation not found" }, 404);
+  }
+
   await db
     .update(conversations)
     .set({
