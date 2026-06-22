@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { products, productVariants } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -53,11 +53,8 @@ async function getVariantIfOwned(
 
 // GET - List variants for a product (?productId=...)
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const url = new URL(context.request.url);
   const productId = url.searchParams.get("productId");
@@ -70,7 +67,7 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    const owned = await assertProductInOrg(productId, orgContext.organizationId);
+    const owned = await assertProductInOrg(productId, auth.organizationId);
     if (!owned) {
       return new Response(JSON.stringify({ error: "Product not found" }), {
         status: 404,
@@ -98,11 +95,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new variant
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -120,7 +114,7 @@ export const POST: APIRoute = async (context) => {
 
     const owned = await assertProductInOrg(
       result.data.productId,
-      orgContext.organizationId,
+      auth.organizationId,
     );
     if (!owned) {
       return new Response(JSON.stringify({ error: "Product not found" }), {
@@ -157,11 +151,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update variant
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -185,7 +176,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const existing = await getVariantIfOwned(id, orgContext.organizationId);
+    const existing = await getVariantIfOwned(id, auth.organizationId);
     if (!existing) {
       return new Response(JSON.stringify({ error: "Variant not found" }), {
         status: 404,
@@ -196,7 +187,7 @@ export const PUT: APIRoute = async (context) => {
     if (result.data.productId !== existing.productId) {
       const owned = await assertProductInOrg(
         result.data.productId,
-        orgContext.organizationId,
+        auth.organizationId,
       );
       if (!owned) {
         return new Response(JSON.stringify({ error: "Product not found" }), {
@@ -235,11 +226,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete variant (?id=variantId)
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -252,7 +240,7 @@ export const DELETE: APIRoute = async (context) => {
       );
     }
 
-    const existing = await getVariantIfOwned(id, orgContext.organizationId);
+    const existing = await getVariantIfOwned(id, auth.organizationId);
     if (!existing) {
       return new Response(JSON.stringify({ error: "Variant not found" }), {
         status: 404,

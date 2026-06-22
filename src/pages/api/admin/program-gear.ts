@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 function getDbErrorCode(error: any): string | undefined {
   return error?.code ?? error?.cause?.code;
@@ -95,11 +95,8 @@ async function getBindingIfOwned(bindingId: string, orgId: string) {
 
 // GET - List bindings for a program or season
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const url = new URL(context.request.url);
   const programId = url.searchParams.get("programId");
@@ -121,7 +118,7 @@ export const GET: APIRoute = async (context) => {
         .where(
           and(
             eq(programs.id, programId),
-            eq(locations.organizationId, orgContext.organizationId),
+            eq(locations.organizationId, auth.organizationId),
           ),
         );
       if (!row) {
@@ -138,7 +135,7 @@ export const GET: APIRoute = async (context) => {
         .where(
           and(
             eq(seasons.id, seasonId),
-            eq(locations.organizationId, orgContext.organizationId),
+            eq(locations.organizationId, auth.organizationId),
           ),
         );
       if (!row) {
@@ -173,11 +170,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new binding
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -194,7 +188,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     const ownership = await assertOwnedByOrg(
-      orgContext.organizationId,
+      auth.organizationId,
       result.data.productId,
       result.data.programId ?? null,
       result.data.seasonId ?? null,
@@ -225,11 +219,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update binding
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -253,7 +244,7 @@ export const PUT: APIRoute = async (context) => {
       );
     }
 
-    const existing = await getBindingIfOwned(id, orgContext.organizationId);
+    const existing = await getBindingIfOwned(id, auth.organizationId);
     if (!existing) {
       return new Response(JSON.stringify({ error: "Binding not found" }), {
         status: 404,
@@ -261,7 +252,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     const ownership = await assertOwnedByOrg(
-      orgContext.organizationId,
+      auth.organizationId,
       result.data.productId,
       result.data.programId ?? null,
       result.data.seasonId ?? null,
@@ -293,11 +284,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Remove binding (?id=bindingId)
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -310,7 +298,7 @@ export const DELETE: APIRoute = async (context) => {
       );
     }
 
-    const existing = await getBindingIfOwned(id, orgContext.organizationId);
+    const existing = await getBindingIfOwned(id, auth.organizationId);
     if (!existing) {
       return new Response(JSON.stringify({ error: "Binding not found" }), {
         status: 404,

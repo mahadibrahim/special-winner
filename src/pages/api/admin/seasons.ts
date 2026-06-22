@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, teams, venues, seasonInterest } from "@/lib/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgProgram,
   requireSameOrgSeason,
@@ -72,18 +72,15 @@ export const seasonSchema = z.object({
 );
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   // Hide test/E2E fixtures by default (e.g. walk-up registration season picker).
   // Explicit admin views (`/admin/seasons` page itself) opt in via `include_test=1`.
   const includeTest = new URL(context.request.url).searchParams.get("include_test") === "1";
 
   try {
-    const whereClauses = [eq(locations.organizationId, orgContext.organizationId)];
+    const whereClauses = [eq(locations.organizationId, auth.organizationId)];
     if (!includeTest) {
       whereClauses.push(eq(seasons.isTest, false));
       whereClauses.push(eq(programs.isTest, false));
@@ -151,7 +148,7 @@ export const GET: APIRoute = async (context) => {
         count: sql<number>`count(*)::int`,
       })
       .from(seasonInterest)
-      .where(eq(seasonInterest.organizationId, orgContext.organizationId))
+      .where(eq(seasonInterest.organizationId, auth.organizationId))
       .groupBy(seasonInterest.seasonId);
     const interestMap = new Map(interestRows.map((r) => [r.seasonId, r.count]));
 
@@ -171,11 +168,8 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -191,12 +185,12 @@ export const POST: APIRoute = async (context) => {
     const data = result.data;
 
     // Verify program belongs to caller's org
-    const programCheck = await requireSameOrgProgram(orgContext.organizationId, data.programId);
+    const programCheck = await requireSameOrgProgram(auth.organizationId, data.programId);
     if (!programCheck.ok) return ownershipDeniedResponse();
 
     // Verify venue (if any) belongs to caller's org
     if (data.venueId) {
-      const venueCheck = await requireSameOrgVenue(orgContext.organizationId, data.venueId);
+      const venueCheck = await requireSameOrgVenue(auth.organizationId, data.venueId);
       if (!venueCheck.ok) return ownershipDeniedResponse();
     }
 
@@ -219,7 +213,7 @@ export const POST: APIRoute = async (context) => {
         .where(
           and(
             eq(ageGroups.id, data.ageGroupId),
-            eq(ageGroups.organizationId, orgContext.organizationId),
+            eq(ageGroups.organizationId, auth.organizationId),
           ),
         )
         .limit(1);
@@ -307,7 +301,7 @@ export const POST: APIRoute = async (context) => {
           .where(eq(seasons.id, scaffold.sourceSeasonId))
           .limit(1);
 
-        if (!source || source.organizationId !== orgContext.organizationId) {
+        if (!source || source.organizationId !== auth.organizationId) {
           throw new ScaffoldError(400, "Source season not found");
         }
         if (source.programId !== data.programId) {
@@ -337,11 +331,8 @@ export const POST: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -352,7 +343,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify the existing season belongs to caller's org
-    const existing = await requireSameOrgSeason(orgContext.organizationId, id);
+    const existing = await requireSameOrgSeason(auth.organizationId, id);
     if (!existing.ok) return ownershipDeniedResponse();
 
     const result = seasonSchema.safeParse(data);
@@ -366,10 +357,10 @@ export const PUT: APIRoute = async (context) => {
     const validData = result.data;
 
     // Verify the (possibly different) target program & venue still belong to caller's org
-    const programCheck = await requireSameOrgProgram(orgContext.organizationId, validData.programId);
+    const programCheck = await requireSameOrgProgram(auth.organizationId, validData.programId);
     if (!programCheck.ok) return ownershipDeniedResponse();
     if (validData.venueId) {
-      const venueCheck = await requireSameOrgVenue(orgContext.organizationId, validData.venueId);
+      const venueCheck = await requireSameOrgVenue(auth.organizationId, validData.venueId);
       if (!venueCheck.ok) return ownershipDeniedResponse();
     }
 
@@ -425,11 +416,8 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -439,7 +427,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Season ID is required" }), { status: 400 });
     }
 
-    const existing = await requireSameOrgSeason(orgContext.organizationId, id);
+    const existing = await requireSameOrgSeason(auth.organizationId, id);
     if (!existing.ok) return ownershipDeniedResponse();
 
     await getDb().delete(seasons).where(eq(seasons.id, id));

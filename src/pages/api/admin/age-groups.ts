@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { ageGroups } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -20,17 +20,14 @@ const ageGroupSchema = z.object({
 
 // GET - List all age groups
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allAgeGroups = await getDb()
       .select()
       .from(ageGroups)
-      .where(eq(ageGroups.organizationId, orgContext.organizationId))
+      .where(eq(ageGroups.organizationId, auth.organizationId))
       .orderBy(asc(ageGroups.minAge), asc(ageGroups.name));
 
     return new Response(JSON.stringify({ ageGroups: allAgeGroups }), {
@@ -45,11 +42,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new age group
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -73,7 +67,7 @@ export const POST: APIRoute = async (context) => {
     const [newAgeGroup] = await getDb()
       .insert(ageGroups)
       .values({
-        organizationId: orgContext.organizationId,
+        organizationId: auth.organizationId,
         ...result.data,
         birthDateCutoff: result.data.birthDateCutoff || null,
       })
@@ -91,11 +85,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update age group
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -129,7 +120,7 @@ export const PUT: APIRoute = async (context) => {
         birthDateCutoff: result.data.birthDateCutoff || null,
         updatedAt: new Date(),
       })
-      .where(and(eq(ageGroups.id, id), eq(ageGroups.organizationId, orgContext.organizationId)))
+      .where(and(eq(ageGroups.id, id), eq(ageGroups.organizationId, auth.organizationId)))
       .returning();
 
     if (!updatedAgeGroup) {
@@ -148,11 +139,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete age group
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -165,7 +153,7 @@ export const DELETE: APIRoute = async (context) => {
     // Verify age group belongs to this organization before deleting
     const [deletedAgeGroup] = await getDb()
       .delete(ageGroups)
-      .where(and(eq(ageGroups.id, id), eq(ageGroups.organizationId, orgContext.organizationId)))
+      .where(and(eq(ageGroups.id, id), eq(ageGroups.organizationId, auth.organizationId)))
       .returning();
 
     if (!deletedAgeGroup) {

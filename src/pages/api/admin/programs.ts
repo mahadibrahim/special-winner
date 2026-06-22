@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { programs, sports, locations, venues } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgLocation,
   requireSameOrgSport,
@@ -25,12 +25,8 @@ const programSchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  // Get organization context for multi-tenant filtering
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allPrograms = await getDb()
@@ -64,7 +60,7 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .leftJoin(venues, eq(programs.venueId, venues.id))
-      .where(eq(locations.organizationId, orgContext.organizationId))
+      .where(eq(locations.organizationId, auth.organizationId))
       .orderBy(asc(programs.name));
 
     // Normalize: when no venue is joined, venue fields come back as nulls
@@ -84,11 +80,8 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -102,9 +95,9 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify the posted location and sport belong to the caller's org
-    const locationCheck = await requireSameOrgLocation(orgContext.organizationId, result.data.locationId);
+    const locationCheck = await requireSameOrgLocation(auth.organizationId, result.data.locationId);
     if (!locationCheck.ok) return ownershipDeniedResponse();
-    const sportCheck = await requireSameOrgSport(orgContext.organizationId, result.data.sportId);
+    const sportCheck = await requireSameOrgSport(auth.organizationId, result.data.sportId);
     if (!sportCheck.ok) return ownershipDeniedResponse();
 
     // venueId is cross-org allowed for admins; non-super_admins are restricted
@@ -114,7 +107,7 @@ export const POST: APIRoute = async (context) => {
     if (venueId) {
       if (!isSuperAdmin) {
         // location_admin: venue must belong to their own org
-        const venueCheck = await requireSameOrgVenue(orgContext.organizationId, venueId);
+        const venueCheck = await requireSameOrgVenue(auth.organizationId, venueId);
         if (!venueCheck.ok) return ownershipDeniedResponse();
       }
       // super_admin: any venue is allowed — no ownership check needed
@@ -146,11 +139,8 @@ export const POST: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -161,7 +151,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify the existing program belongs to caller's org
-    const existing = await requireSameOrgProgram(orgContext.organizationId, id);
+    const existing = await requireSameOrgProgram(auth.organizationId, id);
     if (!existing.ok) return ownershipDeniedResponse();
 
     const result = programSchema.safeParse(data);
@@ -173,9 +163,9 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify any changed location/sport ids also belong to caller's org
-    const locationCheck = await requireSameOrgLocation(orgContext.organizationId, result.data.locationId);
+    const locationCheck = await requireSameOrgLocation(auth.organizationId, result.data.locationId);
     if (!locationCheck.ok) return ownershipDeniedResponse();
-    const sportCheck = await requireSameOrgSport(orgContext.organizationId, result.data.sportId);
+    const sportCheck = await requireSameOrgSport(auth.organizationId, result.data.sportId);
     if (!sportCheck.ok) return ownershipDeniedResponse();
 
     // venueId: super_admin may cross-org; location_admin limited to same org
@@ -183,7 +173,7 @@ export const PUT: APIRoute = async (context) => {
     const venueId = result.data.venueId ?? null;
     if (venueId) {
       if (!isSuperAdmin) {
-        const venueCheck = await requireSameOrgVenue(orgContext.organizationId, venueId);
+        const venueCheck = await requireSameOrgVenue(auth.organizationId, venueId);
         if (!venueCheck.ok) return ownershipDeniedResponse();
       }
     }
@@ -216,11 +206,8 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -230,7 +217,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Program ID is required" }), { status: 400 });
     }
 
-    const existing = await requireSameOrgProgram(orgContext.organizationId, id);
+    const existing = await requireSameOrgProgram(auth.organizationId, id);
     if (!existing.ok) return ownershipDeniedResponse();
 
     await getDb().delete(programs).where(eq(programs.id, id));

@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { sports } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgSport,
   ownershipDeniedResponse,
@@ -25,17 +25,14 @@ const sportSchema = z.object({
 
 // GET - List all sports
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allSports = await getDb()
       .select()
       .from(sports)
-      .where(eq(sports.organizationId, orgContext.organizationId))
+      .where(eq(sports.organizationId, auth.organizationId))
       .orderBy(asc(sports.sortOrder), asc(sports.name));
 
     return new Response(JSON.stringify({ sports: allSports }), {
@@ -50,11 +47,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new sport
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -70,7 +64,7 @@ export const POST: APIRoute = async (context) => {
     const [newSport] = await getDb()
       .insert(sports)
       .values({
-        organizationId: orgContext.organizationId,
+        organizationId: auth.organizationId,
         ...result.data,
       })
       .returning();
@@ -90,11 +84,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update sport
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -105,7 +96,7 @@ export const PUT: APIRoute = async (context) => {
     }
 
     // Verify the sport belongs to caller's org
-    const existing = await requireSameOrgSport(orgContext.organizationId, id);
+    const existing = await requireSameOrgSport(auth.organizationId, id);
     if (!existing.ok) return ownershipDeniedResponse();
 
     const result = sportSchema.safeParse(data);
@@ -123,7 +114,7 @@ export const PUT: APIRoute = async (context) => {
         updatedAt: new Date(),
       })
       .where(
-        and(eq(sports.id, id), eq(sports.organizationId, orgContext.organizationId)),
+        and(eq(sports.id, id), eq(sports.organizationId, auth.organizationId)),
       )
       .returning();
 
@@ -146,11 +137,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete sport
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -160,13 +148,13 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Sport ID is required" }), { status: 400 });
     }
 
-    const existing = await requireSameOrgSport(orgContext.organizationId, id);
+    const existing = await requireSameOrgSport(auth.organizationId, id);
     if (!existing.ok) return ownershipDeniedResponse();
 
     const [deletedSport] = await getDb()
       .delete(sports)
       .where(
-        and(eq(sports.id, id), eq(sports.organizationId, orgContext.organizationId)),
+        and(eq(sports.id, id), eq(sports.organizationId, auth.organizationId)),
       )
       .returning();
 
