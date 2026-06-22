@@ -5,6 +5,7 @@ import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { eq, asc, desc, ilike, or, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireUserInOrg } from "@/lib/auth/require-resource-ownership";
 
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
@@ -328,6 +329,26 @@ export const POST: APIRoute = async (context) => {
       return new Response(
         JSON.stringify({ error: "Validation failed", details: result.error.flatten().fieldErrors }),
         { status: 400 }
+      );
+    }
+
+    // The recipient must already belong to this organization. The role's
+    // SCOPE is validated against the caller's org below, but without this the
+    // endpoint would attach an org-scoped role to ANY user account in the
+    // system (e.g. someone who only belongs to a different org), pulling an
+    // outsider into the tenant. Staff are added to the org first (invite /
+    // membership); this endpoint only assigns or changes roles for existing
+    // members. requireUserInOrg matches the membership definition used by the
+    // GET list (org access rows + org/location/program/team-scoped roles), so
+    // it won't reject a legitimate member.
+    const membership = await requireUserInOrg(
+      auth.organizationId,
+      result.data.userId,
+    );
+    if (!membership.ok) {
+      return new Response(
+        JSON.stringify({ error: "User is not a member of this organization" }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
       );
     }
 
