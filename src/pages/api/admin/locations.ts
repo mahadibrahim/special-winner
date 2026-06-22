@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { and, eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
@@ -104,6 +104,11 @@ export const PUT: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  // Pin to the caller's org. requireAdminAccess is org-independent, so without
+  // this an admin of any org could edit any tenant's location by posting its id.
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const body = await context.request.json();
     const { id, ...data } = body;
@@ -140,7 +145,12 @@ export const PUT: APIRoute = async (context) => {
       const [existing] = await getDb()
         .select({ settings: locations.settings })
         .from(locations)
-        .where(eq(locations.id, id));
+        .where(
+          and(
+            eq(locations.id, id),
+            eq(locations.organizationId, orgContext.organizationId),
+          ),
+        );
 
       if (!existing) {
         return new Response(JSON.stringify({ error: "Location not found" }), { status: 404 });
@@ -162,7 +172,12 @@ export const PUT: APIRoute = async (context) => {
     const [updatedLocation] = await getDb()
       .update(locations)
       .set(updates as any)
-      .where(eq(locations.id, id))
+      .where(
+        and(
+          eq(locations.id, id),
+          eq(locations.organizationId, orgContext.organizationId),
+        ),
+      )
       .returning();
 
     if (!updatedLocation) {
@@ -180,6 +195,11 @@ export const DELETE: APIRoute = async (context) => {
   const auth = await requireAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
+  // Pin to the caller's org — otherwise any admin could delete any tenant's
+  // location by id.
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   try {
     const url = new URL(context.request.url);
     const id = url.searchParams.get("id");
@@ -188,7 +208,14 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Location ID is required" }), { status: 400 });
     }
 
-    await getDb().delete(locations).where(eq(locations.id, id));
+    await getDb()
+      .delete(locations)
+      .where(
+        and(
+          eq(locations.id, id),
+          eq(locations.organizationId, orgContext.organizationId),
+        ),
+      );
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     console.error("Error deleting location:", error);

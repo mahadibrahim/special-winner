@@ -603,6 +603,67 @@ describe("messaging management: authz + tenant isolation", () => {
 });
 
 // ============================================================================
+// 9c. Org-pin regressions — locations PUT/DELETE + stripe-connect status
+//
+// These endpoints previously gated on global requireAdminAccess only, with no
+// org pin, so an admin of any org could mutate/delete any tenant's location or
+// pull another tenant's Stripe Connect links. Confirm cross-org access is now
+// rejected (and a legitimate same-org call still works).
+// ============================================================================
+
+describe("locations + stripe-connect: org pin", () => {
+  it("locations PUT against an Org B location → 404 (not mutated)", async () => {
+    const res = await orgA("/api/admin/locations", {
+      method: "PUT",
+      cookie: adminACookie,
+      body: JSON.stringify({
+        id: orgBLocationId,
+        name: "Cross-Tenant Rename Attempt",
+        slug: testSlug("xt-loc"),
+        active: true,
+      }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("locations DELETE against an Org B location → Org B location survives", async () => {
+    const res = await orgA(`/api/admin/locations?id=${orgBLocationId}`, {
+      method: "DELETE",
+      cookie: adminACookie,
+    });
+    // The delete is a no-op cross-org (WHERE pins to Org A), so it may report
+    // success — the real assertion is that the Org B location still exists.
+    expect([200, 404]).toContain(res.status);
+    const orgBFixtures = await (
+      await apiFetch("/api/test/org-fixtures?slug=orgb", { method: "GET" })
+    ).json();
+    expect(orgBFixtures.locationId).toBe(orgBLocationId);
+  });
+
+  it("locations PUT same-org (Org A) still works", async () => {
+    const res = await orgA("/api/admin/locations", {
+      method: "PUT",
+      cookie: adminACookie,
+      body: JSON.stringify({
+        id: orgALocationId,
+        name: "Org A Location (regression)",
+        slug: testSlug("orga-loc"),
+        active: true,
+      }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("stripe-connect status for Org B (as Org A admin) → 403", async () => {
+    const res = await orgA(
+      `/api/admin/stripe-connect/status?organizationId=${orgBId}`,
+      { method: "GET", cookie: adminACookie },
+    );
+    expect(res.status).toBe(403);
+  });
+});
+
+// ============================================================================
 // 10. Same-org operations: legitimate flows still work (regression smoke)
 // ============================================================================
 
