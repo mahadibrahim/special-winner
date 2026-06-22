@@ -4,7 +4,7 @@ import { practiceTemplates, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, asc, ilike, or, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgSport,
   ownershipDeniedResponse,
@@ -34,13 +34,10 @@ const templateSchema = z.object({
 
 // GET - List templates with filtering
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) {
     return auth.response;
   }
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -57,7 +54,7 @@ export const GET: APIRoute = async (context) => {
     // Build conditions — restrict to caller's org or globally-owned (null) templates
     const conditions = [
       or(
-        eq(practiceTemplates.organizationId, orgContext.organizationId),
+        eq(practiceTemplates.organizationId, auth.organizationId),
         isNull(practiceTemplates.organizationId),
       )!,
     ];
@@ -121,7 +118,7 @@ export const GET: APIRoute = async (context) => {
       getDb()
         .select({ id: sports.id, name: sports.name })
         .from(sports)
-        .where(eq(sports.organizationId, orgContext.organizationId))
+        .where(eq(sports.organizationId, auth.organizationId))
         .orderBy(asc(sports.name)),
       getDb().select({ id: developmentStages.id, name: developmentStages.name, slug: developmentStages.slug }).from(developmentStages).orderBy(asc(developmentStages.sortOrder)),
     ]);
@@ -146,13 +143,10 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new template
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) {
     return auth.response;
   }
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -169,14 +163,14 @@ export const POST: APIRoute = async (context) => {
 
     // Verify the posted sportId belongs to the caller's org
     const sportCheck = await requireSameOrgSport(
-      orgContext.organizationId,
+      auth.organizationId,
       result.data.sportId,
     );
     if (!sportCheck.ok) return ownershipDeniedResponse();
 
     const [newTemplate] = await getDb()
       .insert(practiceTemplates)
-      .values({ ...result.data, organizationId: orgContext.organizationId })
+      .values({ ...result.data, organizationId: auth.organizationId })
       .returning();
 
     return new Response(JSON.stringify({ template: newTemplate }), {

@@ -12,7 +12,7 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { locations, familyMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { isUserInOrg } from "@/lib/person/build-person-profile";
 import { uploadPhoto } from "@/lib/check-in/photo-upload";
@@ -27,11 +27,8 @@ const json = (b: unknown, s: number) =>
 
 export const POST: APIRoute = async (context) => {
   // ── Auth gate ──────────────────────────────────────────────────────────────
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   // ── Validate params ────────────────────────────────────────────────────────
   const { id } = context.params;
@@ -74,7 +71,7 @@ export const POST: APIRoute = async (context) => {
       const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
-        .where(eq(locations.organizationId, orgContext.organizationId));
+        .where(eq(locations.organizationId, auth.organizationId));
       allowedLocationIds = orgLocations.map((l) => l.id);
     } else if (effectiveIds.length === 0) {
       return json({ error: "Not found" }, 404);
@@ -108,7 +105,7 @@ export const POST: APIRoute = async (context) => {
 
     const inOrg = await isUserInOrg(
       linkedUserId,
-      orgContext.organizationId,
+      auth.organizationId,
       allowedLocationIds,
     );
     if (!inOrg) {

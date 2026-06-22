@@ -3,16 +3,13 @@ import { getDb } from "@/lib/db";
 import { organizations } from "@/lib/db/schema/organizations";
 import { createConnectAccount, createAccountOnboardingLink } from "@/lib/stripe/connect";
 import { eq } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 export const POST: APIRoute = async (context) => {
   try {
     // Check admin authentication
-    const auth = await requireAdminAccess(context);
+    const auth = await requireOrgAdminAccess(context);
     if (!auth.authorized) return auth.response;
-
-    const orgContext = await requireOrganizationContext(context);
-    if (!orgContext.hasOrganization) return orgContext.response;
 
     const body = await context.request.json();
     const { organizationId } = body;
@@ -25,7 +22,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verify the organization ID matches the current org context
-    if (organizationId !== orgContext.organizationId) {
+    if (organizationId !== auth.organizationId) {
       return new Response(JSON.stringify({ error: "Cannot create Stripe account for other organizations" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },

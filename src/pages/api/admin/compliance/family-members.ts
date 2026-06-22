@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import { and, eq, desc, sql } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 /**
  * GET /api/admin/compliance/family-members
@@ -29,11 +29,8 @@ import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
  *       "media_promotional", "media_public"
  */
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -41,7 +38,7 @@ export const GET: APIRoute = async (context) => {
     const search = url.searchParams.get("search")?.trim() ?? "";
 
     const conditions = [
-      eq(locations.organizationId, orgContext.organizationId),
+      eq(locations.organizationId, auth.organizationId),
     ];
     if (search) {
       conditions.push(

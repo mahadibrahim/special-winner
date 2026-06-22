@@ -14,18 +14,16 @@ import {
   teamGroups,
 } from "@/lib/db/schema"
 import { and, eq, isNotNull } from "drizzle-orm"
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth"
+import { requireOrgAdminAccess } from "@/lib/auth"
 
 export const prerender = false
 
 export const GET: APIRoute = async (context) => {
-  const adminAuth = await requireAdminAccess(context)
+  const adminAuth = await requireOrgAdminAccess(context)
   if (!adminAuth.authorized) return adminAuth.response
-  const orgContext = await requireOrganizationContext(context)
-  if (!orgContext.hasOrganization) return orgContext.response
 
   const db = getDb()
-  const orgId = orgContext.organizationId
+  const orgId = adminAuth.organizationId
 
   // All distinct parent userIds in this org (parents of kids on any roster in any team of any season of any program in a location in this org)
   const parentRows = await db
