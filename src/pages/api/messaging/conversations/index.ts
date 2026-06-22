@@ -8,7 +8,7 @@ import {
 import { users } from "@/lib/db/schema/users";
 import { rosters } from "@/lib/db/schema/teams";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
-import { getCoachTeamIds } from "@/lib/auth/roles";
+import { getCoachTeamIds, requireOrganizationContext } from "@/lib/auth/roles";
 
 /**
  * GET /api/messaging/conversations
@@ -26,20 +26,27 @@ import { getCoachTeamIds } from "@/lib/auth/roles";
  *   - id, parentName, parentUserId, lastMessageAt, assignmentRole,
  *     assignedStaffId, snippet (last message body), unreadInbound (bool)
  */
-export const GET: APIRoute = async ({ locals, url }) => {
+export const GET: APIRoute = async (context) => {
+  const { locals, url } = context;
   const user = locals.user;
   if (!user) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  // Role context — admins see every conversation, coaches are scoped to
-  // conversations about kids on their teams.
+  // Role context — admins see every conversation IN THEIR ORG, coaches are
+  // scoped to conversations about kids on their teams.
   const isAdmin = (locals as unknown as { isAdmin?: boolean }).isAdmin ?? false;
   const isCoach = (locals as unknown as { isCoach?: boolean }).isCoach ?? false;
 
   if (!isAdmin && !isCoach) {
     return json({ error: "Forbidden" }, 403);
   }
+
+  // Pin to the caller's resolved organization. `isAdmin` is org-independent
+  // (it's true for a location_admin of ANY org), so without this filter an
+  // admin of one org would list every tenant's conversations + parent PII.
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   const params = url.searchParams;
   const filter = params.get("filter") || "all";
@@ -50,7 +57,10 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
   const db = getDb();
 
-  const conditions = [eq(conversations.status, status)];
+  const conditions = [
+    eq(conversations.status, status),
+    eq(conversations.organizationId, orgContext.organizationId),
+  ];
 
   if (assignment) {
     conditions.push(eq(conversations.assignmentRole, assignment));

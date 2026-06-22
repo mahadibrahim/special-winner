@@ -1,8 +1,10 @@
 import type { APIRoute } from "astro";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { botActionsLog } from "@/lib/db/schema/conversations";
 import { attendance } from "@/lib/db/schema/teams";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth/roles";
+import { findRosterForKidAndGame } from "@/lib/bot/actions/rsvp";
 
 /**
  * POST /api/messaging/bot-actions/:id/reverse
@@ -16,11 +18,15 @@ import { attendance } from "@/lib/db/schema/teams";
  * rsvp_present against the same kid/event).
  */
 
-export const POST: APIRoute = async ({ params, locals }) => {
-  const user = locals.user;
-  if (!user) {
-    return json({ error: "Unauthorized" }, 401);
-  }
+export const POST: APIRoute = async (context) => {
+  const { params } = context;
+
+  // Admin-only, org-pinned. The previous bare `locals.user` check let any
+  // authenticated user (even a parent) reverse any org's bot action.
+  const auth = await requireAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
 
   const actionId = params.id;
   if (!actionId) {
@@ -34,7 +40,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
     .where(eq(botActionsLog.id, actionId))
     .limit(1);
 
-  if (!action) {
+  if (!action || action.organizationId !== orgContext.organizationId) {
+    // 404 on a cross-org or missing id — don't disclose another tenant's action.
     return json({ error: "Action not found" }, 404);
   }
   if (!action.reversible) {
@@ -51,8 +58,17 @@ export const POST: APIRoute = async ({ params, locals }) => {
     switch (action.actionType) {
       case "rsvp_absent": {
         const eventId = typeof params_?.eventId === "string" ? params_.eventId : null;
-        if (!eventId) {
-          return json({ error: "Action params missing eventId" }, 400);
+        const kidId = typeof params_?.kidId === "string" ? params_.kidId : null;
+        if (!eventId || !kidId) {
+          return json({ error: "Action params missing kidId or eventId" }, 400);
+        }
+        // Scope the update to the SINGLE roster row the original action
+        // affected — keyed by (gameId, rosterId), mirroring how rsvp_absent
+        // wrote it. The previous `WHERE gameId = eventId` (roster-unscoped)
+        // would flip the entire game's attendance to present.
+        const rosterInfo = await findRosterForKidAndGame(kidId, eventId);
+        if (!rosterInfo) {
+          return json({ error: "Could not resolve the player for this action" }, 409);
         }
         await db
           .update(attendance)
@@ -60,7 +76,12 @@ export const POST: APIRoute = async ({ params, locals }) => {
             status: "present",
             notes: "Reversed by admin via bot action reversal",
           })
-          .where(eq(attendance.gameId, eventId));
+          .where(
+            and(
+              eq(attendance.gameId, eventId),
+              eq(attendance.rosterId, rosterInfo.rosterId),
+            ),
+          );
         break;
       }
 
@@ -76,7 +97,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
       .update(botActionsLog)
       .set({
         reversedAt: new Date(),
-        reversedByUserId: user.id,
+        reversedByUserId: auth.user.id,
       })
       .where(eq(botActionsLog.id, actionId));
 

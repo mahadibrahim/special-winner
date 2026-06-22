@@ -30,7 +30,7 @@ async function scopeCheckKidBelongsToParent(
   return rows.length > 0;
 }
 
-async function findRosterForKidAndGame(
+export async function findRosterForKidAndGame(
   kidId: string,
   gameId: string,
 ): Promise<{ rosterId: string; teamId: string } | null> {

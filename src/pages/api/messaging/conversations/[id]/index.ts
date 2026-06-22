@@ -9,7 +9,7 @@ import {
 import { users } from "@/lib/db/schema/users";
 import { familyMembers, registrations } from "@/lib/db/schema/registrations";
 import { rosters } from "@/lib/db/schema/teams";
-import { getCoachTeamIds } from "@/lib/auth/roles";
+import { getCoachTeamIds, requireOrganizationContext } from "@/lib/auth/roles";
 
 /**
  * GET /api/messaging/conversations/:id
@@ -21,7 +21,8 @@ import { getCoachTeamIds } from "@/lib/auth/roles";
  *   - all messages in the thread in chronological order
  *   - bot action log entries (reversible actions visible to admin)
  */
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async (context) => {
+  const { params, locals } = context;
   const user = locals.user;
   if (!user) {
     return json({ error: "Unauthorized" }, 401);
@@ -39,6 +40,12 @@ export const GET: APIRoute = async ({ params, locals }) => {
     return json({ error: "Missing conversation id" }, 400);
   }
 
+  // Pin to the caller's resolved organization. `isAdmin` is org-independent,
+  // so without this an admin of one org could read another tenant's full
+  // thread — parent PII, kids' names/ages, and every message body.
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) return orgContext.response;
+
   const db = getDb();
 
   // Load the conversation
@@ -48,7 +55,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .where(eq(conversations.id, conversationId))
     .limit(1);
 
-  if (!conversation) {
+  // 404 on missing OR cross-org so we don't disclose another tenant's
+  // conversation. Mirrors the guard in reply.ts.
+  if (!conversation || conversation.organizationId !== orgContext.organizationId) {
     return json({ error: "Conversation not found" }, 404);
   }
 
