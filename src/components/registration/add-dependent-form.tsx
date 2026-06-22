@@ -45,7 +45,7 @@ export function AddDependentForm({
   return (
     <div className="space-y-4 p-4 rounded-xl border border-border bg-paper">
       <h4 className="font-medium text-ink">Add New Player</h4>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-ink-muted">First Name *</Label>
           <Input
@@ -63,7 +63,7 @@ export function AddDependentForm({
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-ink-muted">Birth Date *</Label>
           <Input

@@ -125,7 +125,7 @@ export function GuestInfoStep({
 
           <div className="space-y-4">
             <h4 className="font-medium text-ink">About you</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-ink-muted">First name *</Label>
                 <Input
@@ -175,7 +175,7 @@ export function GuestInfoStep({
 
           <div className="space-y-4 pt-4 border-t border-border">
             <h4 className="font-medium text-ink">Player</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-ink-muted">First name *</Label>
                 <Input
@@ -193,7 +193,7 @@ export function GuestInfoStep({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-ink-muted">Birth date *</Label>
                 <Input
@@ -231,7 +231,7 @@ export function GuestInfoStep({
           </div>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-ink-muted">First name *</Label>
                 <Input
@@ -277,7 +277,7 @@ export function GuestInfoStep({
                 className="bg-cream-2 border-border text-ink focus:border-primary"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-ink-muted">Birth date *</Label>
                 <Input
