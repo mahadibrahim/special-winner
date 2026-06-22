@@ -7,7 +7,7 @@ import {
   createAccountDashboardLink,
 } from "@/lib/stripe/connect";
 import { eq } from "drizzle-orm";
-import { requireAdminAccess } from "@/lib/auth";
+import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
 
 export const GET: APIRoute = async (context) => {
   try {
@@ -21,6 +21,19 @@ export const GET: APIRoute = async (context) => {
     if (!organizationId) {
       return new Response(JSON.stringify({ error: "Organization ID required" }), {
         status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Pin to the caller's resolved org. This endpoint mints live Stripe
+    // dashboard/onboarding links, so the client-supplied organizationId must
+    // match the org the request is scoped to — otherwise any admin could pull
+    // another tenant's Stripe Express login link. Mirrors create-account.ts.
+    const orgContext = await requireOrganizationContext(context);
+    if (!orgContext.hasOrganization) return orgContext.response;
+    if (organizationId !== orgContext.organizationId) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
         headers: { "Content-Type": "application/json" },
       });
     }
