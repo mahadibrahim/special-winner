@@ -59,7 +59,7 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
                 {current && (
                   <a href={`/adult/leagues/soccer/${current.slug}`} data-testid="overview-season-cta"
                      onClick={() => current && trackLandingCtaClicked({ term: current.slug })}
-                     className="flex items-center justify-between gap-5 rounded-2xl px-6 py-5 mt-6 text-ink" style={{ background: ORANGE }}>
+                     className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-5 rounded-2xl px-6 py-5 mt-6 text-ink" style={{ background: ORANGE }}>
                     <span className="flex items-center gap-4">
                       <span className="font-mono text-[9px] tracking-widest uppercase bg-ink px-2.5 py-1.5 rounded-full whitespace-nowrap" style={{ color: ORANGE }}>● Registration open</span>
                       <span><span className="font-display font-semibold text-2xl leading-none block">{current.label}</span><span className="font-mono text-xs text-ink/70 mt-1 block">{current.dateLine} · {current.divisions} divisions · {current.venues} venues</span></span>
@@ -85,7 +85,7 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
             {current ? (
               <a href={`/adult/leagues/soccer/${current.slug}`}
                  onClick={() => current && trackLandingCtaClicked({ term: current.slug })}
-                 className="flex items-center justify-between gap-4 bg-navy-deep text-cream rounded-2xl px-6 py-5">
+                 className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-navy-deep text-cream rounded-2xl px-6 py-5">
                 <span><span className="font-display font-semibold text-2xl block">{current.label}</span><span className="font-mono text-xs text-cream/80 mt-1 block">{current.dateLine} · {current.divisions} divisions · {current.venues} venues</span></span>
                 <span className="font-mono text-xs tracking-wide uppercase rounded-lg px-4 py-3 text-ink whitespace-nowrap" style={{ background: ORANGE }}>See divisions &amp; register →</span>
               </a>
@@ -97,7 +97,7 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
             <h2 className="font-display font-semibold text-2xl">Upcoming seasons</h2>
             <p className="text-ink-muted text-[13px] mt-0.5 mb-4">Get on the interest list — we'll email when registration opens.</p>
             {upcoming.length ? upcoming.map((t) => (
-              <div key={t.slug} className="flex items-center justify-between gap-4 bg-paper border border-cream-3 rounded-xl px-5 py-4 mb-2.5">
+              <div key={t.slug} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-paper border border-cream-3 rounded-xl px-5 py-4 mb-2.5">
                 <span><span className="font-display font-semibold text-xl block">{t.label}</span><span className="font-mono text-xs text-ink-muted mt-1 block">{t.meta} · {t.opensLabel}</span></span>
                 <a href={`/adult/leagues/soccer/${t.slug}`} className="font-mono text-[11px] tracking-wide uppercase border border-primary text-primary px-4 py-2.5 rounded-lg whitespace-nowrap">Notify me →</a>
               </div>
@@ -109,7 +109,7 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
             <h2 className="font-display font-semibold text-2xl">Past seasons</h2>
             <p className="text-ink-muted text-[13px] mt-0.5 mb-4">Final standings &amp; results live here once a season wraps.</p>
             {past.length ? past.map((t) => (
-              <a key={t.slug} href={`/adult/leagues/soccer/${t.slug}`} className="flex items-center justify-between gap-4 bg-paper border border-cream-3 rounded-xl px-5 py-4 mb-2.5">
+              <a key={t.slug} href={`/adult/leagues/soccer/${t.slug}`} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-paper border border-cream-3 rounded-xl px-5 py-4 mb-2.5">
                 <span className="font-display font-semibold text-xl">{t.label}</span>
                 <span className="font-mono text-[11px] tracking-wide uppercase text-primary">Results →</span>
               </a>
