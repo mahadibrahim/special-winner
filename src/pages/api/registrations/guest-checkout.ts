@@ -29,6 +29,7 @@ import {
   hasActiveConsent,
 } from "@/lib/consents/record";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -89,6 +90,19 @@ export const POST: APIRoute = async (context) => {
   const posthog = getPostHogServer();
   const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
   const userAgent = request.headers.get("user-agent");
+
+  // Per-IP throttle: this endpoint is unauthenticated and creates Stripe
+  // PaymentIntents + upserts users, so it's a card-testing / enumeration
+  // surface. 5/min/IP matches the dropin guest-checkout limit and is well
+  // above any legitimate human checkout rate. (Limiter is in-memory/per-
+  // instance/fail-open — see rate-limit.ts; a durable shared store is the
+  // real fix, tracked as a follow-up.)
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`registration-guest:ip:${ip}`, 5, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+  }
+
   try {
     const body = await request.json();
     const parsed = guestCheckoutSchema.safeParse(body);

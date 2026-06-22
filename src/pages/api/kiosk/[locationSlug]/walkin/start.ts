@@ -31,6 +31,7 @@ import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { resolveRate } from "@/lib/dropin/pricing";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -51,8 +52,19 @@ function computeAge(dobStr: string): number {
   return age;
 }
 
-export const POST: APIRoute = async ({ params, request }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   const slug = params.locationSlug ?? "";
+
+  // The kiosk slug is public (non-secret), and this endpoint creates booking
+  // rows + downstream PaymentIntents — throttle per IP+location as defense in
+  // depth. 10/min is generous for a real front-desk attendant. (In-memory/
+  // fail-open limiter; durable shared store is the real fix — see rate-limit.ts.)
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`kiosk-walkin-start:${slug}:${ip}`, 10, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+  }
+
   const locationResult = await requireKioskLocation(slug);
   if (!locationResult.ok) return locationResult.response;
   const { location } = locationResult;

@@ -25,6 +25,7 @@ import { stripe } from "@/lib/stripe/client";
 import { computeSurchargeCents } from "@/lib/payments/surcharge";
 import { resolveRate } from "@/lib/dropin/pricing";
 import { dropInPaymentDescription } from "@/lib/dropin/checkout-line-item";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -34,8 +35,18 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const POST: APIRoute = async ({ params, request }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   const slug = params.locationSlug ?? "";
+
+  // Public kiosk slug + Stripe PaymentIntent creation → throttle per IP+location
+  // as defense in depth. (In-memory/fail-open limiter; durable shared store is
+  // the real fix — see rate-limit.ts.)
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`kiosk-walkin-pay:${slug}:${ip}`, 10, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+  }
+
   // The kiosk facility only authorizes the request — the booking, session,
   // and partner venue are all derived from the token's targetId below.
   const locationResult = await requireKioskLocation(slug);
