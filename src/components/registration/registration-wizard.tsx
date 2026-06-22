@@ -893,13 +893,10 @@ export default function RegistrationWizard({
 
         if (!checkoutResponse.ok) {
           const checkoutData = await checkoutResponse.json()
-          // If Stripe isn't configured, show success without payment
-          if (checkoutData.error === "Payment processing is not configured") {
-            clearDraft()
-            setRegistrationComplete(true)
-            setCurrentStep(STEP_CONFIRM)
-            return
-          }
+          // Never show a success screen when payment was required but could
+          // not be initiated (e.g. Stripe not configured). Surfacing a fake
+          // "registered" state would tell the customer they paid when no
+          // payment was taken and no registration was finalized.
           throw new Error(
             parseApiError(checkoutData, "Failed to create checkout session"),
           )
