@@ -47,16 +47,18 @@ export function AddDependentForm({
       <h4 className="font-medium text-ink">Add New Player</h4>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label className="text-ink-muted">First Name *</Label>
+          <Label htmlFor="dependent-first" className="text-ink-muted">First Name *</Label>
           <Input
+            id="dependent-first"
             value={firstName}
             onChange={(e) => onFirstNameChange(e.target.value)}
             className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-ink-muted">Last Name *</Label>
+          <Label htmlFor="dependent-last" className="text-ink-muted">Last Name *</Label>
           <Input
+            id="dependent-last"
             value={lastName}
             onChange={(e) => onLastNameChange(e.target.value)}
             className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
@@ -65,8 +67,9 @@ export function AddDependentForm({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label className="text-ink-muted">Birth Date *</Label>
+          <Label htmlFor="dependent-birthdate" className="text-ink-muted">Birth Date *</Label>
           <Input
+            id="dependent-birthdate"
             type="date"
             value={birthDate}
             onChange={(e) => onBirthDateChange(e.target.value)}
@@ -74,9 +77,9 @@ export function AddDependentForm({
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-ink-muted">Gender</Label>
+          <Label htmlFor="dependent-gender" className="text-ink-muted">Gender</Label>
           <Select value={gender} onValueChange={onGenderChange}>
-            <SelectTrigger className="bg-cream-2 border-border text-ink">
+            <SelectTrigger id="dependent-gender" className="bg-cream-2 border-border text-ink">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent className="bg-cream border-border">
