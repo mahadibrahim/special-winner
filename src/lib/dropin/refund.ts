@@ -100,9 +100,13 @@ export async function processCancelRefund(
     stripe
   ) {
     try {
-      const refund = await stripe.refunds.create({
-        payment_intent: booking.stripePaymentIntentId,
-      });
+      const refund = await stripe.refunds.create(
+        { payment_intent: booking.stripePaymentIntentId },
+        // Stable idempotency key — one refund per booking. Guards against a
+        // double-refund if this flow is retried (e.g. webhook/UI retry, or a
+        // crash between the refund and the status update below).
+        { idempotencyKey: `dropin:${bookingId}:refund` },
+      );
       await db
         .update(dropInBookings)
         .set({ stripeRefundId: refund.id })
