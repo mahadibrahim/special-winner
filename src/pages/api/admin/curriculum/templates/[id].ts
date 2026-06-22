@@ -4,7 +4,7 @@ import { practiceTemplates, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, or, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgSport,
   ownershipDeniedResponse,
@@ -62,11 +62,8 @@ const updateTemplateSchema = z.object({
 
 // GET - Get single template with full details
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -76,7 +73,7 @@ export const GET: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Template ID required" }), { status: 400 });
     }
 
-    const ownership = await loadTemplateForOrg(orgContext.organizationId, id);
+    const ownership = await loadTemplateForOrg(auth.organizationId, id);
     if (!ownership) return ownershipDeniedResponse();
 
     const [template] = await getDb()
@@ -128,11 +125,8 @@ export const GET: APIRoute = async (context) => {
 
 // PUT - Update template
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -144,7 +138,7 @@ export const PUT: APIRoute = async (context) => {
 
     // Verify the template belongs to caller's org (block cross-tenant writes
     // and reject mutations to global templates by non-super_admins).
-    const ownership = await loadTemplateForOrg(orgContext.organizationId, id);
+    const ownership = await loadTemplateForOrg(auth.organizationId, id);
     if (!ownership) return ownershipDeniedResponse();
 
     const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");
@@ -168,7 +162,7 @@ export const PUT: APIRoute = async (context) => {
     // If sportId is being changed, verify the new sport belongs to caller's org.
     if (result.data.sportId) {
       const sportCheck = await requireSameOrgSport(
-        orgContext.organizationId,
+        auth.organizationId,
         result.data.sportId,
       );
       if (!sportCheck.ok) return ownershipDeniedResponse();
@@ -202,11 +196,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete template
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -216,7 +207,7 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Template ID required" }), { status: 400 });
     }
 
-    const ownership = await loadTemplateForOrg(orgContext.organizationId, id);
+    const ownership = await loadTemplateForOrg(auth.organizationId, id);
     if (!ownership) return ownershipDeniedResponse();
 
     const isSuperAdmin = auth.roles.some((r) => r.name === "super_admin");

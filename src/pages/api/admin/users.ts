@@ -4,7 +4,7 @@ import { users, userRoles, roles, locations, programs, teams, seasons } from "@/
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { eq, asc, desc, ilike, or, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 const updateUserSchema = z.object({
   firstName: z.string().optional().nullable(),
@@ -21,11 +21,8 @@ const assignRoleSchema = z.object({
 
 // GET - List users with roles in this organization
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -42,7 +39,7 @@ export const GET: APIRoute = async (context) => {
     const locationIdsQ = db2
       .select({ id: locations.id })
       .from(locations)
-      .where(eq(locations.organizationId, orgContext.organizationId));
+      .where(eq(locations.organizationId, auth.organizationId));
     const programIdsQ = db2
       .select({ id: programs.id })
       .from(programs)
@@ -74,7 +71,7 @@ export const GET: APIRoute = async (context) => {
             eq(userRoles.scopeType, "global"),
             and(
               eq(userRoles.scopeType, "organization"),
-              eq(userRoles.scopeId, orgContext.organizationId)
+              eq(userRoles.scopeId, auth.organizationId)
             ),
             and(eq(userRoles.scopeType, "location"), inArray(userRoles.scopeId, locationIdsQ)),
             and(eq(userRoles.scopeType, "program"), inArray(userRoles.scopeId, programIdsQ)),
@@ -84,7 +81,7 @@ export const GET: APIRoute = async (context) => {
       getDb()
         .select({ userId: userOrganizationAccess.userId })
         .from(userOrganizationAccess)
-        .where(eq(userOrganizationAccess.organizationId, orgContext.organizationId)),
+        .where(eq(userOrganizationAccess.organizationId, auth.organizationId)),
     ]);
 
     const userIdsInOrg = [
@@ -192,11 +189,8 @@ export const GET: APIRoute = async (context) => {
 
 // PUT - Update user profile
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -213,7 +207,7 @@ export const PUT: APIRoute = async (context) => {
       .where(and(
         eq(userRoles.userId, id),
         eq(userRoles.scopeType, "organization"),
-        eq(userRoles.scopeId, orgContext.organizationId)
+        eq(userRoles.scopeId, auth.organizationId)
       ))
       .limit(1);
 
@@ -222,7 +216,7 @@ export const PUT: APIRoute = async (context) => {
       const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
-        .where(eq(locations.organizationId, orgContext.organizationId));
+        .where(eq(locations.organizationId, auth.organizationId));
 
       if (orgLocations.length > 0) {
         const locationIds = orgLocations.map((l) => l.id);
@@ -277,11 +271,8 @@ export const PUT: APIRoute = async (context) => {
 
 // POST - Assign role to user
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -302,15 +293,15 @@ export const POST: APIRoute = async (context) => {
     let scopeId = result.data.scopeId ?? null;
     if (scopeType === "organization") {
       if (scopeId === null) {
-        scopeId = orgContext.organizationId;
-      } else if (scopeId !== orgContext.organizationId) {
+        scopeId = auth.organizationId;
+      } else if (scopeId !== auth.organizationId) {
         return new Response(JSON.stringify({ error: "Cannot assign roles to other organizations" }), { status: 403 });
       }
     }
 
     if (scopeType === "location" && scopeId) {
       const location = await getDb().query.locations.findFirst({
-        where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
+        where: and(eq(locations.id, scopeId), eq(locations.organizationId, auth.organizationId)),
         orderBy: (t, { asc }) => asc(t.createdAt),
       });
       if (!location) {
@@ -323,7 +314,7 @@ export const POST: APIRoute = async (context) => {
         .select({ id: programs.id })
         .from(programs)
         .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(and(eq(programs.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+        .where(and(eq(programs.id, scopeId), eq(locations.organizationId, auth.organizationId)));
       if (!program) {
         return new Response(JSON.stringify({ error: "Program not found in this organization" }), { status: 404 });
       }
@@ -336,7 +327,7 @@ export const POST: APIRoute = async (context) => {
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(and(eq(teams.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+        .where(and(eq(teams.id, scopeId), eq(locations.organizationId, auth.organizationId)));
       if (!team) {
         return new Response(JSON.stringify({ error: "Team not found in this organization" }), { status: 404 });
       }
@@ -344,7 +335,7 @@ export const POST: APIRoute = async (context) => {
 
     // Only super-admins can promote another user to super_admin (the only
     // role that uses scopeType="global"). The auth check earlier in this
-    // handler (requireAdminAccess) does NOT distinguish super_admin from
+    // handler (requireOrgAdminAccess) does NOT distinguish super_admin from
     // location_admin, so we have to re-check here.
     if (scopeType === "global") {
       const assignerRoles = (context.locals.userRoles ?? []).map((r) => r.name);
@@ -427,11 +418,8 @@ export const POST: APIRoute = async (context) => {
 
 // DELETE - Remove role from user
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -458,13 +446,13 @@ export const DELETE: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Cannot remove global roles" }), { status: 403 });
     }
 
-    if (scopeType === "organization" && scopeId !== orgContext.organizationId) {
+    if (scopeType === "organization" && scopeId !== auth.organizationId) {
       return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });
     }
 
     if (scopeType === "location" && scopeId) {
       const location = await getDb().query.locations.findFirst({
-        where: and(eq(locations.id, scopeId), eq(locations.organizationId, orgContext.organizationId)),
+        where: and(eq(locations.id, scopeId), eq(locations.organizationId, auth.organizationId)),
         orderBy: (t, { asc }) => asc(t.createdAt),
       });
       if (!location) {
@@ -477,7 +465,7 @@ export const DELETE: APIRoute = async (context) => {
         .select({ id: programs.id })
         .from(programs)
         .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(and(eq(programs.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+        .where(and(eq(programs.id, scopeId), eq(locations.organizationId, auth.organizationId)));
       if (!program) {
         return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });
       }
@@ -490,7 +478,7 @@ export const DELETE: APIRoute = async (context) => {
         .innerJoin(seasons, eq(teams.seasonId, seasons.id))
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(and(eq(teams.id, scopeId), eq(locations.organizationId, orgContext.organizationId)));
+        .where(and(eq(teams.id, scopeId), eq(locations.organizationId, auth.organizationId)));
       if (!team) {
         return new Response(JSON.stringify({ error: "Role not found in this organization" }), { status: 404 });
       }

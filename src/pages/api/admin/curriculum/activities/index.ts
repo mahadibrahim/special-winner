@@ -4,7 +4,7 @@ import { activities, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, asc, desc, ilike, or, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgSport,
   ownershipDeniedResponse,
@@ -44,13 +44,10 @@ const activitySchema = z.object({
 
 // GET - List activities with filtering
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) {
     return auth.response;
   }
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -69,7 +66,7 @@ export const GET: APIRoute = async (context) => {
     // (organizationId IS NULL means a platform-wide seed entry).
     const conditions: ReturnType<typeof and>[] = [
       or(
-        eq(activities.organizationId, orgContext.organizationId),
+        eq(activities.organizationId, auth.organizationId),
         isNull(activities.organizationId),
       )!,
     ];
@@ -134,7 +131,7 @@ export const GET: APIRoute = async (context) => {
       getDb()
         .select({ id: sports.id, name: sports.name })
         .from(sports)
-        .where(eq(sports.organizationId, orgContext.organizationId))
+        .where(eq(sports.organizationId, auth.organizationId))
         .orderBy(asc(sports.name)),
       getDb().select({ id: developmentStages.id, name: developmentStages.name, slug: developmentStages.slug }).from(developmentStages).orderBy(asc(developmentStages.sortOrder)),
     ]);
@@ -159,13 +156,10 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new activity
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) {
     return auth.response;
   }
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const db = getDb();
@@ -182,7 +176,7 @@ export const POST: APIRoute = async (context) => {
 
     // Verify the posted sportId belongs to the caller's org.
     const sportCheck = await requireSameOrgSport(
-      orgContext.organizationId,
+      auth.organizationId,
       result.data.sportId,
     );
     if (!sportCheck.ok) return ownershipDeniedResponse();
@@ -191,7 +185,7 @@ export const POST: APIRoute = async (context) => {
     // (organizationId = null) via migration/seed scripts, not this route.
     const [newActivity] = await getDb()
       .insert(activities)
-      .values({ ...result.data, organizationId: orgContext.organizationId } as any)
+      .values({ ...result.data, organizationId: auth.organizationId } as any)
       .returning();
 
     return new Response(JSON.stringify({ activity: newActivity }), {

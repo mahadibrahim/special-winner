@@ -9,18 +9,15 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { buildPersonProfile } from "@/lib/person/build-person-profile";
 
 export const prerender = false;
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const { id } = context.params;
   if (!id) {
@@ -53,7 +50,7 @@ export const GET: APIRoute = async (context) => {
       const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
-        .where(eq(locations.organizationId, orgContext.organizationId));
+        .where(eq(locations.organizationId, auth.organizationId));
       allowedLocationIds = orgLocations.map((l) => l.id);
     } else if (effectiveIds.length === 0) {
       return new Response(JSON.stringify({ error: "Not found" }), {
@@ -67,7 +64,7 @@ export const GET: APIRoute = async (context) => {
     const profile = await buildPersonProfile({
       id,
       as: asParam,
-      orgId: orgContext.organizationId,
+      orgId: auth.organizationId,
       allowedLocationIds,
     });
 

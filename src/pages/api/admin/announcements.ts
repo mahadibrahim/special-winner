@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, desc, and, or, isNull, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { sendAnnouncementEmail } from "@/lib/email/send";
@@ -55,11 +55,8 @@ const announcementSchema = z.object({
 
 // GET - List announcements
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -71,7 +68,7 @@ export const GET: APIRoute = async (context) => {
     const limit =
       Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 100;
 
-    const conditions = [eq(announcements.organizationId, orgContext.organizationId)];
+    const conditions = [eq(announcements.organizationId, auth.organizationId)];
 
     // Scope rule: org-wide rows (locationId IS NULL) are always visible
     // to every admin in the org. Venue-scoped rows are visible only if
@@ -154,11 +151,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create announcement
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -176,7 +170,7 @@ export const POST: APIRoute = async (context) => {
       locationId: result.data.locationId,
       isSuper,
       userId: auth.user.id,
-      organizationId: orgContext.organizationId,
+      organizationId: auth.organizationId,
     });
     if (scopeError) return scopeError;
 
@@ -185,7 +179,7 @@ export const POST: APIRoute = async (context) => {
     const [newAnnouncement] = await getDb()
       .insert(announcements)
       .values({
-        organizationId: orgContext.organizationId,
+        organizationId: auth.organizationId,
         authorId: auth.user.id,
         ...result.data,
         expiresAt: result.data.expiresAt ? new Date(result.data.expiresAt) : null,
@@ -379,11 +373,8 @@ async function fanOutAnnouncementEmails(
 
 // PUT - Update announcement
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -403,7 +394,7 @@ export const PUT: APIRoute = async (context) => {
 
     // Verify the row belongs to this org.
     const existing = await getDb().query.announcements.findFirst({
-      where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
+      where: and(eq(announcements.id, id), eq(announcements.organizationId, auth.organizationId)),
       orderBy: (t, { asc }) => asc(t.createdAt),
     });
 
@@ -420,7 +411,7 @@ export const PUT: APIRoute = async (context) => {
       locationId: existing.locationId,
       isSuper,
       userId: auth.user.id,
-      organizationId: orgContext.organizationId,
+      organizationId: auth.organizationId,
     });
     if (existingScopeError) {
       // Hide existence — return 404 rather than 403 so we don't leak
@@ -431,7 +422,7 @@ export const PUT: APIRoute = async (context) => {
       locationId: result.data.locationId,
       isSuper,
       userId: auth.user.id,
-      organizationId: orgContext.organizationId,
+      organizationId: auth.organizationId,
     });
     if (newScopeError) return newScopeError;
 
@@ -467,11 +458,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete announcement
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -482,7 +470,7 @@ export const DELETE: APIRoute = async (context) => {
     }
 
     const existing = await getDb().query.announcements.findFirst({
-      where: and(eq(announcements.id, id), eq(announcements.organizationId, orgContext.organizationId)),
+      where: and(eq(announcements.id, id), eq(announcements.organizationId, auth.organizationId)),
       orderBy: (t, { asc }) => asc(t.createdAt),
     });
 
@@ -497,7 +485,7 @@ export const DELETE: APIRoute = async (context) => {
       locationId: existing.locationId,
       isSuper,
       userId: auth.user.id,
-      organizationId: orgContext.organizationId,
+      organizationId: auth.organizationId,
     });
     if (scopeError) {
       return new Response(JSON.stringify({ error: "Announcement not found" }), { status: 404 });

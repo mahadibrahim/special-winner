@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { organizations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { clearDomainCache } from "@/lib/organization/domain-resolver";
 
 const externalStoreSchema = z.object({
@@ -33,17 +33,14 @@ const bodySchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const [row] = await getDb()
       .select({ settings: organizations.settings })
       .from(organizations)
-      .where(eq(organizations.id, orgContext.organizationId));
+      .where(eq(organizations.id, auth.organizationId));
 
     if (!row) {
       return new Response(JSON.stringify({ error: "Organization not found" }), {
@@ -65,11 +62,8 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const PATCH: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -87,7 +81,7 @@ export const PATCH: APIRoute = async (context) => {
     const [current] = await getDb()
       .select({ settings: organizations.settings })
       .from(organizations)
-      .where(eq(organizations.id, orgContext.organizationId));
+      .where(eq(organizations.id, auth.organizationId));
 
     if (!current) {
       return new Response(JSON.stringify({ error: "Organization not found" }), {
@@ -110,7 +104,7 @@ export const PATCH: APIRoute = async (context) => {
     const [updated] = await getDb()
       .update(organizations)
       .set({ settings: merged as any, updatedAt: new Date() })
-      .where(eq(organizations.id, orgContext.organizationId))
+      .where(eq(organizations.id, auth.organizationId))
       .returning({ settings: organizations.settings });
 
     // Clear the in-process domain-resolver cache so public pages on this
