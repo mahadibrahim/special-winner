@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { assertNoRentalConflict } from "@/lib/rentals/conflicts";
 import { BlockConflictError } from "@/lib/scheduling/blocks";
@@ -29,10 +29,9 @@ const json = (body: unknown, status: number) =>
   });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const rentalId = context.params.id;
   if (!rentalId) return json({ error: "rental id required" }, 400);
 
@@ -52,10 +51,9 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const PATCH: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
   const rentalId = context.params.id;
   if (!rentalId) return json({ error: "rental id required" }, 400);
 

@@ -21,7 +21,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { addWalkUpToPickup } from "@/lib/venue/add-walkup-to-pickup";
@@ -45,11 +45,10 @@ const AddBody = z.object({
 
 export const POST: APIRoute = async (context) => {
   // ---- Auth gate ---------------------------------------------------------
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   // ---- Resolve session ---------------------------------------------------
   const sessionId = context.params.sessionId;

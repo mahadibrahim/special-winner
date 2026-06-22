@@ -3,16 +3,15 @@ import type { APIRoute } from "astro";
 import { eq, and, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { membershipTiers } from "@/lib/db/schema/memberships";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 
 export const prerender = false;
 const json = (b: unknown, s: number) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   let raw: { ids?: unknown };
   try { raw = await context.request.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }

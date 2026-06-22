@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { getEffectiveLocationIds, allOrgLocationIds } from "@/lib/admin/active-venue";
 import { getVenueReports } from "@/lib/admin/venue-reports";
 
@@ -11,8 +11,9 @@ const json = (b: unknown, s = 200) =>
   });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
+  const orgId = auth.organizationId;
   const { locals, url } = context;
 
   const period = url.searchParams.get("period") === "week" ? "week" : "today";
@@ -23,6 +24,6 @@ export const GET: APIRoute = async (context) => {
     userRoles: locals.userRoles ?? [],
     activeLocationId: locals.activeLocationId ?? null,
   });
-  const ids = scoped ?? (await allOrgLocationIds(locals.organization?.id));
+  const ids = scoped ?? (await allOrgLocationIds(orgId));
   return json({ report: await getVenueReports(ids, period, new Date()) });
 };

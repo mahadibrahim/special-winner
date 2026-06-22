@@ -9,7 +9,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 
 export const prerender = false;
 const json = (b: unknown, s: number) =>
@@ -19,10 +19,9 @@ const VALID_KINDS = ["drop_in_booking", "field_rental"] as const;
 type Kind = (typeof VALID_KINDS)[number];
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   let body: { kind?: string; targetId?: string };
   try { body = await context.request.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }

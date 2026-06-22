@@ -6,7 +6,7 @@
  * for client-side QR rendering. Returns the URL + masked recipient.
  */
 import type { APIRoute } from "astro";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner, type SelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { sendSms } from "@/lib/sms/send";
@@ -41,10 +41,9 @@ function maskPhone(p: string | null): string | null {
 }
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   let body: { kind?: string; targetId?: string; channel?: string };
   try {

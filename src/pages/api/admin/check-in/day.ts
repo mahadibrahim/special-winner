@@ -3,7 +3,7 @@
  * Admin + same-org-venue gated. Dashboard polls this every ~5s.
  */
 import type { APIRoute } from "astro";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import {
   requireSameOrgVenue,
   ownershipDeniedResponse,
@@ -22,10 +22,9 @@ const DATE_RX = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const venueId = context.url.searchParams.get("venueId");
   const date = context.url.searchParams.get("date");

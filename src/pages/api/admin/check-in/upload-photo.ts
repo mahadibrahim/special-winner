@@ -5,7 +5,7 @@
  * upload pipeline.
  */
 import type { APIRoute } from "astro";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { resolveSigner, type SelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { uploadPhoto } from "@/lib/check-in/photo-upload";
 
@@ -14,10 +14,9 @@ const json = (b: unknown, s: number) =>
   new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const form = await context.request.formData();
   const kind = form.get("kind") as string | null;

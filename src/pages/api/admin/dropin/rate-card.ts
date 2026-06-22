@@ -4,7 +4,7 @@
  * PUT /api/admin/dropin/rate-card → upsert. Validates non-negative ints
  *                                   and reasonable bounds for the windows.
  *
- * Director-only conceptually — `requireAdminAccess` gates super_admin and
+ * Director-only conceptually — `requireOrgAdminAccess` gates super_admin and
  * location_admin. Tighter director-only gate is deferred to a permissions
  * pass that goes alongside the other Director-only screens.
  */
@@ -12,7 +12,7 @@ import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInRateCard } from "@/lib/db/schema/drop-in";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { validateRateCardPut, type RateCardPutBody } from "@/lib/dropin/validators";
 
 export const prerender = false;
@@ -24,10 +24,9 @@ const json = (body: unknown, status: number) =>
   });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const db = getDb();
   let [row] = await db
@@ -47,10 +46,9 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   let body: RateCardPutBody;
   try {

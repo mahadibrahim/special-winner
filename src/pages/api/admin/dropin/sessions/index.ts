@@ -13,7 +13,7 @@ import { venueResources } from "@/lib/db/schema/scheduling";
 import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
 import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { venues } from "@/lib/db/schema/teams";
-import { requireAdminAccess } from "@/lib/auth/roles";
+import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { venueLocationCondition } from "@/lib/admin/location-scope-filter";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
@@ -27,10 +27,9 @@ const json = (body: unknown, status: number) =>
   });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   const url = context.url;
   const fromIso = url.searchParams.get("from");
@@ -115,10 +114,9 @@ interface CreateBody {
 // in their assigned locations (super-admin is unscoped). Enforced after the
 // venue tenant guard below via callerCanActOnVenue.
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgId = context.locals.organization?.id;
-  if (!orgId) return json({ error: "No organization context" }, 400);
+  const orgId = auth.organizationId;
 
   let body: CreateBody;
   try {
