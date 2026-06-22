@@ -100,7 +100,7 @@ export async function handleFieldRentalCheckoutComplete(
         refundError = err instanceof Error ? err.message : String(err);
         // The customer was CHARGED but the hold was already released — staff
         // must refund manually using the paymentIntentId in the log line.
-        logAlert("rental_late_refund_failed", {
+        await logAlert("rental_late_refund_failed", {
           rentalId,
           stripePaymentIntentId: piId,
           paidCents,
