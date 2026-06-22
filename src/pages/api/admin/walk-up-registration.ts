@@ -8,7 +8,7 @@ import { seasons, programs } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { normalizeUsPhone, sendSms } from "@/lib/sms/send";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
@@ -93,12 +93,9 @@ const walkUpSchema = z.union([
 ]);
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
   const adminUser = auth.user;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   let payload;
   try {
@@ -135,7 +132,7 @@ export const POST: APIRoute = async (context) => {
     .where(
       and(
         eq(seasons.id, input.seasonId),
-        eq(locations.organizationId, orgContext.organizationId),
+        eq(locations.organizationId, auth.organizationId),
       ),
     )
     .limit(1);
@@ -144,7 +141,7 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "Season not found" }, 404);
   }
 
-  const organizationId = orgContext.organizationId;
+  const organizationId = auth.organizationId;
   const clientAddress = context.clientAddress;
   const userAgent = context.request.headers.get("user-agent");
 

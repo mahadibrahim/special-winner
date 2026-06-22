@@ -6,7 +6,7 @@ import { users } from "@/lib/db/schema/users";
 import { familyMembers, registrations } from "@/lib/db/schema/registrations";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { sendToParent } from "@/lib/messaging/gateway";
 
@@ -34,11 +34,8 @@ const campaignSchema = z.object({
 });
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   let payload;
   try {
@@ -67,7 +64,7 @@ export const POST: APIRoute = async (context) => {
     .where(
       and(
         eq(seasons.id, parsed.data.seasonId),
-        eq(locations.organizationId, orgContext.organizationId),
+        eq(locations.organizationId, auth.organizationId),
       ),
     )
     .limit(1);

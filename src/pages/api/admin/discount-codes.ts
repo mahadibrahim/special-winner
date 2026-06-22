@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { discountCodes, seasons, programs } from "@/lib/db/schema";
 import { eq, asc, desc, and, or, isNull, gte, lte } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 /**
  * Admin-facing schema. `discountValue` is the human-readable number the
@@ -67,12 +67,8 @@ function decodeDiscountValue(
 
 // GET - List all discount codes
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  // Get organization context for multi-tenant filtering
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allCodes = await getDb()
@@ -94,7 +90,7 @@ export const GET: APIRoute = async (context) => {
         createdAt: discountCodes.createdAt,
       })
       .from(discountCodes)
-      .where(eq(discountCodes.organizationId, orgContext.organizationId))
+      .where(eq(discountCodes.organizationId, auth.organizationId))
       .orderBy(desc(discountCodes.createdAt));
 
     // Decode storage units back to the human-readable form the admin
@@ -117,12 +113,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create discount code
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  // Get organization context for multi-tenant filtering
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -141,7 +133,7 @@ export const POST: APIRoute = async (context) => {
     const existing = await getDb().query.discountCodes.findFirst({
       where: and(
         eq(discountCodes.code, result.data.code),
-        eq(discountCodes.organizationId, orgContext.organizationId)
+        eq(discountCodes.organizationId, auth.organizationId)
       ),
       orderBy: (d, { asc }) => asc(d.createdAt),
     });
@@ -160,7 +152,7 @@ export const POST: APIRoute = async (context) => {
     const [newCode] = await getDb()
       .insert(discountCodes)
       .values({
-        organizationId: orgContext.organizationId,
+        organizationId: auth.organizationId,
         ...result.data,
         discountValue: encodedValue,
         startsAt: result.data.startsAt ? new Date(result.data.startsAt) : null,
@@ -197,11 +189,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update discount code
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -234,7 +223,7 @@ export const PUT: APIRoute = async (context) => {
         expiresAt: result.data.expiresAt ? new Date(result.data.expiresAt) : null,
         updatedAt: new Date(),
       })
-      .where(and(eq(discountCodes.id, id), eq(discountCodes.organizationId, orgContext.organizationId)))
+      .where(and(eq(discountCodes.id, id), eq(discountCodes.organizationId, auth.organizationId)))
       .returning();
 
     if (!updatedCode) {
@@ -270,11 +259,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete discount code
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -287,7 +273,7 @@ export const DELETE: APIRoute = async (context) => {
     // Verify discount code belongs to this organization before deleting
     const [deletedCode] = await getDb()
       .delete(discountCodes)
-      .where(and(eq(discountCodes.id, id), eq(discountCodes.organizationId, orgContext.organizationId)))
+      .where(and(eq(discountCodes.id, id), eq(discountCodes.organizationId, auth.organizationId)))
       .returning();
 
     if (!deletedCode) {

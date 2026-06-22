@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
 import { adminRefund } from "@/lib/payments/admin-refund";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
@@ -23,11 +23,8 @@ const refundActionSchema = z.object({
 // POST - Approve or deny a refund request
 export const POST: APIRoute = async (context) => {
   // Verify admin access
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const { id } = context.params;
@@ -72,7 +69,7 @@ export const POST: APIRoute = async (context) => {
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(and(eq(registrations.id, id), eq(locations.organizationId, orgContext.organizationId)));
+      .where(and(eq(registrations.id, id), eq(locations.organizationId, auth.organizationId)));
 
     if (!registration) {
       return new Response(JSON.stringify({ error: "Registration not found" }), {
@@ -102,7 +99,7 @@ export const POST: APIRoute = async (context) => {
         refundAmountCents,
         reason,
         adminUserId: auth.user.id,
-        organizationId: orgContext.organizationId,
+        organizationId: auth.organizationId,
         childName,
         programName: registration.program.name,
         seasonName: registration.season.name,
@@ -152,7 +149,7 @@ export const POST: APIRoute = async (context) => {
       if (parentUser) {
         sendRefundNotificationEmail({
           userId: parentUser.id,
-          organizationId: orgContext.organizationId,
+          organizationId: auth.organizationId,
           registrationId: id,
           parentEmail: parentUser.email,
           parentName: parentUser.firstName || parentUser.email.split("@")[0],
@@ -191,11 +188,8 @@ export const POST: APIRoute = async (context) => {
 // GET - Get pending refund details
 export const GET: APIRoute = async (context) => {
   // Verify admin access
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const { id } = context.params;
@@ -221,7 +215,7 @@ export const GET: APIRoute = async (context) => {
       .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(and(eq(registrations.id, id), eq(locations.organizationId, orgContext.organizationId)));
+      .where(and(eq(registrations.id, id), eq(locations.organizationId, auth.organizationId)));
 
     if (!registration) {
       return new Response(JSON.stringify({ error: "Registration not found" }), {

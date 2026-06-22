@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { programs, seasons } from "@/lib/db/schema";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgLocation,
   requireSameOrgSport,
@@ -37,11 +37,8 @@ class OfferingError extends Error {
 }
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -59,13 +56,13 @@ export const POST: APIRoute = async (context) => {
 
     // Verify location and sport belong to the caller's org.
     const locationCheck = await requireSameOrgLocation(
-      orgContext.organizationId,
+      auth.organizationId,
       data.locationId,
     );
     if (!locationCheck.ok) return ownershipDeniedResponse();
 
     const sportCheck = await requireSameOrgSport(
-      orgContext.organizationId,
+      auth.organizationId,
       data.sportId,
     );
     if (!sportCheck.ok) return ownershipDeniedResponse();
