@@ -7,14 +7,12 @@ import type { APIRoute } from "astro";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { venueResources } from "@/lib/db/schema/scheduling";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { requireSameOrgVenue } from "@/lib/auth/require-resource-ownership";
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const venueId = context.params.id;
   if (!venueId) {
@@ -24,7 +22,7 @@ export const GET: APIRoute = async (context) => {
     });
   }
 
-  const owned = await requireSameOrgVenue(orgContext.organizationId, venueId);
+  const owned = await requireSameOrgVenue(auth.organizationId, venueId);
   if (!owned.ok) {
     return new Response(JSON.stringify({ error: "Not found" }), {
       status: owned.status,

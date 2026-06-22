@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { products } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -46,17 +46,14 @@ const productSchema = z.object({
 
 // GET - List all products
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const rows = await getDb()
       .select()
       .from(products)
-      .where(eq(products.organizationId, orgContext.organizationId))
+      .where(eq(products.organizationId, auth.organizationId))
       .orderBy(asc(products.sortOrder), asc(products.name));
 
     return new Response(JSON.stringify({ products: rows }), {
@@ -71,11 +68,8 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new product
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -90,7 +84,7 @@ export const POST: APIRoute = async (context) => {
 
     const [row] = await getDb()
       .insert(products)
-      .values({ organizationId: orgContext.organizationId, ...result.data })
+      .values({ organizationId: auth.organizationId, ...result.data })
       .returning();
 
     return new Response(JSON.stringify({ product: row }), {
@@ -111,11 +105,8 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update product
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -137,7 +128,7 @@ export const PUT: APIRoute = async (context) => {
       .update(products)
       .set({ ...result.data, updatedAt: new Date() })
       .where(
-        and(eq(products.id, id), eq(products.organizationId, orgContext.organizationId)),
+        and(eq(products.id, id), eq(products.organizationId, auth.organizationId)),
       )
       .returning();
 
@@ -163,11 +154,8 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete product
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -180,7 +168,7 @@ export const DELETE: APIRoute = async (context) => {
     const [row] = await getDb()
       .delete(products)
       .where(
-        and(eq(products.id, id), eq(products.organizationId, orgContext.organizationId)),
+        and(eq(products.id, id), eq(products.organizationId, auth.organizationId)),
       )
       .returning();
 

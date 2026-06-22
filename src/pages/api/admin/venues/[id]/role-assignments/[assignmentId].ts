@@ -11,7 +11,7 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { venueRoleAssignments } from "@/lib/db/schema/activity-tracking";
 import { and, eq, isNull } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgVenue,
   ownershipDeniedResponse,
@@ -24,11 +24,8 @@ const json = (body: unknown, status: number) =>
   });
 
 export const PATCH: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const venueId = context.params.id;
   const assignmentId = context.params.assignmentId;
@@ -36,7 +33,7 @@ export const PATCH: APIRoute = async (context) => {
     return json({ error: "venue id and assignment id required" }, 400);
   }
 
-  const venueCheck = await requireSameOrgVenue(orgContext.organizationId, venueId);
+  const venueCheck = await requireSameOrgVenue(auth.organizationId, venueId);
   if (!venueCheck.ok) return ownershipDeniedResponse();
 
   const db = getDb();
@@ -49,7 +46,7 @@ export const PATCH: APIRoute = async (context) => {
 
   if (!existing) return json({ error: "Not found" }, 404);
   // Cross-tenant lookups are conflated with not-found to avoid leaking existence.
-  if (existing.organizationId !== orgContext.organizationId) {
+  if (existing.organizationId !== auth.organizationId) {
     return json({ error: "Not found" }, 404);
   }
   if (existing.venueId !== venueId) {

@@ -17,7 +17,7 @@ import { users, userRoles } from "@/lib/db/schema/users";
 import { locations, programs, seasons, teams } from "@/lib/db/schema";
 import { and, eq, inArray, isNull, asc, or } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgVenue,
   ownershipDeniedResponse,
@@ -103,16 +103,13 @@ async function loadOrgUserIds(orgId: string): Promise<Set<string>> {
 }
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const venueId = context.params.id;
   if (!venueId) return json({ error: "venue id required" }, 400);
 
-  const venueCheck = await requireSameOrgVenue(orgContext.organizationId, venueId);
+  const venueCheck = await requireSameOrgVenue(auth.organizationId, venueId);
   if (!venueCheck.ok) return ownershipDeniedResponse();
 
   const rows = await getDb()
@@ -138,7 +135,7 @@ export const GET: APIRoute = async (context) => {
     .where(
       and(
         eq(venueRoleAssignments.venueId, venueId),
-        eq(venueRoleAssignments.organizationId, orgContext.organizationId),
+        eq(venueRoleAssignments.organizationId, auth.organizationId),
         isNull(venueRoleAssignments.effectiveTo),
       ),
     )
@@ -148,16 +145,13 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const venueId = context.params.id;
   if (!venueId) return json({ error: "venue id required" }, 400);
 
-  const venueCheck = await requireSameOrgVenue(orgContext.organizationId, venueId);
+  const venueCheck = await requireSameOrgVenue(auth.organizationId, venueId);
   if (!venueCheck.ok) return ownershipDeniedResponse();
 
   let body: unknown;
@@ -176,7 +170,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   // Verify the posted user belongs to caller's org.
-  const orgUserIds = await loadOrgUserIds(orgContext.organizationId);
+  const orgUserIds = await loadOrgUserIds(auth.organizationId);
   if (!orgUserIds.has(parsed.data.userId)) {
     return json({ error: "User not in this organization" }, 404);
   }
@@ -201,7 +195,7 @@ export const POST: APIRoute = async (context) => {
   const [created] = await getDb()
     .insert(venueRoleAssignments)
     .values({
-      organizationId: orgContext.organizationId,
+      organizationId: auth.organizationId,
       venueId,
       roleId: parsed.data.roleId,
       userId: parsed.data.userId,

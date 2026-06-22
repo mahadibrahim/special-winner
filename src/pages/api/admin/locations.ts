@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema";
 import { and, eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 
 const externalStoreSchema = z.object({
   url: z.string().url(),
@@ -32,17 +32,14 @@ const locationSchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const allLocations = await getDb()
       .select()
       .from(locations)
-      .where(eq(locations.organizationId, orgContext.organizationId))
+      .where(eq(locations.organizationId, auth.organizationId))
       .orderBy(asc(locations.name));
     return new Response(JSON.stringify({ locations: allLocations }), {
       status: 200,
@@ -55,11 +52,8 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -76,7 +70,7 @@ export const POST: APIRoute = async (context) => {
     const [newLocation] = await getDb()
       .insert(locations)
       .values({
-        organizationId: orgContext.organizationId,
+        organizationId: auth.organizationId,
         name: data.name,
         slug: data.slug,
         addressLine1: data.addressLine1 || null,
@@ -101,13 +95,11 @@ export const POST: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  // Org-scoped admin guard: requireOrgAdminAccess verifies the caller
+  // administers THIS org, and the organizationId predicate below pins the
+  // location to that org so an admin of another org can't edit it by posting its id.
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  // Pin to the caller's org. requireAdminAccess is org-independent, so without
-  // this an admin of any org could edit any tenant's location by posting its id.
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const body = await context.request.json();
@@ -148,7 +140,7 @@ export const PUT: APIRoute = async (context) => {
         .where(
           and(
             eq(locations.id, id),
-            eq(locations.organizationId, orgContext.organizationId),
+            eq(locations.organizationId, auth.organizationId),
           ),
         );
 
@@ -175,7 +167,7 @@ export const PUT: APIRoute = async (context) => {
       .where(
         and(
           eq(locations.id, id),
-          eq(locations.organizationId, orgContext.organizationId),
+          eq(locations.organizationId, auth.organizationId),
         ),
       )
       .returning();
@@ -192,13 +184,11 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  // Org-scoped admin guard: requireOrgAdminAccess verifies the caller
+  // administers THIS org, and the organizationId predicate below pins the
+  // location to that org so an admin of another org can't delete it by id.
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  // Pin to the caller's org — otherwise any admin could delete any tenant's
-  // location by id.
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   try {
     const url = new URL(context.request.url);
@@ -213,7 +203,7 @@ export const DELETE: APIRoute = async (context) => {
       .where(
         and(
           eq(locations.id, id),
-          eq(locations.organizationId, orgContext.organizationId),
+          eq(locations.organizationId, auth.organizationId),
         ),
       );
     return new Response(JSON.stringify({ success: true }), { status: 200 });

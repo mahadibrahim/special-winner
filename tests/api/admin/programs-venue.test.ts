@@ -211,14 +211,20 @@ describe("POST /api/admin/programs — super_admin with cross-org venueId", () =
 });
 
 // ============================================================================
-// 4. Location-admin cannot use a cross-org venueId
+// 4. An admin of another org cannot POST programs into this org
 // ============================================================================
 
-describe("POST /api/admin/programs — location_admin blocked from cross-org venueId", () => {
-  it("returns 404 when location_admin submits a venueId from another org", async () => {
-    // The admin-orgb user on localhost resolves to Org A's org context.
-    // Org A location + Org A sport + Org B venueId → venueId ownership check
-    // against Org A fails → 404.
+describe("POST /api/admin/programs — admin of a different org is blocked", () => {
+  it("returns 403 when an Org B admin posts to Org A's context", async () => {
+    // admin-orgb is a location_admin scoped to Org B; on localhost the request
+    // resolves to Org A's context. With the org-scoped admin guard
+    // (requireOrgAdminAccess), this caller is rejected at the gate — they do
+    // not administer Org A — BEFORE any per-resource ownership check runs.
+    //
+    // This is stronger than the previous behaviour: pre-migration the global
+    // admin check let them through and only the venueId ownership pin (404)
+    // stopped them, which means they could have created a program in Org A
+    // using Org A resource ids. The org-admin gate closes that path.
     const res = await apiFetch("/api/admin/programs", {
       method: "POST",
       cookie: locationAdminCookie,
@@ -227,15 +233,14 @@ describe("POST /api/admin/programs — location_admin blocked from cross-org ven
         slug: testSlug("sneaky-xorg"),
         locationId: orgALocationId,
         sportId: orgASportId,
-        venueId: orgBVenueId,  // Org B venue, but caller is in Org A context
+        venueId: orgBVenueId,
         programType: "league",
         active: true,
       }),
     });
 
-    // The cross-org venue fails the same-org ownership check → 404
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
     const json = await res.json();
-    expect(json.error).toBe("Resource not found");
+    expect(json.error).toMatch(/not an admin of this organization/i);
   });
 });

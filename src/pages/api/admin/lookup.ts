@@ -26,7 +26,7 @@ import {
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { requireAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { requireOrgAdminAccess } from "@/lib/auth";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 
 export const prerender = false;
@@ -35,11 +35,8 @@ const MIN_Q_LENGTH = 2;
 const MAX_RESULTS_PER_GROUP = 20;
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminAccess(context);
+  const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-
-  const orgContext = await requireOrganizationContext(context);
-  if (!orgContext.hasOrganization) return orgContext.response;
 
   const url = new URL(context.request.url);
   const q = (url.searchParams.get("q") ?? "").trim();
@@ -75,7 +72,7 @@ export const GET: APIRoute = async (context) => {
       const orgLocations = await getDb()
         .select({ id: locations.id })
         .from(locations)
-        .where(eq(locations.organizationId, orgContext.organizationId));
+        .where(eq(locations.organizationId, auth.organizationId));
       locationIds = orgLocations.map((l) => l.id);
     } else if (effectiveIds.length === 0) {
       return new Response(
@@ -118,7 +115,7 @@ export const GET: APIRoute = async (context) => {
           eq(userRoles.scopeType, "global"),
           and(
             eq(userRoles.scopeType, "organization"),
-            eq(userRoles.scopeId, orgContext.organizationId),
+            eq(userRoles.scopeId, auth.organizationId),
           ),
           ...(locationIds.length > 0
             ? [and(eq(userRoles.scopeType, "location"), inArray(userRoles.scopeId, locationIds))]
@@ -135,7 +132,7 @@ export const GET: APIRoute = async (context) => {
     const orgAccessRows = await getDb()
       .select({ userId: userOrganizationAccess.userId })
       .from(userOrganizationAccess)
-      .where(eq(userOrganizationAccess.organizationId, orgContext.organizationId));
+      .where(eq(userOrganizationAccess.organizationId, auth.organizationId));
 
     const userIdsInOrg = [
       ...new Set([
