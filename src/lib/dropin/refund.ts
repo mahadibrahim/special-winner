@@ -117,7 +117,7 @@ export async function processCancelRefund(
       refundError = message;
       // The booking still cancels (customer UI consistency), but the funds
       // were not returned — surface it to the caller so staff sees it.
-      logAlert("dropin_refund_failed", {
+      await logAlert("dropin_refund_failed", {
         bookingId,
         stripePaymentIntentId: booking.stripePaymentIntentId,
         amountPaidCents: booking.amountPaidCents,

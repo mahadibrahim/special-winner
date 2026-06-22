@@ -125,18 +125,20 @@ export function GuestInfoStep({
 
           <div className="space-y-4">
             <h4 className="font-medium text-ink">About you</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-ink-muted">First name *</Label>
+                <Label htmlFor="guest-parent-first" className="text-ink-muted">First name *</Label>
                 <Input
+                  id="guest-parent-first"
                   value={parentFirstName}
                   onChange={(e) => onParentFirstNameChange(e.target.value)}
                   className="bg-cream-2 border-border text-ink focus:border-primary"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-ink-muted">Last name *</Label>
+                <Label htmlFor="guest-parent-last" className="text-ink-muted">Last name *</Label>
                 <Input
+                  id="guest-parent-last"
                   value={parentLastName}
                   onChange={(e) => onParentLastNameChange(e.target.value)}
                   className="bg-cream-2 border-border text-ink focus:border-primary"
@@ -144,8 +146,9 @@ export function GuestInfoStep({
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-ink-muted">Email *</Label>
+              <Label htmlFor="guest-parent-email" className="text-ink-muted">Email *</Label>
               <Input
+                id="guest-parent-email"
                 type="email"
                 value={parentEmail}
                 onChange={(e) => onParentEmailChange(e.target.value)}
@@ -163,8 +166,9 @@ export function GuestInfoStep({
               )}
             </div>
             <div className="space-y-2">
-              <Label className="text-ink-muted">Phone (optional)</Label>
+              <Label htmlFor="guest-parent-phone" className="text-ink-muted">Phone (optional)</Label>
               <Input
+                id="guest-parent-phone"
                 type="tel"
                 value={parentPhone}
                 onChange={(e) => onParentPhoneChange(e.target.value)}
@@ -175,28 +179,31 @@ export function GuestInfoStep({
 
           <div className="space-y-4 pt-4 border-t border-border">
             <h4 className="font-medium text-ink">Player</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-ink-muted">First name *</Label>
+                <Label htmlFor="guest-child-first" className="text-ink-muted">First name *</Label>
                 <Input
+                  id="guest-child-first"
                   value={childFirstName}
                   onChange={(e) => onChildFirstNameChange(e.target.value)}
                   className="bg-cream-2 border-border text-ink focus:border-primary"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-ink-muted">Last name *</Label>
+                <Label htmlFor="guest-child-last" className="text-ink-muted">Last name *</Label>
                 <Input
+                  id="guest-child-last"
                   value={childLastName}
                   onChange={(e) => onChildLastNameChange(e.target.value)}
                   className="bg-cream-2 border-border text-ink focus:border-primary"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-ink-muted">Birth date *</Label>
+                <Label htmlFor="guest-child-birthdate" className="text-ink-muted">Birth date *</Label>
                 <Input
+                  id="guest-child-birthdate"
                   type="date"
                   value={childBirthDate}
                   onChange={(e) => onChildBirthDateChange(e.target.value)}
@@ -204,9 +211,9 @@ export function GuestInfoStep({
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-ink-muted">Gender</Label>
+                <Label htmlFor="guest-child-gender" className="text-ink-muted">Gender</Label>
                 <Select value={childGender} onValueChange={onChildGenderChange}>
-                  <SelectTrigger className="bg-cream-2 border-border text-ink">
+                  <SelectTrigger id="guest-child-gender" className="bg-cream-2 border-border text-ink">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent className="bg-cream border-border">
@@ -231,18 +238,20 @@ export function GuestInfoStep({
           </div>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-ink-muted">First name *</Label>
+                <Label htmlFor="guest-parent-first" className="text-ink-muted">First name *</Label>
                 <Input
+                  id="guest-parent-first"
                   value={parentFirstName}
                   onChange={(e) => onParentFirstNameChange(e.target.value)}
                   className="bg-cream-2 border-border text-ink focus:border-primary"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-ink-muted">Last name *</Label>
+                <Label htmlFor="guest-parent-last" className="text-ink-muted">Last name *</Label>
                 <Input
+                  id="guest-parent-last"
                   value={parentLastName}
                   onChange={(e) => onParentLastNameChange(e.target.value)}
                   className="bg-cream-2 border-border text-ink focus:border-primary"
@@ -250,8 +259,9 @@ export function GuestInfoStep({
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-ink-muted">Email *</Label>
+              <Label htmlFor="guest-parent-email" className="text-ink-muted">Email *</Label>
               <Input
+                id="guest-parent-email"
                 type="email"
                 value={parentEmail}
                 onChange={(e) => onParentEmailChange(e.target.value)}
@@ -269,18 +279,20 @@ export function GuestInfoStep({
               )}
             </div>
             <div className="space-y-2">
-              <Label className="text-ink-muted">Phone (optional)</Label>
+              <Label htmlFor="guest-parent-phone" className="text-ink-muted">Phone (optional)</Label>
               <Input
+                id="guest-parent-phone"
                 type="tel"
                 value={parentPhone}
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-ink-muted">Birth date *</Label>
+                <Label htmlFor="guest-adult-birthdate" className="text-ink-muted">Birth date *</Label>
                 <Input
+                  id="guest-adult-birthdate"
                   type="date"
                   value={adultBirthDate}
                   onChange={(e) => onAdultBirthDateChange(e.target.value)}
@@ -288,9 +300,9 @@ export function GuestInfoStep({
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-ink-muted">Gender (optional)</Label>
+                <Label htmlFor="guest-adult-gender" className="text-ink-muted">Gender (optional)</Label>
                 <Select value={adultGender} onValueChange={onAdultGenderChange}>
-                  <SelectTrigger className="bg-cream-2 border-border text-ink">
+                  <SelectTrigger id="guest-adult-gender" className="bg-cream-2 border-border text-ink">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent className="bg-cream border-border">

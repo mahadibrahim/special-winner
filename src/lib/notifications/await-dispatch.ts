@@ -13,6 +13,8 @@
  * Keeping it outside the transaction preserves the original intent: a
  * messaging failure is logged but must never roll back (or block) the booking.
  */
+import { captureServerException } from "@/lib/observability/server-error";
+
 export async function awaitDispatch(
   label: string,
   run: () => Promise<{ ok: boolean; reason?: string; error?: string }>,
@@ -26,9 +28,17 @@ export async function awaitDispatch(
         reason: result.reason,
         error: result.error,
       });
+      await captureServerException(
+        new Error(result.error ?? result.reason ?? "dispatch not delivered"),
+        { component: "notify/dispatch", metadata: { ...ctx, label } },
+      );
     }
   } catch (err) {
     console.error(`[notify] ${label} dispatch threw`, { ...ctx, err });
+    await captureServerException(err, {
+      component: "notify/dispatch",
+      metadata: { ...ctx, label },
+    });
   }
 }
 
@@ -49,8 +59,16 @@ export async function awaitEmailSend(
     const result = await run();
     if (!result.success) {
       console.error(`[email] ${label} not sent`, { ...ctx, error: result.error });
+      await captureServerException(new Error(result.error ?? "email not sent"), {
+        component: "notify/email",
+        metadata: { ...ctx, label },
+      });
     }
   } catch (err) {
     console.error(`[email] ${label} send threw`, { ...ctx, err });
+    await captureServerException(err, {
+      component: "notify/email",
+      metadata: { ...ctx, label },
+    });
   }
 }
