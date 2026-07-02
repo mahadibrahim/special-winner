@@ -16,6 +16,7 @@ import { getDb, type Database } from "../index";
 import { hashPassword } from "../../auth/password";
 import { ensureVenueResources } from "../../scheduling/blocks";
 import { hashFeedbackToken } from "../../feedback/tokens";
+import { NPS_EXPIRY_DAYS, REFEREE_EXPIRY_DAYS } from "../../feedback/constants";
 import {
   users,
   roles,
@@ -245,7 +246,7 @@ async function seedFeedbackFixtures(db: Database, orgId: string) {
     tokenHash,
     status: "sent",
     sentAt: new Date(),
-    expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    expiresAt: new Date(Date.now() + NPS_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
     metadata: { eventLabel: "E2E Pickup Soccer" },
   });
   console.log(`   ✓ Feedback fixture: NPS open token seeded for ${TEST_USERS.parent.email}`);
@@ -324,7 +325,7 @@ async function seedFeedbackFixtures(db: Database, orgId: string) {
     tokenHash: refereeTokenHash,
     status: "sent",
     sentAt: new Date(),
-    expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    expiresAt: new Date(Date.now() + REFEREE_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
     metadata: { eventLabel: "E2E League Game", gameType: "league", refereeName: "Coach T." },
   });
   console.log(`   ✓ Feedback fixture: referee rating open token seeded for ${TEST_USERS.parent.email}`);
