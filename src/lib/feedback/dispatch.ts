@@ -29,6 +29,7 @@ import {
 } from "./constants";
 import { generateFeedbackToken, hashFeedbackToken, buildFeedbackUrl } from "./tokens";
 import { sendNpsSurveyEmail, sendRefereeRatingEmail } from "@/lib/email/send";
+import { isEmailConfigured } from "@/lib/email";
 import { originForBrand } from "@/lib/organization/soccerone-routing";
 import { env } from "@/lib/env";
 import type { BrandId } from "@/lib/branding/themes";
@@ -417,8 +418,12 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<CreateSen
     // sendEmail never throws on delivery failure — it resolves
     // { success: false }. Treat that exactly like a throw: leave the row
     // pending for the next run's resend sweep (no email went out, so the
-    // retry cannot double-send).
-    if (!sendResult.success) {
+    // retry cannot double-send). Exception: when the email channel itself is
+    // unconfigured (no RESEND_API_KEY — CI and bare local dev), the platform
+    // convention is an intentionally inert channel; retrying hourly until
+    // expiry would be noise, so mark the request sent (email_logs still
+    // records the failed attempt for audit).
+    if (!sendResult.success && isEmailConfigured()) {
       console.error(
         `[feedback] send failed for request ${requestId}, leaving pending: ${sendResult.error ?? "unknown error"}`,
       );
@@ -542,8 +547,10 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
               surveyUrl,
             });
       // Resolved-but-failed sends ({ success: false }) leave the row pending
-      // for the next sweep, same as a throw — no email went out.
-      if (!sendResult.success) {
+      // for the next sweep, same as a throw — no email went out. Unconfigured
+      // email (no RESEND_API_KEY) is an intentionally inert channel: mark
+      // sent rather than retrying hourly until expiry (see createAndSend).
+      if (!sendResult.success && isEmailConfigured()) {
         console.error(
           `[feedback] pending resend failed for request ${row.id}: ${sendResult.error ?? "unknown error"}`,
         );
