@@ -20,6 +20,8 @@ import { WelcomeEmail2 } from "./templates/welcome-2-story";
 import { WelcomeEmail3 } from "./templates/welcome-3-activation";
 import { DisputeAlertEmail } from "./templates/dispute-alert";
 import { CaptureIncentiveEmail } from "./templates/capture-incentive";
+import { FeedbackNpsEmail } from "./templates/feedback-nps";
+import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
 import {
   CAPTURE_INCENTIVE,
   formatIncentiveAmount,
@@ -1103,4 +1105,73 @@ export async function sendDisputeAlertEmail(
   });
 
   return result;
+}
+
+export interface SendNpsSurveyEmailParams {
+  to: string;
+  userId: string;
+  organizationId: string;
+  brand: BrandId;
+  recipientName: string;
+  eventLabel: string;
+  surveyUrl: string;
+  /** When true, also fire the SMS nudge (org has SMS + recipient opted in). */
+  smsOptIn?: boolean;
+}
+
+export async function sendNpsSurveyEmail(params: SendNpsSurveyEmailParams) {
+  const { html, text } = await renderEmail(
+    FeedbackNpsEmail({
+      recipientName: params.recipientName,
+      eventLabel: params.eventLabel,
+      surveyUrl: params.surveyUrl,
+      brand: params.brand,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    emailType: "feedback_nps_survey",
+    to: params.to,
+    subject: `How was ${params.eventLabel}?`,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+    smsNudge: params.smsOptIn
+      ? {
+          organizationId: params.organizationId,
+          body: `How was ${clip(params.eventLabel, 60)}? 20-second survey: ${params.surveyUrl}`,
+        }
+      : undefined,
+  });
+}
+
+export interface SendDetractorAlertEmailParams {
+  to: string;
+  brand: BrandId;
+  score: number;
+  comment: string | null;
+  eventLabel: string;
+  kind: string;
+}
+
+export async function sendDetractorAlertEmail(params: SendDetractorAlertEmailParams) {
+  const { html, text } = await renderEmail(
+    FeedbackDetractorAlertEmail({
+      score: params.score,
+      comment: params.comment,
+      eventLabel: params.eventLabel,
+      kind: params.kind,
+      brand: params.brand,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    emailType: "feedback_detractor_alert",
+    to: params.to,
+    subject: `Low NPS score (${params.score}/10) — ${params.eventLabel}`,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
 }
