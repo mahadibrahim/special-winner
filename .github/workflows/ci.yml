@@ -64,6 +64,12 @@ env:
   STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
   STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
   PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
+  # RESEND_API_KEY is intentionally NOT defined as a repo secret — it resolves
+  # to empty here, making email an inert channel in CI (sendEmail resolves
+  # {success:false}; feedback dispatch treats unconfigured email as sent, see
+  # src/lib/feedback/dispatch.ts). Do NOT add the secret: CI would then fire
+  # real Resend sends at fake @test.* addresses and the hard bounces would
+  # damage the sending domain's reputation.
   RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
   RESEND_INBOUND_WEBHOOK_SECRET: ${{ secrets.RESEND_INBOUND_WEBHOOK_SECRET }}
   CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
