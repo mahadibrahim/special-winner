@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, lt, isNull, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, lte, lt, isNull, inArray, sql, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   feedbackRequests,
@@ -11,6 +11,9 @@ import {
   seasons,
   programs,
   locations,
+  games,
+  gameOfficials,
+  rosters,
   type FeedbackRequestKind,
   type FeedbackRequestMetadata,
   type OrganizationFeatures,
@@ -21,9 +24,11 @@ import {
   POST_EVENT_DELAY_HOURS,
   DISPATCH_LOOKBACK_DAYS,
   SEASON_LOOKBACK_DAYS,
+  REFEREE_EXPIRY_DAYS,
+  REFEREE_DAILY_CAP_HOURS,
 } from "./constants";
 import { generateFeedbackToken, hashFeedbackToken, buildFeedbackUrl } from "./tokens";
-import { sendNpsSurveyEmail } from "@/lib/email/send";
+import { sendNpsSurveyEmail, sendRefereeRatingEmail } from "@/lib/email/send";
 import { originForBrand } from "@/lib/organization/soccerone-routing";
 import { env } from "@/lib/env";
 import type { BrandId } from "@/lib/branding/themes";
@@ -188,6 +193,114 @@ async function scanSeasons(now: Date, enabledOrgs: Set<string>): Promise<Candida
     }));
 }
 
+/** Scan 4: completed games with an official → adults on both rosters. */
+async function scanRefereeRatings(now: Date, enabledOrgs: Set<string>): Promise<Candidate[]> {
+  const db = getDb();
+  const updatedAfter = new Date(now.getTime() - DISPATCH_LOOKBACK_DAYS * DAY_MS);
+
+  // Ordered scheduledAt DESC: candidates below are built in this order, so
+  // for a recipient appearing across multiple completed games, the earlier
+  // (older) game's candidate is appended later. The daily-cap check runs
+  // in candidate order, so it always sees the most recent game's candidate
+  // first — anchoring the recipient's single allowed email to their most
+  // recent completed game rather than an arbitrary one.
+  const completedGames = await db
+    .select({
+      gameId: games.id,
+      homeTeamId: games.homeTeamId,
+      awayTeamId: games.awayTeamId,
+      scheduledAt: games.scheduledAt,
+      organizationId: locations.organizationId,
+      programType: programs.programType,
+      programName: programs.name,
+    })
+    .from(games)
+    .innerJoin(seasons, eq(games.seasonId, seasons.id))
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(and(eq(games.status, "completed"), gte(games.updatedAt, updatedAfter)))
+    .orderBy(desc(games.scheduledAt));
+
+  const candidates: Candidate[] = [];
+
+  for (const game of completedGames) {
+    if (!enabledOrgs.has(game.organizationId)) continue;
+
+    const teamIds = [game.homeTeamId, game.awayTeamId].filter(
+      (id): id is string => id !== null,
+    );
+    if (teamIds.length === 0) continue;
+
+    // Head referee = earliest-assigned official (explicit orderBy: the CI DB
+    // accumulates rows; see multi-tenant query hazards).
+    const [official] = await db
+      .select({
+        id: gameOfficials.id,
+        userId: gameOfficials.userId,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(gameOfficials)
+      .innerJoin(users, eq(gameOfficials.userId, users.id))
+      .where(eq(gameOfficials.gameId, game.gameId))
+      .orderBy(sql`${gameOfficials.createdAt} ASC`)
+      .limit(1);
+    if (!official) continue;
+
+    // Adults tied to both rosters: parents of youth players AND adult
+    // self-registrants — both are registrations.registeredByUserId.
+    const recipientRows = await db
+      .selectDistinct({ userId: registrations.registeredByUserId, brand: registrations.brand })
+      .from(rosters)
+      .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
+      .where(
+        and(
+          inArray(rosters.teamId, teamIds),
+          eq(rosters.status, "active"),
+          eq(registrations.status, "confirmed"),
+        ),
+      );
+
+    const refereeName = `${official.firstName ?? "The"} ${(official.lastName ?? "referee").charAt(0)}.`;
+    const gameType = game.programType === "tournament" ? "tournament" : "league";
+    const eventLabel = `${game.programName} — ${formatEventDate(game.scheduledAt)}`;
+
+    for (const recipient of recipientRows) {
+      if (recipient.userId === official.userId) continue; // never self-rate
+      candidates.push({
+        organizationId: game.organizationId,
+        brand: recipient.brand,
+        kind: "referee_rating",
+        targetId: game.gameId,
+        recipientUserId: recipient.userId,
+        gameOfficialId: official.id,
+        metadata: { eventLabel, gameType, refereeName },
+        expiryDays: REFEREE_EXPIRY_DAYS,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+/** True when the recipient got ANY referee-rating ask in the cap window. */
+async function inRefereeDailyCap(recipientUserId: string, now: Date): Promise<boolean> {
+  const cutoff = new Date(now.getTime() - REFEREE_DAILY_CAP_HOURS * HOUR_MS);
+  const [row] = await getDb()
+    .select({ id: feedbackRequests.id })
+    .from(feedbackRequests)
+    .where(
+      and(
+        eq(feedbackRequests.recipientUserId, recipientUserId),
+        eq(feedbackRequests.kind, "referee_rating"),
+        gte(feedbackRequests.sentAt, cutoff),
+      ),
+    )
+    .orderBy(sql`${feedbackRequests.sentAt} DESC`)
+    .limit(1);
+  return row !== undefined;
+}
+
 /** True when this recipient already got this NPS kind within the cooldown. */
 async function inCooldown(
   recipientUserId: string,
@@ -278,16 +391,29 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<CreateSen
     (org?.features as OrganizationFeatures | null)?.enableSMS === true;
 
   try {
-    const sendResult = await sendNpsSurveyEmail({
-      to: recipient.email,
-      userId: candidate.recipientUserId,
-      organizationId: candidate.organizationId,
-      brand,
-      recipientName: recipient.firstName ?? "there",
-      eventLabel: candidate.metadata.eventLabel,
-      surveyUrl,
-      smsOptIn,
-    });
+    const sendResult =
+      candidate.kind === "referee_rating"
+        ? await sendRefereeRatingEmail({
+            to: recipient.email,
+            userId: candidate.recipientUserId,
+            organizationId: candidate.organizationId,
+            brand,
+            recipientName: recipient.firstName ?? "there",
+            eventLabel: candidate.metadata.eventLabel,
+            refereeName: candidate.metadata.refereeName ?? "the referee",
+            surveyUrl,
+            smsOptIn,
+          })
+        : await sendNpsSurveyEmail({
+            to: recipient.email,
+            userId: candidate.recipientUserId,
+            organizationId: candidate.organizationId,
+            brand,
+            recipientName: recipient.firstName ?? "there",
+            eventLabel: candidate.metadata.eventLabel,
+            surveyUrl,
+            smsOptIn,
+          });
     // sendEmail never throws on delivery failure — it resolves
     // { success: false }. Treat that exactly like a throw: leave the row
     // pending for the next run's resend sweep (no email went out, so the
@@ -346,35 +472,48 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
     .limit(50);
 
   for (const row of rows) {
-    // Referee resends are handled by the same path; NPS-only until Task 12
-    // adds sendRefereeRatingEmail (pending referee rows are skipped here
-    // by kind check until then — Task 12 removes the check).
-    if (row.kind === "referee_rating") continue;
-
-    const plaintext = generateFeedbackToken();
-    await db
-      .update(feedbackRequests)
-      .set({ tokenHash: hashFeedbackToken(plaintext) })
-      .where(eq(feedbackRequests.id, row.id));
-
-    const [recipient] = await db
-      .select({ email: users.email, firstName: users.firstName })
-      .from(users)
-      .where(eq(users.id, row.recipientUserId))
-      .limit(1);
-    if (!recipient?.email) continue;
-
-    const brand = (row.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
+    // The row's entire processing — including the re-token update and
+    // recipient lookup — lives inside this try/catch. A transient DB error
+    // anywhere in here (not just the send call) must log, count as an
+    // error, and let the sweep continue with the remaining rows instead of
+    // aborting.
     try {
-      const sendResult = await sendNpsSurveyEmail({
-        to: recipient.email,
-        userId: row.recipientUserId,
-        organizationId: row.organizationId,
-        brand,
-        recipientName: recipient.firstName ?? "there",
-        eventLabel: row.metadata?.eventLabel ?? "your recent visit",
-        surveyUrl: buildFeedbackUrl(plaintext, originForBrand(brand) ?? env.PUBLIC_APP_URL),
-      });
+      const plaintext = generateFeedbackToken();
+      await db
+        .update(feedbackRequests)
+        .set({ tokenHash: hashFeedbackToken(plaintext) })
+        .where(eq(feedbackRequests.id, row.id));
+
+      const [recipient] = await db
+        .select({ email: users.email, firstName: users.firstName })
+        .from(users)
+        .where(eq(users.id, row.recipientUserId))
+        .limit(1);
+      if (!recipient?.email) continue;
+
+      const brand = (row.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
+      const surveyUrl = buildFeedbackUrl(plaintext, originForBrand(brand) ?? env.PUBLIC_APP_URL);
+      const sendResult =
+        row.kind === "referee_rating"
+          ? await sendRefereeRatingEmail({
+              to: recipient.email,
+              userId: row.recipientUserId,
+              organizationId: row.organizationId,
+              brand,
+              recipientName: recipient.firstName ?? "there",
+              eventLabel: row.metadata?.eventLabel ?? "your recent game",
+              refereeName: row.metadata?.refereeName ?? "the referee",
+              surveyUrl,
+            })
+          : await sendNpsSurveyEmail({
+              to: recipient.email,
+              userId: row.recipientUserId,
+              organizationId: row.organizationId,
+              brand,
+              recipientName: recipient.firstName ?? "there",
+              eventLabel: row.metadata?.eventLabel ?? "your recent visit",
+              surveyUrl,
+            });
       // Resolved-but-failed sends ({ success: false }) leave the row pending
       // for the next sweep, same as a throw — no email went out.
       if (!sendResult.success) {
@@ -424,6 +563,36 @@ export async function dispatchFeedbackRequests(now: Date = new Date()): Promise<
         result.errors += 1;
       }
       // !created && !sent is the duplicate/idempotency path — silently fine.
+    } catch (err) {
+      console.error(
+        `[feedback] candidate dispatch threw (kind=${candidate.kind} target=${candidate.targetId}):`,
+        err,
+      );
+      result.errors += 1;
+    }
+  }
+
+  // Referee ratings use a daily cap (one email per recipient per rolling
+  // 24h) instead of the 90-day NPS cooldown, so they run through their own
+  // loop rather than joining `candidates` above. scanRefereeRatings already
+  // returns candidates ordered most-recent-game-first (see its comment), so
+  // the cap anchors each recipient's single email to their latest game.
+  const refOrgs = await orgsWithFeature("enableRefereeRatings");
+  const refereeCandidates = await scanRefereeRatings(now, refOrgs);
+
+  for (const candidate of refereeCandidates) {
+    try {
+      if (await inRefereeDailyCap(candidate.recipientUserId, now)) {
+        result.skippedCooldown += 1;
+        continue;
+      }
+      const outcome = await createAndSend(candidate, now);
+      if (outcome.created) result.created += 1;
+      if (outcome.sent) {
+        result.sent += 1;
+      } else if (outcome.created) {
+        result.errors += 1;
+      }
     } catch (err) {
       console.error(
         `[feedback] candidate dispatch threw (kind=${candidate.kind} target=${candidate.targetId}):`,
