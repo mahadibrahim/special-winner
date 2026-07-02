@@ -27,8 +27,16 @@ interface FeedbackSettingsState {
  * per-brand Google review URLs, detractor alert address. Persists via the
  * org settings PATCH endpoint (settings.feedback + features).
  */
+const EMPTY_STATE: FeedbackSettingsState = {
+  enableNpsSurveys: false,
+  enableRefereeRatings: false,
+  googleReviewUrlAspire: "",
+  googleReviewUrlSoccerone: "",
+  detractorAlertEmail: "",
+};
+
 export function FeedbackSettingsCard() {
-  const [state, setState] = useState<FeedbackSettingsState | null>(null);
+  const [state, setState] = useState<FeedbackSettingsState>(EMPTY_STATE);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +73,6 @@ export function FeedbackSettingsCard() {
   }, []);
 
   async function save() {
-    if (!state) return;
     setIsSaving(true);
     setError(null);
     try {
@@ -116,7 +123,7 @@ export function FeedbackSettingsCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!initialLoaded || !state ? (
+        {!initialLoaded ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
