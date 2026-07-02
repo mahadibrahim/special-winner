@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import { renderEmail } from "@/lib/email/render";
 import { FeedbackNpsEmail } from "@/lib/email/templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "@/lib/email/templates/feedback-detractor-alert";
+import { FeedbackRefereeRatingEmail } from "@/lib/email/templates/feedback-referee-rating";
 
 describe("feedback email templates", () => {
   it("renders the NPS survey email with the tokenized link", async () => {
@@ -31,5 +32,19 @@ describe("feedback email templates", () => {
     );
     expect(html).toContain("3");
     expect(html).toContain("Fields were muddy");
+  });
+
+  it("renders the referee rating email", async () => {
+    const { html } = await renderEmail(
+      FeedbackRefereeRatingEmail({
+        recipientName: "Jordan",
+        eventLabel: "U10 Tigers vs U10 Lions — Sat, Jul 4",
+        refereeName: "Alex R.",
+        surveyUrl: "https://example.com/feedback/tok456",
+        brand: "aspire",
+      }),
+    );
+    expect(html).toContain("Alex R.");
+    expect(html).toContain("https://example.com/feedback/tok456");
   });
 });

@@ -22,6 +22,7 @@ import { DisputeAlertEmail } from "./templates/dispute-alert";
 import { CaptureIncentiveEmail } from "./templates/capture-incentive";
 import { FeedbackNpsEmail } from "./templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
+import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
 import {
   CAPTURE_INCENTIVE,
   formatIncentiveAmount,
@@ -1173,5 +1174,45 @@ export async function sendDetractorAlertEmail(params: SendDetractorAlertEmailPar
     html,
     text,
     from: fromForBrand(params.brand),
+  });
+}
+
+export interface SendRefereeRatingEmailParams {
+  to: string;
+  userId: string;
+  organizationId: string;
+  brand: BrandId;
+  recipientName: string;
+  eventLabel: string;
+  refereeName: string;
+  surveyUrl: string;
+  smsOptIn?: boolean;
+}
+
+export async function sendRefereeRatingEmail(params: SendRefereeRatingEmailParams) {
+  const { html, text } = await renderEmail(
+    FeedbackRefereeRatingEmail({
+      recipientName: params.recipientName,
+      eventLabel: params.eventLabel,
+      refereeName: params.refereeName,
+      surveyUrl: params.surveyUrl,
+      brand: params.brand,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    emailType: "feedback_referee_rating",
+    to: params.to,
+    subject: `Rate the referee — ${params.eventLabel}`,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+    smsNudge: params.smsOptIn
+      ? {
+          organizationId: params.organizationId,
+          body: `How did the ref do at ${clip(params.eventLabel, 50)}? 20-second rating: ${params.surveyUrl}`,
+        }
+      : undefined,
   });
 }
