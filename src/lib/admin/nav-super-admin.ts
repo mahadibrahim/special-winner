@@ -34,6 +34,7 @@ import {
   LayoutDashboard,
   BarChart3,
   Smile,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 
@@ -129,6 +130,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
       { name: "Revenue", href: "/admin/reports/revenue", icon: BarChart3 },
       { name: "Registration trends", href: "/admin/reports/registrations", icon: BarChart3 },
       { name: "NPS", href: "/admin/reports/nps", icon: Smile },
+      { name: "Referee ratings", href: "/admin/reports/referee-ratings", icon: Star },
     ],
   },
 ];

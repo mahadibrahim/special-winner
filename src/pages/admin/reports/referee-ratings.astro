@@ -1,0 +1,22 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { RefereeRatingsReport } from "@/components/admin/reports/referee-ratings-report";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+---
+
+<BaseLayout title="Referee ratings — Reports — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/reports/referee-ratings"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <RefereeRatingsReport client:load />
+  </AdminLayout>
+</BaseLayout>
