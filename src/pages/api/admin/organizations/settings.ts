@@ -21,15 +21,32 @@ const siteAnnouncementSchema = z.object({
   expiresAt: z.string().datetime({ offset: true }).optional(),
 });
 
+const feedbackSettingsSchema = z.object({
+  googleReviewUrl: z
+    .object({
+      aspire: z.string().url().optional(),
+      soccerone: z.string().url().optional(),
+    })
+    .optional(),
+  detractorAlertEmail: z.string().email().optional(),
+});
+
+const featuresPatchSchema = z.object({
+  enableNpsSurveys: z.boolean().optional(),
+  enableRefereeRatings: z.boolean().optional(),
+});
+
 // Partial settings patch. Only keys present in the body are merged at the top
 // level of the settings jsonb blob. Pass `null` for a key to delete it.
 const settingsPatchSchema = z.object({
   externalStore: externalStoreSchema.nullable().optional(),
   siteAnnouncement: siteAnnouncementSchema.nullable().optional(),
+  feedback: feedbackSettingsSchema.nullable().optional(),
 });
 
 const bodySchema = z.object({
-  settings: settingsPatchSchema,
+  settings: settingsPatchSchema.optional(),
+  features: featuresPatchSchema.optional(),
 });
 
 export const GET: APIRoute = async (context) => {
@@ -38,7 +55,10 @@ export const GET: APIRoute = async (context) => {
 
   try {
     const [row] = await getDb()
-      .select({ settings: organizations.settings })
+      .select({
+        settings: organizations.settings,
+        features: organizations.features,
+      })
       .from(organizations)
       .where(eq(organizations.id, auth.organizationId));
 
@@ -48,10 +68,16 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
-    return new Response(JSON.stringify({ settings: row.settings ?? {} }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        settings: row.settings ?? {},
+        features: row.features ?? {},
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     console.error("Error fetching organization settings:", error);
     return new Response(
@@ -79,7 +105,10 @@ export const PATCH: APIRoute = async (context) => {
     }
 
     const [current] = await getDb()
-      .select({ settings: organizations.settings })
+      .select({
+        settings: organizations.settings,
+        features: organizations.features,
+      })
       .from(organizations)
       .where(eq(organizations.id, auth.organizationId));
 
@@ -89,33 +118,70 @@ export const PATCH: APIRoute = async (context) => {
       });
     }
 
-    const existing = (current.settings ?? {}) as Record<string, unknown>;
-    const patch = parsed.data.settings as Record<string, unknown>;
-    const merged: Record<string, unknown> = { ...existing };
+    const existingSettings = (current.settings ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const settingsPatch = (parsed.data.settings ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const mergedSettings: Record<string, unknown> = { ...existingSettings };
 
-    for (const [key, value] of Object.entries(patch)) {
+    for (const [key, value] of Object.entries(settingsPatch)) {
       if (value === null) {
-        delete merged[key];
+        delete mergedSettings[key];
       } else if (value !== undefined) {
-        merged[key] = value;
+        mergedSettings[key] = value;
+      }
+    }
+
+    const existingFeatures = (current.features ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const featuresPatch = (parsed.data.features ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const mergedFeatures: Record<string, unknown> = { ...existingFeatures };
+
+    // Unlike settings keys, feature flags are plain booleans (not nullable
+    // in the schema), so there is no null-to-delete path — just overwrite.
+    for (const [key, value] of Object.entries(featuresPatch)) {
+      if (value !== undefined) {
+        mergedFeatures[key] = value;
       }
     }
 
     const [updated] = await getDb()
       .update(organizations)
-      .set({ settings: merged as any, updatedAt: new Date() })
+      .set({
+        settings: mergedSettings as any,
+        features: mergedFeatures as any,
+        updatedAt: new Date(),
+      })
       .where(eq(organizations.id, auth.organizationId))
-      .returning({ settings: organizations.settings });
+      .returning({
+        settings: organizations.settings,
+        features: organizations.features,
+      });
 
     // Clear the in-process domain-resolver cache so public pages on this
     // instance reflect the new settings immediately. In prod, other instances
     // may still serve the old value for up to 5 min (the resolver's TTL).
     clearDomainCache();
 
-    return new Response(JSON.stringify({ settings: updated.settings ?? {} }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        settings: updated.settings ?? {},
+        features: updated.features ?? {},
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     console.error("Error updating organization settings:", error);
     return new Response(

@@ -9,11 +9,14 @@
 
 // Load environment variables from .env file if present
 import "dotenv/config";
+import crypto from "node:crypto";
 import { pathToFileURL } from "node:url";
 
-import { getDb } from "../index";
+import { getDb, type Database } from "../index";
 import { hashPassword } from "../../auth/password";
 import { ensureVenueResources } from "../../scheduling/blocks";
+import { hashFeedbackToken } from "../../feedback/tokens";
+import { NPS_EXPIRY_DAYS, REFEREE_EXPIRY_DAYS } from "../../feedback/constants";
 import {
   users,
   roles,
@@ -29,13 +32,16 @@ import {
   registrations,
   venues,
   events,
+  feedbackRequests,
+  type OrganizationFeatures,
+  type OrganizationSettings,
 } from "../schema";
 import {
   mediaStaffProfiles,
   shootSessions,
   mediaAssets,
 } from "../schema/media";
-import { rosters, games } from "../schema";
+import { rosters, games, gameOfficials } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
 import { dropInSessions } from "../schema/drop-in";
@@ -179,6 +185,150 @@ function assertNotProduction(): void {
     );
     process.exit(2);
   }
+}
+
+/**
+ * Post-event feedback fixtures — Task 9 (NPS promoter path E2E spec).
+ * Seeds a fixed-token, always-'sent' feedback_requests row so
+ * tests/e2e/feedback-nps.spec.ts can hit /feedback/e2e-feedback-nps-open
+ * deterministically. The org is flipped to enableNpsSurveys + given a
+ * Google review URL so the promoter CTA renders. Reset to 'sent' on every
+ * seed run since the spec consumes (answers) the token.
+ */
+async function seedFeedbackFixtures(db: Database, orgId: string) {
+  // The org must have the flag + a review URL so the promoter CTA renders.
+  // Merge into existing settings/features so we never clobber other keys.
+  const [org] = await db
+    .select({ settings: organizations.settings, features: organizations.features })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+
+  const mergedFeatures: OrganizationFeatures = {
+    ...(org?.features ?? {}),
+    enableNpsSurveys: true,
+    enableRefereeRatings: true,
+  };
+  const mergedSettings: OrganizationSettings = {
+    ...(org?.settings ?? ({} as OrganizationSettings)),
+    feedback: {
+      ...(org?.settings?.feedback ?? {}),
+      googleReviewUrl: {
+        ...(org?.settings?.feedback?.googleReviewUrl ?? {}),
+        aspire: "https://example.com/e2e-review",
+      },
+    },
+  };
+
+  await db
+    .update(organizations)
+    .set({ features: mergedFeatures, settings: mergedSettings })
+    .where(eq(organizations.id, orgId));
+
+  const [parent] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TEST_USERS.parent.email))
+    .limit(1);
+  if (!parent) throw new Error("e2e seed: parent test user missing");
+
+  const tokenHash = hashFeedbackToken("e2e-feedback-nps-open");
+
+  // Reset to a fresh 'sent' request every seed run (the spec consumes it).
+  // .delete cascades to nps_responses via FK, so the request is always fresh.
+  await db.delete(feedbackRequests).where(eq(feedbackRequests.tokenHash, tokenHash));
+  await db.insert(feedbackRequests).values({
+    organizationId: orgId,
+    brand: "aspire",
+    kind: "nps_drop_in",
+    targetId: crypto.randomUUID(),
+    recipientUserId: parent.id,
+    tokenHash,
+    status: "sent",
+    sentAt: new Date(),
+    expiresAt: new Date(Date.now() + NPS_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+    metadata: { eventLabel: "E2E Pickup Soccer" },
+  });
+  console.log(`   ✓ Feedback fixture: NPS open token seeded for ${TEST_USERS.parent.email}`);
+
+  // --- Referee rating fixture ---
+
+  const [coach] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TEST_USERS.coach.email))
+    .limit(1);
+  if (!coach) throw new Error("e2e seed: coach test user missing");
+
+  // Reuse the org's oldest season (multi-tenant hazard: findFirst/limit(1)
+  // needs an explicit orderBy on shared CI databases — see CLAUDE.md).
+  const [season] = await db
+    .select({ id: seasons.id })
+    .from(seasons)
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(eq(locations.organizationId, orgId))
+    .orderBy(asc(seasons.createdAt))
+    .limit(1);
+  if (!season) throw new Error("e2e seed: no season found to attach referee fixture game to");
+
+  // Find-or-create the game by a deterministic marker in `notes` so re-seeds
+  // reuse the same row instead of accumulating one per run (games has no
+  // natural unique key to upsert on). Null teams are fine — the referee
+  // rating form never reads rosters.
+  const REFEREE_GAME_MARKER = "e2e-feedback-referee-game";
+  let [game] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.notes, REFEREE_GAME_MARKER))
+    .limit(1);
+  if (!game) {
+    [game] = await db
+      .insert(games)
+      .values({
+        seasonId: season.id,
+        scheduledAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // yesterday
+        status: "completed",
+        notes: REFEREE_GAME_MARKER,
+      })
+      .returning({ id: games.id });
+  }
+
+  // gameOfficials has a real unique index on (gameId, userId) — upsert on that.
+  let [official] = await db
+    .select({ id: gameOfficials.id })
+    .from(gameOfficials)
+    .where(and(eq(gameOfficials.gameId, game.id), eq(gameOfficials.userId, coach.id)))
+    .limit(1);
+  if (!official) {
+    [official] = await db
+      .insert(gameOfficials)
+      .values({
+        gameId: game.id,
+        userId: coach.id,
+        position: "referee",
+      })
+      .returning({ id: gameOfficials.id });
+  }
+
+  const refereeTokenHash = hashFeedbackToken("e2e-feedback-referee-open");
+
+  // Same reset pattern as the NPS fixture: delete-by-tokenHash, insert fresh.
+  await db.delete(feedbackRequests).where(eq(feedbackRequests.tokenHash, refereeTokenHash));
+  await db.insert(feedbackRequests).values({
+    organizationId: orgId,
+    brand: "aspire",
+    kind: "referee_rating",
+    targetId: game.id,
+    recipientUserId: parent.id,
+    gameOfficialId: official.id,
+    tokenHash: refereeTokenHash,
+    status: "sent",
+    sentAt: new Date(),
+    expiresAt: new Date(Date.now() + REFEREE_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+    metadata: { eventLabel: "E2E League Game", gameType: "league", refereeName: "Coach T." },
+  });
+  console.log(`   ✓ Feedback fixture: referee rating open token seeded for ${TEST_USERS.parent.email}`);
 }
 
 async function seedE2ETests() {
@@ -2222,6 +2372,10 @@ async function seedE2ETests() {
       console.log(`   ✓ Active membership for ${memberEmail} already exists`);
     }
   }
+
+  // Stage 14 — Post-event feedback fixtures (Task 9 — NPS promoter E2E spec).
+  console.log("\n14. Setting up post-event feedback fixtures...");
+  await seedFeedbackFixtures(db, org.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

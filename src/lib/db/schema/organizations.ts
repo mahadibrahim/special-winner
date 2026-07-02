@@ -478,6 +478,16 @@ export interface OrganizationSettings {
   };
   externalStore?: OrganizationExternalStore;
   siteAnnouncement?: OrganizationSiteAnnouncement;
+  /** Post-event feedback engine (NPS surveys + review funnel). */
+  feedback?: {
+    /** Per-brand Google review destinations for promoters (9-10 scores). */
+    googleReviewUrl?: {
+      aspire?: string;
+      soccerone?: string;
+    };
+    /** Detractor (0-6) alert recipient; falls back to contact.supportEmail. */
+    detractorAlertEmail?: string;
+  };
 }
 
 // Organization features (feature flags)
@@ -493,6 +503,8 @@ export interface OrganizationFeatures {
   enableEmailMarketing?: boolean;
   enableSMS?: boolean;
   enableCustomDomain?: boolean;
+  enableNpsSurveys?: boolean;
+  enableRefereeRatings?: boolean;
   maxLocations?: number;
   maxUsersPerLocation?: number;
 }

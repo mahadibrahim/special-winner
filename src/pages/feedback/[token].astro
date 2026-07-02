@@ -1,0 +1,22 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { FeedbackForm } from "../../components/feedback/feedback-form";
+import { getFeedbackPageData } from "@/lib/feedback/lookup";
+
+// SSR (no prerender): the page branches on a per-token DB lookup.
+const token = Astro.params.token ?? "";
+const data = await getFeedbackPageData(token);
+---
+
+<BaseLayout title="How was it?" navigation={false} footer={false}>
+  <main class="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-4 py-12">
+    <FeedbackForm
+      client:load
+      token={token}
+      state={data.state}
+      kind={data.kind ?? null}
+      eventLabel={data.eventLabel ?? null}
+      refereeName={data.refereeName ?? null}
+    />
+  </main>
+</BaseLayout>

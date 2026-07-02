@@ -86,3 +86,6 @@ export * from "./memberships";
 
 // Self-service tokens for waiver/photo/payment self-serve surfaces
 export * from "./self-service-tokens";
+
+// Post-event feedback engine (NPS surveys + referee ratings)
+export * from "./feedback";
