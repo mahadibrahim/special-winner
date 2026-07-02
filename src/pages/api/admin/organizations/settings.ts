@@ -146,10 +146,10 @@ export const PATCH: APIRoute = async (context) => {
     >;
     const mergedFeatures: Record<string, unknown> = { ...existingFeatures };
 
+    // Unlike settings keys, feature flags are plain booleans (not nullable
+    // in the schema), so there is no null-to-delete path — just overwrite.
     for (const [key, value] of Object.entries(featuresPatch)) {
-      if (value === null) {
-        delete mergedFeatures[key];
-      } else if (value !== undefined) {
+      if (value !== undefined) {
         mergedFeatures[key] = value;
       }
     }
