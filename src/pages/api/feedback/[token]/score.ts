@@ -91,15 +91,22 @@ export const POST: APIRoute = async ({ params, request }) => {
     const alertTo =
       settings.feedback?.detractorAlertEmail ?? settings.contact?.supportEmail;
     if (alertTo) {
-      // Fire-and-forget — the alert must never block or fail the response save.
-      void sendDetractorAlertEmail({
-        to: alertTo,
-        brand,
-        score,
-        comment: null,
-        eventLabel: claimed.metadata?.eventLabel ?? "(unknown event)",
-        kind: claimed.kind,
-      }).catch((err) => console.error("[feedback] detractor alert failed:", err));
+      // Awaited (not fire-and-forget): Netlify's serverless runtime can
+      // freeze the event loop right after the response returns, silently
+      // dropping an un-awaited send. The response transaction has already
+      // committed, so a failure here still never fails the request.
+      try {
+        await sendDetractorAlertEmail({
+          to: alertTo,
+          brand,
+          score,
+          comment: null,
+          eventLabel: claimed.metadata?.eventLabel ?? "(unknown event)",
+          kind: claimed.kind,
+        });
+      } catch (err) {
+        console.error("[feedback] detractor alert failed:", err);
+      }
     }
   }
 

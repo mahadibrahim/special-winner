@@ -38,6 +38,7 @@ const EMPTY_STATE: FeedbackSettingsState = {
 export function FeedbackSettingsCard() {
   const [state, setState] = useState<FeedbackSettingsState>(EMPTY_STATE);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -62,6 +63,7 @@ export function FeedbackSettingsCard() {
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Load failed");
+          setLoadFailed(true);
         }
       } finally {
         if (!cancelled) setInitialLoaded(true);
@@ -132,6 +134,8 @@ export function FeedbackSettingsCard() {
             {error && (
               <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
                 {error}
+                {loadFailed &&
+                  " — saving is disabled until settings load successfully. Reload the page and try again."}
               </div>
             )}
 
@@ -221,7 +225,7 @@ export function FeedbackSettingsCard() {
               {savedAt && !isSaving && (
                 <span className="text-sm text-muted-foreground">Saved</span>
               )}
-              <Button onClick={save} disabled={isSaving}>
+              <Button onClick={save} disabled={isSaving || loadFailed}>
                 {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save feedback settings
               </Button>

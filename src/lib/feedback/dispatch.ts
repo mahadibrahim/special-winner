@@ -492,6 +492,19 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
         continue;
       }
 
+      // Non-referee (NPS) rows must re-check the 90-day cooldown here for the
+      // same reason: a same-run send of the same kind for this recipient can
+      // land after this row was selected for the sweep, so without a
+      // re-check the pending retry could pair with it inside the cooldown
+      // window. Capped rows stay pending this sweep; a future sweep after
+      // the window can retry them (subject to expiresAt).
+      if (
+        row.kind !== "referee_rating" &&
+        (await inCooldown(row.recipientUserId, row.kind, now))
+      ) {
+        continue;
+      }
+
       const plaintext = generateFeedbackToken();
       await db
         .update(feedbackRequests)
