@@ -11,7 +11,6 @@ import {
   seasons,
   programs,
   locations,
-  type NewFeedbackRequest,
   type FeedbackRequestKind,
   type FeedbackRequestMetadata,
   type OrganizationFeatures,
@@ -211,8 +210,20 @@ async function inCooldown(
   return row !== undefined;
 }
 
+/**
+ * Outcome of one candidate: `created` — the insert landed (not a dedupe
+ * duplicate); `sent` — the email went out AND the row was marked sent.
+ * `created && !sent` is the error path: the row stays `pending` for the
+ * next run's resend sweep (no email went out, so retrying can't double-send —
+ * except the marked-loudly status-update-failure case below).
+ */
+interface CreateSendOutcome {
+  created: boolean;
+  sent: boolean;
+}
+
 /** Insert the request (dedupe via unique index) and send the email. */
-async function createAndSend(candidate: Candidate, now: Date): Promise<"created_sent" | "duplicate" | "error"> {
+async function createAndSend(candidate: Candidate, now: Date): Promise<CreateSendOutcome> {
   const db = getDb();
   const plaintext = generateFeedbackToken();
 
@@ -233,7 +244,9 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<"created_
     .onConflictDoNothing()
     .returning({ id: feedbackRequests.id });
 
-  if (inserted.length === 0) return "duplicate";
+  if (inserted.length === 0) return { created: false, sent: false }; // duplicate — idempotency path
+
+  const requestId = inserted[0].id;
 
   const [recipient] = await db
     .select({
@@ -244,7 +257,10 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<"created_
     .where(eq(users.id, candidate.recipientUserId))
     .limit(1);
 
-  if (!recipient?.email) return "error";
+  if (!recipient?.email) {
+    console.error(`[feedback] no recipient email for request ${requestId}; leaving pending`);
+    return { created: true, sent: false };
+  }
 
   const brand = (candidate.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
   // originForBrand returns null for non-SoccerOne brands (see its doc
@@ -262,7 +278,7 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<"created_
     (org?.features as OrganizationFeatures | null)?.enableSMS === true;
 
   try {
-    await sendNpsSurveyEmail({
+    const sendResult = await sendNpsSurveyEmail({
       to: recipient.email,
       userId: candidate.recipientUserId,
       organizationId: candidate.organizationId,
@@ -272,18 +288,42 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<"created_
       surveyUrl,
       smsOptIn,
     });
+    // sendEmail never throws on delivery failure — it resolves
+    // { success: false }. Treat that exactly like a throw: leave the row
+    // pending for the next run's resend sweep (no email went out, so the
+    // retry cannot double-send).
+    if (!sendResult.success) {
+      console.error(
+        `[feedback] send failed for request ${requestId}, leaving pending: ${sendResult.error ?? "unknown error"}`,
+      );
+      return { created: true, sent: false };
+    }
   } catch (err) {
     // Leave the row pending — the next run's pending sweep re-tokens and retries.
-    console.error("[feedback] send failed, leaving pending:", err);
-    return "error";
+    console.error(`[feedback] send threw for request ${requestId}, leaving pending:`, err);
+    return { created: true, sent: false };
   }
 
-  await db
-    .update(feedbackRequests)
-    .set({ status: "sent", sentAt: now })
-    .where(eq(feedbackRequests.id, inserted[0].id));
-
-  return "created_sent";
+  // The email is out the door. Record that — with one retry — because a row
+  // left `pending` after a successful send means the next run's sweep
+  // re-sends a real customer email.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await db
+        .update(feedbackRequests)
+        .set({ status: "sent", sentAt: now })
+        .where(eq(feedbackRequests.id, requestId));
+      return { created: true, sent: true };
+    } catch (err) {
+      if (attempt === 2) {
+        console.error(
+          `[feedback] CRITICAL: email delivered but marking request ${requestId} as sent failed twice — row is still pending and the next run WILL re-send. Mark it sent manually.`,
+          err,
+        );
+      }
+    }
+  }
+  return { created: true, sent: false };
 }
 
 /**
@@ -326,7 +366,7 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
 
     const brand = (row.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
     try {
-      await sendNpsSurveyEmail({
+      const sendResult = await sendNpsSurveyEmail({
         to: recipient.email,
         userId: row.recipientUserId,
         organizationId: row.organizationId,
@@ -335,13 +375,22 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
         eventLabel: row.metadata?.eventLabel ?? "your recent visit",
         surveyUrl: buildFeedbackUrl(plaintext, originForBrand(brand) ?? env.PUBLIC_APP_URL),
       });
+      // Resolved-but-failed sends ({ success: false }) leave the row pending
+      // for the next sweep, same as a throw — no email went out.
+      if (!sendResult.success) {
+        console.error(
+          `[feedback] pending resend failed for request ${row.id}: ${sendResult.error ?? "unknown error"}`,
+        );
+        result.errors += 1;
+        continue;
+      }
       await db
         .update(feedbackRequests)
         .set({ status: "sent", sentAt: now })
         .where(eq(feedbackRequests.id, row.id));
       result.sent += 1;
     } catch (err) {
-      console.error("[feedback] pending resend failed:", err);
+      console.error(`[feedback] pending resend failed for request ${row.id}:`, err);
       result.errors += 1;
     }
   }
@@ -357,19 +406,31 @@ export async function dispatchFeedbackRequests(now: Date = new Date()): Promise<
     ...(await scanSeasons(now, npsOrgs)),
   ];
 
+  // Each candidate is isolated: an unexpected throw (e.g. a transient DB
+  // error) counts as an error and moves on, so one bad candidate can never
+  // abort the rest of the run or skip the resendPending sweep below.
   for (const candidate of candidates) {
-    if (await inCooldown(candidate.recipientUserId, candidate.kind, now)) {
-      result.skippedCooldown += 1;
-      continue;
-    }
-    const outcome = await createAndSend(candidate, now);
-    if (outcome === "created_sent") {
-      result.created += 1;
-      result.sent += 1;
-    } else if (outcome === "error") {
+    try {
+      if (await inCooldown(candidate.recipientUserId, candidate.kind, now)) {
+        result.skippedCooldown += 1;
+        continue;
+      }
+      const outcome = await createAndSend(candidate, now);
+      if (outcome.created) result.created += 1;
+      if (outcome.sent) {
+        result.sent += 1;
+      } else if (outcome.created) {
+        // Insert landed but the send (or the sent-marker update) failed.
+        result.errors += 1;
+      }
+      // !created && !sent is the duplicate/idempotency path — silently fine.
+    } catch (err) {
+      console.error(
+        `[feedback] candidate dispatch threw (kind=${candidate.kind} target=${candidate.targetId}):`,
+        err,
+      );
       result.errors += 1;
     }
-    // "duplicate" is the idempotency path — silently fine.
   }
 
   await resendPending(now, result);
