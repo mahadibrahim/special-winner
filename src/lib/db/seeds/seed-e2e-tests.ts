@@ -9,11 +9,13 @@
 
 // Load environment variables from .env file if present
 import "dotenv/config";
+import crypto from "node:crypto";
 import { pathToFileURL } from "node:url";
 
-import { getDb } from "../index";
+import { getDb, type Database } from "../index";
 import { hashPassword } from "../../auth/password";
 import { ensureVenueResources } from "../../scheduling/blocks";
+import { hashFeedbackToken } from "../../feedback/tokens";
 import {
   users,
   roles,
@@ -29,6 +31,9 @@ import {
   registrations,
   venues,
   events,
+  feedbackRequests,
+  type OrganizationFeatures,
+  type OrganizationSettings,
 } from "../schema";
 import {
   mediaStaffProfiles,
@@ -179,6 +184,70 @@ function assertNotProduction(): void {
     );
     process.exit(2);
   }
+}
+
+/**
+ * Post-event feedback fixtures — Task 9 (NPS promoter path E2E spec).
+ * Seeds a fixed-token, always-'sent' feedback_requests row so
+ * tests/e2e/feedback-nps.spec.ts can hit /feedback/e2e-feedback-nps-open
+ * deterministically. The org is flipped to enableNpsSurveys + given a
+ * Google review URL so the promoter CTA renders. Reset to 'sent' on every
+ * seed run since the spec consumes (answers) the token.
+ */
+async function seedFeedbackFixtures(db: Database, orgId: string) {
+  // The org must have the flag + a review URL so the promoter CTA renders.
+  // Merge into existing settings/features so we never clobber other keys.
+  const [org] = await db
+    .select({ settings: organizations.settings, features: organizations.features })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+
+  const mergedFeatures: OrganizationFeatures = {
+    ...(org?.features ?? {}),
+    enableNpsSurveys: true,
+  };
+  const mergedSettings: OrganizationSettings = {
+    ...(org?.settings ?? ({} as OrganizationSettings)),
+    feedback: {
+      ...(org?.settings?.feedback ?? {}),
+      googleReviewUrl: {
+        ...(org?.settings?.feedback?.googleReviewUrl ?? {}),
+        aspire: "https://example.com/e2e-review",
+      },
+    },
+  };
+
+  await db
+    .update(organizations)
+    .set({ features: mergedFeatures, settings: mergedSettings })
+    .where(eq(organizations.id, orgId));
+
+  const [parent] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TEST_USERS.parent.email))
+    .limit(1);
+  if (!parent) throw new Error("e2e seed: parent test user missing");
+
+  const tokenHash = hashFeedbackToken("e2e-feedback-nps-open");
+
+  // Reset to a fresh 'sent' request every seed run (the spec consumes it).
+  // .delete cascades to nps_responses via FK, so the request is always fresh.
+  await db.delete(feedbackRequests).where(eq(feedbackRequests.tokenHash, tokenHash));
+  await db.insert(feedbackRequests).values({
+    organizationId: orgId,
+    brand: "aspire",
+    kind: "nps_drop_in",
+    targetId: crypto.randomUUID(),
+    recipientUserId: parent.id,
+    tokenHash,
+    status: "sent",
+    sentAt: new Date(),
+    expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    metadata: { eventLabel: "E2E Pickup Soccer" },
+  });
+  console.log(`   ✓ Feedback fixture: NPS open token seeded for ${TEST_USERS.parent.email}`);
 }
 
 async function seedE2ETests() {
@@ -2222,6 +2291,10 @@ async function seedE2ETests() {
       console.log(`   ✓ Active membership for ${memberEmail} already exists`);
     }
   }
+
+  // Stage 14 — Post-event feedback fixtures (Task 9 — NPS promoter E2E spec).
+  console.log("\n14. Setting up post-event feedback fixtures...");
+  await seedFeedbackFixtures(db, org.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
