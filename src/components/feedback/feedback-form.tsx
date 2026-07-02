@@ -103,16 +103,25 @@ function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | nu
       setPhase("done");
       return;
     }
+    if (busy) return;
     setBusy(true);
+    setError(null);
     try {
-      await fetch(`/api/feedback/${token}/comment`, {
+      const res = await fetch(`/api/feedback/${token}/comment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ comment: comment.trim() }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error ?? "Couldn't send your comment — try again.");
+        return; // stay on the followup phase so the user can retry
+      }
+      setPhase("done");
+    } catch {
+      setError("Network error — try again.");
     } finally {
       setBusy(false);
-      setPhase("done");
     }
   }
 
@@ -173,6 +182,7 @@ function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | nu
           data-testid="comment-box"
           className="mb-4 w-full rounded-md border p-3"
         />
+        {error && <ErrorBanner message={error} className="mb-4" />}
         <button
           onClick={submitComment}
           disabled={busy}

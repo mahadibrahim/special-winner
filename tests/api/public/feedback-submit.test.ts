@@ -7,7 +7,11 @@ import { generateFeedbackToken, hashFeedbackToken } from "@/lib/feedback/tokens"
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
 /** Seed a sent NPS request and return its plaintext token. */
-async function seedNpsRequest(opts?: { expired?: boolean; reviewUrl?: string }) {
+async function seedNpsRequest(opts?: {
+  expired?: boolean;
+  reviewUrl?: string;
+  kind?: "nps_drop_in" | "referee_rating";
+}) {
   const db = getDb();
   const suffix = Math.random().toString(36).slice(2, 10);
 
@@ -47,7 +51,7 @@ async function seedNpsRequest(opts?: { expired?: boolean; reviewUrl?: string }) 
     .values({
       organizationId: org.id,
       brand: "aspire",
-      kind: "nps_drop_in",
+      kind: opts?.kind ?? "nps_drop_in",
       targetId: crypto.randomUUID(),
       recipientUserId: user.id,
       tokenHash: hashFeedbackToken(token),
@@ -125,6 +129,23 @@ describe("POST /api/feedback/[token]/score", () => {
   it("404s an unknown token", async () => {
     const res = await post(`/api/feedback/${generateFeedbackToken()}/score`, { score: 5 });
     expect(res.status).toBe(404);
+  });
+
+  it("rejects referee-rating tokens with 400 and leaves them claimable", async () => {
+    const { token, request } = await seedNpsRequest({ kind: "referee_rating" });
+    const res = await post(`/api/feedback/${token}/score`, { score: 10 });
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("This link is a referee rating, not a survey");
+
+    // The token must never be claimed by this endpoint — Task 13's referee
+    // endpoint owns it.
+    const [reqRow] = await getDb()
+      .select()
+      .from(feedbackRequests)
+      .where(eq(feedbackRequests.id, request.id));
+    expect(reqRow.status).toBe("sent");
+    expect(reqRow.respondedAt).toBeNull();
   });
 });
 

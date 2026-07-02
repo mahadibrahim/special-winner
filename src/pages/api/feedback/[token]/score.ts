@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { feedbackRequests, npsResponses, organizations } from "@/lib/db/schema";
@@ -35,18 +35,29 @@ export const POST: APIRoute = async ({ params, request }) => {
   const db = getDb();
   const now = new Date();
 
-  // Atomic single-use claim: only an unexpired, sent-but-unanswered request flips.
-  const [claimed] = await db
-    .update(feedbackRequests)
-    .set({ status: "responded", respondedAt: now })
-    .where(
-      and(
-        eq(feedbackRequests.tokenHash, hashFeedbackToken(token)),
-        eq(feedbackRequests.status, "sent"),
-        gt(feedbackRequests.expiresAt, now),
-      ),
-    )
-    .returning();
+  // Atomic single-use claim + score save in ONE transaction: only an
+  // unexpired, sent-but-unanswered, non-referee request flips, and the
+  // npsResponses row commits together with the status flip — if the insert
+  // fails the claim rolls back instead of stranding the token at
+  // status='responded' with no saved score. Referee tokens are excluded in
+  // the WHERE so this endpoint never claims them (no revert window).
+  const claimed = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(feedbackRequests)
+      .set({ status: "responded", respondedAt: now })
+      .where(
+        and(
+          eq(feedbackRequests.tokenHash, hashFeedbackToken(token)),
+          eq(feedbackRequests.status, "sent"),
+          gt(feedbackRequests.expiresAt, now),
+          ne(feedbackRequests.kind, "referee_rating"),
+        ),
+      )
+      .returning();
+    if (!row) return null;
+    await tx.insert(npsResponses).values({ requestId: row.id, score });
+    return row;
+  });
 
   if (!claimed) {
     // Distinguish the failure for a friendlier client message.
@@ -54,19 +65,12 @@ export const POST: APIRoute = async ({ params, request }) => {
     if (!existing) return json(404, { error: "Unknown link" });
     if (existing.status === "responded") return json(409, { error: "Already answered" });
     if (existing.expiresAt <= now) return json(410, { error: "Link expired" });
+    if (existing.kind === "referee_rating") {
+      // Wrong endpoint for referee links; the referee endpoint (Task 13) owns them.
+      return json(400, { error: "This link is a referee rating, not a survey" });
+    }
     return json(409, { error: "Link not active" });
   }
-
-  if (claimed.kind === "referee_rating") {
-    // Wrong endpoint for referee links; un-claim so the referee endpoint can take it.
-    await db
-      .update(feedbackRequests)
-      .set({ status: "sent", respondedAt: null })
-      .where(eq(feedbackRequests.id, claimed.id));
-    return json(400, { error: "This link is a referee rating, not a survey" });
-  }
-
-  await db.insert(npsResponses).values({ requestId: claimed.id, score });
 
   // Resolve the org's feedback settings for review funnel + detractor alert.
   const [org] = await db
