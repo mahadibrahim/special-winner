@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { RefereeRatingForm } from "@/components/feedback/referee-rating-form";
 import type { FeedbackRequestKind } from "@/lib/db/schema";
 
 interface FeedbackFormProps {
@@ -41,15 +42,44 @@ export function FeedbackForm(props: FeedbackFormProps) {
   }
 
   if (props.kind === "referee_rating") {
-    // Rendered by RefereeRatingForm from Phase 2 (Task 13). Until that task
-    // lands, referee links can't occur in prod (flag off), so a plain
-    // placeholder card keeps Phase 1 shippable.
     return (
-      <TerminalCard title="Rating unavailable" body="This rating form isn't open yet." />
+      <RefereeBranch
+        token={props.token}
+        eventLabel={props.eventLabel}
+        refereeName={props.refereeName}
+      />
     );
   }
 
   return <NpsForm token={props.token} eventLabel={props.eventLabel} />;
+}
+
+function RefereeBranch({
+  token,
+  eventLabel,
+  refereeName,
+}: {
+  token: string;
+  eventLabel: string | null;
+  refereeName: string | null;
+}) {
+  const [done, setDone] = useState(false);
+  if (done) {
+    return (
+      <TerminalCard
+        title="Thank you!"
+        body="Your rating helps us keep officiating quality high."
+      />
+    );
+  }
+  return (
+    <RefereeRatingForm
+      token={token}
+      eventLabel={eventLabel}
+      refereeName={refereeName}
+      onDone={() => setDone(true)}
+    />
+  );
 }
 
 function TerminalCard({ title, body }: { title: string; body: string }) {
