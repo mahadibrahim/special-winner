@@ -152,7 +152,17 @@ async function seedCompletedGame() {
     .values({ gameId: game.id, userId: refUser.id, position: "referee" })
     .returning();
 
-  return { org, game, official, homeParent: home.parent, awayParent: away.parent, refUser };
+  return {
+    org,
+    season,
+    game,
+    official,
+    homeTeam: home.team,
+    awayTeam: away.team,
+    homeParent: home.parent,
+    awayParent: away.parent,
+    refUser,
+  };
 }
 
 describe("referee-rating dispatch", () => {
@@ -207,6 +217,49 @@ describe("referee-rating dispatch", () => {
         ),
       );
     expect(rows.length).toBe(0);
+  });
+
+  it("anchors a multi-game recipient's single email to the most recent game", async () => {
+    // The seed's game is 4h old. Add a NEWER completed game (2h old) with the
+    // same two teams, so both parents are candidates for both games. The
+    // daily cap allows one email per recipient per 24h, and the scan orders
+    // games scheduledAt DESC — so the one request each parent gets must be
+    // anchored to the newer game, not the older one.
+    const { season, game: olderGame, homeTeam, awayTeam, homeParent, refUser } =
+      await seedCompletedGame();
+    const db = getDb();
+
+    const [newerGame] = await db
+      .insert(games)
+      .values({
+        seasonId: season.id,
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+        scheduledAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        status: "completed",
+        homeScore: 1,
+        awayScore: 3,
+      })
+      .returning();
+    await db
+      .insert(gameOfficials)
+      .values({ gameId: newerGame.id, userId: refUser.id, position: "referee" });
+
+    await runCron();
+
+    const rows = await db
+      .select()
+      .from(feedbackRequests)
+      .where(
+        and(
+          eq(feedbackRequests.kind, "referee_rating"),
+          eq(feedbackRequests.recipientUserId, homeParent.id),
+        ),
+      );
+    expect(rows.length).toBe(1);
+    expect(rows[0].targetId).toBe(newerGame.id);
+    expect(rows[0].targetId).not.toBe(olderGame.id);
+    expect(rows[0].status).toBe("sent");
   });
 
   it("caps at one referee email per recipient per 24h", async () => {

@@ -478,6 +478,20 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
     // error, and let the sweep continue with the remaining rows instead of
     // aborting.
     try {
+      // Referee rows must re-check the daily cap here: if the latest game's
+      // send failed (row pending, sentAt null), an OLDER game's candidate
+      // for the same recipient passes the cap in the dispatch loop above
+      // and sends — retrying the pending latest-game row in this same run
+      // without a cap check would put two referee emails inside the 24h
+      // window. Capped rows stay pending this sweep; a future sweep after
+      // the window can retry them (subject to expiresAt).
+      if (
+        row.kind === "referee_rating" &&
+        (await inRefereeDailyCap(row.recipientUserId, now))
+      ) {
+        continue;
+      }
+
       const plaintext = generateFeedbackToken();
       await db
         .update(feedbackRequests)
