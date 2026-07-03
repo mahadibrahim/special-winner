@@ -75,39 +75,34 @@ export function OpsPingsCard() {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
-  async function loadSettings() {
-    try {
-      const res = await fetch("/api/admin/organizations/settings");
-      if (!res.ok) throw new Error("Failed to load settings");
-      const json = await res.json();
-      const opsPings = json.settings?.opsPings ?? {};
-      setState({
-        enabled: opsPings.enabled ?? false,
-        principals: opsPings.principals ?? [],
-        whatsapp: opsPings.whatsapp ?? {},
-      });
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Load failed");
-      setLoadFailed(true);
-      return false;
-    }
-  }
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const ok = await loadSettings();
-      if (cancelled) return;
-      if (!ok) {
-        // loadSettings already set error/loadFailed; nothing more to do.
+      try {
+        const res = await fetch("/api/admin/organizations/settings");
+        if (!res.ok) throw new Error("Failed to load settings");
+        const json = await res.json();
+        if (cancelled) return;
+        const opsPings = json.settings?.opsPings ?? {};
+        setState({
+          enabled: opsPings.enabled ?? false,
+          principals: opsPings.principals ?? [],
+          whatsapp: opsPings.whatsapp ?? {},
+        });
+        setError(null);
+        setLoadFailed(false);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Load failed");
+          setLoadFailed(true);
+        }
+      } finally {
+        if (!cancelled) setInitialLoaded(true);
       }
-      setInitialLoaded(true);
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function updatePrincipal(index: number, patch: Partial<Principal>) {
@@ -186,9 +181,15 @@ export function OpsPingsCard() {
       if (!res.ok) {
         throw new Error(data.error || "Provisioning failed");
       }
-      // The endpoint persists the group itself; re-load so this card picks
-      // up the groupId/inviteLink it just wrote.
-      await loadSettings();
+      // The endpoint persists the group itself; re-fetch settings and merge
+      // ONLY the whatsapp block into state — a full state replace here would
+      // silently discard unsaved principal rows / toggle flips typed before
+      // clicking Provision.
+      const reload = await fetch("/api/admin/organizations/settings");
+      if (!reload.ok) throw new Error("Provisioned, but failed to refresh settings — reload the page");
+      const json = await reload.json();
+      const whatsapp = json.settings?.opsPings?.whatsapp;
+      setState((s) => ({ ...s, whatsapp: whatsapp ?? s.whatsapp }));
     } catch (err) {
       setProvisionError(
         err instanceof Error ? err.message : "Provisioning failed",
@@ -349,7 +350,7 @@ export function OpsPingsCard() {
                     type="button"
                     variant="outline"
                     onClick={provision}
-                    disabled={isProvisioning}
+                    disabled={isProvisioning || isSaving}
                   >
                     {isProvisioning && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -389,7 +390,13 @@ export function OpsPingsCard() {
               {savedAt && !isSaving && (
                 <span className="text-sm text-muted-foreground">Saved</span>
               )}
-              <Button onClick={save} disabled={isSaving || loadFailed}>
+              {/* Also disabled mid-provision: a Save racing provision would
+                  PATCH the stale (empty) whatsapp block and wipe the
+                  just-provisioned group ids. */}
+              <Button
+                onClick={save}
+                disabled={isSaving || loadFailed || isProvisioning}
+              >
                 {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save operational ping settings
               </Button>
