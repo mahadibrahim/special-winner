@@ -20,6 +20,13 @@ interface FeedbackSettingsState {
   googleReviewUrlAspire: string;
   googleReviewUrlSoccerone: string;
   detractorAlertEmail: string;
+  /** venueId -> review URL override ("" = no override for that venue). */
+  googleReviewUrlByVenue: Record<string, string>;
+}
+
+interface VenueOption {
+  id: string;
+  name: string;
 }
 
 /**
@@ -33,6 +40,7 @@ const EMPTY_STATE: FeedbackSettingsState = {
   googleReviewUrlAspire: "",
   googleReviewUrlSoccerone: "",
   detractorAlertEmail: "",
+  googleReviewUrlByVenue: {},
 };
 
 export function FeedbackSettingsCard() {
@@ -42,15 +50,24 @@ export function FeedbackSettingsCard() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [venues, setVenues] = useState<VenueOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/organizations/settings");
+        // Venue list is presentation-only; a failure there shouldn't brick
+        // the card, so it rides alongside and defaults to [].
+        const [res, venuesRes] = await Promise.all([
+          fetch("/api/admin/organizations/settings"),
+          fetch("/api/admin/active-venue").catch(() => null),
+        ]);
         if (!res.ok) throw new Error("Failed to load settings");
         const json = await res.json();
+        const venuesJson =
+          venuesRes && venuesRes.ok ? await venuesRes.json() : { venues: [] };
         if (cancelled) return;
+        setVenues(venuesJson.venues ?? []);
         setState({
           enableNpsSurveys: json.features?.enableNpsSurveys ?? false,
           enableRefereeRatings: json.features?.enableRefereeRatings ?? false,
@@ -59,6 +76,8 @@ export function FeedbackSettingsCard() {
           googleReviewUrlSoccerone:
             json.settings?.feedback?.googleReviewUrl?.soccerone ?? "",
           detractorAlertEmail: json.settings?.feedback?.detractorAlertEmail ?? "",
+          googleReviewUrlByVenue:
+            json.settings?.feedback?.googleReviewUrlByVenue ?? {},
         });
       } catch (err) {
         if (!cancelled) {
@@ -99,6 +118,13 @@ export function FeedbackSettingsCard() {
               ...(state.detractorAlertEmail
                 ? { detractorAlertEmail: state.detractorAlertEmail }
                 : {}),
+              // Blank inputs are omitted so the server's URL validation only
+              // sees real values.
+              googleReviewUrlByVenue: Object.fromEntries(
+                Object.entries(state.googleReviewUrlByVenue).filter(
+                  ([, url]) => url.trim() !== "",
+                ),
+              ),
             },
           },
         }),
@@ -201,6 +227,45 @@ export function FeedbackSettingsCard() {
                   }
                 />
               </div>
+
+              {venues.length > 0 && (
+                <div className="sm:col-span-2 space-y-3">
+                  <div>
+                    <Label className="text-sm">
+                      Per-location review URLs{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional — wins over the brand URL for surveys from
+                        that location)
+                      </span>
+                    </Label>
+                  </div>
+                  {venues.map((venue) => (
+                    <div key={venue.id} className="space-y-1.5">
+                      <Label
+                        htmlFor={`fb-review-venue-${venue.id}`}
+                        className="font-normal text-muted-foreground"
+                      >
+                        {venue.name}
+                      </Label>
+                      <Input
+                        id={`fb-review-venue-${venue.id}`}
+                        type="url"
+                        placeholder="https://search.google.com/local/writereview?placeid=…"
+                        value={state.googleReviewUrlByVenue[venue.id] ?? ""}
+                        onChange={(e) =>
+                          setState({
+                            ...state,
+                            googleReviewUrlByVenue: {
+                              ...state.googleReviewUrlByVenue,
+                              [venue.id]: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="sm:col-span-2 space-y-1.5">
                 <Label htmlFor="fb-alert-email">

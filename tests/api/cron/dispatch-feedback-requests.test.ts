@@ -93,7 +93,7 @@ async function seedCompletedDropIn() {
     })
     .returning();
 
-  return { org, user, session, booking };
+  return { org, user, session, booking, venue };
 }
 
 describe("POST /api/cron/dispatch-feedback-requests", () => {
@@ -103,7 +103,7 @@ describe("POST /api/cron/dispatch-feedback-requests", () => {
   });
 
   it("creates + sends one NPS request for a completed drop-in booking, idempotently", async () => {
-    const { user, booking } = await seedCompletedDropIn();
+    const { user, booking, venue } = await seedCompletedDropIn();
 
     const first = await runCron();
     expect(first.status).toBe(200);
@@ -122,6 +122,9 @@ describe("POST /api/cron/dispatch-feedback-requests", () => {
     expect(rows.length).toBe(1);
     expect(rows[0].status).toBe("sent");
     expect(rows[0].metadata?.eventLabel).toContain("Soccer");
+    // Dispatch stamps the session's venue so the review funnel can resolve
+    // per-venue Google review URLs at score time.
+    expect(rows[0].metadata?.venueId).toBe(venue.id);
 
     // Second run must not create a duplicate.
     await runCron();

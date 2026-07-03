@@ -43,6 +43,12 @@ export interface FeedbackRequestMetadata {
   gameType?: "league" | "tournament";
   /** referee_rating only — display name shown on the rating form. */
   refereeName?: string;
+  /**
+   * Venue the experience happened at (NPS kinds; stamped by dispatch).
+   * Lets the review funnel resolve per-venue Google review URLs at score
+   * time without a polymorphic join back to the booking.
+   */
+  venueId?: string;
 }
 
 // === tables ===

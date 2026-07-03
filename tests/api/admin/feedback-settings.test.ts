@@ -82,4 +82,45 @@ describe("PATCH /api/admin/organizations/settings — feedback block", () => {
     });
     await expectJson(res, 400);
   });
+
+  it("round-trips per-venue review URL overrides", async () => {
+    const venueId = crypto.randomUUID();
+    const patch = await apiFetch("/api/admin/organizations/settings", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        settings: {
+          feedback: {
+            googleReviewUrlByVenue: {
+              [venueId]: "https://g.page/r/venue-one/review",
+            },
+          },
+        },
+      }),
+    });
+    await expectJson(patch, 200);
+
+    const get = await apiFetch("/api/admin/organizations/settings", {
+      cookie: adminCookie,
+    });
+    const json = await expectJson(get, 200);
+    expect(json.settings.feedback.googleReviewUrlByVenue[venueId]).toBe(
+      "https://g.page/r/venue-one/review",
+    );
+  });
+
+  it("rejects a malformed per-venue review URL", async () => {
+    const res = await apiFetch("/api/admin/organizations/settings", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        settings: {
+          feedback: {
+            googleReviewUrlByVenue: { [crypto.randomUUID()]: "not-a-url" },
+          },
+        },
+      }),
+    });
+    await expectJson(res, 400);
+  });
 });

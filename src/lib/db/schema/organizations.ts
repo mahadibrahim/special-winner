@@ -487,6 +487,12 @@ export interface OrganizationSettings {
     };
     /** Detractor (0-6) alert recipient; falls back to contact.supportEmail. */
     detractorAlertEmail?: string;
+    /**
+     * Per-venue review destinations (venueId -> URL). Wins over the
+     * per-brand URL when the feedback request knows its venue — lets each
+     * facility's Google listing collect its own reviews.
+     */
+    googleReviewUrlByVenue?: Record<string, string>;
   };
 }
 

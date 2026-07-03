@@ -29,6 +29,9 @@ const feedbackSettingsSchema = z.object({
     })
     .optional(),
   detractorAlertEmail: z.string().email().optional(),
+  // venueId -> review URL. Keys are not FK-validated here (venues can be
+  // deleted later anyway); resolution simply misses and falls back.
+  googleReviewUrlByVenue: z.record(z.string(), z.string().url()).optional(),
 });
 
 const featuresPatchSchema = z.object({
