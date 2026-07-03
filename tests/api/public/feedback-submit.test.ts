@@ -11,6 +11,10 @@ async function seedNpsRequest(opts?: {
   expired?: boolean;
   reviewUrl?: string;
   kind?: "nps_drop_in" | "referee_rating";
+  /** Per-venue review URL overrides written to org settings. */
+  venueUrlMap?: Record<string, string>;
+  /** venueId stamped into the request metadata (as dispatch does). */
+  venueId?: string;
 }) {
   const db = getDb();
   const suffix = Math.random().toString(36).slice(2, 10);
@@ -28,9 +32,17 @@ async function seedNpsRequest(opts?: {
         payments: { currency: "usd" },
         registration: {},
         notifications: {},
-        feedback: opts?.reviewUrl
-          ? { googleReviewUrl: { aspire: opts.reviewUrl } }
-          : undefined,
+        feedback:
+          opts?.reviewUrl || opts?.venueUrlMap
+            ? {
+                ...(opts?.reviewUrl
+                  ? { googleReviewUrl: { aspire: opts.reviewUrl } }
+                  : {}),
+                ...(opts?.venueUrlMap
+                  ? { googleReviewUrlByVenue: opts.venueUrlMap }
+                  : {}),
+              }
+            : undefined,
       },
     })
     .returning();
@@ -58,7 +70,10 @@ async function seedNpsRequest(opts?: {
       status: "sent",
       sentAt: new Date(),
       expiresAt: new Date(Date.now() + (opts?.expired ? -1 : 1) * 24 * 60 * 60 * 1000),
-      metadata: { eventLabel: "Pickup Soccer — test" },
+      metadata: {
+        eventLabel: "Pickup Soccer — test",
+        ...(opts?.venueId ? { venueId: opts.venueId } : {}),
+      },
     })
     .returning();
 
@@ -105,6 +120,40 @@ describe("POST /api/feedback/[token]/score", () => {
     const json = await res.json();
     expect(json.category).toBe("promoter");
     expect(json.reviewUrl).toBeNull();
+  });
+
+  it("prefers the venue-specific review URL when the request has a venueId", async () => {
+    const venueId = crypto.randomUUID();
+    const { token } = await seedNpsRequest({
+      reviewUrl: "https://g.page/r/brand-level/review",
+      venueUrlMap: { [venueId]: "https://g.page/r/venue-level/review" },
+      venueId,
+    });
+    const res = await post(`/api/feedback/${token}/score`, { score: 10 });
+    const json = await res.json();
+    expect(json.category).toBe("promoter");
+    expect(json.reviewUrl).toBe("https://g.page/r/venue-level/review");
+  });
+
+  it("falls back to the brand URL when no venue override matches", async () => {
+    const { token } = await seedNpsRequest({
+      reviewUrl: "https://g.page/r/brand-level/review",
+      venueUrlMap: { [crypto.randomUUID()]: "https://g.page/r/other-venue/review" },
+      venueId: crypto.randomUUID(), // request's venue has no override entry
+    });
+    const res = await post(`/api/feedback/${token}/score`, { score: 9 });
+    const json = await res.json();
+    expect(json.reviewUrl).toBe("https://g.page/r/brand-level/review");
+  });
+
+  it("falls back to the brand URL when the request has no venueId", async () => {
+    const { token } = await seedNpsRequest({
+      reviewUrl: "https://g.page/r/brand-level/review",
+      venueUrlMap: { [crypto.randomUUID()]: "https://g.page/r/venue-level/review" },
+    });
+    const res = await post(`/api/feedback/${token}/score`, { score: 10 });
+    const json = await res.json();
+    expect(json.reviewUrl).toBe("https://g.page/r/brand-level/review");
   });
 
   it("is single-use", async () => {

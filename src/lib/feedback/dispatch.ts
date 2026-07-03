@@ -90,6 +90,7 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
       organizationId: dropInSessions.organizationId,
       label: dropInSessions.sportOrClassLabel,
       endsAt: dropInSessions.endsAt,
+      venueId: dropInSessions.venueId,
     })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInBookings.sessionId, dropInSessions.id))
@@ -110,7 +111,10 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
       kind: "nps_drop_in" as const,
       targetId: r.bookingId,
       recipientUserId: r.userId,
-      metadata: { eventLabel: `${r.label} — ${formatEventDate(r.endsAt)}` },
+      metadata: {
+        eventLabel: `${r.label} — ${formatEventDate(r.endsAt)}`,
+        venueId: r.venueId,
+      },
       expiryDays: NPS_EXPIRY_DAYS,
     }));
 }
@@ -128,6 +132,7 @@ async function scanRentals(now: Date, enabledOrgs: Set<string>): Promise<Candida
       brand: fieldRentals.brand,
       organizationId: fieldRentals.organizationId,
       endsAt: fieldRentals.endsAt,
+      venueId: fieldRentals.venueId,
     })
     .from(fieldRentals)
     .where(
@@ -147,7 +152,10 @@ async function scanRentals(now: Date, enabledOrgs: Set<string>): Promise<Candida
       kind: "nps_field_rental" as const,
       targetId: r.rentalId,
       recipientUserId: r.renterUserId as string,
-      metadata: { eventLabel: `Field rental — ${formatEventDate(r.endsAt)}` },
+      metadata: {
+        eventLabel: `Field rental — ${formatEventDate(r.endsAt)}`,
+        venueId: r.venueId,
+      },
       expiryDays: NPS_EXPIRY_DAYS,
     }));
 }
@@ -168,6 +176,7 @@ async function scanSeasons(now: Date, enabledOrgs: Set<string>): Promise<Candida
       organizationId: locations.organizationId,
       seasonName: seasons.name,
       programName: programs.name,
+      venueId: seasons.venueId,
     })
     .from(registrations)
     .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
@@ -189,7 +198,10 @@ async function scanSeasons(now: Date, enabledOrgs: Set<string>): Promise<Candida
       kind: "nps_season" as const,
       targetId: r.registrationId,
       recipientUserId: r.recipientUserId,
-      metadata: { eventLabel: `${r.programName} — ${r.seasonName}` },
+      metadata: {
+        eventLabel: `${r.programName} — ${r.seasonName}`,
+        ...(r.venueId ? { venueId: r.venueId } : {}),
+      },
       expiryDays: NPS_EXPIRY_DAYS,
     }));
 }

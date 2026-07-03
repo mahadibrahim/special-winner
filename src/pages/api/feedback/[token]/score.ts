@@ -82,9 +82,16 @@ export const POST: APIRoute = async ({ params, request }) => {
   const brand = (claimed.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
 
   const category = npsCategory(score);
+  // Venue-specific listing wins (each facility's Google profile collects its
+  // own reviews); per-brand URL is the fallback for requests without a venue
+  // or venues without an override.
+  const venueId = claimed.metadata?.venueId;
+  const venueReviewUrl = venueId
+    ? (settings.feedback?.googleReviewUrlByVenue?.[venueId] ?? null)
+    : null;
   const reviewUrl =
     category === "promoter"
-      ? (settings.feedback?.googleReviewUrl?.[brand] ?? null)
+      ? (venueReviewUrl ?? settings.feedback?.googleReviewUrl?.[brand] ?? null)
       : null;
 
   if (category === "detractor") {
