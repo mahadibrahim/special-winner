@@ -81,7 +81,7 @@ export function AddHoldForm({ date, resources, defaultResourceId, onSaved, onCan
                 .filter((r) => r.venueName === vn)
                 .map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
+                    {r.displayName}
                   </option>
                 ))}
             </optgroup>

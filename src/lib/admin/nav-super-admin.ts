@@ -61,7 +61,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
   {
     name: "Plan & Program",
     items: [
-      { name: "Venue calendar", href: "/admin/venue", icon: CalendarDays },
+      { name: "Command center", href: "/admin/venue", icon: CalendarDays },
       { name: "Seasons", href: "/admin/seasons", icon: Calendar },
       { name: "Programs", href: "/admin/programs", icon: Dumbbell },
       { name: "Games", href: "/admin/games", icon: Trophy },

@@ -64,7 +64,8 @@ export async function buildVenueToday(
         : firstResource;
 
       const spaceId = res?.id ?? "unknown";
-      const spaceName = res?.name ?? block.resourceName ?? block.venueName ?? "Unknown";
+      const spaceName =
+        res?.displayName ?? block.resourceName ?? block.venueName ?? "Unknown";
 
       return {
         id: block.id,
@@ -87,9 +88,11 @@ export async function buildVenueToday(
   );
 
   // --- Spaces (unique resources for this day's location) ---
+  // Column headers use the front-desk label ("Blue Field"), while block→
+  // column matching above stays keyed on the raw resource name.
   const spaces = dayData.resources.map((r) => ({
     id: r.id,
-    name: r.name,
+    name: r.displayName,
   }));
 
   // --- Attention items ---
