@@ -83,6 +83,20 @@ export function createZernioClient(config: ZernioClientConfig) {
       },
       body: JSON.stringify(body),
     });
+    if (!res.ok) {
+      // Zernio returns JSON error bodies (e.g. {"error":"WhatsApp permission
+      // error. Please reconnect your WhatsApp Business account."}). Surface
+      // them — otherwise downstream shape-checks mask the real cause with
+      // "no groupId in response".
+      let detail = "";
+      try {
+        const errBody = (await res.json()) as Record<string, unknown>;
+        detail = typeof errBody.error === "string" ? errBody.error : JSON.stringify(errBody);
+      } catch {
+        detail = "(non-JSON error body)";
+      }
+      throw new Error(`Zernio ${res.status} on ${path}: ${detail}`);
+    }
     return res.json();
   }
 
