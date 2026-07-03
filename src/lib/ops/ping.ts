@@ -69,6 +69,8 @@ async function emit(
   if (!INSTANT_KINDS.has(event.kind)) return "suppressed";
 
   // Rolling-hour rate cap over instant kinds that actually delivered.
+  // Soft/advisory cap: check-then-act, so concurrent emits can overshoot
+  // by the concurrency depth — accepted.
   const windowStart = new Date(Date.now() - HOUR_MS);
   const [recent] = await db
     .select({ count: sql<number>`count(*)` })
@@ -128,7 +130,10 @@ async function maybeSendCollapseNotice(
   windowStart: Date,
 ): Promise<void> {
   const db = getDb();
-  const noticeEventId = `collapse-${windowStart.toISOString().slice(0, 13)}`;
+  // Org-scoped: the (kind, eventId) unique index is global, so without the
+  // org id two orgs overflowing in the same hour would collide and the
+  // second org's notice would silently never send.
+  const noticeEventId = `collapse-${organizationId}-${windowStart.toISOString().slice(0, 13)}`;
   const inserted = await db
     .insert(opsPings)
     .values({
