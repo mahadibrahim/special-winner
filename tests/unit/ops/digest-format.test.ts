@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeDigestMessage } from "@/lib/ops/digest";
+import { composeDigestMessage, pickDigestBrand } from "@/lib/ops/digest";
 
 describe("composeDigestMessage", () => {
   it("renders signups by brand, money totals, and suppressed count", () => {
@@ -27,5 +27,23 @@ describe("composeDigestMessage", () => {
       "Thu, Jul 2",
     );
     expect(msg).toContain("Quiet day — no new activity.");
+  });
+});
+
+describe("pickDigestBrand", () => {
+  it("picks soccerone when it dominates the day's activity", () => {
+    expect(pickDigestBrand({ soccerone: 7, aspire: 2 })).toBe("soccerone");
+  });
+
+  it("defaults to aspire on ties", () => {
+    expect(pickDigestBrand({ soccerone: 4, aspire: 4 })).toBe("aspire");
+  });
+
+  it("defaults to aspire when there was no activity", () => {
+    expect(pickDigestBrand({})).toBe("aspire");
+  });
+
+  it("falls back to aspire for a dominant brand with no email identity", () => {
+    expect(pickDigestBrand({ futurebrand: 9, soccerone: 1 })).toBe("aspire");
   });
 });

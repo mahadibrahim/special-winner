@@ -20,7 +20,7 @@ export const INSTANT_KINDS: ReadonlySet<string> = new Set([
   "test",
 ]);
 
-const KIND_LABELS: Record<OpsPingEvent["kind"], string> = {
+export const OPS_PING_KIND_LABELS: Record<OpsPingEvent["kind"], string> = {
   registration_paid: "Registration",
   dropin_booked: "Drop-in",
   rental_confirmed: "Rental",
@@ -47,7 +47,7 @@ export function formatBrandTag(brand: string): string {
 }
 
 export function formatOpsPingMessage(event: OpsPingEvent): string {
-  const head = `${KIND_EMOJI[event.kind]} ${formatBrandTag(event.brand)} ${KIND_LABELS[event.kind]} — ${event.label}`;
+  const head = `${KIND_EMOJI[event.kind]} ${formatBrandTag(event.brand)} ${OPS_PING_KIND_LABELS[event.kind]} — ${event.label}`;
   if ("amountCents" in event) {
     return `${head}, $${(event.amountCents / 100).toFixed(2)}`;
   }
