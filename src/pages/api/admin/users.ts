@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { users, userRoles, roles, locations, programs, teams, seasons } from "@/lib/db/schema";
+import { users, userRoles, roles, locations, programs, teams, seasons, familyMembers } from "@/lib/db/schema";
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { eq, asc, desc, ilike, or, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -27,6 +27,11 @@ export const GET: APIRoute = async (context) => {
   try {
     const url = new URL(context.request.url);
     const search = url.searchParams.get("search");
+    // Directory filter: a staff role name, or the derived person types
+    // "parent" (has dependents) / "player" (has a self family-member row).
+    // Derived types deliberately ignore the legacy auto-granted parent
+    // role — see resolvePerson for where the role is granted now.
+    const filter = url.searchParams.get("filter");
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "20");
     const offset = (page - 1) * limit;
@@ -103,6 +108,25 @@ export const GET: APIRoute = async (context) => {
 
     // Build query filtered to users in this organization
     let conditions = [inArray(users.id, userIdsInOrg)];
+    if (filter === "parent") {
+      conditions.push(
+        sql`exists (select 1 from family_members fm where fm.parent_user_id = ${users.id})`
+      );
+    } else if (filter === "player") {
+      conditions.push(
+        sql`exists (select 1 from family_members fm where fm.self_user_id = ${users.id})`
+      );
+    } else if (
+      filter &&
+      (roles.name.enumValues as readonly string[]).includes(filter)
+    ) {
+      const roleHoldersQ = db2
+        .select({ id: userRoles.userId })
+        .from(userRoles)
+        .innerJoin(roles, eq(userRoles.roleId, roles.id))
+        .where(eq(roles.name, filter as (typeof roles.name.enumValues)[number]));
+      conditions.push(inArray(users.id, roleHoldersQ));
+    }
     if (search) {
       conditions.push(
         or(
@@ -161,9 +185,31 @@ export const GET: APIRoute = async (context) => {
       rolesByUser.set(userId, list);
     }
 
+    // Derived person type for the page's users: parent beats player.
+    const [dependentParents, selfPlayers] =
+      pageUserIds.length > 0
+        ? await Promise.all([
+            getDb()
+              .selectDistinct({ userId: familyMembers.parentUserId })
+              .from(familyMembers)
+              .where(inArray(familyMembers.parentUserId, pageUserIds)),
+            getDb()
+              .selectDistinct({ userId: familyMembers.selfUserId })
+              .from(familyMembers)
+              .where(inArray(familyMembers.selfUserId, pageUserIds)),
+          ])
+        : [[], []];
+    const parentIds = new Set(dependentParents.map((r) => r.userId));
+    const playerIds = new Set(selfPlayers.map((r) => r.userId));
+
     const usersWithRoles = allUsers.map((u) => ({
       ...u,
       roles: rolesByUser.get(u.id) ?? [],
+      personType: parentIds.has(u.id)
+        ? ("parent" as const)
+        : playerIds.has(u.id)
+          ? ("player" as const)
+          : null,
     }));
 
     return new Response(
