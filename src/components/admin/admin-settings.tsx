@@ -23,6 +23,7 @@ import {
   type ExternalStoreValue,
 } from "./external-store-settings";
 import { FeedbackSettingsCard } from "./feedback-settings-card";
+import { OpsPingsCard } from "./ops-pings-card";
 
 type SiteAnnouncementValue = {
   title: string;
@@ -396,6 +397,8 @@ export function AdminSettings({ organizationName }: AdminSettingsProps = {}) {
             </Card>
 
             <FeedbackSettingsCard />
+
+            <OpsPingsCard />
           </div>
         </TabsContent>
 
