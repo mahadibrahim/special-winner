@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { isZernioConfigured } from "@/lib/zernio/messaging";
 import { provisionOpsGroup, syncOpsGroupMembers } from "@/lib/ops/whatsapp";
+import { captureServerException } from "@/lib/observability/server-error";
 
 export const prerender = false;
 
@@ -25,7 +26,11 @@ export const POST: APIRoute = async (context) => {
     );
   } catch (err) {
     console.error("[ops] provision failed:", err);
-    return new Response(JSON.stringify({ error: "Provisioning failed" }), {
+    void captureServerException(err, { component: "ops/provision" });
+    // Zernio errors carry actionable messages (e.g. "WhatsApp permission
+    // error. Please reconnect your WhatsApp Business account.") — show them.
+    const detail = err instanceof Error ? err.message : "Provisioning failed";
+    return new Response(JSON.stringify({ error: detail }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
