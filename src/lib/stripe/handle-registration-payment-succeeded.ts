@@ -22,6 +22,7 @@ import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
+import { sendOpsPing } from "@/lib/ops/ping";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
 // the prior Checkout-Session flow exactly, just sourced from a PI.
@@ -201,6 +202,14 @@ export async function handleRegistrationPaymentSucceeded(
         receiptNumber: paymentIntent.id.replace(/^pi_(test_)?/, "").slice(0, 12),
         brand: normalizeBrand(paymentIntent.metadata?.brand),
       }), { registrationId });
+
+      void sendOpsPing(row.location.organizationId, {
+        kind: "registration_paid",
+        brand: registration.brand,
+        eventId: registration.id,
+        label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}`,
+        amountCents: amountPaid,
+      });
 
       if (paymentIntent.metadata?.via_guest_checkout === "true") {
         try {
