@@ -414,6 +414,13 @@
       "when": 1783015164111,
       "tag": "0058_feedback_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1783093019719,
+      "tag": "0059_heavy_shockwave",
+      "breakpoints": true
     }
   ]
 }
