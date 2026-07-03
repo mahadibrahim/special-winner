@@ -100,7 +100,8 @@ export function VenueDayPage({ initialDate, locationId, locationName }: Props) {
     }
     const ordered: Array<{ name: string; venueName: string | null; blocks: ActivityBlockData[] }> = []
     for (const r of data.resources) {
-      ordered.push({ name: r.name, venueName: r.venueName, blocks: byName.get(r.name) ?? [] })
+      // displayName already carries the space name; matching stays on r.name.
+      ordered.push({ name: r.displayName, venueName: null, blocks: byName.get(r.name) ?? [] })
       byName.delete(r.name)
     }
     for (const [name, blocks] of byName) {

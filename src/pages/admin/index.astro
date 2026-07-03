@@ -130,8 +130,10 @@ const niceDate = new Date().toLocaleDateString("en-US", {
       ) : (
         <>
           <NeedsAttentionPanel client:load />
-          <SeasonsGrid client:load seasons={seasonCards} />
+          {/* Today-first: the morning question is "what's happening now",
+              not season planning — seasons follow. */}
           <TodayAcrossVenues client:load venues={venueList} />
+          <SeasonsGrid client:load seasons={seasonCards} />
         </>
       )}
     </div>

@@ -63,7 +63,24 @@ export type VenueResourceSummary = {
   venueName: string;
   name: string;
   fieldNumber: number;
+  /** Front-desk label — see resourceDisplayName. */
+  displayName: string;
 };
+
+/**
+ * Human label for a field resource. The 0040 backfill named every inner
+ * field "Field 1", so for single-field spaces the space (venue) name is the
+ * only meaningful label ("Blue Field"). Multi-field spaces qualify with the
+ * field name, unless it merely repeats the space name.
+ */
+export function resourceDisplayName(
+  venueName: string,
+  resourceName: string,
+  venueResourceCount: number,
+): string {
+  if (venueResourceCount === 1 || resourceName === venueName) return venueName;
+  return `${venueName} · ${resourceName}`;
+}
 
 export type VenueDayData = {
   date: string; // YYYY-MM-DD
@@ -251,7 +268,7 @@ export async function getVenueDayData(
   }));
 
   // --- Field resources + manual holds (field-time ledger) ---
-  const resourceRows = await db
+  const rawResourceRows = await db
     .select({
       id: venueResources.id,
       venueId: venueResources.venueId,
@@ -261,8 +278,29 @@ export async function getVenueDayData(
     })
     .from(venueResources)
     .innerJoin(venues, eq(venueResources.venueId, venues.id))
-    .where(and(eq(venues.locationId, locationId), eq(venueResources.active, true)))
+    .where(
+      and(
+        eq(venues.locationId, locationId),
+        eq(venueResources.active, true),
+        // A deactivated space must not contribute board columns (the
+        // Worthington "Field 3" ghost-column bug).
+        eq(venues.active, true),
+      ),
+    )
     .orderBy(venues.name, venueResources.sortOrder);
+
+  const resourceCountByVenue = new Map<string, number>();
+  for (const r of rawResourceRows) {
+    resourceCountByVenue.set(r.venueId, (resourceCountByVenue.get(r.venueId) ?? 0) + 1);
+  }
+  const resourceRows = rawResourceRows.map((r) => ({
+    ...r,
+    displayName: resourceDisplayName(
+      r.venueName,
+      r.name,
+      resourceCountByVenue.get(r.venueId) ?? 1,
+    ),
+  }));
 
   const resourceIds = resourceRows.map((r) => r.id);
   const resourceNameById = new Map(resourceRows.map((r) => [r.id, r.name]));

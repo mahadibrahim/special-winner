@@ -21,7 +21,7 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
   {
     name: "Front desk",
     items: [
-      { name: "Venue calendar", href: "/admin/venue", icon: Calendar },
+      { name: "Command center", href: "/admin/venue", icon: Calendar },
       { name: "Check-in", href: "/admin/venue/check-in", icon: ClipboardCheck },
       { name: "Walk-up reg", href: "/admin/venue/walk-up", icon: UserPlus },
     ],
