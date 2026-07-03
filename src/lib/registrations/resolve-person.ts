@@ -1,5 +1,5 @@
 import { eq, and, sql, asc } from "drizzle-orm";
-import { familyMembers } from "@/lib/db/schema";
+import { familyMembers, roles, userRoles } from "@/lib/db/schema";
 import type { getDb } from "@/lib/db";
 import type { FamilyMember } from "@/lib/db/schema/registrations";
 
@@ -95,5 +95,38 @@ export async function resolvePerson(
       medicalNotes: input.medicalNotes ?? null,
     })
     .returning();
+
+  // Creating a first dependent is the actual signal of parenthood — grant
+  // the (global-scoped, matching the old signup grant) parent role here
+  // rather than at signup, where it mislabeled every adult. Idempotent and
+  // best-effort: a grant failure must not fail the registration.
+  try {
+    await ensureParentRole(db, input.parentUserId);
+  } catch (err) {
+    console.error("[resolvePerson] parent role grant failed:", err);
+  }
+
   return created;
+}
+
+async function ensureParentRole(db: Database, userId: string): Promise<void> {
+  const [parentRole] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.name, "parent"))
+    .limit(1);
+  if (!parentRole) return;
+
+  const existing = await db
+    .select({ id: userRoles.id })
+    .from(userRoles)
+    .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, parentRole.id)))
+    .limit(1);
+  if (existing.length > 0) return;
+
+  await db.insert(userRoles).values({
+    userId,
+    roleId: parentRole.id,
+    scopeType: "global",
+  });
 }

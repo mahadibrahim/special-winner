@@ -42,6 +42,8 @@ interface User {
   phone: string | null
   createdAt: string
   roles: UserRole[]
+  /** Derived from family_members: parent (has dependents) / player (self row). */
+  personType: "parent" | "player" | null
 }
 
 interface Pagination {
@@ -83,6 +85,10 @@ export function UsersList() {
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [newRole, setNewRole] = useState("parent")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
+  const [invite, setInvite] = useState({ firstName: "", lastName: "", email: "", roleName: "none" })
+  const [isInviting, setIsInviting] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -93,13 +99,14 @@ export function UsersList() {
 
   useEffect(() => {
     fetchUsers(1)
-  }, [searchDebounce])
+  }, [searchDebounce, typeFilter])
 
   async function fetchUsers(page: number) {
     setIsLoading(true)
     try {
       const params = new URLSearchParams({ page: page.toString() })
       if (searchDebounce) params.set("search", searchDebounce)
+      if (typeFilter !== "all") params.set("filter", typeFilter)
 
       const response = await fetch(`/api/admin/users?${params}`)
       if (!response.ok) throw new Error("Failed to fetch users")
@@ -174,6 +181,32 @@ export function UsersList() {
     }
   }
 
+  async function handleInvite() {
+    setIsInviting(true)
+    try {
+      const response = await fetch("/api/admin/users/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: invite.firstName,
+          lastName: invite.lastName,
+          email: invite.email,
+          ...(invite.roleName !== "none" ? { roleName: invite.roleName } : {}),
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Failed to add user")
+      toast.success(`Invited ${invite.email} — they'll get a sign-in link by email`)
+      setIsInviteOpen(false)
+      setInvite({ firstName: "", lastName: "", email: "", roleName: "none" })
+      await fetchUsers(1)
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to add user")
+    } finally {
+      setIsInviting(false)
+    }
+  }
+
   function openRoleDialog(user: User) {
     setSelectedUser(user)
     setNewRole("parent")
@@ -188,17 +221,38 @@ export function UsersList() {
           <h1 className="text-3xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-600 mt-1">Manage users and their roles</p>
         </div>
+        <Button onClick={() => setIsInviteOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Add user
+        </Button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + type filter */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-md flex-1 min-w-[220px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-[190px]">
+            <SelectValue placeholder="All users" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All users</SelectItem>
+            <SelectItem value="parent">Parents (have kids)</SelectItem>
+            <SelectItem value="player">Players (adults)</SelectItem>
+            <SelectItem value="location_admin">Location admins</SelectItem>
+            <SelectItem value="coach">Coaches</SelectItem>
+            <SelectItem value="referee">Referees</SelectItem>
+            <SelectItem value="media_staff">Media staff</SelectItem>
+            <SelectItem value="super_admin">Super admins</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -246,7 +300,22 @@ export function UsersList() {
                           )}
                         </div>
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {user.roles.map((role) => (
+                          {user.personType && (
+                            <Badge
+                              variant="outline"
+                              className={roleColors[user.personType] || "bg-gray-100"}
+                            >
+                              {user.personType === "parent" ? "Parent" : "Player"}
+                            </Badge>
+                          )}
+                          {user.roles
+                            .filter((role) =>
+                              // The parent role was historically auto-granted to
+                              // every signup; the derived badge above is the
+                              // trustworthy signal, so hide the stale role chip.
+                              role.roleName !== "parent",
+                            )
+                            .map((role) => (
                             <Badge
                               key={role.id}
                               variant="outline"
@@ -262,7 +331,7 @@ export function UsersList() {
                               </button>
                             </Badge>
                           ))}
-                          {user.roles.length === 0 && (
+                          {user.roles.length === 0 && !user.personType && (
                             <span className="text-sm text-muted-foreground">No roles assigned</span>
                           )}
                         </div>
@@ -311,6 +380,87 @@ export function UsersList() {
           )}
         </>
       )}
+
+      {/* Add user (invite) dialog */}
+      <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add user</DialogTitle>
+            <DialogDescription>
+              Creates the account and emails them a sign-in link (valid 72
+              hours) — you never handle their password.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="invite-first">First name</Label>
+                <Input
+                  id="invite-first"
+                  value={invite.firstName}
+                  onChange={(e) => setInvite({ ...invite, firstName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invite-last">Last name</Label>
+                <Input
+                  id="invite-last"
+                  value={invite.lastName}
+                  onChange={(e) => setInvite({ ...invite, lastName: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={invite.email}
+                onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Staff role (optional)</Label>
+              <Select
+                value={invite.roleName}
+                onValueChange={(v) => setInvite({ ...invite, roleName: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No role (customer account)</SelectItem>
+                  <SelectItem value="location_admin">Location admin (front desk)</SelectItem>
+                  <SelectItem value="coach">Coach</SelectItem>
+                  <SelectItem value="referee">Referee</SelectItem>
+                  <SelectItem value="media_staff">Media staff</SelectItem>
+                  <SelectItem value="media_editor">Media editor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInviteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleInvite}
+              disabled={isInviting || !invite.firstName || !invite.lastName || !invite.email}
+            >
+              {isInviting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending invite...
+                </>
+              ) : (
+                "Add & send invite"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Role Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>

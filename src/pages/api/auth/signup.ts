@@ -112,18 +112,9 @@ export const POST: APIRoute = async (context) => {
       })
       .returning();
 
-    // Assign default "parent" role
-    const parentRole = await getDb().query.roles.findFirst({
-      where: eq(roles.name, "parent"),
-    });
-
-    if (parentRole) {
-      await getDb().insert(userRoles).values({
-        userId: newUser.id,
-        roleId: parentRole.id,
-        scopeType: "global",
-      });
-    }
+    // No default role. "parent" used to be auto-granted here, mislabeling
+    // every adult; it is now granted by resolvePerson when a first
+    // dependent is created — the actual signal of parenthood.
 
     // Magic-link path: don't create a session here. Email a one-tap
     // sign-in link instead — clicking it is what creates the session
@@ -180,7 +171,7 @@ export const POST: APIRoute = async (context) => {
           firstName: newUser.firstName,
           lastName: newUser.lastName,
         },
-        roles: parentRole ? ["parent"] : [],
+        roles: [],
       }),
       { status: 201 }
     );
