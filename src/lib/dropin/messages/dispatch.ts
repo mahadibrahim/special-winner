@@ -317,7 +317,7 @@ export async function dispatchBookingConfirmation(
 
   const resolvedBrand = brand ?? "aspire";
 
-  void sendOpsPing(session.organizationId, {
+  await sendOpsPing(session.organizationId, {
     kind: "dropin_booked",
     brand: resolvedBrand,
     eventId: booking.id,

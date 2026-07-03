@@ -203,10 +203,14 @@ export async function handleRegistrationPaymentSucceeded(
         brand: normalizeBrand(paymentIntent.metadata?.brand),
       }), { registrationId });
 
-      void sendOpsPing(row.location.organizationId, {
+      await sendOpsPing(row.location.organizationId, {
         kind: "registration_paid",
         brand: registration.brand,
-        eventId: registration.id,
+        // Use the payment intent id, not registration.id: a registration can
+        // receive multiple payments (deposit, then balance/installments) and
+        // each one is a distinct payment event — keying on registration.id
+        // would dedupe every payment after the first against the initial ping.
+        eventId: paymentIntent.id,
         label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}`,
         amountCents: amountPaid,
       });

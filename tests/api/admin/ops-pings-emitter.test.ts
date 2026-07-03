@@ -3,6 +3,7 @@ import { getAdminCookie, apiFetch, expectJson, resetCookies } from "../setup/tes
 import { getDb } from "@/lib/db";
 import { opsPings, organizations } from "@/lib/db/schema";
 import { eq, and, gte } from "drizzle-orm";
+import { E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 const SETTINGS = "/api/admin/organizations/settings";
 
@@ -30,10 +31,21 @@ describe("ops ping emitter (via admin test endpoint)", () => {
       cookie: adminCookie,
       body: JSON.stringify({ settings: { opsPings: originalOpsPings } }),
     });
-    // Clean the ping rows this suite created for the shared org.
+    // Clean the ping rows this suite created for the shared org. Scoped to
+    // E2E_ORG_ID (the admin's resolved org — see seed-e2e-tests.ts) so this
+    // can't eat kind="test" rows another test run created for a different
+    // org in the shared CI database.
     const db = getDb();
     const cutoff = new Date(Date.now() - 15 * 60 * 1000);
-    await db.delete(opsPings).where(and(eq(opsPings.kind, "test"), gte(opsPings.createdAt, cutoff)));
+    await db
+      .delete(opsPings)
+      .where(
+        and(
+          eq(opsPings.organizationId, E2E_ORG_ID),
+          eq(opsPings.kind, "test"),
+          gte(opsPings.createdAt, cutoff),
+        ),
+      );
     resetCookies();
   });
 

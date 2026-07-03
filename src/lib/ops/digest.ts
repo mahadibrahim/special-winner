@@ -32,7 +32,7 @@ export function composeDigestMessage(counts: DigestCounts, dateLabel: string): s
   }
 
   if (counts.suppressed > 0) {
-    lines.push(`…plus ${counts.suppressed} pings collapsed by rate cap yesterday.`);
+    lines.push(`…plus ${counts.suppressed} pings not delivered instantly yesterday.`);
   }
 
   if (lines.length === 1) lines.push("Quiet day — no new activity.");

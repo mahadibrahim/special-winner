@@ -76,7 +76,7 @@ export async function handleCheckoutSessionCompleted(
     session.customer_details?.email ?? session.customer_email ?? userId;
   const tierName = md.tier_name || "Membership";
 
-  void sendOpsPing(organizationId, {
+  await sendOpsPing(organizationId, {
     kind: "membership_started",
     brand,
     eventId: inserted[0].id,

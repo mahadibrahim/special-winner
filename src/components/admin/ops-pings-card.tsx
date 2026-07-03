@@ -75,6 +75,8 @@ export function OpsPingsCard() {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
+  const [syncError, setSyncError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -131,6 +133,7 @@ export function OpsPingsCard() {
   async function save() {
     setIsSaving(true);
     setError(null);
+    setSyncError(null);
     try {
       const principals = state.principals
         .map((p) => ({ name: p.name.trim(), phone: p.phone.trim() }))
@@ -163,6 +166,29 @@ export function OpsPingsCard() {
         whatsapp: opsPings.whatsapp ?? {},
       });
       setSavedAt(Date.now());
+
+      // Member-sync path: principals are edited here but the WhatsApp group
+      // membership itself is only ever synced by the provision endpoint. If
+      // a group already exists, re-hit provision (idempotent — it always
+      // calls syncOpsGroupMembers) so principals added/removed just now
+      // actually land in the group instead of silently drifting out of sync.
+      // Fire-and-forget from the UI's perspective: surface a non-blocking
+      // note on failure rather than blocking the save confirmation on it.
+      if (opsPings.whatsapp?.groupId) {
+        fetch("/api/admin/ops-pings/provision", { method: "POST" })
+          .then((res) => {
+            if (!res.ok) {
+              setSyncError(
+                "Saved, but syncing the WhatsApp group members failed — try Provision again.",
+              );
+            }
+          })
+          .catch(() => {
+            setSyncError(
+              "Saved, but syncing the WhatsApp group members failed — try Provision again.",
+            );
+          });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -385,6 +411,12 @@ export function OpsPingsCard() {
                 <span className="text-sm text-destructive">{testError}</span>
               )}
             </div>
+
+            {syncError && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
+                {syncError}
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-3 pt-2">
               {savedAt && !isSaving && (

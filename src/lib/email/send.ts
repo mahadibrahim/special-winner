@@ -1192,7 +1192,7 @@ export async function sendOpsPingFallbackEmail(params: SendOpsPingFallbackEmailP
     emailType: "ops_ping_fallback",
     to: params.to,
     subject: `[Ops] ${params.message}`,
-    html: `<p style="font-family: sans-serif; font-size: 14px;">${params.message}</p>`,
+    html: `<p style="font-family: sans-serif; font-size: 14px;">${escapeHtml(params.message)}</p>`,
     text: params.message,
     from: fromForBrand(params.brand),
   });

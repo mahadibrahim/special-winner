@@ -115,7 +115,7 @@ export const POST: APIRoute = async (context) => {
 
     const signupOrgId = context.locals.organization?.id;
     if (signupOrgId) {
-      void sendOpsPing(signupOrgId, {
+      await sendOpsPing(signupOrgId, {
         kind: "user_signup",
         brand: brandFromHost(context.request.headers.get("host") ?? ""),
         eventId: newUser.id,

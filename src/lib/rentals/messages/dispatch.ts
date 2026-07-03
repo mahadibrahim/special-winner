@@ -65,7 +65,7 @@ export async function dispatchRentalConfirmation(
 
   const brand = normalizeBrand(row.brand);
 
-  void sendOpsPing(row.organizationId, {
+  await sendOpsPing(row.organizationId, {
     kind: "rental_confirmed",
     brand,
     eventId: row.id,

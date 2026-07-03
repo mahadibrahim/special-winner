@@ -18,7 +18,7 @@ describe("composeDigestMessage", () => {
     expect(msg).toContain("👤 New users: 14 (Aspire 9, SoccerOne 5)");
     expect(msg).toContain("💰 Drop-in: 12 — $188.88");
     expect(msg).toContain("💰 Registration: 2 — $170.00");
-    expect(msg).toContain("plus 3 pings collapsed by rate cap");
+    expect(msg).toContain("plus 3 pings not delivered instantly");
   });
 
   it("says quiet day when nothing happened", () => {
