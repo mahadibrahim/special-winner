@@ -13,6 +13,7 @@ import { verifyTurnstile } from "@/lib/auth/turnstile";
 import { isEmailConfigured } from "@/lib/email";
 import { sendSignInLinkEmail } from "@/lib/email/send";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { sendOpsPing } from "@/lib/ops/ping";
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -111,6 +112,16 @@ export const POST: APIRoute = async (context) => {
         emailVerified: false,
       })
       .returning();
+
+    const signupOrgId = context.locals.organization?.id;
+    if (signupOrgId) {
+      await sendOpsPing(signupOrgId, {
+        kind: "user_signup",
+        brand: brandFromHost(context.request.headers.get("host") ?? ""),
+        eventId: newUser.id,
+        label: newUser.email,
+      });
+    }
 
     // No default role. "parent" used to be auto-granted here, mislabeling
     // every adult; it is now granted by resolvePerson when a first

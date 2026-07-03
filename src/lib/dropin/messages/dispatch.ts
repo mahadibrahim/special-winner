@@ -28,6 +28,7 @@ import { sendEmail, isEmailConfigured, fromForBrand } from "@/lib/email";
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
 import { sendTelegramRaw } from "@/lib/telegram/send";
 import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
+import { sendOpsPing } from "@/lib/ops/ping";
 import type { BrandId } from "@/lib/branding/themes";
 import { renderBookingConfirmation } from "./booking-confirmation";
 import { renderWaitlistPromoted } from "./waitlist-promoted";
@@ -315,6 +316,15 @@ export async function dispatchBookingConfirmation(
   if (!user) return { ok: false, reason: "user_not_found" };
 
   const resolvedBrand = brand ?? "aspire";
+
+  await sendOpsPing(session.organizationId, {
+    kind: "dropin_booked",
+    brand: resolvedBrand,
+    eventId: booking.id,
+    label: `${user.firstName ?? "Someone"} · ${session.sportOrClassLabel}`,
+    amountCents: booking.amountPaidCents,
+  });
+
   const ctx: BookingConfirmationContext = {
     ...baseCtx(session, recipientFromUser(user), resolvedBrand),
     booking: {

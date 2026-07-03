@@ -34,6 +34,21 @@ const feedbackSettingsSchema = z.object({
   googleReviewUrlByVenue: z.record(z.string(), z.string().url()).optional(),
 });
 
+const opsPingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  principals: z
+    .array(z.object({ name: z.string().trim().min(1).max(100), phone: z.string().trim().min(7).max(30) }))
+    .max(20)
+    .optional(),
+  whatsapp: z
+    .object({
+      groupId: z.string().optional(),
+      conversationId: z.string().optional(),
+      inviteLink: z.string().optional(),
+    })
+    .optional(),
+});
+
 const featuresPatchSchema = z.object({
   enableNpsSurveys: z.boolean().optional(),
   enableRefereeRatings: z.boolean().optional(),
@@ -45,6 +60,7 @@ const settingsPatchSchema = z.object({
   externalStore: externalStoreSchema.nullable().optional(),
   siteAnnouncement: siteAnnouncementSchema.nullable().optional(),
   feedback: feedbackSettingsSchema.nullable().optional(),
+  opsPings: opsPingsSchema.nullable().optional(),
 });
 
 const bodySchema = z.object({

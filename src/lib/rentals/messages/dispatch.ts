@@ -22,6 +22,7 @@ import { organizations } from "@/lib/db/schema/organizations";
 import { sendEmail, isEmailConfigured, fromForBrand } from "@/lib/email";
 import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { sendOpsPing } from "@/lib/ops/ping";
 import { renderRentalConfirmation } from "./rental-confirmation";
 
 export interface RentalDispatchResult {
@@ -63,6 +64,14 @@ export async function dispatchRentalConfirmation(
   if (!hasEmail && !hasPhone) return { ok: false, reason: "no_contact_info" };
 
   const brand = normalizeBrand(row.brand);
+
+  await sendOpsPing(row.organizationId, {
+    kind: "rental_confirmed",
+    brand,
+    eventId: row.id,
+    label: `${row.renterName} · field rental`,
+    amountCents: row.amountPaidCents,
+  });
 
   const variants = await renderRentalConfirmation({
     recipientName: row.renterName,

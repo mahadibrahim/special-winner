@@ -12,6 +12,7 @@ import { memberships } from "@/lib/db/schema/memberships";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
+import { sendOpsPing } from "@/lib/ops/ping";
 
 /**
  * `checkout.session.completed` for `mode === 'subscription'` with our
@@ -70,6 +71,18 @@ export async function handleCheckoutSessionCompleted(
 
   const brand = normalizeBrand(session.metadata?.brand);
   const amountCents = session.amount_total ?? 0;
+  const md = session.metadata ?? {};
+  const memberLabel =
+    session.customer_details?.email ?? session.customer_email ?? userId;
+  const tierName = md.tier_name || "Membership";
+
+  await sendOpsPing(organizationId, {
+    kind: "membership_started",
+    brand,
+    eventId: inserted[0].id,
+    label: `${memberLabel} · ${tierName}`,
+    amountCents,
+  });
 
   capturePaymentCompleted({
     distinctId: userId,
@@ -88,10 +101,8 @@ export async function handleCheckoutSessionCompleted(
   // Online membership signup is an ad-attributable path. Subscription-mode
   // sessions have no PaymentIntent, so the Checkout Session id is the dedup
   // key shared with the browser pixel fire on the success page.
-  const md = session.metadata ?? {};
   const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
   if (hasAttribution) {
-    const tierName = md.tier_name || "Membership";
     fireServerPurchaseConversions({
       metadata: md,
       eventId: session.id,

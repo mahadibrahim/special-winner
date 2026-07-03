@@ -494,6 +494,17 @@ export interface OrganizationSettings {
      */
     googleReviewUrlByVenue?: Record<string, string>;
   };
+  /** Operational pings to principals (WhatsApp group + email fallback). */
+  opsPings?: {
+    /** Master switch — ships dark. */
+    enabled?: boolean;
+    principals?: Array<{ name: string; phone: string }>;
+    whatsapp?: {
+      groupId?: string;
+      conversationId?: string;
+      inviteLink?: string;
+    };
+  };
 }
 
 // Organization features (feature flags)

@@ -89,3 +89,6 @@ export * from "./self-service-tokens";
 
 // Post-event feedback engine (NPS surveys + referee ratings)
 export * from "./feedback";
+
+// Operational pings (principal WhatsApp/email business-event alerts)
+export * from "./ops-pings";
