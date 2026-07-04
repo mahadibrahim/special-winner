@@ -10,6 +10,7 @@ import { putObject } from "@/lib/storage/r2";
 import { sendEmail, fromForBrand, isEmailConfigured } from "@/lib/email";
 import { createNotionApplicationPage } from "@/lib/notion/ats";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { escapeHtml } from "@/lib/activity-tracking/messages/types";
 
 export const prerender = false;
 
@@ -123,9 +124,9 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
       from: fromForBrand(brand),
       to: HIRING_NOTIFY_EMAIL,
       subject: `New ${parsed.data.role} application — ${parsed.data.firstName} ${parsed.data.lastName}`,
-      html: `<p><strong>${parsed.data.firstName} ${parsed.data.lastName}</strong> applied as <strong>${parsed.data.role}</strong>.</p>
-<p>Email: ${parsed.data.email}<br/>Phone: ${parsed.data.phone ?? "—"}<br/>Facility: ${parsed.data.preferredLocation ?? "—"}</p>
-<p>${(parsed.data.experience ?? "").slice(0, 500)}</p>
+      html: `<p><strong>${escapeHtml(parsed.data.firstName)} ${escapeHtml(parsed.data.lastName)}</strong> applied as <strong>${escapeHtml(parsed.data.role)}</strong>.</p>
+<p>Email: ${escapeHtml(parsed.data.email)}<br/>Phone: ${escapeHtml(parsed.data.phone ?? "—")}<br/>Facility: ${escapeHtml(parsed.data.preferredLocation ?? "—")}</p>
+<p>${escapeHtml((parsed.data.experience ?? "").slice(0, 500))}</p>
 <p>Review in Notion or /admin/applications.</p>`,
     });
     if (!result.success) console.error("[careers] notify email failed", result.error);
