@@ -5,14 +5,23 @@ import { SOCCER_SESSION_PLANS } from "./soccer/session-plans";
 import { BASKETBALL_SKILLS } from "./basketball/skills";
 import { BASKETBALL_ACTIVITIES } from "./basketball/activities";
 import { BASKETBALL_SESSION_PLANS } from "./basketball/session-plans";
+import { HOCKEY_SKILLS } from "./hockey/skills";
+import { BASEBALL_SKILLS } from "./baseball/skills";
 import type { CurriculumContent } from "./types";
 
-// Other sports' activities/session plans start empty here — Task 6-7 fill them
-// in. coachGuidance starts empty for the same reason.
+// Hockey and baseball have skills only (no activities/session plans exist in
+// the recovered seeds -- inventing them is out of scope per the plan's
+// Global Constraints, Refinery backlog per spec §8). coachGuidance starts
+// empty; Task 7 fills it in.
 export const CURRICULUM_CONTENT: CurriculumContent = {
   domains: DOMAINS,
   stages: STAGES,
-  skills: [...SOCCER_SKILLS, ...BASKETBALL_SKILLS],
+  skills: [
+    ...SOCCER_SKILLS,
+    ...BASKETBALL_SKILLS,
+    ...HOCKEY_SKILLS,
+    ...BASEBALL_SKILLS,
+  ],
   activities: [...SOCCER_ACTIVITIES, ...BASKETBALL_ACTIVITIES],
   sessionPlans: [...SOCCER_SESSION_PLANS, ...BASKETBALL_SESSION_PLANS],
   coachGuidance: { prompts: [], resources: [], principles: [] },

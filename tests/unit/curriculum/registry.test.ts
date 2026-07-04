@@ -186,4 +186,61 @@ describe("curriculum registry", () => {
       true,
     );
   });
+
+  // Hockey has exactly one source file (curriculum-v2__hockey-skills.ts) —
+  // no upgrade pass, no gen-0 fold (src/lib/db/seed-curriculum.ts only seeds
+  // soccer and basketball) — so this is a single-pass transcription and the
+  // v2-canonical count IS the true count.
+  it("hockey skills: exactly 13 with the 5/3/2/3 domain split, all with comprehensive guides", () => {
+    const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "hockey");
+    expect(s).toHaveLength(13);
+    const byDomain = Object.fromEntries(
+      (["technical", "tactical", "physical", "psychological"] as const).map(
+        (d) => [d, s.filter((k) => k.domain === d).length],
+      ),
+    );
+    expect(byDomain).toEqual({
+      technical: 5,
+      tactical: 3,
+      physical: 2,
+      psychological: 3,
+    });
+    expect(s.every((k) => k.comprehensiveGuide != null)).toBe(true);
+    expect(s.every((k) => k.stage === "fundamentals")).toBe(true);
+  });
+
+  it("hockey: no activities or session plans invented (none exist in the recovered seeds)", () => {
+    expect(
+      CURRICULUM_CONTENT.activities.filter((x) => x.sport === "hockey"),
+    ).toHaveLength(0);
+    expect(
+      CURRICULUM_CONTENT.sessionPlans.filter((x) => x.sport === "hockey"),
+    ).toHaveLength(0);
+  });
+
+  // Baseball has no v2-canonical skills file and no gen-0 rows in
+  // src/lib/db/seed-curriculum.ts — the only source is
+  // curriculum-v2__baseball-skills-upgrade.ts, which UPDATEs a single
+  // pre-existing skill row ("Throwing Mechanics") by hardcoded uuid rather
+  // than inserting a full row. True count is 1; the task brief's floor is
+  // >= 1. See .superpowers/sdd/cr-task-6-report.md for the reconstruction
+  // reasoning (domain/stage/name/slug/assessmentMethod/isCore inferred from
+  // context since the source object never sets them).
+  it("baseball skills: exactly 1, reconstructed from the sole upgrade payload", () => {
+    const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "baseball");
+    expect(s.length).toBeGreaterThanOrEqual(1);
+    expect(s).toHaveLength(1);
+    expect(s[0].name).toBe("Throwing Mechanics");
+    expect(s[0].domain).toBe("technical");
+    expect(s[0].comprehensiveGuide).toBeTruthy();
+  });
+
+  it("baseball: no activities or session plans invented (none exist in the recovered seeds)", () => {
+    expect(
+      CURRICULUM_CONTENT.activities.filter((x) => x.sport === "baseball"),
+    ).toHaveLength(0);
+    expect(
+      CURRICULUM_CONTENT.sessionPlans.filter((x) => x.sport === "baseball"),
+    ).toHaveLength(0);
+  });
 });
