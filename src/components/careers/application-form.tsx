@@ -133,7 +133,7 @@ export default function ApplicationForm() {
       </div>
 
       <Field label="Preferred facility">
-        <select id="preferredLocation" {...register("preferredLocation")} className={inputClass}>
+        <select id="preferredLocation" {...register("preferredLocation", { setValueAs: (v) => (v === "" ? undefined : v) })} className={inputClass}>
           <option value="">No preference</option>
           {APPLICATION_LOCATIONS.map((l) => (
             <option key={l} value={l}>
@@ -141,6 +141,7 @@ export default function ApplicationForm() {
             </option>
           ))}
         </select>
+        {errors.preferredLocation && <FieldError>Please choose a facility or leave "No preference".</FieldError>}
       </Field>
 
       <fieldset>
