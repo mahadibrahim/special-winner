@@ -25,7 +25,12 @@ export default function RegisterExperience({
 }) {
   useHydrationBeacon();
   const [season, setSeason] = useState<
-    (RailSeason & { signupModes: string | null; status: string }) | null
+    | (RailSeason & {
+        signupModes: string | null;
+        status: string;
+        registrationClosed?: boolean;
+      })
+    | null
   >(null);
   const [err, setErr] = useState<string | null>(null);
   const [mode, setMode] = useState<"choose" | "solo" | "team">(teamToken ? "solo" : "choose");
@@ -44,6 +49,8 @@ export default function RegisterExperience({
   if (!season) return <LoadingSkeleton />;
   if (season.status !== "open")
     return <ErrorBanner message="Registration for this division isn't open." />;
+  if (season.registrationClosed)
+    return <ErrorBanner message="Registration for this season has closed. Contact us if you'd like to join a roster mid-season." />;
 
   const canTeam = !!season.signupModes && season.signupModes.includes("team");
   const railMode = teamToken ? "share" : mode === "team" ? "team" : "solo";

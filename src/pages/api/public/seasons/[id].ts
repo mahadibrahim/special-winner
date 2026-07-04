@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { isRegistrationClosed } from "@/lib/programs/registration-window";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   try {
@@ -93,6 +94,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
       allowDeposit: result.season.allowDeposit,
       status: result.season.status,
       registrationCloses: result.season.registrationCloses ? result.season.registrationCloses.toISOString() : null,
+      // Server-computed so the register page and the API agree on the clock;
+      // createRegistration enforces the same predicate on the write path.
+      registrationClosed: isRegistrationClosed(result.season),
       earlyBirdDeadline: result.season.earlyBirdDeadline ? result.season.earlyBirdDeadline.toISOString() : null,
       scheduleNotes: result.season.scheduleNotes,
       // Team pricing + signup capability (mirrors the list endpoint) so the

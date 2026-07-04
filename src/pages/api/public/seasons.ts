@@ -76,6 +76,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // this clause hides leaked fixtures even if their programs/seasons
     // weren't tagged isTest=true.
     conditions.push(eq(organizations.status, "active"));
+    // "Live until": an `open` season past its registration close — or, when
+    // registration_closes is unset, past its start DAY — is no longer
+    // registerable and must not surface anywhere (the Founders' Tournament
+    // sat in the catalog for weeks after it started). Only `open` rows are
+    // gated: `active` seasons have started by definition and stay visible for
+    // informational pages (standings, landing tabs). SQL twin of
+    // isRegistrationClosed() in src/lib/programs/registration-window.ts.
+    conditions.push(sql`NOT (
+      ${seasons.status} = 'open' AND (
+        (${seasons.registrationCloses} IS NOT NULL AND ${seasons.registrationCloses} <= now())
+        OR (${seasons.registrationCloses} IS NULL AND ${seasons.startDate} < CURRENT_DATE)
+      )
+    )`);
 
     const rows = await db
       .select({

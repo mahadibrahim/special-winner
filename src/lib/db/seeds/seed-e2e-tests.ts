@@ -46,7 +46,7 @@ import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
 import { dropInSessions } from "../schema/drop-in";
 import { membershipTiers, memberships } from "../schema/memberships";
-import { asc, eq, ne, and, or } from "drizzle-orm";
+import { asc, eq, ne, and, or, inArray } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
 export const TEST_USERS = {
@@ -142,6 +142,14 @@ export const TEST_USERS = {
  * to look up the season ID at runtime.
  */
 export const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
+
+/**
+ * Season that is `open` by status but past its registration window (started
+ * two weeks ago, no explicit registration_closes). Exercises the "live
+ * until" enforcement: catalog hiding, detail `registrationClosed`, and the
+ * createRegistration / team-registration 400s.
+ */
+export const CLOSED_SEASON_SLUG = "e2e-closed-window-season";
 
 /**
  * Fixed UUID for the main e2e organization ("aspire-sports").
@@ -1050,6 +1058,69 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Adult Season: ${adultMensSeason.name} (id: ${adultMensSeason.id})`);
+
+  // Keep the OPEN test seasons registerable on re-runs. The shared CI DB
+  // accumulates: rows created weeks ago would age past registration_closes /
+  // start_date, and both createRegistration and the public catalog now
+  // enforce the "live until" window. Mirrors the SoccerOne season refresh.
+  await db
+    .update(seasons)
+    .set({
+      startDate: formatDate(seasonStartDate),
+      endDate: formatDate(seasonEndDate),
+      registrationOpens: new Date(),
+      registrationCloses: registrationEnd,
+    })
+    .where(
+      inArray(seasons.slug, [
+        "e2e-test-spring-2026",
+        ADULT_OPEN_SEASON_SLUG,
+        "e2e-adult-team-soccer-2026",
+        "e2e-adult-soccer-fall-2026-mens-d",
+      ]),
+    );
+  console.log("   ✓ Open test seasons re-dated (start +1mo, closes start−7d)");
+
+  // Closed-window fixture: status stays `open` but the start day has passed
+  // and registration_closes is null — the exact Founders'-Tournament shape
+  // the enforcement exists for. Dates re-assert on every run.
+  const closedWindowStart = new Date();
+  closedWindowStart.setDate(closedWindowStart.getDate() - 14);
+  const closedWindowEnd = new Date();
+  closedWindowEnd.setMonth(closedWindowEnd.getMonth() + 2);
+  let [closedWindowSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, CLOSED_SEASON_SLUG))
+    .limit(1);
+  if (!closedWindowSeason) {
+    [closedWindowSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: adultProgram.id,
+        ageGroupId: adultAgeGroup.id,
+        name: "E2E Closed Window Season",
+        slug: CLOSED_SEASON_SLUG,
+        startDate: formatDate(closedWindowStart),
+        endDate: formatDate(closedWindowEnd),
+        registrationOpens: null,
+        registrationCloses: null,
+        status: "open",
+        priceCents: 10000,
+      })
+      .returning();
+  } else {
+    await db
+      .update(seasons)
+      .set({
+        startDate: formatDate(closedWindowStart),
+        endDate: formatDate(closedWindowEnd),
+        registrationCloses: null,
+        status: "open",
+      })
+      .where(eq(seasons.id, closedWindowSeason.id));
+  }
+  console.log(`   ✓ Closed-window season: ${CLOSED_SEASON_SLUG} (started 2wk ago, open status)`);
 
   // Active 'Summer 2026' soccer division with played games, so the season
   // page's Standings tab renders a live table (Fall 2026 stays 'open' → empty

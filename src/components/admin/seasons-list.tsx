@@ -32,6 +32,7 @@ interface Season {
   slug: string
   startDate: string
   endDate: string
+  registrationCloses?: string | null
   maxParticipants: number | null
   priceCents: number
   teamPriceCents: number | null
@@ -110,6 +111,7 @@ export function SeasonsList() {
     slug: "",
     startDate: "",
     endDate: "",
+    registrationClosesDate: "",
     maxParticipants: "",
     priceCents: "",
     teamPriceCents: "",
@@ -178,6 +180,7 @@ export function SeasonsList() {
       slug: "",
       startDate: today,
       endDate: today,
+      registrationClosesDate: "",
       maxParticipants: "",
       priceCents: "",
       teamPriceCents: "",
@@ -210,6 +213,9 @@ export function SeasonsList() {
       slug: season.slug,
       startDate: season.startDate,
       endDate: season.endDate,
+      registrationClosesDate: season.registrationCloses
+        ? new Date(season.registrationCloses).toISOString().slice(0, 10)
+        : "",
       maxParticipants: season.maxParticipants?.toString() || "",
       priceCents: (season.priceCents / 100).toString(),
       teamPriceCents: season.teamPriceCents != null ? (season.teamPriceCents / 100).toString() : "",
@@ -291,6 +297,11 @@ export function SeasonsList() {
         slug: formData.slug,
         startDate: formData.startDate,
         endDate: formData.endDate,
+        // End-of-day in the admin's browser timezone → exact UTC instant.
+        // Null clears it: the season then auto-closes the day after startDate.
+        registrationCloses: formData.registrationClosesDate
+          ? new Date(`${formData.registrationClosesDate}T23:59:59`).toISOString()
+          : null,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
         priceCents: Math.round(parseFloat(formData.priceCents || "0") * 100),
         teamPriceCents: formData.allowTeam && formData.teamPriceCents
@@ -723,6 +734,21 @@ export function SeasonsList() {
                     required
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="registrationClosesDate">Registration closes</Label>
+                <Input
+                  id="registrationClosesDate"
+                  type="date"
+                  value={formData.registrationClosesDate}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, registrationClosesDate: e.target.value }))}
+                />
+                <p className="text-xs text-ink-muted">
+                  Open seasons stop being visible and registerable at the end of this day.
+                  Leave blank to auto-close the day after the start date. Set a date after
+                  the start date to allow late joins.
+                </p>
               </div>
 
               {/* Signup modes — drives which signup paths the season accepts */}
