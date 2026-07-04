@@ -7,6 +7,7 @@ import {
   integer,
   decimal,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
@@ -84,7 +85,9 @@ export const playerAssessments = pgTable("player_assessments", {
 });
 
 // Assessment Snapshots (aggregated per season/domain for reporting)
-export const assessmentSnapshots = pgTable("assessment_snapshots", {
+export const assessmentSnapshots = pgTable(
+  "assessment_snapshots",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   familyMemberId: uuid("family_member_id")
     .notNull()
@@ -103,7 +106,17 @@ export const assessmentSnapshots = pgTable("assessment_snapshots", {
   snapshotDate: timestamp("snapshot_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+  },
+  (table) => [
+    // Natural key for the snapshot upsert (Task 9): one row per
+    // family member × season × domain.
+    uniqueIndex("assessment_snapshots_member_season_domain_uniq").on(
+      table.familyMemberId,
+      table.seasonId,
+      table.domainId,
+    ),
+  ],
+);
 
 // Player Skill Summary (current state per skill for quick lookups)
 export const playerSkillSummary = pgTable("player_skill_summary", {

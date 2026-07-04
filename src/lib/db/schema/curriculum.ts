@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   decimal,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { sports } from "./sports";
@@ -63,7 +64,9 @@ export const skillDomains = pgTable("skill_domains", {
 });
 
 // Skills (master library of skills by sport and stage)
-export const skills = pgTable("skills", {
+export const skills = pgTable(
+  "skills",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id").references(() => organizations.id, {
     onDelete: "cascade",
@@ -133,7 +136,13 @@ export const skills = pgTable("skills", {
   sortOrder: integer("sort_order").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+  },
+  (table) => [
+    // Natural key for the idempotent curriculum loader (Task 8): a skill is
+    // identified by which sport it belongs to + its slug.
+    uniqueIndex("skills_sport_slug_uniq").on(table.sportId, table.slug),
+  ],
+);
 
 // Skill Progressions (prerequisite relationships between skills)
 export const skillProgressions = pgTable("skill_progressions", {
