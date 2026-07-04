@@ -8,6 +8,7 @@ import { FieldCalendar } from '@/components/soccerone/FieldCalendar';
 import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
 import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
 import { getActiveMembershipForOrg } from '@/lib/memberships/get-active-membership';
+import { DEFAULT_BOOKING_WINDOW_DAYS, resolveBookingWindowDays } from '@/lib/memberships/booking-window';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
@@ -26,12 +27,15 @@ const venueList = organizationId
 const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
 
 let memberDiscountPct = 0;
+let bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
 if (Astro.locals.user && organizationId) {
   try {
     const m = await getActiveMembershipForOrg(Astro.locals.user.id, organizationId);
     memberDiscountPct = (m?.tier?.benefits?.rental_discount_pct as number | undefined) ?? 0;
+    bookingWindowDays = resolveBookingWindowDays(m?.tier?.benefits ?? null);
   } catch {
     memberDiscountPct = 0;
+    bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
   }
 }
 
@@ -79,7 +83,7 @@ const fmt = (cents: number) => {
           <div class="rh-text">
             <h1 class="rh-title">BOOK A<br />FIELD</h1>
             <p class="rh-desc">
-              Hourly rentals on all 4 indoor fields across both locations. Training, parties, team practice, tournaments. Book 30 days ahead with Founder membership.
+              Hourly rentals on all 4 indoor fields across both locations. Training, parties, team practice, tournaments. Book up to 14 days ahead with Founder membership.
             </p>
           </div>
 
@@ -166,7 +170,7 @@ const fmt = (cents: number) => {
           <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} timeZone={orgTimeZone} />
+        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} timeZone={orgTimeZone} bookingWindowDays={bookingWindowDays} />
 
         <!-- Cancellation policy -->
         <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>

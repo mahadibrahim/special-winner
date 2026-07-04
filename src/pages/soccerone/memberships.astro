@@ -29,6 +29,10 @@ const rentalPct = (t: any, fallback: number): number =>
   typeof t?.benefits?.rental_discount_pct === 'number' && t.benefits.rental_discount_pct > 0
     ? t.benefits.rental_discount_pct
     : fallback;
+const bookingWindow = (t: any, fallback: number): number =>
+  typeof t?.benefits?.booking_window_days === 'number' && t.benefits.booking_window_days > 0
+    ? t.benefits.booking_window_days
+    : fallback;
 ---
 
 <BaseLayout
@@ -216,8 +220,8 @@ const rentalPct = (t: any, fallback: number): number =>
               <tr class="ct-row">
                 <td class="ct-feature">Advance booking window</td>
                 <td class="ct-val">7 days</td>
-                <td class="ct-val ct-featured">14 days</td>
-                <td class="ct-val ct-good">30 days</td>
+                <td class="ct-val ct-featured">{bookingWindow(memberTier, 7)} days</td>
+                <td class="ct-val ct-good">{bookingWindow(founderTier, 14)} days</td>
               </tr>
               <tr class="ct-section-header"><td colspan="4">Leagues</td></tr>
               <tr class="ct-row">
