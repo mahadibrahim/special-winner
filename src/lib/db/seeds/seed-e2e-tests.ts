@@ -1081,6 +1081,21 @@ async function seedE2ETests() {
     );
   console.log("   ✓ Open test seasons re-dated (start +1mo, closes start−7d)");
 
+  // Early-bird fixture: the spring season carries an always-live early-bird
+  // window (deadline now + 2wk — before registrationCloses — and price $20
+  // below the $150 list price) so API tests can assert the discounted charge
+  // path. Asserted on every run; no other fixture gains an early-bird price.
+  const springEarlyBirdDeadline = new Date();
+  springEarlyBirdDeadline.setDate(springEarlyBirdDeadline.getDate() + 14);
+  await db
+    .update(seasons)
+    .set({
+      earlyBirdDeadline: springEarlyBirdDeadline,
+      earlyBirdPriceCents: 13000, // $130 ($150 list − $20)
+    })
+    .where(eq(seasons.slug, "e2e-test-spring-2026"));
+  console.log("   ✓ Early-bird window asserted on e2e-test-spring-2026 (now+14d, $130)");
+
   // Closed-window fixture: status stays `open` but the start day has passed
   // and registration_closes is null — the exact Founders'-Tournament shape
   // the enforcement exists for. Dates re-assert on every run.

@@ -34,6 +34,11 @@ interface Season {
   endDate: string
   price: number
   priceCents: number
+  // Early-bird fields served by /api/public/seasons/[id]. Optional so stale
+  // payloads (or other callers) degrade to the list price.
+  earlyBirdActive?: boolean
+  effectivePrice?: number
+  effectivePriceCents?: number
   deposit: number | null
   depositCents: number | null
   allowDeposit: boolean
@@ -120,6 +125,11 @@ const STEPS = [
 
 // localStorage draft schema version. Bump to invalidate older shapes.
 const DRAFT_VERSION = 1
+
+// Early-bird-aware full price. The detail endpoint serves effectivePriceCents
+// (server-computed, matches the charge path); fall back to the list price.
+const fullPriceCents = (s: Season) => s.effectivePriceCents ?? s.priceCents
+const fullPrice = (s: Season) => s.effectivePrice ?? s.price
 
 interface WizardDraft {
   v: number
@@ -422,7 +432,7 @@ export default function RegistrationWizard({
           name: `${season.program.name} - ${season.name}`,
           category: season.sport.name,
           category2: season.location.name,
-          priceCents: season.priceCents,
+          priceCents: fullPriceCents(season),
         })
       })
     }
@@ -605,7 +615,7 @@ export default function RegistrationWizard({
     try {
       const purchaseAmountCents = paymentOption === "deposit" && season.depositCents
         ? season.depositCents
-        : season.priceCents
+        : fullPriceCents(season)
 
       const response = await fetch("/api/public/validate-discount", {
         method: "POST",
@@ -685,7 +695,7 @@ export default function RegistrationWizard({
         const valueCents =
           paymentOption === "deposit" && season!.depositCents
             ? season!.depositCents
-            : season!.priceCents
+            : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
@@ -705,7 +715,7 @@ export default function RegistrationWizard({
             name: `${season!.program.name} - ${season!.name}`,
             category: season!.sport.name,
             category2: season!.location.name,
-            priceCents: season!.priceCents,
+            priceCents: fullPriceCents(season!),
           },
           finalValueCents,
           appliedDiscount?.code,
@@ -789,7 +799,7 @@ export default function RegistrationWizard({
         const valueCents =
           paymentOption === "deposit" && season!.depositCents
             ? season!.depositCents
-            : season!.priceCents
+            : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
@@ -809,7 +819,7 @@ export default function RegistrationWizard({
             name: `${season!.program.name} - ${season!.name}`,
             category: season!.sport.name,
             category2: season!.location.name,
-            priceCents: season!.priceCents,
+            priceCents: fullPriceCents(season!),
           },
           finalValueCents,
           appliedDiscount?.code,
@@ -909,7 +919,7 @@ export default function RegistrationWizard({
           const valueCents =
             paymentOption === "deposit" && season!.depositCents
               ? season!.depositCents
-              : season!.priceCents
+              : fullPriceCents(season!)
           const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
             : valueCents
@@ -929,7 +939,7 @@ export default function RegistrationWizard({
               name: `${season!.program.name} - ${season!.name}`,
               category: season!.sport.name,
               category2: season!.location.name,
-              priceCents: season!.priceCents,
+              priceCents: fullPriceCents(season!),
             },
             finalValueCents,
             appliedDiscount?.code,
@@ -1320,8 +1330,9 @@ export default function RegistrationWizard({
         {currentStep === STEP_PAYMENT && (
           <PaymentStep
             seasonName={season.name}
-            seasonPrice={season.price}
-            seasonPriceCents={season.priceCents}
+            seasonPrice={fullPrice(season)}
+            seasonPriceCents={fullPriceCents(season)}
+            earlyBirdActive={season.earlyBirdActive ?? false}
             seasonDeposit={season.deposit}
             seasonDepositCents={season.depositCents}
             allowDeposit={season.allowDeposit}
@@ -1358,7 +1369,7 @@ export default function RegistrationWizard({
                     name: `${season.program.name} - ${season.name}`,
                     category: season.sport.name,
                     category2: season.location.name,
-                    priceCents: season.priceCents,
+                    priceCents: fullPriceCents(season),
                   }
                 : null
             }
