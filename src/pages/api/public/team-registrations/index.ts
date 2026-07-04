@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { createDepositIntentWithSavedCard } from "@/lib/stripe/saved-cards";
 import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { isRegistrationClosed } from "@/lib/programs/registration-window";
 
 const DEPOSIT_AMOUNT_CENTS = 20000; // $200 (locked decision)
 
@@ -87,6 +88,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         teamPriceCents: seasons.teamPriceCents,
         priceCents: seasons.priceCents,
         registrationCloses: seasons.registrationCloses,
+        startDate: seasons.startDate,
       })
       .from(seasons)
       .where(eq(seasons.id, seasonId))
@@ -98,6 +100,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
     const season = seasonRow[0];
+
+    // Same "live until" gate as createRegistration — a team can't be formed
+    // for a season whose registration window has passed.
+    if (isRegistrationClosed(season)) {
+      return new Response(
+        JSON.stringify({ error: "Registration for this season has closed" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     const inviteToken = generateInviteToken();
     const brand = brandFromHost(request.headers.get("host") ?? "");

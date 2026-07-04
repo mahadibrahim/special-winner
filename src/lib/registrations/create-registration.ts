@@ -12,6 +12,7 @@ import {
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import type { BrandId } from "@/lib/branding/themes";
+import { isRegistrationClosed } from "@/lib/programs/registration-window";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
 
@@ -174,6 +175,15 @@ export async function createRegistration(
 
   if (season.status !== "open") {
     throw new RegistrationError(400, "Registration is not open for this season");
+  }
+
+  // "Live until" gate: past registration_closes (or, when unset, past the
+  // start day) the season is closed even while its status is still `open` —
+  // a stale direct /register link must not accept payment for a season that
+  // already started. Admin-side registration (walk-up) does not go through
+  // here and stays available to staff.
+  if (isRegistrationClosed(season)) {
+    throw new RegistrationError(400, "Registration for this season has closed");
   }
 
   const [existingReg] = await db
