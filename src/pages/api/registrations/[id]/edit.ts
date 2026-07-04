@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { registrations, seasons } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { effectivePriceCents } from "@/lib/programs/early-bird";
 
 const editRegistrationSchema = z.object({
   registrationType: z.enum(["full", "deposit"]).optional(),
@@ -100,8 +101,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
           .where(eq(seasons.id, registration.seasonId));
 
         if (season) {
-          // Calculate new amount due (full price minus what's already paid)
-          const fullPrice = season.priceCents;
+          // Calculate new amount due (full price minus what's already paid).
+          // The early-bird window is evaluated at upgrade time — upgrading
+          // while it's still active honors the discounted full price.
+          const fullPrice = effectivePriceCents(season);
           const alreadyPaid = registration.amountPaidCents;
           additionalAmountDue = fullPrice - alreadyPaid;
 

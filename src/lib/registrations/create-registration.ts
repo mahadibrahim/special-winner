@@ -13,6 +13,7 @@ import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import type { BrandId } from "@/lib/branding/themes";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
+import { effectivePriceCents } from "@/lib/programs/early-bird";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
 
@@ -237,10 +238,12 @@ export async function createRegistration(
         ),
       );
     if (confirmedRows.length >= season.maxParticipants) {
+      // Deposits are never early-bird discounted; only the full-price
+      // component honors an active early-bird window.
       const amountDue =
         input.registrationType === "deposit" && season.depositCents
           ? season.depositCents
-          : season.priceCents;
+          : effectivePriceCents(season);
       const [waitlisted] = await db
         .insert(registrations)
         .values({
@@ -327,11 +330,12 @@ export async function createRegistration(
     }
   }
 
-  // Normal creation
+  // Normal creation. Deposits are never early-bird discounted; only the
+  // full-price component honors an active early-bird window.
   let amountDue =
     input.registrationType === "deposit" && season.depositCents
       ? season.depositCents
-      : season.priceCents;
+      : effectivePriceCents(season);
 
   // Resolve the org once (used for both team-member linkage and invitee lookup).
   let organizationId: string | null = null;

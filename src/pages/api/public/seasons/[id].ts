@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
+import { isEarlyBirdActive, effectivePriceCents } from "@/lib/programs/early-bird";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   try {
@@ -77,6 +78,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       ? Math.max(0, result.season.maxParticipants - registeredCount)
       : null;
 
+    // Early-bird: server-computed so display and the charge path
+    // (createRegistration) agree on the clock.
+    const earlyBirdActive = isEarlyBirdActive(result.season);
+    const effPriceCents = effectivePriceCents(result.season);
+
     const formatted = {
       id: result.season.id,
       name: result.season.name,
@@ -98,6 +104,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       // createRegistration enforces the same predicate on the write path.
       registrationClosed: isRegistrationClosed(result.season),
       earlyBirdDeadline: result.season.earlyBirdDeadline ? result.season.earlyBirdDeadline.toISOString() : null,
+      // Price the register flow should actually charge/display right now —
+      // the early-bird price while the window is active, list price otherwise.
+      earlyBirdActive,
+      effectivePrice: effPriceCents / 100,
+      effectivePriceCents: effPriceCents,
       scheduleNotes: result.season.scheduleNotes,
       // Team pricing + signup capability (mirrors the list endpoint) so the
       // register page's league-context rail + choose-mode have what they need.

@@ -16,6 +16,10 @@ export interface RailSeason {
   deposit: number | null;
   sport: { color: string | null };
   earlyBirdDeadline: string | null;
+  /** Server-computed by the season detail endpoint; true only while the early-bird window is live. */
+  earlyBirdActive?: boolean;
+  /** Early-bird-aware price in dollars (detail endpoint), preferred by priceLabel for solo/share. */
+  effectivePrice?: number | null;
 }
 
 interface Props {
@@ -72,7 +76,7 @@ export default function LeagueContextRail({ season, mode, step, stepCount, varia
             <div className="font-display text-2xl font-bold">
               {amount}<span className="text-xs font-sans font-normal opacity-70"> {unit}</span>
             </div>
-            {season.earlyBirdDeadline && (
+            {season.earlyBirdDeadline && (season.earlyBirdActive ?? true) && (
               <div className="text-xs text-primary-orange-bright mt-1">Early-bird ends {fmtDate(season.earlyBirdDeadline)}</div>
             )}
           </>

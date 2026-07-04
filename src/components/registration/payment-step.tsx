@@ -24,6 +24,8 @@ export interface PaymentStepProps {
   seasonDeposit: number | null
   seasonDepositCents: number | null
   allowDeposit: boolean
+  /** True while the season's early-bird window is live — seasonPrice/seasonPriceCents already carry the discounted price. */
+  earlyBirdActive?: boolean
   paymentOption: "full" | "deposit"
   registrantName: string
 
@@ -78,6 +80,7 @@ export function PaymentStep({
   seasonDeposit,
   seasonDepositCents,
   allowDeposit,
+  earlyBirdActive = false,
   paymentOption,
   paymentMethodCategory,
   onMethodSelected,
@@ -159,7 +162,12 @@ export function PaymentStep({
               <p className="font-medium text-ink">Pay in Full</p>
               <p className="text-sm text-ink-muted">Complete payment now</p>
             </div>
-            <div className="text-xl font-bold text-ink">${seasonPrice}</div>
+            <div className="text-right">
+              {earlyBirdActive && (
+                <p className="text-xs font-medium text-primary">Early-bird</p>
+              )}
+              <div className="text-xl font-bold text-ink">${seasonPrice}</div>
+            </div>
           </Label>
 
           {allowDeposit && seasonDeposit && (
@@ -251,6 +259,7 @@ export function PaymentStep({
         seasonPrice={seasonPrice}
         seasonDeposit={seasonDeposit}
         allowDeposit={allowDeposit}
+        earlyBirdActive={earlyBirdActive}
         paymentOption={paymentOption}
         registrantName={registrantName}
         appliedDiscount={appliedDiscount}

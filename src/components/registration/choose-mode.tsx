@@ -6,7 +6,13 @@ export default function ChooseMode({
   canTeam,
   onPick,
 }: {
-  season: { price: number; teamPrice: number | null; deposit: number | null };
+  season: {
+    price: number;
+    teamPrice: number | null;
+    deposit: number | null;
+    effectivePrice?: number | null;
+    earlyBirdActive?: boolean;
+  };
   canTeam: boolean;
   onPick: (m: "solo" | "team") => void;
 }) {
@@ -25,6 +31,9 @@ export default function ChooseMode({
         <div className="font-display text-lg">Join solo →</div>
         <div className="text-sm text-ink-muted">
           We place you on a team. <b>{solo.amount}</b>
+          {season.earlyBirdActive && (
+            <span className="text-primary-orange-bright"> · Early-bird</span>
+          )}
         </div>
       </button>
       {canTeam && (

@@ -12,6 +12,8 @@ interface OrderSummaryProps {
   seasonPrice: number
   seasonDeposit: number | null
   allowDeposit: boolean
+  /** True while the season's early-bird window is live — seasonPrice already carries the discounted price. */
+  earlyBirdActive?: boolean
   paymentOption: "full" | "deposit"
   registrantName: string
   appliedDiscount: AppliedDiscount | null
@@ -25,6 +27,7 @@ export function OrderSummary({
   seasonPrice,
   seasonDeposit,
   allowDeposit,
+  earlyBirdActive = false,
   paymentOption,
   registrantName,
   appliedDiscount,
@@ -52,6 +55,9 @@ export function OrderSummary({
       <div className="flex items-center justify-between mb-2">
         <span className="text-ink-2">
           {paymentOption === "deposit" ? "Deposit" : "Subtotal"}
+          {paymentOption !== "deposit" && earlyBirdActive && (
+            <span className="ml-2 text-xs font-medium text-primary">Early-bird</span>
+          )}
         </span>
         <span className="text-ink">${baseAmount.toFixed(2)}</span>
       </div>

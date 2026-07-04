@@ -13,6 +13,12 @@ describe("rail-content", () => {
     expect(priceLabel("team", s)).toEqual({ amount: "$1,000", unit: "team · early-bird" });
     expect(priceLabel("share", s)).toEqual({ amount: "$120", unit: "your share" });
   });
+  it("priceLabel prefers effectivePrice for solo/share, not team", () => {
+    const s = { price: 120, teamPrice: 1000, deposit: 200, effectivePrice: 100 } as any;
+    expect(priceLabel("solo", s)).toEqual({ amount: "$100", unit: "solo" });
+    expect(priceLabel("share", s)).toEqual({ amount: "$100", unit: "your share" });
+    expect(priceLabel("team", s)).toEqual({ amount: "$1,000", unit: "team · early-bird" });
+  });
   it("formatDayTime renders day + time window (dayOfWeek is lowercase 'tue')", () => {
     expect(formatDayTime("tue", "19:00:00", "22:00:00")).toBe("Tue nights · 7–10pm");
     expect(formatDayTime("tue", null, null)).toBe("Tue nights");

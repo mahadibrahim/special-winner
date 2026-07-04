@@ -17,11 +17,21 @@ function usd(n: number): string {
 
 export function priceLabel(
   mode: RailMode,
-  season: { price: number; teamPrice: number | null; deposit: number | null },
+  season: {
+    price: number;
+    teamPrice: number | null;
+    deposit: number | null;
+    /** Early-bird-aware price served by the season detail endpoint. */
+    effectivePrice?: number | null;
+  },
 ): { amount: string; unit: string } {
   if (mode === "team") return { amount: usd(season.teamPrice ?? season.price), unit: "team · early-bird" };
-  if (mode === "share") return { amount: usd(season.price), unit: "your share" };
-  return { amount: usd(season.price), unit: "solo" };
+  // Solo/share display the per-player price the charge path would use right
+  // now — the early-bird price while active. Falls back to the list price for
+  // callers that don't carry effectivePrice.
+  const soloPrice = usd(season.effectivePrice ?? season.price);
+  if (mode === "share") return { amount: soloPrice, unit: "your share" };
+  return { amount: soloPrice, unit: "solo" };
 }
 
 // dayOfWeek is stored lowercase 3-char ('mon'..'sun'); normalize to a label.
