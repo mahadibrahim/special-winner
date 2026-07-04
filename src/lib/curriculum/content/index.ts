@@ -7,12 +7,12 @@ import { BASKETBALL_ACTIVITIES } from "./basketball/activities";
 import { BASKETBALL_SESSION_PLANS } from "./basketball/session-plans";
 import { HOCKEY_SKILLS } from "./hockey/skills";
 import { BASEBALL_SKILLS } from "./baseball/skills";
+import { COACH_GUIDANCE } from "./coach-guidance";
 import type { CurriculumContent } from "./types";
 
 // Hockey and baseball have skills only (no activities/session plans exist in
 // the recovered seeds -- inventing them is out of scope per the plan's
-// Global Constraints, Refinery backlog per spec §8). coachGuidance starts
-// empty; Task 7 fills it in.
+// Global Constraints, Refinery backlog per spec §8).
 export const CURRICULUM_CONTENT: CurriculumContent = {
   domains: DOMAINS,
   stages: STAGES,
@@ -24,7 +24,7 @@ export const CURRICULUM_CONTENT: CurriculumContent = {
   ],
   activities: [...SOCCER_ACTIVITIES, ...BASKETBALL_ACTIVITIES],
   sessionPlans: [...SOCCER_SESSION_PLANS, ...BASKETBALL_SESSION_PLANS],
-  coachGuidance: { prompts: [], resources: [], principles: [] },
+  coachGuidance: COACH_GUIDANCE,
 };
 
 /**
@@ -118,6 +118,57 @@ export function validateRegistry(content: CurriculumContent): string[] {
         `Session plan "${plan.name}" references unknown stage "${plan.stage}"`,
       );
     }
+  }
+
+  // coach guidance: sport/stage slug references resolve, and natural keys
+  // (coach_prompts.content, coach_resources.title, coaching_principles.title
+  // -- see src/lib/db/schema/coach-guidance.ts) are unique.
+  const sportSlugs = new Set(knownSports);
+  const checkSportStage = (row: Record<string, unknown>, label: string) => {
+    if (typeof row.sport === "string" && !sportSlugs.has(row.sport)) {
+      violations.push(`${label} references unknown sport "${row.sport}"`);
+    }
+    if (typeof row.stage === "string" && !stageSlugs.has(row.stage)) {
+      violations.push(`${label} references unknown stage "${row.stage}"`);
+    }
+  };
+
+  const promptContentSeen = new Set<string>();
+  for (const prompt of content.coachGuidance.prompts) {
+    const contentText = prompt.content;
+    if (typeof contentText === "string") {
+      if (promptContentSeen.has(contentText)) {
+        violations.push(
+          `Duplicate coach prompt content (natural key): "${contentText.slice(0, 60)}..."`,
+        );
+      }
+      promptContentSeen.add(contentText);
+    }
+    checkSportStage(prompt, `Coach prompt "${String(prompt.title ?? contentText)}"`);
+  }
+
+  const resourceTitleSeen = new Set<string>();
+  for (const resource of content.coachGuidance.resources) {
+    const title = resource.title;
+    if (typeof title === "string") {
+      if (resourceTitleSeen.has(title)) {
+        violations.push(`Duplicate coach resource title (natural key): "${title}"`);
+      }
+      resourceTitleSeen.add(title);
+    }
+    checkSportStage(resource, `Coach resource "${String(title)}"`);
+  }
+
+  const principleTitleSeen = new Set<string>();
+  for (const principle of content.coachGuidance.principles) {
+    const title = principle.title;
+    if (typeof title === "string") {
+      if (principleTitleSeen.has(title)) {
+        violations.push(`Duplicate coaching principle title (natural key): "${title}"`);
+      }
+      principleTitleSeen.add(title);
+    }
+    checkSportStage(principle, `Coaching principle "${String(title)}"`);
   }
 
   return violations;

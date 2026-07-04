@@ -243,4 +243,66 @@ describe("curriculum registry", () => {
       CURRICULUM_CONTENT.sessionPlans.filter((x) => x.sport === "baseball"),
     ).toHaveLength(0);
   });
+
+  // Task 7: coach guidance content (prompts, resources, principles).
+  // Sources: coach-prompts.ts + coach-resources.ts (original pass) folded
+  // with coach-training-modules.ts ("Phase 7: Content Expansion", a later,
+  // larger pass over the same three tables). See
+  // src/lib/curriculum/content/coach-guidance.ts header for the full
+  // provenance/collision-resolution notes and .superpowers/sdd/cr-task-7-report.md
+  // for the report.
+  describe("coach guidance", () => {
+    it("has non-empty prompts, resources, and principles", () => {
+      expect(CURRICULUM_CONTENT.coachGuidance.prompts.length).toBeGreaterThan(0);
+      expect(CURRICULUM_CONTENT.coachGuidance.resources.length).toBeGreaterThan(0);
+      expect(CURRICULUM_CONTENT.coachGuidance.principles.length).toBeGreaterThan(0);
+    });
+
+    it("matches the true counts from folding both recovered generations", () => {
+      // 29 (coach-prompts.ts) + 30 (coach-training-modules.ts promptsData)
+      expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(59);
+      // 12 (coach-resources.ts) + 9 (coach-training-modules.ts resourcesData)
+      expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(21);
+      // 5 (coach-prompts.ts) + 15 (coach-training-modules.ts principlesData)
+      // minus 1 dropped natural-key collision ("Development Over Winning")
+      expect(CURRICULUM_CONTENT.coachGuidance.principles).toHaveLength(19);
+    });
+
+    it("coach_prompts natural key (content) has no duplicates", () => {
+      const contents = CURRICULUM_CONTENT.coachGuidance.prompts.map(
+        (p) => p.content,
+      );
+      expect(new Set(contents).size).toBe(contents.length);
+      expect(contents.every((c) => typeof c === "string" && c.length > 0)).toBe(
+        true,
+      );
+    });
+
+    it("coach_resources natural key (title) has no duplicates", () => {
+      const titles = CURRICULUM_CONTENT.coachGuidance.resources.map(
+        (r) => r.title,
+      );
+      expect(new Set(titles).size).toBe(titles.length);
+    });
+
+    it("coaching_principles natural key (title) has no duplicates, including the resolved collision", () => {
+      const titles = CURRICULUM_CONTENT.coachGuidance.principles.map(
+        (p) => p.title,
+      );
+      expect(new Set(titles).size).toBe(titles.length);
+      // The collision was resolved in favor of the training-modules.ts
+      // (later, richer) version -- assert that specific version won.
+      const devOverWinning = CURRICULUM_CONTENT.coachGuidance.principles.find(
+        (p) => p.title === "Development Over Winning",
+      );
+      expect(devOverWinning).toBeTruthy();
+      expect(devOverWinning?.principle).toContain(
+        "Prioritize individual player development over team results",
+      );
+    });
+
+    it("validateRegistry still passes with coach guidance content loaded", () => {
+      expect(validateRegistry(CURRICULUM_CONTENT)).toEqual([]);
+    });
+  });
 });
