@@ -40,6 +40,11 @@ export const GET: APIRoute = async (context) => {
       { status: 404, headers: { "Content-Type": "application/json" } }
     );
   }
+  // R2_MOCK: mirror /api/media/tag — return a deterministic mock URL instead
+  // of signing (getSignedGetUrl needs real R2 env and would 500 in CI).
+  if (process.env.R2_MOCK === "1") {
+    return context.redirect(`https://mock-r2.local/${row.resumeKey}`, 302);
+  }
   const url = await getSignedGetUrl(row.resumeKey);
   return context.redirect(url, 302);
 };
