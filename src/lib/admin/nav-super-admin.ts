@@ -20,6 +20,7 @@ import {
   RefreshCcw,
   Search,
   Users,
+  FileText,
   CreditCard,
   Tag,
   ShoppingBag,
@@ -94,6 +95,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
     items: [
       { name: "Look up", href: "/admin/lookup", icon: Search },
       { name: "Users & staff", href: "/admin/users", icon: Users },
+      { name: "Applications", href: "/admin/applications", icon: FileText },
     ],
   },
   {

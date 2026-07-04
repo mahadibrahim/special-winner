@@ -74,6 +74,18 @@ export function JoinPage({ brand, src }: JoinPageProps) {
           ))}
         </div>
       </div>
+
+      <div className="rounded-2xl border border-ink/10 bg-paper p-5 shadow-sm">
+        <p className="text-sm text-ink-muted">
+          Want to work the whistle instead?{" "}
+          <a
+            href="https://aspiresportsohio.com/careers"
+            className="font-medium text-ink transition-colors hover:text-cream"
+          >
+            Join the crew →
+          </a>
+        </p>
+      </div>
     </main>
   );
 }

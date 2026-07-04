@@ -63,6 +63,9 @@ export * from "./events";
 // Corporate teams B2B lead capture
 export * from "./corporate-inquiries";
 
+// Job applications (ATS hiring pipeline)
+export * from "./job-applications";
+
 // Partner venues / sponsor bars
 export * from "./sponsor-bars";
 

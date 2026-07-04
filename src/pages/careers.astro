@@ -1,0 +1,51 @@
+---
+export const prerender = true;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import ApplicationForm from "@/components/careers/application-form";
+---
+
+<BaseLayout
+  title="Careers — Aspire Sports"
+  description="Referee our adult leagues, coach with us, or join the facility crew. Apply in about 90 seconds."
+>
+  <main id="main-content" class="bg-cream">
+    {/* Hero */}
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+            Aspire Sports · Central Ohio
+          </span>
+          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
+            Careers
+          </span>
+        </div>
+
+        <h1
+          class="font-display text-ink leading-tight mb-8"
+          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
+        >
+          Refs. Coaches. <span class="italic text-primary-orange">Crew.</span>
+        </h1>
+
+        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
+          Our adult leagues kick off September 14 and we're staffing up — referees first, coaches
+          for what's coming next. Tell us who you are; it takes about 90 seconds. We read every
+          application.
+        </p>
+      </div>
+    </section>
+
+    {/* Application form */}
+    <section class="bg-cream-2 py-16 lg:py-24">
+      <div class="max-w-[900px] mx-auto px-6 sm:px-10 lg:px-16">
+        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-3">Apply now.</h2>
+        <p class="text-ink-2 leading-relaxed mb-10 max-w-2xl">
+          A few basics and a note about your experience — no cover letter required.
+        </p>
+
+        <ApplicationForm client:load />
+      </div>
+    </section>
+  </main>
+</BaseLayout>
