@@ -21,7 +21,13 @@ export function isEarlyBirdActive(
   season: SeasonEarlyBird,
   now: Date = new Date(),
 ): boolean {
-  if (!season.earlyBirdDeadline || season.earlyBirdPriceCents == null) {
+  // Non-positive price is treated as unset — a 0 here would otherwise make
+  // every early-bird registration free.
+  if (
+    !season.earlyBirdDeadline ||
+    season.earlyBirdPriceCents == null ||
+    season.earlyBirdPriceCents <= 0
+  ) {
     return false;
   }
   return now.getTime() < new Date(season.earlyBirdDeadline).getTime();

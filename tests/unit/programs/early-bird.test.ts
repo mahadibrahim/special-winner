@@ -112,4 +112,19 @@ describe("effectivePriceCents", () => {
     );
     expect(asString).toBe(asDate);
   });
+
+  it("treats a zero or negative early-bird price as unset — never charges $0", () => {
+    expect(
+      effectivePriceCents(
+        { ...base, earlyBirdDeadline: "2026-07-18T00:00:00Z", earlyBirdPriceCents: 0 },
+        NOW,
+      ),
+    ).toBe(15000);
+    expect(
+      effectivePriceCents(
+        { ...base, earlyBirdDeadline: "2026-07-18T00:00:00Z", earlyBirdPriceCents: -100 },
+        NOW,
+      ),
+    ).toBe(15000);
+  });
 });
