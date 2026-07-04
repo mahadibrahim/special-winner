@@ -11,6 +11,9 @@ export interface DomainContent {
   name: DomainName;
   displayName: string;
   description: string;
+  color?: string; // hex color, e.g. "#3b82f6"
+  icon?: string; // icon name, e.g. "target"
+  assessmentFrequency?: string; // e.g. "monthly", "per_season", "weekly"
   weightInOverall: string; // decimal as string, e.g. "0.25"
   sortOrder: number;
 }
@@ -21,6 +24,11 @@ export interface StageContent {
   ageMin: number;
   ageMax: number;
   description: string;
+  philosophy?: string; // guiding philosophy for the stage
+  practiceToGameRatio?: string; // e.g. "3:1", "2:1", "N/A"
+  maxHoursPerWeek?: number;
+  keyPrinciples?: string[];
+  coachRole?: string; // description of coach's role
   sortOrder: number;
 }
 
