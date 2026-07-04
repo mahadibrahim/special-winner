@@ -25,8 +25,25 @@ const FACILITY_LABELS: Record<string, string> = {
   either: "Either",
 };
 
+/**
+ * Token: NOTION_API_KEY when set, else the existing NOTION_TOKEN (the
+ * aspire-web-zernio-writeback integration) — one workspace integration
+ * serves both features; no second secret to provision.
+ */
+function notionToken(): string | undefined {
+  return (import.meta.env.NOTION_API_KEY ?? import.meta.env.NOTION_TOKEN) as
+    | string
+    | undefined;
+}
+
+/**
+ * NOTION_ATS_DATABASE_ID stays a REQUIRED explicit switch (no default):
+ * NOTION_TOKEN is present in CI and local bws env, so keying activation off
+ * the token alone would push test submissions onto the real Hiring Pipeline
+ * board. Prod enables the sync by setting just this one (non-secret) var.
+ */
 export function isNotionConfigured(): boolean {
-  return Boolean(import.meta.env.NOTION_API_KEY && import.meta.env.NOTION_ATS_DATABASE_ID);
+  return Boolean(notionToken() && import.meta.env.NOTION_ATS_DATABASE_ID);
 }
 
 export function buildApplicationPageParams(
@@ -75,7 +92,7 @@ export function buildApplicationPageParams(
 export async function createNotionApplicationPage(app: JobApplication): Promise<string | null> {
   if (!isNotionConfigured()) return null;
   try {
-    const notion = new Client({ auth: import.meta.env.NOTION_API_KEY as string });
+    const notion = new Client({ auth: notionToken() as string });
     const baseUrl = (import.meta.env.PUBLIC_APP_URL as string | undefined) ?? "https://aspiresportsohio.com";
     const page = await notion.pages.create(
       buildApplicationPageParams(app, import.meta.env.NOTION_ATS_DATABASE_ID as string, baseUrl),
