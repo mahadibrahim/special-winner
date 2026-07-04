@@ -28,6 +28,18 @@ describe("formatOpsPingMessage", () => {
     ).toBe("💰 [SoccerOne] Drop-in — Sam K. · Pickup, Blue Field 9pm, $15.74");
   });
 
+  it("formats job applications without a dollar amount and pings instantly", () => {
+    expect(
+      formatOpsPingMessage({
+        kind: "job_application",
+        brand: "soccerone",
+        eventId: "a1",
+        label: "Jordan R. · referee",
+      }),
+    ).toBe("📝 [SoccerOne] Job application — Jordan R. · referee");
+    expect(INSTANT_KINDS.has("job_application")).toBe(true);
+  });
+
   it("formats signups without an amount", () => {
     expect(
       formatOpsPingMessage({

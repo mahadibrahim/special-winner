@@ -79,7 +79,7 @@ export function JoinPage({ brand, src }: JoinPageProps) {
         <p className="text-sm text-ink-muted">
           Want to work the whistle instead?{" "}
           <a
-            href="https://aspiresportsohio.com/careers"
+            href="/careers"
             className="font-medium text-ink transition-colors hover:text-cream"
           >
             Join the crew →

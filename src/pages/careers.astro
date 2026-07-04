@@ -1,7 +1,14 @@
 ---
-export const prerender = true;
+// SSR, not prerender: /careers is in SOCCERONE_MARKETING_REWRITES, and the
+// middleware rewrite that swaps in the SoccerOne skin on gosoccerone.com can
+// only run when the request reaches the SSR function — a prerendered static
+// file is served straight from the CDN and would show the Aspire page on
+// both brands. Same reason every other rewritten root (/leagues, /join, …)
+// is SSR.
+export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import ApplicationForm from "@/components/careers/application-form";
+import { CAREER_ROLES } from "@/lib/careers/roles";
 ---
 
 <BaseLayout
@@ -30,9 +37,35 @@ import ApplicationForm from "@/components/careers/application-form";
 
         <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed">
           Our adult leagues kick off September 14 and we're staffing up — referees first, coaches
-          for what's coming next. Tell us who you are; it takes about 90 seconds. We read every
-          application.
+          for what's coming next. You'll work across every venue we operate, including the
+          SoccerOne facilities in Worthington and Downtown. One application covers it all; it
+          takes about 90 seconds and we read every one.
         </p>
+      </div>
+    </section>
+
+    {/* Roles */}
+    <section class="py-12 lg:py-16">
+      <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {CAREER_ROLES.map((role) => (
+            <div class="rounded-2xl border border-ink/10 bg-paper p-6 shadow-sm flex flex-col">
+              <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-primary-orange mb-3">
+                {role.timing}
+              </p>
+              <h3 class="font-display text-2xl text-ink mb-3">{role.title}</h3>
+              <p class="text-sm text-ink-2 leading-relaxed mb-4">{role.blurb}</p>
+              <ul class="space-y-2 mt-auto">
+                {role.points.map((point) => (
+                  <li class="text-sm text-ink-2 leading-snug flex gap-2">
+                    <span class="text-primary-orange shrink-0">✓</span>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
 

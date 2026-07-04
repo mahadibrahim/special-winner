@@ -26,9 +26,14 @@ export function composeDigestMessage(counts: DigestCounts, dateLabel: string): s
   for (const [kind, { count, totalCents }] of Object.entries(counts.moneyByKind).sort(
     ([a], [b]) => a.localeCompare(b),
   )) {
-    lines.push(
-      `💰 ${OPS_PING_KIND_LABELS[kind as keyof typeof OPS_PING_KIND_LABELS] ?? kind}: ${count} — $${(totalCents / 100).toFixed(2)}`,
-    );
+    const label = OPS_PING_KIND_LABELS[kind as keyof typeof OPS_PING_KIND_LABELS] ?? kind;
+    // Non-money kinds (job_application) carry no trailing amount in their
+    // messages — render a plain count instead of a misleading "$0.00".
+    if (kind === "job_application") {
+      lines.push(`📝 ${label}s: ${count}`);
+    } else {
+      lines.push(`💰 ${label}: ${count} — $${(totalCents / 100).toFixed(2)}`);
+    }
   }
 
   if (counts.suppressed > 0) {

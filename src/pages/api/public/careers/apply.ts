@@ -9,6 +9,7 @@ import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { putObject } from "@/lib/storage/r2";
 import { sendEmail, fromForBrand, isEmailConfigured } from "@/lib/email";
 import { createNotionApplicationPage } from "@/lib/notion/ats";
+import { sendOpsPing } from "@/lib/ops/ping";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { escapeHtml } from "@/lib/activity-tracking/messages/types";
 
@@ -130,6 +131,18 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
 <p>Review in Notion or /admin/applications.</p>`,
     });
     if (!result.success) console.error("[careers] notify email failed", result.error);
+  }
+
+  // Ops ping (WhatsApp group → email fallback). Awaited, not fire-and-forget:
+  // serverless freezes pending work after the response (same reason the
+  // registration pings are awaited). sendOpsPing never throws.
+  if (application.organizationId) {
+    await sendOpsPing(application.organizationId, {
+      kind: "job_application",
+      brand,
+      eventId: application.id,
+      label: `${parsed.data.firstName} ${parsed.data.lastName.charAt(0)}. · ${parsed.data.role}`,
+    });
   }
 
   return json({ ok: true, id: application.id }, 200);
