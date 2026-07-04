@@ -40,6 +40,13 @@ function rentalDiscountPct(tier: TierRow | undefined): number | null {
   return typeof pct === "number" && pct > 0 ? pct : null;
 }
 
+// Advance-booking window copy — the rentals API enforces
+// benefits.booking_window_days (booking-window.ts), so quote that number.
+function bookingWindowDays(tier: TierRow | undefined): number | null {
+  const days = tier?.benefits?.["booking_window_days"];
+  return typeof days === "number" && days > 0 ? days : null;
+}
+
 /**
  * Tier row → MembershipTier prop shape. We keep this purely visual — the
  * card content (benefit list, testimonial) is still hand-curated per tier
@@ -153,7 +160,7 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
           { text: "Founder-only pickup events", included: true },
           { text: "2 guest passes per month", included: true },
           { text: "Name on the Founder wall (lobby)", included: true },
-          { text: "30-day advance booking window", included: true },
+          { text: `${bookingWindowDays(founder) ?? 14}-day advance booking window`, included: true },
         ]}
         testimonial={{
           quote: "I train here three times a week. Founder membership made this my second home.",

@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { SOCCERONE_CONTACT_EMAIL } from "@/lib/soccerone/contact";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 
 // --- Live availability types ---
@@ -151,6 +152,12 @@ export interface FieldCalendarProps {
    * "America/New_York" (SoccerOne's venue timezone).
    */
   timeZone?: string;
+  /**
+   * How many days ahead this user may book (server-resolved from membership
+   * benefits; the API enforces the same limit). Defaults to the public
+   * 7-day window.
+   */
+  bookingWindowDays?: number;
 }
 
 export function FieldCalendar({
@@ -158,11 +165,18 @@ export function FieldCalendar({
   initialDate,
   memberDiscountPct = 0,
   timeZone = "America/New_York",
+  bookingWindowDays = 7,
 }: FieldCalendarProps) {
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
   useHydrationBeacon();
   const today = new Date().toISOString().slice(0, 10);
+  // Last selectable date — mirrors the server's advance-booking window so the
+  // picker can't offer dates the API would 422. UI-local date math is fine
+  // here; the API remains the authority.
+  const maxDate = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
   const [date, setDate] = useState(initialDate ?? today);
   const [venueId, setVenueId] = useState<string | null>(venues[0]?.id ?? null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
@@ -374,8 +388,13 @@ export function FieldCalendar({
             className="filter-input"
             value={date}
             min={today}
+            max={maxDate}
             onChange={(e) => { setDate(e.target.value); setSelectedSlot(null); }}
           />
+          <span className="filter-hint">
+            Online booking opens {bookingWindowDays} days ahead — email{" "}
+            <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`}>{SOCCERONE_CONTACT_EMAIL}</a> for later dates.
+          </span>
         </div>
 
         <div className="filter-group">
@@ -658,6 +677,16 @@ export function FieldCalendar({
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: rgba(250,204,21,0.8);
+        }
+        .filter-hint {
+          font-size: 0.75rem;
+          color: rgba(255,255,255,0.45);
+          line-height: 1.4;
+          max-width: 240px;
+        }
+        .filter-hint a {
+          color: rgba(250,204,21,0.8);
+          text-decoration: underline;
         }
         .filter-select, .filter-input {
           background: var(--so-navy);

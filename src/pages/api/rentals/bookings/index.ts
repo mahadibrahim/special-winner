@@ -29,6 +29,10 @@ import {
 } from "@/lib/rentals/booking";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import { applyMemberRentalDiscount } from "@/lib/memberships/discount";
+import {
+  resolveBookingWindowDays,
+  bookingWindowEndUtc,
+} from "@/lib/memberships/booking-window";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
@@ -105,6 +109,42 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   const orgId = locals.organization?.id;
   if (!orgId) return json({ error: "No organization context" }, 400);
 
+  // Membership is looked up once and feeds BOTH the advance-booking window
+  // and the rental discount below. A lookup failure falls back to no
+  // membership: base price, default window.
+  let membership: Awaited<ReturnType<typeof getActiveMembershipForOrg>> = null;
+  try {
+    membership = await getActiveMembershipForOrg(locals.user.id, orgId);
+  } catch (err) {
+    console.error("[rentals] membership lookup failed (continuing without membership)", err);
+  }
+
+  const orgTimeZone = locals.organization?.timezone ?? "America/New_York";
+
+  // Advance-booking window: online booking opens DEFAULT_BOOKING_WINDOW_DAYS
+  // ahead; membership benefits (booking_window_days) can extend it (Founder
+  // = 14). Beyond the window is a contact-the-venue conversation — venue
+  // staff create those through the admin path, which is not window-limited.
+  //
+  // Skipped under E2E_TEST_ENDPOINTS (CI/test dev servers only — same flag
+  // that gates /api/test/*): the rentals API tests book far-future slots on
+  // purpose so concurrent runs never contend for the same slot space on the
+  // shared CI database. The window math itself is unit-tested.
+  if (process.env.E2E_TEST_ENDPOINTS !== "yes") {
+    if (endsAt.getTime() <= Date.now()) {
+      return json({ error: "That time has already passed" }, 422);
+    }
+    const windowDays = resolveBookingWindowDays(membership?.tier.benefits ?? null);
+    if (startsAt >= bookingWindowEndUtc(new Date(), windowDays, orgTimeZone)) {
+      return json(
+        {
+          error: `Online booking opens ${windowDays} days ahead. To reserve a date further out, contact the venue.`,
+        },
+        422,
+      );
+    }
+  }
+
   let [rateCard] = await db
     .select()
     .from(fieldRentalRateCard)
@@ -139,7 +179,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   // Price in the org timezone — slots are constructed in org tz (see zonedHourToUtc).
   const baseAmountDueCents =
     locals.brandId === "soccerone"
-      ? quoteRentalCents(startsAt, endsAt, locals.organization?.timezone ?? "America/New_York")
+      ? quoteRentalCents(startsAt, endsAt, orgTimeZone)
       : computeRentalPriceCents(
           startsAt,
           endsAt,
@@ -149,25 +189,19 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           ),
         );
 
-  // Member rental discount — gated on the lookup returning a membership.
-  // For Aspire (no tiers seeded), the lookup returns null and amountDueCents
-  // is byte-identical to baseAmountDueCents. The lookup never throws for
-  // membership-less users — a DB hiccup falls through at base price.
+  // Member rental discount — reuses the membership fetched above for the
+  // booking-window check. For Aspire (no tiers seeded), the lookup returned
+  // null and amountDueCents is byte-identical to baseAmountDueCents.
   let amountDueCents = baseAmountDueCents;
   let memberDiscountMembershipId: string | null = null;
-  try {
-    const membership = await getActiveMembershipForOrg(locals.user.id, orgId);
-    if (membership) {
-      amountDueCents = applyMemberRentalDiscount(
-        baseAmountDueCents,
-        membership.tier.benefits,
-      );
-      if (amountDueCents !== baseAmountDueCents) {
-        memberDiscountMembershipId = membership.id;
-      }
+  if (membership) {
+    amountDueCents = applyMemberRentalDiscount(
+      baseAmountDueCents,
+      membership.tier.benefits,
+    );
+    if (amountDueCents !== baseAmountDueCents) {
+      memberDiscountMembershipId = membership.id;
     }
-  } catch (err) {
-    console.error("[rentals] membership lookup failed (continuing at base price)", err);
   }
 
   const bookingBrand = brandFromHost(request.headers.get("host") ?? "");

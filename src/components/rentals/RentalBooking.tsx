@@ -16,6 +16,12 @@ interface AvailabilityResponse {
 
 interface Props {
   venues: { id: string; name: string; fieldCount: number }[];
+  /**
+   * How many days ahead this user may book (server-resolved from membership
+   * benefits; the API enforces the same limit). Defaults to the public
+   * 7-day window.
+   */
+  bookingWindowDays?: number;
 }
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -28,8 +34,14 @@ function addMinutes(d: Date, mins: number): Date {
   return new Date(d.getTime() + mins * 60_000);
 }
 
-export default function RentalBooking({ venues }: Props) {
+export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) {
   useHydrationBeacon();
+
+  // Mirrors the server's advance-booking window so the picker can't offer
+  // dates the API would reject; the API remains the authority.
+  const maxDate = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 
   const [selectedVenueId, setSelectedVenueId] = useState(venues[0]?.id ?? "");
   const [date, setDate] = useState(TODAY);
@@ -196,9 +208,13 @@ export default function RentalBooking({ venues }: Props) {
               type="date"
               value={date}
               min={TODAY}
+              max={maxDate}
               onChange={(e) => setDate(e.target.value)}
               className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-500"
             />
+            <p className="mt-1 text-xs text-stone-500">
+              Online booking opens {bookingWindowDays} days ahead — contact us for later dates.
+            </p>
           </div>
         </div>
       </div>
