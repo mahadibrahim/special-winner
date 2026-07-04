@@ -1,12 +1,13 @@
 import { DOMAINS, STAGES } from "./reference";
+import { SOCCER_SKILLS } from "./soccer/skills";
 import type { CurriculumContent } from "./types";
 
-// Skills, activities, and session plans start empty here — Tasks 3-7 fill
-// them in by sport. coachGuidance starts empty for the same reason.
+// Activities and session plans start empty here — Tasks 4-7 fill them in by
+// sport. coachGuidance starts empty for the same reason.
 export const CURRICULUM_CONTENT: CurriculumContent = {
   domains: DOMAINS,
   stages: STAGES,
-  skills: [],
+  skills: [...SOCCER_SKILLS],
   activities: [],
   sessionPlans: [],
   coachGuidance: { prompts: [], resources: [], principles: [] },
