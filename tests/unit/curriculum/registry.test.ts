@@ -4,10 +4,15 @@ import { CURRICULUM_CONTENT, validateRegistry } from "@/lib/curriculum/content";
 describe("curriculum registry", () => {
   it("has the four weighted domains and at least four stages", () => {
     expect(CURRICULUM_CONTENT.domains.map((d) => d.name).sort()).toEqual([
-      "physical", "psychological", "tactical", "technical",
+      "physical",
+      "psychological",
+      "tactical",
+      "technical",
     ]);
-    const weightSum = CURRICULUM_CONTENT.domains
-      .reduce((s, d) => s + parseFloat(d.weightInOverall), 0);
+    const weightSum = CURRICULUM_CONTENT.domains.reduce(
+      (s, d) => s + parseFloat(d.weightInOverall),
+      0,
+    );
     expect(weightSum).toBeCloseTo(1.0, 2);
     expect(CURRICULUM_CONTENT.stages.length).toBeGreaterThanOrEqual(4);
   });
@@ -44,12 +49,16 @@ describe("curriculum registry", () => {
     const v2Skills = s.filter((k) => v2Names.has(k.name));
     expect(v2Skills).toHaveLength(13);
     const byDomain = Object.fromEntries(
-      (["technical", "tactical", "physical", "psychological"] as const).map((d) => [
-        d,
-        v2Skills.filter((k) => k.domain === d).length,
-      ]),
+      (["technical", "tactical", "physical", "psychological"] as const).map(
+        (d) => [d, v2Skills.filter((k) => k.domain === d).length],
+      ),
     );
-    expect(byDomain).toEqual({ technical: 5, tactical: 3, physical: 2, psychological: 3 });
+    expect(byDomain).toEqual({
+      technical: 5,
+      tactical: 3,
+      physical: 2,
+      psychological: 3,
+    });
     expect(v2Skills.every((k) => k.comprehensiveGuide != null)).toBe(true);
 
     // Every soccer skill (v2-canonical and folded-in alike) carries a
@@ -68,5 +77,26 @@ describe("curriculum registry", () => {
     const findingSpace = s.find((k) => k.name === "Finding Space")!;
     // upgrade-4 is also the latest pass for Finding Space.
     expect(findingSpace.comprehensiveGuide).toBeTruthy();
+  });
+
+  it("soccer activities: v2 canonical + gen-1 fill, deduped by slug", () => {
+    const a = CURRICULUM_CONTENT.activities.filter((x) => x.sport === "soccer");
+    expect(a.length).toBeGreaterThanOrEqual(50); // 9 v2 + 49 gen-1 − overlaps
+    const slugs = a.map((x) => x.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+    // v2 marker: the comprehensive-guide generation is present
+    expect(
+      a.filter((x) => x.comprehensiveGuide != null).length,
+    ).toBeGreaterThanOrEqual(9);
+  });
+
+  it("soccer session plans: at least the 4 v2 plans, segments carry coaching scripts", () => {
+    const p = CURRICULUM_CONTENT.sessionPlans.filter(
+      (x) => x.sport === "soccer",
+    );
+    expect(p.length).toBeGreaterThanOrEqual(4);
+    expect(p.some((x) => x.structure.some((seg) => seg.coachingScript))).toBe(
+      true,
+    );
   });
 });

@@ -1,15 +1,17 @@
 import { DOMAINS, STAGES } from "./reference";
 import { SOCCER_SKILLS } from "./soccer/skills";
+import { SOCCER_ACTIVITIES } from "./soccer/activities";
+import { SOCCER_SESSION_PLANS } from "./soccer/session-plans";
 import type { CurriculumContent } from "./types";
 
-// Activities and session plans start empty here — Tasks 4-7 fill them in by
-// sport. coachGuidance starts empty for the same reason.
+// Other sports' activities/session plans start empty here — Tasks 5-7 fill them
+// in. coachGuidance starts empty for the same reason.
 export const CURRICULUM_CONTENT: CurriculumContent = {
   domains: DOMAINS,
   stages: STAGES,
   skills: [...SOCCER_SKILLS],
-  activities: [],
-  sessionPlans: [],
+  activities: [...SOCCER_ACTIVITIES],
+  sessionPlans: [...SOCCER_SESSION_PLANS],
   coachGuidance: { prompts: [], resources: [], principles: [] },
 };
 
@@ -29,7 +31,9 @@ export function validateRegistry(content: CurriculumContent): string[] {
   for (const skill of content.skills) {
     const key = `${skill.sport}::${skill.slug}`;
     if (skillKeySeen.has(key)) {
-      violations.push(`Duplicate skill slug "${skill.slug}" for sport "${skill.sport}"`);
+      violations.push(
+        `Duplicate skill slug "${skill.slug}" for sport "${skill.sport}"`,
+      );
     }
     skillKeySeen.add(key);
 
@@ -65,7 +69,8 @@ export function validateRegistry(content: CurriculumContent): string[] {
     activityKeySeen.add(key);
 
     // every ActivityContent.skillsDeveloped entry resolves to a skill slug of the same sport
-    const sportSkillSlugs = skillSlugsBySport.get(activity.sport) ?? new Set<string>();
+    const sportSkillSlugs =
+      skillSlugsBySport.get(activity.sport) ?? new Set<string>();
     for (const skillSlug of activity.skillsDeveloped ?? []) {
       if (!sportSkillSlugs.has(skillSlug)) {
         violations.push(

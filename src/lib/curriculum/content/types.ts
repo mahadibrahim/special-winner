@@ -5,7 +5,11 @@
 // (Task 8) resolve slugs -> database uuids at load time via the natural-key
 // unique indexes added in Task 1.
 
-export type DomainName = "technical" | "tactical" | "physical" | "psychological";
+export type DomainName =
+  | "technical"
+  | "tactical"
+  | "physical"
+  | "psychological";
 
 export interface DomainContent {
   name: DomainName;
@@ -63,6 +67,7 @@ export interface ActivityContent {
   skillsDeveloped?: string[]; // SKILL SLUGS — loader resolves to uuids
   setupInstructions?: string;
   howToPlay: string;
+  diagram?: string; // ASCII-art setup diagram; matches activities.diagram column (some v2 activities only)
   coachingPoints?: string[];
   questionsToAsk?: string[];
   commonMistakes?: string[];
@@ -74,6 +79,7 @@ export interface ActivityContent {
   indoorSuitable?: boolean;
   appropriateStages?: string[]; // STAGE SLUGS — loader resolves
   tags?: string[];
+  featured?: boolean; // matches activities.featured column
   comprehensiveGuide?: unknown; // matches activities.comprehensiveGuide $type
 }
 
@@ -90,6 +96,9 @@ export interface SessionPlanContent {
     activitySuggestions?: string[];
     coachingScript?: string;
   }[];
+  description?: string; // matches practiceTemplates.description column
+  equipmentNeeded?: string[]; // matches practiceTemplates.equipmentNeeded column
+  isDefault?: boolean; // matches practiceTemplates.isDefault column
   coachingNotes?: string;
 }
 
