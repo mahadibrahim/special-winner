@@ -34,6 +34,7 @@ const orgLinks = [
   { label: "All locations", href: "/locations" },
   { label: "Our philosophy", href: "/about" },
   { label: "For coaches", href: "/coach" },
+  { label: "Careers", href: "/careers" },
   { label: "Shop", href: "/shop" },
 ]
 
