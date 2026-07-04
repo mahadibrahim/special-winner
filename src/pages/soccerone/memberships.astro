@@ -15,6 +15,20 @@ const tiersRes = await fetch(`${proto}//${host}/api/public/membership-tiers`, {
 });
 const { tiers = [] } = tiersRes.ok ? await tiersRes.json() : { tiers: [] };
 const authed = !!Astro.locals.user;
+
+// The comparison table quotes the same live tier rows the cards use, so the
+// two can't contradict each other. Tiers with no live row yet fall back to
+// the plan-of-record marketing numbers.
+const tierByName = new Map<string, any>(tiers.map((t: any) => [t.name, t]));
+const fmtCents = (cents: number | null | undefined): string | null =>
+  cents == null ? null : `$${Math.round(cents / 100).toLocaleString()}`;
+const dayPassTier = tierByName.get('Day Pass');
+const memberTier = tierByName.get('Member');
+const founderTier = tierByName.get('Founder');
+const rentalPct = (t: any, fallback: number): number =>
+  typeof t?.benefits?.rental_discount_pct === 'number' && t.benefits.rental_discount_pct > 0
+    ? t.benefits.rental_discount_pct
+    : fallback;
 ---
 
 <BaseLayout
@@ -163,15 +177,15 @@ const authed = !!Astro.locals.user;
             <tbody>
               <tr class="ct-row">
                 <td class="ct-feature">Monthly price</td>
-                <td class="ct-val">$15/visit</td>
-                <td class="ct-val ct-featured">$29/mo</td>
-                <td class="ct-val">$99/mo</td>
+                <td class="ct-val">{fmtCents(dayPassTier?.monthlyPriceCents) ?? '$15'}/visit</td>
+                <td class="ct-val ct-featured">{fmtCents(memberTier?.monthlyPriceCents) ?? '$29'}/mo</td>
+                <td class="ct-val">{fmtCents(founderTier?.monthlyPriceCents) ?? '$99'}/mo</td>
               </tr>
               <tr class="ct-row">
                 <td class="ct-feature">Annual option</td>
                 <td class="ct-val ct-na">—</td>
-                <td class="ct-val ct-featured">$290/yr</td>
-                <td class="ct-val">$990/yr</td>
+                <td class="ct-val ct-featured">{fmtCents(memberTier?.annualPriceCents) ?? '$290'}/yr</td>
+                <td class="ct-val">{fmtCents(founderTier?.annualPriceCents) ?? '$990'}/yr</td>
               </tr>
               <tr class="ct-section-header"><td colspan="4">Access</td></tr>
               <tr class="ct-row">
@@ -195,9 +209,9 @@ const authed = !!Astro.locals.user;
               <tr class="ct-section-header"><td colspan="4">Rentals</td></tr>
               <tr class="ct-row">
                 <td class="ct-feature">Hourly rental rate</td>
-                <td class="ct-val">$80/hr</td>
-                <td class="ct-val ct-featured ct-good">$72/hr (−10%)</td>
-                <td class="ct-val ct-good">$64/hr (−20%)</td>
+                <td class="ct-val">Standard rate</td>
+                <td class="ct-val ct-featured ct-good">{rentalPct(memberTier, 10)}% off</td>
+                <td class="ct-val ct-good">{rentalPct(founderTier, 20)}% off</td>
               </tr>
               <tr class="ct-row">
                 <td class="ct-feature">Advance booking window</td>

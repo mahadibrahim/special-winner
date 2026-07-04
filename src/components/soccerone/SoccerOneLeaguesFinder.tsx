@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 import { formatDateOnly } from "@/lib/time/format-date"
+import { trackDivisionRegisterClicked } from "@/lib/analytics/events"
 import {
   deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, filterSeasons,
   type FinderSeason, type FinderFilters,
@@ -253,6 +254,8 @@ interface LeagueCardSeason extends FinderSeason {
   maxParticipants: number | null
   price: number
   teamPrice: number | null
+  termSlug: string | null
+  signupModes: string[] | null
 }
 
 // Mirror of leagues.astro:224-267, as JSX. `season` carries the presentational
@@ -283,7 +286,20 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
         <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>
         <div className="lc-detail-row"><span className="lcd-label">PRICE</span><span className="lcd-val mono accent">{priceLabel}</span></div>
       </div>
-      <a href={`/register/${season.id}`} className="lc-cta">Register Now →</a>
+      <a
+        href={`/register/${season.id}`}
+        className="lc-cta"
+        onClick={() =>
+          trackDivisionRegisterClicked({
+            seasonId: season.id,
+            level: season.skillLevel ?? "open",
+            gender: season.divisionGender ?? "unknown",
+            venue: season.location.slug,
+            mode: season.signupModes?.includes("team") ? "team" : "individual",
+            term: season.termSlug ?? "",
+          })
+        }
+      >Register Now →</a>
     </div>
   )
 }

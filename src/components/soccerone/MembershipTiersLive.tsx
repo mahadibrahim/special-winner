@@ -18,10 +18,26 @@ interface Props {
   authed: boolean;
 }
 
-function fmtDollars(cents: number | null): string {
-  if (cents === null) return "—";
+function fmtDollars(cents: number | null | undefined): string | null {
+  if (cents == null) return null;
   const d = Math.round(cents / 100);
   return `$${d.toLocaleString()}`;
+}
+
+// Real saving vs 12× monthly, from the live prices — never a hardcoded badge
+// that drifts from what Stripe actually charges.
+function annualSavingPct(tier: TierRow | undefined): string | undefined {
+  if (!tier?.monthlyPriceCents || !tier?.annualPriceCents) return undefined;
+  const pct = Math.round((1 - tier.annualPriceCents / (tier.monthlyPriceCents * 12)) * 100);
+  return pct > 0 ? `${pct}%` : undefined;
+}
+
+// Rental-discount copy from the live benefits blob — discount.ts applies
+// benefits.rental_discount_pct at checkout, so the card must quote that
+// number, not a hand-written one.
+function rentalDiscountPct(tier: TierRow | undefined): number | null {
+  const pct = tier?.benefits?.["rental_discount_pct"];
+  return typeof pct === "number" && pct > 0 ? pct : null;
 }
 
 /**
@@ -72,9 +88,10 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
     <>
       <MembershipTier
         name="Day Pass"
-        monthlyPrice={fmtDollars(dayPass?.monthlyPriceCents ?? null)}
-        annualPrice={fmtDollars(dayPass?.annualPriceCents ?? dayPass?.monthlyPriceCents ?? null)}
-        ctaLabel={submitting === dayPass?.id ? "Starting…" : "Buy a Day Pass"}
+        monthlyPrice={fmtDollars(dayPass?.monthlyPriceCents)}
+        pricePeriod="/visit"
+        annualPrice={null}
+        ctaLabel={submitting === dayPass?.id ? "Starting…" : dayPass ? "Buy a Day Pass" : "Get Notified"}
         highlighted={false}
         accentColor="var(--so-tier-day)"
         benefits={[
@@ -89,25 +106,24 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
         ]}
         testimonial={{
           quote: "Perfect for when I'm in town visiting. Walk in, play, done.",
-          author: "Derek T.",
-          since: "Day Pass regular",
+          author: "Derek T., Day Pass regular",
         }}
         onCta={dayPass ? () => subscribe(dayPass.id, "month") : undefined}
       />
 
       <MembershipTier
         name="Member"
-        monthlyPrice={fmtDollars(member?.monthlyPriceCents ?? null)}
-        annualPrice={fmtDollars(member?.annualPriceCents ?? null)}
-        annualSaving="17%"
-        ctaLabel={submitting === member?.id ? "Starting…" : "Start Member Plan"}
+        monthlyPrice={fmtDollars(member?.monthlyPriceCents)}
+        annualPrice={fmtDollars(member?.annualPriceCents)}
+        annualSaving={annualSavingPct(member)}
+        ctaLabel={submitting === member?.id ? "Starting…" : member ? "Start Member Plan" : "Get Notified"}
         highlighted={true}
         accentColor="var(--so-tier-member)"
         benefits={[
           { text: "All facilities — Worthington + Downtown + future", included: true },
           { text: "Unlimited facility access", included: true },
           { text: "Priority league registration (48h early)", included: true },
-          { text: "10% off hourly field rentals ($72/hr)", included: true },
+          { text: `${rentalDiscountPct(member) ?? 10}% off hourly field rentals`, included: true },
           { text: "Members-only pickup events", included: true },
           { text: "Locker room + amenities", included: true },
           { text: "1 guest pass per month", included: false },
@@ -123,17 +139,17 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
 
       <MembershipTier
         name="Founder"
-        monthlyPrice={fmtDollars(founder?.monthlyPriceCents ?? null)}
-        annualPrice={fmtDollars(founder?.annualPriceCents ?? null)}
-        annualSaving="17%"
-        ctaLabel={submitting === founder?.id ? "Starting…" : "Join as a Founder"}
+        monthlyPrice={fmtDollars(founder?.monthlyPriceCents)}
+        annualPrice={fmtDollars(founder?.annualPriceCents)}
+        annualSaving={annualSavingPct(founder)}
+        ctaLabel={submitting === founder?.id ? "Starting…" : founder ? "Join as a Founder" : "Get Notified"}
         highlighted={false}
         accentColor="var(--so-tier-founder)"
         benefits={[
           { text: "All facilities — chain-wide, forever", included: true },
           { text: "Unlimited pickup games (free)", included: true },
           { text: "First access to league registration (72h early)", included: true },
-          { text: "20% off hourly field rentals ($64/hr)", included: true },
+          { text: `${rentalDiscountPct(founder) ?? 20}% off hourly field rentals`, included: true },
           { text: "Founder-only pickup events", included: true },
           { text: "2 guest passes per month", included: true },
           { text: "Name on the Founder wall (lobby)", included: true },
