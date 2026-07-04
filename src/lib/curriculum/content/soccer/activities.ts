@@ -45,9 +45,12 @@
 //   Wall Pass Execution
 //
 // Type note: ActivityContent (src/lib/curriculum/content/types.ts) was extended
-// with two optional fields present in the v2/gen-1 source rows and already on the
+// with three optional fields present in the v2/gen-1 source rows and already on the
 // activities DB schema (src/lib/db/schema/practice-planning.ts): `diagram?: string`
-// (ASCII-art setup diagram, only on some v2 activities) and `featured?: boolean`.
+// (ASCII-art setup diagram, only on some v2 activities), `featured?: boolean`, and
+// `description?: string` (top-level activities.description column; all 53 activities
+// below carry one, extracted verbatim from source -- for the 5 clean-slug collision
+// winners, the V2 description is used, per the dedupe rule above).
 // Mirrors the Task 3 precedent of extending DomainContent/StageContent for full
 // reference-row fidelity.
 
@@ -57,6 +60,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "shark-attack",
     name: "Shark Attack",
+    description: "High-energy dribbling game where players protect their balls from 'sharks' who try to kick them out. Develops dribbling under pressure, awareness, and shielding in a fun, game-like environment.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -491,6 +495,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "traffic-lights",
     name: "Traffic Lights",
+    description: "Dribbling game where players respond to color commands. Red=stop, Yellow=slow, Green=fast. Develops listening skills, ball control at different speeds, and the foundational ability to stop a ball on command.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -834,6 +839,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "ball-mastery-circle",
     name: "Ball Mastery Circle",
+    description: "Players form a circle around the coach who demonstrates ball mastery moves. Everyone practices together, building foundational touches and footwork in a supportive, follow-the-leader format.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -1308,6 +1314,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "gates-dribbling",
     name: "Gates Dribbling",
+    description: "Players dribble through randomly scattered cone 'gates' throughout a playing area. Develops dribbling with head up, direction changes, spatial awareness, and decision-making about which gate to attack next.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -1767,6 +1774,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "world-cup-v2",
     name: "World Cup",
+    description: "Classic playground elimination game where all players start together, everyone for themselves, trying to score in a central goal. When you score, you're safe. Last players without a goal are eliminated. Develops shooting, dribbling in traffic, and decision-making.",
     sport: "soccer",
     activityType: "game",
     difficulty: "beginner",
@@ -2233,6 +2241,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "passing-combinations-v2",
     name: "Passing Combinations",
+    description: "Technical passing activity focused on wall passes (give-and-go) and combination play patterns. Players learn to execute quick one-two exchanges, understand timing of runs, and develop the technical foundation for penetrating defenses through combination play.",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -2693,6 +2702,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "1v1-to-goal",
     name: "1v1 to Goal",
+    description: "Competitive 1v1 activity where an attacker attempts to beat a defender and score on goal. Develops individual attacking skills (dribbling, moves, finishing), defending technique (body position, patience, tackling), and the ability to perform under direct pressure.",
     sport: "soccer",
     activityType: "game",
     difficulty: "intermediate",
@@ -3147,6 +3157,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "rondo-4v1-v2",
     name: "Rondo 4v1",
+    description: "Classic possession game with four players keeping the ball from one defender in a confined space. Develops passing accuracy, receiving technique, body positioning, support angles, and the fundamental ability to keep possession under pressure.",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -3619,6 +3630,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "small-sided-game-5v5-v2",
     name: "Small-Sided Game 5v5",
+    description: "Structured 5v5 game with specific tactical constraints to develop game intelligence. Uses conditions like limited touches, directional play, or transition rules to focus players on specific learning outcomes while maintaining game realism.",
     sport: "soccer",
     activityType: "game",
     difficulty: "intermediate",
@@ -4096,6 +4108,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "wall-pass-combinations",
     name: "Wall Pass Combinations",
+    description: "Practice one-two passing patterns with a partner or group",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4146,6 +4159,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "receiving-under-pressure",
     name: "Receiving Under Pressure",
+    description: "Practice first touch with defender applying pressure",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4196,6 +4210,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "coerver-moves-circuit",
     name: "Coerver Moves Circuit",
+    description: "Practice classic dribbling moves at different stations",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4246,6 +4261,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "4v4-small-goals",
     name: "4v4 to Small Goals",
+    description: "Small-sided game focusing on combination play and quick decisions",
     sport: "soccer",
     activityType: "game",
     difficulty: "intermediate",
@@ -4296,6 +4312,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "3v1-rondo",
     name: "3v1 Rondo",
+    description: "Classic possession game to develop quick passing and movement",
     sport: "soccer",
     activityType: "tactical",
     difficulty: "beginner",
@@ -4346,6 +4363,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "end-zone-game",
     name: "End Zone Game",
+    description: "Possession game where teams score by dribbling into end zone",
     sport: "soccer",
     activityType: "game",
     difficulty: "beginner",
@@ -4396,6 +4414,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "ball-tag",
     name: "Ball Tag",
+    description: "Fun conditioning game where everyone dribbles while playing tag",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "beginner",
@@ -4437,6 +4456,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "passing-pairs",
     name: "Passing Pairs",
+    description: "Simple partner passing to cool down and focus on technique",
     sport: "soccer",
     activityType: "cooldown",
     difficulty: "beginner",
@@ -4476,6 +4496,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "world-cup-game",
     name: "World Cup",
+    description: "Classic knockout shooting game that kids love",
     sport: "soccer",
     activityType: "fun",
     difficulty: "beginner",
@@ -4521,6 +4542,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "musical-balls",
     name: "Musical Balls",
+    description: "Soccer version of musical chairs - when music stops, find a ball!",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -4560,6 +4582,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "copy-cat-dribbling",
     name: "Copy Cat Dribbling",
+    description: "Follow the leader dribbling game where players mirror the coach or leader",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -4599,6 +4622,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "volcano-dribble",
     name: "Volcano Dribble",
+    description: "Dribble around 'volcanos' (cones) without touching them",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -4638,6 +4662,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "numbers-game-warmup",
     name: "Numbers Game Warmup",
+    description: "Coach calls numbers for different movements while dribbling",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -4682,6 +4707,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "partner-mirror-warmup",
     name: "Partner Mirror Warmup",
+    description: "Partners face each other, one leads dribbling moves and other mirrors",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "intermediate",
@@ -4726,6 +4752,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "passing-accuracy-challenge",
     name: "Passing Accuracy Challenge",
+    description: "Hit targets with passes to score points",
     sport: "soccer",
     activityType: "technical",
     difficulty: "beginner",
@@ -4774,6 +4801,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "first-touch-box",
     name: "First Touch Box",
+    description: "Receive passes and control ball within a small box",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4819,6 +4847,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "turn-and-face",
     name: "Turn and Face",
+    description: "Receive ball with back to goal, turn and attack",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4869,6 +4898,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "heading-progression",
     name: "Heading Progression",
+    description: "Safe heading technique from basic to game-like situations",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4914,6 +4944,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "juggling-challenge",
     name: "Juggling Challenge",
+    description: "Progressive juggling skills building ball control",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4958,6 +4989,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "crossing-and-finishing",
     name: "Crossing and Finishing",
+    description: "Practice delivering and scoring from crosses",
     sport: "soccer",
     activityType: "technical",
     difficulty: "advanced",
@@ -5008,6 +5040,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "long-passing-grid",
     name: "Long Passing Grid",
+    description: "Develop long range passing accuracy and technique",
     sport: "soccer",
     activityType: "technical",
     difficulty: "advanced",
@@ -5057,6 +5090,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "shooting-technique-stations",
     name: "Shooting Technique Stations",
+    description: "Practice different shooting techniques at multiple stations",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -5107,6 +5141,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "speed-dribbling-relay",
     name: "Speed Dribbling Relay",
+    description: "Dribbling at speed through cones in team relay format",
     sport: "soccer",
     activityType: "technical",
     difficulty: "beginner",
@@ -5152,6 +5187,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "combination-play-circuit",
     name: "Combination Play Circuit",
+    description: "Practice give-and-go, overlap, and third man run patterns",
     sport: "soccer",
     activityType: "technical",
     difficulty: "advanced",
@@ -5201,6 +5237,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "5v2-rondo",
     name: "5v2 Rondo",
+    description: "Classic possession game with larger group and two defenders",
     sport: "soccer",
     activityType: "tactical",
     difficulty: "intermediate",
@@ -5251,6 +5288,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "positional-rondo",
     name: "Positional Rondo",
+    description: "Rondo with position-specific setup simulating real game situations",
     sport: "soccer",
     activityType: "tactical",
     difficulty: "advanced",
@@ -5301,6 +5339,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "defending-in-pairs",
     name: "Defending in Pairs",
+    description: "Learn to defend together with a partner",
     sport: "soccer",
     activityType: "tactical",
     difficulty: "intermediate",
@@ -5351,6 +5390,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "transition-game",
     name: "Transition Game",
+    description: "Quick transition from attack to defense and vice versa",
     sport: "soccer",
     activityType: "tactical",
     difficulty: "intermediate",
@@ -5401,6 +5441,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "overload-game",
     name: "Overload Game",
+    description: "Small-sided game with numerical advantages in zones",
     sport: "soccer",
     activityType: "tactical",
     difficulty: "intermediate",
@@ -5451,6 +5492,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "counter-attack-game",
     name: "Counter Attack Game",
+    description: "Focus on quick transitions after winning ball",
     sport: "soccer",
     activityType: "game",
     difficulty: "advanced",
@@ -5501,6 +5543,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "3v3-line-soccer",
     name: "3v3 Line Soccer",
+    description: "Score by dribbling over end line instead of into goal",
     sport: "soccer",
     activityType: "game",
     difficulty: "beginner",
@@ -5551,6 +5594,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "2v2-mini-goals",
     name: "2v2 with Mini Goals",
+    description: "Intense 2v2 game with goals at each end",
     sport: "soccer",
     activityType: "game",
     difficulty: "beginner",
@@ -5601,6 +5645,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "6v6-half-field",
     name: "6v6 Half Field Game",
+    description: "Larger small-sided game with more positional structure",
     sport: "soccer",
     activityType: "game",
     difficulty: "intermediate",
@@ -5651,6 +5696,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "king-of-the-ring",
     name: "King of the Ring",
+    description: "1v1 competition to knock opponents' balls out of circle",
     sport: "soccer",
     activityType: "game",
     difficulty: "beginner",
@@ -5701,6 +5747,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "target-goals-game",
     name: "Target Goals Game",
+    description: "Small-sided game with multiple goal options to encourage decision making",
     sport: "soccer",
     activityType: "game",
     difficulty: "intermediate",
@@ -5751,6 +5798,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "dribble-sprints",
     name: "Dribble Sprints",
+    description: "Sprint conditioning with the ball at feet",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "intermediate",
@@ -5796,6 +5844,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "box-to-box-runs",
     name: "Box to Box Runs",
+    description: "Shuttle runs simulating midfielder workload",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "advanced",
@@ -5843,6 +5892,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "soccer-tennis-conditioning",
     name: "Soccer Tennis Conditioning",
+    description: "Fun conditioning through soccer tennis rallies",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "intermediate",
@@ -5892,6 +5942,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "pressing-game-fitness",
     name: "Pressing Game Fitness",
+    description: "High-intensity pressing drill combining tactics and fitness",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "advanced",
@@ -5938,6 +5989,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "soccer-bowling",
     name: "Soccer Bowling",
+    description: "Knock down cones by passing/shooting - bowling with a soccer ball",
     sport: "soccer",
     activityType: "fun",
     difficulty: "beginner",
@@ -5979,6 +6031,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "dribblers-vs-defenders",
     name: "Dribblers vs Defenders",
+    description: "Mass 1v1 game where dribblers try to cross the field",
     sport: "soccer",
     activityType: "fun",
     difficulty: "beginner",
@@ -6028,6 +6081,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "four-goals-chaos",
     name: "Four Goals Chaos",
+    description: "Scrimmage with four goals - anyone can score in any goal",
     sport: "soccer",
     activityType: "fun",
     difficulty: "intermediate",
@@ -6077,6 +6131,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "partner-stretching",
     name: "Partner Stretching",
+    description: "Cool down with partner-assisted stretching",
     sport: "soccer",
     activityType: "cooldown",
     difficulty: "beginner",
@@ -6121,6 +6176,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "keep-it-up-circle",
     name: "Keep It Up Circle",
+    description: "Team juggling challenge to end practice",
     sport: "soccer",
     activityType: "cooldown",
     difficulty: "intermediate",

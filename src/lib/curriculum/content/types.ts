@@ -58,6 +58,7 @@ export interface SkillContent {
 export interface ActivityContent {
   slug: string;
   name: string;
+  description?: string; // matches activities.description column
   sport: string;
   activityType: string; // matches activityTypeEnum values in practice-planning.ts
   difficulty: "beginner" | "intermediate" | "advanced";
