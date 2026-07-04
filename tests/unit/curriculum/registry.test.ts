@@ -99,4 +99,91 @@ describe("curriculum registry", () => {
       true,
     );
   });
+
+  // Same fold-by-name method as Task 3's soccer skills (never by UUID). The
+  // 13 v2-canonical basketball skills are the 5/3/2/3 floor; folding the two
+  // upgrade files onto them (plus gen-0 shells from seed-curriculum.ts) adds
+  // 20 more: 13 gen-0-named skills minus 1 name collision ("Help Defense",
+  // where v2 wins as the base layer) plus 7 skills that exist only inside the
+  // upgrade payloads. True total: 33. See
+  // .superpowers/sdd/cr-task-5-report.md for the full fold-by-fold breakdown.
+  it("basketball skills: 33 total — the 13 v2-canonical with the 5/3/2/3 domain split, plus 20 folded-in skills", () => {
+    const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "basketball");
+    expect(s).toHaveLength(33);
+
+    const v2Names = new Set([
+      "Ball Handling",
+      "Passing",
+      "Catching",
+      "Shooting (Layups)",
+      "Shooting (Jump Shot)",
+      "Court Spacing",
+      "Help Defense",
+      "Transition Play",
+      "Agility / Footwork",
+      "Vertical Jump",
+      "Confidence",
+      "Coachability",
+      "Team Communication",
+    ]);
+    const v2Skills = s.filter((k) => v2Names.has(k.name));
+    expect(v2Skills).toHaveLength(13);
+    const byDomain = Object.fromEntries(
+      (["technical", "tactical", "physical", "psychological"] as const).map(
+        (d) => [d, v2Skills.filter((k) => k.domain === d).length],
+      ),
+    );
+    expect(byDomain).toEqual({
+      technical: 5,
+      tactical: 3,
+      physical: 2,
+      psychological: 3,
+    });
+    expect(v2Skills.every((k) => k.comprehensiveGuide != null)).toBe(true);
+
+    // Every basketball skill that was ever touched by an upgrade file (all
+    // v2-canonical + gen-0-shelled + brand-new skills) carries a
+    // comprehensiveGuide.
+    expect(s.every((k) => k.comprehensiveGuide != null)).toBe(true);
+  });
+
+  it("basketball skills: later upgrade pass wins over the earlier one for a name targeted twice", () => {
+    const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "basketball");
+    // "Crossover Dribble" is targeted by upgrade-2.ts twice (once annotated
+    // "Development stage", once "Skill Building stage") -- both writes share
+    // one identical guide object in the source, so folding by name collapses
+    // them into a single entry with no content loss.
+    const crossover = s.filter((k) => k.name === "Crossover Dribble");
+    expect(crossover).toHaveLength(1);
+    expect(crossover[0].comprehensiveGuide).toBeTruthy();
+
+    // "Ball Handling" is v2-canonical AND separately targeted twice more by
+    // upgrade-2.ts ("Fundamentals - ID 1"/"ID 2") -- same single-entry
+    // collapse.
+    const ballHandling = s.filter((k) => k.name === "Ball Handling");
+    expect(ballHandling).toHaveLength(1);
+  });
+
+  it("basketball activities: v2 canonical + gen-1 fill, deduped by slug", () => {
+    const a = CURRICULUM_CONTENT.activities.filter(
+      (x) => x.sport === "basketball",
+    );
+    expect(a.length).toBeGreaterThanOrEqual(50); // 5 v2 + 49 gen-1 − overlaps
+    const slugs = a.map((x) => x.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+    // v2 marker: the comprehensive-guide generation is present
+    expect(
+      a.filter((x) => x.comprehensiveGuide != null).length,
+    ).toBeGreaterThanOrEqual(5);
+  });
+
+  it("basketball session plans: the gen-1 library subset (no v2-canonical basketball plans exist)", () => {
+    const p = CURRICULUM_CONTENT.sessionPlans.filter(
+      (x) => x.sport === "basketball",
+    );
+    expect(p.length).toBeGreaterThanOrEqual(7);
+    expect(p.some((x) => x.structure.some((seg) => seg.coachingScript))).toBe(
+      true,
+    );
+  });
 });

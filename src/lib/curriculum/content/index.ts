@@ -2,16 +2,19 @@ import { DOMAINS, STAGES } from "./reference";
 import { SOCCER_SKILLS } from "./soccer/skills";
 import { SOCCER_ACTIVITIES } from "./soccer/activities";
 import { SOCCER_SESSION_PLANS } from "./soccer/session-plans";
+import { BASKETBALL_SKILLS } from "./basketball/skills";
+import { BASKETBALL_ACTIVITIES } from "./basketball/activities";
+import { BASKETBALL_SESSION_PLANS } from "./basketball/session-plans";
 import type { CurriculumContent } from "./types";
 
-// Other sports' activities/session plans start empty here — Tasks 5-7 fill them
+// Other sports' activities/session plans start empty here — Task 6-7 fill them
 // in. coachGuidance starts empty for the same reason.
 export const CURRICULUM_CONTENT: CurriculumContent = {
   domains: DOMAINS,
   stages: STAGES,
-  skills: [...SOCCER_SKILLS],
-  activities: [...SOCCER_ACTIVITIES],
-  sessionPlans: [...SOCCER_SESSION_PLANS],
+  skills: [...SOCCER_SKILLS, ...BASKETBALL_SKILLS],
+  activities: [...SOCCER_ACTIVITIES, ...BASKETBALL_ACTIVITIES],
+  sessionPlans: [...SOCCER_SESSION_PLANS, ...BASKETBALL_SESSION_PLANS],
   coachGuidance: { prompts: [], resources: [], principles: [] },
 };
 
