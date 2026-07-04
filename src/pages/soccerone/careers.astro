@@ -1,0 +1,184 @@
+---
+// src/pages/soccerone/careers.astro — served at /careers on gosoccerone.com
+// via the SOCCERONE_MARKETING_REWRITES rewrite. Same application form and
+// endpoint as the Aspire /careers page; SoccerOne skin over shared content
+// (src/lib/careers/roles.ts). Brand attribution: applicants are hired by
+// Aspire Sports, which operates the SoccerOne facilities.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SoccerOneHeader from "@/components/soccerone/SoccerOneHeader.astro";
+import SoccerOneFooter from "@/components/soccerone/SoccerOneFooter.astro";
+import ApplicationForm from "@/components/careers/application-form";
+import { CAREER_ROLES } from "@/lib/careers/roles";
+---
+
+<BaseLayout
+  favicon="/soccerone-favicon.svg"
+  title="Join the Crew — SoccerOne Columbus"
+  description="Referee our adult leagues, coach, or work the desk at SoccerOne Worthington and Downtown. Apply in about 90 seconds."
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <SoccerOneHeader />
+
+  <main class="careers-main">
+    <div class="careers-header">
+      <div class="ch-inner">
+        <h1 class="ch-title">JOIN THE CREW</h1>
+        <p class="ch-desc">
+          Referee our adult leagues, coach what's coming next, or work the desk that keeps four
+          indoor fields running every night. One application, about 90 seconds.
+        </p>
+        <p class="ch-attribution">
+          SoccerOne facilities are operated by <a href="https://aspiresportsohio.com">Aspire
+          Sports</a> — you'll be joining the Aspire Sports crew and can work across every venue
+          we run.
+        </p>
+      </div>
+    </div>
+
+    <div class="careers-roles">
+      <div class="cr-inner">
+        {CAREER_ROLES.map((role) => (
+          <div class="role-card">
+            <span class="rc-timing">{role.timing}</span>
+            <h3 class="rc-title">{role.title}</h3>
+            <p class="rc-blurb">{role.blurb}</p>
+            <ul class="rc-points">
+              {role.points.map((point) => (
+                <li>{point}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div class="careers-form-section">
+      <div class="cf-inner">
+        <h2 class="cf-title">APPLY NOW</h2>
+        <div class="cf-panel">
+          <ApplicationForm client:load />
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    .careers-main { flex: 1; font-family: var(--so-font-body); }
+
+    .careers-header {
+      background: var(--so-ink);
+      border-bottom: 1px solid var(--so-lime-a10);
+      padding: 4rem 0 3rem;
+    }
+    .ch-inner { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+    .ch-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(3rem, 8vw, 6.5rem);
+      color: #ffffff;
+      line-height: 0.95;
+      letter-spacing: 0.01em;
+      margin-bottom: 1.25rem;
+    }
+    .ch-desc {
+      font-size: 1.0625rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.6;
+      max-width: 560px;
+      margin-bottom: 1rem;
+    }
+    .ch-attribution {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.4);
+      max-width: 560px;
+      line-height: 1.55;
+    }
+    .ch-attribution a { color: var(--so-lime); text-decoration: underline; }
+
+    .careers-roles { background: var(--so-ink); padding: 3rem 0; }
+    .cr-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+    .role-card {
+      background: var(--so-surface);
+      border: 1px solid var(--so-lime-a20);
+      border-left: 3px solid var(--so-lime);
+      border-radius: var(--so-radius-lg);
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .rc-timing {
+      font-family: var(--so-font-mono);
+      font-size: 0.5625rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--so-lime);
+    }
+    .rc-title { font-family: var(--so-font-display); font-size: 1.5rem; color: #fff; letter-spacing: 0.01em; }
+    .rc-blurb { font-size: 0.9375rem; color: rgba(255,255,255,0.55); line-height: 1.55; }
+    .rc-points { list-style: none; margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem; }
+    .rc-points li {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.4;
+      padding-left: 1.125rem;
+      position: relative;
+    }
+    .rc-points li::before { content: "✓"; position: absolute; left: 0; color: var(--so-lime); }
+
+    .careers-form-section { background: var(--so-ink); padding: 2rem 0 5rem; }
+    .cf-inner { max-width: 900px; margin: 0 auto; padding: 0 2rem; }
+    .cf-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      margin-bottom: 1.5rem;
+    }
+    /* The shared form is editorial-cream; host it in a light panel so its
+       ink-on-paper palette reads correctly against the dark page. The
+       SoccerOne BrandTheme remaps the Aspire tokens page-wide (--ink →
+       white, --paper → dark), so re-pin the Aspire defaults for this
+       subtree — CSS variables inherit into the React island where scoped
+       selectors can't reach. Values mirror src/styles/globals.css. */
+    .cf-panel {
+      background: #faf7f2;
+      border-radius: var(--so-radius-lg);
+      padding: 2rem;
+      --cream: oklch(0.972 0.008 80);
+      --cream-2: oklch(0.955 0.012 78);
+      --ink: oklch(0.18 0.008 260);
+      --ink-2: oklch(0.26 0.012 260);
+      --ink-muted: oklch(0.42 0.01 260);
+      --ink-faint: oklch(0.5 0.008 260);
+      --paper: oklch(0.99 0.003 80);
+    }
+    @media (max-width: 900px) {
+      .cr-inner { grid-template-columns: 1fr; }
+      .cf-panel { padding: 1.25rem; }
+    }
+  </style>
+</BaseLayout>

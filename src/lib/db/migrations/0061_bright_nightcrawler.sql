@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ops_ping_kind" ADD VALUE 'job_application' BEFORE 'test';

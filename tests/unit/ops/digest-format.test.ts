@@ -21,6 +21,19 @@ describe("composeDigestMessage", () => {
     expect(msg).toContain("plus 3 pings not delivered instantly");
   });
 
+  it("renders job applications as a plain count, never $0.00", () => {
+    const msg = composeDigestMessage(
+      {
+        signupsByBrand: {},
+        moneyByKind: { job_application: { count: 2, totalCents: 0 } },
+        suppressed: 0,
+      },
+      "Thu, Jul 2",
+    );
+    expect(msg).toContain("📝 Job applications: 2");
+    expect(msg).not.toContain("$0.00");
+  });
+
   it("says quiet day when nothing happened", () => {
     const msg = composeDigestMessage(
       { signupsByBrand: {}, moneyByKind: {}, suppressed: 0 },

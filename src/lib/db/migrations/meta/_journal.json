@@ -428,6 +428,13 @@
       "when": 1783181654319,
       "tag": "0060_common_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1783191914132,
+      "tag": "0061_bright_nightcrawler",
+      "breakpoints": true
     }
   ]
 }

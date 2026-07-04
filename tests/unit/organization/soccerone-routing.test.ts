@@ -33,6 +33,7 @@ describe("soccerone-routing — constants", () => {
       "/worthington": "/soccerone/worthington",
       "/join": "/soccerone/join",
       "/sponsors": "/soccerone/sponsors",
+      "/careers": "/soccerone/careers",
     };
     expect(SOCCERONE_MARKETING_REWRITES).toEqual(expected);
   });
@@ -49,6 +50,7 @@ describe("rewriteSoccerOnePath()", () => {
     ["/worthington", "/soccerone/worthington"],
     ["/join", "/soccerone/join"],
     ["/sponsors", "/soccerone/sponsors"],
+    ["/careers", "/soccerone/careers"],
   ])("rewrites %s → %s", (input, expected) => {
     expect(rewriteSoccerOnePath(input)).toBe(expected);
   });
