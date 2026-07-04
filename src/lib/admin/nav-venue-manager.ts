@@ -11,6 +11,7 @@ import {
   BarChart3,
   Zap,
   Key,
+  FileText,
 } from "lucide-react";
 import type { NavGroup } from "./nav-super-admin";
 
@@ -38,6 +39,7 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
     items: [
       { name: "Look up", href: "/admin/lookup", icon: Search },
       { name: "Rosters", href: "/admin/venue/rosters", icon: ClipboardList },
+      { name: "Applications", href: "/admin/applications", icon: FileText },
     ],
   },
   {

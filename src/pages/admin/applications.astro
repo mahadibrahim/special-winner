@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
+import ApplicationsList from '../../components/admin/applications-list';
+
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+---
+
+<BaseLayout title="Applications — Aspire Sports Admin" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/applications"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-6">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Applications</h1>
+        <p class="text-gray-600 mt-1">Coach, referee, and staff applications from /careers — the fallback view of the Notion Hiring Pipeline.</p>
+      </div>
+
+      <ApplicationsList client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>
