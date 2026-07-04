@@ -49,7 +49,9 @@ export function buildApplicationPageParams(
     properties["Certifications"] = { rich_text: [{ text: { content: app.certifications.slice(0, 2000) } }] };
   }
   if (app.availability.length > 0) {
-    properties["Availability"] = { multi_select: app.availability.map((a) => ({ name: a })) };
+    properties["Availability"] = {
+      multi_select: [...new Set(app.availability)].map((a) => ({ name: a })),
+    };
   }
   if (app.resumeKey) {
     properties["Resume"] = { url: `${appBaseUrl.replace(/\/$/, "")}/api/admin/applications/${app.id}/resume` };

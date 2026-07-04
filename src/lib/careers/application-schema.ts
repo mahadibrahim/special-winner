@@ -18,7 +18,7 @@ export const jobApplicationSchema = z.object({
   preferredLocation: z.enum(APPLICATION_LOCATIONS).optional(),
   certifications: z.string().trim().max(2000).optional(),
   experience: z.string().trim().min(1).max(5000),
-  availability: z.array(z.enum(APPLICATION_AVAILABILITY)).default([]),
+  availability: z.array(z.enum(APPLICATION_AVAILABILITY)).max(3).default([]),
   source: z.string().trim().max(200).optional(),
 });
 

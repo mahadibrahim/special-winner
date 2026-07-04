@@ -1,5 +1,4 @@
-import { and, isNull, gte } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import { and, isNull, gte, eq, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { jobApplications } from "@/lib/db/schema";
 import { createNotionApplicationPage, isNotionConfigured } from "@/lib/notion/ats";
@@ -17,6 +16,7 @@ export async function syncPendingApplications(): Promise<{ attempted: number; sy
     .select()
     .from(jobApplications)
     .where(and(isNull(jobApplications.notionSyncedAt), gte(jobApplications.createdAt, cutoff)))
+    .orderBy(asc(jobApplications.createdAt))
     .limit(25); // Notion rate limit is ~3 rps; 25/hour is plenty at our volume
 
   let synced = 0;
