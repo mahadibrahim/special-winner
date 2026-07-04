@@ -2138,6 +2138,18 @@ async function seedE2ETests() {
           maxParticipants: 80,
         })
         .returning();
+    } else {
+      // Keep the season future-dated on re-runs. The shared CI DB accumulates,
+      // and the SoccerOne /leagues page hides past-start seasons — a stale
+      // startDate would silently empty the finder and skip its e2e spec.
+      [soccerOneSeason] = await db
+        .update(seasons)
+        .set({
+          startDate: sixWeeksOut.toISOString().slice(0, 10),
+          endDate: tenWeeksOut.toISOString().slice(0, 10),
+        })
+        .where(eq(seasons.id, soccerOneSeason.id))
+        .returning();
     }
     console.log(`   ✓ SoccerOne Season: ${soccerOneSeason.name} (status=${soccerOneSeason.status})`);
 

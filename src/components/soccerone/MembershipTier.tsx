@@ -11,14 +11,18 @@ interface Benefit {
 
 interface MembershipTierProps {
   name: string;
-  monthlyPrice: string;
-  annualPrice: string;
+  /** Formatted price (e.g. "$99") — null when the tier has no live price yet. */
+  monthlyPrice: string | null;
+  /** Formatted annual price — null hides the annual line entirely. */
+  annualPrice: string | null;
+  /** Unit shown after the price. Day passes are per-visit, plans per-month. */
+  pricePeriod?: "/mo" | "/visit";
   annualSaving?: string;
   benefits: Benefit[];
   testimonial?: {
     quote: string;
     author: string;
-    since: string;
+    since?: string;
   };
   highlighted?: boolean;
   ctaLabel: string;
@@ -30,6 +34,7 @@ export function MembershipTier({
   name,
   monthlyPrice,
   annualPrice,
+  pricePeriod = "/mo",
   annualSaving,
   benefits,
   testimonial,
@@ -71,16 +76,24 @@ export function MembershipTier({
       <div className="tier-header">
         <h3 className="tier-name">{name}</h3>
         <div className="tier-pricing">
-          <div className="tier-monthly">
-            <span className="price-amount">{monthlyPrice}</span>
-            <span className="price-period">/mo</span>
-          </div>
-          <div className="tier-annual">
-            <span className="annual-label">or {annualPrice}/yr</span>
-            {annualSaving && (
-              <span className="annual-saving">Save {annualSaving}</span>
-            )}
-          </div>
+          {monthlyPrice ? (
+            <div className="tier-monthly">
+              <span className="price-amount">{monthlyPrice}</span>
+              <span className="price-period">{pricePeriod}</span>
+            </div>
+          ) : (
+            <div className="tier-monthly">
+              <span className="price-coming">Coming soon</span>
+            </div>
+          )}
+          {annualPrice && (
+            <div className="tier-annual">
+              <span className="annual-label">or {annualPrice}/yr</span>
+              {annualSaving && (
+                <span className="annual-saving">Save {annualSaving}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -112,7 +125,8 @@ export function MembershipTier({
         <blockquote className="tier-testimonial">
           <p className="testimonial-quote">"{testimonial.quote}"</p>
           <footer className="testimonial-author">
-            — {testimonial.author}, member since {testimonial.since}
+            — {testimonial.author}
+            {testimonial.since ? `, member since ${testimonial.since}` : ""}
           </footer>
         </blockquote>
       )}
@@ -194,6 +208,15 @@ export function MembershipTier({
           font-size: 1rem;
           color: rgba(255,255,255,0.5);
           margin-left: 2px;
+        }
+        .price-coming {
+          font-family: var(--so-font-body);
+          font-size: 1.375rem;
+          font-weight: 700;
+          color: rgba(255,255,255,0.55);
+          letter-spacing: -0.01em;
+          line-height: 1;
+          text-transform: uppercase;
         }
         .tier-annual {
           display: flex;

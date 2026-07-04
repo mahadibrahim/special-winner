@@ -35,12 +35,19 @@ try {
 // adds an interest CTA to this template.
 seasons = seasons.filter((s) => s.signupMode !== 'interest');
 
-const firstSeasonId = seasons[0]?.id ?? null;
+// A season whose start date has passed is no longer a "Register & Pay"
+// candidate — a stale "NOW REGISTERING" banner over a finished tournament is
+// worse than no banner. Date-only compare (season startDate is YYYY-MM-DD) so
+// a season starting today stays visible through its start day.
+const todayIso = new Date().toISOString().slice(0, 10);
+seasons = seasons.filter((s) => !s.startDate || String(s.startDate).slice(0, 10) >= todayIso);
 
-// Featured season = first open season (the API already sorts by startDate).
-// All featured-CTA copy derives from it; the block renders only when one
-// exists — no more hardcoded season names/dates/prices over a dead button.
+// Featured season = first upcoming open season (the API already sorts by
+// startDate). All featured-CTA copy derives from it; the block renders only
+// when one exists — no more hardcoded season names/dates/prices over a dead
+// button.
 const featured = seasons[0] ?? null;
+const firstSeasonId = featured?.id ?? null;
 const featuredStart = featured?.startDate
   ? new Date(featured.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   : null;
@@ -150,7 +157,17 @@ setMarketingEdgeCache(Astro);
               </div>
             </div>
             <div class="lfcta-right">
-              <a href={`/register/${featured.id}`} class="lfcta-btn">
+              <a
+                href={`/register/${featured.id}`}
+                class="lfcta-btn"
+                data-so-register-cta
+                data-season-id={featured.id}
+                data-level={featured.skillLevel ?? 'open'}
+                data-gender={featured.divisionGender ?? 'unknown'}
+                data-venue={featured.location?.slug ?? ''}
+                data-term={featured.termSlug ?? ''}
+                data-mode={featured.signupModes?.includes('team') ? 'team' : 'individual'}
+              >
                 Register &amp; Pay Now
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </a>
@@ -174,8 +191,28 @@ setMarketingEdgeCache(Astro);
           <h2 class="lbc-title">Register your team directly. No middleman.</h2>
         </div>
         <div class="lbc-buttons">
-          <a href={`/register/${firstSeasonId}`} class="lbc-btn-primary">Register a Team</a>
-          <a href={`/register/${firstSeasonId}`} class="lbc-btn-secondary">Register as Individual</a>
+          <a
+            href={`/register/${firstSeasonId}`}
+            class="lbc-btn-primary"
+            data-so-register-cta
+            data-season-id={firstSeasonId}
+            data-level={featured?.skillLevel ?? 'open'}
+            data-gender={featured?.divisionGender ?? 'unknown'}
+            data-venue={featured?.location?.slug ?? ''}
+            data-term={featured?.termSlug ?? ''}
+            data-mode="team"
+          >Register a Team</a>
+          <a
+            href={`/register/${firstSeasonId}`}
+            class="lbc-btn-secondary"
+            data-so-register-cta
+            data-season-id={firstSeasonId}
+            data-level={featured?.skillLevel ?? 'open'}
+            data-gender={featured?.divisionGender ?? 'unknown'}
+            data-venue={featured?.location?.slug ?? ''}
+            data-term={featured?.termSlug ?? ''}
+            data-mode="individual"
+          >Register as Individual</a>
         </div>
       </div>
     </div>
@@ -356,3 +393,22 @@ setMarketingEdgeCache(Astro);
 
 
 </BaseLayout>
+
+<script>
+  import { trackDivisionRegisterClicked } from "@/lib/analytics/events";
+
+  // Conversion analytics on the server-rendered register CTAs (featured
+  // banner + bottom band). The finder cards track from React directly.
+  document.querySelectorAll<HTMLAnchorElement>("[data-so-register-cta]").forEach((el) => {
+    el.addEventListener("click", () => {
+      trackDivisionRegisterClicked({
+        seasonId: el.dataset.seasonId ?? "",
+        level: el.dataset.level ?? "open",
+        gender: el.dataset.gender ?? "unknown",
+        venue: el.dataset.venue ?? "",
+        mode: el.dataset.mode === "team" ? "team" : "individual",
+        term: el.dataset.term ?? "",
+      });
+    });
+  });
+</script>
