@@ -46,7 +46,7 @@ them. Delete a proposed line to veto it.
       development +PH1/+PS1 (fundamentals domain-ratio floors)
 - [ ] Competitive-stage starter set for soccer + basketball: ≥5 skills each
       (T2/TA1/PH1/PS1); refinement stage gated behind it
-- [ ] Sport-specific coach guidance floor for hockey + baseball: ≥1 prompt,
+- [x] Sport-specific coach guidance floor for hockey + baseball: ≥1 prompt,
       1 resource, 1 principle each
 - [ ] Discovery-stage starter set per sport: ≥4 skills weighted PH/PS over
       technique, per the stage's own philosophy (defer toward 2027 youth
@@ -62,8 +62,8 @@ Delete a line to veto it; unchecked survivors are fair game for refine.
       10% team play; adapt the researched game concepts (Sharks & Minnows,
       Clean Your Room, Toy Finder, Corner Tires, 1v1v1 mini nets, Border
       Tag) with our elimination-free defaults
-- [x] Anchor baseball fundamentals on USA Baseball LTAD priority order
-      (throw → catch → run → hit), tee/soft-ball equipment notes, and the
+- [x] Anchor baseball fundamentals on USA Baseball LTAD's four core
+      competencies (unordered; our sequence is editorial), tee/soft-ball equipment notes, and the
       keep-rules-minimal principle; adapt the researched activity concepts
       (Defend the Castle, grip→step→throw, two-hand catching, Run the Bases)
 - [ ] Author PH/PS 9-15 content as maturation-anchored (not fixed-age)
