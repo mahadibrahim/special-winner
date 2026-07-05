@@ -502,6 +502,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 30,
     durationMinutes: 5,
+    skillsDeveloped: ["ball-control", "dribbling"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ 4 cones for corners (optional but helpful)\n□ Optional: colored cones/cards (red, yellow, green) as visual aids\n\nSPACE: As large as available (minimum 20x25 paces)\n\nSETUP STEPS\n1. Players spread out in large area\n2. Every player has ball at feet\n3. Coach stands where everyone can see/hear\n\nDIAGRAM\n┌─────────────────────────────────┐\n│                                 │\n│    ○    ○    ○    ○    ○       │\n│                                 │  20+ paces\n│    ○    ○   COACH  ○    ○      │\n│                                 │\n│    ○    ○    ○    ○    ○       │\n└─────────────────────────────────┘\n       25+ paces",
     howToPlay:
@@ -846,6 +847,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 20,
     durationMinutes: 8,
+    skillsDeveloped: ["ball-mastery-toe-taps", "ball-control", "agility-coordination"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ Optional: 1 cone to mark coach spot\n\nSPACE: Open area large enough for circle (8-12 paces diameter)\n\nSETUP STEPS\n1. Coach stands in center with ball\n2. Players form circle around coach (2 arm lengths apart)\n3. Each player has ball at feet\n4. Everyone can see coach clearly\n\nDIAGRAM\n              ○\n          ○       ○\n        ○           ○\n            COACH\n        ○     ●     ○\n          ○       ○\n              ○\n\n○ = player with ball (circle formation)\n● = coach in center with ball",
     howToPlay:
@@ -1321,6 +1323,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: ["dribbling", "agility-coordination"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ 10-16 cones (2 per gate, minimum 5-8 gates)\n□ Pinnies (optional for variations)\n\nSPACE: 25x25 paces (adjust based on numbers)\n\nSETUP STEPS\n1. Create gates by placing 2 cones about 2 paces apart\n2. Scatter 5-8 gates RANDOMLY throughout area (not in lines!)\n3. Gates should face different directions\n4. Leave space between gates for dribbling\n5. Each player has a ball\n\nDIAGRAM\n┌────────────────────────────────┐\n│     ⊏⊐                        │\n│              ⊏⊐          ⊏⊐   │\n│    ⊏⊐                         │\n│                   ⊏⊐          │  25 paces\n│         ⊏⊐              ⊏⊐   │\n│                                │\n│    ⊏⊐          ⊏⊐             │\n└────────────────────────────────┘\n        25 paces\n\n⊏⊐ = gate (2 cones, 2 paces apart)",
     howToPlay:
@@ -1774,7 +1777,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "world-cup-v2",
     name: "World Cup",
-    description: "Classic playground elimination game where all players start together, everyone for themselves, trying to score in a central goal. When you score, you're safe. Last players without a goal are eliminated. Develops shooting, dribbling in traffic, and decision-making.",
+    description: "Classic playground shooting game where all players start together, everyone for themselves, trying to score in a central goal with multiple balls in play. Every goal scores a point - do a quick task and jump right back in, so everyone stays active the whole round. Develops shooting, dribbling in traffic, and decision-making. (The classic sit-out, last-player-standing elimination format is available as a 'Championship Knockout' variation for older or highly competitive groups.)",
     sport: "soccer",
     activityType: "game",
     difficulty: "beginner",
@@ -1783,9 +1786,9 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 12,
     skillsDeveloped: ["shooting"],
     setupInstructions:
-      "EQUIPMENT CHECKLIST\n□ 1 ball only (coach holds extras for quick replacement)\n□ 2 cones or 1 small goal (3-4 paces wide)\n□ Optional: pinnies for later rounds\n□ Spare balls nearby for quick restarts\n\nSPACE: Open area with shooting area (minimum 20x30 paces)\n\nSETUP STEPS\n1. Set up one small goal (2 cones, 3-4 paces apart) OR use existing small goal\n2. Mark a shooting line about 8-10 paces from goal (optional but helpful)\n3. All players start spread around the goal area\n4. ONE ball in play\n\nDIAGRAM\n            ALL PLAYERS SPREAD OUT\n            ○    ○    ○    ○    ○\n              ○    ○    ○    ○\n                    ⚽\n\n     - - - - - - - - - - - - - - (shooting line optional)\n\n                  ⊏⊐\n                 GOAL\n\n○ = player  ⚽ = single ball  ⊏⊐ = goal (3-4 paces)",
+      "EQUIPMENT CHECKLIST\n□ 2-3 balls in play (coach holds extras for quick replacement; note: one ball only for the Championship Knockout variation)\n□ 2 cones or 1 small goal (3-4 paces wide)\n□ Optional: pinnies for later rounds\n□ Spare balls nearby for quick restarts\n\nSPACE: Open area with shooting area (minimum 20x30 paces)\n\nSETUP STEPS\n1. Set up one small goal (2 cones, 3-4 paces apart) OR use existing small goal\n2. Mark a shooting line about 8-10 paces from goal (optional but helpful)\n3. All players start spread around the goal area\n4. 2-3 balls in play\n\nDIAGRAM\n            ALL PLAYERS SPREAD OUT\n            ○    ○    ○    ○    ○\n              ○    ○    ○    ○\n                    ⚽ ⚽\n\n     - - - - - - - - - - - - - - (shooting line optional)\n\n                  ⊏⊐\n                 GOAL\n\n○ = player  ⚽⚽ = 2-3 balls in play  ⊏⊐ = goal (3-4 paces)",
     howToPlay:
-      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: By the goal\n\nSAY: "This is WORLD CUP - the most famous playground game ever! Everyone plays for themselves. Your goal is to SCORE. When you score, you\'re SAFE and you sit down to watch. Last 2-3 players without a goal? Eliminated!"\n\nSAY: "There\'s ONLY ONE BALL. You can steal it from anyone, dribble, shoot - anything goes! But NO GOALKEEPERS and NO grabbing with hands. Ready?"\n\nPICK COUNTRY NAMES (makes it fun):\nSAY: "Pick a country to be! Who\'s Brazil? Germany? USA? Argentina?"\n\nLet them pick countries quickly.\n\n\nPHASE 2: ROUND 1 (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Find a spot, spread out! Ready... WORLD CUP!"\n\nDrop ball in center, step back.\n\nCoach Position: Near goal but out of play\n\nDURING PLAY:\n□ When someone scores: "GOAL! [Country name] is safe! Sit down!"\n□ Ball out of bounds: Throw in new ball quickly (keep one ready)\n□ Players bunching: "Spread out! Find space!"\n□ No one shooting: "Have a go! Take your shot!"\n\nWhen 2-3 players left without goals:\nSAY: "FREEZE! These players are eliminated this round. But don\'t worry - everyone plays again!"\n\n\nPHASE 3: QUICK DEBRIEF (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Who scored first? What did you do differently than others?"\n\nListen for: "Found space," "Got to loose ball," "Took my chance"\n\nSAY: "Let\'s go again! Maybe change your strategy this time!"\n\n\nPHASE 4: ROUND 2 (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOPTIONAL VARIATION - Choose one:\n• "Weak foot goals count DOUBLE"\n• "Must beat someone 1v1 before shooting"\n• "Goal only counts from inside shooting line"\n\nSAY: "Same game, new round! Everyone back in - even eliminated players! Different country this time? GO!"\n\nRun same format.\n\n\nPHASE 5: ROUND 3 - CHAMPIONSHIP (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "CHAMPIONSHIP ROUND! This time, once you\'re eliminated, you\'re out for real. Last player standing is WORLD CUP CHAMPION!"\n\nIncrease intensity with your voice and energy.\n\nCrown a champion at end!\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Amazing World Cup! What did you learn works?"\n\nListen for: "Get to the ball first," "Find space," "Take your shot when you can"\n\nSAY: "Those are the exact skills you need in real games! Great work everyone! Water break!"',
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: By the goal\n\nSAY: "This is WORLD CUP - the most famous playground game ever! Everyone plays for themselves. Your goal is to SCORE. Every goal is a point - and when you score, do 5 quick toe taps and jump RIGHT BACK IN. Nobody sits out!"\n\nSAY: "There are SEVERAL BALLS in play so everyone stays busy. You can steal a loose ball from anyone, dribble, shoot - anything goes! But NO GOALKEEPERS and NO grabbing with hands. Ready?"\n\nPICK COUNTRY NAMES (makes it fun):\nSAY: "Pick a country to be! Who\'s Brazil? Germany? USA? Argentina?"\n\nLet them pick countries quickly.\n\n\nPHASE 2: ROUND 1 (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Find a spot, spread out! Ready... WORLD CUP!"\n\nDrop 2-3 balls in around the area, step back.\n\nCoach Position: Near goal but out of play\n\nDURING PLAY:\n□ When someone scores: "GOAL! [Country name] - that\'s a point! 5 toe taps, then get back in!"\n□ Ball out of bounds: Throw in new ball quickly (keep spares ready)\n□ Players bunching: "Spread out! Find space!"\n□ No one shooting: "Have a go! Take your shot!"\n\nEnd the round on time, not on elimination:\nSAY: "FREEZE! Let\'s count goals - who scored the most this round?"\n\n\nPHASE 3: QUICK DEBRIEF (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Who scored first? What did you do differently than others?"\n\nListen for: "Found space," "Got to loose ball," "Took my chance"\n\nSAY: "Let\'s go again! Maybe change your strategy this time!"\n\n\nPHASE 4: ROUND 2 (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOPTIONAL VARIATION - Choose one:\n• "Weak foot goals count DOUBLE"\n• "Must beat someone 1v1 before shooting"\n• "Goal only counts from inside shooting line"\n\nSAY: "Same game, new round! Same rule - score, quick toe taps, right back in. Different country this time? GO!"\n\nRun same format.\n\n\nPHASE 5: ROUND 3 - BONUS ROUND (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "BONUS ROUND! Same rules - score, tap, jump back in - but every goal this round is worth DOUBLE points! Let\'s see who finishes on top!"\n\nIncrease intensity with your voice and energy.\n\nAdd up points across all three rounds and crown a WORLD CUP CHAMPION based on total points - everyone played the whole time to get there!\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Amazing World Cup! What did you learn works?"\n\nListen for: "Get to the ball first," "Find space," "Take your shot when you can"\n\nSAY: "Those are the exact skills you need in real games! Great work everyone! Water break!"',
     diagram:
       "            ○    ○    ○    ○    ○\n              ○    ○    ○    ○\n                    ⚽\n\n     - - - - - - - - - - - - - -\n\n                  ⊏⊐\n                 GOAL",
     coachingPoints: [
@@ -1816,7 +1819,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
       {
         name: "Comeback World Cup",
         description:
-          "Eliminated players do 5 juggles then return. No permanent elimination.",
+          "When running the Championship Knockout variation, let knocked-out players do 5 juggles to re-enter. This softens the stakes of the sit-out format so they stay engaged.",
         difficulty: "beginner",
       },
       {
@@ -1828,15 +1831,21 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
       {
         name: "Keeper World Cup",
         description:
-          "Eliminated players become keepers in goal. Makes scoring progressively harder.",
+          "Scorers become keepers in goal for a round instead of sitting out. Makes scoring progressively harder while keeping everyone moving.",
         difficulty: "intermediate",
+      },
+      {
+        name: "Championship Knockout",
+        description:
+          "The classic sit-out-and-eliminate format, for older or highly competitive groups ready for real stakes: ONE ball only, no rejoin after scoring. Score and you're SAFE (sit down to watch); last player(s) without a goal are eliminated for the rest of that round. Crown a true last-player-standing champion. Best for the oldest/most competitive groups this activity is used with, or teams that thrive on stakes - younger or mixed-ability groups should stick with the points-based default so nobody sits out the whole round.",
+        difficulty: "advanced",
       },
     ],
     makeEasier:
-      'SIGNS THEY\'RE STRUGGLING:\n• Same players always eliminated\n• Weaker players never touch ball\n• Frustration/tears from repeated elimination\n• Game dominated by 2-3 strong players\n\nSOLUTIONS:\n• Multiple balls in play\n• Weak foot goals = instant safe\n• 2 goals to spread play out\n• "Comeback" - eliminated do 5 ball taps, return\n• No permanent elimination (everyone plays every round)\n• Pair up weaker with stronger as team',
+      'SIGNS THEY\'RE STRUGGLING:\n• Nobody scoring, frustration building\n• Balls stuck with one crowd\n• Weaker players never getting a touch\n\nSOLUTIONS:\n• Add even more balls (1 per 3-4 players)\n• Bigger goal or a second goal to spread play out\n• Shrink the return task to 2-3 toe taps so players get back in faster\n• Coach feeds an easy rolling ball toward players who haven\'t scored yet\n• Pair up weaker with stronger as a two-person "country"',
     makeHarder:
-      'SIGNS THEY\'RE READY:\n• Players scoring easily\n• Not enough competition for ball\n• Players want more challenge\n• Quick rounds\n\nSOLUTIONS:\n• Must beat someone 1v1 before shooting\n• Weak foot only\n• Must score from shooting line\n• Eliminated become goalkeepers (progressively harder)\n• Smaller goal\n• Add time limit ("Score in 2 minutes or eliminated")',
-    equipmentNeeded: ["1 ball (extras nearby)", "2 cones for goal"],
+      'SIGNS THEY\'RE READY:\n• Everyone scoring easily, game feels too easy\n• Asking for more competition or stakes\n• Quick rounds, want a real winner\n\nSOLUTIONS:\n• Must beat someone 1v1 before shooting\n• Weak foot only\n• Must score from shooting line\n• Smaller goal\n• CHAMPIONSHIP KNOCKOUT (see variations) - for older/competitive groups ready for it: drop to ONE ball, score-and-sit-out, last without a goal is eliminated for the round. Save this for groups where sitting out won\'t sour the fun.',
+    equipmentNeeded: ["2-3 balls in play (extras nearby; 1 ball for the Championship Knockout variation)", "2 cones for goal"],
     spaceRequired: "medium",
     indoorSuitable: false,
     appropriateStages: ["fundamentals", "skill-building"],
@@ -1845,16 +1854,16 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     comprehensiveGuide: {
       quickReference: {
         oneSentence:
-          "All players compete for one ball; score to be safe; last without a goal is eliminated - develops shooting and decision-making.",
+          "All players compete with several balls in play; score a point and jump right back in after a quick task - develops shooting and decision-making while everyone keeps playing.",
         keyPhrases: [
           "Find space - be where the ball goes!",
           "Take your shot when you have it!",
           "Stay calm - your chance will come!",
         ],
         setupDiagram:
-          "One small goal, one ball, all players spread around shooting area",
+          "One small goal, 2-3 balls in play, all players spread around shooting area",
         quickProgression: {
-          easier: "Multiple balls, no permanent elimination, team up players",
+          easier: "Even more balls in play, a shorter rejoin task, team up weaker players",
           harder: "Must beat defender first, weak foot only, smaller goal",
         },
       },
@@ -1864,10 +1873,10 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             "Set up small goal (2 cones, 3-4 paces wide)",
             "Have 2-3 spare balls ready for quick restarts",
             "Consider shooting line for organization",
-            "Think about how to handle elimination fairly",
+            "Think about how to keep the rejoin task quick so nobody waits long",
           ],
           mindset:
-            "This is HIGH ENERGY competition. Your job is to keep it moving fast, restart quickly when ball goes out, and manage emotions around elimination. Celebrate all goals equally. Watch for dominant players and discouraged players.",
+            "This is HIGH ENERGY competition. Your job is to keep it moving fast, restart quickly when ball goes out, and make sure nobody stands around after a miss - the toe-tap-and-rejoin keeps everyone active. Celebrate all goals equally. Watch for dominant players and discouraged players.",
         },
         segments: [
           {
@@ -1875,7 +1884,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             duration: "60 seconds",
             coachPosition: "By the goal",
             script:
-              "Explain: everyone for themselves, score = safe, last players eliminated. Pick country names. 'ONE BALL, NO HANDS, NO KEEPERS!'",
+              "Explain: everyone for themselves, every goal is a point - score, do 5 quick toe taps, jump right back in. Nobody sits out. Pick country names. 'SEVERAL BALLS, NO HANDS, NO KEEPERS!'",
             anticipatedResponses: {
               "What if I never get the ball?":
                 "Find space away from the crowd! The ball always pops out.",
@@ -1885,8 +1894,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
                 "Not this version, but we can try pairs next round!",
             },
             troubleshooting: {
-              "Players don't understand elimination": [
-                "It's okay! Everyone plays every round anyway. If you're out, you play again next round!",
+              "Players don't understand the toe-tap-and-rejoin rule": [
+                "You never sit out in this version! Score, do your 5 taps, jump right back in.",
               ],
               "Arguments about countries": [
                 "Pick fast or I'll pick for you! It's just for fun!",
@@ -1898,7 +1907,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             duration: "3-4 minutes",
             coachPosition: "Near goal, out of play",
             script:
-              "Drop ball in center, step back. Call out 'GOAL! [Country] is safe!' when scores happen. Quick restarts on out balls. End when 2-3 left.",
+              "Drop 2-3 balls in around the area, step back. Call out 'GOAL! [Country] - that's a point! Toe taps, then back in!' when scores happen. Quick restarts on out balls. End on time, then count goals scored.",
             troubleshooting: {
               "Ball constantly out of bounds": [
                 "Have spare ball ready - throw in immediately",
@@ -1923,9 +1932,9 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             duration: "3-4 minutes",
             coachPosition: "Near goal",
             script:
-              "Add variation if desired (weak foot double, 1v1 required, etc.). Everyone plays again, even if eliminated before.",
+              "Add variation if desired (weak foot double, 1v1 required, etc.). Same points-based rule - everyone keeps playing the whole round.",
             troubleshooting: {
-              "Same players eliminated again": [
+              "Same players not scoring again": [
                 "Consider pairing up or adding multiple balls",
               ],
               "Players giving up": [
@@ -1934,11 +1943,11 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             },
           },
           {
-            phase: "Round 3 - Championship",
+            phase: "Round 3 - Bonus Round",
             duration: "3-4 minutes",
             coachPosition: "Near goal, high energy",
             script:
-              "Real elimination this round. Build drama with your voice. Crown champion at end. Make it special!",
+              "Same rules - score, tap, jump back in - but every goal this round is worth DOUBLE points. Build drama with your voice. Add up total points across all three rounds and crown a champion at the end!",
           },
           {
             phase: "Wrap Up",
@@ -1979,14 +1988,14 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           },
         },
         playerBehavior: {
-          eliminatedUpset: {
+          knockoutVariationUpset: {
             symptoms: [
-              "Crying or angry when eliminated",
+              "Crying or angry when eliminated (Championship Knockout variation only)",
               "Refusing to sit out",
-              "Saying game is unfair",
+              "Saying the game is unfair",
             ],
             approach:
-              "Private word: 'I know it's hard. You'll be back in for Round 2! Watch the others and learn their tricks.' Always bring eliminated back quickly.",
+              "This only comes up if you're running the Championship Knockout variation - the default points-based format has no sit-out. If it happens: private word: 'I know it's hard. You'll be back in for Round 2! Watch the others and learn their tricks.' Or switch back to the points-based default for this group.",
           },
           overlyPhysical: {
             symptoms: ["Pushing", "Grabbing", "Playing the player not ball"],
@@ -2026,7 +2035,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             skill: "Shooting",
             domain: "Technical",
             howItDevelops:
-              "Game requires scoring to survive - creates urgency and decision-making around when/how to shoot.",
+              "Game rewards scoring with points and a fast return to play - creates urgency and decision-making around when/how to shoot.",
             levelIndicators: {
               1: "Rarely shoots; shots miss goal entirely",
               2: "Shoots when obvious opportunity; inconsistent accuracy",
@@ -2081,13 +2090,13 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         },
         psychologicalDevelopment: {
           competitiveness: "Desire to win in individual competition",
-          resilience: "Bouncing back from elimination",
+          resilience: "Bouncing back after a scoreless stretch",
           decisionMaking: "Constant choices under pressure",
         },
       },
       developmentalContext: {
         whyThisActivity:
-          "World Cup replicates game chaos in concentrated form. Players must find space, win balls, make decisions, and finish - all under time pressure with consequences. The elimination element adds urgency that transfers to game situations. Plus, kids LOVE it.",
+          "World Cup replicates game chaos in concentrated form. Players must find space, win balls, make decisions, and finish - all under time pressure with consequences. The points-based scoring adds urgency that transfers to game situations without anyone sitting out; the optional Championship Knockout variation raises the stakes further for groups ready for real elimination. Plus, kids LOVE it.",
         whenToUseIt: {
           idealFor: [
             "End of practice (high engagement reward)",
@@ -2099,7 +2108,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             "Beginning of practice (too intense)",
             "After losses or emotional sessions",
             "Very uneven skill levels (frustration for weaker)",
-            "Very young players who can't handle elimination",
+            "Championship Knockout variation with very young players who can't handle real elimination - stick to the points-based default instead",
           ],
         },
         progressionPath: {
@@ -2126,17 +2135,17 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         },
         ageAdaptations: {
           ages6to8: {
-            approach: "Maximum fun, minimize elimination stress",
+            approach: "Maximum fun, everyone stays moving",
             keyPhrases: [
               "Have a go!",
               "Great try!",
-              "You'll get it next round!",
+              "Score and jump right back in!",
             ],
             avoidSaying: ["You're out!", "That was a bad shot"],
             duration: "8-10 minutes maximum",
             simplifications: [
-              "No permanent elimination",
-              "Multiple balls",
+              "Extra balls so nobody waits long for a touch",
+              "Shorten the rejoin task to 2-3 toe taps",
               "Big goals",
               "All praised",
             ],
@@ -2149,7 +2158,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
               "Clinical finish!",
             ],
             challenges: [
-              "Real elimination for final round",
+              "Bonus round worth double points",
               "Weak foot challenge",
               "Smaller goals",
             ],
@@ -2166,6 +2175,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
               "1v1 before shooting",
               "Time limits",
               "Keeper in goal",
+              "Championship Knockout variation for real stakes",
             ],
             coachRole: "Referee role; let players manage their game",
           },
@@ -2176,14 +2186,14 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           "Only good players benefit":
             "Adjust rules so all can succeed - weak foot requirements, multiple balls, pairing up.",
           "Elimination is too harsh":
-            "Make it temporary or remove for young ages. The urgency still works even without real elimination.",
+            "The default format already has no elimination - score, tap, rejoin. The urgency still works without real elimination; save Championship Knockout for older or highly competitive groups who want the stakes.",
         },
       },
       parentCommunication: {
         ifAsked:
-          "World Cup is a classic soccer game where players compete to score and stay 'alive.' It teaches shooting, finding space, and making quick decisions - all in a fun, game-like environment. We make sure everyone gets chances and no one feels left out.",
+          "World Cup is a classic soccer game where players compete to score the most points while several balls are in play. It teaches shooting, finding space, and making quick decisions - all in a fun, game-like environment. Everyone keeps playing the whole time, so no one feels left out.",
         newsletter:
-          "We played WORLD CUP this week - the famous playground game where everyone competes for one ball! Ask your child about it: What country were they? Did they score? What strategy worked best? This game develops shooting, positioning, and competitive spirit!",
+          "We played WORLD CUP this week - the famous playground game where everyone competes to score the most points! Ask your child about it: What country were they? Did they score? What strategy worked best? This game develops shooting, positioning, and competitive spirit - and everyone kept playing the whole time!",
         whatToWatchFor: [
           "Does your child take shooting chances or hesitate?",
           "Do they find space away from the crowd?",
@@ -2207,7 +2217,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           {
             risk: "Frustration-related incidents",
             prevention:
-              "Quick rounds; bring eliminated back fast; multiple balls",
+              "Quick toe-tap-and-rejoin so nobody waits long; multiple balls in play; save full elimination for the optional Championship Knockout variation",
             response:
               "Private word; break if needed; adjust rules to reduce frustration",
           },
@@ -2216,15 +2226,15 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           skillDifferences:
             "Pair weaker with stronger; weak foot for advanced; multiple balls for equal chances",
           physicalDifferences:
-            "Larger goal; longer shooting range allowed; different elimination criteria",
+            "Larger goal; longer shooting range allowed; adjust the rejoin task instead of elimination criteria",
           emotionalSensitivity:
-            "No permanent elimination for anxious players; comeback rule; pair with supportive player",
+            "Skip the Championship Knockout variation for anxious players; keep the default points-based format; pair with supportive player",
         },
       },
       coachReflection: {
         afterActivity: [
           "Did all players get shooting opportunities?",
-          "Was elimination handled sensitively?",
+          "If using Championship Knockout, was elimination handled sensitively?",
           "Did I keep the game moving with quick restarts?",
           "Was the competitive balance right?",
           "Did players show game intelligence (finding space, timing)?",
@@ -2248,6 +2258,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["passing-short", "support-play", "receiving-first-touch"],
     setupInstructions:
       'EQUIPMENT CHECKLIST\n□ 8-12 balls (1 per pair minimum)\n□ 12 cones (various colors if available)\n□ 4 flat markers for start positions\n□ 4 tall cones/poles for targets (optional)\n\nSPACE: 30x20 paces with two parallel channels\n\nSETUP STEPS\n1. Create two parallel channels, each 25x8 paces\n2. Place start cone at one end of each channel\n3. Place "wall player" cone 10 paces from start\n4. Place "finishing" cone 10 paces past wall player\n5. Set up mannequin/pole as "defender" near wall player\n6. Position spare balls at start cones\n\nDIAGRAM - TOP VIEW\n┌─────────────────────────────────────────┐\n│  START      WALL PLAYER      FINISH     │\n│    ▲            ●               ○       │\n│    A ─────────────────────────────→     │  Channel 1\n│              [D]                        │  (8 paces wide)\n├─────────────────────────────────────────┤\n│    ▲            ●               ○       │\n│    A ─────────────────────────────→     │  Channel 2\n│              [D]                        │  (8 paces wide)\n└─────────────────────────────────────────┘\n        25 paces total\n\n▲=Start cone  ●=Wall player position  ○=Finish  [D]=Defender cone/mannequin\nA=Player with ball path',
     howToPlay:
@@ -2709,7 +2720,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 15,
-    skillsDeveloped: ["1v1-defending"],
+    skillsDeveloped: ["1v1-dribbling-moves", "1v1-defending"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 goal (full-size, mini, or cones)\n□ 8-12 balls at coach position\n□ 8 cones for playing area\n□ 2 different colored pinnies (one per pair)\n□ Optional: second goal for simultaneous games\n\nSPACE: 15x20 paces (narrow encourages 1v1, not running around)\n\nSETUP STEPS\n1. Set up goal at one end\n2. Create playing area 15 wide x 20 long in front of goal\n3. Attacker start position: 20 paces from goal, centered\n4. Defender start position: 10 paces from goal, centered\n5. Coach position: Behind attacker start with balls\n6. Two lines: attackers and defenders\n\nDIAGRAM\n┌──────────────────────────────────────┐\n│                                      │\n│           ┌─────────────┐            │\n│           │    GOAL     │            │\n│           └─────────────┘            │\n│                                      │\n│                 ●                    │  Defender starts here\n│                 D                    │  (10 paces from goal)\n│                                      │\n│                                      │\n│                                      │\n│                 ○                    │  Attacker starts here\n│                 A                    │  (20 paces from goal)\n│                                      │\n│            [COACH + BALLS]           │\n└──────────────────────────────────────┘\n         15 paces wide",
     howToPlay:
@@ -3164,7 +3175,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 5,
     maxPlayers: 20,
     durationMinutes: 12,
-    skillsDeveloped: ["receiving-first-touch"],
+    skillsDeveloped: ["receiving-first-touch", "passing-short", "support-play"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 ball per group\n□ 4 cones per group (different color from other groups)\n□ 1 pinnie per defender\n□ Space for multiple groups (recommended: 3-4 groups)\n\nSPACE: 8x8 paces per group (adjust based on ability)\n\nSETUP STEPS\n1. Create 8x8 pace squares with cones\n2. Four players on corners/edges, one defender in middle\n3. Defender wears pinnie\n4. Groups spaced so balls don't interfere\n5. Spare balls nearby for quick restarts\n\nDIAGRAM\n┌─────────────────────────────────────────────────────┐\n│                                                     │\n│    ▲──────────▲         ▲──────────▲               │\n│    │    ●     │         │    ●     │               │\n│    │  ○   ○   │         │  ○   ○   │               │  Two groups\n│    │    ○     │         │    ○     │               │  shown\n│    ▲──────────▲         ▲──────────▲               │\n│       8x8                  8x8                      │\n│       paces                paces                    │\n│                                                     │\n└─────────────────────────────────────────────────────┘\n\n▲=cone  ○=possession player  ●=defender (pinnie)",
     howToPlay:
@@ -3637,6 +3648,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 14,
     durationMinutes: 20,
+    skillsDeveloped: ["support-play", "when-to-dribble-vs-pass", "finding-space"],
     setupInstructions:
       'EQUIPMENT CHECKLIST\n□ 2 goals (mini goals 4-5 feet work best, or cones)\n□ 8 cones for boundaries\n□ 2 sets of pinnies (different colors)\n□ 4-6 balls (for quick restart)\n□ Optional: 2 different colored cones to mark special zones\n\nSPACE: 40x30 paces (length x width)\n\nSETUP STEPS\n1. Place goals at each end of 40x30 area\n2. Mark boundaries with corner cones\n3. Split into two teams of 5 (or 5v5 + subs)\n4. Give pinnies to one team\n5. Place balls behind each goal for quick restarts\n6. Optional: Mark "end zones" if using that variation\n\nDIAGRAM\n┌────────────────────────────────────────────────────┐\n│    ┌───┐                               ┌───┐      │\n│    │ G │                               │ G │      │\n│    └───┘                               └───┘      │\n│ ▲                                             ▲   │\n│                                                   │\n│                                                   │\n│                    40 paces                       │\n│                                                   │\n│                                                   │\n│                                                   │\n│ ▲                                             ▲   │\n└────────────────────────────────────────────────────┘\n              30 paces\n\n▲=corner cones  G=goal  (4-5 feet wide)\n5v5 in this space, or 6v6 if numbers allow',
     howToPlay:
@@ -4115,6 +4127,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["passing-short", "support-play", "receiving-first-touch"],
     setupInstructions:
       "Set up pairs of cones 10-12 yards apart. Groups of 3 work together.",
     howToPlay:
@@ -4166,6 +4179,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 18,
     durationMinutes: 12,
+    skillsDeveloped: ["receiving-first-touch", "ball-control"],
     setupInstructions:
       "Create a 10x10 yard box. Groups of 3: passer, receiver, defender.",
     howToPlay:
@@ -4217,6 +4231,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 20,
     durationMinutes: 15,
+    skillsDeveloped: ["1v1-dribbling-moves", "turning-with-ball"],
     setupInstructions:
       "Set up 4-5 stations with cones. Each station practices a different move.",
     howToPlay:
@@ -4268,6 +4283,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 12,
     durationMinutes: 15,
+    skillsDeveloped: ["support-play", "finding-space"],
     setupInstructions:
       "Create a 30x25 yard field with small goals (pugg goals) at each end. No goalkeepers.",
     howToPlay:
@@ -4319,6 +4335,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 12,
     durationMinutes: 10,
+    skillsDeveloped: ["passing-short", "creating-passing-angles", "support-play"],
     setupInstructions:
       "Create 8x8 yard squares. Groups of 4 players, 3 on outside, 1 in middle.",
     howToPlay:
@@ -4370,6 +4387,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 16,
     durationMinutes: 15,
+    skillsDeveloped: ["when-to-dribble-vs-pass", "finding-space", "support-play"],
     setupInstructions:
       "Create a 35x25 yard field with 5-yard end zones at each end. Two equal teams.",
     howToPlay:
@@ -4421,6 +4439,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: ["ball-control", "agility-change-of-direction"],
     setupInstructions:
       "Use a 25x25 yard grid. Everyone has a ball. Select 2-3 taggers who wear pinnies.",
     howToPlay:
@@ -4463,6 +4482,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 6,
+    skillsDeveloped: ["passing-short", "receiving-first-touch"],
     setupInstructions: "Partners stand 10-15 yards apart. One ball per pair.",
     howToPlay:
       "1. Pass back and forth, focusing on technique\n2. Receive with inside of foot, pass with inside\n3. Two touches: one to control, one to pass\n4. Switch to different passes: outside of foot, driven pass",
@@ -4496,17 +4516,18 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "world-cup-game",
     name: "World Cup",
-    description: "Classic knockout shooting game that kids love",
+    description: "Fast-paced shooting game that kids love, where everyone competes to score the most goals",
     sport: "soccer",
     activityType: "fun",
     difficulty: "beginner",
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["shooting", "ball-control"],
     setupInstructions:
-      "One goal with goalkeeper. All other players start at the top of the box.",
+      "One goal with goalkeeper. All other players start at the top of the box. Rotate the goalkeeper each round so nobody is locked out of open play.",
     howToPlay:
-      "1. Coach serves balls randomly into the box\n2. Everyone is for themselves - score in the goal\n3. First to score 3 goals wins\n4. If goalkeeper saves and shouts your name, you're eliminated\n5. Can steal ball from anyone",
+      "1. Coach serves balls randomly into the box - keep 2-3 balls going at once\n2. Everyone is for themselves - score in the goal\n3. Each goal is worth 1 point - keep your own running count\n4. If the goalkeeper saves your shot, do 3 quick toe taps and jump right back into the action - nobody sits out\n5. Can steal a loose ball from anyone\n6. When time's up, whoever has the most goals wins that round",
     coachingPoints: [
       "Be first to the ball",
       "Shoot when you have a chance",
@@ -4529,9 +4550,16 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         description: "Coach throws balls for headers only",
         difficulty: "intermediate",
       },
+      {
+        name: "Championship Knockout",
+        description:
+          "The classic elimination format, for older or highly competitive groups: if the goalkeeper saves your shot and calls your name, you're out for the rest of the round - sit and watch until the next round starts. Last player(s) without a goal lose. Higher stakes but less playing time, so save it for groups ready for that trade-off.",
+        difficulty: "advanced",
+      },
     ],
     makeEasier: "More balls in play",
-    makeHarder: "Fewer balls, smaller goal",
+    makeHarder:
+      "Fewer balls, smaller goal. For older/competitive groups ready for real stakes, try Championship Knockout (see variations) for a true elimination format.",
     equipmentNeeded: ["Goal", "Many balls"],
     spaceRequired: "medium",
     indoorSuitable: false,
@@ -4542,17 +4570,18 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "musical-balls",
     name: "Musical Balls",
-    description: "Soccer version of musical chairs - when music stops, find a ball!",
+    description: "Soccer version of musical chairs - when music stops, find a ball and show a skill! Everyone keeps playing every round.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
     minPlayers: 8,
     maxPlayers: 24,
     durationMinutes: 7,
+    skillsDeveloped: ["agility-coordination", "ball-mastery-toe-taps"],
     setupInstructions:
       "Scatter balls in a 25x25 grid - one fewer ball than players.",
     howToPlay:
-      "1. Players jog/skip around the grid while music plays\n2. When music stops, find a ball and perform a move (toe taps)\n3. Player without a ball does 5 jumping jacks\n4. Remove one ball each round until final two players",
+      "1. Players jog/skip around the grid while music plays\n2. When music stops, find a ball and perform a move (10 toe taps)\n3. Player without a ball does 5 jumping jacks, then jogs right back in for the next round - nobody sits out\n4. Keep the same number of balls (one fewer than players) every round so the challenge stays constant instead of eliminating players\n5. Track how many times you end up without a ball as your own personal best to try to beat next time",
     coachingPoints: [
       "Stay light on your feet",
       "Be aware of space around you",
@@ -4569,9 +4598,16 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         description: "Must complete 10 toe taps to 'claim' the ball",
         difficulty: "intermediate",
       },
+      {
+        name: "Knockout Musical Balls",
+        description:
+          "The classic elimination format, for highly competitive groups only - note this activity is fundamentals-tagged, so prefer the default format for most groups: remove one ball each round; the player(s) left without a ball are out until only two players remain. Higher stakes but a lot of sitting out for younger or mixed-ability groups.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Fewer balls removed each round",
-    makeHarder: "More balls removed, smaller grid",
+    makeEasier: "More balls in the grid so misses are rare",
+    makeHarder:
+      "Smaller grid, faster music changes. For highly competitive groups only (this activity is fundamentals-tagged - prefer the default format for most groups), try Knockout Musical Balls (see variations) for classic progressive elimination.",
     equipmentNeeded: ["Balls (one fewer than players)", "Music speaker"],
     spaceRequired: "medium",
     indoorSuitable: true,
@@ -4589,6 +4625,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 20,
     durationMinutes: 6,
+    skillsDeveloped: ["dribbling", "agility-coordination"],
     setupInstructions:
       "Open space, each player has a ball. Coach leads from the front.",
     howToPlay:
@@ -4629,6 +4666,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 6,
+    skillsDeveloped: ["dribbling", "ball-control"],
     setupInstructions:
       "Set up 15-20 cones randomly in a 30x30 grid. Each player has a ball.",
     howToPlay:
@@ -4669,6 +4707,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 7,
+    skillsDeveloped: ["dribbling", "agility-coordination"],
     setupInstructions:
       "30x30 grid, each player has a ball. Review number commands first.",
     howToPlay:
@@ -4714,6 +4753,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 20,
     durationMinutes: 8,
+    skillsDeveloped: ["agility-coordination", "dribbling"],
     setupInstructions:
       "Partners 3-4 yards apart, each with a ball, facing each other.",
     howToPlay:
@@ -4759,6 +4799,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: ["passing-short"],
     setupInstructions:
       "Set up 5-6 cone gates of varying widths at 10-20 yards distance.",
     howToPlay:
@@ -4808,6 +4849,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: ["receiving-first-touch"],
     setupInstructions:
       "Create 3x3 yard boxes. One receiver in box, partners around perimeter.",
     howToPlay:
@@ -4854,6 +4896,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["turning-with-ball", "receiving-first-touch"],
     setupInstructions:
       "Line of servers with balls, receivers 15 yards away, goal behind receivers.",
     howToPlay:
@@ -4905,6 +4948,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: ["heading-defensive"],
     setupInstructions:
       "Partners facing each other, 5 yards apart. Use appropriate size ball.",
     howToPlay:
@@ -4951,6 +4995,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 10,
+    skillsDeveloped: ["ball-control"],
     setupInstructions: "Each player with a ball, spread out in space.",
     howToPlay:
       "Challenge progression:\n1. Drop and catch (one bounce between)\n2. Two touches then catch\n3. Thigh, foot, catch\n4. Non-stop foot juggles (count personal best)\n5. Alternating feet only",
@@ -4996,6 +5041,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 14,
     durationMinutes: 15,
+    skillsDeveloped: ["shooting", "finding-space"],
     setupInstructions:
       "Wide players on each side, finishers in central areas, goalkeeper in goal.",
     howToPlay:
@@ -5047,6 +5093,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["long-passing"],
     setupInstructions:
       "Create a 40x40 yard grid divided into four 20x20 sections. Groups in opposite corners.",
     howToPlay:
@@ -5097,6 +5144,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 16,
     durationMinutes: 15,
+    skillsDeveloped: ["shooting"],
     setupInstructions:
       "Set up 4 stations around a goal area. Groups rotate through stations.",
     howToPlay:
@@ -5148,6 +5196,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 24,
     durationMinutes: 10,
+    skillsDeveloped: ["dribbling-with-speed", "agility-coordination"],
     setupInstructions:
       "Two or more teams. Set up cone course - zigzag, straight line, or combination.",
     howToPlay:
@@ -5194,6 +5243,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 9,
     maxPlayers: 18,
     durationMinutes: 15,
+    skillsDeveloped: ["support-play", "passing-short"],
     setupInstructions:
       "Set up three stations with cones showing passing patterns. Groups of 3-4 at each.",
     howToPlay:
@@ -5244,6 +5294,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 7,
     maxPlayers: 14,
     durationMinutes: 12,
+    skillsDeveloped: ["passing-short", "creating-passing-angles", "support-play"],
     setupInstructions:
       "Create 12x12 yard box. 5 players on outside/inside, 2 defenders in middle.",
     howToPlay:
@@ -5295,6 +5346,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 14,
     durationMinutes: 15,
+    skillsDeveloped: ["positional-awareness", "creating-passing-angles"],
     setupInstructions:
       "Set up shape matching team formation (e.g., 4-3-3). Defenders in zones they would occupy.",
     howToPlay:
@@ -5346,6 +5398,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["1v1-defending", "teamwork"],
     setupInstructions:
       "Create 20x15 yard box with goal at one end. 2 attackers vs 2 defenders.",
     howToPlay:
@@ -5397,6 +5450,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 12,
     maxPlayers: 18,
     durationMinutes: 15,
+    skillsDeveloped: ["support-play", "speed"],
     setupInstructions:
       "30x40 yard field with goals at each end. Two teams of 5-6.",
     howToPlay:
@@ -5448,6 +5502,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 12,
     maxPlayers: 18,
     durationMinutes: 15,
+    skillsDeveloped: ["finding-space", "passing-short"],
     setupInstructions:
       "Divide field into thirds. Each team has players who must stay in their zone.",
     howToPlay:
@@ -5499,6 +5554,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 12,
     maxPlayers: 18,
     durationMinutes: 15,
+    skillsDeveloped: ["speed", "finding-space"],
     setupInstructions:
       "Large field (50x35 yards) with full goals. Two teams of 5-6 plus goalkeepers.",
     howToPlay:
@@ -5550,6 +5606,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 12,
     durationMinutes: 12,
+    skillsDeveloped: ["when-to-dribble-vs-pass", "finding-space"],
     setupInstructions:
       "25x20 yard field. No goals - score by stopping ball on opponent's end line.",
     howToPlay:
@@ -5601,6 +5658,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 12,
     durationMinutes: 12,
+    skillsDeveloped: ["support-play", "1v1-dribbling-moves"],
     setupInstructions:
       "20x15 yard field with mini goals (pugg or cones) at each end. Pairs compete.",
     howToPlay:
@@ -5652,6 +5710,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 12,
     maxPlayers: 14,
     durationMinutes: 20,
+    skillsDeveloped: ["positional-awareness", "finding-space"],
     setupInstructions:
       "Half of full field (55x40 yards). Full goal at one end, two mini goals at the other.",
     howToPlay:
@@ -5703,6 +5762,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: ["ball-control", "agility-coordination"],
     setupInstructions:
       "Create a circle (15-20 yards diameter). All players with a ball inside.",
     howToPlay:
@@ -5754,6 +5814,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 14,
     durationMinutes: 15,
+    skillsDeveloped: ["finding-space", "passing-short"],
     setupInstructions:
       "35x25 yard field. Each team has 3 small goals to defend (spread across end line).",
     howToPlay:
@@ -5805,6 +5866,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 10,
+    skillsDeveloped: ["dribbling-with-speed", "speed"],
     setupInstructions:
       "Set up start line and finish line 30-40 yards apart. Each player has a ball.",
     howToPlay:
@@ -5851,6 +5913,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 12,
+    skillsDeveloped: ["speed"],
     setupInstructions: "Full field available, or marked 60-yard course.",
     howToPlay:
       "1. Start on penalty box line\n2. Sprint to opposite penalty box line\n3. Jog back\n4. Immediately sprint again\n5. Repeat 6-10 times with 60-second rest between sets",
@@ -5899,6 +5962,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 12,
     durationMinutes: 12,
+    skillsDeveloped: ["ball-control", "agility-coordination"],
     setupInstructions:
       "Court area 15x30 feet, divided in half. Net (or cones/rope) at waist height.",
     howToPlay:
@@ -5949,6 +6013,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 12,
     maxPlayers: 18,
     durationMinutes: 12,
+    skillsDeveloped: ["1v1-defending", "speed"],
     setupInstructions:
       "30x25 yard grid. Two teams, one possessing, one pressing.",
     howToPlay:
@@ -5996,6 +6061,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: ["shooting"],
     setupInstructions:
       "Set up 10 cones in bowling pin formation. Teams line up 15 yards away.",
     howToPlay:
@@ -6038,6 +6104,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 24,
     durationMinutes: 12,
+    skillsDeveloped: ["1v1-dribbling-moves", "finding-space"],
     setupInstructions:
       "30x40 yard field. Dribblers on one end line, 2-4 defenders in middle zone.",
     howToPlay:
@@ -6088,6 +6155,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 16,
     durationMinutes: 15,
+    skillsDeveloped: ["finding-space", "positional-awareness"],
     setupInstructions: "40x40 yard square. Small goal at each side. Two teams.",
     howToPlay:
       "1. Each team can score in any of the four goals\n2. After scoring, other team gets ball\n3. Emphasizes vision, switching play, and chaos\n4. Most goals in 10 minutes wins",
@@ -6138,6 +6206,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: ["teamwork"],
     setupInstructions:
       "Partners find space. One ball per pair (optional for some stretches).",
     howToPlay:
@@ -6183,6 +6252,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 6,
+    skillsDeveloped: ["ball-control", "teamwork"],
     setupInstructions:
       "Team forms a circle, standing close together. One ball per group.",
     howToPlay:
