@@ -119,12 +119,7 @@ For young players, this means exposure to game situations is crucial. The brain 
 
 **The 10-Year Rule**: Research across domains suggests it takes approximately 10 years of deliberate practice to develop expert-level pattern recognition. There are no shortcuts, but the quality of practice matters enormously.
 
-**Pattern Categories in Basketball**:
-- Pick-and-roll coverages and counters
-- Help defense rotations
-- Transition opportunities
-- Closeout situations
-- Post entry and double-team reactions`,
+**Pattern Categories in Basketball**: pick-and-roll coverages and counters, help defense rotations, transition opportunities, closeout situations, and post entry and double-team reactions.`,
         keyResearch: {
           finding:
             'Skilled basketball players can recall and reconstruct meaningful game positions with high accuracy, but show no advantage over novices when positions are random. This confirms that expertise relies on recognizing meaningful patterns, not general visual memory.',
@@ -465,18 +460,9 @@ Young players typically play at one speed—usually fast. Teaching them to vary 
         title: 'Team Concepts and Systems',
         content: `While principles apply across situations, players must also understand how they fit within team offensive and defensive systems. This systems thinking is the highest level of basketball IQ.
 
-**Offensive Principles**:
-- Penetration: Can we get into the paint?
-- Ball Movement: Is the ball moving to create advantages?
-- Player Movement: Are players cutting, screening, relocating?
-- Spacing: Are we maintaining proper floor balance?
-- Decision Making: Are we taking good shots?
+**Offensive Principles**: penetration (can we get into the paint?), ball movement (is the ball moving to create advantages?), player movement (are players cutting, screening, relocating?), spacing (are we maintaining proper floor balance?), and decision making (are we taking good shots?).
 
-**Defensive Principles**:
-- Pressure: Is someone contesting the ball?
-- Help and Recover: Are we protecting the paint while recovering?
-- Communication: Are we calling out screens and switches?
-- Rebounding: Are we blocking out and securing possessions?
+**Defensive Principles**: pressure (is someone contesting the ball?), help and recover (are we protecting the paint while recovering?), communication (are we calling out screens and switches?), and rebounding (are we blocking out and securing possessions?).
 
 **Understanding Roles**: Every player has a role within the team concept. High-IQ players understand not just their role, but how their role connects to teammates' roles. This allows them to anticipate and support.
 
@@ -862,22 +848,11 @@ Players who understand these principles can adapt to any system. They don't need
         title: 'Using Video Effectively',
         content: `Watching basketball—whether professional games or their own film—can accelerate game intelligence development when done correctly.
 
-**The Benefits**:
-- Pattern recognition development through exposure to thousands of situations
-- Opportunity to slow down and analyze decisions
-- Connection between watching and doing
-- Shared experience for conversation
+**The Benefits**: pattern recognition development through exposure to thousands of situations, the opportunity to slow down and analyze decisions, a connection between watching and doing, and a shared experience for conversation.
 
-**The Risks**:
-- Passive watching without engagement doesn't transfer
-- Too much analysis removes joy
-- Overwhelming young players with complexity
-- Creating unrealistic expectations
+**The Risks**: passive watching without engagement doesn't transfer, too much analysis removes joy, overwhelming young players with complexity, and creating unrealistic expectations.
 
-**Guidelines by Age**:
-- Ages 7-9: Watch together, ask simple questions ("Where did the pass go?"), keep it fun
-- Ages 10-12: Begin pausing and discussing, introduce their own game film, focus on specific concepts
-- Ages 13+: They can lead discussions, analyze opponents, develop self-scouting habits`,
+**Guidelines by Age**: ages 7-9—watch together, ask simple questions ("Where did the pass go?"), keep it fun. Ages 10-12—begin pausing and discussing, introduce their own game film, focus on specific concepts. Ages 13+—they can lead discussions, analyze opponents, develop self-scouting habits.`,
         keyResearch: {
           finding:
             'Video study that includes reflection and discussion showed positive transfer to real-world decision-making, while passive viewing without engagement did not. The key is active participation.',

@@ -1,0 +1,327 @@
+/* KDP interior stylesheet — paged.js drives pagination.
+ * Trim: 6in x 9in. Mirrored margins (inside/outside) for a bound book.
+ * This file is consumed only by pages under src/pages/books/**; minibooks
+ * keep their own native-print stylesheet (print-guide.css / minibook.css).
+ */
+
+@page {
+  size: 6in 9in;
+  margin: 0.75in 0.5in; /* top/bottom, outside (fallback for un-sided pages) */
+  @bottom-center {
+    content: counter(page);
+    font-size: 9pt;
+    color: #444;
+  }
+}
+
+/* Left (verso) pages: binding edge is on the right, so the wider margin
+ * goes there; running head shows the book title. */
+@page :left {
+  margin-left: 0.5in;
+  margin-right: 0.75in;
+  @top-left {
+    content: string(booktitle);
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #666;
+  }
+}
+
+/* Right (recto) pages: binding edge is on the left; running head shows the
+ * current chapter title. */
+@page :right {
+  margin-left: 0.75in;
+  margin-right: 0.5in;
+  @top-right {
+    content: string(chaptertitle);
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+    color: #666;
+  }
+}
+
+/* Cover / front-matter pages: no running heads, no page number. */
+@page cover {
+  margin: 0;
+  @bottom-center {
+    content: none;
+  }
+  @top-left {
+    content: none;
+  }
+  @top-right {
+    content: none;
+  }
+}
+
+.book-title {
+  string-set: booktitle content(text);
+}
+
+.chapter-title {
+  string-set: chaptertitle content(text);
+  /* Page-break-to-right is applied at the enclosing `section.chapter` level
+   * (below) instead of here — applying `break-before: right` on both the
+   * section AND its heading forces two consecutive right-page jumps
+   * (an empty right page, then the real content two pages later). */
+}
+
+.book-cover {
+  page: cover;
+}
+
+h2,
+h3 {
+  break-after: avoid;
+}
+
+.activity-card,
+.skill-block,
+.session-segment {
+  break-inside: avoid;
+}
+
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: #111;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Book-specific layout — front matter, chapters, TOC, back matter        */
+/* ---------------------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+}
+
+.book-cover {
+  min-height: 9in;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: #0f2d1f;
+  color: #f7f3e9;
+  padding: 1in 0.75in;
+}
+
+.book-cover-kicker {
+  font-size: 10pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #c9a24b;
+  margin-bottom: 0.4in;
+}
+
+.book-cover .book-title {
+  font-size: 30pt;
+  line-height: 1.15;
+  margin: 0 0 0.2in;
+}
+
+.book-cover-subtitle {
+  font-size: 13pt;
+  color: #e5ddc8;
+  margin-bottom: 0.5in;
+}
+
+.book-cover-author {
+  font-size: 10.5pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c9a24b;
+}
+
+.copyright-page {
+  break-before: page;
+  padding-top: 1.5in;
+  font-size: 8.5pt;
+  color: #333;
+  line-height: 1.6;
+}
+
+.copyright-page p {
+  margin: 0 0 0.75em;
+}
+
+.toc-page {
+  break-before: page;
+}
+
+.toc-page h1 {
+  margin-bottom: 0.4in;
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25em;
+  margin-bottom: 0.6em;
+  font-size: 11pt;
+}
+
+.toc-list a {
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.toc-dots {
+  flex: 1;
+  border-bottom: 1px dotted #999;
+  margin: 0 0.35em;
+  transform: translateY(-0.2em);
+}
+
+/* paged.js resolves the real page number here once pagination completes */
+.toc-list a::after {
+  content: target-counter(attr(href), page);
+}
+
+section.chapter {
+  break-before: right;
+}
+
+.chapter-kicker {
+  font-size: 9pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #7a6a3f;
+  margin-bottom: 0.15in;
+}
+
+.chapter-title {
+  font-size: 20pt;
+  margin: 0 0 0.35in;
+}
+
+.chapter-intro {
+  font-style: italic;
+  color: #333;
+  margin-bottom: 0.3in;
+}
+
+.domain-block,
+.skill-block,
+.activity-card,
+.session-plan,
+.session-segment {
+  margin-bottom: 0.3in;
+}
+
+.skill-block h3,
+.activity-card h3,
+.session-plan h3 {
+  font-size: 12.5pt;
+  margin-bottom: 0.05in;
+}
+
+.skill-meta,
+.activity-meta {
+  font-size: 8.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin-bottom: 0.1in;
+}
+
+.progression-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  margin: 0.1in 0 0.15in;
+}
+
+.progression-table td {
+  border-top: 1px solid #ddd;
+  padding: 0.06in 0.08in;
+  vertical-align: top;
+}
+
+.progression-table td.level-num {
+  width: 0.3in;
+  font-weight: bold;
+  color: #7a6a3f;
+}
+
+.coaching-tips,
+.common-mistakes {
+  font-size: 9.5pt;
+  margin: 0.1in 0;
+}
+
+.coaching-tips h4,
+.common-mistakes h4 {
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin-bottom: 0.05in;
+}
+
+.coaching-tips ul,
+.common-mistakes ul,
+.activity-card ul {
+  margin: 0;
+  padding-left: 1em;
+}
+
+.make-easier-harder {
+  font-size: 9.5pt;
+  margin: 0.1in 0;
+}
+
+.make-easier-harder h4 {
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin-bottom: 0.05in;
+}
+
+.make-easier-harder p.mini-label {
+  font-weight: bold;
+  margin: 0.08in 0 0.02in;
+}
+
+.make-easier-harder ul {
+  margin: 0 0 0.08in;
+  padding-left: 1em;
+}
+
+.session-plan-structure {
+  border-left: 2px solid #c9a24b;
+  padding-left: 0.15in;
+}
+
+.back-matter-index {
+  columns: 2;
+  column-gap: 0.4in;
+  font-size: 9pt;
+}
+
+.back-matter-index li {
+  break-inside: avoid;
+  margin-bottom: 0.05in;
+}
+
+.back-matter-index a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* paged.js resolves the real page number here once pagination completes */
+.back-matter-index a::after {
+  content: ", " target-counter(attr(href), page);
+  color: #666;
+}

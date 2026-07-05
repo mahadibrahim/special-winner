@@ -75,11 +75,7 @@ Here's what's fascinating: the brain doesn't distinguish between "practice" and 
         title: "The Constraints-Led Approach",
         content: `Traditional coaching says: "Do it this way." Modern motor learning research says: "Solve this problem."
 
-The Constraints-Led Approach (CLA), developed by researchers like Keith Davids, suggests that skills emerge naturally when we manipulate three things:
-
-1. **Task constraints** - The rules or goals of the activity
-2. **Environmental constraints** - The space, equipment, or conditions
-3. **Individual constraints** - The player's current abilities and characteristics
+The Constraints-Led Approach (CLA), developed by researchers like Keith Davids, suggests that skills emerge naturally when we manipulate three things: **task constraints** (the rules or goals of the activity), **environmental constraints** (the space, equipment, or conditions), and **individual constraints** (the player's current abilities and characteristics).
 
 Instead of telling a child exactly how to dribble, we create situations where effective dribbling naturally emerges as the solution.`,
 
@@ -215,16 +211,9 @@ The environment adults create—through their reactions to mistakes—shapes whi
 
       {
         title: "Building Confidence Through Competence",
-        content: `Real confidence isn't built through praise—it's built through mastery experiences. Self-Determination Theory (Deci & Ryan) identifies three psychological needs:
+        content: `Real confidence isn't built through praise—it's built through mastery experiences. Self-Determination Theory (Deci & Ryan) identifies three psychological needs: **autonomy** (feeling in control of your choices), **competence** (feeling capable and effective), and **relatedness** (feeling connected to others).
 
-1. **Autonomy** - Feeling in control of your choices
-2. **Competence** - Feeling capable and effective
-3. **Relatedness** - Feeling connected to others
-
-For dribbling confidence, this means:
-- Let them choose what moves to practice (autonomy)
-- Ensure they experience success at their level (competence)
-- Create supportive practice environments (relatedness)`,
+For dribbling confidence, this means letting them choose what moves to practice (autonomy), ensuring they experience success at their level (competence), and creating supportive practice environments (relatedness).`,
 
         keyResearch: {
           citation: "Ryan, R.M., & Deci, E.L. (2000). Self-determination theory and the facilitation of intrinsic motivation, social development, and well-being. American Psychologist, 55(1), 68-78.",
@@ -289,11 +278,7 @@ For dribbling confidence, this means:
         title: "Creativity: The X-Factor",
         content: `The best dribblers aren't just technically proficient—they're creative. They see solutions others don't. Research suggests creativity in sport is developed, not inherited.
 
-Creative players typically share common backgrounds:
-- Diverse movement experiences (multiple sports, unstructured play)
-- Environments that encouraged experimentation
-- Exposure to varied playing styles
-- Freedom to make decisions without fear of punishment`,
+Creative players typically share common backgrounds: diverse movement experiences across multiple sports and unstructured play, environments that encouraged experimentation, exposure to varied playing styles, and freedom to make decisions without fear of punishment.`,
 
         keyResearch: {
           citation: "Santos, S., Memmert, D., Sampaio, J., & Leite, N. (2016). The spawns of creative behavior in team sports. Creativity Research Journal, 28(1), 2-13.",
@@ -321,10 +306,7 @@ Creative players typically share common backgrounds:
     sections: [
       {
         title: "The Decision Framework",
-        content: `Elite players make better decisions because they see the game differently. Research on expert perception shows they:
-- Fixate on more relevant information
-- Process information more quickly
-- Recognize patterns from experience
+        content: `Elite players make better decisions because they see the game differently. Research on expert perception shows they fixate on more relevant information, process information more quickly, and recognize patterns from experience.
 
 Dribbling decisions happen in milliseconds, but the underlying framework can be learned through guided discovery.`,
 
@@ -389,11 +371,7 @@ For dribbling, this means: the decision to dribble should be made before the bal
 
       {
         title: "Reading the Defender",
-        content: `Effective dribblers read defenders like books. They notice:
-- Body position (which way are they open?)
-- Weight distribution (can they recover quickly?)
-- Distance (how much time do I have?)
-- Eye focus (are they ball-watching?)
+        content: `Effective dribblers read defenders like books. They notice body position (which way are they open?), weight distribution (can they recover quickly?), distance (how much time do I have?), and eye focus (are they ball-watching?).
 
 This isn't mystical "game sense"—it's pattern recognition built through thousands of 1v1 encounters.`,
 
@@ -711,12 +689,7 @@ This isn't mystical "game sense"—it's pattern recognition built through thousa
     sections: [
       {
         title: "The Research on Parent Influence",
-        content: `Studies consistently show that parent behavior affects both performance and enjoyment. Specifically:
-
-- Children whose parents emphasize effort over outcome show greater persistence
-- Criticism during or immediately after games increases anxiety
-- Parental pressure is the #1 reason children cite for dropping out of sport
-- Positive support (not coaching) is associated with continued participation`,
+        content: `Studies consistently show that parent behavior affects both performance and enjoyment. Specifically: children whose parents emphasize effort over outcome show greater persistence; criticism during or immediately after games increases anxiety; parental pressure is the #1 reason children cite for dropping out of sport; and positive support (not coaching) is associated with continued participation.`,
 
         keyResearch: {
           citation: "Fraser-Thomas, J., & Côté, J. (2009). Understanding adolescents' positive and negative developmental experiences in sport. The Sport Psychologist, 23(1), 3-23.",

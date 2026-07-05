@@ -1,0 +1,33 @@
+name: Sync curriculum content to production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/curriculum/content/**'
+      - 'scripts/curriculum-load.ts'
+      - 'src/lib/curriculum/load-helpers.ts'
+      - '.github/workflows/curriculum-sync.yml'
+
+concurrency:
+  group: curriculum-sync
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Load curriculum into production
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALLOW_CURRICULUM_SEED: 'yes'
+          ALLOW_PROD_AUDIT: 'yes'
+        run: |
+          set -o pipefail
+          npx tsx scripts/curriculum-load.ts --org aspire-sports | tee -a "$GITHUB_STEP_SUMMARY"
