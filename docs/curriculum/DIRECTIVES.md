@@ -52,5 +52,32 @@ them. Delete a proposed line to veto it.
       technique, per the stage's own philosophy (defer toward 2027 youth
       launch)
 
-## Proposed (research YYYY-MM-DD)
-<!-- research mode appends here; owner curates -->
+## Proposed (research 2026-07-05)
+
+Brief: `docs/curriculum/research/2026-07-05-brief.md` (citations there).
+Delete a line to veto it; unchecked survivors are fair game for refine.
+
+- [ ] Anchor the hockey build-out on ADM/Hockey Canada numbers: station
+      blocks 4-10 min, practice mix ~70% skills / 20% small-area games /
+      10% team play; adapt the researched game concepts (Sharks & Minnows,
+      Clean Your Room, Toy Finder, Corner Tires, 1v1v1 mini nets, Border
+      Tag) with our elimination-free defaults
+- [ ] Anchor baseball fundamentals on USA Baseball LTAD priority order
+      (throw → catch → run → hit), tee/soft-ball equipment notes, and the
+      keep-rules-minimal principle; adapt the researched activity concepts
+      (Defend the Castle, grip→step→throw, two-hand catching, Run the Bases)
+- [ ] Author PH/PS 9-15 content as maturation-anchored (not fixed-age)
+      guidance per the 2021/2022/2025 reviews: pre-PHV = neural/coordination
+      emphasis, through-PHV = keep frequency + add coordination; process
+      goals + preparatory self-talk at 9-12; autonomy-supportive goal
+      ownership at 13-15
+- [ ] Competitive-stage (13-15) copy carries the specialization guardrails:
+      hours/week ≤ age (ceiling 16), ≥1-2 rest days/week, ≥3 months/year
+      off a single sport, delay single-sport specialization to ~13+
+      (AOSSM/AAP/NATA)
+- [ ] Add one coaching principle on relative-age-effect awareness
+      (bio-banding / birthday-banding as mitigation options)
+- [ ] PLATFORM (not content): US Youth Soccer age-group formation moves to
+      an Aug 1–Jul 31 school-year cycle for 2026-27 — audit program
+      age-group logic, registration copy, and curriculum age-band text for
+      birth-year-cutoff assumptions before the 2026-27 registration cycle
