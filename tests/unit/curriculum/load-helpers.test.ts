@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { planUpserts, type ExistingRows, type UpsertPlan } from "@/lib/curriculum/load-helpers";
+import {
+  planUpserts,
+  normalizeActivityForCompare,
+  normalizePrincipleForCompare,
+  normalizePromptForCompare,
+  normalizeResourceForCompare,
+  normalizeSkillForCompare,
+  normalizeTemplateForCompare,
+  type ExistingRows,
+  type UpsertPlan,
+} from "@/lib/curriculum/load-helpers";
 import { CURRICULUM_CONTENT } from "@/lib/curriculum/content";
 import type { SkillContent } from "@/lib/curriculum/content/types";
 
@@ -18,17 +28,27 @@ const EMPTY: ExistingRows = {
  * Converts a plan's output rows back into the ExistingRows shape a
  * subsequent planUpserts() call would read from the database, simulating
  * "the loader just applied this plan and wrote these exact rows".
+ *
+ * Critically, this runs each row through the SAME normalize*ForCompare
+ * function scripts/curriculum-load.ts's write path defaults mirror -- a real
+ * DB round-trip materializes column defaults (e.g. `skills.is_core DEFAULT
+ * false`) for any field the content omitted, so `readExistingRows` never
+ * hands `planUpserts` a row with an absent key. Without this, the
+ * idempotency test below never exercised the code path that produced the
+ * Finding 1 phantom-update bug: it compared raw content rows against raw
+ * content rows, which always matched even when the real loader would have
+ * diffed content-with-omitted-field against DB-with-defaulted-field.
  */
 function simulateApplied(plan: UpsertPlan): ExistingRows {
   return {
     domains: plan.domains.rows,
     stages: plan.stages.rows,
-    skills: plan.skills.rows,
-    activities: plan.activities.rows,
-    templates: plan.templates.rows,
-    prompts: plan.prompts.rows,
-    resources: plan.resources.rows,
-    principles: plan.principles.rows,
+    skills: plan.skills.rows.map(normalizeSkillForCompare),
+    activities: plan.activities.rows.map(normalizeActivityForCompare),
+    templates: plan.templates.rows.map(normalizeTemplateForCompare),
+    prompts: plan.prompts.rows.map(normalizePromptForCompare),
+    resources: plan.resources.rows.map(normalizeResourceForCompare),
+    principles: plan.principles.rows.map(normalizePrincipleForCompare),
   };
 }
 
@@ -82,6 +102,43 @@ describe("planUpserts", () => {
     expect(plan.skills.adds).toBe(0);
     expect(plan.skills.updates).toBe(1);
     expect(plan.skills.unchanged).toBe(CURRICULUM_CONTENT.skills.length - 1);
+  });
+
+  it("regression (Finding 1): a skill omitting assessmentMethod/isCore/sortOrder plans as unchanged, not update, on a second pass", () => {
+    // "passing" is a real registry entry that omits all three optional
+    // fields -- this is the exact case the reviewer confirmed live on
+    // staging (8 soccer + 7 basketball skills reporting phantom updates on
+    // every re-run). If content authoring ever starts specifying these
+    // fields explicitly for "passing", swap in another skill that omits
+    // them rather than deleting this test.
+    const passing = CURRICULUM_CONTENT.skills.find(
+      (s) => s.sport === "soccer" && s.slug === "passing",
+    );
+    if (!passing) {
+      throw new Error('fixture drifted: expected soccer skill "passing" to exist');
+    }
+    expect(passing.assessmentMethod).toBeUndefined();
+    expect(passing.isCore).toBeUndefined();
+    expect(passing.sortOrder).toBeUndefined();
+
+    const content = {
+      ...CURRICULUM_CONTENT,
+      skills: [passing],
+      activities: [],
+      sessionPlans: [],
+    };
+
+    const first = planUpserts(content, EMPTY);
+    expect(first.skills.adds).toBe(1);
+
+    // Simulate the loader writing this row, the DB materializing
+    // assessment_method/is_core/sort_order's column defaults, and a second
+    // invocation reading it back via readExistingRows.
+    const asExisting = simulateApplied(first);
+    const second = planUpserts(content, asExisting);
+    expect(second.skills.adds).toBe(0);
+    expect(second.skills.updates).toBe(0);
+    expect(second.skills.unchanged).toBe(1);
   });
 
   it("scopes skill/activity/template natural keys by sport (same slug, different sport is not a match)", () => {

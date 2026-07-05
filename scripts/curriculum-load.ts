@@ -47,7 +47,17 @@ import {
   coachingPrinciples,
 } from "../src/lib/db/schema/coach-guidance";
 import { CURRICULUM_CONTENT, validateRegistry } from "../src/lib/curriculum/content";
-import { planUpserts, type ExistingRows, type UpsertPlan } from "../src/lib/curriculum/load-helpers";
+import {
+  planUpserts,
+  ACTIVITY_DEFAULTS,
+  PRINCIPLE_DEFAULTS,
+  PROMPT_DEFAULTS,
+  RESOURCE_DEFAULTS,
+  SKILL_DEFAULTS,
+  TEMPLATE_DEFAULTS,
+  type ExistingRows,
+  type UpsertPlan,
+} from "../src/lib/curriculum/load-helpers";
 import type {
   ActivityContent,
   DomainName,
@@ -483,7 +493,7 @@ async function applySkills(
       name: s.name,
       description: s.description,
       introductionAge: s.introductionAge,
-      assessmentMethod: s.assessmentMethod ?? "observation",
+      assessmentMethod: s.assessmentMethod ?? SKILL_DEFAULTS.assessmentMethod,
       progressionLevels: s.progressionLevels,
       observableBehaviors: s.observableBehaviors,
       commonMistakes: s.commonMistakes,
@@ -493,8 +503,8 @@ async function applySkills(
       // -- content authors transcribed it verbatim from the recovered
       // seeds to match skills.comprehensiveGuide's $type exactly.
       comprehensiveGuide: s.comprehensiveGuide as never,
-      isCore: s.isCore ?? false,
-      sortOrder: s.sortOrder ?? 0,
+      isCore: s.isCore ?? SKILL_DEFAULTS.isCore,
+      sortOrder: s.sortOrder ?? SKILL_DEFAULTS.sortOrder,
       updatedAt: new Date(),
     };
     const [row] = await db
@@ -519,12 +529,24 @@ async function applyActivities(
     if (!sportId) {
       throw new Error(`Cannot resolve sport for activity "${a.slug}" (sport=${a.sport})`);
     }
-    const skillsDeveloped = (a.skillsDeveloped ?? [])
-      .map((slug) => skillIdMap.get(`${a.sport}::${slug}`))
-      .filter((id): id is string => !!id);
-    const appropriateStageIds = (a.appropriateStages ?? [])
-      .map((slug) => stageMap.get(slug))
-      .filter((id): id is string => !!id);
+    const skillsDeveloped = (a.skillsDeveloped ?? []).map((slug) => {
+      const id = skillIdMap.get(`${a.sport}::${slug}`);
+      if (!id) {
+        throw new Error(
+          `Cannot resolve skill "${slug}" referenced by activities."${a.slug}".skillsDeveloped (sport=${a.sport})`,
+        );
+      }
+      return id;
+    });
+    const appropriateStageIds = (a.appropriateStages ?? []).map((slug) => {
+      const id = stageMap.get(slug);
+      if (!id) {
+        throw new Error(
+          `Cannot resolve stage "${slug}" referenced by activities."${a.slug}".appropriateStages`,
+        );
+      }
+      return id;
+    });
     const set = {
       organizationId: orgId,
       name: a.name,
@@ -546,10 +568,10 @@ async function applyActivities(
       makeHarder: a.makeHarder,
       equipmentNeeded: a.equipmentNeeded,
       spaceRequired: a.spaceRequired,
-      indoorSuitable: a.indoorSuitable ?? true,
+      indoorSuitable: a.indoorSuitable ?? ACTIVITY_DEFAULTS.indoorSuitable,
       appropriateStageIds: appropriateStageIds.length ? appropriateStageIds : undefined,
       tags: a.tags,
-      featured: a.featured ?? false,
+      featured: a.featured ?? ACTIVITY_DEFAULTS.featured,
       comprehensiveGuide: a.comprehensiveGuide as never,
       updatedAt: new Date(),
     };
@@ -588,7 +610,7 @@ async function applyTemplates(
       structure: p.structure,
       equipmentNeeded: p.equipmentNeeded,
       coachingNotes: p.coachingNotes,
-      isDefault: p.isDefault ?? false,
+      isDefault: p.isDefault ?? TEMPLATE_DEFAULTS.isDefault,
       updatedAt: new Date(),
     };
     await db
@@ -604,13 +626,35 @@ async function applyCoachGuidance(
   sportMap: SlugMap,
   stageMap: SlugMap,
 ): Promise<void> {
-  const resolveSportStage = (row: Record<string, unknown>) => ({
-    sportId: typeof row.sport === "string" ? sportMap.get(row.sport) : undefined,
-    stageId: typeof row.stage === "string" ? stageMap.get(row.stage) : undefined,
-  });
+  // Unlike applySkills/applyActivities/applyTemplates (which resolve
+  // required foreign keys and always throw on a miss), sport/stage here are
+  // OPTIONAL scoping fields -- a row with no `sport`/`stage` key is
+  // legitimately global (mirrors the nullable sportId/stageId columns). So
+  // only throw when the field IS present but the slug fails to resolve
+  // (validateRegistry runs first, so this is a defense-in-depth abort, not
+  // an expected path) -- silently dropping it would mis-scope the row to
+  // "applies everywhere" instead of the sport/stage the content actually
+  // intended.
+  const resolveSportStage = (row: Record<string, unknown>, table: string, key: string) => {
+    let sportId: string | undefined;
+    if (typeof row.sport === "string") {
+      sportId = sportMap.get(row.sport);
+      if (!sportId) {
+        throw new Error(`Cannot resolve sport "${row.sport}" for ${table} "${key}"`);
+      }
+    }
+    let stageId: string | undefined;
+    if (typeof row.stage === "string") {
+      stageId = stageMap.get(row.stage);
+      if (!stageId) {
+        throw new Error(`Cannot resolve stage "${row.stage}" for ${table} "${key}"`);
+      }
+    }
+    return { sportId, stageId };
+  };
 
   for (const p of CURRICULUM_CONTENT.coachGuidance.prompts) {
-    const { sportId, stageId } = resolveSportStage(p);
+    const { sportId, stageId } = resolveSportStage(p, "coach_prompts", String(p.content));
     const set = {
       organizationId: orgId,
       sportId,
@@ -618,12 +662,13 @@ async function applyCoachGuidance(
       triggerContext: p.triggerContext as never,
       promptType: p.promptType as never,
       title: p.title as string | undefined,
-      priority: (p.priority as number | undefined) ?? 0,
-      frequency: p.frequency as never,
-      isQuestionBased: (p.isQuestionBased as boolean | undefined) ?? false,
+      priority: (p.priority as number | undefined) ?? PROMPT_DEFAULTS.priority,
+      frequency: ((p.frequency as string | undefined) ?? PROMPT_DEFAULTS.frequency) as never,
+      isQuestionBased:
+        (p.isQuestionBased as boolean | undefined) ?? PROMPT_DEFAULTS.isQuestionBased,
       targetedBehavior: p.targetedBehavior as string | undefined,
       tags: p.tags as string[] | undefined,
-      active: (p.active as boolean | undefined) ?? true,
+      active: (p.active as boolean | undefined) ?? PROMPT_DEFAULTS.active,
       updatedAt: new Date(),
     };
     await db
@@ -633,7 +678,7 @@ async function applyCoachGuidance(
   }
 
   for (const r of CURRICULUM_CONTENT.coachGuidance.resources) {
-    const { sportId, stageId } = resolveSportStage(r);
+    const { sportId, stageId } = resolveSportStage(r, "coach_resources", String(r.title));
     const set = {
       organizationId: orgId,
       sportId,
@@ -648,8 +693,8 @@ async function applyCoachGuidance(
       tags: r.tags as string[] | undefined,
       source: r.source as string | undefined,
       author: r.author as string | undefined,
-      featured: (r.featured as boolean | undefined) ?? false,
-      active: (r.active as boolean | undefined) ?? true,
+      featured: (r.featured as boolean | undefined) ?? RESOURCE_DEFAULTS.featured,
+      active: (r.active as boolean | undefined) ?? RESOURCE_DEFAULTS.active,
       updatedAt: new Date(),
     };
     await db
@@ -659,7 +704,7 @@ async function applyCoachGuidance(
   }
 
   for (const pr of CURRICULUM_CONTENT.coachGuidance.principles) {
-    const { sportId, stageId } = resolveSportStage(pr);
+    const { sportId, stageId } = resolveSportStage(pr, "coaching_principles", String(pr.title));
     const set = {
       sportId,
       stageId,
@@ -669,8 +714,8 @@ async function applyCoachGuidance(
       dontExamples: pr.dontExamples as string[] | undefined,
       europeanInsight: pr.europeanInsight as string | undefined,
       source: pr.source as string | undefined,
-      sortOrder: (pr.sortOrder as number | undefined) ?? 0,
-      active: (pr.active as boolean | undefined) ?? true,
+      sortOrder: (pr.sortOrder as number | undefined) ?? PRINCIPLE_DEFAULTS.sortOrder,
+      active: (pr.active as boolean | undefined) ?? PRINCIPLE_DEFAULTS.active,
       updatedAt: new Date(),
     };
     await db
