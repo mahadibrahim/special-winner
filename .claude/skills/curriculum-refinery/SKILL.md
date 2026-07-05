@@ -19,7 +19,10 @@ content to prod via `.github/workflows/curriculum-sync.yml`.
 - Content counts only grow or hold. Removals need an explicit directive AND
   a PR-body warning that the loader cannot delete rows.
 - Gate before any PR: `npx vitest run tests/unit/curriculum` green,
-  `npx tsc --noEmit` clean, loader `--dry-run` table pasted into the PR body.
+  `npx tsc --noEmit` clean. If the PR touches `src/lib/curriculum/content/**`,
+  also paste the loader `--dry-run` table into the PR body (products-mode
+  PRs that only touch minibooks/books code don't touch content, so this
+  gate doesn't apply to them).
 - Every research claim carries a citation URL. YouTube-sourced drills are
   adapted into our own words and format — never transcribed.
 - Prod DB reads (audit --with-usage) need the user's per-run approval.

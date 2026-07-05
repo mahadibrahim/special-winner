@@ -563,15 +563,6 @@
   margin: 0 0 0.1in 0;
   padding: 0;
   border: none;
-  quotes: '"' '"';
-}
-
-.research-finding::before {
-  content: open-quote;
-}
-
-.research-finding::after {
-  content: close-quote;
 }
 
 .research-citation {

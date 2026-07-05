@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'src/lib/curriculum/content/**'
+      - 'scripts/curriculum-load.ts'
+      - 'src/lib/curriculum/load-helpers.ts'
+      - '.github/workflows/curriculum-sync.yml'
 
 concurrency:
   group: curriculum-sync

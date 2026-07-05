@@ -54,6 +54,11 @@ async function main() {
       await page.waitForFunction(() => (window as any).__pagedDone === true, {
         timeout: 120_000,
       });
+
+      const pagedError = await page.evaluate(() => (window as any).__pagedError);
+      if (pagedError) {
+        throw new Error(`paged.js reported an error for book ${bookSlug}: ${pagedError}`);
+      }
     }
 
     await page.pdf({

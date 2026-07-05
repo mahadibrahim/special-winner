@@ -59,14 +59,14 @@ concurrently):
   its SHA with `parseProvenance` (`src/lib/curriculum/provenance.ts`) and
   diff against the current content SHA: `git log -1 --format=%h -- src/lib/curriculum/content`.
   Any product whose embedded SHA predates that commit is stale — list it
-  with how many content commits behind it is (`git log --oneline <shа>..HEAD -- src/lib/curriculum/content | wc -l`).
+  with how many content commits behind it is (`git log --oneline <sha>..HEAD -- src/lib/curriculum/content | wc -l`).
 - **(e) Optional `--with-usage`** — only when the mode arg includes
-  `--with-usage`. Per the `prod-db-access-via-railway` memory, this needs a
-  live prod DB connection: **ask the user to approve and obtain prod DB
-  access per the prod-db-access-via-railway memory before connecting** —
-  do not proceed without that per-run approval. Once approved, run
-  read-only counts only (assessed-skill counts, session-plan activity
-  usage) — no writes, no schema queries.
+  `--with-usage`. This needs a live prod DB connection: ask the user to
+  approve prod access and to provide the connection path (the owner keeps
+  a note on the Railway credential procedure); never scan credential
+  stores yourself. Once approved, run read-only counts only
+  (assessed-skill counts, session-plan activity usage) — no writes, no
+  schema queries.
 
 ## 3. Output template
 

@@ -79,6 +79,8 @@ PR body instead of committing the binary; the reviewer re-renders locally.
 
 ## PR body (both tiers)
 
+- Gate before opening the PR: `npx vitest run tests/unit/pdf tests/unit/curriculum`
+  green and `npx tsc --noEmit` clean.
 - Rendered PDF path(s) (not the PDF itself — `pdfs/` is gitignored).
 - Page count + spine width for any KDP book render.
 - Self-QA checklist results (pass/fail per item, not just "looks fine").

@@ -43,7 +43,7 @@
 
 <!-- Owner: write render feedback here; `products --book soccer-fundamentals-6-8` implements it. -->
 
-- 2026-07-05: First render (117 pages) surfaced 4 defects, all fixed before the pilot PDF was
+- 2026-07-05: First render (117 pages) surfaced 5 defects, all fixed before the pilot PDF was
   accepted — see `.superpowers/sdd/rf-task-3-report.md` for the full checklist writeup:
   1. `.copyright-page`/`.toc-page` both forced `break-before: right`, and `.chapter-title` ALSO
      forced `break-before: right` on top of the enclosing `section.chapter`'s own right-break —

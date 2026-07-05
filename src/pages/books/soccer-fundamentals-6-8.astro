@@ -56,18 +56,30 @@ const PRINCIPLE_ORDER = [
   "Small-Sided is Superior",
   "Ball Mastery First",
 ];
-const principles = PRINCIPLE_ORDER.map((title) =>
-  CURRICULUM_CONTENT.coachGuidance.principles.find((p) => p.title === title),
-).filter((p): p is Record<string, unknown> => Boolean(p));
+const principles = PRINCIPLE_ORDER.map((title) => {
+  const found = CURRICULUM_CONTENT.coachGuidance.principles.find((p) => p.title === title);
+  if (!found) {
+    throw new Error(
+      `soccer-fundamentals-6-8: coachGuidance principle "${title}" not found in CURRICULUM_CONTENT — check for a renamed/removed principle.`,
+    );
+  }
+  return found;
+});
 
 // Chapter 6 resources: parent-communication topics, natural-key title match.
 const PARENT_RESOURCE_TITLES = [
   "Partnering with Parents: Building Trust and Alignment",
   "The Post-Game Conversation: What Parents Should Say",
 ];
-const parentResources = PARENT_RESOURCE_TITLES.map((title) =>
-  CURRICULUM_CONTENT.coachGuidance.resources.find((r) => r.title === title),
-).filter((r): r is Record<string, unknown> => Boolean(r));
+const parentResources = PARENT_RESOURCE_TITLES.map((title) => {
+  const found = CURRICULUM_CONTENT.coachGuidance.resources.find((r) => r.title === title);
+  if (!found) {
+    throw new Error(
+      `soccer-fundamentals-6-8: coachGuidance resource "${title}" not found in CURRICULUM_CONTENT — check for a renamed/removed resource.`,
+    );
+  }
+  return found;
+});
 
 /** Minimal markdown -> HTML for coachGuidance resource `content` fields
  * (headers, `-` lists, blank-line paragraphs, `**bold**`). Content is
