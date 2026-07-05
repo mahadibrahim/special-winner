@@ -64,8 +64,12 @@ const keyForStage = (s: StageContent): string => s.slug;
 const keyForSkill = (s: SkillContent): string => `${s.sport}::${s.slug}`;
 const keyForActivity = (a: ActivityContent): string => `${a.sport}::${a.slug}`;
 const keyForTemplate = (p: SessionPlanContent): string => `${p.sport}::${p.name}`;
-const keyForPrompt = (p: Record<string, unknown>): string => String(p.content ?? "");
-const keyForResource = (r: Record<string, unknown>): string => String(r.title ?? "");
+// Exported (unlike the other keyFor* extractors above) so
+// scripts/curriculum-load.ts's foreign-org ownership check can compute the
+// exact same natural key it uses to look up existing rows -- keeping the
+// key derivation in one place avoids the two drifting apart.
+export const keyForPrompt = (p: Record<string, unknown>): string => String(p.content ?? "");
+export const keyForResource = (r: Record<string, unknown>): string => String(r.title ?? "");
 const keyForPrinciple = (p: Record<string, unknown>): string => String(p.title ?? "");
 
 // ---------------------------------------------------------------------------
@@ -289,6 +293,62 @@ export function planUpserts(content: CurriculumContent, existing: ExistingRows):
       normalizePrincipleForCompare,
     ),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Foreign-org guidance ownership guard (final review Finding 4).
+//
+// coach_prompts/coach_resources carry an `organizationId` column, but their
+// natural key (content/title) is global, not org-scoped -- readExistingRows
+// in scripts/curriculum-load.ts reads them unfiltered by org for exactly
+// that reason. That means running the loader for a second org would, absent
+// this guard, upsert-and-relabel rows that a *different* org's earlier run
+// already created, silently stealing them. coaching_principles has no
+// organizationId column at all, so this guard does not apply to it -- it is
+// unconditionally global/shared and there is no "steal" to guard against.
+//
+// This is pure (DB-free) so it's unit testable: the CLI queries the existing
+// organizationId for each natural key and passes it in as `rows`.
+// ---------------------------------------------------------------------------
+
+/** One existing row's natural key + the organizationId currently on it. */
+export interface OwnershipRow {
+  key: string;
+  organizationId: string | null;
+}
+
+export interface OwnershipPartition {
+  /** Natural keys whose existing row belongs to a different org and should
+   * be skipped (not upserted) this run, unless `allowSteal` was set. */
+  skipKeys: Set<string>;
+  /** foreignOrgId -> count of keys found owned by that org, for the loud
+   * warning the CLI prints before skipping. */
+  foreignOrgCounts: Map<string, number>;
+}
+
+/**
+ * Partitions existing rows' natural keys into "safe to write" vs. "owned by
+ * a different org, skip unless allowSteal". Rows with `organizationId: null`
+ * (true global rows with no owner yet) are always safe -- there is no other
+ * org to steal from.
+ */
+export function partitionForeignOwnership(
+  rows: OwnershipRow[],
+  targetOrgId: string,
+  allowSteal: boolean,
+): OwnershipPartition {
+  const skipKeys = new Set<string>();
+  const foreignOrgCounts = new Map<string, number>();
+  for (const row of rows) {
+    if (row.organizationId && row.organizationId !== targetOrgId) {
+      foreignOrgCounts.set(
+        row.organizationId,
+        (foreignOrgCounts.get(row.organizationId) ?? 0) + 1,
+      );
+      if (!allowSteal) skipKeys.add(row.key);
+    }
+  }
+  return { skipKeys, foreignOrgCounts };
 }
 
 /** Empty `ExistingRows` -- convenience for callers seeding a from-scratch plan. */

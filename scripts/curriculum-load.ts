@@ -33,6 +33,17 @@
  * `--dry-run` prints the plan report and exits 0 without writing anything
  * (the plan is computed by reading current rows only -- no transaction is
  * opened for writes in this mode).
+ *
+ * IMPORTANT -- coach_prompts/coach_resources/coaching_principles are
+ * effectively single-canonical-org tables today: their natural keys
+ * (content/title) are global, not org-scoped, so the first org to load
+ * curriculum content "owns" that guidance. Running this loader for a
+ * *second* org would, without a guard, silently re-label (steal) the first
+ * org's guidance rows onto the new org. `--steal-guidance` opts into that
+ * explicitly; without it, rows already owned by a different org are
+ * reported as "skipped" and left untouched (a loud warning names the other
+ * org and the row count). coaching_principles has no organizationId column
+ * at all, so it isn't subject to this guard -- it's unconditionally global.
  */
 import "dotenv/config";
 import { and, asc, eq } from "drizzle-orm";
@@ -49,6 +60,9 @@ import {
 import { CURRICULUM_CONTENT, validateRegistry } from "../src/lib/curriculum/content";
 import {
   planUpserts,
+  partitionForeignOwnership,
+  keyForPrompt,
+  keyForResource,
   ACTIVITY_DEFAULTS,
   PRINCIPLE_DEFAULTS,
   PROMPT_DEFAULTS,
@@ -56,6 +70,7 @@ import {
   SKILL_DEFAULTS,
   TEMPLATE_DEFAULTS,
   type ExistingRows,
+  type OwnershipRow,
   type UpsertPlan,
 } from "../src/lib/curriculum/load-helpers";
 import type {
@@ -75,11 +90,13 @@ type SlugMap = Map<string, string>; // natural key -> uuid
 interface CliOptions {
   org: string;
   dryRun: boolean;
+  stealGuidance: boolean;
 }
 
 function parseArgs(argv: string[]): CliOptions {
   let org: string | undefined;
   let dryRun = false;
+  let stealGuidance = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--org") {
@@ -88,14 +105,18 @@ function parseArgs(argv: string[]): CliOptions {
       org = arg.slice("--org=".length);
     } else if (arg === "--dry-run") {
       dryRun = true;
+    } else if (arg === "--steal-guidance") {
+      stealGuidance = true;
     }
   }
   if (!org) {
     console.error("REFUSED: --org <slug> is required.");
-    console.error("Usage: tsx scripts/curriculum-load.ts --org <slug> [--dry-run]");
+    console.error(
+      "Usage: tsx scripts/curriculum-load.ts --org <slug> [--dry-run] [--steal-guidance]",
+    );
     process.exit(2);
   }
-  return { org, dryRun };
+  return { org, dryRun, stealGuidance };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +188,16 @@ async function resolveOrg(db: DB, slug: string) {
 // translation lives here rather than in the pure helper.
 // ---------------------------------------------------------------------------
 
-async function readExistingRows(db: DB, orgId: string): Promise<ExistingRows> {
+interface ExistingRowsWithOwnership extends ExistingRows {
+  // Natural key -> organizationId currently on the row, for the foreign-org
+  // guard (final review Finding 4). coaching_principles is deliberately
+  // excluded -- it has no organizationId column, so there is no ownership
+  // to guard.
+  promptOwnership: OwnershipRow[];
+  resourceOwnership: OwnershipRow[];
+}
+
+async function readExistingRows(db: DB, orgId: string): Promise<ExistingRowsWithOwnership> {
   const domainRows = await db.select().from(skillDomains);
   const stageRows = await db.select().from(developmentStages);
   // Scoped to this org: skills/activities/practice_templates are always
@@ -345,7 +375,18 @@ async function readExistingRows(db: DB, orgId: string): Promise<ExistingRows> {
     ),
   );
 
+  const promptOwnership: OwnershipRow[] = promptRows.map((p) => ({
+    key: keyForPrompt({ content: p.content }),
+    organizationId: p.organizationId,
+  }));
+  const resourceOwnership: OwnershipRow[] = resourceRows.map((r) => ({
+    key: keyForResource({ title: r.title }),
+    organizationId: r.organizationId,
+  }));
+
   return {
+    promptOwnership,
+    resourceOwnership,
     domains: domainRows.map((d) => ({
       name: d.name,
       displayName: d.displayName,
@@ -625,6 +666,8 @@ async function applyCoachGuidance(
   orgId: string,
   sportMap: SlugMap,
   stageMap: SlugMap,
+  promptSkipKeys: Set<string>,
+  resourceSkipKeys: Set<string>,
 ): Promise<void> {
   // Unlike applySkills/applyActivities/applyTemplates (which resolve
   // required foreign keys and always throw on a miss), sport/stage here are
@@ -654,6 +697,8 @@ async function applyCoachGuidance(
   };
 
   for (const p of CURRICULUM_CONTENT.coachGuidance.prompts) {
+    const key = keyForPrompt({ content: p.content });
+    if (promptSkipKeys.has(key)) continue; // owned by a different org -- see foreign-org guard above main()
     const { sportId, stageId } = resolveSportStage(p, "coach_prompts", String(p.content));
     const set = {
       organizationId: orgId,
@@ -678,6 +723,8 @@ async function applyCoachGuidance(
   }
 
   for (const r of CURRICULUM_CONTENT.coachGuidance.resources) {
+    const key = keyForResource({ title: r.title });
+    if (resourceSkipKeys.has(key)) continue; // owned by a different org -- see foreign-org guard above main()
     const { sportId, stageId } = resolveSportStage(r, "coach_resources", String(r.title));
     const set = {
       organizationId: orgId,
@@ -729,7 +776,7 @@ async function applyCoachGuidance(
 // Report printing
 // ---------------------------------------------------------------------------
 
-function printReport(plan: UpsertPlan): void {
+function printReport(plan: UpsertPlan, skippedByTable: Partial<Record<string, number>>): void {
   const rows: [string, { adds: number; updates: number; unchanged: number }][] = [
     ["skill_domains", plan.domains],
     ["development_stages", plan.stages],
@@ -742,15 +789,26 @@ function printReport(plan: UpsertPlan): void {
   ];
   console.log("\nCurriculum load plan:");
   console.log(
-    "  " + "table".padEnd(22) + "adds".padStart(6) + "updates".padStart(9) + "unchanged".padStart(11),
+    "  " +
+      "table".padEnd(22) +
+      "adds".padStart(6) +
+      "updates".padStart(9) +
+      "unchanged".padStart(11) +
+      "skipped".padStart(9),
   );
   for (const [name, report] of rows) {
+    // Rows owned by a different org (final review Finding 4) are pulled out
+    // of "updates" here -- they would have been written, but the foreign-org
+    // guard is holding them back this run. See partitionForeignOwnership.
+    const skipped = skippedByTable[name] ?? 0;
+    const updates = Math.max(0, report.updates - skipped);
     console.log(
       "  " +
         name.padEnd(22) +
         String(report.adds).padStart(6) +
-        String(report.updates).padStart(9) +
-        String(report.unchanged).padStart(11),
+        String(updates).padStart(9) +
+        String(report.unchanged).padStart(11) +
+        String(skipped).padStart(9),
     );
   }
   console.log("");
@@ -777,7 +835,41 @@ async function main(): Promise<void> {
 
   const existing = await readExistingRows(db, org.id);
   const plan = planUpserts(CURRICULUM_CONTENT, existing);
-  printReport(plan);
+
+  // Foreign-org guidance ownership guard (final review Finding 4): coach
+  // guidance's natural keys are global, not org-scoped, so a second org's
+  // run must not silently relabel rows a different org's run already
+  // created. See the module header and partitionForeignOwnership's doc
+  // comment for the full rationale.
+  const promptOwnership = partitionForeignOwnership(
+    existing.promptOwnership,
+    org.id,
+    opts.stealGuidance,
+  );
+  const resourceOwnership = partitionForeignOwnership(
+    existing.resourceOwnership,
+    org.id,
+    opts.stealGuidance,
+  );
+  for (const [table, ownership] of [
+    ["coach_prompts", promptOwnership],
+    ["coach_resources", resourceOwnership],
+  ] as const) {
+    for (const [foreignOrgId, count] of ownership.foreignOrgCounts) {
+      const verb = opts.stealGuidance ? "RELABELING" : "SKIPPING";
+      console.warn(
+        `WARNING: ${count} ${table} row(s) are currently owned by a different ` +
+          `organization (${foreignOrgId}), not the target org (${org.id}). ${verb} ` +
+          `${opts.stealGuidance ? "them onto the target org" : "them this run"}` +
+          `${opts.stealGuidance ? "" : " -- pass --steal-guidance to re-scope them instead"}.`,
+      );
+    }
+  }
+
+  printReport(plan, {
+    coach_prompts: promptOwnership.skipKeys.size,
+    coach_resources: resourceOwnership.skipKeys.size,
+  });
 
   if (opts.dryRun) {
     console.log("Dry run — no changes written.");
@@ -799,7 +891,14 @@ async function main(): Promise<void> {
   const skillIdMap = await applySkills(db, org.id, sportMap, domainMap, stageMap);
   await applyActivities(db, org.id, sportMap, stageMap, skillIdMap);
   await applyTemplates(db, org.id, sportMap, stageMap);
-  await applyCoachGuidance(db, org.id, sportMap, stageMap);
+  await applyCoachGuidance(
+    db,
+    org.id,
+    sportMap,
+    stageMap,
+    promptOwnership.skipKeys,
+    resourceOwnership.skipKeys,
+  );
 
   console.log("Load complete.");
   process.exit(0);

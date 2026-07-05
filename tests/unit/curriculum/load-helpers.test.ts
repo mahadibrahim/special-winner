@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   planUpserts,
+  partitionForeignOwnership,
   normalizeActivityForCompare,
   normalizePrincipleForCompare,
   normalizePromptForCompare,
@@ -8,6 +9,7 @@ import {
   normalizeSkillForCompare,
   normalizeTemplateForCompare,
   type ExistingRows,
+  type OwnershipRow,
   type UpsertPlan,
 } from "@/lib/curriculum/load-helpers";
 import { CURRICULUM_CONTENT } from "@/lib/curriculum/content";
@@ -173,5 +175,49 @@ describe("planUpserts", () => {
     // update, even though the slug collides.
     expect(plan.skills.adds).toBe(1);
     expect(plan.skills.updates).toBe(0);
+  });
+});
+
+// Final review Finding 4: running the loader for a second org must not
+// silently re-scope (steal) coach_prompts/coach_resources rows a different
+// org's earlier run already created, since their natural key is global.
+describe("partitionForeignOwnership", () => {
+  const ORG_A = "11111111-1111-1111-1111-111111111111";
+  const ORG_B = "22222222-2222-2222-2222-222222222222";
+
+  it("skips nothing when every row is already owned by the target org", () => {
+    const rows: OwnershipRow[] = [
+      { key: "prompt-1", organizationId: ORG_A },
+      { key: "prompt-2", organizationId: ORG_A },
+    ];
+    const result = partitionForeignOwnership(rows, ORG_A, false);
+    expect(result.skipKeys.size).toBe(0);
+    expect(result.foreignOrgCounts.size).toBe(0);
+  });
+
+  it("skips nothing for rows with no owner yet (organizationId: null)", () => {
+    const rows: OwnershipRow[] = [{ key: "prompt-1", organizationId: null }];
+    const result = partitionForeignOwnership(rows, ORG_A, false);
+    expect(result.skipKeys.size).toBe(0);
+    expect(result.foreignOrgCounts.size).toBe(0);
+  });
+
+  it("flags rows owned by a different org as skip-worthy and counts them per foreign org", () => {
+    const rows: OwnershipRow[] = [
+      { key: "prompt-1", organizationId: ORG_B },
+      { key: "prompt-2", organizationId: ORG_A },
+      { key: "prompt-3", organizationId: ORG_B },
+    ];
+    const result = partitionForeignOwnership(rows, ORG_A, false);
+    expect(result.skipKeys).toEqual(new Set(["prompt-1", "prompt-3"]));
+    expect(result.foreignOrgCounts.get(ORG_B)).toBe(2);
+    expect(result.foreignOrgCounts.has(ORG_A)).toBe(false);
+  });
+
+  it("--steal-guidance (allowSteal=true) still reports foreign-org counts but skips nothing", () => {
+    const rows: OwnershipRow[] = [{ key: "prompt-1", organizationId: ORG_B }];
+    const result = partitionForeignOwnership(rows, ORG_A, true);
+    expect(result.skipKeys.size).toBe(0);
+    expect(result.foreignOrgCounts.get(ORG_B)).toBe(1);
   });
 });
