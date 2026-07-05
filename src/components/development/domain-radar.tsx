@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { EmptyState } from "@/components/ui/empty-state"
-import { radarPoints, type RadarAxis } from "@/lib/curriculum/radar-geometry"
+import { radarPoints, sanitizeAxisValue, type RadarAxis } from "@/lib/curriculum/radar-geometry"
 import { Target } from "lucide-react"
 
 export type { RadarAxis }
@@ -32,7 +32,14 @@ function pointsToPath(points: [number, number][]): string {
  * `src/lib/curriculum/radar-geometry.ts` (unit tested independently).
  */
 export default function DomainRadar({ axes, max = 5, size = 240, className }: DomainRadarProps) {
-  const axesWithData = axes.filter((a) => a.current > 0).length;
+  // Sanitize all axis values early: non-finite → 0, out-of-range → clamp
+  const sanitizedAxes = axes.map((a) => ({
+    ...a,
+    current: sanitizeAxisValue(a.current, max),
+    previous: a.previous !== undefined ? sanitizeAxisValue(a.previous, max) : undefined,
+  }));
+
+  const axesWithData = sanitizedAxes.filter((a) => a.current > 0).length;
 
   if (axes.length < MIN_AXES_WITH_DATA || axesWithData < MIN_AXES_WITH_DATA) {
     return (
@@ -59,11 +66,11 @@ export default function DomainRadar({ axes, max = 5, size = 240, className }: Do
   const recenter = (points: [number, number][]): [number, number][] =>
     points.map(([x, y]) => [x + PADDING, y + PADDING]);
 
-  const currentValues = axes.map((a) => a.current);
+  const currentValues = sanitizedAxes.map((a) => a.current);
   const currentPolygon = pointsToPath(recenter(radarPoints(currentValues, max, drawSize)));
 
-  const hasPrevious = axes.some((a) => a.previous !== undefined);
-  const previousValues = axes.map((a) => a.previous ?? 0);
+  const hasPrevious = sanitizedAxes.some((a) => a.previous !== undefined);
+  const previousValues = sanitizedAxes.map((a) => a.previous ?? 0);
   const previousPolygon = hasPrevious
     ? pointsToPath(recenter(radarPoints(previousValues, max, drawSize)))
     : null;
@@ -83,7 +90,7 @@ export default function DomainRadar({ axes, max = 5, size = 240, className }: Do
   // Axis spokes (center -> full-scale point) + label anchors, computed with
   // the same angle convention as radarPoints (axis 0 at 12 o'clock,
   // clockwise).
-  const spokes = axes.map((axis, i) => {
+  const spokes = sanitizedAxes.map((axis, i) => {
     const angle = -Math.PI / 2 + (i * 2 * Math.PI) / n;
     const spokeEnd: [number, number] = [
       center + maxRadius * Math.cos(angle),
@@ -154,7 +161,7 @@ export default function DomainRadar({ axes, max = 5, size = 240, className }: Do
       {/* Screen-reader summary — the chart itself conveys no information
           that isn't in this list. */}
       <ul className="sr-only">
-        {axes.map((axis) => (
+        {sanitizedAxes.map((axis) => (
           <li key={axis.label}>
             {axis.label}: {axis.current} of {max}
           </li>

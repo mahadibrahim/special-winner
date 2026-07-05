@@ -34,9 +34,9 @@ export interface DomainAverage {
  * assessments, not just the latest-per-skill ones used for the average).
  *
  * IMPORTANT: Input must be ordered oldest-first (by `assessedAt` ASC, then by
- * row ID ASC). On equal `assessedAt` timestamps, the later row in the input
- * array (last-inserted, higher ID) wins and replaces an earlier one with the
- * same timestamp.
+ * row ID ASC). On equal `assessedAt` timestamps, the row that sorts last by
+ * (assessedAt, id) wins and replaces an earlier one with the same timestamp.
+ * This tie-break is deterministic regardless of insertion order.
  */
 export function computeDomainAverages(rows: AssessmentRow[]): Map<string, DomainAverage> {
   const byDomain = new Map<string, AssessmentRow[]>();
