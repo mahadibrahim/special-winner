@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { Button } from "@/components/ui/button";
 import { TriangleAlert, MapPin, CreditCard } from "lucide-react";
 import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
@@ -72,6 +73,11 @@ interface AttentionItem {
 }
 
 export default function PlayAttention() {
+  // Hydration beacon lives here per convention: this is the page's
+  // top-level client:load island. The client:visible islands below the
+  // fold (MyDropInBookings, MyFieldRentals) also call it, but they may
+  // never hydrate on a tall page — e2e waitForHydration needs this one.
+  useHydrationBeacon();
   const [items, setItems] = useState<AttentionItem[]>([]);
   const [loading, setLoading] = useState(true);
 

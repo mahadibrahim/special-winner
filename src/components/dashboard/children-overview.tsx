@@ -252,6 +252,7 @@ function ChildCard({ child }: { child: Child }) {
             <a
               href={`/dashboard/children/${child.id}/development`}
               data-testid="child-development-link"
+              aria-label={`View development for ${child.firstName}`}
             >
               Development
             </a>
