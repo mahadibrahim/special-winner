@@ -74,7 +74,7 @@ Then a loader dry-run against staging, to prove the new content
 upserts cleanly:
 
 ```bash
-./scripts/with-bws.sh bash -c 'ALLOW_CURRICULUM_SEED=yes npx tsx scripts/curriculum-load.ts --org aspire-sports --dry-run'
+ALLOW_CURRICULUM_SEED=yes ./scripts/with-bws.sh npx tsx scripts/curriculum-load.ts --org aspire-sports --dry-run
 ```
 
 (`with-bws.sh` supplies the staging `DATABASE_URL`; `--dry-run` only reads
