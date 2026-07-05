@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 interface Program {
   id: string
@@ -248,6 +249,19 @@ function ChildCard({ child }: { child: Child }) {
             size="sm"
             className="flex-1 text-ink-muted hover:text-ink hover:bg-cream-2"
           >
+            <a
+              href={`/dashboard/children/${child.id}/development`}
+              data-testid="child-development-link"
+            >
+              Development
+            </a>
+          </Button>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="flex-1 text-ink-muted hover:text-ink hover:bg-cream-2"
+          >
             <a href="/dashboard/schedule">Schedule</a>
           </Button>
           <Button
@@ -267,6 +281,15 @@ function ChildCard({ child }: { child: Child }) {
 }
 
 export default function ChildrenOverview() {
+  // ChildrenOverview is mounted `client:load` in family.astro so it doubles
+  // as this page's hydration beacon (repo convention: the beacon lives on
+  // the top-level client:load island — client:visible islands below the
+  // fold may never hydrate before waitForHydration's timeout). E2E specs
+  // that navigate from /dashboard/family (e.g.
+  // tests/e2e/development-radar.spec.ts) rely on `waitForHydration(page)`
+  // finding this.
+  useHydrationBeacon()
+
   const [children, setChildren] = useState<Child[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)

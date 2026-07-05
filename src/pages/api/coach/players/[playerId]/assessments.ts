@@ -8,6 +8,7 @@ import {
   developmentStages,
   familyMembers,
 } from "@/lib/db/schema";
+import { assessmentSnapshots } from "@/lib/db/schema/assessments";
 import { eq, and, desc } from "drizzle-orm";
 import { requireCoachAccessToPlayer } from "@/lib/auth";
 
@@ -153,12 +154,43 @@ export const GET: APIRoute = async (context) => {
       return acc;
     }, {} as Record<string, { domain: typeof summaries[0]["domain"]; totalLevel: number; count: number; averageLevel: number }>);
 
+    // Assessment snapshots (Task 9) for the domain radar chart (Task 10).
+    // A player can have snapshot rows across multiple seasons per domain —
+    // take the most recently updated one per domain as "current".
+    const snapshotRows = await getDb()
+      .select({
+        domainId: assessmentSnapshots.domainId,
+        domainDisplayName: skillDomains.displayName,
+        averageLevel: assessmentSnapshots.averageLevel,
+        previousAverageLevel: assessmentSnapshots.previousAverageLevel,
+        updatedAt: assessmentSnapshots.updatedAt,
+      })
+      .from(assessmentSnapshots)
+      .innerJoin(skillDomains, eq(assessmentSnapshots.domainId, skillDomains.id))
+      .where(eq(assessmentSnapshots.familyMemberId, playerId))
+      .orderBy(skillDomains.sortOrder, desc(assessmentSnapshots.updatedAt));
+
+    const latestSnapshotByDomain = new Map<string, (typeof snapshotRows)[number]>();
+    for (const row of snapshotRows) {
+      if (!latestSnapshotByDomain.has(row.domainId)) {
+        latestSnapshotByDomain.set(row.domainId, row);
+      }
+    }
+
+    const snapshots = [...latestSnapshotByDomain.values()].map((row) => ({
+      domain: row.domainDisplayName,
+      averageLevel: row.averageLevel !== null ? parseFloat(row.averageLevel) : 0,
+      previousAverageLevel:
+        row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
+    }));
+
     return new Response(
       JSON.stringify({
         player,
         assessments,
         summaries,
         domainAverages: Object.values(domainAverages),
+        snapshots,
       }),
       {
         status: 200,

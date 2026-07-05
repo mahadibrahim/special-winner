@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { sports } from "./sports";
@@ -51,7 +52,17 @@ export const coachResourceTypeEnum = pgEnum("coach_resource_type", [
 ]);
 
 // Coach Prompts (just-in-time coaching guidance)
-export const coachPrompts = pgTable("coach_prompts", {
+//
+// Natural-key choice for the idempotent curriculum loader (Task 1 of the
+// curriculum-recovery plan): `title` is nullable here (many recovered prompts
+// have no title), so it cannot anchor a upsert key. `content` is the one
+// always-present, human-identifying text column (`.notNull()` above) — the
+// loader upserts on it via `coach_prompts_content_uniq`. This assumes prompt
+// content stays within Postgres's btree index entry size limit (~2.7KB);
+// recovered prompts are short coaching lines/questions, well under that.
+export const coachPrompts = pgTable(
+  "coach_prompts",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id").references(() => organizations.id, {
     onDelete: "cascade",
@@ -80,10 +91,14 @@ export const coachPrompts = pgTable("coach_prompts", {
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+  },
+  (table) => [uniqueIndex("coach_prompts_content_uniq").on(table.content)],
+);
 
 // Coach Resources (educational content for coaches)
-export const coachResources = pgTable("coach_resources", {
+export const coachResources = pgTable(
+  "coach_resources",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id").references(() => organizations.id, {
     onDelete: "cascade",
@@ -110,7 +125,9 @@ export const coachResources = pgTable("coach_resources", {
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+  },
+  (table) => [uniqueIndex("coach_resources_title_uniq").on(table.title)],
+);
 
 // Coach Prompt Dismissals (track which prompts coaches have seen/dismissed)
 export const coachPromptDismissals = pgTable("coach_prompt_dismissals", {
@@ -137,7 +154,9 @@ export const coachResourceViews = pgTable("coach_resource_views", {
 });
 
 // Coaching Principles (core principles by stage/sport)
-export const coachingPrinciples = pgTable("coaching_principles", {
+export const coachingPrinciples = pgTable(
+  "coaching_principles",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   sportId: uuid("sport_id").references(() => sports.id, { onDelete: "cascade" }),
   stageId: uuid("stage_id").references(() => developmentStages.id, { onDelete: "set null" }),
@@ -152,7 +171,9 @@ export const coachingPrinciples = pgTable("coaching_principles", {
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+  },
+  (table) => [uniqueIndex("coaching_principles_title_uniq").on(table.title)],
+);
 
 // Relations
 export const coachPromptsRelations = relations(coachPrompts, ({ one, many }) => ({

@@ -13,6 +13,7 @@ import {
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachAccess, isPlayerOnCoachTeam, getCoachPlayerIds } from "@/lib/auth";
+import { recomputePlayerSnapshots } from "@/lib/curriculum/snapshots";
 
 const createAssessmentSchema = z.object({
   familyMemberId: z.string().uuid(),
@@ -263,6 +264,15 @@ export const POST: APIRoute = async (context) => {
         areasForImprovement: areasForImprovement || null,
       })
       .returning();
+
+    // Recompute assessment snapshots (Task 9, curriculum-recovery plan).
+    // This is derived reporting data for the domain radar chart — it must
+    // never fail the assessment write itself, so log-and-swallow.
+    try {
+      await recomputePlayerSnapshots(db, familyMemberId, seasonId ?? null);
+    } catch (error) {
+      console.error("Error recomputing assessment snapshots:", error);
+    }
 
     // Update or create player skill summary
     const [existingSummary] = await getDb()

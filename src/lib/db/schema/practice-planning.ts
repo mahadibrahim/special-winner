@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
@@ -43,42 +44,55 @@ export const activityTypeEnum = pgEnum("activity_type", [
 ]);
 
 // Practice Templates (reusable session structures)
-export const practiceTemplates = pgTable("practice_templates", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: uuid("organization_id").references(() => organizations.id, {
-    onDelete: "cascade",
-  }), // null = global template
-  sportId: uuid("sport_id")
-    .notNull()
-    .references(() => sports.id, { onDelete: "cascade" }),
-  stageId: uuid("stage_id")
-    .notNull()
-    .references(() => developmentStages.id, { onDelete: "restrict" }),
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  totalDurationMinutes: integer("total_duration_minutes").notNull(),
-  // Template structure with segment definitions
-  structure: jsonb("structure").$type<
-    {
-      name: string;
-      type: string;
-      durationMinutes: number;
-      description?: string;
-      activitySuggestions?: string[];
-    }[]
-  >(),
-  focusSkillIds: uuid("focus_skill_ids").array(), // Skills this template focuses on
-  equipmentNeeded: jsonb("equipment_needed").$type<string[]>(),
-  coachingNotes: text("coaching_notes"),
-  isDefault: boolean("is_default").default(false).notNull(),
-  active: boolean("active").default(true).notNull(),
-  usageCount: integer("usage_count").default(0).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const practiceTemplates = pgTable(
+  "practice_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }), // null = global template
+    sportId: uuid("sport_id")
+      .notNull()
+      .references(() => sports.id, { onDelete: "cascade" }),
+    stageId: uuid("stage_id")
+      .notNull()
+      .references(() => developmentStages.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    totalDurationMinutes: integer("total_duration_minutes").notNull(),
+    // Template structure with segment definitions
+    structure: jsonb("structure").$type<
+      {
+        name: string;
+        type: string;
+        durationMinutes: number;
+        description?: string;
+        activitySuggestions?: string[];
+        // v2 session plans script the coaching per segment (see
+        // docs/curriculum/content-architecture.md "Script the Coaching")
+        coachingScript?: string;
+      }[]
+    >(),
+    focusSkillIds: uuid("focus_skill_ids").array(), // Skills this template focuses on
+    equipmentNeeded: jsonb("equipment_needed").$type<string[]>(),
+    coachingNotes: text("coaching_notes"),
+    isDefault: boolean("is_default").default(false).notNull(),
+    active: boolean("active").default(true).notNull(),
+    usageCount: integer("usage_count").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // Natural key for the idempotent curriculum loader (Task 8): a template
+    // is identified by which sport it belongs to + its name.
+    uniqueIndex("practice_templates_sport_name_uniq").on(table.sportId, table.name),
+  ],
+);
 
 // Activities (game/drill library)
-export const activities = pgTable("activities", {
+export const activities = pgTable(
+  "activities",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id").references(() => organizations.id, {
     onDelete: "cascade",
@@ -218,7 +232,13 @@ export const activities = pgTable("activities", {
   }>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+  },
+  (table) => [
+    // Natural key for the idempotent curriculum loader (Task 8): an
+    // activity is identified by which sport it belongs to + its slug.
+    uniqueIndex("activities_sport_slug_uniq").on(table.sportId, table.slug),
+  ],
+);
 
 // Session Plans (specific practice sessions)
 export const sessionPlans = pgTable("session_plans", {

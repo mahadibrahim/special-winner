@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import DomainProgressCard, { DomainProgressGrid } from "./domain-progress-card"
+import DomainRadar, { type RadarAxis } from "@/components/development/domain-radar"
 import {
   TrendingUp,
   TrendingDown,
@@ -90,6 +91,7 @@ interface ReportData {
   }
   domainProgress: DomainProgress[]
   recentAssessments: RecentAssessment[]
+  snapshots: { domain: string; averageLevel: number; previousAverageLevel: number | null }[]
 }
 
 const LEVEL_LABELS = ["Not Assessed", "Beginner", "Developing", "Competent", "Proficient", "Advanced"]
@@ -167,9 +169,15 @@ export default function DevelopmentReport({
     )
   }
 
-  const { overallProgress, domainProgress, recentAssessments } = data
+  const { overallProgress, domainProgress, recentAssessments, snapshots } = data
   const TrendIcon = overallProgress.trend > 0 ? TrendingUp : overallProgress.trend < 0 ? TrendingDown : Minus
   const trendColor = overallProgress.trend > 0 ? "text-emerald-400" : overallProgress.trend < 0 ? "text-red-400" : "text-ink-muted"
+
+  const radarAxes: RadarAxis[] = (snapshots ?? []).map((s) => ({
+    label: s.domain,
+    current: s.averageLevel,
+    previous: s.previousAverageLevel ?? undefined,
+  }))
 
   const hasAssessments = overallProgress.totalAssessments > 0
 
@@ -295,6 +303,17 @@ export default function DevelopmentReport({
           <span className="text-3xl font-bold text-ink">{data.currentEnrollments.length}</span>
         </div>
       </div>
+
+      {/* Domain Radar — at-a-glance shape of development across domains */}
+      <section>
+        <h2 className="text-lg font-semibold text-ink flex items-center gap-2 mb-4">
+          <BarChart3 className="w-5 h-5 text-primary" />
+          Domain Overview
+        </h2>
+        <div className="p-6 rounded-2xl bg-paper border border-border">
+          <DomainRadar axes={radarAxes} />
+        </div>
+      </section>
 
       {/* Domain Progress */}
       <section>

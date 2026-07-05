@@ -435,6 +435,13 @@
       "when": 1783191914132,
       "tag": "0061_bright_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1783202142587,
+      "tag": "0062_spotty_next_avengers",
+      "breakpoints": true
     }
   ]
 }

@@ -46,6 +46,15 @@ import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
 import { dropInSessions } from "../schema/drop-in";
 import { membershipTiers, memberships } from "../schema/memberships";
+import {
+  skillDomains,
+  skills as curriculumSkills,
+  developmentStages,
+  playerAssessments,
+} from "../schema";
+import { DOMAINS, STAGES } from "../../curriculum/content/reference";
+import type { DomainName } from "../../curriculum/content/types";
+import { recomputePlayerSnapshots } from "../../curriculum/snapshots";
 import { asc, eq, ne, and, or, inArray } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
@@ -337,6 +346,195 @@ async function seedFeedbackFixtures(db: Database, orgId: string) {
     metadata: { eventLabel: "E2E League Game", gameType: "league", refereeName: "Coach T." },
   });
   console.log(`   ✓ Feedback fixture: referee rating open token seeded for ${TEST_USERS.parent.email}`);
+}
+
+/**
+ * Curriculum development-radar fixture — Task 11 (parent radar E2E spec).
+ *
+ * Seeds the minimum curriculum content needed for the radar chart to render
+ * (>= 3 populated axes): the 4 skill domains, the "fundamentals" development
+ * stage, and one soccer skill per domain. Then assesses the seeded child
+ * player (Tommy) on all four skills at levels 4/3/2/3
+ * (technical/tactical/physical/psychological) in the seeded e2e season, and
+ * recomputes the assessment_snapshots the radar reads from.
+ *
+ * Idempotent, mirroring scripts/curriculum-load.ts:
+ *   - domains/stage are shared reference data — onConflictDoNothing so a
+ *     re-seed never clobbers content another path may have written.
+ *   - the skill rows upsert on the Task 1 unique index
+ *     (skills.sport_id, skills.slug) via onConflictDoUpdate.
+ *   - assessments have no natural-key unique index, so we select-then-heal:
+ *     insert if missing, otherwise update the level in place so re-seeding
+ *     never duplicates rows or drifts off the intended fixture levels.
+ */
+async function seedCurriculumRadarFixture(db: Database, orgId: string) {
+  // Domains + development stage are global reference data (no orgId
+  // column) — ensure existence without overwriting other content.
+  for (const d of DOMAINS) {
+    await db
+      .insert(skillDomains)
+      .values({
+        name: d.name,
+        displayName: d.displayName,
+        description: d.description,
+        color: d.color,
+        icon: d.icon,
+        assessmentFrequency: d.assessmentFrequency,
+        weightInOverall: d.weightInOverall,
+        sortOrder: d.sortOrder,
+      })
+      .onConflictDoNothing();
+  }
+
+  const fundamentalsStage = STAGES.find((s) => s.slug === "fundamentals");
+  if (!fundamentalsStage) {
+    throw new Error(
+      "e2e seed: 'fundamentals' stage missing from curriculum reference content",
+    );
+  }
+  await db
+    .insert(developmentStages)
+    .values({
+      slug: fundamentalsStage.slug,
+      name: fundamentalsStage.name,
+      ageMin: fundamentalsStage.ageMin,
+      ageMax: fundamentalsStage.ageMax,
+      description: fundamentalsStage.description,
+      philosophy: fundamentalsStage.philosophy,
+      practiceToGameRatio: fundamentalsStage.practiceToGameRatio,
+      maxHoursPerWeek: fundamentalsStage.maxHoursPerWeek,
+      keyPrinciples: fundamentalsStage.keyPrinciples,
+      coachRole: fundamentalsStage.coachRole,
+      sortOrder: fundamentalsStage.sortOrder,
+    })
+    .onConflictDoNothing();
+
+  const domainRows = await db.select().from(skillDomains);
+  const domainIdByName = new Map(domainRows.map((d) => [d.name, d.id]));
+
+  const [stage] = await db
+    .select()
+    .from(developmentStages)
+    .where(eq(developmentStages.slug, "fundamentals"))
+    .limit(1);
+  if (!stage) {
+    throw new Error("e2e seed: failed to load 'fundamentals' stage after upsert");
+  }
+
+  const [sport] = await db
+    .select()
+    .from(sports)
+    .where(and(eq(sports.organizationId, orgId), eq(sports.slug, "soccer")))
+    .limit(1);
+  if (!sport) {
+    throw new Error("e2e seed: soccer sport missing — curriculum fixture must run after sport setup");
+  }
+
+  const [parentUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TEST_USERS.parent.email))
+    .limit(1);
+  if (!parentUser) throw new Error("e2e seed: parent test user missing");
+
+  const [tommy] = await db
+    .select({ id: familyMembers.id })
+    .from(familyMembers)
+    .where(
+      and(
+        eq(familyMembers.parentUserId, parentUser.id),
+        eq(familyMembers.firstName, "Tommy"),
+      ),
+    )
+    .orderBy(asc(familyMembers.createdAt))
+    .limit(1);
+  if (!tommy) throw new Error("e2e seed: Tommy family member missing");
+
+  const [coach] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TEST_USERS.coach.email))
+    .limit(1);
+  if (!coach) throw new Error("e2e seed: coach test user missing");
+
+  const [season] = await db
+    .select({ id: seasons.id })
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-test-spring-2026"))
+    .orderBy(asc(seasons.createdAt))
+    .limit(1);
+  if (!season) throw new Error("e2e seed: e2e-test-spring-2026 season missing");
+
+  // One skill per domain, assessed at these exact levels — all four axes
+  // populate so the radar's >= 3-axis minimum is comfortably satisfied.
+  const SKILL_LEVELS: { domain: DomainName; level: number }[] = [
+    { domain: "technical", level: 4 },
+    { domain: "tactical", level: 3 },
+    { domain: "physical", level: 2 },
+    { domain: "psychological", level: 3 },
+  ];
+
+  for (const { domain, level } of SKILL_LEVELS) {
+    const domainId = domainIdByName.get(domain);
+    if (!domainId) throw new Error(`e2e seed: domain "${domain}" missing after upsert`);
+
+    const slug = `e2e-${domain}-skill`;
+    const skillSet = {
+      organizationId: orgId,
+      domainId,
+      stageId: stage.id,
+      name: `E2E ${domain[0].toUpperCase()}${domain.slice(1)} Skill`,
+      description: `Fixture skill for the ${domain} domain (development-radar E2E spec).`,
+      isCore: true,
+      updatedAt: new Date(),
+    };
+    const [skillRow] = await db
+      .insert(curriculumSkills)
+      .values({ sportId: sport.id, slug, ...skillSet })
+      .onConflictDoUpdate({
+        target: [curriculumSkills.sportId, curriculumSkills.slug],
+        set: skillSet,
+      })
+      .returning({ id: curriculumSkills.id });
+
+    // No natural-key unique index on player_assessments (Task 1 didn't add
+    // one) — select-then-heal so re-seeding never duplicates rows.
+    const [existingAssessment] = await db
+      .select({ id: playerAssessments.id, level: playerAssessments.level })
+      .from(playerAssessments)
+      .where(
+        and(
+          eq(playerAssessments.familyMemberId, tommy.id),
+          eq(playerAssessments.skillId, skillRow.id),
+          eq(playerAssessments.seasonId, season.id),
+        ),
+      )
+      .orderBy(asc(playerAssessments.createdAt))
+      .limit(1);
+
+    if (!existingAssessment) {
+      await db.insert(playerAssessments).values({
+        familyMemberId: tommy.id,
+        skillId: skillRow.id,
+        seasonId: season.id,
+        coachUserId: coach.id,
+        level,
+        observationContext: "practice",
+        assessedAt: new Date(),
+      });
+    } else if (existingAssessment.level !== level) {
+      await db
+        .update(playerAssessments)
+        .set({ level, updatedAt: new Date() })
+        .where(eq(playerAssessments.id, existingAssessment.id));
+    }
+  }
+
+  const { domainsWritten } = await recomputePlayerSnapshots(db, tommy.id, season.id);
+  console.log(
+    `   ✓ Curriculum radar fixture: ${SKILL_LEVELS.length} skills assessed for Tommy, ` +
+      `${domainsWritten} domain snapshot(s) recomputed`,
+  );
 }
 
 async function seedE2ETests() {
@@ -2474,6 +2672,10 @@ async function seedE2ETests() {
   // Stage 14 — Post-event feedback fixtures (Task 9 — NPS promoter E2E spec).
   console.log("\n14. Setting up post-event feedback fixtures...");
   await seedFeedbackFixtures(db, org.id);
+
+  // Stage 15 — Curriculum development-radar fixture (Task 11).
+  console.log("\n15. Setting up curriculum development-radar fixture...");
+  await seedCurriculumRadarFixture(db, org.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

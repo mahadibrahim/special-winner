@@ -76,7 +76,7 @@ const DOMAIN_CONFIG: Record<string, { icon: typeof Target; color: string; bg: st
 
 const LEVEL_LABELS = ["Not Assessed", "Beginner", "Developing", "Competent", "Proficient", "Advanced"]
 
-function MiniSparkline({ data, color }: { data: number[]; color: string }) {
+function MiniSparkline({ data, colorClass }: { data: number[]; colorClass: string }) {
   if (data.length < 2) return null
 
   const max = Math.max(...data, 5)
@@ -92,11 +92,11 @@ function MiniSparkline({ data, color }: { data: number[]; color: string }) {
     .join(" ")
 
   return (
-    <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
+    <svg viewBox="0 0 100 100" className={cn("w-full h-full", colorClass)} preserveAspectRatio="none">
       <polyline
         points={points}
         fill="none"
-        stroke={color}
+        stroke="currentColor"
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -148,7 +148,7 @@ function SkillRow({ skill, domainColor }: { skill: SkillProgress; domainColor: s
       {/* Mini sparkline for history */}
       {skill.history.length > 1 && (
         <div className="h-6 mt-2 opacity-60">
-          <MiniSparkline data={skill.history} color={domainColor.replace("text-", "#").replace("-400", "")} />
+          <MiniSparkline data={skill.history} colorClass={domainColor} />
         </div>
       )}
     </div>

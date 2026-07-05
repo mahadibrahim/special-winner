@@ -180,6 +180,11 @@ export function SkillEditor() {
   }
 
   async function handleSave() {
+    // skills.stage_id is NOT NULL — a stage-less create used to 500.
+    if (!editingSkill && !formData.stageId) {
+      setError("Development stage is required.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -504,16 +509,15 @@ export function SkillEditor() {
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Development Stage</Label>
+                <Label>Development Stage *</Label>
                 <Select
-                  value={formData.stageId || "none"}
-                  onValueChange={(value) => setFormData({ ...formData, stageId: value === "none" ? "" : value })}
+                  value={formData.stageId || undefined}
+                  onValueChange={(value) => setFormData({ ...formData, stageId: value })}
                 >
                   <SelectTrigger className="bg-cream-2 border-border">
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">All Stages</SelectItem>
                     {stages.map((stage) => (
                       <SelectItem key={stage.id} value={stage.id}>
                         {stage.name}

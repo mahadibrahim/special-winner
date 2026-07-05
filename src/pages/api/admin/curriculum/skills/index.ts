@@ -13,7 +13,9 @@ import {
 const skillSchema = z.object({
   sportId: z.string().uuid(),
   domainId: z.string().uuid(),
-  stageId: z.string().uuid().optional(),
+  // Required: skills.stage_id is NOT NULL — optional here used to pass
+  // validation and then 500 on the insert.
+  stageId: z.string().uuid({ message: "Development stage is required" }),
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/, "Slug must be lowercase with hyphens only"),
   description: z.string().optional(),

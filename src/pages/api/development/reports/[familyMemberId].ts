@@ -12,6 +12,7 @@ import {
   programs,
   users,
 } from "@/lib/db/schema";
+import { assessmentSnapshots } from "@/lib/db/schema/assessments";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, desc, sql } from "drizzle-orm";
 
@@ -228,6 +229,36 @@ export const GET: APIRoute = async ({ params, locals }) => {
       context: a.observationContext,
     }));
 
+    // Get assessment snapshots (Task 9) for the domain radar chart (Task 10).
+    // A player can have snapshot rows across multiple seasons per domain —
+    // take the most recently updated one per domain as "current".
+    const snapshotRows = await getDb()
+      .select({
+        domainId: assessmentSnapshots.domainId,
+        domainDisplayName: skillDomains.displayName,
+        averageLevel: assessmentSnapshots.averageLevel,
+        previousAverageLevel: assessmentSnapshots.previousAverageLevel,
+        updatedAt: assessmentSnapshots.updatedAt,
+      })
+      .from(assessmentSnapshots)
+      .innerJoin(skillDomains, eq(assessmentSnapshots.domainId, skillDomains.id))
+      .where(eq(assessmentSnapshots.familyMemberId, familyMemberId))
+      .orderBy(skillDomains.sortOrder, desc(assessmentSnapshots.updatedAt));
+
+    const latestSnapshotByDomain = new Map<string, (typeof snapshotRows)[number]>();
+    for (const row of snapshotRows) {
+      if (!latestSnapshotByDomain.has(row.domainId)) {
+        latestSnapshotByDomain.set(row.domainId, row);
+      }
+    }
+
+    const snapshots = [...latestSnapshotByDomain.values()].map((row) => ({
+      domain: row.domainDisplayName,
+      averageLevel: row.averageLevel !== null ? parseFloat(row.averageLevel) : 0,
+      previousAverageLevel:
+        row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
+    }));
+
     // Calculate age
     const today = new Date();
     const birthDateValue = new Date(familyMember.birthDate);
@@ -254,6 +285,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         },
         domainProgress: domainSummaries,
         recentAssessments,
+        snapshots,
       }),
       {
         status: 200,

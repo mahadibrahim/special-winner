@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select"
 import PlayerAssessmentForm from "./player-assessment-form"
 import AssessmentHistory from "./assessment-history"
+import DomainRadar, { type RadarAxis } from "@/components/development/domain-radar"
 import {
   Plus,
   User,
@@ -109,6 +110,12 @@ interface DomainAverage {
   totalLevel: number
   count: number
   averageLevel: number
+}
+
+interface SnapshotDomain {
+  domain: string
+  averageLevel: number
+  previousAverageLevel: number | null
 }
 
 interface PlayerAssessmentDetailProps {
@@ -219,6 +226,7 @@ export default function PlayerAssessmentDetail({
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [summaries, setSummaries] = useState<SkillSummary[]>([])
   const [domainAverages, setDomainAverages] = useState<DomainAverage[]>([])
+  const [snapshots, setSnapshots] = useState<SnapshotDomain[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -254,6 +262,7 @@ export default function PlayerAssessmentDetail({
         setAssessments(data.assessments || [])
         setSummaries(data.summaries || [])
         setDomainAverages(data.domainAverages || [])
+        setSnapshots(data.snapshots || [])
       } catch (err) {
         console.error("Error fetching data:", err)
         setError(err instanceof Error ? err.message : "An error occurred")
@@ -274,6 +283,7 @@ export default function PlayerAssessmentDetail({
         setAssessments(data.assessments || [])
         setSummaries(data.summaries || [])
         setDomainAverages(data.domainAverages || [])
+        setSnapshots(data.snapshots || [])
       }
     } catch (err) {
       console.error("Error refreshing:", err)
@@ -294,6 +304,12 @@ export default function PlayerAssessmentDetail({
   const uniqueDomains = Array.from(
     new Map(summaries.map((s) => [s.domain.id, s.domain])).values()
   )
+
+  const radarAxes: RadarAxis[] = snapshots.map((s) => ({
+    label: s.domain,
+    current: s.averageLevel,
+    previous: s.previousAverageLevel ?? undefined,
+  }))
 
   if (loading) {
     return (
@@ -370,6 +386,11 @@ export default function PlayerAssessmentDetail({
               </span>
             )}
           </div>
+        </div>
+
+        {/* Domain radar — at-a-glance shape of development across domains */}
+        <div className="w-full sm:w-40 shrink-0">
+          <DomainRadar axes={radarAxes} size={160} />
         </div>
 
         {/* Actions */}

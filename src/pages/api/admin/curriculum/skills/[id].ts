@@ -39,7 +39,9 @@ async function loadSkillForOrg(
 const updateSkillSchema = z.object({
   sportId: z.string().uuid().optional(),
   domainId: z.string().uuid().optional(),
-  stageId: z.string().uuid().optional().nullable(),
+  // No .nullable(): skills.stage_id is NOT NULL, so an explicit null would
+  // pass validation and then 500 on the update.
+  stageId: z.string().uuid().optional(),
   name: z.string().min(1).optional(),
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
   description: z.string().optional().nullable(),

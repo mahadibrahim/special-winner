@@ -7,6 +7,9 @@ describe("fromForBrand", () => {
   });
 
   it("keeps the verified sending address, swapping only the display name", () => {
+    // Force the fallback branch: the ambient env (bws/Netlify) may set the
+    // override now that gosoccerone.com is verified in Resend.
+    vi.stubEnv("RESEND_FROM_EMAIL_SOCCERONE", "");
     const from = fromForBrand("soccerone");
     const address = EMAIL_FROM.match(/<([^>]+)>/)?.[1];
     expect(address).toBeTruthy();
