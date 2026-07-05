@@ -249,7 +249,12 @@ function ChildCard({ child }: { child: Child }) {
             size="sm"
             className="flex-1 text-ink-muted hover:text-ink hover:bg-cream-2"
           >
-            <a href={`/dashboard/children/${child.id}/development`}>Development</a>
+            <a
+              href={`/dashboard/children/${child.id}/development`}
+              data-testid="child-development-link"
+            >
+              Development
+            </a>
           </Button>
           <Button
             asChild
@@ -276,13 +281,13 @@ function ChildCard({ child }: { child: Child }) {
 }
 
 export default function ChildrenOverview() {
-  // ChildrenOverview is the first `client:visible` component in the "What
-  // you're part of" section on /dashboard/family — high enough on the page
-  // to hydrate promptly, so it doubles as this page's hydration beacon
-  // (mirrors MyDropInBookings/MyFieldRentals on /dashboard/play, which do
-  // the same from client:visible). E2E specs that navigate from
-  // /dashboard/family (e.g. tests/e2e/development-radar.spec.ts) rely on
-  // `waitForHydration(page)` finding this.
+  // ChildrenOverview is mounted `client:load` in family.astro so it doubles
+  // as this page's hydration beacon (repo convention: the beacon lives on
+  // the top-level client:load island — client:visible islands below the
+  // fold may never hydrate before waitForHydration's timeout). E2E specs
+  // that navigate from /dashboard/family (e.g.
+  // tests/e2e/development-radar.spec.ts) rely on `waitForHydration(page)`
+  // finding this.
   useHydrationBeacon()
 
   const [children, setChildren] = useState<Child[]>([])
