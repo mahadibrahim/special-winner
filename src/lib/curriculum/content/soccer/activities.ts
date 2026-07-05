@@ -1786,7 +1786,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 12,
     skillsDeveloped: ["shooting"],
     setupInstructions:
-      "EQUIPMENT CHECKLIST\n□ 1 ball only (coach holds extras for quick replacement)\n□ 2 cones or 1 small goal (3-4 paces wide)\n□ Optional: pinnies for later rounds\n□ Spare balls nearby for quick restarts\n\nSPACE: Open area with shooting area (minimum 20x30 paces)\n\nSETUP STEPS\n1. Set up one small goal (2 cones, 3-4 paces apart) OR use existing small goal\n2. Mark a shooting line about 8-10 paces from goal (optional but helpful)\n3. All players start spread around the goal area\n4. ONE ball in play\n\nDIAGRAM\n            ALL PLAYERS SPREAD OUT\n            ○    ○    ○    ○    ○\n              ○    ○    ○    ○\n                    ⚽\n\n     - - - - - - - - - - - - - - (shooting line optional)\n\n                  ⊏⊐\n                 GOAL\n\n○ = player  ⚽ = single ball  ⊏⊐ = goal (3-4 paces)",
+      "EQUIPMENT CHECKLIST\n□ 2-3 balls in play (coach holds extras for quick replacement; note: one ball only for the Championship Knockout variation)\n□ 2 cones or 1 small goal (3-4 paces wide)\n□ Optional: pinnies for later rounds\n□ Spare balls nearby for quick restarts\n\nSPACE: Open area with shooting area (minimum 20x30 paces)\n\nSETUP STEPS\n1. Set up one small goal (2 cones, 3-4 paces apart) OR use existing small goal\n2. Mark a shooting line about 8-10 paces from goal (optional but helpful)\n3. All players start spread around the goal area\n4. 2-3 balls in play\n\nDIAGRAM\n            ALL PLAYERS SPREAD OUT\n            ○    ○    ○    ○    ○\n              ○    ○    ○    ○\n                    ⚽ ⚽\n\n     - - - - - - - - - - - - - - (shooting line optional)\n\n                  ⊏⊐\n                 GOAL\n\n○ = player  ⚽⚽ = 2-3 balls in play  ⊏⊐ = goal (3-4 paces)",
     howToPlay:
       'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: By the goal\n\nSAY: "This is WORLD CUP - the most famous playground game ever! Everyone plays for themselves. Your goal is to SCORE. Every goal is a point - and when you score, do 5 quick toe taps and jump RIGHT BACK IN. Nobody sits out!"\n\nSAY: "There are SEVERAL BALLS in play so everyone stays busy. You can steal a loose ball from anyone, dribble, shoot - anything goes! But NO GOALKEEPERS and NO grabbing with hands. Ready?"\n\nPICK COUNTRY NAMES (makes it fun):\nSAY: "Pick a country to be! Who\'s Brazil? Germany? USA? Argentina?"\n\nLet them pick countries quickly.\n\n\nPHASE 2: ROUND 1 (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Find a spot, spread out! Ready... WORLD CUP!"\n\nDrop 2-3 balls in around the area, step back.\n\nCoach Position: Near goal but out of play\n\nDURING PLAY:\n□ When someone scores: "GOAL! [Country name] - that\'s a point! 5 toe taps, then get back in!"\n□ Ball out of bounds: Throw in new ball quickly (keep spares ready)\n□ Players bunching: "Spread out! Find space!"\n□ No one shooting: "Have a go! Take your shot!"\n\nEnd the round on time, not on elimination:\nSAY: "FREEZE! Let\'s count goals - who scored the most this round?"\n\n\nPHASE 3: QUICK DEBRIEF (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Who scored first? What did you do differently than others?"\n\nListen for: "Found space," "Got to loose ball," "Took my chance"\n\nSAY: "Let\'s go again! Maybe change your strategy this time!"\n\n\nPHASE 4: ROUND 2 (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOPTIONAL VARIATION - Choose one:\n• "Weak foot goals count DOUBLE"\n• "Must beat someone 1v1 before shooting"\n• "Goal only counts from inside shooting line"\n\nSAY: "Same game, new round! Same rule - score, quick toe taps, right back in. Different country this time? GO!"\n\nRun same format.\n\n\nPHASE 5: ROUND 3 - BONUS ROUND (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "BONUS ROUND! Same rules - score, tap, jump back in - but every goal this round is worth DOUBLE points! Let\'s see who finishes on top!"\n\nIncrease intensity with your voice and energy.\n\nAdd up points across all three rounds and crown a WORLD CUP CHAMPION based on total points - everyone played the whole time to get there!\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Amazing World Cup! What did you learn works?"\n\nListen for: "Get to the ball first," "Find space," "Take your shot when you can"\n\nSAY: "Those are the exact skills you need in real games! Great work everyone! Water break!"',
     diagram:
@@ -1819,7 +1819,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
       {
         name: "Comeback World Cup",
         description:
-          "Eliminated players do 5 juggles then return. No permanent elimination.",
+          "When running the Championship Knockout variation, let knocked-out players do 5 juggles to re-enter. This softens the stakes of the sit-out format so they stay engaged.",
         difficulty: "beginner",
       },
       {
@@ -1845,7 +1845,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
       'SIGNS THEY\'RE STRUGGLING:\n• Nobody scoring, frustration building\n• Balls stuck with one crowd\n• Weaker players never getting a touch\n\nSOLUTIONS:\n• Add even more balls (1 per 3-4 players)\n• Bigger goal or a second goal to spread play out\n• Shrink the return task to 2-3 toe taps so players get back in faster\n• Coach feeds an easy rolling ball toward players who haven\'t scored yet\n• Pair up weaker with stronger as a two-person "country"',
     makeHarder:
       'SIGNS THEY\'RE READY:\n• Everyone scoring easily, game feels too easy\n• Asking for more competition or stakes\n• Quick rounds, want a real winner\n\nSOLUTIONS:\n• Must beat someone 1v1 before shooting\n• Weak foot only\n• Must score from shooting line\n• Smaller goal\n• CHAMPIONSHIP KNOCKOUT (see variations) - for older/competitive groups ready for it: drop to ONE ball, score-and-sit-out, last without a goal is eliminated for the round. Save this for groups where sitting out won\'t sour the fun.',
-    equipmentNeeded: ["1 ball (extras nearby)", "2 cones for goal"],
+    equipmentNeeded: ["2-3 balls in play (extras nearby; 1 ball for the Championship Knockout variation)", "2 cones for goal"],
     spaceRequired: "medium",
     indoorSuitable: false,
     appropriateStages: ["fundamentals", "skill-building"],
@@ -1861,7 +1861,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           "Stay calm - your chance will come!",
         ],
         setupDiagram:
-          "One small goal, one ball, all players spread around shooting area",
+          "One small goal, 2-3 balls in play, all players spread around shooting area",
         quickProgression: {
           easier: "Even more balls in play, a shorter rejoin task, team up weaker players",
           harder: "Must beat defender first, weak foot only, smaller goal",

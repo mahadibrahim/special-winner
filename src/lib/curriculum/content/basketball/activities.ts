@@ -4240,7 +4240,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
       {
         name: "Elimination Musical Basketballs (Older Groups)",
         description:
-          "For skill-building/development groups ready for competitive pressure: remove one ball each round; the player(s) left without a ball are out until only two players remain. Higher stakes but a lot of sitting out for younger or mixed-ability groups.",
+          "For skill-building/development groups ready for competitive pressure: remove one ball each round; the player(s) left without a ball are out until only two players remain. Higher stakes but a lot of sitting out for younger or mixed-ability groups. — Note this activity is fundamentals-tagged; prefer the default format.",
         difficulty: "advanced",
       },
     ],
