@@ -2474,7 +2474,7 @@ Across an 8U practice, the mix is roughly 70% individual skills, 20% small-area 
 
 ## Why It Works: The Shot-Attempt Numbers
 
-An IIHF-hosted study of small-area games in Sweden and Finland found that players in small-ice formats took **5 to 8 times more shot attempts** than players in full-ice 5v5 games over the same time period. More shots mean more reps, more decisions, and more chances to build confidence with the puck.
+An IIHF-hosted study of small-area games in Sweden and Finland found that players in small-ice formats took **up to 5 times more shot attempts** than players in full-ice 5v5 games over the same time period. More shots mean more reps, more decisions, and more chances to build confidence with the puck.
 
 Sweden takes this far enough to ban checking until age 14, prioritizing skill development over physical play in the years that matter most for skill acquisition.
 

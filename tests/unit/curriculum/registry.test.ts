@@ -276,7 +276,7 @@ describe("curriculum registry", () => {
   // that reconstruction's reasoning). Wave 2 (2026-07-05) built baseball
   // fundamentals out to 12 skills total (5 technical / 2 tactical /
   // 2 physical / 3 psychological), anchored on USA Baseball's LTAD
-  // throw->catch->run->hit priority order and the keep-rules-minimal
+  // four core competencies (unordered set per USA Baseball LTAD; our teaching sequence is editorial) and the keep-rules-minimal
   // principle from docs/curriculum/research/2026-07-05-brief.md §2. See
   // .superpowers/sdd/w2r-3-report.md for the full skill list by domain.
   it("baseball skills: 12 total (5 technical / 2 tactical / 2 physical / 3 psychological), Throwing Mechanics preserved from the original upgrade payload", () => {
