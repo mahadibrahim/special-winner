@@ -25,11 +25,19 @@ describe("curriculum registry", () => {
   // plan. Folding the four upgrade passes onto them (by name, not UUID) adds
   // 21 more: 13 gen-0-named skills that upgrade payloads target (matched
   // against the shells in src/lib/db/seed-curriculum.ts) plus 8 skills that
-  // exist only inside the upgrade payloads themselves. True total: 34. See
+  // exist only inside the upgrade payloads themselves. Raw fold total: 34.
+  // Before the first live load, a consolidation pass merged 8 near-duplicate
+  // skills into their richer siblings (see
+  // .superpowers/sdd/cr-consolidation-report.md): "Inside of Foot Pass" and
+  // the general "Passing" into "Passing (Short)"; "Receiving with Inside of
+  // Foot" and the general "Receiving" into "Receiving / First Touch";
+  // "Defending 1v1" into "1v1 Defending"; "1v1 Moves" into "1v1 Dribbling
+  // Moves"; "Shooting with Laces" into "Shooting"; and "Agility" into
+  // "Agility - Change of Direction". True total: 26. See
   // .superpowers/sdd/cr-task-3-report.md for the full fold-by-fold breakdown.
-  it("soccer skills: 34 total — the 13 v2-canonical with the 5/3/2/3 domain split, plus 21 folded-in skills", () => {
+  it("soccer skills: 26 total — the 13 v2-canonical with the 5/3/2/3 domain split, plus 13 folded-in skills after de-duplication", () => {
     const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "soccer");
-    expect(s).toHaveLength(34);
+    expect(s).toHaveLength(26);
 
     const v2Names = new Set([
       "Ball Control",
@@ -105,11 +113,18 @@ describe("curriculum registry", () => {
   // upgrade files onto them (plus gen-0 shells from seed-curriculum.ts) adds
   // 20 more: 13 gen-0-named skills minus 1 name collision ("Help Defense",
   // where v2 wins as the base layer) plus 7 skills that exist only inside the
-  // upgrade payloads. True total: 33. See
-  // .superpowers/sdd/cr-task-5-report.md for the full fold-by-fold breakdown.
-  it("basketball skills: 33 total — the 13 v2-canonical with the 5/3/2/3 domain split, plus 20 folded-in skills", () => {
+  // upgrade payloads. Raw fold total: 33. Before the first live load, a
+  // consolidation pass merged 7 near-duplicate skills into their richer
+  // siblings (see .superpowers/sdd/cr-consolidation-report.md): "Stationary
+  // Ball Handling" into "Ball Handling"; "Chest Pass" into "Two-Hand Chest
+  // Pass"; "Shooting Form" into "Form Shooting"; "Layup" into "Layups -
+  // Dominant Hand"; "Pull-Up Jumper" into "Pull-Up Jump Shot"; and both
+  // "Spacing Awareness" and "Spacing" into "Court Spacing". True total: 26.
+  // See .superpowers/sdd/cr-task-5-report.md for the full fold-by-fold
+  // breakdown.
+  it("basketball skills: 26 total — the 13 v2-canonical with the 5/3/2/3 domain split, plus 13 folded-in skills after de-duplication", () => {
     const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "basketball");
-    expect(s).toHaveLength(33);
+    expect(s).toHaveLength(26);
 
     const v2Names = new Set([
       "Ball Handling",

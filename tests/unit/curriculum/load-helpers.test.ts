@@ -107,17 +107,23 @@ describe("planUpserts", () => {
   });
 
   it("regression (Finding 1): a skill omitting assessmentMethod/isCore/sortOrder plans as unchanged, not update, on a second pass", () => {
-    // "passing" is a real registry entry that omits all three optional
-    // fields -- this is the exact case the reviewer confirmed live on
-    // staging (8 soccer + 7 basketball skills reporting phantom updates on
-    // every re-run). If content authoring ever starts specifying these
-    // fields explicitly for "passing", swap in another skill that omits
-    // them rather than deleting this test.
+    // "dribbling-with-speed" is a real registry entry that omits all three
+    // optional fields -- this is the exact case the reviewer confirmed live
+    // on staging (8 soccer + 7 basketball skills reporting phantom updates
+    // on every re-run). The original fixture ("passing") was dropped as a
+    // near-duplicate of "passing-short" during the pre-load curriculum
+    // consolidation; this swaps in another skill that omits the same
+    // fields rather than deleting the test. If content authoring ever
+    // starts specifying these fields explicitly for
+    // "dribbling-with-speed", swap in another skill that omits them rather
+    // than deleting this test.
     const passing = CURRICULUM_CONTENT.skills.find(
-      (s) => s.sport === "soccer" && s.slug === "passing",
+      (s) => s.sport === "soccer" && s.slug === "dribbling-with-speed",
     );
     if (!passing) {
-      throw new Error('fixture drifted: expected soccer skill "passing" to exist');
+      throw new Error(
+        'fixture drifted: expected soccer skill "dribbling-with-speed" to exist',
+      );
     }
     expect(passing.assessmentMethod).toBeUndefined();
     expect(passing.isCore).toBeUndefined();
