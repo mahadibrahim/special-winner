@@ -24,21 +24,21 @@ them. Delete a proposed line to veto it.
 
 ## Adopted from 2026-07-05 baseline audit (owner-approved)
 
-- [ ] Backfill `skillsDeveloped` on all 99 untagged activities (soccer 49,
+- [x] Backfill `skillsDeveloped` on all 99 untagged activities (soccer 49,
       basketball 50), citing only existing skill slugs; fix the 3 mis-/
       under-tagged activities (layup-lines, 1v1-to-goal, rondo-4v1-v2)
-- [ ] Fix the 4 fundamentals-tagged elimination games (soccer
+- [x] Fix the 4 fundamentals-tagged elimination games (soccer
       world-cup-game, world-cup-v2, musical-balls; basketball bump-out):
       make a non-eliminating format the default `howToPlay` or retag to
       skill-building+
-- [ ] Repair the 7 depth gaps: full pillar backfill for 3 soccer guide-only
+- [x] Repair the 7 depth gaps: full pillar backfill for 3 soccer guide-only
       skills (dribbling-with-speed, creating-passing-angles,
       enjoyment-of-play); `description` for pick-and-roll-ball-handler,
       coordination, throwing-mechanics; `commonMistakes` for soccer
       coachability
-- [ ] Add `ageExpectations` + `bestAssessedIn` to the 10 thin basketball
+- [x] Add `ageExpectations` + `bestAssessedIn` to the 10 thin basketball
       comprehensiveGuides
-- [ ] Normalize the 8 audit-flagged soccer skills (6 skill-building/development
+- [x] Normalize the 8 audit-flagged soccer skills (6 skill-building/development
       + 2 fundamentals) from 3→5 coaching tips/mistakes/behaviors
       (fundamentals-stage standard)
 - [ ] Restore PH/PS above fundamentals: soccer skill-building +PH1/+PS2,
