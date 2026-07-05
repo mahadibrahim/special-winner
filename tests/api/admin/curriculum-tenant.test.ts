@@ -89,7 +89,7 @@ beforeAll(async () => {
 
 describe("curriculum/skills — tenant scoping", () => {
   it("POST with cross-org sportId returns 403/404", async (ctx) => {
-    if (!orgASkillDomainId) {
+    if (!orgASkillDomainId || !orgADevelopmentStageId) {
       ctx.skip();
       return;
     }
@@ -99,6 +99,7 @@ describe("curriculum/skills — tenant scoping", () => {
       body: JSON.stringify({
         sportId: orgBSportId,
         domainId: orgASkillDomainId,
+        stageId: orgADevelopmentStageId,
         name: "Should be rejected",
         slug: testSlug("x-skill"),
         assessmentMethod: "observation",
@@ -108,7 +109,7 @@ describe("curriculum/skills — tenant scoping", () => {
   });
 
   it("POST with org-local sportId creates a skill scoped to caller's org", async (ctx) => {
-    if (!orgASkillDomainId) {
+    if (!orgASkillDomainId || !orgADevelopmentStageId) {
       ctx.skip();
       return;
     }
@@ -119,6 +120,8 @@ describe("curriculum/skills — tenant scoping", () => {
       body: JSON.stringify({
         sportId: orgASportId,
         domainId: orgASkillDomainId,
+        // skills.stage_id is NOT NULL; the endpoint now requires it.
+        stageId: orgADevelopmentStageId,
         name: "Scoped Skill Sample",
         slug,
         assessmentMethod: "observation",
