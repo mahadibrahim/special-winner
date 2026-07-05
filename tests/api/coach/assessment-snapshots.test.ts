@@ -15,14 +15,14 @@
  * into staging (Task 11).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { asc, and, eq } from "drizzle-orm";
+import { asc, and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { teams } from "@/lib/db/schema/teams";
 import { sports } from "@/lib/db/schema/sports";
 import { skills } from "@/lib/db/schema/curriculum";
-import { assessmentSnapshots } from "@/lib/db/schema/assessments";
+import { assessmentSnapshots, playerAssessments } from "@/lib/db/schema/assessments";
 import { getCoachCookie, apiFetch, expectJson, resetCookies } from "../setup/test-helpers";
 
 describe("Assessment snapshot pipeline (POST /api/coach/assessments)", () => {
@@ -102,6 +102,33 @@ describe("Assessment snapshot pipeline (POST /api/coach/assessments)", () => {
           eq(assessmentSnapshots.domainId, domainId),
         ),
       );
+
+    // The "only one skill is assessed" assumption below (used to predict an
+    // exact domain average) only holds if `skillId` is the sole skill in
+    // `domainId` with an assessment for Tommy in this season. The e2e seed's
+    // development-radar fixture (Task 11, src/lib/db/seeds/seed-e2e-tests.ts)
+    // now assesses Tommy on one skill in EVERY domain for this same season so
+    // the parent radar has data — so any other skill sharing this domain
+    // must be cleared here rather than relying on skillId happening to be
+    // the only one ever assessed.
+    const domainSkillRows = await db
+      .select({ id: skills.id })
+      .from(skills)
+      .where(eq(skills.domainId, domainId));
+    const otherDomainSkillIds = domainSkillRows
+      .map((s) => s.id)
+      .filter((id) => id !== skillId);
+    if (otherDomainSkillIds.length > 0) {
+      await db
+        .delete(playerAssessments)
+        .where(
+          and(
+            eq(playerAssessments.familyMemberId, familyMemberId),
+            eq(playerAssessments.seasonId, seasonId),
+            inArray(playerAssessments.skillId, otherDomainSkillIds),
+          ),
+        );
+    }
   });
 
   afterAll(() => {
