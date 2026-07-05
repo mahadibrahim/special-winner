@@ -224,30 +224,80 @@ describe("curriculum registry", () => {
     expect(s.every((k) => k.stage === "fundamentals")).toBe(true);
   });
 
-  it("hockey: no activities or session plans invented (none exist in the recovered seeds)", () => {
-    expect(
-      CURRICULUM_CONTENT.activities.filter((x) => x.sport === "hockey"),
-    ).toHaveLength(0);
-    expect(
-      CURRICULUM_CONTENT.sessionPlans.filter((x) => x.sport === "hockey"),
-    ).toHaveLength(0);
+  // Wave-2 refine added an originally-authored hockey activities library
+  // (see src/lib/curriculum/content/hockey/activities.ts header for
+  // sourcing/provenance).
+  it("hockey activities: at least 20, every skill slug covered", () => {
+    const hockeyActivities = CURRICULUM_CONTENT.activities.filter(
+      (x) => x.sport === "hockey",
+    );
+    expect(hockeyActivities.length).toBeGreaterThanOrEqual(20);
+
+    const slugs = hockeyActivities.map((a) => a.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+
+    const hockeySkillSlugs = new Set(
+      CURRICULUM_CONTENT.skills
+        .filter((s) => s.sport === "hockey")
+        .map((s) => s.slug),
+    );
+    const coveredSkillSlugs = new Set(
+      hockeyActivities.flatMap((a) => a.skillsDeveloped ?? []),
+    );
+    for (const slug of hockeySkillSlugs) {
+      expect(coveredSkillSlugs.has(slug)).toBe(true);
+    }
   });
 
-  // Baseball has no v2-canonical skills file and no gen-0 rows in
-  // src/lib/db/seed-curriculum.ts — the only source is
+  // A later wave-2 pass added an originally-authored hockey session-plan
+  // library on top of the activities library above (see
+  // src/lib/curriculum/content/hockey/session-plans.ts header for
+  // sourcing/provenance) -- a 4-plan fundamentals-stage progression built as
+  // ADM-style station rotations.
+  it("hockey session plans: 4 fundamentals-stage plans, segments carry coaching scripts", () => {
+    const p = CURRICULUM_CONTENT.sessionPlans.filter(
+      (x) => x.sport === "hockey",
+    );
+    expect(p.length).toBeGreaterThanOrEqual(4);
+    expect(p.every((x) => x.stage === "fundamentals")).toBe(true);
+    expect(p.some((x) => x.structure.some((seg) => seg.coachingScript))).toBe(
+      true,
+    );
+
+    const names = p.map((x) => x.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  // Baseball originally had no v2-canonical skills file and no gen-0 rows in
+  // src/lib/db/seed-curriculum.ts — the only pre-wave-2 source was
   // curriculum-v2__baseball-skills-upgrade.ts, which UPDATEs a single
   // pre-existing skill row ("Throwing Mechanics") by hardcoded uuid rather
-  // than inserting a full row. True count is 1; the task brief's floor is
-  // >= 1. See .superpowers/sdd/cr-task-6-report.md for the reconstruction
-  // reasoning (domain/stage/name/slug/assessmentMethod/isCore inferred from
-  // context since the source object never sets them).
-  it("baseball skills: exactly 1, reconstructed from the sole upgrade payload", () => {
+  // than inserting a full row (see .superpowers/sdd/cr-task-6-report.md for
+  // that reconstruction's reasoning). Wave 2 (2026-07-05) built baseball
+  // fundamentals out to 12 skills total (5 technical / 2 tactical /
+  // 2 physical / 3 psychological), anchored on USA Baseball's LTAD
+  // four core competencies (unordered set per USA Baseball LTAD; our teaching sequence is editorial) and the keep-rules-minimal
+  // principle from docs/curriculum/research/2026-07-05-brief.md §2. See
+  // .superpowers/sdd/w2r-3-report.md for the full skill list by domain.
+  it("baseball skills: 12 total (5 technical / 2 tactical / 2 physical / 3 psychological), Throwing Mechanics preserved from the original upgrade payload", () => {
     const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "baseball");
-    expect(s.length).toBeGreaterThanOrEqual(1);
-    expect(s).toHaveLength(1);
-    expect(s[0].name).toBe("Throwing Mechanics");
-    expect(s[0].domain).toBe("technical");
-    expect(s[0].comprehensiveGuide).toBeTruthy();
+    expect(s).toHaveLength(12);
+
+    const throwing = s.find((k) => k.name === "Throwing Mechanics");
+    expect(throwing).toBeTruthy();
+    expect(throwing?.domain).toBe("technical");
+    expect(throwing?.comprehensiveGuide).toBeTruthy();
+
+    const byDomain = (d: string) => s.filter((k) => k.domain === d).length;
+    expect(byDomain("technical")).toBe(5);
+    expect(byDomain("tactical")).toBe(2);
+    expect(byDomain("physical")).toBe(2);
+    expect(byDomain("psychological")).toBe(3);
+
+    expect(s.every((k) => k.comprehensiveGuide)).toBe(true);
+    expect(
+      s.every((k) => k.stage === "fundamentals" || k.stage === "skill-building"),
+    ).toBe(true);
   });
 
   it("baseball: no activities or session plans invented (none exist in the recovered seeds)", () => {
@@ -273,14 +323,17 @@ describe("curriculum registry", () => {
       expect(CURRICULUM_CONTENT.coachGuidance.principles.length).toBeGreaterThan(0);
     });
 
-    it("matches the true counts from folding both recovered generations", () => {
+    it("matches the true counts from folding both recovered generations plus the wave-2 sport guidance floor", () => {
       // 29 (coach-prompts.ts) + 30 (coach-training-modules.ts promptsData)
-      expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(59);
+      // + 4 wave-2 additions (2 hockey + 2 baseball, see coach-guidance.ts)
+      expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(63);
       // 12 (coach-resources.ts) + 9 (coach-training-modules.ts resourcesData)
-      expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(21);
+      // + 2 wave-2 additions (1 hockey + 1 baseball article)
+      expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(23);
       // 5 (coach-prompts.ts) + 15 (coach-training-modules.ts principlesData)
       // minus 1 dropped natural-key collision ("Development Over Winning")
-      expect(CURRICULUM_CONTENT.coachGuidance.principles).toHaveLength(19);
+      // + 3 wave-2 additions (hockey, baseball, relative-age-effect)
+      expect(CURRICULUM_CONTENT.coachGuidance.principles).toHaveLength(22);
     });
 
     it("coach_prompts natural key (content) has no duplicates", () => {

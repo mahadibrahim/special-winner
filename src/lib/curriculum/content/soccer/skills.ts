@@ -3945,11 +3945,11 @@ export const SOCCER_SKILLS: SkillContent[] = [
       "Recovers quickly from a correction without becoming defensive or shutting down",
     ],
     commonMistakes: [
-      "Confusing quiet, internal processing with not listening or disengagement",
-      "Mistaking a player's need for repetition as resistance to feedback",
-      "Reading a single defensive reaction as a fixed coachability trait rather than a momentary emotional response",
-      "Giving feedback in front of teammates and misreading the resulting withdrawal as poor coachability rather than embarrassment",
-      "Assuming a player who agrees verbally has actually understood or will apply the correction",
+      "Processes instructions quietly and slowly - can look disengaged when actually absorbing",
+      "Needs to hear or see a correction several times before it sticks, which can look like resistance to feedback",
+      "Reacts defensively to a single correction in the moment, then recovers and applies it a few reps later",
+      "Withdraws or goes quiet when corrected in front of teammates, even though they take the same feedback well one-on-one",
+      "Nods and says 'okay' to a correction without repeating it back or attempting it, then makes the same mistake on the next try",
     ],
     coachingTips: [
       "Catch them doing something right",
@@ -6043,11 +6043,11 @@ export const SOCCER_SKILLS: SkillContent[] = [
       "Bounces back quickly from mistakes or disappointing moments",
     ],
     commonMistakes: [
-      "Adults applying excessive pressure that removes the fun from playing",
-      "Focusing only on winning, which diminishes the joy of playing itself",
-      "Comparing a player to teammates, which reduces their personal enjoyment",
-      "Over-scheduling that leads to burnout over a season",
-      "Adult expectations overshadowing the child's own experience of the game",
+      "Tenses up or goes quiet under high-pressure feedback, and their visible enjoyment drains from play",
+      "Enthusiasm craters when the scoreline or outcome becomes the focus, even if their play quality holds",
+      "Disengages or sulks after being compared to a teammate, even without direct criticism of their own play",
+      "Enthusiasm drops steadily across a season with no recovery - a pattern consistent with burnout rather than dislike of the sport",
+      "Checks a parent's or coach's reaction after plays rather than reacting to the play itself, suggesting performance is for approval rather than enjoyment",
     ],
     coachingTips: [
       "What would make this more fun for you?",

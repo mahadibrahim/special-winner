@@ -6,13 +6,18 @@ import { BASKETBALL_SKILLS } from "./basketball/skills";
 import { BASKETBALL_ACTIVITIES } from "./basketball/activities";
 import { BASKETBALL_SESSION_PLANS } from "./basketball/session-plans";
 import { HOCKEY_SKILLS } from "./hockey/skills";
+import { HOCKEY_ACTIVITIES } from "./hockey/activities";
+import { HOCKEY_SESSION_PLANS } from "./hockey/session-plans";
 import { BASEBALL_SKILLS } from "./baseball/skills";
 import { COACH_GUIDANCE } from "./coach-guidance";
 import type { CurriculumContent } from "./types";
 
-// Hockey and baseball have skills only (no activities/session plans exist in
-// the recovered seeds -- inventing them is out of scope per the plan's
-// Global Constraints, Refinery backlog per spec §8).
+// Hockey now has an originally-authored activities library AND session-plan
+// library (wave-2 refine, see ./hockey/activities.ts and
+// ./hockey/session-plans.ts headers for sourcing/provenance) alongside its
+// transcribed skills. Baseball still has skills only -- no activities/session
+// plans exist in the recovered seeds for it, and inventing them remains out
+// of scope per the plan's Global Constraints, Refinery backlog per spec §8.
 export const CURRICULUM_CONTENT: CurriculumContent = {
   domains: DOMAINS,
   stages: STAGES,
@@ -22,8 +27,12 @@ export const CURRICULUM_CONTENT: CurriculumContent = {
     ...HOCKEY_SKILLS,
     ...BASEBALL_SKILLS,
   ],
-  activities: [...SOCCER_ACTIVITIES, ...BASKETBALL_ACTIVITIES],
-  sessionPlans: [...SOCCER_SESSION_PLANS, ...BASKETBALL_SESSION_PLANS],
+  activities: [...SOCCER_ACTIVITIES, ...BASKETBALL_ACTIVITIES, ...HOCKEY_ACTIVITIES],
+  sessionPlans: [
+    ...SOCCER_SESSION_PLANS,
+    ...BASKETBALL_SESSION_PLANS,
+    ...HOCKEY_SESSION_PLANS,
+  ],
   coachGuidance: COACH_GUIDANCE,
 };
 

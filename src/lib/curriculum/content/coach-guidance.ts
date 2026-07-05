@@ -812,6 +812,63 @@ export const COACH_PROMPTS: Record<string, unknown>[] = [
     targetedBehavior: "outcome vs process",
     tags: ["game-day", "fundamentals", "enjoyment"],
     active: true,
+  },
+  {
+    sport: "hockey",
+    triggerContext: "pre_practice" as const,
+    promptType: "tip" as const,
+    title: "Station-Based, Cross-Ice Practice",
+    content:
+      "Structure youth practices as rotating stations (8-10 min each) with cross-ice small-area games, not full-ice drills. USA Hockey's ADM model runs 8U as stations plus cross-ice 4v4 with intermediate nets, and 6U as 3v3 with mini nets and no goalies.",
+    priority: 9,
+    frequency: "weekly" as const,
+    isQuestionBased: false,
+    targetedBehavior: "practice design",
+    tags: ["hockey", "adm", "cross-ice", "stations"],
+    active: true,
+  },
+  {
+    sport: "hockey",
+    triggerContext: "during_practice" as const,
+    promptType: "reminder" as const,
+    title: "Small Ice Means More Shots",
+    content:
+      "Keep the ice small and the games short. An IIHF-hosted Sweden/Finland small-area-games study found up to 5x more shot attempts in small-ice games than full-ice 5v5 - that's where reps and confidence come from.",
+    priority: 8,
+    frequency: "weekly" as const,
+    isQuestionBased: false,
+    targetedBehavior: "practice design",
+    tags: ["hockey", "small-area-games", "shots", "development"],
+    active: true,
+  },
+  {
+    sport: "baseball",
+    triggerContext: "pre_practice" as const,
+    promptType: "reminder" as const,
+    title: "Throw, Catch, Run, Hit - Our Teaching Sequence",
+    content:
+      "USA Baseball's LTAD guidance for ages 6-8 identifies four core motor competencies - throwing, catching, running, hitting - taught through play, not lecture. We sequence our own teaching in that order (throw, catch, run, hit) as an editorial choice, not something the federation ranks. If practice time is short, protect the throw and catch reps before the hitting reps.",
+    priority: 9,
+    frequency: "weekly" as const,
+    isQuestionBased: false,
+    targetedBehavior: "session planning",
+    tags: ["baseball", "ltad", "fundamentals", "sequencing"],
+    active: true,
+  },
+  {
+    sport: "baseball",
+    stage: "fundamentals",
+    triggerContext: "pre_practice" as const,
+    promptType: "tip" as const,
+    title: "Tee First, Rules Minimal",
+    content:
+      "For 6-8 year olds, hit off the tee before live or soft-toss pitching, and keep game knowledge to the essentials: which base to run to, where to stand, what counts as an out. Everything else is noise at this age.",
+    priority: 8,
+    frequency: "weekly" as const,
+    isQuestionBased: false,
+    targetedBehavior: "age-appropriate coaching",
+    tags: ["baseball", "tee-ball", "fundamentals", "simplicity"],
+    active: true,
   }
 ];
 
@@ -2393,6 +2450,105 @@ If you're unsure, ask: "Will this child still love this sport in 5 years?" If th
     tags: ["burnout", "welfare", "prevention", "sustainability"],
     featured: false,
     active: true,
+  },
+  {
+    sport: "hockey",
+    resourceType: "article" as const,
+    title: "The Cross-Ice Model: Why Small Ice Develops Better Players",
+    description:
+      "How USA Hockey's American Development Model uses station-based practices and cross-ice small-area games to build more touches, more decisions, and more confident players.",
+      content: `# The Cross-Ice Model: Why Small Ice Develops Better Players
+
+## The Problem With Full Ice
+
+Put a group of 6-to-10-year-olds on a full sheet of ice and most of them spend the practice watching, not playing. Full-ice 5v5 was built for adults with adult skating speed and adult ice coverage - youth players simply can't fill the space.
+
+## The USA Hockey ADM Answer
+
+USA Hockey's American Development Model (ADM) restructures youth practice around two ideas:
+
+1. **Stations, not one big drill.** 8U practices run as rotating stations, 8-10 minutes each, so every player is always working - not standing in a line waiting for a turn.
+2. **Cross-ice games, not full-ice scrimmages.** 8U finishes stations with cross-ice 4v4 using intermediate nets. 6U plays 3v3 with mini nets and no goalies.
+
+Across an 8U practice, the mix is roughly 70% individual skills, 20% small-area games, 10% team tactics (admkids.com; usahockey.com/news_article/show/1072320; the 8U basic structure guide at portal.usahockey.com).
+
+## Why It Works: The Shot-Attempt Numbers
+
+An IIHF-hosted study of small-area games in Sweden and Finland found that players in small-ice formats took **up to 5 times more shot attempts** than players in full-ice 5v5 games over the same time period. More shots mean more reps, more decisions, and more chances to build confidence with the puck.
+
+Sweden takes this far enough to ban checking until age 14, prioritizing skill development over physical play in the years that matter most for skill acquisition.
+
+## Hockey Canada Agrees
+
+Hockey Canada's U11 seasonal structure mirrors the same philosophy: roughly 85% skills-and-tactics work to 15% team play, with a typical week built around one skills session, one small-area-games session, and one game.
+
+## What This Means for Your Practices
+
+- Run 8U practices as stations (8-10 minutes each) ending in cross-ice 4v4 with intermediate nets.
+- Run 6U practices as 3v3 with mini nets and no goalies - let everyone touch the puck constantly.
+- Favor small-area games over full-ice scrimmage time whenever the goal is skill development, not just game simulation.
+- Don't mistake "more ice" for "more development" - the data says the opposite.
+
+## Remember
+
+A cramped, chaotic-looking cross-ice game is producing more touches, more decisions, and more shots than a tidy full-ice scrimmage. Small ice isn't a compromise for young players - it's the better development environment.`,
+    topic: "methodology",
+    tags: ["hockey", "cross-ice", "adm", "small-area-games"],
+    source: "USA Hockey ADM / IIHF",
+    featured: true,
+    active: true,
+  },
+  {
+    sport: "baseball",
+    resourceType: "article" as const,
+    title: "Throw, Catch, Run, Hit: Teaching USA Baseball's Core Motor Competencies",
+    description:
+      "USA Baseball's Long-Term Athletic Development core motor competencies for ages 6-8, our teaching sequence for them, and why keeping rules minimal and equipment tee-first matters more than early hitting reps.",
+      content: `# Throw, Catch, Run, Hit: Teaching USA Baseball's Core Motor Competencies
+
+## The Four Core Competencies
+
+USA Baseball's Long-Term Athletic Development (LTAD) guidance for ages 6-8 identifies four core motor competencies, taught through play rather than lecture:
+
+- **Throwing**
+- **Catching**
+- **Running**
+- **Hitting**
+
+USA Baseball frames these as an unordered set, not a ranking. Our own teaching sequence below - throw, then catch, then run, then hit - is an editorial choice, not something the federation specifies: throwing and catching are foundational, multi-sport movement patterns that transfer everywhere, and most practice time gets eaten by hitting reps if a coach isn't deliberate about protecting the other three.
+
+## Keep the Rules Minimal
+
+At 6-8, USA Baseball's guidance is to strip the rulebook down to what's actually needed to play:
+
+- Which base to run to
+- Where to stand
+- What counts as an out
+
+Everything past that - infield fly rules, force plays versus tag plays, lead-off strategy - is noise at this age. Time spent explaining rules is time not spent throwing, catching, running, and hitting.
+
+## Equipment: Tee First
+
+Progress equipment in a sequence that matches development, not the calendar:
+
+1. **Tee work** - isolates the swing mechanics without timing pressure
+2. **Soft toss** - introduces timing in a controlled, predictable way
+3. **Live or coach-pitch** - only once tee and soft-toss mechanics are solid
+
+Rushing to live pitching before mechanics are set builds bad habits that are hard to unlearn later.
+
+## Multi-Sport, Station-Based
+
+USA Baseball's LTAD explicitly champions multi-sport participation at this age and recommends station-based practice structures, similar to what's now standard in hockey's ADM model - rotate small groups through throw/catch, fielding, and hitting stations rather than running one line drill for the whole team.
+
+## Remember
+
+At 6-8, the goal isn't a polished batting stance. It's a kid who can throw accurately, catch confidently, run the right way, and is starting to understand where the ball needs to go. Hitting comes together faster once those foundations are solid.`,
+    topic: "development",
+    tags: ["baseball", "ltad", "fundamentals", "tee-ball"],
+    source: "USA Baseball LTAD",
+    featured: true,
+    active: true,
   }
 ];
 
@@ -2842,6 +2998,76 @@ export const COACHING_PRINCIPLES: Record<string, unknown>[] = [
     europeanInsight:
       "European basketball produces 'positionless' players who can handle, pass, and shoot regardless of size. This is why European players adapt well to modern NBA styles.",
     sortOrder: 111,
+    active: true,
+  },
+  {
+    sport: "hockey",
+    title: "Small Ice, Big Development",
+    principle:
+      "Prioritize small-area games and cross-ice formats over full-ice play for youth hockey development.",
+    explanation:
+      "USA Hockey's ADM structures 8U practices as stations ending in cross-ice 4v4 with intermediate nets, and 6U as 3v3 with mini nets and no goalies, because young players can't fill a full sheet of ice the way adults do. An IIHF-hosted study of small-area games in Sweden and Finland found up to 5x more shot attempts in small-ice games than full-ice 5v5 over the same time - more touches and more decisions per minute, which is where skill development actually happens.",
+    doExamples: [
+      "Run 8U practices as rotating stations (8-10 min each) finishing in cross-ice 4v4 with intermediate nets",
+      "Run 6U as 3v3 with mini nets and no goalies",
+      "Favor small-area games over full-ice scrimmage time when the goal is skill development",
+      "Track shot attempts and touches, not just ice time, as a development signal",
+    ],
+    dontExamples: [
+      "Default straight to full-ice 5v5 for players under 11",
+      "Treat full-ice scrimmage minutes as equivalent to small-area-game reps",
+      "Introduce checking before age 14 (Sweden's benchmark) purely to look more 'game-like'",
+      "Judge a chaotic-looking cross-ice game as less valuable than a tidy full-ice one",
+    ],
+    europeanInsight:
+      "Sweden bans checking until age 14 and leans on small-area games for skill development, consistent with the IIHF-hosted study showing up to 5x more shot attempts in small-ice formats than full-ice 5v5.",
+    source: "IIHF-hosted Sweden/Finland small-area-games study (blob.iihf.com)",
+    sortOrder: 120,
+    active: true,
+  },
+  {
+    sport: "baseball",
+    title: "Throw, Catch, Run, Hit - Keep the Rules Minimal",
+    principle:
+      "Teach youth baseball's four core motor competencies - throwing, catching, running, hitting - through play; our own sequence (throw, then catch, then run, then hit) is an editorial choice, not a federation-specified order. Keep rules knowledge to the essentials.",
+    explanation:
+      "USA Baseball's Long-Term Athletic Development guidance for ages 6-8 identifies throwing, catching, running, and hitting as core motor competencies - an unordered set, not a ranking - taught through play rather than lecture, with station-based practice and multi-sport participation both explicitly recommended. We sequence our own teaching as throw, catch, run, then hit as an editorial choice, since throwing and catching are foundational movement patterns that transfer everywhere and are easy to lose to hitting time otherwise. Rules content should stay minimal at this age - which base to run to, where to stand, what counts as an out - because explaining infield-fly-rule nuance eats practice time that's better spent on reps.",
+    doExamples: [
+      "Sequence practice time so throwing and catching reps happen before hitting reps",
+      "Run station-based practices rotating through throw/catch, fielding, and hitting",
+      "Teach only the rules needed to play: which base to run to, where to stand, what an out is",
+      "Progress hitting equipment tee-first, then soft toss, then live pitching",
+    ],
+    dontExamples: [
+      "Let hitting reps crowd out throwing and catching time",
+      "Spend practice time explaining advanced rules (force vs. tag, infield fly) to 6-8 year olds",
+      "Rush players to live pitching before tee and soft-toss mechanics are solid",
+      "Treat single-sport specialization as necessary at this age",
+    ],
+    source: "USA Baseball LTAD",
+    sortOrder: 121,
+    active: true,
+  },
+  {
+    title: "Watch the Birthday, Not Just the Talent",
+    principle:
+      "Recognize the relative-age effect: within any age group, kids born earlier in the selection year are systematically bigger, stronger, and more coordinated than kids born later - and get over-selected and over-praised as a result, independent of true long-term potential.",
+    explanation:
+      "The relative-age effect (RAE) is well documented across youth sports: a player born early in a cut-off year can have close to a year of extra physical and cognitive maturity over a teammate born late in the same year, yet both are evaluated as same-age peers. Coaches and selectors consistently mistake this maturity gap for talent, over-selecting relatively older players and under-selecting relatively younger, equally talented ones. Bio-banding (grouping by biological maturity instead of birth year) reduces this bias but does not eliminate it - birthday-banding is a documented alternative under discussion as further mitigation (Pediatric Exercise Science 2024, PMC7739587). Awareness is the first defense: coaches who explicitly check a player's birth quarter before judging them as 'ahead' or 'behind' catch themselves before repeating the bias.",
+    doExamples: [
+      "Note each player's birth quarter when assessing whether they look 'ahead' or 'behind'",
+      "Ask whether an 'advanced' player is relatively older, not just more skilled",
+      "Give relatively younger players extra patience and opportunity rather than writing them off early",
+      "Consider bio-banding or mixed-age small-sided groupings to reduce the physical-maturity gap in competitive settings",
+    ],
+    dontExamples: [
+      "Confuse relative maturity (being one of the oldest in the age group) with ability",
+      "Base playing time or roster cuts primarily on size/strength at young ages",
+      "Assume the most dominant player in an age group today will remain the best prospect long-term",
+      "Ignore birth-month distribution when reviewing who gets selected for advanced groups or all-star teams",
+    ],
+    source: "Pediatric Exercise Science 2024; PMC7739587",
+    sortOrder: 40,
     active: true,
   }
 ];
