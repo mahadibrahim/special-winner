@@ -284,10 +284,7 @@ For young players, developing these visual skills requires practice in game-like
         title: 'Movement to Create Chances',
         content: `The best finishers don't wait for the ball to find them—they actively create scoring opportunities through intelligent movement. This "movement without the ball" is often the difference between a player who scores regularly and one who doesn't.
 
-**The Three Types of Movement**:
-1. **Movement to receive**: Getting into position to receive a pass in a dangerous area
-2. **Movement to create space**: Pulling defenders away to create room for yourself or teammates
-3. **Movement to attack**: Timing runs to arrive in the right place as the ball does
+**The Three Types of Movement**: **movement to receive** (getting into position to receive a pass in a dangerous area), **movement to create space** (pulling defenders away to create room for yourself or teammates), and **movement to attack** (timing runs to arrive in the right place as the ball does).
 
 **Anticipation Over Reaction**: Great finishers start moving before the pass is played. They read their teammate's body language, the defender's positioning, and the game situation to predict where opportunities will emerge.
 

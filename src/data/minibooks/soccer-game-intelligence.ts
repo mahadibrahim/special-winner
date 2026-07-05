@@ -458,18 +458,9 @@ Young players typically play at one speed—usually fast. Teaching them to vary 
         title: 'Principles Over Systems',
         content: `Many coaches and parents focus on formations and systems (4-3-3, 4-4-2, etc.). But true game intelligence comes from understanding principles that apply regardless of system.
 
-**Attacking Principles**:
-- Penetration: Can we go forward toward goal?
-- Support: Are there options for the player on the ball?
-- Width: Are we using the full field?
-- Mobility: Are players moving to create options?
-- Creativity: Can we do something unexpected?
+**Attacking Principles**: penetration (can we go forward toward goal?), support (are there options for the player on the ball?), width (are we using the full field?), mobility (are players moving to create options?), and creativity (can we do something unexpected?).
 
-**Defending Principles**:
-- Pressure: Is someone challenging the ball?
-- Cover: Is there support behind the pressing player?
-- Balance: Is the rest of the team organized?
-- Compactness: Are we reducing space between lines?
+**Defending Principles**: pressure (is someone challenging the ball?), cover (is there support behind the pressing player?), balance (is the rest of the team organized?), and compactness (are we reducing space between lines?).
 
 Players who understand these principles can adapt to any system. They don't need to be told exactly where to stand because they understand why positions matter.`,
         keyResearch: {
@@ -1005,23 +996,11 @@ Young players benefit from playing multiple positions. This develops more comple
         title: 'Using Video Games Effectively',
         content: `Video games like FIFA/EA FC and Football Manager can be valuable tools for developing game intelligence—if used correctly. They provide safe environments for decision-making, allow experimentation with tactics, and create opportunities for discussion.
 
-**The Benefits**:
-- Thousands of decision repetitions in a short time
-- Safe environment to try risky decisions
-- Exposure to tactical concepts through gameplay
-- Slowed-down or paused analysis opportunities
-- Motivation and engagement
+**The Benefits**: thousands of decision repetitions in a short time, a safe environment to try risky decisions, exposure to tactical concepts through gameplay, slowed-down or paused analysis opportunities, and motivation and engagement.
 
-**The Risks**:
-- Can become passive entertainment rather than active learning
-- Time spent gaming is time not playing real soccer
-- Can create unrealistic expectations
-- Without discussion, learning is limited
+**The Risks**: it can become passive entertainment rather than active learning, time spent gaming is time not playing real soccer, it can create unrealistic expectations, and without discussion, learning is limited.
 
-**Guidelines by Age**:
-- Ages 7-9: Supervised play, easy modes, focus on discussion
-- Ages 10-12: Moderate difficulty, tactical analysis, limited time (30-45 min)
-- Ages 13+: Can use more independently, experiment with tactics, connect to real games`,
+**Guidelines by Age**: ages 7-9—supervised play, easy modes, focus on discussion. Ages 10-12—moderate difficulty, tactical analysis, limited time (30-45 min). Ages 13+—can use more independently, experiment with tactics, connect to real games.`,
         keyResearch: {
           finding:
             'Video game play that includes reflection and discussion showed positive transfer to real-world decision-making, while passive play without reflection did not. The key is active engagement, not just playing.',
