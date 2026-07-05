@@ -323,14 +323,17 @@ describe("curriculum registry", () => {
       expect(CURRICULUM_CONTENT.coachGuidance.principles.length).toBeGreaterThan(0);
     });
 
-    it("matches the true counts from folding both recovered generations", () => {
+    it("matches the true counts from folding both recovered generations plus the wave-2 sport guidance floor", () => {
       // 29 (coach-prompts.ts) + 30 (coach-training-modules.ts promptsData)
-      expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(59);
+      // + 4 wave-2 additions (2 hockey + 2 baseball, see coach-guidance.ts)
+      expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(63);
       // 12 (coach-resources.ts) + 9 (coach-training-modules.ts resourcesData)
-      expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(21);
+      // + 2 wave-2 additions (1 hockey + 1 baseball article)
+      expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(23);
       // 5 (coach-prompts.ts) + 15 (coach-training-modules.ts principlesData)
       // minus 1 dropped natural-key collision ("Development Over Winning")
-      expect(CURRICULUM_CONTENT.coachGuidance.principles).toHaveLength(19);
+      // + 3 wave-2 additions (hockey, baseball, relative-age-effect)
+      expect(CURRICULUM_CONTENT.coachGuidance.principles).toHaveLength(22);
     });
 
     it("coach_prompts natural key (content) has no duplicates", () => {
