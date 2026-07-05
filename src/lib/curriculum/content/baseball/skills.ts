@@ -47,6 +47,8 @@ export const BASEBALL_SKILLS: SkillContent[] = [
     stage: "fundamentals",
     name: "Throwing Mechanics",
     slug: "throwing-mechanics",
+    description:
+      "The full-body throwing sequence -- grip, arm path, hip rotation, and follow-through -- used to throw a baseball accurately and with good velocity, taught alongside the arm-care habits that keep a young throwing arm healthy.",
     assessmentMethod: "observation",
     isCore: true,
     sortOrder: 1,

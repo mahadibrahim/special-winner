@@ -190,6 +190,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1-2",
+          notes:
+            "Small hand size limits control no matter how hard a player tries -- use a smaller, size-appropriate ball. Focus on fun and repetition rather than correction; celebrate any attempt, even messy ones. Fingertip control is not yet realistic to expect.",
+        },
+        ages9to11: {
+          typicalLevel: "2-3",
+          notes:
+            "This is prime time for ball handling growth as hand-eye coordination and hand size catch up. Both-hand work becomes realistic and simple combination moves can be introduced. Volume of touches matters more than perfect form.",
+        },
+        ages12to14: {
+          typicalLevel: "3-4",
+          notes:
+            "Expect confident two-hand control with some creative combinations. Shift focus to game-speed handling, protecting the ball under pressure, and using handling to create advantages rather than just maintain control.",
+        },
+      },
       redFlags: [
         "No improvement in consecutive dribbles after 4+ weeks",
         "Persistent palm-hitting despite consistent coaching",
@@ -206,6 +223,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Fingertip push-ups on the basketball",
         "Count dribbles in 30 seconds each hand",
         "Ball squeeze exercises for hand strength",
+      ],
+      bestAssessedIn: [
+        "Stationary ball handling drills",
+        "Dribble tag / defender-pressure games",
+        "Warm-up ball handling circuits",
+        "Scrimmage possessions under pressure",
       ],
       assessmentFrequency:
         "Every 2-3 weeks observation, formal assessment monthly",
@@ -2215,6 +2238,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1",
+          notes:
+            "Dribbling while moving is not yet a realistic expectation -- players this age are still mastering stationary control. Let them dribble-walk casually without pressure to keep speed. Focus on fun and let the moving dribble emerge on its own.",
+        },
+        ages9to11: {
+          typicalLevel: "1-3",
+          notes:
+            "This is when dribbling on the move typically gets introduced and takes off. Start at walking speed and only add jogging speed once control holds. Weak hand work while moving should be introduced but expect it to lag well behind the dominant hand.",
+        },
+        ages12to14: {
+          typicalLevel: "3-4",
+          notes:
+            "Expect game-speed dribbling with head up and both hands usable while moving. Focus on protecting the ball through traffic, changing pace to beat defenders, and maintaining control at full speed.",
+        },
+      },
       redFlags: [
         "Cannot dribble while walking after 4+ weeks of practice",
         "Consistently runs into obstacles or other players",
@@ -2231,6 +2271,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Weak hand only dribble walks",
         "Speed control practice - slow, medium, fast on command",
         "Dribble tag games with siblings or parents",
+      ],
+      bestAssessedIn: [
+        "Full-speed dribble relays",
+        "1v1 dribble-drive drills",
+        "Fast break situations",
+        "Scrimmage transition play",
       ],
       assessmentFrequency:
         "Every 2-3 weeks observation, formal assessment monthly",
@@ -2363,6 +2409,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1",
+          notes:
+            "Weak hand finishing is not yet the priority -- players are still developing dominant-hand layup mechanics. Light, playful exposure (any attempt with the off hand) plants the seed without creating frustration.",
+        },
+        ages9to11: {
+          typicalLevel: "1-3",
+          notes:
+            "This is the introduction window for weak hand layups. Expect it to feel awkward and success rate to lag well behind the dominant hand -- that gap is normal. Reinforce the opposite-foot takeoff pattern constantly and celebrate any attempt, made or missed.",
+        },
+        ages12to14: {
+          typicalLevel: "3-4",
+          notes:
+            "Expect a real, usable weak hand finish under light pressure. Focus on closing the gap with the dominant hand and attacking the weak side by choice rather than only when forced there.",
+        },
+      },
       redFlags: [
         "Complete avoidance of weak side approaches after extended practice",
         "Persistent same-foot/same-hand pattern despite correction",
@@ -2379,6 +2442,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Mikan drill on lowered hoop",
         "Watch NBA players finish with both hands",
         "Brush teeth, eat with non-dominant hand (builds general coordination)",
+      ],
+      bestAssessedIn: [
+        "Weak hand layup lines",
+        "Mikan drill repetitions",
+        "1v0 finishing from the weak side",
+        "Live-defense finishing drills",
       ],
       assessmentFrequency:
         "Weekly observation during drills, formal assessment bi-weekly",
@@ -2511,6 +2580,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1",
+          notes:
+            "Not appropriate to introduce yet -- players need mastery of stationary shooting form and basic dribbling separately before combining them. If attempted at all, keep it playful with zero expectation of makes.",
+        },
+        ages9to11: {
+          typicalLevel: "1-2",
+          notes:
+            "Only players with solid dribbling and shooting form individually should begin the footwork (gather, jump stop) without expecting makes yet. Most players this age are not ready for the full combined move -- that's expected given the 11+ introduction age.",
+        },
+        ages12to14: {
+          typicalLevel: "2-4",
+          notes:
+            "This is the appropriate introduction and development window. Expect legal footwork and reasonable balance first, with mid-range accuracy improving as reps accumulate. Keep shot form the priority over forcing distance.",
+        },
+      },
       redFlags: [
         "Cannot stop without traveling after extended practice",
         "Persistent balance issues despite footwork corrections",
@@ -2527,6 +2613,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Balance board or single leg exercises",
         "Shadow dribble-stop-shoot motion",
         "Practice on lowered or mini hoop if available",
+      ],
+      bestAssessedIn: [
+        "Dribble-to-shot shooting drills",
+        "1v1 closeout situations",
+        "Mid-range scoring in scrimmage",
+        "Game shot selection observation",
       ],
       assessmentFrequency:
         "Weekly observation during shooting drills, formal assessment monthly",
@@ -2665,6 +2757,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1",
+          notes:
+            "Not appropriate to introduce yet -- players are still building basic stationary ball handling and don't yet have the control to cross the ball over safely. Skip this move at this age.",
+        },
+        ages9to11: {
+          typicalLevel: "1-2",
+          notes:
+            "Players with strong two-hand stationary control can begin the stationary crossover. Expect it to be slow and telegraphed -- that's expected given the 11+ introduction age for the moving version. Focus on keeping the ball low, not on speed or deception yet.",
+        },
+        ages12to14: {
+          typicalLevel: "2-4",
+          notes:
+            "This is the appropriate introduction and development window for the moving crossover. Expect growing ability to change direction on the move, with deception and defender-beating speed developing through the top of this range.",
+        },
+      },
       redFlags: [
         "Cannot execute stationary crossover after multiple weeks of practice",
         "Persistent high dribble despite correction",
@@ -2681,6 +2790,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Crossover while walking, then jogging",
         "Two-ball dribbling for advanced challenge",
         "Crossover games with family members",
+      ],
+      bestAssessedIn: [
+        "1v1 dribble moves drills",
+        "Cone/agility crossover circuits",
+        "Live defender breakdown drills",
+        "Scrimmage isolation situations",
       ],
       assessmentFrequency:
         "Every 2-3 weeks observation, formal assessment monthly",
@@ -3037,6 +3152,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1",
+          notes:
+            "Help defense is a complex tactical concept that most players this age cannot grasp -- ball-watching and guarding only their own player is completely normal. Introduce the idea simply ('see your player and the ball') without expecting execution.",
+        },
+        ages9to11: {
+          typicalLevel: "1-3",
+          notes:
+            "This is the appropriate window to start teaching help positioning and rotations, matching the 8+ introduction age. Use simple rules ('one pass away, two passes away') and expect help to happen mainly when prompted. Communication is just emerging.",
+        },
+        ages12to14: {
+          typicalLevel: "3-4",
+          notes:
+            "Expect players to understand and largely execute help positioning without reminders, including rotating on drives and recovering to their own player. Focus on anticipation, communication, and reading the entire offense.",
+        },
+      },
       redFlags: [
         "Cannot understand see ball/see player concept after multiple explanations",
         "Never helps teammates despite repeated instruction",
@@ -3053,6 +3185,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Study NBA help defense in slow motion",
         "Defensive slide races for conditioning",
         "Talk through help responsibilities for each position",
+      ],
+      bestAssessedIn: [
+        "5v5 half-court defense",
+        "Shell drill rotations",
+        "Scrimmage drive-and-kick situations",
+        "Full games",
       ],
       assessmentFrequency:
         "Every scrimmage observation, formal assessment bi-weekly",
@@ -3414,6 +3552,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1",
+          notes:
+            "The pass-and-cut sequence is too abstract for most players this age -- standing and watching after a pass is the norm. Simple 'pass then move' cues are fine, but don't expect the timing or purpose to click yet.",
+        },
+        ages9to11: {
+          typicalLevel: "1-3",
+          notes:
+            "This is the appropriate age to introduce give and go, matching its 9+ introduction age. Expect inconsistent timing and cut direction at first, improving with repetition. Reading the defender is just beginning to develop.",
+        },
+        ages12to14: {
+          typicalLevel: "3-4",
+          notes:
+            "Expect reliable execution with proper timing and cut direction. Introduce pass fakes and reading multiple defenders to create more advanced scoring opportunities.",
+        },
+      },
       redFlags: [
         "Cannot understand pass-then-cut sequence after multiple explanations",
         "Persistent standing after passing despite reminders",
@@ -3431,6 +3586,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Explosive start practice from standing position",
         "Hand-eye coordination games for catching on the move",
       ],
+      bestAssessedIn: [
+        "2-person passing and cutting drills",
+        "3-person weave",
+        "Half-court offense",
+        "Scrimmage situations",
+      ],
       assessmentFrequency:
         "Every scrimmage observation, formal assessment monthly",
       assessmentDuration:
@@ -3443,6 +3604,8 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
     stage: "skill-building",
     name: "Pick and Roll Ball Handler",
     slug: "pick-and-roll-ball-handler",
+    description:
+      "Using a teammate's screen as the ball handler to create an advantage, including setting up the defender, coming off the screen at the correct angle, and reading the coverage to attack, hit the rolling screener, or find an open shooter.",
     progressionLevels: {
       1: "Does not understand pick and roll; runs into screens; ignores screener",
       2: "Beginning to understand; uses screen but reads and decisions slow",
@@ -3563,6 +3726,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1",
+          notes:
+            "Pick and roll reads are far too advanced for this age -- players are still learning to dribble and pass individually. Skip formal pick and roll teaching; running into or around a stationary teammate is normal exploratory play.",
+        },
+        ages9to11: {
+          typicalLevel: "1-2",
+          notes:
+            "Introduce the basic mechanics -- waiting for the screen, using it shoulder to shoulder, and looking for the roll man -- as a skill-building concept. Expect reads to be slow and decisions delayed; this is the beginning of tactical awareness, not mastery.",
+        },
+        ages12to14: {
+          typicalLevel: "2-4",
+          notes:
+            "Expect the ball handler to set up the defender, use the screen effectively, and read basic coverages (hedge, switch, drop) to make good decisions. Advanced reads and manipulating the defense are still developing through this range.",
+        },
+      },
       redFlags: [
         "Cannot understand screen concept after multiple explanations",
         "Consistently runs into screens instead of using them",
@@ -3579,6 +3759,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Watch highlights of great PnR players",
         "Draw up pick and roll options",
         "2v0 practice with parent as screener",
+      ],
+      bestAssessedIn: [
+        "2v2 pick and roll drills",
+        "5v5 half-court sets",
+        "Scrimmage situations",
+        "Full games",
       ],
       assessmentFrequency:
         "Every practice with tactical drills, formal assessment bi-weekly",
@@ -4285,6 +4471,8 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
     stage: "fundamentals",
     name: "Coordination",
     slug: "coordination",
+    description:
+      "The ability to combine fundamental movements like running, jumping, and catching smoothly and efficiently, forming the physical foundation that basketball-specific skills are built on.",
     progressionLevels: {
       1: "Struggles with basic movement; awkward running, jumping, catching",
       2: "Basic movements improving; combining movements still challenging",
@@ -4405,6 +4593,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1-2",
+          notes:
+            "Coordination varies enormously at this age and develops through general movement, not basketball drills specifically. Prioritize varied, fun physical activity over correction. Don't compare players to each other -- development rates differ widely.",
+        },
+        ages9to11: {
+          typicalLevel: "2-3",
+          notes:
+            "This is a golden window for coordination gains -- combining movements (run, jump, catch together) becomes more achievable with practice. Basketball-specific movement patterns can now build on top of general coordination.",
+        },
+        ages12to14: {
+          typicalLevel: "3-4",
+          notes:
+            "Expect coordination that reliably supports skill execution in games, though growth spurts can temporarily disrupt it. Focus on efficient, athletic movement patterns and let coordination show up as fluid basketball skill performance.",
+        },
+      },
       redFlags: [
         "No improvement in basic coordination over extended period",
         "Significant difficulty with all motor tasks",
@@ -4421,6 +4626,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Obstacle courses in yard",
         "Dance or movement games",
         "Any multi-sport activities",
+      ],
+      bestAssessedIn: [
+        "General movement/athletic testing",
+        "Warm-up activities",
+        "Combination-movement drills",
+        "Game observation",
       ],
       assessmentFrequency: "Ongoing observation, formal assessment quarterly",
       assessmentDuration:
@@ -4559,6 +4770,23 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
           assessmentActivities: [],
         },
       },
+      ageExpectations: {
+        ages6to8: {
+          typicalLevel: "1-2",
+          notes:
+            "Confidence at this age is fragile and tied directly to fun and encouragement. Hesitation and giving up after mistakes are common -- respond with warmth, not correction. Praise effort and attempts, not outcomes.",
+        },
+        ages9to11: {
+          typicalLevel: "2-3",
+          notes:
+            "Players are starting to compare themselves to peers, which can shake confidence. Reinforce that mistakes are part of learning (ELM: Effort, Learning, Mistakes) and recognize bounce-back after errors specifically, not just success.",
+        },
+        ages12to14: {
+          typicalLevel: "3-4",
+          notes:
+            "Expect more resilient confidence that holds up in games and under peer pressure. Players this age can discuss confidence directly -- connect it to preparation and controllable effort rather than results.",
+        },
+      },
       redFlags: [
         "Persistent negative self-talk despite intervention",
         "Consistent avoidance of all challenging activities",
@@ -4575,6 +4803,12 @@ export const BASKETBALL_SKILLS: SkillContent[] = [
         "Celebrate trying hard things even if unsuccessful",
         "Ask 'What did you enjoy?' after practice",
         "Model positive self-talk in your own activities",
+      ],
+      bestAssessedIn: [
+        "New or challenging skill attempts",
+        "Recovery after mistakes in drills",
+        "Game situations under pressure",
+        "Ongoing practice observation",
       ],
       assessmentFrequency: "Ongoing observation every session",
       assessmentDuration:
