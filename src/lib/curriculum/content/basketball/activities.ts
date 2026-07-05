@@ -53,6 +53,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 20,
     durationMinutes: 8,
+    skillsDeveloped: [
+      "ball-handling",
+      "dribbling-on-the-move",
+      "agility-footwork",
+    ],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 basketball per player\n□ 4 cones for corners (bright colors)\n□ 2-3 pinnies for taggers\n\nSPACE: Half court or 25x25 paces (adjust based on numbers)\n\nSETUP STEPS\n1. Place 4 cones in a square to define playing area\n2. Give every player a basketball\n3. Select 2-3 taggers (1 tagger per 5-6 players)\n4. Taggers wear pinnies to be easily identified\n5. All players start spread out inside the grid\n\nDIAGRAM\n┌────────────────────────────────┐\n│  ▲                         ▲   │\n│     ○   ○                      │\n│         ●(tagger)    ○         │  25 paces\n│     ○        ○       ○         │\n│  ▲                         ▲   │\n└────────────────────────────────┘\n       25 paces\n▲=cone  ○=dribbler with ball  ●=tagger (pinnie, also dribbling)",
     howToPlay:
@@ -496,6 +501,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 30,
     durationMinutes: 6,
+    skillsDeveloped: ["ball-handling", "dribbling-on-the-move", "coachability"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 basketball per player\n□ 4 cones for corners (optional but helpful)\n□ Optional: colored cones/cards (red, yellow, green) as visual aids\n\nSPACE: As large as available (minimum half court or 25x30 paces)\n\nSETUP STEPS\n1. Players spread out in large area\n2. Every player has ball and is dribbling\n3. Coach stands where everyone can see/hear\n\nDIAGRAM\n┌─────────────────────────────────┐\n│                                 │\n│    ○    ○    ○    ○    ○       │\n│                                 │  25+ paces\n│    ○    ○   COACH  ○    ○      │\n│                                 │\n│    ○    ○    ○    ○    ○       │\n└─────────────────────────────────┘\n       30+ paces",
     howToPlay:
@@ -867,6 +873,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: [
+      "ball-handling",
+      "agility-footwork",
+      "confidence-basketball",
+    ],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 basketball per player (except sharks)\n□ 4 cones for corners (bright colors)\n□ 2-3 pinnies for sharks\n□ Extra balls on sideline for quick restarts\n\nSPACE: Half court or 25x25 paces (adjust based on numbers)\n\nSETUP STEPS\n1. Place 4 cones in a square, 25 paces apart\n2. Give every player a ball EXCEPT 1-2 sharks\n3. Sharks wear pinnies (1 shark per 5-6 dribblers)\n4. All dribblers start inside the grid dribbling\n\nDIAGRAM\n┌────────────────────────────────┐\n│  ▲                         ▲   │\n│     ○   ○                      │\n│         ●(shark)    ○          │  25 paces\n│     ○        ○       ○         │\n│  ▲                         ▲   │\n└────────────────────────────────┘\n       25 paces\n▲=cone  ○=dribbler with ball  ●=shark (pinnie, no ball)",
     howToPlay:
@@ -1298,6 +1309,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 15,
     durationMinutes: 10,
+    skillsDeveloped: ["shooting-layups", "form-shooting", "effort-and-hustle"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 2 basketballs\n□ 1 basketball hoop\n□ Floor tape or cone to mark free throw line (optional)\n\nSPACE: One basket with space for a line behind free throw line\n\nSETUP STEPS\n1. All players line up behind the free throw line (or closer for younger players)\n2. First two players in line each have a ball\n3. Everyone else waits in line without a ball\n4. Mark shooting spot if needed (closer for ages 6-8)\n\nDIAGRAM\n                    [BASKET]\n                       │\n                       │\n    ─────────────────────────────  Free throw line\n                       │\n                       │\n           ○ ○ ○ ○ ○ ○ ○ ○ ○      (Line of players)\n           ▲ ▲\n       Ball Ball                  First 2 have balls",
     howToPlay:
@@ -1732,6 +1744,12 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 20,
     durationMinutes: 8,
+    skillsDeveloped: [
+      "shooting-layups",
+      "layups-dominant-hand",
+      "layups-weak-hand",
+      "passing-basketball",
+    ],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 2-4 basketballs\n□ 1 basketball hoop\n□ Optional: cones to mark lines\n\nSPACE: One basket with enough space for two lines\n\nSETUP STEPS\n1. Form two lines at half court or top of key\n2. Right side line = shooters (balls start here)\n3. Left side line = rebounders/passers\n4. First 2 players in right line have balls\n\nDIAGRAM\n                    [BASKET]\n                       │\n                       │\n                       │\n         Rebounders    │    Shooters\n              ○ ○ ○ ○  │  ○ ○ ○ ○\n                       │  ▲ ▲\n                       │  Balls\n                       │\n──────────────────────────────────────  Half court",
     howToPlay:
@@ -2132,7 +2150,6 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
         ],
       },
     },
-    skillsDeveloped: ["passing-basketball"],
   },
   {
     sport: "basketball",
@@ -2144,6 +2161,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: ["ball-handling", "crossover-dribble", "coordination"],
     setupInstructions:
       "Players spread out, each with a ball. Enough space for movement.",
     howToPlay:
@@ -2195,6 +2213,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 6,
+    skillsDeveloped: ["agility-footwork", "athletic-stance", "coordination"],
     setupInstructions:
       "Players line up on baseline. Travel to half-court and back.",
     howToPlay:
@@ -2236,6 +2255,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: [
+      "crossover-dribble",
+      "shooting-jump-shot",
+      "athletic-stance",
+    ],
     setupInstructions:
       "Partners with one ball. One player is defender (passive at first).",
     howToPlay:
@@ -2287,6 +2311,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["form-shooting", "shooting-jump-shot"],
     setupInstructions:
       "Each player at a basket (can share). Start close to basket.",
     howToPlay:
@@ -2339,6 +2364,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: ["ball-handling", "crossover-dribble", "agility-footwork"],
     setupInstructions:
       "Set up 5-6 cones in a zigzag pattern, 3-4 yards apart. Multiple lines if needed.",
     howToPlay:
@@ -2390,6 +2416,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 12,
     durationMinutes: 15,
+    skillsDeveloped: ["court-spacing", "help-defense", "team-communication"],
     setupInstructions: "Half court with one basket. Teams of 3.",
     howToPlay:
       "1. Play 3v3 games to 7 points (1s and 2s)\n2. Make it, take it\n3. Check ball at top of key after scores and turnovers\n4. Call your own fouls\n5. Losers stay, winners rotate out",
@@ -2440,6 +2467,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 12,
     durationMinutes: 10,
+    skillsDeveloped: ["help-defense", "team-communication", "athletic-stance"],
     setupInstructions:
       "4 offensive players around perimeter, 4 defenders. No basket needed initially.",
     howToPlay:
@@ -2487,6 +2515,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 12,
     durationMinutes: 12,
+    skillsDeveloped: [
+      "crossover-dribble",
+      "pull-up-jump-shot",
+      "athletic-stance",
+    ],
     setupInstructions:
       "Offensive player on wing, defender guarding. Basket available.",
     howToPlay:
@@ -2538,6 +2571,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 12,
     durationMinutes: 10,
+    skillsDeveloped: [
+      "give-and-go",
+      "passing-basketball",
+      "team-communication",
+    ],
     setupInstructions:
       "Half court. Two offensive players, two defensive players. Coach at top of key.",
     howToPlay:
@@ -2589,6 +2627,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 15,
     durationMinutes: 20,
+    skillsDeveloped: ["team-communication", "court-spacing", "help-defense"],
     setupInstructions: "Full court, two teams of 5. Standard basketball rules.",
     howToPlay:
       "1. Play full 5v5 scrimmage\n2. Coach stops play to make teaching points\n3. Focus on specific concepts being worked on\n4. Can add restrictions (no 3s, must pass before shoot, etc.)",
@@ -2639,6 +2678,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 3,
     maxPlayers: 8,
     durationMinutes: 15,
+    skillsDeveloped: [
+      "shooting-jump-shot",
+      "form-shooting",
+      "effort-and-hustle",
+    ],
     setupInstructions: "One basket. One ball. All players vs each other.",
     howToPlay:
       "1. First player shoots from top of key\n2. If make: shoot free throws (1 point each) until miss\n3. If miss: everyone rebounds - whoever gets it attacks\n4. Made shot from field = 2 points, then go to line for free throws\n5. If you foul, fouled player shoots free throws\n6. First to exactly 21 wins (must hit exact, or go back to 15)",
@@ -2678,6 +2722,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 6,
+    skillsDeveloped: [
+      "passing-basketball",
+      "two-hand-chest-pass",
+      "two-hand-bounce-pass",
+    ],
     setupInstructions: "Partners 10-15 feet apart. One ball per pair.",
     howToPlay:
       "Practice different passes, 10 of each:\n1. Chest pass\n2. Bounce pass\n3. Overhead pass\n4. One-hand push pass (both hands)\n5. Baseball pass (longer distance)",
@@ -2715,6 +2764,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 6,
+    skillsDeveloped: ["ball-handling", "dribbling-on-the-move", "coachability"],
     setupInstructions:
       "Players line up on baseline with balls. Coach at opposite baseline.",
     howToPlay:
@@ -2764,6 +2814,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 6,
+    skillsDeveloped: [
+      "passing-basketball",
+      "catching-basketball",
+      "two-hand-chest-pass",
+    ],
     setupInstructions:
       "Partners 10 feet apart, one ball per pair. Line up on sideline.",
     howToPlay:
@@ -2810,6 +2865,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: ["ball-handling", "crossover-dribble", "agility-footwork"],
     setupInstructions:
       "Set up four cones in a square (20x20 yards). Split players into four groups.",
     howToPlay:
@@ -2856,6 +2912,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 20,
     durationMinutes: 6,
+    skillsDeveloped: [
+      "passing-basketball",
+      "catching-basketball",
+      "team-communication",
+    ],
     setupInstructions:
       "Players form a circle. Start with one ball, add more as players improve.",
     howToPlay:
@@ -2902,6 +2963,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 1,
     maxPlayers: 16,
     durationMinutes: 8,
+    skillsDeveloped: [
+      "shooting-layups",
+      "layups-weak-hand",
+      "layups-dominant-hand",
+    ],
     setupInstructions: "Players at basket. Can share baskets (2-3 per basket).",
     howToPlay:
       "1. Start under basket on right side\n2. Layup with right hand\n3. Rebound and go immediately to left side\n4. Layup with left hand\n5. Continue alternating, don't let ball touch ground\n6. Do 10 on each side, then rest",
@@ -2950,6 +3016,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 10,
+    skillsDeveloped: ["ball-handling", "crossover-dribble"],
     setupInstructions: "Players spread out, each with a ball.",
     howToPlay:
       "Each exercise 30 seconds:\n1. Right hand pound (hard, low dribbles)\n2. Left hand pound\n3. Alternating pound\n4. Crossover pounds (in and out)\n5. Between legs pounds\n6. Behind back pounds",
@@ -2992,6 +3059,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: [
+      "shooting-jump-shot",
+      "pull-up-jump-shot",
+      "form-shooting",
+    ],
     setupInstructions:
       "Groups at each basket. Shooters at elbows, rebounders under basket.",
     howToPlay:
@@ -3038,6 +3110,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: [
+      "agility-footwork",
+      "shooting-jump-shot",
+      "athletic-stance",
+    ],
     setupInstructions: "Groups of 3: post player, defender (passive), passer.",
     howToPlay:
       "Practice each move 4 times:\n1. Drop step baseline\n2. Drop step middle\n3. Up and under\n4. Turnaround jumper\n5. Dream shake (advanced)",
@@ -3083,6 +3160,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 20,
     durationMinutes: 10,
+    skillsDeveloped: ["athletic-stance", "agility-footwork"],
     setupInstructions:
       "Set up zigzag cone pattern down the court. 4-5 cones per lane.",
     howToPlay:
@@ -3133,6 +3211,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 10,
+    skillsDeveloped: ["form-shooting", "confidence-basketball"],
     setupInstructions: "Players at free throw lines. 2-3 per basket.",
     howToPlay:
       "1. Develop your routine (3 dribbles, deep breath, etc.)\n2. Shoot 10 free throws\n3. Track your makes\n4. Shoot 5 more 'pressure' free throws (must make 3)\n5. Do light conditioning if miss pressure shots",
@@ -3178,6 +3257,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["pick-and-roll-ball-handler", "team-communication"],
     setupInstructions:
       "Groups of 3: ball handler, screener, passive defender. Work on wing or top of key.",
     howToPlay:
@@ -3229,6 +3309,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: [
+      "passing-basketball",
+      "transition-play",
+      "catching-basketball",
+    ],
     setupInstructions:
       "Rebounder under basket, outlet receiver at sideline near half court.",
     howToPlay:
@@ -3280,6 +3365,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: [
+      "catching-basketball",
+      "athletic-stance",
+      "court-spacing",
+    ],
     setupInstructions:
       "Groups of 2-3 at each basket. Passer at top, receiver on wing.",
     howToPlay:
@@ -3330,6 +3420,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["shooting-layups", "agility-footwork"],
     setupInstructions: "Groups at each basket. Cones to simulate defenders.",
     howToPlay:
       "Progression:\n1. Walk through footwork (no ball)\n2. Add ball, walk through\n3. Jog with ball\n4. Full speed off cone\n5. Full speed vs defender",
@@ -3379,6 +3470,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 16,
     durationMinutes: 12,
+    skillsDeveloped: ["shooting-jump-shot", "catching-basketball"],
     setupInstructions:
       "5 spots around the 3-point arc. Shooter rotates through spots.",
     howToPlay:
@@ -3425,6 +3517,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 15,
     durationMinutes: 12,
+    skillsDeveloped: ["transition-play", "shooting-layups"],
     setupInstructions:
       "Two offensive players at half court, one defender at free throw line.",
     howToPlay:
@@ -3475,6 +3568,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 14,
     durationMinutes: 12,
+    skillsDeveloped: ["help-defense", "team-communication"],
     setupInstructions: "3 offensive players around the arc. 3 defenders.",
     howToPlay:
       "1. Ball starts on wing\n2. Ball handler drives to basket\n3. Help defender jumps to stop penetration\n4. Ball handler kicks out\n5. Defenders rotate - closest to ball recovers\n6. Play out the possession",
@@ -3521,6 +3615,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 15,
     durationMinutes: 15,
+    skillsDeveloped: ["court-spacing", "give-and-go", "team-communication"],
     setupInstructions:
       "5 offensive players in 3-out, 2-in formation. Start with no defense.",
     howToPlay:
@@ -3568,6 +3663,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 12,
     durationMinutes: 10,
+    skillsDeveloped: ["athletic-stance", "effort-and-hustle"],
     setupInstructions:
       "3 defensive players, 3 offensive players around the lane. Coach shoots.",
     howToPlay:
@@ -3618,6 +3714,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 15,
     durationMinutes: 15,
+    skillsDeveloped: [
+      "confidence-basketball",
+      "transition-play",
+      "team-communication",
+    ],
     setupInstructions:
       "5 offensive players inbounding vs 5 defenders in press.",
     howToPlay:
@@ -3669,6 +3770,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 12,
     durationMinutes: 15,
+    skillsDeveloped: ["transition-play", "team-communication"],
     setupInstructions: "Full court, two teams of 2. Game to 7 points.",
     howToPlay:
       "1. 2v2 full court - live transitions\n2. Make it, take it (keep ball if you score)\n3. Must check ball at top of arc after scores\n4. Winners stay, losers rotate out",
@@ -3718,6 +3820,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 10,
     maxPlayers: 15,
     durationMinutes: 20,
+    skillsDeveloped: ["team-communication", "court-spacing"],
     setupInstructions:
       "Full court 5v5. Coach chooses constraint for each game.",
     howToPlay:
@@ -3768,6 +3871,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 2,
     maxPlayers: 8,
     durationMinutes: 10,
+    skillsDeveloped: ["form-shooting", "shooting-jump-shot"],
     setupInstructions:
       "5-7 spots around the basket (layup, right block, elbow, etc.)",
     howToPlay:
@@ -3817,6 +3921,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 10,
     durationMinutes: 12,
+    skillsDeveloped: ["effort-and-hustle", "confidence-basketball"],
     setupInstructions:
       "Half court. One king starts on offense, challengers wait at half court.",
     howToPlay:
@@ -3863,6 +3968,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 2,
     maxPlayers: 16,
     durationMinutes: 10,
+    skillsDeveloped: ["shooting-jump-shot", "form-shooting"],
     setupInstructions:
       "5 spots around the arc. Balls at each spot. 60 seconds per player.",
     howToPlay:
@@ -3909,6 +4015,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 10,
+    skillsDeveloped: ["effort-and-hustle"],
     setupInstructions: "Players on sideline. Time each rep.",
     howToPlay:
       "1. Sprint sideline to sideline (17 touches in 60 seconds)\n2. Each foot touch on sideline counts as 1\n3. Must complete 17 touches per rep\n4. Rest 90 seconds between reps\n5. Complete 3-5 reps",
@@ -3954,6 +4061,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 16,
     durationMinutes: 8,
+    skillsDeveloped: ["shooting-layups", "effort-and-hustle"],
     setupInstructions: "Two lines at each basket. One ball per line.",
     howToPlay:
       "1. Player 1 makes layup, sprints to opposite basket\n2. Receives outlet pass from line 2 at half court\n3. Makes layup, joins line\n4. Next player goes when layup is made\n5. Continuous for time",
@@ -4003,6 +4111,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: [
+      "athletic-stance",
+      "agility-footwork",
+      "effort-and-hustle",
+    ],
     setupInstructions: "Players on baseline in defensive stance.",
     howToPlay:
       "1. Slide to free throw line\n2. Drop step, slide to opposite elbow\n3. Drop step, slide to half court\n4. Backpedal to baseline\n5. Repeat 3-5 times with rest between",
@@ -4045,6 +4158,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 2,
     maxPlayers: 6,
     durationMinutes: 12,
+    skillsDeveloped: [
+      "form-shooting",
+      "shooting-jump-shot",
+      "confidence-basketball",
+    ],
     setupInstructions: "One basket, one ball per group.",
     howToPlay:
       "1. First player attempts any shot they want\n2. If they make it, others must match the exact shot\n3. If you miss the match shot, you get a letter (H-O-R-S-E)\n4. Spell HORSE and you're out\n5. Last player standing wins",
@@ -4090,6 +4208,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 20,
     durationMinutes: 8,
+    skillsDeveloped: ["ball-handling", "crossover-dribble", "agility-footwork"],
     setupInstructions: "One fewer ball than players. Music ready to play.",
     howToPlay:
       "1. Balls scattered around the gym\n2. Players jog/skip while music plays\n3. When music stops, grab a ball and do 5 crossovers\n4. Player without ball is out (or does task and rejoins)\n5. Remove one ball each round",
@@ -4128,19 +4247,27 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     sport: "basketball",
     name: "Bump Out",
     slug: "bump-out",
-    description: "Competitive layup game with elimination",
+    description:
+      "Competitive layup racing game where players race to beat the person behind them. A bump doesn't end your turn - it just costs you a quick skill rep before you're back in line.",
     activityType: "fun",
     difficulty: "beginner",
     minPlayers: 4,
     maxPlayers: 15,
     durationMinutes: 10,
-    setupInstructions: "One line at free throw line. Two balls.",
+    skillsDeveloped: [
+      "shooting-layups",
+      "form-shooting",
+      "confidence-basketball",
+    ],
+    setupInstructions:
+      "One line at free throw line. Two balls. If a second hoop is available, set up a small skill station there (cone or spot marked); otherwise mark a skill station spot near the main basket.",
     howToPlay:
-      "1. First two players have balls\n2. First player shoots free throw, then rebounds and shoots layup\n3. Second player shoots immediately after\n4. If second player makes layup before first player, first player is OUT\n5. Pass ball to next in line, go to back of line",
+      "1. First two players have balls\n2. First player shoots free throw, then rebounds and shoots layup\n3. Second player shoots immediately after\n4. If second player makes their layup before first player makes theirs, first player is BUMPED - not eliminated. Bumped players jog to the second hoop (or the marked skill station if there's only one basket) and complete a quick task - 5 free throws, 5 form-shooting reps, or 5 ball-handling reps - before rejoining the back of the line\n5. Pass ball to next in line, go to back of line\n6. Keep a running tally of bumps if you want a winner - fewest bumps after a set number of trips through the line - but everyone keeps shooting and keeps a ball moving the whole time",
     coachingPoints: [
       "Make your free throw!",
       "Quick rebound and layup",
       "Stay focused under pressure",
+      "Getting bumped just means an extra skill rep, not sitting out - everyone stays moving",
     ],
     questionsToAsk: [
       "How do you stay calm with pressure behind you?",
@@ -4158,9 +4285,16 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
         description: "Any shot counts, no layup required",
         difficulty: "intermediate",
       },
+      {
+        name: "Full Elimination (Older Groups)",
+        description:
+          "For skill-building/development groups ready for competitive pressure: bumped players are out for the rest of that game instead of rotating to the skill station. Last player remaining wins.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Start closer, more attempts before out",
-    makeHarder: "Start from 3, must make 2 layups",
+    makeEasier: "Start closer, allow more attempts before a bump counts",
+    makeHarder:
+      "Start from 3, must make 2 layups, or switch to the Full Elimination variation for older/competitive groups",
     equipmentNeeded: ["Basket", "2 balls"],
     spaceRequired: "small",
     indoorSuitable: true,
@@ -4178,6 +4312,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 8,
     maxPlayers: 24,
     durationMinutes: 10,
+    skillsDeveloped: [
+      "ball-handling",
+      "agility-footwork",
+      "team-communication",
+    ],
     setupInstructions: "Two or more teams. Cone course set up.",
     howToPlay:
       "1. First player dribbles through course\n2. Returns and tags next player\n3. First team to finish wins\n4. Variety: crossovers at each cone, weak hand only, etc.",
@@ -4223,6 +4362,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: ["form-shooting", "confidence-basketball"],
     setupInstructions: "Groups at each basket. Track makes per player.",
     howToPlay:
       "1. Each player shoots 10 free throws\n2. Track your makes\n3. Team total determines winner (if teams)\n4. Or individual with most makes wins\n5. Loser does 10 push-ups (optional)",
@@ -4265,6 +4405,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 6,
     maxPlayers: 24,
     durationMinutes: 8,
+    skillsDeveloped: ["team-communication", "coachability"],
     setupInstructions: "Team forms a circle. Captain leads stretches.",
     howToPlay:
       "Each stretch 20-30 seconds:\n1. Quad stretch (standing, each leg)\n2. Hamstring stretch (seated pike)\n3. Groin stretch (butterfly)\n4. Calf stretch\n5. Shoulder stretches\n6. Hip flexor stretch",
