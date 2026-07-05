@@ -226,9 +226,8 @@ describe("curriculum registry", () => {
 
   // Wave-2 refine added an originally-authored hockey activities library
   // (see src/lib/curriculum/content/hockey/activities.ts header for
-  // sourcing/provenance). Session plans remain out of scope -- none exist in
-  // the recovered seeds and none were added by that pass.
-  it("hockey activities: at least 20, every skill slug covered, no session plans invented", () => {
+  // sourcing/provenance).
+  it("hockey activities: at least 20, every skill slug covered", () => {
     const hockeyActivities = CURRICULUM_CONTENT.activities.filter(
       (x) => x.sport === "hockey",
     );
@@ -248,10 +247,25 @@ describe("curriculum registry", () => {
     for (const slug of hockeySkillSlugs) {
       expect(coveredSkillSlugs.has(slug)).toBe(true);
     }
+  });
 
-    expect(
-      CURRICULUM_CONTENT.sessionPlans.filter((x) => x.sport === "hockey"),
-    ).toHaveLength(0);
+  // A later wave-2 pass added an originally-authored hockey session-plan
+  // library on top of the activities library above (see
+  // src/lib/curriculum/content/hockey/session-plans.ts header for
+  // sourcing/provenance) -- a 4-plan fundamentals-stage progression built as
+  // ADM-style station rotations.
+  it("hockey session plans: 4 fundamentals-stage plans, segments carry coaching scripts", () => {
+    const p = CURRICULUM_CONTENT.sessionPlans.filter(
+      (x) => x.sport === "hockey",
+    );
+    expect(p.length).toBeGreaterThanOrEqual(4);
+    expect(p.every((x) => x.stage === "fundamentals")).toBe(true);
+    expect(p.some((x) => x.structure.some((seg) => seg.coachingScript))).toBe(
+      true,
+    );
+
+    const names = p.map((x) => x.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   // Baseball has no v2-canonical skills file and no gen-0 rows in
