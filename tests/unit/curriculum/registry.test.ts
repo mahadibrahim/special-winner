@@ -224,10 +224,31 @@ describe("curriculum registry", () => {
     expect(s.every((k) => k.stage === "fundamentals")).toBe(true);
   });
 
-  it("hockey: no activities or session plans invented (none exist in the recovered seeds)", () => {
-    expect(
-      CURRICULUM_CONTENT.activities.filter((x) => x.sport === "hockey"),
-    ).toHaveLength(0);
+  // Wave-2 refine added an originally-authored hockey activities library
+  // (see src/lib/curriculum/content/hockey/activities.ts header for
+  // sourcing/provenance). Session plans remain out of scope -- none exist in
+  // the recovered seeds and none were added by that pass.
+  it("hockey activities: at least 20, every skill slug covered, no session plans invented", () => {
+    const hockeyActivities = CURRICULUM_CONTENT.activities.filter(
+      (x) => x.sport === "hockey",
+    );
+    expect(hockeyActivities.length).toBeGreaterThanOrEqual(20);
+
+    const slugs = hockeyActivities.map((a) => a.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+
+    const hockeySkillSlugs = new Set(
+      CURRICULUM_CONTENT.skills
+        .filter((s) => s.sport === "hockey")
+        .map((s) => s.slug),
+    );
+    const coveredSkillSlugs = new Set(
+      hockeyActivities.flatMap((a) => a.skillsDeveloped ?? []),
+    );
+    for (const slug of hockeySkillSlugs) {
+      expect(coveredSkillSlugs.has(slug)).toBe(true);
+    }
+
     expect(
       CURRICULUM_CONTENT.sessionPlans.filter((x) => x.sport === "hockey"),
     ).toHaveLength(0);
