@@ -69,10 +69,26 @@ content changes.
 ### Mode: `research` (read-only + directives)
 
 The "stay current" pillar. Web-research agents sweep defined source
-categories: national federation curricula and their updates (US Soccer,
-USA Basketball, USA Hockey grassroots), LTAD/athlete-development literature,
-and reputable coaching-education publications. Each finding must carry a
-citation and a concrete claim ("X federation moved U8 to 4v4 in 2025").
+categories, **international sources first** — the owner's read is that
+Europe and other international programs are ahead of the USA on youth
+development, and the research mode should mine that edge:
+
+1. **International federations & academies** (priority): DFB (Germany),
+   KNVB (Netherlands), England FA "DNA", Belgian FA, JFA (Japan), the
+   Iceland model, and academy methodologies (Ajax, La Masia) — curriculum
+   changes, age-format decisions, training philosophies.
+2. **US federations** for baseline/compliance: US Soccer grassroots,
+   USA Basketball, USA Hockey ADM.
+3. **LTAD / athlete-development literature** and reputable
+   coaching-education publications.
+4. **YouTube coaching content** — drills, session ideas, and coaching
+   demonstrations, researched via video transcripts/descriptions and
+   channel reputation. Findings are *adapted* into our activity format
+   with source attribution in the research brief — never copied verbatim;
+   the derived activity must be our own written expression.
+
+Each finding must carry a citation (URL) and a concrete claim ("X
+federation moved U8 to 4v4 in 2025").
 
 Output: `docs/curriculum/research/YYYY-MM-DD-brief.md` (findings +
 citations + relevance assessment against our current content) and proposed
@@ -102,7 +118,18 @@ delete (pre-load handling needed, as in the 2026-07-04 consolidation).
 
 ### Mode: `products` (writes product files, ends in PR)
 
-Two tiers:
+Two tiers, and an explicit first assignment:
+
+**First assignment — the existing minibook queue.** 15 minibooks are
+authored (`src/data/minibooks/*.ts` + `/minibooks/*.astro`: 5 soccer,
+5 basketball, 5 hockey) but only the 5 soccer titles are wired into
+`scripts/generate-minibook-pdfs.ts`; basketball and hockey have never been
+rendered. The first `products` run is a **print-readiness pass** over all
+15: add the 10 missing slugs to the PDF script, render everything, review
+each PDF for print defects (overflow, orphaned headings, broken page
+breaks, missing sections vs `src/data/minibooks/_template.ts` and
+`DESIGN-SYSTEM.md`), fix data/CSS issues, and re-render until clean. This
+is the owner's stated priority — it ships before any new product type.
 
 **Tier 1 — print collateral (existing pipeline).** Generate or refresh
 minibook data files (`src/data/minibooks/*.ts`, conforming to the existing
@@ -176,8 +203,10 @@ translation/localization.
 2. `docs/curriculum/DIRECTIVES.md` (seeded with current known gaps)
 3. `docs/curriculum/audits/`, `docs/curriculum/research/`,
    `docs/curriculum/books/` directory conventions
-4. `book.css` print stylesheet + one pilot book spec (owner picks the title;
+4. Minibook print-readiness pass: all 15 titles in the PDF script,
+   rendered and print-QA'd (the first `products` run)
+5. `book.css` print stylesheet + one pilot book spec (owner picks the title;
    suggested pilot: *The Aspire Way: Soccer Fundamentals, Ages 6–8* — richest
-   content coverage)
-5. `--profile kdp` render path in the PDF script
-6. `.github/workflows/curriculum-sync.yml`
+   content coverage). The KDP pilot starts only after the minibook pass ships.
+6. `--profile kdp` render path in the PDF script
+7. `.github/workflows/curriculum-sync.yml`
