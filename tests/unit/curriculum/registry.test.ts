@@ -268,21 +268,36 @@ describe("curriculum registry", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  // Baseball has no v2-canonical skills file and no gen-0 rows in
-  // src/lib/db/seed-curriculum.ts — the only source is
+  // Baseball originally had no v2-canonical skills file and no gen-0 rows in
+  // src/lib/db/seed-curriculum.ts — the only pre-wave-2 source was
   // curriculum-v2__baseball-skills-upgrade.ts, which UPDATEs a single
   // pre-existing skill row ("Throwing Mechanics") by hardcoded uuid rather
-  // than inserting a full row. True count is 1; the task brief's floor is
-  // >= 1. See .superpowers/sdd/cr-task-6-report.md for the reconstruction
-  // reasoning (domain/stage/name/slug/assessmentMethod/isCore inferred from
-  // context since the source object never sets them).
-  it("baseball skills: exactly 1, reconstructed from the sole upgrade payload", () => {
+  // than inserting a full row (see .superpowers/sdd/cr-task-6-report.md for
+  // that reconstruction's reasoning). Wave 2 (2026-07-05) built baseball
+  // fundamentals out to 12 skills total (5 technical / 2 tactical /
+  // 2 physical / 3 psychological), anchored on USA Baseball's LTAD
+  // throw->catch->run->hit priority order and the keep-rules-minimal
+  // principle from docs/curriculum/research/2026-07-05-brief.md §2. See
+  // .superpowers/sdd/w2r-3-report.md for the full skill list by domain.
+  it("baseball skills: 12 total (5 technical / 2 tactical / 2 physical / 3 psychological), Throwing Mechanics preserved from the original upgrade payload", () => {
     const s = CURRICULUM_CONTENT.skills.filter((k) => k.sport === "baseball");
-    expect(s.length).toBeGreaterThanOrEqual(1);
-    expect(s).toHaveLength(1);
-    expect(s[0].name).toBe("Throwing Mechanics");
-    expect(s[0].domain).toBe("technical");
-    expect(s[0].comprehensiveGuide).toBeTruthy();
+    expect(s).toHaveLength(12);
+
+    const throwing = s.find((k) => k.name === "Throwing Mechanics");
+    expect(throwing).toBeTruthy();
+    expect(throwing?.domain).toBe("technical");
+    expect(throwing?.comprehensiveGuide).toBeTruthy();
+
+    const byDomain = (d: string) => s.filter((k) => k.domain === d).length;
+    expect(byDomain("technical")).toBe(5);
+    expect(byDomain("tactical")).toBe(2);
+    expect(byDomain("physical")).toBe(2);
+    expect(byDomain("psychological")).toBe(3);
+
+    expect(s.every((k) => k.comprehensiveGuide)).toBe(true);
+    expect(
+      s.every((k) => k.stage === "fundamentals" || k.stage === "skill-building"),
+    ).toBe(true);
   });
 
   it("baseball: no activities or session plans invented (none exist in the recovered seeds)", () => {
