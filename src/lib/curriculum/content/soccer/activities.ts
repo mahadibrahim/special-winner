@@ -5786,7 +5786,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     variations: [
       {
         name: "No Re-entry",
-        description: "If knocked out, you're out for round",
+        description:
+          "The elimination format, for the oldest/most competitive groups this activity is used with - note this activity is fundamentals-tagged, so prefer the default format for fundamentals groups: if knocked out, you're out for the round.",
         difficulty: "intermediate",
       },
       {

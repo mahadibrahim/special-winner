@@ -54,7 +54,7 @@ rendered as a broken run-on sentence with stray hyphens, e.g. page 46 of
 Fixed by rewriting each instance as flowing prose (matching the surrounding editorial voice), no
 data-file restructuring:
 
-- `src/data/minibooks/soccer-dribbling.ts` — 6 conversions (constraints-led-approach approach,
+- `src/data/minibooks/soccer-dribbling.ts` — 6 conversions (constraints-led approach,
   self-determination theory needs, creativity backgrounds, expert-perception decision framework,
   reading-the-defender cues, parent-influence findings)
 - `src/data/minibooks/soccer-game-intelligence.ts` — 2 conversions (attacking/defending principles,
