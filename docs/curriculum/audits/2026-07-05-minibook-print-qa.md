@@ -19,13 +19,13 @@ Checklist applied per book (from the task brief):
 | # | Book | Pages | Verdict |
 |---|------|-------|---------|
 | 1 | soccer-passing | 79 | PASS |
-| 2 | soccer-dribbling | 69 | PASS (2 content defects fixed) |
+| 2 | soccer-dribbling | 69 | PASS (6 content defects fixed) |
 | 3 | soccer-shooting | 81 | PASS (1 content defect fixed) |
 | 4 | soccer-defending | 79 | PASS |
 | 5 | soccer-game-intelligence | 93 | PASS (2 content defects fixed) |
 | 6 | basketball-ball-handling | 76 | PASS |
 | 7 | basketball-defending | 75 | PASS |
-| 8 | basketball-game-intelligence | 88 | PASS (2 content defects + 1 layout defect fixed) |
+| 8 | basketball-game-intelligence | 88 | PASS (3 content defects + 1 layout defect fixed) |
 | 9 | basketball-passing | 75 | PASS |
 | 10 | basketball-shooting | 76 | PASS (1 layout defect fixed) |
 | 11 | hockey-defending | 78 | PASS |
@@ -40,7 +40,7 @@ across the full text layer of every PDF for the specific defect patterns found (
 
 ## Defects found and fixed
 
-### Content defects (data files) — 6 instances across 3 files
+### Content defects (data files) — 12 instances across 4 files
 
 The content template (`content:` fields) is rendered by splitting only on **double** newlines into
 `<p>` tags (`content.split('\n\n')`); single newlines collapse into the same paragraph. Several
@@ -54,13 +54,13 @@ rendered as a broken run-on sentence with stray hyphens, e.g. page 46 of
 Fixed by rewriting each instance as flowing prose (matching the surrounding editorial voice), no
 data-file restructuring:
 
-- `src/data/minibooks/soccer-dribbling.ts` — 5 spots (Self-Determination Theory needs, creativity
-  backgrounds, expert-perception decision framework, reading-the-defender cues, parent-influence
-  findings; plus a numbered-list variant of the same bug in the constraints-led-approach section)
-- `src/data/minibooks/soccer-game-intelligence.ts` — 2 spots (attacking/defending principles,
+- `src/data/minibooks/soccer-dribbling.ts` — 6 conversions (constraints-led-approach approach,
+  self-determination theory needs, creativity backgrounds, expert-perception decision framework,
+  reading-the-defender cues, parent-influence findings)
+- `src/data/minibooks/soccer-game-intelligence.ts` — 2 conversions (attacking/defending principles,
   video-game benefits/risks/age guidelines)
-- `src/data/minibooks/soccer-shooting.ts` — 1 spot (numbered "Three Types of Movement" list)
-- `src/data/minibooks/basketball-game-intelligence.ts` — 3 spots (pattern categories, offensive/
+- `src/data/minibooks/soccer-shooting.ts` — 1 conversion (numbered "Three Types of Movement" list)
+- `src/data/minibooks/basketball-game-intelligence.ts` — 3 conversions (pattern categories, offensive/
   defensive principles, video-benefits/risks/age guidelines)
 
 Confirmed no other data file in the 15 has this pattern (scripted scan for both `- item` and
