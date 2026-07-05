@@ -58,8 +58,9 @@ netlify/cache/
 netlify/build/
 netlify/blobs-serve/
 
-# Generated strategy PDFs
-pdfs/strategy/
+# Generated PDFs (minibooks, KDP book interiors, strategy docs) — regenerate
+# via scripts/generate-minibook-pdfs.ts; reviewers re-render rather than diff binaries.
+pdfs/
 
 # Email render preview output (C11 verification pass)
 dist-preview/
