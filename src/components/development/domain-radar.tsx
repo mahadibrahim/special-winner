@@ -105,12 +105,18 @@ export default function DomainRadar({ axes, max = 5, size = 240, className }: Do
     return { axis, spokeEnd, labelPos, textAnchor };
   });
 
+  // Side labels (anchored start/end) extend horizontally past the square
+  // chart area — "Psychological" at fontSize 11 is ~75 viewBox units wide,
+  // far more than the PADDING rim. Widen the viewBox with a negative-origin
+  // gutter on each side so long labels render inside it instead of clipping.
+  const LABEL_GUTTER = 80;
+
   return (
     <div className={cn("relative w-full flex flex-col items-center", className)}>
       <svg
         data-radar
-        viewBox={`0 0 ${size} ${size}`}
-        className="w-full h-auto max-w-[320px]"
+        viewBox={`-${LABEL_GUTTER} 0 ${size + LABEL_GUTTER * 2} ${size}`}
+        className="w-full h-auto max-w-[440px]"
         role="img"
         aria-label="Domain radar chart"
       >
