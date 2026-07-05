@@ -38,8 +38,9 @@ them. Delete a proposed line to veto it.
       coachability
 - [ ] Add `ageExpectations` + `bestAssessedIn` to the 10 thin basketball
       comprehensiveGuides
-- [ ] Normalize 8 soccer skill-building/development skills from 3→5 coaching
-      tips/mistakes/behaviors (fundamentals-stage standard)
+- [ ] Normalize the 8 audit-flagged soccer skills (6 skill-building/development
+      + 2 fundamentals) from 3→5 coaching tips/mistakes/behaviors
+      (fundamentals-stage standard)
 - [ ] Restore PH/PS above fundamentals: soccer skill-building +PH1/+PS2,
       development +PH1/+PS1; basketball skill-building +PH1/+PS1,
       development +PH1/+PS1 (fundamentals domain-ratio floors)

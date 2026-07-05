@@ -1837,7 +1837,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
       {
         name: "Championship Knockout",
         description:
-          "The classic sit-out-and-eliminate format, for older or highly competitive groups ready for real stakes: ONE ball only, no rejoin after scoring. Score and you're SAFE (sit down to watch); last player(s) without a goal are eliminated for the rest of that round. Crown a true last-player-standing champion. Best for ages 12+ or teams that thrive on stakes - younger or mixed-ability groups should stick with the points-based default so nobody sits out the whole round.",
+          "The classic sit-out-and-eliminate format, for older or highly competitive groups ready for real stakes: ONE ball only, no rejoin after scoring. Score and you're SAFE (sit down to watch); last player(s) without a goal are eliminated for the rest of that round. Crown a true last-player-standing champion. Best for the oldest/most competitive groups this activity is used with, or teams that thrive on stakes - younger or mixed-ability groups should stick with the points-based default so nobody sits out the whole round.",
         difficulty: "advanced",
       },
     ],
@@ -1854,7 +1854,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     comprehensiveGuide: {
       quickReference: {
         oneSentence:
-          "All players compete for one ball; score to be safe; last without a goal is eliminated - develops shooting and decision-making.",
+          "All players compete with several balls in play; score a point and jump right back in after a quick task - develops shooting and decision-making while everyone keeps playing.",
         keyPhrases: [
           "Find space - be where the ball goes!",
           "Take your shot when you have it!",
@@ -1863,7 +1863,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         setupDiagram:
           "One small goal, one ball, all players spread around shooting area",
         quickProgression: {
-          easier: "Multiple balls, no permanent elimination, team up players",
+          easier: "Even more balls in play, a shorter rejoin task, team up weaker players",
           harder: "Must beat defender first, weak foot only, smaller goal",
         },
       },
@@ -1873,10 +1873,10 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             "Set up small goal (2 cones, 3-4 paces wide)",
             "Have 2-3 spare balls ready for quick restarts",
             "Consider shooting line for organization",
-            "Think about how to handle elimination fairly",
+            "Think about how to keep the rejoin task quick so nobody waits long",
           ],
           mindset:
-            "This is HIGH ENERGY competition. Your job is to keep it moving fast, restart quickly when ball goes out, and manage emotions around elimination. Celebrate all goals equally. Watch for dominant players and discouraged players.",
+            "This is HIGH ENERGY competition. Your job is to keep it moving fast, restart quickly when ball goes out, and make sure nobody stands around after a miss - the toe-tap-and-rejoin keeps everyone active. Celebrate all goals equally. Watch for dominant players and discouraged players.",
         },
         segments: [
           {
@@ -1884,7 +1884,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             duration: "60 seconds",
             coachPosition: "By the goal",
             script:
-              "Explain: everyone for themselves, score = safe, last players eliminated. Pick country names. 'ONE BALL, NO HANDS, NO KEEPERS!'",
+              "Explain: everyone for themselves, every goal is a point - score, do 5 quick toe taps, jump right back in. Nobody sits out. Pick country names. 'SEVERAL BALLS, NO HANDS, NO KEEPERS!'",
             anticipatedResponses: {
               "What if I never get the ball?":
                 "Find space away from the crowd! The ball always pops out.",
@@ -1894,8 +1894,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
                 "Not this version, but we can try pairs next round!",
             },
             troubleshooting: {
-              "Players don't understand elimination": [
-                "It's okay! Everyone plays every round anyway. If you're out, you play again next round!",
+              "Players don't understand the toe-tap-and-rejoin rule": [
+                "You never sit out in this version! Score, do your 5 taps, jump right back in.",
               ],
               "Arguments about countries": [
                 "Pick fast or I'll pick for you! It's just for fun!",
@@ -1907,7 +1907,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             duration: "3-4 minutes",
             coachPosition: "Near goal, out of play",
             script:
-              "Drop ball in center, step back. Call out 'GOAL! [Country] is safe!' when scores happen. Quick restarts on out balls. End when 2-3 left.",
+              "Drop 2-3 balls in around the area, step back. Call out 'GOAL! [Country] - that's a point! Toe taps, then back in!' when scores happen. Quick restarts on out balls. End on time, then count goals scored.",
             troubleshooting: {
               "Ball constantly out of bounds": [
                 "Have spare ball ready - throw in immediately",
@@ -1932,9 +1932,9 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             duration: "3-4 minutes",
             coachPosition: "Near goal",
             script:
-              "Add variation if desired (weak foot double, 1v1 required, etc.). Everyone plays again, even if eliminated before.",
+              "Add variation if desired (weak foot double, 1v1 required, etc.). Same points-based rule - everyone keeps playing the whole round.",
             troubleshooting: {
-              "Same players eliminated again": [
+              "Same players not scoring again": [
                 "Consider pairing up or adding multiple balls",
               ],
               "Players giving up": [
@@ -1943,11 +1943,11 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             },
           },
           {
-            phase: "Round 3 - Championship",
+            phase: "Round 3 - Bonus Round",
             duration: "3-4 minutes",
             coachPosition: "Near goal, high energy",
             script:
-              "Real elimination this round. Build drama with your voice. Crown champion at end. Make it special!",
+              "Same rules - score, tap, jump back in - but every goal this round is worth DOUBLE points. Build drama with your voice. Add up total points across all three rounds and crown a champion at the end!",
           },
           {
             phase: "Wrap Up",
@@ -1988,14 +1988,14 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           },
         },
         playerBehavior: {
-          eliminatedUpset: {
+          knockoutVariationUpset: {
             symptoms: [
-              "Crying or angry when eliminated",
+              "Crying or angry when eliminated (Championship Knockout variation only)",
               "Refusing to sit out",
-              "Saying game is unfair",
+              "Saying the game is unfair",
             ],
             approach:
-              "Private word: 'I know it's hard. You'll be back in for Round 2! Watch the others and learn their tricks.' Always bring eliminated back quickly.",
+              "This only comes up if you're running the Championship Knockout variation - the default points-based format has no sit-out. If it happens: private word: 'I know it's hard. You'll be back in for Round 2! Watch the others and learn their tricks.' Or switch back to the points-based default for this group.",
           },
           overlyPhysical: {
             symptoms: ["Pushing", "Grabbing", "Playing the player not ball"],
@@ -2035,7 +2035,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             skill: "Shooting",
             domain: "Technical",
             howItDevelops:
-              "Game requires scoring to survive - creates urgency and decision-making around when/how to shoot.",
+              "Game rewards scoring with points and a fast return to play - creates urgency and decision-making around when/how to shoot.",
             levelIndicators: {
               1: "Rarely shoots; shots miss goal entirely",
               2: "Shoots when obvious opportunity; inconsistent accuracy",
@@ -2090,13 +2090,13 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         },
         psychologicalDevelopment: {
           competitiveness: "Desire to win in individual competition",
-          resilience: "Bouncing back from elimination",
+          resilience: "Bouncing back after a scoreless stretch",
           decisionMaking: "Constant choices under pressure",
         },
       },
       developmentalContext: {
         whyThisActivity:
-          "World Cup replicates game chaos in concentrated form. Players must find space, win balls, make decisions, and finish - all under time pressure with consequences. The elimination element adds urgency that transfers to game situations. Plus, kids LOVE it.",
+          "World Cup replicates game chaos in concentrated form. Players must find space, win balls, make decisions, and finish - all under time pressure with consequences. The points-based scoring adds urgency that transfers to game situations without anyone sitting out; the optional Championship Knockout variation raises the stakes further for groups ready for real elimination. Plus, kids LOVE it.",
         whenToUseIt: {
           idealFor: [
             "End of practice (high engagement reward)",
@@ -2108,7 +2108,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
             "Beginning of practice (too intense)",
             "After losses or emotional sessions",
             "Very uneven skill levels (frustration for weaker)",
-            "Very young players who can't handle elimination",
+            "Championship Knockout variation with very young players who can't handle real elimination - stick to the points-based default instead",
           ],
         },
         progressionPath: {
@@ -2135,17 +2135,17 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         },
         ageAdaptations: {
           ages6to8: {
-            approach: "Maximum fun, minimize elimination stress",
+            approach: "Maximum fun, everyone stays moving",
             keyPhrases: [
               "Have a go!",
               "Great try!",
-              "You'll get it next round!",
+              "Score and jump right back in!",
             ],
             avoidSaying: ["You're out!", "That was a bad shot"],
             duration: "8-10 minutes maximum",
             simplifications: [
-              "No permanent elimination",
-              "Multiple balls",
+              "Extra balls so nobody waits long for a touch",
+              "Shorten the rejoin task to 2-3 toe taps",
               "Big goals",
               "All praised",
             ],
@@ -2158,7 +2158,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
               "Clinical finish!",
             ],
             challenges: [
-              "Real elimination for final round",
+              "Bonus round worth double points",
               "Weak foot challenge",
               "Smaller goals",
             ],
@@ -2175,6 +2175,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
               "1v1 before shooting",
               "Time limits",
               "Keeper in goal",
+              "Championship Knockout variation for real stakes",
             ],
             coachRole: "Referee role; let players manage their game",
           },
@@ -2185,14 +2186,14 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           "Only good players benefit":
             "Adjust rules so all can succeed - weak foot requirements, multiple balls, pairing up.",
           "Elimination is too harsh":
-            "Make it temporary or remove for young ages. The urgency still works even without real elimination.",
+            "The default format already has no elimination - score, tap, rejoin. The urgency still works without real elimination; save Championship Knockout for older or highly competitive groups who want the stakes.",
         },
       },
       parentCommunication: {
         ifAsked:
-          "World Cup is a classic soccer game where players compete to score and stay 'alive.' It teaches shooting, finding space, and making quick decisions - all in a fun, game-like environment. We make sure everyone gets chances and no one feels left out.",
+          "World Cup is a classic soccer game where players compete to score the most points while several balls are in play. It teaches shooting, finding space, and making quick decisions - all in a fun, game-like environment. Everyone keeps playing the whole time, so no one feels left out.",
         newsletter:
-          "We played WORLD CUP this week - the famous playground game where everyone competes for one ball! Ask your child about it: What country were they? Did they score? What strategy worked best? This game develops shooting, positioning, and competitive spirit!",
+          "We played WORLD CUP this week - the famous playground game where everyone competes to score the most points! Ask your child about it: What country were they? Did they score? What strategy worked best? This game develops shooting, positioning, and competitive spirit - and everyone kept playing the whole time!",
         whatToWatchFor: [
           "Does your child take shooting chances or hesitate?",
           "Do they find space away from the crowd?",
@@ -2216,7 +2217,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           {
             risk: "Frustration-related incidents",
             prevention:
-              "Quick rounds; bring eliminated back fast; multiple balls",
+              "Quick toe-tap-and-rejoin so nobody waits long; multiple balls in play; save full elimination for the optional Championship Knockout variation",
             response:
               "Private word; break if needed; adjust rules to reduce frustration",
           },
@@ -2225,15 +2226,15 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
           skillDifferences:
             "Pair weaker with stronger; weak foot for advanced; multiple balls for equal chances",
           physicalDifferences:
-            "Larger goal; longer shooting range allowed; different elimination criteria",
+            "Larger goal; longer shooting range allowed; adjust the rejoin task instead of elimination criteria",
           emotionalSensitivity:
-            "No permanent elimination for anxious players; comeback rule; pair with supportive player",
+            "Skip the Championship Knockout variation for anxious players; keep the default points-based format; pair with supportive player",
         },
       },
       coachReflection: {
         afterActivity: [
           "Did all players get shooting opportunities?",
-          "Was elimination handled sensitively?",
+          "If using Championship Knockout, was elimination handled sensitively?",
           "Did I keep the game moving with quick restarts?",
           "Was the competitive balance right?",
           "Did players show game intelligence (finding space, timing)?",
@@ -4524,7 +4525,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 12,
     skillsDeveloped: ["shooting", "ball-control"],
     setupInstructions:
-      "One goal with goalkeeper. All other players start at the top of the box.",
+      "One goal with goalkeeper. All other players start at the top of the box. Rotate the goalkeeper each round so nobody is locked out of open play.",
     howToPlay:
       "1. Coach serves balls randomly into the box - keep 2-3 balls going at once\n2. Everyone is for themselves - score in the goal\n3. Each goal is worth 1 point - keep your own running count\n4. If the goalkeeper saves your shot, do 3 quick toe taps and jump right back into the action - nobody sits out\n5. Can steal a loose ball from anyone\n6. When time's up, whoever has the most goals wins that round",
     coachingPoints: [
@@ -4580,7 +4581,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     setupInstructions:
       "Scatter balls in a 25x25 grid - one fewer ball than players.",
     howToPlay:
-      "1. Players jog/skip around the grid while music plays\n2. When music stops, find a ball and perform a move (10 toe taps)\n3. Player without a ball does 5 jumping jacks, then jogs right back in for the next round - nobody sits out\n4. Keep the same number of balls (one fewer than players) every round so the challenge stays constant instead of eliminating players\n5. Track how many times each player ends up without a ball as a fun personal best - fewest misses 'wins' bragging rights",
+      "1. Players jog/skip around the grid while music plays\n2. When music stops, find a ball and perform a move (10 toe taps)\n3. Player without a ball does 5 jumping jacks, then jogs right back in for the next round - nobody sits out\n4. Keep the same number of balls (one fewer than players) every round so the challenge stays constant instead of eliminating players\n5. Track how many times you end up without a ball as your own personal best to try to beat next time",
     coachingPoints: [
       "Stay light on your feet",
       "Be aware of space around you",
@@ -4600,13 +4601,13 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
       {
         name: "Knockout Musical Balls",
         description:
-          "The classic elimination format, for older or highly competitive groups: remove one ball each round; the player(s) left without a ball are out until only two players remain. Higher stakes but a lot of sitting out for younger or mixed-ability groups.",
+          "The classic elimination format, for highly competitive groups only - note this activity is fundamentals-tagged, so prefer the default format for most groups: remove one ball each round; the player(s) left without a ball are out until only two players remain. Higher stakes but a lot of sitting out for younger or mixed-ability groups.",
         difficulty: "advanced",
       },
     ],
     makeEasier: "More balls in the grid so misses are rare",
     makeHarder:
-      "Smaller grid, faster music changes. For older/competitive groups ready for real stakes, try Knockout Musical Balls (see variations) for classic progressive elimination.",
+      "Smaller grid, faster music changes. For highly competitive groups only (this activity is fundamentals-tagged - prefer the default format for most groups), try Knockout Musical Balls (see variations) for classic progressive elimination.",
     equipmentNeeded: ["Balls (one fewer than players)", "Music speaker"],
     spaceRequired: "medium",
     indoorSuitable: true,

@@ -501,14 +501,14 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     minPlayers: 4,
     maxPlayers: 30,
     durationMinutes: 6,
-    skillsDeveloped: ["ball-handling", "dribbling-on-the-move", "coachability"],
+    skillsDeveloped: ["ball-handling", "coachability"],
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 1 basketball per player\n□ 4 cones for corners (optional but helpful)\n□ Optional: colored cones/cards (red, yellow, green) as visual aids\n\nSPACE: As large as available (minimum half court or 25x30 paces)\n\nSETUP STEPS\n1. Players spread out in large area\n2. Every player has ball and is dribbling\n3. Coach stands where everyone can see/hear\n\nDIAGRAM\n┌─────────────────────────────────┐\n│                                 │\n│    ○    ○    ○    ○    ○       │\n│                                 │  25+ paces\n│    ○    ○   COACH  ○    ○      │\n│                                 │\n│    ○    ○    ○    ○    ○       │\n└─────────────────────────────────┘\n       30+ paces",
     howToPlay:
-      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone grab a ball and find your own space - spread out so you can\'t touch anyone! Start dribbling!"\n\nSAY: "We\'re playing Traffic Lights! When I say GREEN, dribble as fast as you can control - speed dribble! When I say YELLOW, super slow dribble, like you\'re sneaking! When I say RED, stop your feet BUT keep dribbling in place!"\n\nDEMO: "Watch me - GREEN (fast dribble across space)... YELLOW (slow dribble)... RED (stop feet, dribble in place). Your turn!"\n\n\nPHASE 2: ROUND 1 - BASIC (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Find a space, start dribbling... GREEN!"\n\nCall colors randomly:\n• GREEN: Hold 5-8 seconds\n• YELLOW: Hold 3-5 seconds\n• RED: Hold 3-4 seconds (check they keep dribbling!)\n\nWATCH FOR:\n□ Quick response to commands?\n□ Dribble continuing on RED?\n□ Different speeds for green vs yellow?\n\nPRAISE: "Great control!" "Love that speed!" "Nice stationary dribble on red!"\n\n\nPHASE 3: COACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Red! Freeze your feet! Keep that dribble going!"\n\nSAY: "Look at your dribble - is it at your waist or lower? In basketball, we want the ball below our waist so defenders can\'t steal it."\n\nDEMO: Quick high dribble vs low dribble comparison.\n\nSAY: "Let\'s go - keep it LOW! GREEN!"\n\n\nPHASE 4: ROUND 2 - ADD CHALLENGE (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same game, but now on RED, switch hands every 3 bounces! Ready... GREEN!"\n\nCall colors. On RED, count out loud: "1, 2, 3, switch! 1, 2, 3, switch!"\n\n\nPHASE 5: ROUND 3 - MIX IT UP (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOptions:\n• "REVERSE!" - Green means stop, Red means go fast\n• "Red light... Red light... RED LIGHT!" (trick them)\n• Whisper colors so they must really listen\n• Add "BLUE!" = crossover (switch hands while moving)\n\nWRAP UP: "Great dribbling! Who can show me a low, controlled dribble? Water break!"',
+      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone grab a ball and find your own space - spread out so you can\'t touch anyone! Start dribbling!"\n\nSAY: "We\'re playing Traffic Lights! When I say GREEN, dribble-walk as fast as you can CONTROL - no running, just a brisk walking dribble! When I say YELLOW, super slow dribble, like you\'re sneaking! When I say RED, stop your feet BUT keep dribbling in place!"\n\nDEMO: "Watch me - GREEN (brisk dribble-walk across space, no running)... YELLOW (slow dribble)... RED (stop feet, dribble in place). Your turn!"\n\n\nPHASE 2: ROUND 1 - BASIC (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Find a space, start dribbling... GREEN!"\n\nCall colors randomly:\n• GREEN: Hold 5-8 seconds\n• YELLOW: Hold 3-5 seconds\n• RED: Hold 3-4 seconds (check they keep dribbling!)\n\nWATCH FOR:\n□ Quick response to commands?\n□ Dribble continuing on RED?\n□ Different speeds for green vs yellow?\n\nPRAISE: "Great control!" "Love that speed!" "Nice stationary dribble on red!"\n\n\nPHASE 3: COACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Red! Freeze your feet! Keep that dribble going!"\n\nSAY: "Look at your dribble - is it at your waist or lower? In basketball, we want the ball below our waist so defenders can\'t steal it."\n\nDEMO: Quick high dribble vs low dribble comparison.\n\nSAY: "Let\'s go - keep it LOW! GREEN!"\n\n\nPHASE 4: ROUND 2 - ADD CHALLENGE (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same game, but now on RED, switch hands every 3 bounces! Ready... GREEN!"\n\nCall colors. On RED, count out loud: "1, 2, 3, switch! 1, 2, 3, switch!"\n\n\nPHASE 5: ROUND 3 - MIX IT UP (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOptions:\n• "REVERSE!" - Green means stop, Red means go fast\n• "Red light... Red light... RED LIGHT!" (trick them)\n• Whisper colors so they must really listen\n• Add "BLUE!" = crossover (switch hands while moving)\n\nWRAP UP: "Great dribbling! Who can show me a low, controlled dribble? Water break!"',
     coachingPoints: [
       "KEEP DRIBBLE ALIVE → Say: 'The ball never stops bouncing - red means feet stop, not hands!'",
-      "GREEN = SPEED DRIBBLE → Say: 'Push the ball out in front, let it lead you!'",
+      "GREEN = CONTROLLED DRIBBLE-WALK → Say: 'Walk it out as fast as you can control - no running!'",
       "YELLOW = CONTROL DRIBBLE → Say: 'Slow and sneaky, ball stays close!'",
       "LOW DRIBBLE → Say: 'Waist height or lower - protect that ball!'",
     ],
@@ -520,7 +520,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     ],
     commonMistakes: [
       "STOPPING DRIBBLE ON RED → Say: 'Feet stop, hands don't! Keep it bouncing!'",
-      "SAME SPEED GREEN/YELLOW → Say: 'Show the difference! Green=race car, Yellow=turtle'",
+      "SAME SPEED GREEN/YELLOW → Say: 'Show the difference! Green=brisk walk, Yellow=turtle'",
       "HIGH BOUNCY DRIBBLE → Say: 'Push it down! Waist height or lower!'",
       "NOT SPREADING OUT → Say: 'Find space where you can swing arms without touching anyone'",
     ],
@@ -569,10 +569,10 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     comprehensiveGuide: {
       quickReference: {
         oneSentence:
-          "Color commands control dribbling speed - RED=stop feet but keep dribbling, YELLOW=slow, GREEN=fast - develops listening and ball control.",
+          "Color commands control dribbling speed - RED=stop feet but keep dribbling, YELLOW=slow, GREEN=controlled dribble-walk (no running) - develops listening and ball control.",
         keyPhrases: [
           "Feet stop, hands don't!",
-          "Green is race car, Yellow is turtle!",
+          "Green is a brisk walk, Yellow is a turtle!",
           "Low dribble - waist or below!",
         ],
         setupDiagram:
@@ -599,7 +599,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
             duration: "45 seconds",
             coachPosition: "Center where all can see",
             script:
-              "SAY: 'Find your own space and start dribbling!' Explain: GREEN=fast, YELLOW=slow, RED=stop feet but keep dribbling. Demo each briefly.",
+              "SAY: 'Find your own space and start dribbling!' Explain: GREEN=dribble-walk as fast as you can CONTROL (no running), YELLOW=slow, RED=stop feet but keep dribbling. Demo each briefly.",
             anticipatedResponses: {
               "What if I lose my dribble?":
                 "Pick it up and keep going! Everyone loses it sometimes.",
@@ -622,7 +622,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
               "Same speed all colors": [
                 "Exaggerate demos",
                 "Use animal comparisons",
-                "Race car vs turtle",
+                "Brisk walk vs turtle",
               ],
             },
           },
@@ -780,7 +780,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           ages6to8: {
             approach: "Pure fun, celebrate every attempt",
             keyPhrases: [
-              "Race car! Turtle!",
+              "Brisk walk! Turtle!",
               "Feet freeze, hands bounce!",
               "Keep it bouncing!",
             ],
@@ -1303,7 +1303,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     name: "Knockout",
     slug: "knockout",
     description:
-      "Classic basketball shooting game where players race to make a shot before the person behind them. Develops shooting under pressure, rebounding, and quick shot execution in a competitive, high-energy format loved by players of all ages.",
+      "Classic basketball shooting-race game where players race to make a shot before the person behind them. In the default format, falling behind sends you to a quick skill station instead of sitting out, so everyone keeps shooting. Develops shooting under pressure, rebounding, and quick shot execution in a competitive, high-energy format loved by players of all ages.",
     activityType: "game",
     difficulty: "beginner",
     minPlayers: 4,
@@ -1311,9 +1311,9 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["shooting-layups", "form-shooting", "effort-and-hustle"],
     setupInstructions:
-      "EQUIPMENT CHECKLIST\n□ 2 basketballs\n□ 1 basketball hoop\n□ Floor tape or cone to mark free throw line (optional)\n\nSPACE: One basket with space for a line behind free throw line\n\nSETUP STEPS\n1. All players line up behind the free throw line (or closer for younger players)\n2. First two players in line each have a ball\n3. Everyone else waits in line without a ball\n4. Mark shooting spot if needed (closer for ages 6-8)\n\nDIAGRAM\n                    [BASKET]\n                       │\n                       │\n    ─────────────────────────────  Free throw line\n                       │\n                       │\n           ○ ○ ○ ○ ○ ○ ○ ○ ○      (Line of players)\n           ▲ ▲\n       Ball Ball                  First 2 have balls",
+      "EQUIPMENT CHECKLIST\n□ 2 basketballs\n□ 1 basketball hoop (plus a second hoop or a marked skill-station spot, if available)\n□ Floor tape or cone to mark free throw line (optional)\n\nSPACE: One basket with space for a line behind free throw line\n\nSETUP STEPS\n1. All players line up behind the free throw line (or closer for younger players)\n2. First two players in line each have a ball\n3. Everyone else waits in line without a ball\n4. Mark shooting spot if needed (closer for ages 6-8)\n5. If a second hoop is available, set up a small skill station there; otherwise mark a skill-station spot near the main basket\n\nDIAGRAM\n                    [BASKET]\n                       │\n                       │\n    ─────────────────────────────  Free throw line\n                       │\n                       │\n           ○ ○ ○ ○ ○ ○ ○ ○ ○      (Line of players)\n           ▲ ▲\n       Ball Ball                  First 2 have balls",
     howToPlay:
-      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: At the free throw line\n\nSAY: "Everyone line up behind this line! First two players, grab a ball!"\n\nSAY: "This is KNOCKOUT! Here\'s how it works: First player shoots. If you make it, pass the ball to the next person without a ball and go to the back of the line. If you miss, you have to rebound and make a shot before the person behind you does!"\n\nSAY: "Here\'s the twist - if the person behind you makes their shot before you make yours, you\'re KNOCKED OUT and sit down to cheer. Last person standing wins!"\n\nDEMO: Walk through with first two players showing what happens on a make and a miss.\n\n\nPHASE 2: FIRST GAME (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "First shooter, ready? GO!"\n\nDURING PLAY - What to Watch For:\n□ Are players rebounding their own misses?\n□ Are they shooting quickly or hesitating?\n□ Are knocked out players staying engaged?\n\nPHRASES TO USE:\n• "Rebound! Get that ball!"\n• "Quick shot! Don\'t wait!"\n• "Nice make! Pass it back!"\n• "Great hustle!"\n\nWHEN SOMEONE IS KNOCKED OUT:\nSAY: "Great effort! Have a seat and cheer for your friends! You\'re back in next round."\n\nContinue until one player remains.\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: At the free throw line with all players\n\nSAY: "Great round! Quick question - after you missed, where was the easiest place to make a shot?"\nListen for: "Close to the basket," "Under the hoop"\n\nSAY: "Exactly! When you rebound, get as close as you can before shooting. Don\'t shoot from far away - get a LAYUP if you can!"\n\nDEMO: Miss intentionally, rebound, show getting close for easy shot.\n\n\nPHASE 4: SECOND GAME (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New game! Remember - after you rebound, get CLOSE before you shoot!"\n\nOptions to keep eliminated players engaged:\n• "Knocked out players - count how many layups you see!"\n• "Rebounders for people still in!"\n• "Start a second game at another basket"\n\nContinue until winner is crowned.\n\n\nWRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great games! Remember - in Knockout, the best players don\'t just shoot fast, they get CLOSE after rebounds and make easy shots. That\'s smart basketball! Water break!"',
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: At the free throw line\n\nSAY: "Everyone line up behind this line! First two players, grab a ball!"\n\nSAY: "This is KNOCKOUT! Here\'s how it works: First player shoots. If you make it, pass the ball to the next person without a ball and go to the back of the line. If you miss, you have to rebound and make a shot before the person behind you does!"\n\nSAY: "Here\'s the twist - if the person behind you makes their shot before you make yours, you\'re not out - jog to the skill station, knock out 5 quick reps (free throws, form shots, or ball-handling), then head to the back of the line. Keep racing!"\n\nDEMO: Walk through with first two players showing what happens on a make and a miss.\n\n\nPHASE 2: FIRST GAME (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "First shooter, ready? GO!"\n\nDURING PLAY - What to Watch For:\n□ Are players rebounding their own misses?\n□ Are they shooting quickly or hesitating?\n□ Is the skill station keeping players moving quickly, not backing up?\n\nPHRASES TO USE:\n• "Rebound! Get that ball!"\n• "Quick shot! Don\'t wait!"\n• "Nice make! Pass it back!"\n• "Great hustle!"\n\nWHEN SOMEONE FALLS BEHIND:\nSAY: "Great effort! Quick reps at the skill station and you\'re right back in line."\n\nKeep it going for the full 4 minutes - everyone keeps shooting and racing the whole time.\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: At the free throw line with all players\n\nSAY: "Great round! Quick question - after you missed, where was the easiest place to make a shot?"\nListen for: "Close to the basket," "Under the hoop"\n\nSAY: "Exactly! When you rebound, get as close as you can before shooting. Don\'t shoot from far away - get a LAYUP if you can!"\n\nDEMO: Miss intentionally, rebound, show getting close for easy shot.\n\n\nPHASE 4: SECOND GAME (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New game! Remember - after you rebound, get CLOSE before you shoot!"\n\nKeep the skill station moving:\n• "Count how many reps you get in before you\'re back in line!"\n• "Rebounders for people still shooting!"\n• "Start a second game at another basket"\n\nContinue for the full round - track fewest skill-station visits if you want a winner.\n\n\nWRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great games! Remember - in Knockout, the best players don\'t just shoot fast, they get CLOSE after rebounds and make easy shots. That\'s smart basketball! Water break!"',
     diagram:
       "                [BASKET]\n                   │\n    ─────────────────────  Free throw line\n                   │\n       ○ ○ ○ ○ ○ ○ ○ ○      (Line of players)\n       ▲ ▲                  First 2 have balls",
     coachingPoints: [
@@ -1324,27 +1324,21 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     ],
     questionsToAsk: [
       "'After you miss, where should you shoot from?' → As close as possible!",
-      "'Why do we shoot quickly in this game?' → Someone is trying to knock us out!",
+      "'Why do we shoot quickly in this game?' → Someone is racing to beat you to the basket!",
       "'What makes a good rebound?' → Go where the ball will bounce!",
-      "'How can you help teammates who are out?' → Cheer and stay engaged!",
+      "'What do you do at the skill station?' → Get some good reps in, then jog right back to the line!",
     ],
     commonMistakes: [
       "SHOOTING FROM FAR AFTER REBOUND → Say: 'Get close! A layup is your best friend!'",
       "NOT REBOUNDING OWN MISS → Say: 'Your ball, your rebound! Chase it!'",
       "WAITING TOO LONG TO SHOOT → Say: 'Quick release! Don't let them catch you!'",
-      "GETTING UPSET WHEN KNOCKED OUT → Say: 'Everyone gets knocked out sometimes! You're in next round!'",
+      "GETTING UPSET WHEN SENT TO THE SKILL STATION → Say: 'That's just an extra rep - you'll be back at the front of the line in no time!'",
     ],
     variations: [
       {
         name: "Lightning",
         description:
           "Same game, different name - some regions call it Lightning or Bump.",
-        difficulty: "beginner",
-      },
-      {
-        name: "Comeback Knockout",
-        description:
-          "Knocked out players shoot from side. If they make it, they're back in!",
         difficulty: "beginner",
       },
       {
@@ -1359,11 +1353,17 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           "Start under basket, move back to free throw line with each make.",
         difficulty: "intermediate",
       },
+      {
+        name: "Full Elimination (Older Groups)",
+        description:
+          "For skill-building/development groups ready for competitive pressure: players sent to the skill station are out for the rest of that game instead of rotating back into line. Last player remaining wins.",
+        difficulty: "advanced",
+      },
     ],
     makeEasier:
-      "SIGNS THEY'RE STRUGGLING:\n• Players can't make shots from free throw line\n• Games end too quickly (everyone knocked out fast)\n• Frustration and tears\n\nSOLUTIONS:\n• Move shooting line closer (8 feet instead of 15)\n• Allow two free throw attempts before runner can shoot\n• Use lower basket if available\n• \"No knockout\" version - just track who makes most in 2 minutes\n• Allow anyone knocked out to come back after 2 players are out",
+      "SIGNS THEY'RE STRUGGLING:\n• Players can't make shots from free throw line\n• Skill-station line getting long (lots of players struggling)\n• Frustration and tears\n\nSOLUTIONS:\n• Move shooting line closer (8 feet instead of 15)\n• Allow two free throw attempts before runner can shoot\n• Use lower basket if available\n• Shrink the skill-station task to 2-3 reps so players cycle back faster\n• \"No pressure\" version - just track who makes most in 2 minutes",
     makeHarder:
-      "SIGNS THEY'RE READY:\n• Players making most first shots\n• Games drag on\n• Asking for challenge\n\nSOLUTIONS:\n• Move line back\n• First shot must be a swish (no rim)\n• Weak hand only for close shots\n• Must make two in a row to survive (if you make one, shoot again)\n• Add third ball to increase pressure",
+      "SIGNS THEY'RE READY:\n• Players making most first shots\n• Skill station rarely used\n• Asking for challenge\n\nSOLUTIONS:\n• Move line back\n• First shot must be a swish (no rim)\n• Weak hand only for close shots\n• Must make two in a row to avoid the skill station (if you make one, shoot again)\n• Add third ball to increase pressure\n• Switch to Full Elimination (see variations) for older/competitive groups ready for real stakes",
     equipmentNeeded: ["2 basketballs", "1 basketball hoop"],
     spaceRequired: "small",
     indoorSuitable: true,
@@ -1381,7 +1381,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     comprehensiveGuide: {
       quickReference: {
         oneSentence:
-          "Players race to make a shot before the person behind them; develops shooting under pressure and quick execution.",
+          "Players race to make a shot before the person behind them - falling behind sends you to a quick skill station instead of sitting out; develops shooting under pressure and quick execution.",
         keyPhrases: [
           "Quick release - don't wait!",
           "Rebound your miss!",
@@ -1401,11 +1401,11 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           preparation: [
             "Ensure 2 game-ready basketballs",
             "Mark shooting line appropriate for age (closer for 6-8)",
-            "Plan how to keep eliminated players engaged",
+            "Plan where the skill station will be for players who fall behind",
             "Consider multiple games if you have 15+ players and 2 baskets",
           ],
           mindset:
-            "Knockout is about FUN and COMPETITION. Keep energy high, celebrate makes and effort, manage eliminated players so they stay engaged. This game should feel special.",
+            "Knockout is about FUN and COMPETITION. Keep energy high, celebrate makes and effort, keep the skill-station task quick so players cycle back in fast. This game should feel special.",
         },
         segments: [
           {
@@ -1413,7 +1413,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
             duration: "60 seconds",
             coachPosition: "At the free throw line",
             script:
-              "Line players up, give first 2 balls. Explain: make = pass ball back, miss = rebound and make before person behind you. Demo with first 2 players.",
+              "Line players up, give first 2 balls. Explain: make = pass ball back, miss = rebound and make before person behind you; fall behind = quick skill-station task, then back to the line. Demo with first 2 players.",
             anticipatedResponses: {
               "What if I always miss?":
                 "Everyone misses! Get close for an easy shot after you rebound.",
@@ -1426,7 +1426,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
             duration: "4 minutes",
             coachPosition: "Near basket to see action",
             script:
-              "SAY: 'First shooter, GO!' Encourage rebounding, quick shots, hustle. Manage knockouts with positivity.",
+              "SAY: 'First shooter, GO!' Encourage rebounding, quick shots, hustle. Keep the skill-station line moving with positivity.",
             troubleshooting: {
               "No one can make shots": [
                 "Move line closer",
@@ -1451,7 +1451,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
             duration: "4 minutes",
             coachPosition: "Near basket",
             script:
-              "New game emphasizing getting close after rebounds. Keep eliminated players engaged with counting tasks or second game.",
+              "New game emphasizing getting close after rebounds. Keep the skill station moving quickly, or start a second game at another basket if numbers allow.",
           },
           {
             phase: "Wrap Up",
@@ -1466,14 +1466,14 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
         gameBalance: {
           gamesEndTooFast: {
             symptoms: [
-              "Everyone knocked out in 1 minute",
+              "Everyone cycling through the skill station in 1 minute",
               "Not enough touches",
               "Frustration",
             ],
             solutions: [
               "Move line closer",
               "Allow two free throw attempts",
-              "Comeback rule: make a side shot to get back in",
+              "Shrink the skill-station task to 1-2 reps",
             ],
           },
           gamesDragOn: {
@@ -1490,10 +1490,10 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           },
         },
         playerBehavior: {
-          upsetWhenKnockedOut: {
+          upsetAtSkillStation: {
             symptoms: ["Tears", "Anger", "Saying 'not fair'"],
             approach:
-              "Normalize: 'Everyone gets knocked out - that's the game! You're in next round.' Give them a job: 'Count makes for me?'",
+              "Normalize: 'Everyone ends up at the skill station sometimes - that's the game! A few quick reps and you're right back in.' Give them a job if the line's long: 'Count makes for me?'",
           },
           notTrying: {
             symptoms: ["Not chasing rebounds", "Slow shots", "Distracted"],
@@ -1568,7 +1568,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
             skill: "Quick Shot Release",
             domain: "Technical",
             howItDevelops:
-              "Must shoot quickly to avoid being knocked out - builds fast but controlled release.",
+              "Must shoot quickly to beat the person behind you to the basket - builds fast but controlled release.",
             levelIndicators: {
               1: "Very slow release, lots of wasted motion",
               2: "Average speed, some hesitation",
@@ -1590,14 +1590,14 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           cardiovascular: "Continuous activity when in the game",
         },
         psychologicalDevelopment: {
-          resilience: "Being knocked out and returning next game",
+          resilience: "Falling behind and cycling back through the skill station",
           clutchPerformance: "Executing under pressure",
           sportsmanship: "Handling winning and losing gracefully",
         },
       },
       developmentalContext: {
         whyThisActivity:
-          "Knockout develops shooting under pressure in a competitive format that players LOVE. The pressure of someone trying to knock you out mirrors game situations. The rebounding aspect teaches players to follow their shot and finish at the rim.",
+          "Knockout develops shooting under pressure in a competitive format that players LOVE. The pressure of racing to beat the person behind you mirrors game situations. The rebounding aspect teaches players to follow their shot and finish at the rim.",
         whenToUseIt: {
           idealFor: [
             "End of practice (fun reward)",
@@ -1639,13 +1639,13 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
             keyPhrases: [
               "Chase that ball!",
               "Get close for an easy one!",
-              "You'll be back next round!",
+              "Quick reps and you're back in!",
             ],
             duration: "8 minutes max (attention span)",
             simplifications: [
               "Shoot from 6-8 feet",
               "Lower basket if available",
-              "Comeback rule after 2 outs",
+              "Shrink the skill-station task to 2 reps",
             ],
           },
           ages9to11: {
@@ -1676,7 +1676,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           "Better shooters always win":
             "Rebounding and close finishing often matter more than initial shooting.",
           "Gets kids upset":
-            "When managed well with comeback rules and positivity, even knocked-out players stay engaged.",
+            "When managed well with a quick skill-station task and positivity, even players who fall behind stay engaged.",
         },
       },
       parentCommunication: {
@@ -1688,7 +1688,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           "Does your child chase their rebound quickly?",
           "Do they get close before shooting after a miss?",
           "Can they handle the pressure of someone shooting behind them?",
-          "Are they a good sport when knocked out?",
+          "Are they a good sport when they land at the skill station?",
         ],
       },
       safety: {
@@ -1715,20 +1715,20 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
           newPlayers:
             "Explain rules clearly, pair with experienced player, start them in middle of line (not first)",
           anxiousPlayers:
-            "Practice round first, emphasize everyone gets knocked out, use comeback rule",
+            "Practice round first, emphasize everyone visits the skill station sometimes, keep the task short",
         },
       },
       coachReflection: {
         afterActivity: [
-          "Did eliminated players stay engaged?",
+          "Did players who fell behind stay engaged at the skill station?",
           "Was the difficulty appropriate for the group?",
           "Did I manage sportsmanship well?",
           "Did I teach the 'get close' strategy?",
         ],
         forImprovement: [
-          "How could I keep eliminated players more engaged?",
+          "How could I keep the skill-station line moving faster?",
           "What distance works best for this group?",
-          "Were any players consistently first out? How can I help them?",
+          "Were any players consistently sent to the skill station? How can I help them?",
         ],
       },
     },
@@ -1753,7 +1753,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ 2-4 basketballs\n□ 1 basketball hoop\n□ Optional: cones to mark lines\n\nSPACE: One basket with enough space for two lines\n\nSETUP STEPS\n1. Form two lines at half court or top of key\n2. Right side line = shooters (balls start here)\n3. Left side line = rebounders/passers\n4. First 2 players in right line have balls\n\nDIAGRAM\n                    [BASKET]\n                       │\n                       │\n                       │\n         Rebounders    │    Shooters\n              ○ ○ ○ ○  │  ○ ○ ○ ○\n                       │  ▲ ▲\n                       │  Balls\n                       │\n──────────────────────────────────────  Half court",
     howToPlay:
-      'PHASE 1: GATHER & EXPLAIN (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Near the basket\n\nSAY: "Everyone come in! We\'re doing Layup Lines. Split into two lines - right side are SHOOTERS, left side are REBOUNDERS. Shooters, first two get a ball!"\n\nEXPLAIN THE ROTATION:\nSAY: "Here\'s how it works: Shooter dribbles in, makes a layup. Rebounder follows, gets the ball, and passes to the next shooter. Then - and this is important - SHOOTER goes to REBOUND line, REBOUNDER goes to SHOOTING line."\n\nDEMO with two players:\n1. Shooter dribbles right, makes layup\n2. Rebounder catches, passes to next shooter\n3. Show them switching lines\n\nSAY: "Right side layups use right hand, left side layups use left hand. Let\'s start on the right. Ready? GO!"\n\n\nPHASE 2: RIGHT SIDE LAYUPS (2.5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Near the basket to see footwork\n\nSAY: "Right side - that means RIGHT HAND layup! Go!"\n\nWATCH FOR:\n□ Correct hand (right side = right hand)?\n□ Jumping off correct foot (left foot)?\n□ Passing after rebound (not throwing)?\n\nPHRASES TO USE:\n• "Right hand!"\n• "Jump off your left foot!"\n• "Nice soft touch!"\n• "Good pass!"\n\nAFTER 90 SECONDS - TEACHING MOMENT:\nSAY: "Freeze! Watch the footwork: dribble with right, last step is LEFT foot, reach up with RIGHT hand."\nDemo slowly, then at speed.\nSAY: "Keep going!"\n\n\nPHASE 3: SWITCH TO LEFT SIDE (2.5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Now we\'re going LEFT SIDE! Shooters switch to the left line, rebounders to the right. LEFT HAND layups now!"\n\nWATCH FOR:\n□ Using left hand (this is hard for many)?\n□ Jumping off right foot?\n□ Soft touch on the glass?\n\nPHRASES TO USE:\n• "Left hand! Challenge yourself!"\n• "Right foot jump!"\n• "Use the backboard - it\'s your friend!"\n\nAFTER 90 SECONDS - TEACHING MOMENT:\nSAY: "Left hand is tricky! If it feels weird, that\'s normal. The more we practice, the easier it gets. One more minute, let\'s go!"\n\n\nPHASE 4: COMPETITION ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Challenge time! Let\'s count how many layups we make in 2 minutes. I\'ll count - you just keep flowing!"\n\nAlternate sides every 30 seconds:\n"30 seconds on right... SWITCH to left... 30 on left... SWITCH..."\n\nCount makes out loud. Celebrate effort.\n\nSAY: "We made [X]! Can we beat that next time? Water break!"\n\n\nWRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great work! Remember: right side = right hand, left foot jump. Left side = left hand, right foot jump. In games, you need both! Water break, then [next activity]."',
+      'PHASE 1: GATHER & EXPLAIN (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Near the basket\n\nSAY: "Everyone come in! We\'re doing Layup Lines. Split into two lines - right side are SHOOTERS, left side are REBOUNDERS. Shooters, first two get a ball!"\n\nEXPLAIN THE ROTATION:\nSAY: "Here\'s how it works: Shooter dribbles in, makes a layup. Rebounder follows, gets the ball, and passes to the next shooter. Then - and this is important - SHOOTER goes to REBOUND line, REBOUNDER goes to SHOOTING line."\n\nDEMO with two players:\n1. Shooter dribbles right, makes layup\n2. Rebounder catches, passes to next shooter\n3. Show them switching lines\n\nSAY: "Right side layups use right hand, left side layups use left hand. Let\'s start on the right. Ready? GO!"\n\n\nPHASE 2: RIGHT SIDE LAYUPS (2.5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Near the basket to see footwork\n\nSAY: "Right side - that means RIGHT HAND layup! Go!"\n\nWATCH FOR:\n□ Correct hand (right side = right hand)?\n□ Jumping off correct foot (left foot)?\n□ Passing after rebound (not throwing)?\n\nPHRASES TO USE:\n• "Right hand!"\n• "Jump off your left foot!"\n• "Nice soft touch!"\n• "Good pass!"\n\nAFTER 90 SECONDS - TEACHING MOMENT:\nSAY: "Freeze! Watch the footwork: dribble with right, last step is LEFT foot, reach up with RIGHT hand."\nDemo slowly, then at speed.\nSAY: "Keep going!"\n\n\nPHASE 3: SWITCH TO LEFT SIDE (2.5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Now we\'re going LEFT SIDE! Shooters switch to the left line, rebounders to the right. LEFT HAND layups now!"\n\nWATCH FOR:\n□ Using left hand (this is hard for many)?\n□ Jumping off right foot?\n□ Soft touch on the glass?\n\nPHRASES TO USE:\n• "Left hand! Challenge yourself!"\n• "Right foot jump!"\n• "Use the backboard - it\'s your friend!"\n\nAFTER 90 SECONDS - TEACHING MOMENT:\nSAY: "Left hand is tricky! If it feels weird, that\'s normal. The more we practice, the easier it gets. One more minute, let\'s go!"\n\nFor ages 6-8: keep this side playful exposure only - no counting makes or comparing who\'s better, just fun attempts with the off hand.\n\n\nPHASE 4: COMPETITION ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Challenge time! Let\'s count how many layups we make in 2 minutes. I\'ll count - you just keep flowing!"\n\nAlternate sides every 30 seconds:\n"30 seconds on right... SWITCH to left... 30 on left... SWITCH..."\n\nCount makes out loud. Celebrate effort.\n\nSAY: "We made [X]! Can we beat that next time? Water break!"\n\n\nWRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great work! Remember: right side = right hand, left foot jump. Left side = left hand, right foot jump. In games, you need both! Water break, then [next activity]."',
     diagram:
       "                [BASKET]\n                   │\n       Rebounders  │  Shooters\n            ○ ○ ○  │  ○ ○ ○\n                   │  ▲ ▲\n                   │  Balls\n──────────────────────────────────  Half court\n\nRotation: Shooter → Rebound line\n          Rebounder → Shooting line",
     coachingPoints: [
@@ -4152,7 +4152,8 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     sport: "basketball",
     name: "HORSE",
     slug: "horse-game",
-    description: "Classic trick shot matching game",
+    description:
+      "Classic trick-shot matching game. In the default format, letters are a personal challenge, not elimination - everyone shoots every round and tries to finish with the fewest letters.",
     activityType: "fun",
     difficulty: "beginner",
     minPlayers: 2,
@@ -4165,7 +4166,7 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     ],
     setupInstructions: "One basket, one ball per group.",
     howToPlay:
-      "1. First player attempts any shot they want\n2. If they make it, others must match the exact shot\n3. If you miss the match shot, you get a letter (H-O-R-S-E)\n4. Spell HORSE and you're out\n5. Last player standing wins",
+      "1. First player attempts any shot they want\n2. If they make it, others must match the exact shot\n3. If you miss the match shot, you get a letter (H-O-R-S-E)\n4. Keep playing every round even after spelling HORSE - it's just your personal score for that game, not elimination\n5. Whoever finishes the timed round with the fewest letters (or the most creative shots landed) wins that round - everyone shoots the whole time",
     coachingPoints: [
       "Be creative with shots",
       "Challenge yourself and others",
@@ -4188,9 +4189,16 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
         description: "Longer version for more challenge",
         difficulty: "intermediate",
       },
+      {
+        name: "Full Elimination HORSE (Older Groups)",
+        description:
+          "For skill-building/development groups ready for real stakes: the classic format - spell HORSE and you're out, last player standing wins. Higher stakes but less playing time, so save it for groups ready for that trade-off.",
+        difficulty: "advanced",
+      },
     ],
     makeEasier: "Closer shots, PIG instead",
-    makeHarder: "Must be behind 3-point line, creative shots",
+    makeHarder:
+      "Must be behind 3-point line, creative shots, or switch to Full Elimination HORSE (see variations) for older/competitive groups",
     equipmentNeeded: ["Basket", "Ball"],
     spaceRequired: "small",
     indoorSuitable: true,
@@ -4202,16 +4210,17 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
     sport: "basketball",
     name: "Musical Basketballs",
     slug: "musical-basketballs",
-    description: "Basketball version of musical chairs with dribbling",
+    description:
+      "Basketball version of musical chairs with dribbling - when music stops, grab a ball and show a skill! Everyone keeps playing every round.",
     activityType: "fun",
     difficulty: "beginner",
     minPlayers: 6,
     maxPlayers: 20,
     durationMinutes: 8,
-    skillsDeveloped: ["ball-handling", "crossover-dribble", "agility-footwork"],
+    skillsDeveloped: ["ball-handling", "agility-footwork"],
     setupInstructions: "One fewer ball than players. Music ready to play.",
     howToPlay:
-      "1. Balls scattered around the gym\n2. Players jog/skip while music plays\n3. When music stops, grab a ball and do 5 crossovers\n4. Player without ball is out (or does task and rejoins)\n5. Remove one ball each round",
+      "1. Balls scattered around the gym\n2. Players jog/skip while music plays\n3. When music stops, grab a ball and do 5 stationary dribbles with each hand\n4. Player without a ball does 5 jumping jacks, then jogs right back in for the next round - nobody sits out\n5. Keep the same number of balls (one fewer than players) every round so the challenge stays constant instead of eliminating players",
     coachingPoints: [
       "Stay aware of where balls are",
       "React quickly to music",
@@ -4229,13 +4238,15 @@ export const BASKETBALL_ACTIVITIES: ActivityContent[] = [
         difficulty: "intermediate",
       },
       {
-        name: "No Elimination",
-        description: "Everyone does task, just for fun",
-        difficulty: "beginner",
+        name: "Elimination Musical Basketballs (Older Groups)",
+        description:
+          "For skill-building/development groups ready for competitive pressure: remove one ball each round; the player(s) left without a ball are out until only two players remain. Higher stakes but a lot of sitting out for younger or mixed-ability groups.",
+        difficulty: "advanced",
       },
     ],
-    makeEasier: "No elimination, everyone does task",
-    makeHarder: "More complex skills required",
+    makeEasier: "More balls in the mix so misses are rare",
+    makeHarder:
+      "Faster music changes, or switch to the Elimination variation for older/competitive groups",
     equipmentNeeded: ["Balls (one fewer than players)", "Music"],
     spaceRequired: "medium",
     indoorSuitable: true,
