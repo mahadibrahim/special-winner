@@ -39,3 +39,56 @@ export function profileFor(name: string): PdfProfile {
   if (!p) throw new Error(`unknown pdf profile "${name}" (have: ${Object.keys(PROFILES).join(", ")})`);
   return p;
 }
+
+export interface RunConfig {
+  mode: "book" | "minibooks";
+  bookSlug?: string;
+  userSlugs?: string[];
+  profileName: string;
+}
+
+/**
+ * Parse CLI arguments and resolve the run configuration.
+ * Validates profile, enforces mutually exclusive flags, and applies profile defaults.
+ */
+export function resolveRunConfig(argv: string[]): RunConfig {
+  let userSlugs: string[] | null = null;
+  let profileName = "letter";
+  let bookSlug: string | null = null;
+  let profileExplicitlyProvided = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--slugs" && argv[i + 1]) {
+      userSlugs = argv[i + 1].split(",").map((s) => s.trim());
+      i++;
+    } else if (argv[i] === "--profile" && argv[i + 1]) {
+      profileName = argv[i + 1];
+      profileExplicitlyProvided = true;
+      i++;
+    } else if (argv[i] === "--book" && argv[i + 1]) {
+      bookSlug = argv[i + 1];
+      i++;
+    }
+  }
+
+  // Validate mutually exclusive flags
+  if (bookSlug && userSlugs) {
+    throw new Error("--book and --slugs are mutually exclusive");
+  }
+
+  // Default profile for book mode
+  if (bookSlug && !profileExplicitlyProvided) {
+    profileName = "kdp-6x9";
+  }
+
+  // Validate profile
+  profileFor(profileName);
+
+  const mode = bookSlug ? "book" : "minibooks";
+  return {
+    mode,
+    bookSlug: bookSlug || undefined,
+    userSlugs: userSlugs || undefined,
+    profileName,
+  };
+}
