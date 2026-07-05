@@ -16,11 +16,15 @@
 //   4. Small-Area Games Day        -- mostly small-area games + light team play,
 //                                     mirroring Hockey Canada's SAG-day rhythm
 //
-// Every activity named in a segment's activitySuggestions/coachingScript is a
-// real entry from ./activities.ts (name matched exactly) -- no invented
-// activity names. Segment durations are the session's own pacing and do not
-// need to equal the referenced activity's standalone durationMinutes; ADM
-// materials describe stations as flexible 4-10 minute blocks depending on
+// In technical/tactical/game segments, every activity named in
+// activitySuggestions/coachingScript is a real entry from ./activities.ts
+// (name matched exactly) -- no invented activity names. Warmup and cooldown
+// segments may instead use informal labels for free-play or routine moments
+// (e.g. "Free skating with a puck", "Team huddle", "Light stretching") that
+// are not ./activities.ts catalog entries -- they describe what's happening,
+// not a named drill. Segment durations are the session's own pacing and do
+// not need to equal the referenced activity's standalone durationMinutes;
+// ADM materials describe stations as flexible 4-10 minute blocks depending on
 // group size and rotation overhead, which is what these totals reflect.
 //
 // Every plan sets stage: "fundamentals" per the task directive. Total plan
@@ -317,7 +321,7 @@ export const HOCKEY_SESSION_PLANS: SessionPlanContent[] = [
           "Three-player, two-mini-net small-area game forcing constant attack/defend decisions - the highest-repetition game of the day for shooting and positioning.",
         activitySuggestions: ["1v1v1 Mini Nets"],
         coachingScript:
-          "SETUP (0:26):\n- Groups of 3, each with 2 mini nets back-to-back, one puck per group\n\nPLAY:\n- \"Every net you attack is also a net someone else is defending!\"\n- Continuous 90-second shifts, rotate groups every couple of shifts\n\nCOACHING POINTS:\n- QUICK DECISIONS → Say: \"Shoot, protect, or battle - decide fast!\"\n- GAP CONTROL → Say: \"Close the space before they get a clean shot!\"\n\nWATCH FOR:\n- Players ball-watching both nets instead of reacting to the puck\n- Groups where one player dominates - rebalance groupings for the next shift\n\nTRANSITION TO NEXT:\n\"Awesome mini-net battles! Last game of the day.\"",
+          "SETUP (0:26):\n- Groups of 3, each with 2 mini nets back-to-back, one puck per group\n\nPLAY:\n- \"Every net you attack is also a net someone else is defending!\"\n- Continuous 90-second shifts, rotate groups every couple of shifts\n\nCOACHING POINTS:\n- QUICK DECISIONS → Say: \"Shoot, protect, or battle - decide fast!\"\n- GAP CONTROL → Say: \"Close the space before they get a clean shot!\"\n\nWATCH FOR:\n- Players puck-watching both nets instead of reacting to the puck\n- Groups where one player dominates - rebalance groupings for the next shift\n\nTRANSITION TO NEXT:\n\"Awesome mini-net battles! Last game of the day.\"",
       },
       {
         name: "Small-Area Game 3: King (or Queen) of the Rink",

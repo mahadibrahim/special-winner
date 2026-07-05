@@ -16,7 +16,7 @@
 //     team tactics; stations run ~4-10 min. 6U uses 3v3 mini-net cross-ice,
 //     no goalies.
 //   - IIHF-hosted Sweden/Finland small-area-games (SAG) study: small-ice games
-//     produce 5-8x more shot attempts per player than full-ice 5v5 -- the
+//     produce up to 5x more shot attempts per player than full-ice 5v5 -- the
 //     rationale behind every small-area/cross-ice design below.
 //   - Adapted game concepts, credited per-activity below where a named concept
 //     is the origin: Sharks & Minnows, Clean Your Room, Toy Finder, Corner
@@ -370,7 +370,7 @@ export const HOCKEY_ACTIVITIES: ActivityContent[] = [
     setupInstructions:
       "EQUIPMENT CHECKLIST\n□ Cones marking a start and finish line, roughly 15-20 paces apart\n□ No pucks needed\n\nSPACE: small, can run 2-3 caterpillar lines side by side so nobody waits long",
     howToPlay:
-      "1. Groups of 3-4 line up facing the same direction (backward direction of travel), each holding the stick blade of the player behind them.\n2. SAY: 'You're one caterpillar - everyone C-cuts backward together, same rhythm!'\n3. On 'GO', the whole line skates backward together using C-cuts to the finish cones.\n4. Switch which player leads the line each trip so everyone feels different positions.\n5. Run several short trips, celebrating smooth group rhythm over speed.",
+      "1. Groups of 3-4 form a single-file line, all facing the same way - the direction they'll be looking as they skate backward. Everyone except the front player holds the stick blade of the teammate directly ahead of them, chaining the whole line together.\n2. SAY: 'You're one caterpillar - everyone C-cuts backward together, same rhythm!'\n3. On 'GO', the whole line skates backward together using C-cuts to the finish cones.\n4. Switch which player leads the line each trip so everyone feels different positions.\n5. Run several short trips, celebrating smooth group rhythm over speed.",
     coachingPoints: [
       "C-CUTS, NOT SHUFFLING → Say: 'Push out with your inside edge, not little shuffle steps!'",
       "STAY LOW TOGETHER → Say: 'Bend those knees - the whole caterpillar stays low!'",
@@ -402,7 +402,7 @@ export const HOCKEY_ACTIVITIES: ActivityContent[] = [
     slug: "corner-battle-tires",
     name: "Corner Tires",
     description:
-      "Board-battle station adapted from the 'Corner Tires' concept (per Hockey Canada Drill Hub-style small-area battle drills): pairs compete for a puck settled against a cone or marker in the corner, learning to win 50-50 battles safely before the puck squirts to a mini net.",
+      "Board-battle station adapted from the 'Corner Tires' concept (per Hockey Canada Drill Hub-style small-area battle drills): pairs compete for a puck settled against a tire in the corner, learning to win 50-50 battles safely before the puck squirts to a mini net.",
     sport: "hockey",
     activityType: "tactical",
     difficulty: "beginner",
@@ -411,9 +411,9 @@ export const HOCKEY_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 8,
     skillsDeveloped: ["defensive-play", "puck-control"],
     setupInstructions:
-      "EQUIPMENT CHECKLIST\n□ 1 puck per pair\n□ Cones marking 2-4 'corner' stations\n□ 1 mini net per station\n\nSPACE: small, corner areas of the rink or marked zones",
+      "EQUIPMENT CHECKLIST\n□ 1 puck per pair\n□ 1 tire per pair (heavy cone works as a fallback)\n□ Cones marking 2-4 'corner' stations\n□ 1 mini net per station\n\nSPACE: small, corner areas of the rink or marked zones\n\nSETUP STEPS\n1. Place a tire (or heavy cone if no tire is available) in each corner station\n2. Rest a puck against the tire - it anchors the puck better than a cone, so it stays put through the whistle instead of sliding away",
     howToPlay:
-      "1. Two players start shoulder to shoulder facing a puck placed against a cone in the corner.\n2. SAY: 'On my whistle, win the puck and get a shot on the mini net - stick on puck, feet moving!'\n3. Both players battle for possession using stick and body positioning (no slashing or tripping); whoever comes away with the puck tries to get a shot on the mini net.\n4. Reset with a new puck and rotate opponents after each battle.\n5. Track team points for wins, not individual records, to keep it low-pressure.",
+      "1. Two players start shoulder to shoulder facing a puck placed against a tire (or heavy cone fallback) in the corner.\n2. SAY: 'On my whistle, win the puck and get a shot on the mini net - stick on puck, feet moving!'\n3. Both players battle for possession using stick and body positioning (no slashing or tripping); whoever comes away with the puck tries to get a shot on the mini net.\n4. Reset with a new puck and rotate opponents after each battle.\n5. Track team points for wins, not individual records, to keep it low-pressure.",
     coachingPoints: [
       "STICK ON PUCK → Say: 'Get your blade on it first - active stick!'",
       "STAY LOW AND WIDE → Say: 'Wide base, low center of gravity - hard to move!'",
@@ -433,7 +433,7 @@ export const HOCKEY_ACTIVITIES: ActivityContent[] = [
     ],
     makeEasier: "Softer battles (push only, no full stick contact), bigger corner area, coach places puck loosely rather than pinned.",
     makeHarder: "Add a mini net for each player (two possible outcomes), require a pass out before shooting.",
-    equipmentNeeded: ["1 puck per pair", "cones", "mini nets"],
+    equipmentNeeded: ["1 puck per pair", "1 tire per pair (heavy cone works as a fallback)", "cones", "mini nets"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
@@ -462,7 +462,7 @@ export const HOCKEY_ACTIVITIES: ActivityContent[] = [
     ],
     questionsToAsk: ["'How did you know which net to defend?' → Develops game-reading and positioning"],
     commonMistakes: [
-      "BALL-WATCHING BOTH NETS AT ONCE → Say: 'Puck first - react to where it actually goes!'",
+      "PUCK-WATCHING BOTH NETS AT ONCE → Say: 'Puck first - react to where it actually goes!'",
       "NOT SHOOTING WHEN OPEN → Say: 'If the net's open, take it - don't wait!'",
     ],
     variations: [

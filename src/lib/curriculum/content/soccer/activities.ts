@@ -5766,7 +5766,7 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     setupInstructions:
       "Create a circle (15-20 yards diameter). All players with a ball inside.",
     howToPlay:
-      "1. Everyone dribbles in the circle\n2. Try to kick others' balls out while protecting yours\n3. If your ball goes out, do 10 toe taps and return\n4. Last one with ball in circle is 'King'",
+      "1. Everyone dribbles in the circle\n2. Try to kick others' balls out while protecting yours\n3. If your ball goes out, do 10 toe taps and return\n4. Play in rounds: when the coach blows the whistle, the round ends. Anyone who kept their ball in the circle the whole round (without it going out) scores a point. Reset and play another round\n5. Most points after a set number of rounds is 'King'",
     coachingPoints: [
       "Protect your ball with body",
       "Head up to see opponents",

@@ -833,7 +833,7 @@ export const COACH_PROMPTS: Record<string, unknown>[] = [
     promptType: "reminder" as const,
     title: "Small Ice Means More Shots",
     content:
-      "Keep the ice small and the games short. An IIHF-hosted Sweden/Finland small-area-games study found 5-8x more shot attempts in small-ice games than full-ice 5v5 - that's where reps and confidence come from.",
+      "Keep the ice small and the games short. An IIHF-hosted Sweden/Finland small-area-games study found up to 5x more shot attempts in small-ice games than full-ice 5v5 - that's where reps and confidence come from.",
     priority: 8,
     frequency: "weekly" as const,
     isQuestionBased: false,
@@ -845,9 +845,9 @@ export const COACH_PROMPTS: Record<string, unknown>[] = [
     sport: "baseball",
     triggerContext: "pre_practice" as const,
     promptType: "reminder" as const,
-    title: "Throw, Catch, Run, Hit - In That Order",
+    title: "Throw, Catch, Run, Hit - Our Teaching Sequence",
     content:
-      "USA Baseball's LTAD guidance for ages 6-8 prioritizes throwing first, then catching, then running the bases, then hitting - all taught through play, not lecture. If practice time is short, protect the throw and catch reps before the hitting reps.",
+      "USA Baseball's LTAD guidance for ages 6-8 identifies four core motor competencies - throwing, catching, running, hitting - taught through play, not lecture. We sequence our own teaching in that order (throw, catch, run, hit) as an editorial choice, not something the federation ranks. If practice time is short, protect the throw and catch reps before the hitting reps.",
     priority: 9,
     frequency: "weekly" as const,
     isQuestionBased: false,
@@ -2501,21 +2501,21 @@ A cramped, chaotic-looking cross-ice game is producing more touches, more decisi
   {
     sport: "baseball",
     resourceType: "article" as const,
-    title: "Throw, Catch, Run, Hit: The USA Baseball LTAD Order",
+    title: "Throw, Catch, Run, Hit: Teaching USA Baseball's Core Motor Competencies",
     description:
-      "USA Baseball's Long-Term Athletic Development priority order for ages 6-8, and why keeping rules minimal and equipment tee-first matters more than early hitting reps.",
-      content: `# Throw, Catch, Run, Hit: The USA Baseball LTAD Order
+      "USA Baseball's Long-Term Athletic Development core motor competencies for ages 6-8, our teaching sequence for them, and why keeping rules minimal and equipment tee-first matters more than early hitting reps.",
+      content: `# Throw, Catch, Run, Hit: Teaching USA Baseball's Core Motor Competencies
 
-## The Priority Order
+## The Four Core Competencies
 
-USA Baseball's Long-Term Athletic Development (LTAD) guidance for ages 6-8 sets a clear priority order for skill development, taught through play rather than lecture:
+USA Baseball's Long-Term Athletic Development (LTAD) guidance for ages 6-8 identifies four core motor competencies, taught through play rather than lecture:
 
-1. **Throw**
-2. **Catch**
-3. **Run**
-4. **Hit**
+- **Throwing**
+- **Catching**
+- **Running**
+- **Hitting**
 
-Hitting is last, not because it doesn't matter, but because throwing and catching are the foundational, multi-sport movement patterns that transfer everywhere - and because most practice time gets eaten by hitting reps if a coach isn't deliberate about protecting the other three.
+USA Baseball frames these as an unordered set, not a ranking. Our own teaching sequence below - throw, then catch, then run, then hit - is an editorial choice, not something the federation specifies: throwing and catching are foundational, multi-sport movement patterns that transfer everywhere, and most practice time gets eaten by hitting reps if a coach isn't deliberate about protecting the other three.
 
 ## Keep the Rules Minimal
 
@@ -3006,7 +3006,7 @@ export const COACHING_PRINCIPLES: Record<string, unknown>[] = [
     principle:
       "Prioritize small-area games and cross-ice formats over full-ice play for youth hockey development.",
     explanation:
-      "USA Hockey's ADM structures 8U practices as stations ending in cross-ice 4v4 with intermediate nets, and 6U as 3v3 with mini nets and no goalies, because young players can't fill a full sheet of ice the way adults do. An IIHF-hosted study of small-area games in Sweden and Finland found 5-8x more shot attempts in small-ice games than full-ice 5v5 over the same time - more touches and more decisions per minute, which is where skill development actually happens.",
+      "USA Hockey's ADM structures 8U practices as stations ending in cross-ice 4v4 with intermediate nets, and 6U as 3v3 with mini nets and no goalies, because young players can't fill a full sheet of ice the way adults do. An IIHF-hosted study of small-area games in Sweden and Finland found up to 5x more shot attempts in small-ice games than full-ice 5v5 over the same time - more touches and more decisions per minute, which is where skill development actually happens.",
     doExamples: [
       "Run 8U practices as rotating stations (8-10 min each) finishing in cross-ice 4v4 with intermediate nets",
       "Run 6U as 3v3 with mini nets and no goalies",
@@ -3020,7 +3020,7 @@ export const COACHING_PRINCIPLES: Record<string, unknown>[] = [
       "Judge a chaotic-looking cross-ice game as less valuable than a tidy full-ice one",
     ],
     europeanInsight:
-      "Sweden bans checking until age 14 and leans on small-area games for skill development, consistent with the IIHF-hosted study showing 5-8x more shot attempts in small-ice formats than full-ice 5v5.",
+      "Sweden bans checking until age 14 and leans on small-area games for skill development, consistent with the IIHF-hosted study showing up to 5x more shot attempts in small-ice formats than full-ice 5v5.",
     source: "IIHF-hosted Sweden/Finland small-area-games study (blob.iihf.com)",
     sortOrder: 120,
     active: true,
@@ -3029,9 +3029,9 @@ export const COACHING_PRINCIPLES: Record<string, unknown>[] = [
     sport: "baseball",
     title: "Throw, Catch, Run, Hit - Keep the Rules Minimal",
     principle:
-      "Teach youth baseball skills in USA Baseball's LTAD priority order - throw, then catch, then run, then hit - through play, and keep rules knowledge to the essentials.",
+      "Teach youth baseball's four core motor competencies - throwing, catching, running, hitting - through play; our own sequence (throw, then catch, then run, then hit) is an editorial choice, not a federation-specified order. Keep rules knowledge to the essentials.",
     explanation:
-      "USA Baseball's Long-Term Athletic Development guidance for ages 6-8 sequences skill priority as throw, catch, run, then hit, taught through play rather than lecture, with station-based practice and multi-sport participation both explicitly recommended. Rules content should stay minimal at this age - which base to run to, where to stand, what counts as an out - because explaining infield-fly-rule nuance eats practice time that's better spent on reps.",
+      "USA Baseball's Long-Term Athletic Development guidance for ages 6-8 identifies throwing, catching, running, and hitting as core motor competencies - an unordered set, not a ranking - taught through play rather than lecture, with station-based practice and multi-sport participation both explicitly recommended. We sequence our own teaching as throw, catch, run, then hit as an editorial choice, since throwing and catching are foundational movement patterns that transfer everywhere and are easy to lose to hitting time otherwise. Rules content should stay minimal at this age - which base to run to, where to stand, what counts as an out - because explaining infield-fly-rule nuance eats practice time that's better spent on reps.",
     doExamples: [
       "Sequence practice time so throwing and catching reps happen before hitting reps",
       "Run station-based practices rotating through throw/catch, fielding, and hitting",

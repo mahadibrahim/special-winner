@@ -15,10 +15,13 @@
 //
 // WAVE-2 BUILD-OUT (2026-07-05): the remaining 11 skills were newly authored
 // to bring baseball fundamentals to parity with the other three sports,
-// anchored on USA Baseball's LTAD priority order for ages 6-8 -- throw ->
-// catch -> run -> hit -- and its "keep rules minimal" principle (which base,
-// where to stand, what an out is), both cited in
-// docs/curriculum/research/2026-07-05-brief.md §2. Domain shape mirrors
+// anchored on the four core competencies -- throwing, catching, running,
+// hitting (USA Baseball LTAD's core motor competencies, taught as an
+// unordered set, not a ranking) -- and its "keep rules minimal" principle
+// (which base, where to stand, what an out is), both cited in
+// docs/curriculum/research/2026-07-05-brief.md §2. The teaching sequence used
+// below (throw, catch, run, hit) is our own editorial choice, not an
+// LTAD-specified order. Domain shape mirrors
 // hockey's 5/3/2/3 scale (here: 5 technical / 2 tactical / 2 physical / 3
 // psychological = 12 total). All 12 skills sit at "fundamentals" except
 // "Fielding Ground Balls" and "Focus at the Plate", which are pushed to
@@ -299,7 +302,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
     name: "Catching & Receiving",
     slug: "catching-baseball",
     description:
-      "Two-handed catching technique -- glove positioning (fingers up above the belt, fingers down below the belt), tracking the ball all the way into the glove, and the catch-to-transfer separation that turns a catch into a throw. USA Baseball's LTAD priority order for ages 6-8 places catching second, right after throwing.",
+      "Two-handed catching technique -- glove positioning (fingers up above the belt, fingers down below the belt), tracking the ball all the way into the glove, and the catch-to-transfer separation that turns a catch into a throw. One of USA Baseball LTAD's four core motor competencies for ages 6-8 (throwing, catching, running, hitting -- an unordered set); we introduce it second in our own teaching sequence, right after throwing.",
     introductionAge: 5,
     assessmentMethod: "observation",
     isCore: true,
@@ -475,7 +478,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
         ages6to8: {
           typicalLevel: "1-2",
           notes:
-            "USA Baseball's LTAD priority order puts catching second, right after throwing, ahead of running and hitting. Use soft, oversized, or tennis-type balls at close range so success comes quickly and fear of the ball doesn't take hold. Two-hand catching (fingers up above the belt, fingers down below) is the only technical cue that matters this young -- skip transfer speed entirely and let it develop later.",
+            "USA Baseball LTAD frames catching as one of four core motor competencies (with throwing, running, and hitting) rather than a strict sequence; we introduce it second in our own teaching order, right after throwing. Use soft, oversized, or tennis-type balls at close range so success comes quickly and fear of the ball doesn't take hold. Two-hand catching (fingers up above the belt, fingers down below) is the only technical cue that matters this young -- skip transfer speed entirely and let it develop later.",
         },
         ages9to11: {
           typicalLevel: "2-3",
@@ -521,7 +524,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
     name: "Base Running Basics",
     slug: "base-running",
     description:
-      "Running the bases correctly -- knowing which base to run to, running through first base without slowing down, and basic awareness of when to keep going or hold. Third in USA Baseball's LTAD priority order (throw, catch, run, hit) for ages 6-8.",
+      "Running the bases correctly -- knowing which base to run to, running through first base without slowing down, and basic awareness of when to keep going or hold. One of USA Baseball LTAD's four core motor competencies for ages 6-8 (throwing, catching, running, hitting -- an unordered set); we introduce it third in our own teaching sequence.",
     introductionAge: 5,
     assessmentMethod: "observation",
     isCore: true,
@@ -529,7 +532,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
     progressionLevels: {
       "1": "Unsure which base to run to; may run to the wrong base or stop partway; needs a coach pointing the direction on every play; wanders rather than taking a direct path",
       "2": "Knows to run to first base after contact; runs the correct direction with an occasional reminder; slows down or stops before reaching the base instead of running through it",
-      "3": "Runs directly to first without prompting and runs through the bag; knows the basic base order (first-second-third-home); starts to take a slight outward angle out of the box",
+      "3": "Runs directly to first without prompting and runs straight through the bag on a routine play; knows the basic base order (first-second-third-home); starts to recognize that continuing on to second instead calls for a different route -- bowing out with a slight outward angle (banana turn) before the bag -- rather than running straight through",
       "4": "Reads simple situations (ball gets past the fielder = keep going, ball fielded cleanly = stop at the base); rounds bases under control; watches the coach or ball for advance-or-hold cues",
       "5": "Makes smart independent decisions about taking an extra base; uses a proper turn at each bag; picks up signals from a base coach; helps teammates know where to go",
     },
@@ -538,7 +541,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
       "Runs through first base without slowing down before the bag",
       "Can state the order of the bases when asked",
       "Looks for the ball or a coach's signal before deciding to advance",
-      "Takes a slight outward angle (banana turn) approaching first to set up a turn",
+      "When continuing on to second, takes a slight outward angle (banana turn) approaching first instead of running straight through -- a different route than the run-through used on a routine single",
       "Stays inside the running lane / on the direct line to the base",
     ],
     commonMistakes: [
@@ -548,6 +551,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
       "Running out of the baseline: Cutting far inside or outside the direct line to the base",
       "Not watching the play: Running with the head down instead of picking up where the ball is",
       "Standing on the bag: Stopping directly on top of the base instead of just beyond it",
+      "Wrong route for the situation: Bowing out toward second on a play where they should have run straight through and stopped, or running straight through when they meant to continue on to second -- these are two different, situation-dependent routes, not one combined technique",
     ],
     coachingTips: [
       "As soon as you hit the ball, what's the very first thing your feet should do?",
@@ -556,6 +560,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
       "Can you find the ball with your eyes while you're running?",
       "What base comes after first? Let's say the order together: first, second, third, home",
       "If the ball gets past the fielder, what should you do next?",
+      "Are we stopping at first on this one, or trying to stretch it to second? That decides whether you run straight through or bow outside the line",
     ],
     tags: [
       "core",
@@ -616,20 +621,20 @@ export const BASEBALL_SKILLS: SkillContent[] = [
         "3": {
           name: "Competent",
           description:
-            "Player runs to first without prompting, runs through the bag, and knows the base order.",
+            "Player runs to first without prompting, runs straight through the bag on a routine play, and knows the base order. Starting to recognize that continuing to second calls for a different route than stopping at first.",
           observableBehaviors: [
             "Runs directly to first without a reminder",
-            "Runs through the bag consistently",
+            "Runs through the bag consistently on a routine play",
             "States the base order correctly",
-            "Begins taking a slight angle out of the box",
+            "Begins bowing out with a slight angle before the bag when continuing to second, instead of running straight through",
           ],
           commonMistakes: [
             "Still uncertain when to hold versus advance further",
-            "Angle out of the box inconsistent",
+            "Uses the wrong route for the situation -- bows out when they should have run straight through and stopped, or vice versa",
           ],
           coachingTips: [
             "What tells you whether to stop at first or keep going?",
-            "Let's work on that angle - a little outside the line, not straight",
+            "If we're stretching this to second, do we run straight through the bag or bow outside the line?",
           ],
           assessmentActivities: [
             "Live at-bats focused on the turn toward second",
@@ -683,7 +688,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
         ages6to8: {
           typicalLevel: "1-2",
           notes:
-            "Per USA Baseball's LTAD, running comes third in the throw -> catch -> run -> hit priority order. Keep the rules minimal: which base, and running through first base -- nothing more. Most confusion at this age is directional, not physical; a cone or a coach standing at the base to point the way solves most of it. 'Run the Bases' style cue games work better than isolated running drills.",
+            "USA Baseball LTAD frames running as one of four core motor competencies (with throwing, catching, and hitting) rather than a strict sequence; we introduce it third in our own teaching order. Keep the rules minimal: which base, and running through first base -- nothing more. Most confusion at this age is directional, not physical; a cone or a coach standing at the base to point the way solves most of it. 'Run the Bases' style cue games work better than isolated running drills.",
         },
         ages9to11: {
           typicalLevel: "2-3",
@@ -726,7 +731,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
     name: "Hitting Off the Tee",
     slug: "hitting-off-tee",
     description:
-      "The fundamental swing mechanics for hitting a stationary ball off a batting tee -- stance, grip, level swing path, and contact point -- the entry point for hitting before live pitching is introduced. Fourth and last in USA Baseball's LTAD priority order for ages 6-8.",
+      "The fundamental swing mechanics for hitting a stationary ball off a batting tee -- stance, grip, level swing path, and contact point -- the entry point for hitting before live pitching is introduced. One of USA Baseball LTAD's four core motor competencies for ages 6-8 (throwing, catching, running, hitting -- an unordered set); we introduce it last in our own teaching sequence.",
     introductionAge: 5,
     assessmentMethod: "observation",
     isCore: true,
@@ -888,7 +893,7 @@ export const BASEBALL_SKILLS: SkillContent[] = [
         ages6to8: {
           typicalLevel: "1-2",
           notes:
-            "Hitting is last in USA Baseball's LTAD priority order for this age -- throw, catch, and run all come first. Use an appropriately sized, lightweight bat and a soft or reduced-injury ball so mechanics aren't fighting equipment. Set the tee at belt height as the default and keep the only real coaching point simple: swing level. Skip live pitching entirely at this age; tee and soft toss are the whole diet.",
+            "We introduce hitting last in our own teaching sequence at this age -- USA Baseball LTAD frames it as one of four core motor competencies (with throwing, catching, and running) rather than a strict order, but throwing and catching reps are easy to lose to hitting time if a coach isn't deliberate about protecting them. Use an appropriately sized, lightweight bat and a soft or reduced-injury ball so mechanics aren't fighting equipment. Set the tee at belt height as the default and keep the only real coaching point simple: swing level. Skip live pitching entirely at this age; tee and soft toss are the whole diet.",
         },
         ages9to11: {
           typicalLevel: "2-3",
