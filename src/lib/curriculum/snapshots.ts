@@ -6,7 +6,7 @@
  * assessment. It backs the domain radar chart on the parent/coach surfaces
  * (Task 10).
  */
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "@/lib/db";
 import { assessmentSnapshots, playerAssessments } from "@/lib/db/schema/assessments";
 import { skills } from "@/lib/db/schema/curriculum";
@@ -32,6 +32,11 @@ export interface DomainAverage {
  * (max `assessedAt`) and average those levels across skills in the domain.
  * `assessmentCount` is the raw row count for the domain (all historical
  * assessments, not just the latest-per-skill ones used for the average).
+ *
+ * IMPORTANT: Input must be ordered oldest-first (by `assessedAt` ASC, then by
+ * row ID ASC). On equal `assessedAt` timestamps, the later row in the input
+ * array (last-inserted, higher ID) wins and replaces an earlier one with the
+ * same timestamp.
  */
 export function computeDomainAverages(rows: AssessmentRow[]): Map<string, DomainAverage> {
   const byDomain = new Map<string, AssessmentRow[]>();
@@ -49,7 +54,7 @@ export function computeDomainAverages(rows: AssessmentRow[]): Map<string, Domain
     const latestBySkill = new Map<string, AssessmentRow>();
     for (const row of domainRows) {
       const existing = latestBySkill.get(row.skillId);
-      if (!existing || row.assessedAt.getTime() > existing.assessedAt.getTime()) {
+      if (!existing || row.assessedAt.getTime() >= existing.assessedAt.getTime()) {
         latestBySkill.set(row.skillId, row);
       }
     }
@@ -109,7 +114,8 @@ export async function recomputePlayerSnapshots(
           eq(playerAssessments.familyMemberId, familyMemberId),
           eq(playerAssessments.seasonId, seasonId),
         ),
-      );
+      )
+      .orderBy(asc(playerAssessments.assessedAt), asc(playerAssessments.id));
 
     const averages = computeDomainAverages(rows);
 

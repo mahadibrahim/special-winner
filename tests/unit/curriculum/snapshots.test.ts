@@ -24,4 +24,16 @@ describe("computeDomainAverages", () => {
     expect(out.get(d1)!.average).toBe(5);
     expect(out.get(d2)!.average).toBe(2.67);
   });
+
+  it("on equal assessedAt, the later row (last-inserted) wins", () => {
+    const ts = at("2026-06-01");
+    // Same skill, same domain, same timestamp but different levels.
+    // With ascending order, the second row (higher id) should win.
+    const out = computeDomainAverages([
+      { skillId: "s1", domainId: d1, level: 2, assessedAt: ts },
+      { skillId: "s1", domainId: d1, level: 4, assessedAt: ts }, // same timestamp, should win
+    ]);
+    // Average should be 4 (from the second row), not 2
+    expect(out.get(d1)).toEqual({ average: 4, skillCount: 1, assessmentCount: 2 });
+  });
 });
