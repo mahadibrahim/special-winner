@@ -2248,7 +2248,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 Design constraints honored: SSR page (no `prerender`), `ErrorBanner`/`EmptyState`/`LoadingSkeleton` primitives, move up/down ordering (no drag-drop dependency), `useHydrationBeacon` on the top-level `client:load` component (Playwright convention), toasts via sonner.
 
-- [ ] **Step 1: Create the page shell**
+- [x] **Step 1: Create the page shell**
 
 Create `src/pages/admin/curriculum/sequences.astro` (mirrors `templates.astro`; middleware guarantees admin):
 
@@ -2276,7 +2276,7 @@ const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 </BaseLayout>
 ```
 
-- [ ] **Step 2: Write the editor component**
+- [x] **Step 2: Write the editor component**
 
 Create `src/components/admin/sequence-editor.tsx`:
 
@@ -2885,7 +2885,7 @@ export function SequenceEditor() {
 }
 ```
 
-- [ ] **Step 3: Add the Sequences card to the curriculum manager**
+- [x] **Step 3: Add the Sequences card to the curriculum manager**
 
 In `src/components/admin/curriculum-manager.tsx`:
 
@@ -2906,14 +2906,14 @@ In `src/components/admin/curriculum-manager.tsx`:
     },
 ```
 
-- [ ] **Step 4: Verify by hand and type-check**
+- [x] **Step 4: Verify by hand and type-check**
 
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
 With the dev server running, open `http://localhost:4321/admin/curriculum` (sign in as `admin@test.aspiresports.com` / `TestAdmin123!`): the Sequences card appears and links to `/admin/curriculum/sequences`; create a sequence, add two template entries, reorder with the arrows, save, re-open — order persists.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/admin/curriculum/sequences.astro src/components/admin/sequence-editor.tsx src/components/admin/curriculum-manager.tsx
