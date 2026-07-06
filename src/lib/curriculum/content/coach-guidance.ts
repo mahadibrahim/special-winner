@@ -2549,7 +2549,78 @@ At 6-8, the goal isn't a polished batting stance. It's a kid who can throw accur
     source: "USA Baseball LTAD",
     featured: true,
     active: true,
-  }
+  },
+  {
+    resourceType: "article" as const,
+    title: "Assessment Calibration: What a 2, a 3, and a 4 Actually Look Like",
+    description:
+      "A worked-example guide to reading a skill's progression levels and observable behaviors consistently, comparing a player to their own past ratings, and knowing when to co-assess with a lead coach.",
+    content: `# Assessment Calibration: What a 2, a 3, and a 4 Actually Look Like
+
+## Why calibration matters
+
+A "2" you give one player and a "2" a different coach gives another player
+should mean the same thing. Assessment ratings only mean something to
+parents and to the platform's development report if coaches read them the
+same way.
+
+## Read the rubric, don't guess from memory
+
+Every skill's assessment page (\`/coach/assess/[playerId]\`) shows that
+skill's **progression level descriptions** (what levels 1 through 5 mean for
+this specific skill) and its **observable behaviors** (concrete things you
+should be able to see, not impressions). Read both before you rate — don't
+rely on a general sense of "pretty good" or "needs work."
+
+## A worked example
+
+Take a generic technical skill with this progression shape:
+
+- **1 (Emerging):** Attempts the skill but rarely completes it under any
+  pressure.
+- **2 (Developing):** Completes the skill in isolation (no pressure, no
+  decision) most of the time; breaks down under any opposition or time
+  pressure.
+- **3 (Competent):** Completes the skill reliably in small-sided game
+  situations with light pressure; occasional breakdown under full pressure.
+- **4 (Proficient):** Completes the skill under game-realistic pressure and
+  starts making it look easy; can vary it (weak foot/hand, different angle).
+- **5 (Advanced):** Executes under pressure with disguise, speed, or
+  creativity beyond what's coached — this is rare at youth levels and should
+  be rare in your ratings too.
+
+The line between a 2 and a 3 is **pressure and context**, not repetition
+count. A player who can do a move 20 times against a cone but freezes the
+first time a defender closes is a 2, not a 3 — no matter how clean the
+cone-only rep looked.
+
+## Compare the player to themselves, not to teammates
+
+Ratings track individual development over time, not a leaderboard. A player
+who moved from a 1 to a 2 this month made real progress and should be
+recognized for it, even if a teammate is already a 4. Never let "where does
+this player rank against the team" creep into the number — that's what
+turns assessment into judgment instead of development tracking.
+
+## When to co-assess with a lead coach
+
+If you're new to assessing, or a rating feels genuinely borderline (a strong
+2 vs. a weak 3, especially), assess your first few sessions alongside a lead
+coach or your assigned mentor and compare notes before finalizing. This is
+exactly what the "Shadow session confirmed" onboarding step is for — use
+that session to calibrate ratings together, not just to observe practice
+delivery.
+
+## Remember
+
+The goal isn't a precise science — it's consistency. A parent reading "3,
+stable trend" for two different children coached by two different people
+should be able to trust that those 3s mean roughly the same thing.`,
+    topic: "assessment-calibration",
+    tags: ["assessment", "calibration", "onboarding", "rubric"],
+    featured: false,
+    active: true,
+  },
 ];
 
 export const COACHING_PRINCIPLES: Record<string, unknown>[] = [

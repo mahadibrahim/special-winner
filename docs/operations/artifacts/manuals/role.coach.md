@@ -299,6 +299,15 @@ psychological domains: once per season. The Development League season
 flow builds a baseline in weeks 1-2 (skill assessment, goal setting) —
 get first assessments in early so end-of-season trends mean something.
 
+**Calibrating your ratings.** A 2 for one player and a 2 for another should
+mean the same thing. Read the skill's progression-level descriptions and
+observable-behavior list on the assessment page before you rate — don't go
+from memory. Compare a player to their own past ratings, not to teammates.
+If a rating feels borderline (a strong 2 vs. a weak 3, especially), use your
+shadow session to co-assess with a lead coach and compare notes. The full
+worked-example guide is at `/coach/resources` (topic: assessment
+calibration).
+
 **Coach notes.** Notes you log against a player are **visible to
 parents by default** — write every note as if the parent is reading
 it, because they are. Use ELM language: name the effort, what was

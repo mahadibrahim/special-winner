@@ -18,6 +18,7 @@ export {
   requireCoachAccess,
   requireCoachAccessToPlayer,
   requireCoachAccessToTeam,
+  requireCoachPortalAccess,
   getOrganizationId,
   requireOrganizationContext,
   isAdminForOrg,

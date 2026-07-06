@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { PrePracticeChecklist } from "./pre-practice-checklist"
 import { AssessmentNudgeCard } from "./assessment-nudge-card"
+import { OnboardingChecklist } from "./onboarding-checklist"
 
 interface Team {
   id: string
@@ -319,21 +320,25 @@ export default function CoachDashboardOverview() {
 
   if (teams.length === 0) {
     return (
-      <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border border-dashed">
-        <Users className="w-12 h-12 text-ink-faint mx-auto mb-3" />
-        <h3 className="text-ink font-medium mb-2">No Teams Assigned</h3>
-        <p className="text-sm text-ink-muted mb-4">
-          You haven't been assigned to any teams yet. Contact your administrator to get started.
-        </p>
-        <Button asChild>
-          <a href="/dashboard">Go to Parent Dashboard</a>
-        </Button>
-      </div>
+      <>
+        <OnboardingChecklist />
+        <div className="text-center py-16 px-6 rounded-2xl bg-paper border border-border border-dashed">
+          <Users className="w-12 h-12 text-ink-faint mx-auto mb-3" />
+          <h3 className="text-ink font-medium mb-2">No Teams Assigned</h3>
+          <p className="text-sm text-ink-muted mb-4">
+            You haven't been assigned to any teams yet. Contact your administrator to get started.
+          </p>
+          <Button asChild>
+            <a href="/dashboard">Go to Parent Dashboard</a>
+          </Button>
+        </div>
+      </>
     )
   }
 
   return (
     <div className="space-y-8">
+      <OnboardingChecklist />
       {/* Stats Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 dashboard-section">
         <StatCard
