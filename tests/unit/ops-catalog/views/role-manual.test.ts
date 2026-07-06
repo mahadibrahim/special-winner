@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   renderRoleManual,
   generateAllRoleManuals,
+  involvementOf,
+  PHASE_ORDER,
 } from "../../../../src/lib/ops-catalog/views/role-manual";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
 import type { Role } from "../../../../src/lib/ops-catalog/types/role";
@@ -72,5 +74,21 @@ describe("generateAllRoleManuals", () => {
     expect(Object.keys(all).sort()).toEqual(
       [fixtureIds.roles.coach, fixtureIds.roles.venueManager].sort(),
     );
+  });
+});
+
+describe("shared exports for the training-deck view", () => {
+  it("exports PHASE_ORDER starting with pre_day and ending with post_day", () => {
+    expect(PHASE_ORDER[0]).toBe("pre_day");
+    expect(PHASE_ORDER[PHASE_ORDER.length - 1]).toBe("post_day");
+  });
+
+  it("exports involvementOf with the same matching semantics used internally", () => {
+    const catalog = buildInlineCatalog();
+    const rainout = catalog.activities.find((a) => a.id === fixtureIds.activities.rainout)!;
+    expect(involvementOf(rainout, fixtureIds.roles.venueManager)).toBe(
+      "Accountable | Responsible",
+    );
+    expect(involvementOf(rainout, fixtureIds.roles.parent)).toBeNull();
   });
 });
