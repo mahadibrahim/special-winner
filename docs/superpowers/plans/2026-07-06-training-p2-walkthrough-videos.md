@@ -1480,7 +1480,7 @@ git commit -m "feat(training): add the admin-sequencing walkthrough"
 - Consumes: `signIn`, `waitForHydration` from `../../tests/utils/test-helpers`; `TRAINING_USERS` from `../../src/lib/db/seeds/seed-e2e-tests` (Task 1); `createTour`, `registerVideoCapture` from `../lib/tour`.
 - Produces: `training/output/referee-gameday/**`; `training/screenshots/ref/ref_check_in.png` and `training/screenshots/ref/score_reporting_final.png` (deck slots).
 
-- [ ] **Step 1: Create `training/walkthroughs/referee-gameday.walkthrough.ts`**
+- [x] **Step 1: Create `training/walkthroughs/referee-gameday.walkthrough.ts`**
 
 ```ts
 import { test, expect } from "@playwright/test";
@@ -1552,7 +1552,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Type-check**
+- [x] **Step 2: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -1560,7 +1560,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run it against a live dev server**
+- [x] **Step 3: Run it against a live dev server**
 
 ```bash
 npm run training:videos -- referee-gameday
@@ -1568,7 +1568,7 @@ npm run training:videos -- referee-gameday
 
 Expected: 1 passed. `training/output/referee-gameday/` contains `video.webm`, `captions.json`, 3 PNGs. `training/screenshots/ref/ref_check_in.png` and `training/screenshots/ref/score_reporting_final.png` now exist. Re-run without re-seeding — still passes (the report endpoint is idempotent even though the match is now "completed").
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add training/walkthroughs/referee-gameday.walkthrough.ts
