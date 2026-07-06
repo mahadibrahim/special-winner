@@ -663,7 +663,7 @@ git commit -m "feat(ops-catalog): training deck phase-overview + per-activity sl
 - Consumes: `MatchedActivity[]` from `matchActivities` (Task 3); `catalog.artifacts: ArtifactTemplate[]`.
 - Produces: internal `collectChecklistTemplateIds`, `renderChecklistSlide` — used by `renderTrainingDeck`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/unit/ops-catalog/views/training-deck.test.ts`:
 
@@ -687,12 +687,12 @@ describe("renderTrainingDeck — checklist slides", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — no "Checklist: chk.field_setup" content exists yet.
 
-- [ ] **Step 3: Implement checklist slide rendering**
+- [x] **Step 3: Implement checklist slide rendering**
 
 In `src/lib/ops-catalog/views/training-deck.ts`, add (after the activity-slide helpers):
 
@@ -730,12 +730,12 @@ Then extend `renderTrainingDeck`'s body (after the `for (const phase of PHASE_OR
   return renderDeckShell(role, slides);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: PASS — all tests in the file.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts

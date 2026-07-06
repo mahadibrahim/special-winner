@@ -276,6 +276,27 @@ function renderActivitySlide(
   `.trim();
 }
 
+function collectChecklistTemplateIds(matched: MatchedActivity[]): string[] {
+  const ids = new Set<string>();
+  for (const { activity } of matched) {
+    if (activity.tracking_method !== "checklist") continue;
+    const ta = activity.tracking_artifact as Record<string, unknown>;
+    const templateId = typeof ta.template_id === "string" ? ta.template_id : undefined;
+    if (templateId) ids.add(templateId);
+  }
+  return [...ids].sort();
+}
+
+function renderChecklistSlide(catalog: Catalog, templateId: string): string | null {
+  const template = catalog.artifacts.find((a) => a.id === templateId);
+  if (!template || template.kind !== "checklist") return null;
+  const items = template.items.map((item) => `<li>${escapeHtml(item.label)}</li>`).join("");
+  return `
+    <h2>Checklist: ${escapeHtml(templateId)}</h2>
+    <ul class="checklist">${items}</ul>
+  `.trim();
+}
+
 export interface TrainingDeckOptions {
   intro?: string;
   screenshots?: Map<string, string>;
@@ -302,6 +323,11 @@ export function renderTrainingDeck(
     for (const { activity, involvement } of entries) {
       slides.push(renderActivitySlide(roleId, activity, involvement, opts.screenshots));
     }
+  }
+
+  for (const templateId of collectChecklistTemplateIds(matched)) {
+    const slide = renderChecklistSlide(catalog, templateId);
+    if (slide) slides.push(slide);
   }
 
   return renderDeckShell(role, slides);

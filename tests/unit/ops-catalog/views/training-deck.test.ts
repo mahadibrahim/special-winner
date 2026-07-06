@@ -89,3 +89,21 @@ describe("renderTrainingDeck — your day + activity slides", () => {
     );
   });
 });
+
+describe("renderTrainingDeck — checklist slides", () => {
+  it("renders a checklist slide for each distinct checklist template the role's matched activities reference", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    // Field setup (day_setup) is tracking_method "checklist" -> chk.field_setup.
+    expect(html).toContain("Checklist: chk.field_setup");
+    expect(html).toContain("Cones placed");
+  });
+
+  it("does not render a checklist slide for activities tracked another way", () => {
+    // Rainout decision is tracking_method "form", not "checklist" — the venue
+    // manager's only checklist reference is field_setup, so there is exactly
+    // one checklist slide, not one per matched activity.
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const occurrences = html.split("Checklist: chk.field_setup").length - 1;
+    expect(occurrences).toBe(1);
+  });
+});
