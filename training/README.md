@@ -50,13 +50,14 @@ training/output/<workflow>/
 
 Steps tagged with a `deckSlug` (an ops-catalog activity id minus its `act.`
 prefix) ALSO copy their screenshot to
-`training/screenshots/<role>/<deckSlug>.png` — the exact path Phase 1's deck
-generator reads in `--embed` mode. Unlike `training/output/`, this directory
-IS repo content and gets committed — it's the real asset Phase 1's deck
-generator embeds. After a video regen:
+`training/screenshots/<role>/<deckSlug>.png` — the exact path the deck
+generator reads. Unlike `training/output/`, this directory IS repo content
+and gets committed — it's the real asset the deck generator embeds, and the
+render embeds whatever is present automatically (no flag). After a video
+regen:
 
 ```bash
-npm run catalog:render -- --embed
+npm run catalog:render
 ```
 
 produces `docs/operations/artifacts/training/role.<id>.deck.html` files with

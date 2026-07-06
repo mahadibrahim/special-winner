@@ -67,7 +67,6 @@ const commands: Record<string, () => Promise<number>> = {
         JSON.stringify(backlog, null, 2) + "\n",
       );
 
-      const embed = args.includes("--embed");
       const trainingDir = path.join(ARTIFACTS_DIR, "training");
       await fs.mkdir(trainingDir, { recursive: true });
 
@@ -83,23 +82,25 @@ const commands: Record<string, () => Promise<number>> = {
           if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
         }
 
+        // Screenshots under training/screenshots/** are committed inputs, so
+        // decks always embed whatever exists — otherwise the committed decks
+        // and the artifacts-up-to-date CI check (which runs a plain render)
+        // can never agree.
         let screenshots: Map<string, string> | undefined;
-        if (embed) {
-          screenshots = new Map();
-          const roleSlug = role.id.replace(/^role\./, "");
-          const shotDir = path.join(process.cwd(), "training/screenshots", roleSlug);
-          let files: string[] = [];
-          try {
-            files = await fs.readdir(shotDir);
-          } catch (err) {
-            if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
-          }
-          for (const file of files) {
-            if (!file.endsWith(".png")) continue;
-            const slug = file.slice(0, -".png".length);
-            const bytes = await fs.readFile(path.join(shotDir, file));
-            screenshots.set(slug, `data:image/png;base64,${bytes.toString("base64")}`);
-          }
+        const roleSlug = role.id.replace(/^role\./, "");
+        const shotDir = path.join(process.cwd(), "training/screenshots", roleSlug);
+        let files: string[] = [];
+        try {
+          files = await fs.readdir(shotDir);
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+        }
+        for (const file of files.sort()) {
+          if (!file.endsWith(".png")) continue;
+          const slug = file.slice(0, -".png".length);
+          const bytes = await fs.readFile(path.join(shotDir, file));
+          screenshots ??= new Map();
+          screenshots.set(slug, `data:image/png;base64,${bytes.toString("base64")}`);
         }
 
         optsByRole[role.id] = { intro, screenshots };
@@ -111,7 +112,7 @@ const commands: Record<string, () => Promise<number>> = {
       }
 
       console.log(
-        `Rendered ${Object.keys(manuals).length} role manuals + automation-backlog.json + ${Object.keys(decks).length} training decks${embed ? " (embed mode)" : ""}`,
+        `Rendered ${Object.keys(manuals).length} role manuals + automation-backlog.json + ${Object.keys(decks).length} training decks`,
       );
       return 0;
     }
