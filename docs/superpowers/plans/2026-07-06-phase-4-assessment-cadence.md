@@ -82,7 +82,7 @@ Copied from the program plan; every task's requirements implicitly include these
   - `daysBetween(from: Date, to: Date): number`
   - `computeCadenceStatus(lastAssessedAt: Date | null, assessmentFrequency: string | null, now: Date): CadenceStatus`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/curriculum/assessment-cadence.test.ts`:
 
@@ -150,12 +150,12 @@ describe("computeCadenceStatus", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/curriculum/assessment-cadence.test.ts`
 Expected: FAIL — `Cannot find module '@/lib/curriculum/assessment-cadence'` (or equivalent resolve error).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `src/lib/curriculum/assessment-cadence.ts`:
 
@@ -220,12 +220,12 @@ export function computeCadenceStatus(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/curriculum/assessment-cadence.test.ts`
 Expected: PASS (all tests green).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/curriculum/assessment-cadence.ts tests/unit/curriculum/assessment-cadence.test.ts
