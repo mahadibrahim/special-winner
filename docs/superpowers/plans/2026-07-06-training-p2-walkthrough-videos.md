@@ -90,7 +90,7 @@ Copied from the spec; every task's requirements implicitly include these:
 - Consumes: existing `roles`, `users`, `userRoles`, `games`, `gameOfficials`, `gameIncidents` schema exports (all re-exported from `../schema`); existing `org.id`, `season.id`, `team.id` locals already in scope inside `seedE2ETests()`.
 - Produces: `export const TRAINING_USERS = { referee: { email, password }, coach: { email, password }, applicant: { email } }` from `seed-e2e-tests.ts` — later tasks (3, 11) import this instead of hardcoding credentials twice.
 
-- [ ] **Step 1: Add the exported `TRAINING_USERS` map near the other exported constants**
+- [x] **Step 1: Add the exported `TRAINING_USERS` map near the other exported constants**
 
 In `src/lib/db/seeds/seed-e2e-tests.ts`, immediately after the existing `export const E2E_RENTAL_VENUE_ID = "...";` block (around line 183), add:
 
@@ -116,7 +116,7 @@ export const TRAINING_USERS = {
 };
 ```
 
-- [ ] **Step 2: Add `gameIncidents` and `jobApplications`/`practiceTemplates`/`curriculumSequences`/`curriculumSequenceEntries` to the existing schema imports**
+- [x] **Step 2: Add `gameIncidents` and `jobApplications`/`practiceTemplates`/`curriculumSequences`/`curriculumSequenceEntries` to the existing schema imports**
 
 Change:
 
@@ -141,7 +141,7 @@ import {
 
 (All are re-exported from the `../schema` barrel — confirmed via `export * from "./teams"` / `"./job-applications"` / `"./practice-planning"` / `"./curriculum-sequences"` in `src/lib/db/schema/index.ts`.)
 
-- [ ] **Step 3: Add the `seedTrainingFixtures` function**
+- [x] **Step 3: Add the `seedTrainingFixtures` function**
 
 Add this new function right before `async function seedE2ETests() {` (after `seedCurriculumRadarFixture`):
 
@@ -270,7 +270,7 @@ async function seedTrainingFixtures(
 }
 ```
 
-- [ ] **Step 4: Call `seedTrainingFixtures` from `seedE2ETests`**
+- [x] **Step 4: Call `seedTrainingFixtures` from `seedE2ETests`**
 
 In `seedE2ETests()`, right after the existing:
 
@@ -291,7 +291,7 @@ add:
 
 (`season` and `team` are the existing `e2e-test-spring-2026` / `"E2E Test Team"` locals already in scope at this point in the function — `team.coachUserId` is `coachUser.id`, which is why this same season/team pair is reused by Task 3's curriculum-sequence attach demo.)
 
-- [ ] **Step 5: Add the referee credential line to the printed summary**
+- [x] **Step 5: Add the referee credential line to the printed summary**
 
 Right after the existing `console.log(\`MediaEditor: ...\`);` line near the end of `seedE2ETests()`, add:
 
@@ -299,7 +299,7 @@ Right after the existing `console.log(\`MediaEditor: ...\`);` line near the end 
   console.log(`TrainingReferee: ${TRAINING_USERS.referee.email} / ${TRAINING_USERS.referee.password}`);
 ```
 
-- [ ] **Step 6: Redirect a referee-only account to `/referee` after sign-in**
+- [x] **Step 6: Redirect a referee-only account to `/referee` after sign-in**
 
 In `tests/utils/test-helpers.ts`, change:
 
@@ -325,7 +325,7 @@ to:
           : "/dashboard";
 ```
 
-- [ ] **Step 7: Run the seed and verify**
+- [x] **Step 7: Run the seed and verify**
 
 Run (against a real DB — staging via `dev:bws`, or set `ALLOW_E2E_SEED=yes` per the script's own guard):
 
@@ -335,7 +335,7 @@ npm run db:seed:e2e
 
 Expected: the run completes with `✅ E2E test data seeded successfully!`, and the console shows lines `✓ Training referee: training+referee@test.aspiresports.com`, `✓ Training referee-gameday fixture match reset (game <uuid>)`, and the final credentials block includes `TrainingReferee: training+referee@test.aspiresports.com / TestReferee123!`. Re-run the same command a second time — it must succeed again with no duplicate-row errors (confirms the find-or-create/reset logic is idempotent).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/lib/db/seeds/seed-e2e-tests.ts tests/utils/test-helpers.ts

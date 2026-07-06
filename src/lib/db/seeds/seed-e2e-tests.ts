@@ -41,7 +41,16 @@ import {
   shootSessions,
   mediaAssets,
 } from "../schema/media";
-import { rosters, games, gameOfficials } from "../schema";
+import {
+  rosters,
+  games,
+  gameOfficials,
+  gameIncidents,
+  jobApplications,
+  practiceTemplates,
+  curriculumSequences,
+  curriculumSequenceEntries,
+} from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
 import { dropInSessions } from "../schema/drop-in";
@@ -181,6 +190,26 @@ export const E2E_TEAM_REG_TOKEN_ORG_B = "e2e-team-token-orgb-fixture-0001";
  *   rentalOpenMinute: 480 (8am), rentalCloseMinute: 1320 (10pm), fieldCount: 3
  */
 export const E2E_RENTAL_VENUE_ID = "4b237a78-868d-4e64-8487-f3dce687b603";
+
+/**
+ * Phase 2 training-walkthrough fixture accounts. Kept fully separate from
+ * TEST_USERS so re-running `npm run training:videos` (which writes through
+ * some of these) never touches the shared coach@/admin@ accounts other
+ * specs sign in as. See seedTrainingFixtures() below for what each writes.
+ */
+export const TRAINING_USERS = {
+  referee: {
+    email: "training+referee@test.aspiresports.com",
+    password: "TestReferee123!",
+  },
+  coach: {
+    email: "training+coach@test.aspiresports.com",
+    password: "TestCoach123!",
+  },
+  applicant: {
+    email: "training+applicant@test.aspiresports.com",
+  },
+};
 
 /**
  * Refuse to run if DATABASE_URL looks like it's pointed at production.
@@ -535,6 +564,129 @@ async function seedCurriculumRadarFixture(db: Database, orgId: string) {
     `   ✓ Curriculum radar fixture: ${SKILL_LEVELS.length} skills assessed for Tommy, ` +
       `${domainsWritten} domain snapshot(s) recomputed`,
   );
+}
+
+/**
+ * Training walkthrough fixtures (Phase 2 — training video pipeline).
+ *
+ * The referee portal (`/referee/**`) has had no seeded fixture before this:
+ * `role_name` has included "referee" as a valid enum value since it was
+ * written, but no `roles` row for it was ever inserted, so `/referee/**`
+ * (gated on that role by src/middleware.ts) has been unreachable by any
+ * seeded account. This inserts it for the first time, plus a dedicated
+ * referee test user and a training match reset to "not yet reported" on
+ * every seed run so the referee-gameday walkthrough always sees a fresh
+ * score-entry screen (score-report submission is idempotent, but the
+ * "before" state — an unreported match — is not, since submitting flips it
+ * to completed).
+ */
+async function seedTrainingFixtures(
+  db: Database,
+  orgId: string,
+  seasonId: string,
+  teamId: string,
+) {
+  // --- Referee role + dedicated referee test user -------------------------
+  await db
+    .insert(roles)
+    .values({
+      name: "referee",
+      description: "Officiates assigned matches; enters final scores and incidents",
+      permissions: ["games:read_assigned", "games:write_score"],
+    })
+    .onConflictDoNothing();
+
+  const [refereeRole] = await db
+    .select()
+    .from(roles)
+    .where(eq(roles.name, "referee"))
+    .limit(1);
+  if (!refereeRole) throw new Error("e2e seed: failed to create/find the referee role");
+
+  const refereePasswordHash = await hashPassword(TRAINING_USERS.referee.password);
+  let [trainingReferee] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TRAINING_USERS.referee.email))
+    .limit(1);
+  if (!trainingReferee) {
+    [trainingReferee] = await db
+      .insert(users)
+      .values({
+        email: TRAINING_USERS.referee.email,
+        passwordHash: refereePasswordHash,
+        firstName: "Training",
+        lastName: "Referee",
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: refereePasswordHash, emailVerified: true })
+      .where(eq(users.id, trainingReferee.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, trainingReferee.id));
+  await db.insert(userRoles).values({
+    userId: trainingReferee.id,
+    roleId: refereeRole.id,
+    scopeType: "organization",
+    scopeId: orgId,
+  });
+  console.log(`   ✓ Training referee: ${TRAINING_USERS.referee.email}`);
+
+  // Dedicated training match — find-or-create by a marker in `notes` (games
+  // has no natural unique key), reset to "scheduled"/unreported every run.
+  const TRAINING_GAME_MARKER = "training-referee-gameday-fixture";
+  let [trainingGame] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.notes, TRAINING_GAME_MARKER))
+    .limit(1);
+  const scheduledAt = new Date(Date.now() - 60 * 60 * 1000); // 1h ago — "to report"
+  if (!trainingGame) {
+    [trainingGame] = await db
+      .insert(games)
+      .values({
+        seasonId,
+        homeTeamId: teamId,
+        scheduledAt,
+        status: "scheduled",
+        notes: TRAINING_GAME_MARKER,
+      })
+      .returning({ id: games.id });
+  } else {
+    await db
+      .update(games)
+      .set({
+        status: "scheduled",
+        scheduledAt,
+        homeScore: null,
+        awayScore: null,
+        refereeNotes: null,
+      })
+      .where(eq(games.id, trainingGame.id));
+    await db.delete(gameIncidents).where(eq(gameIncidents.gameId, trainingGame.id));
+  }
+
+  const [existingOfficial] = await db
+    .select({ id: gameOfficials.id })
+    .from(gameOfficials)
+    .where(
+      and(
+        eq(gameOfficials.gameId, trainingGame.id),
+        eq(gameOfficials.userId, trainingReferee.id),
+      ),
+    )
+    .limit(1);
+  if (!existingOfficial) {
+    await db.insert(gameOfficials).values({
+      gameId: trainingGame.id,
+      userId: trainingReferee.id,
+      position: "referee",
+    });
+  }
+  console.log(`   ✓ Training referee-gameday fixture match reset (game ${trainingGame.id})`);
 }
 
 async function seedE2ETests() {
@@ -2677,6 +2829,10 @@ async function seedE2ETests() {
   console.log("\n15. Setting up curriculum development-radar fixture...");
   await seedCurriculumRadarFixture(db, org.id);
 
+  // Stage 16 — Training walkthrough fixtures (Phase 2).
+  console.log("\n16. Setting up training walkthrough fixtures...");
+  await seedTrainingFixtures(db, org.id, season.id, team.id);
+
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
   console.log("─".repeat(50));
@@ -2691,6 +2847,7 @@ async function seedE2ETests() {
   console.log(`FamilyOnly:  ${TEST_USERS.familyonly.email} / ${TEST_USERS.familyonly.password}`);
   console.log(`MediaStaff:  ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
   console.log(`MediaEditor: ${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
+  console.log(`TrainingReferee: ${TRAINING_USERS.referee.email} / ${TRAINING_USERS.referee.password}`);
   console.log("─".repeat(50));
 }
 
