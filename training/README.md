@@ -66,6 +66,29 @@ walkthrough steps have no catalog counterpart — see the plan's Scouting
 Finding 1 — so only `referee-gameday` (2 slugs) and `venue-manager` (1 slug)
 currently feed a deck slot.
 
+## Generating narration scripts
+
+After a video regen, turn each workflow's `captions.json` into a
+human-readable voiceover script:
+
+```bash
+npm run training:narration
+```
+
+Writes `training/narration/<workflow>.md` for every workflow that has a
+`training/output/<workflow>/captions.json` — numbered, timestamped lines in
+natural spoken language, not a raw echo of the on-screen captions. Skips
+(and reports) any workflow with no recorded captions yet; always exits 0.
+
+Unlike `training/output/`, **`training/narration/` IS committed content** —
+commit the regenerated `.md` files alongside the video regen.
+
+Re-run `npm run catalog:render` afterward: any worker role with a relevant,
+now-present narration script (coach, director, referee, venue manager — see
+the `WALKTHROUGHS` map in `src/lib/ops-catalog/views/training-deck.ts`) gets
+a final "Watch the walkthroughs" slide linking each workflow's narration
+script path.
+
 ## Workflows
 
 | Workflow | Role | Signs in as | What it shows |

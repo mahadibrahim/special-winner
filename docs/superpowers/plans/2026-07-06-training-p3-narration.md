@@ -866,17 +866,17 @@ No commit for this task — `training/output/` is gitignored build output.
 - Consumes: `training/output/<workflow>/captions.json` from Task 5, `npm run training:narration` from Task 2, `npm run catalog:render` (existing).
 - Produces: final committed deliverables — nothing downstream depends on this task within this plan.
 
-- [ ] **Step 1: Generate the narration scripts**
+- [x] **Step 1: Generate the narration scripts**
 
 Run: `npm run training:narration`
 Expected: `Wrote training/narration/<workflow>.md` for all six workflows, no "missing" line.
 
-- [ ] **Step 2: Spot-check one script for quality**
+- [x] **Step 2: Spot-check one script for quality**
 
 Run: `cat training/narration/coach-core.md`
 Expected: a `# Coach Core...` heading, a `Source video:` line, and numbered `N. [MM:SS] <spoken line>` entries reading as natural spoken language (not raw UI captions) — confirm the actual step count/order matches what Task 5's real run recorded (some conditional steps may or may not appear depending on runtime UI state, per Scouting Finding 1).
 
-- [ ] **Step 3: Re-render the decks**
+- [x] **Step 3: Re-render the decks**
 
 Run: `npm run catalog:render`
 Expected: exits 0. Roles with a mapped, now-present workflow (`role.coach`, `role.director`, `role.ref`, `role.venue_manager`) should now include a "Watch the walkthroughs" slide; run:
@@ -885,7 +885,9 @@ grep -l "Watch the walkthroughs" docs/operations/artifacts/training/*.deck.html
 ```
 Expected output: exactly `docs/operations/artifacts/training/role.coach.deck.html`, `role.director.deck.html`, `role.ref.deck.html`, `role.venue_manager.deck.html`.
 
-- [ ] **Step 4: Verify double-render byte-stability**
+Deviation: `role.event_lead.deck.html` also shows a diff, unrelated to this feature — Task 5's walkthrough re-run naturally recaptured fresh screenshot pixels for the two `deckSlug`-tagged steps (`training/screenshots/event_lead/team_check_in.png`, `training/screenshots/ref/ref_check_in.png`, `training/screenshots/ref/score_reporting_final.png`), which changes the embedded base64 data URI in `role.event_lead.deck.html` and `role.ref.deck.html` (Phase 1/2 behavior, already in place — the render "embeds whatever is present" per `training/README.md`). Confirmed via `git diff --stat` that `role.event_lead.deck.html`'s only change is the one embedded-image line, and via `grep -l` above that it does NOT gain a "Watch the walkthroughs" slide (it has no `WALKTHROUGHS` map entry). Committed alongside the narration-driven deck changes since `training/screenshots/**` is committed content and this is normal pipeline churn.
+
+- [x] **Step 4: Verify double-render byte-stability**
 
 Run:
 ```bash
@@ -896,17 +898,17 @@ git status --porcelain docs/operations/artifacts/
 ```
 Expected: the first render shows the real diff (new appendix slides); the second render (re-running against the now-unchanged inputs) shows an empty `git status --porcelain` — i.e., re-running `catalog:render` twice in a row after the first commit produces zero further diff.
 
-- [ ] **Step 5: Type check**
+- [x] **Step 5: Type check**
 
 Run: `npx tsc --noEmit`
 Expected: 0 errors.
 
-- [ ] **Step 6: Run the full ops-catalog and training unit suites**
+- [x] **Step 6: Run the full ops-catalog and training unit suites**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/ tests/unit/training/`
 Expected: PASS, 82+ ops-catalog tests, all training tests green.
 
-- [ ] **Step 7: Update `training/README.md`**
+- [x] **Step 7: Update `training/README.md`**
 
 Add a new section after "## Feeding the training decks" and before "## Workflows":
 
@@ -935,7 +937,7 @@ a final "Watch the walkthroughs" slide linking each workflow's narration
 script path.
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add training/narration/ docs/operations/artifacts/training/ training/README.md
