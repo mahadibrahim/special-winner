@@ -235,3 +235,187 @@ describe("PUT [id]/entries - replace ordered entries", () => {
     expect(json.error).toMatch(/sequence/i);
   });
 });
+
+describe("attach / detach - draft generation", () => {
+  let seasonId: string;
+  let teamId: string;
+  let coachUserId: string;
+  let coachCookie: string;
+
+  beforeAll(async () => {
+    if (!sequenceId || !templateId) return;
+
+    coachCookie = await getCoachCookie();
+    const me = await expectJson(
+      await apiFetch("/api/auth/me", { method: "GET", cookie: coachCookie }),
+      200,
+    );
+    coachUserId = me.user.id;
+
+    // Parent program: reuse an existing org-A program (same pattern as
+    // tests/api/admin/seasons.test.ts).
+    const programsJson = await expectJson(
+      await apiFetch("/api/admin/programs", { method: "GET", cookie: adminCookie }),
+      200,
+    );
+    const programId = programsJson.programs[0].id;
+
+    const seasonJson = await expectJson(
+      await apiFetch("/api/admin/seasons", {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Sequence Attach Test Season",
+          slug: testSlug("seq-season"),
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 15000,
+          status: "draft",
+        }),
+      }),
+      201,
+    );
+    seasonId = seasonJson.season.id;
+
+    const teamJson = await expectJson(
+      await apiFetch("/api/admin/teams", {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          seasonId,
+          name: testSlug("seq-team"),
+          coachUserId,
+        }),
+      }),
+      201,
+    );
+    teamId = teamJson.team.id;
+  });
+
+  // 2026-09-05 is a Saturday; org timezone default America/New_York (EDT, UTC-4).
+  const recurrence = {
+    weekday: 6,
+    startDate: "2026-09-05",
+    timeOfDay: "09:00",
+    count: 2,
+  };
+
+  it("attaches and generates one dated draft per entry for the coached team", async () => {
+    if (!sequenceId || !templateId) return;
+
+    const res = await apiFetch(`${ENDPOINT}/${sequenceId}/attach`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ seasonId, ...recurrence }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.attached).toBe(true);
+    expect(json.truncatedBySeasonEnd).toBe(false);
+    const teamResult = json.results.find((r: any) => r.teamId === teamId);
+    expect(teamResult.created).toBe(2); // sequence has 2 entries (Task 5 test)
+
+    // The coach sees them as ordinary drafts on their sessions endpoint.
+    const sessions = await expectJson(
+      await apiFetch(`/api/coach/sessions?teamId=${teamId}`, {
+        method: "GET",
+        cookie: coachCookie,
+      }),
+      200,
+    );
+    expect(sessions.sessions).toHaveLength(2);
+    const sorted = [...sessions.sessions].sort(
+      (a: any, b: any) =>
+        new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime(),
+    );
+    expect(sorted[0].status).toBe("draft");
+    expect(sorted[0].title).toMatch(/^Week 1 of 2 — /);
+    expect(new Date(sorted[0].scheduledDate).toISOString()).toBe(
+      "2026-09-05T13:00:00.000Z", // 09:00 EDT
+    );
+    expect(sorted[1].title).toMatch(/^Week 2 of 2 — /);
+  });
+
+  it("is idempotent: re-attaching skips existing drafts", async () => {
+    if (!sequenceId || !templateId) return;
+
+    const json = await expectJson(
+      await apiFetch(`${ENDPOINT}/${sequenceId}/attach`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ seasonId, ...recurrence }),
+      }),
+      200,
+    );
+    const teamResult = json.results.find((r: any) => r.teamId === teamId);
+    expect(teamResult.created).toBe(0);
+    expect(teamResult.skippedExisting).toBe(2);
+  });
+
+  it("404s attaching to an unknown/cross-tenant season", async () => {
+    if (!sequenceId) return;
+    const res = await apiFetch(`${ENDPOINT}/${sequenceId}/attach`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        seasonId: "00000000-0000-4000-8000-000000000000",
+        ...recurrence,
+      }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("detaches without touching generated drafts", async () => {
+    if (!sequenceId || !templateId) return;
+
+    const res = await apiFetch(`${ENDPOINT}/${sequenceId}/detach`, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ seasonId }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.detached).toBe(true);
+
+    const sessions = await expectJson(
+      await apiFetch(`/api/coach/sessions?teamId=${teamId}`, {
+        method: "GET",
+        cookie: coachCookie,
+      }),
+      200,
+    );
+    expect(sessions.sessions).toHaveLength(2); // drafts are the coach's now
+  });
+
+  it("deleting the sequence also leaves generated drafts intact", async () => {
+    if (!sequenceId || !templateId) return;
+
+    // Re-attach so a season pointer exists at delete time (exercises the
+    // ON DELETE SET NULL path too).
+    await expectJson(
+      await apiFetch(`${ENDPOINT}/${sequenceId}/attach`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ seasonId, ...recurrence }),
+      }),
+      200,
+    );
+
+    await expectJson(
+      await apiFetch(`${ENDPOINT}/${sequenceId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      }),
+      200,
+    );
+    sequenceId = null; // consumed — later blocks must not reuse it
+
+    const sessions = await expectJson(
+      await apiFetch(`/api/coach/sessions?teamId=${teamId}`, {
+        method: "GET",
+        cookie: coachCookie,
+      }),
+      200,
+    );
+    expect(sessions.sessions).toHaveLength(2);
+  });
+});
