@@ -760,6 +760,92 @@ async function seedTrainingFixtures(
     scopeId: orgId,
   });
   console.log(`   ✓ Training coach for credentials demo: ${TRAINING_USERS.coach.email}`);
+
+  // --- Curriculum sequencing fixture ---------------------------------------
+  // A training practice template + a one-entry sequence, so the
+  // admin-sequencing walkthrough has a real sequence to open and a real
+  // (season, coached-team) pair to attach it to. Attaching is idempotent by
+  // the endpoint's own design (skips existing draft session_plans — see
+  // src/pages/api/admin/curriculum/sequences/[id]/attach.ts), so no reset is
+  // needed between runs — only find-or-upsert.
+  const [soccerSport] = await db
+    .select({ id: sports.id })
+    .from(sports)
+    .where(and(eq(sports.organizationId, orgId), eq(sports.slug, "soccer")))
+    .limit(1);
+  if (!soccerSport) throw new Error("e2e seed: soccer sport missing for training sequence fixture");
+
+  const [fundamentalsStage] = await db
+    .select({ id: developmentStages.id })
+    .from(developmentStages)
+    .where(eq(developmentStages.slug, "fundamentals"))
+    .limit(1);
+  if (!fundamentalsStage) {
+    throw new Error("e2e seed: 'fundamentals' stage missing for training sequence fixture");
+  }
+
+  const templateSet = {
+    organizationId: orgId,
+    sportId: soccerSport.id,
+    stageId: fundamentalsStage.id,
+    name: "Training Fixture Practice",
+    description:
+      "Seeded for the admin-sequencing training walkthrough — not a real curriculum template.",
+    totalDurationMinutes: 60,
+    structure: [
+      { name: "Warm-up", type: "warmup", durationMinutes: 10 },
+      { name: "Core skill work", type: "skill", durationMinutes: 40 },
+      { name: "Cool-down", type: "cooldown", durationMinutes: 10 },
+    ],
+    updatedAt: new Date(),
+  };
+  const [trainingTemplate] = await db
+    .insert(practiceTemplates)
+    .values(templateSet)
+    .onConflictDoUpdate({
+      target: [practiceTemplates.sportId, practiceTemplates.name],
+      set: templateSet,
+    })
+    .returning({ id: practiceTemplates.id });
+
+  const sequenceSet = {
+    organizationId: orgId,
+    sportId: soccerSport.id,
+    developmentStageId: fundamentalsStage.id,
+    programType: "league" as const,
+    name: "Training Fixture Sequence",
+    description:
+      "Seeded for the admin-sequencing training walkthrough — not a real curriculum sequence.",
+    updatedAt: new Date(),
+  };
+  const [trainingSequence] = await db
+    .insert(curriculumSequences)
+    .values(sequenceSet)
+    .onConflictDoUpdate({
+      target: [curriculumSequences.sportId, curriculumSequences.name],
+      set: sequenceSet,
+    })
+    .returning({ id: curriculumSequences.id });
+
+  const [existingEntry] = await db
+    .select({ id: curriculumSequenceEntries.id })
+    .from(curriculumSequenceEntries)
+    .where(
+      and(
+        eq(curriculumSequenceEntries.sequenceId, trainingSequence.id),
+        eq(curriculumSequenceEntries.position, 1),
+      ),
+    )
+    .limit(1);
+  if (!existingEntry) {
+    await db.insert(curriculumSequenceEntries).values({
+      sequenceId: trainingSequence.id,
+      position: 1,
+      templateId: trainingTemplate.id,
+      objectives: ["Demonstrate the sequencing walkthrough"],
+    });
+  }
+  console.log(`   ✓ Training curriculum sequence: "${sequenceSet.name}" (1 entry)`);
 }
 
 async function seedE2ETests() {

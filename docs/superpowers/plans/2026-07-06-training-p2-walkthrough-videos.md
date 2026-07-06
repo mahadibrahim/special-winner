@@ -469,7 +469,7 @@ git commit -m "test(training): seed hire-applicant and credentials-coach trainin
 - Consumes: `practiceTemplates`, `curriculumSequences`, `curriculumSequenceEntries` schema exports (Task 1 import); `sports`, `developmentStages` already imported; `orgId` param already threaded through `seedTrainingFixtures`.
 - Produces: a sequence named exactly `"Training Fixture Sequence"` for the `admin-sequencing` walkthrough (Task 10) to find via its `data-testid="sequence-card"` text.
 
-- [ ] **Step 1: Extend `seedTrainingFixtures` with the curriculum-sequence fixture**
+- [x] **Step 1: Extend `seedTrainingFixtures` with the curriculum-sequence fixture**
 
 Append to the body of `seedTrainingFixtures`, right before its closing `}` (after Task 2's block):
 
@@ -562,7 +562,7 @@ Append to the body of `seedTrainingFixtures`, right before its closing `}` (afte
   console.log(`   ✓ Training curriculum sequence: "${sequenceSet.name}" (1 entry)`);
 ```
 
-- [ ] **Step 2: Run the seed and verify**
+- [x] **Step 2: Run the seed and verify**
 
 ```bash
 npm run db:seed:e2e
@@ -570,7 +570,7 @@ npm run db:seed:e2e
 
 Expected: `✓ Training curriculum sequence: "Training Fixture Sequence" (1 entry)`. Re-run again — still succeeds and still reports exactly 1 entry (the `existingEntry` guard prevents a duplicate position-1 row).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/db/seeds/seed-e2e-tests.ts
