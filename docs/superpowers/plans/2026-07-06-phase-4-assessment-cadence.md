@@ -1010,7 +1010,7 @@ git commit -m "feat(coach): assessmentsDue nav badge on the Assessments sidebar 
 - Consumes: `GET /api/coach/assessments/due` (Task 3's response shape).
 - Produces: `<AssessmentNudgeCard />` — self-fetching client component; renders `null` while loading, on error, or when nothing is due. Root element carries `data-testid="assessment-nudge"`. Deep links: `/coach/assess/{familyMemberId}?teamId={teamId}` (the existing assess route reads `teamId` from `Astro.url.searchParams`, see `src/pages/coach/assess/[playerId].astro`).
 
-- [ ] **Step 1: Create the nudge card component**
+- [x] **Step 1: Create the nudge card component**
 
 Create `src/components/coach/assessment-nudge-card.tsx`:
 
@@ -1138,7 +1138,7 @@ export function AssessmentNudgeCard() {
 }
 ```
 
-- [ ] **Step 2: Mount it on the dashboard**
+- [x] **Step 2: Mount it on the dashboard**
 
 In `src/components/coach/coach-dashboard-overview.tsx`, replace the import at line 24:
 
@@ -1178,7 +1178,7 @@ with:
 
 (Not wrapping in `<section className="dashboard-section">` is deliberate: the component returns `null` when idle and a wrapper would leave an empty spacing element.)
 
-- [ ] **Step 3: Update the post-merge E2E spec**
+- [x] **Step 3: Update the post-merge E2E spec**
 
 E2E specs only run in the post-merge `test-full` job — update the coach-dashboard spec now. Append to `tests/e2e/coach-dashboard.spec.ts`, inside the top-level `test.describe("Coach Dashboard", ...)` block (after the `Team Management` describe):
 
@@ -1203,7 +1203,7 @@ E2E specs only run in the post-merge `test-full` job — update the coach-dashbo
 
 (Attribute-only assertions — no clicks or keypresses, so no `waitForHydration` needed per the Playwright conventions.)
 
-- [ ] **Step 4: Verify manually and by build**
+- [x] **Step 4: Verify manually and by build**
 
 With the dev server running and signed in as `coach@test.aspiresports.com` / `TestCoach123!`, load `http://localhost:4321/coach`: seeded rosters have few/no assessments, so the nudge should appear with "Not yet assessed" badges; clicking a player lands on `/coach/assess/<id>?teamId=<id>`.
 
@@ -1213,7 +1213,7 @@ Expected: zero errors (also confirms removing the dead import broke nothing).
 Optionally run the spec locally: `PLAYWRIGHT_BASE_URL=http://localhost:4321 npm test -- tests/e2e/coach-dashboard.spec.ts`
 Expected: PASS (nudge test passes whether or not the nudge renders).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/coach/assessment-nudge-card.tsx src/components/coach/coach-dashboard-overview.tsx tests/e2e/coach-dashboard.spec.ts

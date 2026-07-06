@@ -81,6 +81,23 @@ test.describe("Coach Dashboard", () => {
     });
   });
 
+  test.describe("Assessment Nudge", () => {
+    test("nudge deep links target the assess page when present", async ({ page }) => {
+      await page.goto("/coach");
+      await waitForPageLoad(page);
+
+      // The nudge only renders when the seeded coach has due/overdue/never
+      // players — assert conditionally, like the roster tests above.
+      const nudge = page.locator('[data-testid="assessment-nudge"]');
+      if ((await nudge.count()) > 0) {
+        const link = nudge.locator('a[href*="/coach/assess/"]').first();
+        await expect(link).toBeVisible();
+        const href = await link.getAttribute("href");
+        expect(href).toMatch(/\/coach\/assess\/[0-9a-f-]+\?teamId=[0-9a-f-]+/);
+      }
+    });
+  });
+
   test.describe("Attendance Tracking", () => {
     test("can access attendance page", async ({ page }) => {
       await page.goto("/coach/attendance");
