@@ -7,7 +7,7 @@ import { defineConfig, devices } from "@playwright/test";
 // the CI-facing e2e config, walkthroughs run against a dev server the
 // operator already has running (see training/README.md).
 export default defineConfig({
-  testDir: "./training/walkthroughs",
+  testDir: "./walkthroughs",
   testMatch: /.*\.walkthrough\.ts$/,
   fullyParallel: false,
   workers: 1,
