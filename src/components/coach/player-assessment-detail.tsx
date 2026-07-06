@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -222,6 +223,8 @@ export default function PlayerAssessmentDetail({
   teamId,
   sportId,
 }: PlayerAssessmentDetailProps) {
+  useHydrationBeacon()
+
   const [player, setPlayer] = useState<PlayerData | null>(null)
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [summaries, setSummaries] = useState<SkillSummary[]>([])

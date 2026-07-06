@@ -1,6 +1,7 @@
 "use client"
 
 import { ClipboardList } from "lucide-react"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -16,6 +17,8 @@ export interface RefereeMatch {
 }
 
 export function RefereeMatches({ matches }: { matches: RefereeMatch[] }) {
+  useHydrationBeacon()
+
   if (matches.length === 0) {
     return (
       <EmptyState

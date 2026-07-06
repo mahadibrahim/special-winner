@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import {
   Users,
   Phone,
@@ -216,6 +217,8 @@ interface RosterTableProps {
 }
 
 export default function RosterTable({ teamId }: RosterTableProps) {
+  useHydrationBeacon()
+
   const [roster, setRoster] = useState<RosterPlayer[]>([])
   const [team, setTeam] = useState<Team | null>(null)
   const [isLoading, setIsLoading] = useState(true)

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -90,6 +91,8 @@ function formatDateTime(dateStr: string): string {
 }
 
 export default function SessionDetail({ sessionId }: SessionDetailProps) {
+  useHydrationBeacon()
+
   const [session, setSession] = useState<SessionPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import {
   Loader2,
   Check,
@@ -83,6 +84,8 @@ interface AttendanceTrackerProps {
 type AttendanceStatus = "present" | "absent" | "late" | "excused"
 
 export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
+  useHydrationBeacon()
+
   const [team, setTeam] = useState<Team | null>(null)
   const [roster, setRoster] = useState<RosterEntry[]>([])
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])

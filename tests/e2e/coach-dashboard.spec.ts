@@ -45,39 +45,41 @@ test.describe("Coach Dashboard", () => {
   });
 
   test.describe("Team Management", () => {
+    // CoachTeams (src/components/coach/coach-teams.tsx) renders each team's
+    // roster link as /coach/roster/[teamId] — there is no /coach/teams/[id]
+    // page. These tests previously clicked a[href*="/coach/teams/"], which
+    // matched nothing, so both assertions silently no-op'd on every run.
+    // The seeded coach always has a team, so the links are asserted
+    // unconditionally rather than count-guarded.
     test("can view team roster", async ({ page }) => {
       await page.goto("/coach/teams");
       await waitForPageLoad(page);
 
-      // Click on first team if available
-      const teamCard = page.locator(
-        '[data-testid="team-card"], a[href*="/coach/teams/"]'
-      );
+      const rosterLink = page.locator('a[href^="/coach/roster/"]');
+      await expect(rosterLink.first()).toBeVisible({ timeout: 15000 });
+      await rosterLink.first().click();
+      await waitForPageLoad(page);
 
-      if ((await teamCard.count()) > 0) {
-        await teamCard.first().click();
-        await waitForPageLoad(page);
-
-        // Should show team details
-        await expect(page.url()).toMatch(/\/coach\/teams\//);
-      }
+      // Should land on the team's roster page
+      expect(page.url()).toMatch(/\/coach\/roster\//);
     });
 
     test("shows player list in team", async ({ page }) => {
       await page.goto("/coach/teams");
       await waitForPageLoad(page);
 
-      const teamLink = page.locator('a[href*="/coach/teams/"]');
+      const rosterLink = page.locator('a[href^="/coach/roster/"]');
+      await expect(rosterLink.first()).toBeVisible({ timeout: 15000 });
+      await rosterLink.first().click();
+      await waitForPageLoad(page);
 
-      if ((await teamLink.count()) > 0) {
-        await teamLink.first().click();
-        await waitForPageLoad(page);
-
-        // Should show roster/players
-        await expect(
-          page.locator("text=/roster|player|member/i").first()
-        ).toBeVisible();
-      }
+      // Should show roster/players. RosterTable fetches its data client-side
+      // after mount (spinner until then); under a fully-parallel local run
+      // all workers share one dev server + the remote staging DB, so the
+      // fetch can take well over 10s — hence the generous timeout.
+      await expect(
+        page.locator("text=/roster|player|member/i").first()
+      ).toBeVisible({ timeout: 30000 });
     });
   });
 

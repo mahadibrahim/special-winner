@@ -64,3 +64,7 @@ pdfs/
 
 # Email render preview output (C11 verification pass)
 dist-preview/
+
+# Phase 2 training walkthrough output (video/screenshots/captions) —
+# regenerated on demand via `npm run training:videos`, never committed.
+training/output/

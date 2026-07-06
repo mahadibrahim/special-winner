@@ -96,7 +96,9 @@ export async function signIn(
       ? "/admin"
       : roles.includes("coach")
         ? "/coach"
-        : "/dashboard";
+        : roles.includes("referee")
+          ? "/referee"
+          : "/dashboard";
   await page.goto(target, { waitUntil: "domcontentloaded" });
 }
 

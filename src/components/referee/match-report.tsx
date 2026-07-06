@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Plus, Trash2 } from "lucide-react"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +22,8 @@ export interface MatchReportData {
 const TYPES = ["yellow_card", "red_card", "injury", "other"]
 
 export function MatchReport({ data }: { data: MatchReportData }) {
+  useHydrationBeacon()
+
   const [homeScore, setHomeScore] = useState(data.homeScore?.toString() ?? "")
   const [awayScore, setAwayScore] = useState(data.awayScore?.toString() ?? "")
   const [refereeNotes, setRefereeNotes] = useState(data.refereeNotes ?? "")
