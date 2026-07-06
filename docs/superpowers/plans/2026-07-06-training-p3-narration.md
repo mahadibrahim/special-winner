@@ -84,7 +84,7 @@ venue-manager: "Venue command center — today's overview", "Open an activity's 
   "Player/team check-in station", "End-of-day reports"
 ```
 
-- [ ] **Step 1: Write the fixture JSON files**
+- [x] **Step 1: Write the fixture JSON files**
 
 `tests/unit/training/fixtures/coach-core.captions.json`:
 
@@ -138,7 +138,7 @@ venue-manager: "Venue command center — today's overview", "Open an activity's 
 ]
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `tests/unit/training/narration.test.ts`:
 
@@ -163,7 +163,7 @@ describe("renderNarrationScript", () => {
     expect(script).toContain("training/output/coach-core/video.webm");
     expect(script).toMatch(/^1\. \[00:00\] /m);
     expect(script).toMatch(/^2\. \[00:03\] /m);
-    expect(script).toMatch(/^3\. \[00:06\] /m);
+    expect(script).toMatch(/^3\. \[00:07\] /m);
     // Spoken register, not a verbatim echo of the UI caption string.
     expect(script).not.toContain("Coach dashboard — today at a glance\n");
     expect(script).toContain("today's schedule and tasks");
@@ -174,7 +174,7 @@ describe("renderNarrationScript", () => {
     const script = renderNarrationScript("coach-core", shuffled);
     const lines = script.split("\n").filter((l) => /^\d+\. \[/.test(l));
     expect(lines[0]).toMatch(/^1\. \[00:00\]/);
-    expect(lines[2]).toMatch(/^3\. \[00:06\]/);
+    expect(lines[2]).toMatch(/^3\. \[00:07\]/);
   });
 
   it("never leaks internal UI markers like '(not submitted)' into the fallback transform", () => {
@@ -194,7 +194,7 @@ describe("renderNarrationScript", () => {
     const script = renderNarrationScript("referee-gameday", refereeGamedayCaptions);
     expect(script).toContain("1. [00:00]");
     expect(script).toContain("2. [00:04]");
-    expect(script).toContain("3. [00:09]");
+    expect(script).toContain("3. [00:10]");
   });
 });
 
@@ -238,12 +238,12 @@ describe("generateAllNarrationScripts", () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/training/narration.test.ts`
 Expected: FAIL — `Cannot find module '../../../training/lib/narration'`.
 
-- [ ] **Step 4: Implement `training/lib/narration.ts`**
+- [x] **Step 4: Implement `training/lib/narration.ts`**
 
 ```typescript
 // Phase 3 narration generator — pure core. Reads a workflow's captions.json
@@ -418,12 +418,12 @@ export async function generateAllNarrationScripts(rootDir: string): Promise<Gene
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/training/`
 Expected: PASS (all `narration.test.ts` + existing `tour.test.ts` tests green).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add training/lib/narration.ts tests/unit/training/fixtures/coach-core.captions.json tests/unit/training/fixtures/referee-gameday.captions.json tests/unit/training/narration.test.ts

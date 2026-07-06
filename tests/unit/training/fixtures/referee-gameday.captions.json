@@ -1,0 +1,22 @@
+[
+  {
+    "index": 0,
+    "caption": "My matches — the referee's assignment list",
+    "timestampMs": 0,
+    "screenshot": "00-my-matches-the-referee-s-assignment-list.png",
+    "deckSlug": "ref_check_in"
+  },
+  {
+    "index": 1,
+    "caption": "Open the training fixture match",
+    "timestampMs": 4210,
+    "screenshot": "01-open-the-training-fixture-match.png"
+  },
+  {
+    "index": 2,
+    "caption": "Enter the final score, log an incident, and submit the report",
+    "timestampMs": 9870,
+    "screenshot": "02-enter-the-final-score-log-an-incident-and-submit-the-report.png",
+    "deckSlug": "score_reporting_final"
+  }
+]

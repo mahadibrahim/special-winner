@@ -1,0 +1,20 @@
+[
+  {
+    "index": 0,
+    "caption": "Coach dashboard — today at a glance",
+    "timestampMs": 0,
+    "screenshot": "00-coach-dashboard-today-at-a-glance.png"
+  },
+  {
+    "index": 1,
+    "caption": "My teams",
+    "timestampMs": 3120,
+    "screenshot": "01-my-teams.png"
+  },
+  {
+    "index": 2,
+    "caption": "Open a team roster",
+    "timestampMs": 6980,
+    "screenshot": "02-open-a-team-roster.png"
+  }
+]
