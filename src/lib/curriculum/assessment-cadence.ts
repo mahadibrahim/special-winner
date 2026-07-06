@@ -56,3 +56,132 @@ export function computeCadenceStatus(
   if (days < threshold * 2) return "due";
   return "overdue";
 }
+
+// ---------------------------------------------------------------------------
+// Player × domain matrix and rollups (still pure — inputs are queried rows).
+// ---------------------------------------------------------------------------
+
+export interface CadencePlayer {
+  familyMemberId: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface CadenceDomain {
+  domainId: string;
+  displayName: string;
+  assessmentFrequency: string | null;
+}
+
+/** One row per (player, domain) that has at least one assessment: max(assessedAt). */
+export interface LastAssessedRow {
+  familyMemberId: string;
+  domainId: string;
+  lastAssessedAt: Date;
+}
+
+export interface DomainCadence {
+  domainId: string;
+  displayName: string;
+  assessmentFrequency: string | null;
+  thresholdDays: number | null;
+  status: CadenceStatus;
+  daysSinceLast: number | null;
+}
+
+export interface PlayerCadence {
+  familyMemberId: string;
+  firstName: string;
+  lastName: string;
+  /** Most severe status across all domains (see STATUS_RANK). */
+  worstStatus: CadenceStatus;
+  /** False only when the player has zero assessment rows in ANY domain. */
+  hasAnyAssessment: boolean;
+  domains: DomainCadence[];
+}
+
+/**
+ * Severity order for rollups. "never" ranks above "overdue" — the loop never
+ * started for that player/domain, the exact silent non-use Phase 4 surfaces.
+ */
+export const STATUS_RANK: Record<CadenceStatus, number> = {
+  fresh: 0,
+  due: 1,
+  overdue: 2,
+  never: 3,
+};
+
+export function worstStatus(statuses: CadenceStatus[]): CadenceStatus {
+  let worst: CadenceStatus = "fresh";
+  for (const status of statuses) {
+    if (STATUS_RANK[status] > STATUS_RANK[worst]) worst = status;
+  }
+  return worst;
+}
+
+/**
+ * Classify every player × domain pair. `lastAssessed` may contain rows for
+ * players outside `players` (callers batch-query once per team set) — lookups
+ * are keyed, extras are ignored.
+ */
+export function computeCadenceMatrix(
+  players: CadencePlayer[],
+  domains: CadenceDomain[],
+  lastAssessed: LastAssessedRow[],
+  now: Date,
+): PlayerCadence[] {
+  const lastByKey = new Map<string, Date>();
+  for (const row of lastAssessed) {
+    lastByKey.set(`${row.familyMemberId}:${row.domainId}`, row.lastAssessedAt);
+  }
+
+  return players.map((player) => {
+    const domainStatuses: DomainCadence[] = domains.map((domain) => {
+      const last =
+        lastByKey.get(`${player.familyMemberId}:${domain.domainId}`) ?? null;
+      return {
+        domainId: domain.domainId,
+        displayName: domain.displayName,
+        assessmentFrequency: domain.assessmentFrequency,
+        thresholdDays: cadenceThresholdDays(domain.assessmentFrequency),
+        status: computeCadenceStatus(last, domain.assessmentFrequency, now),
+        daysSinceLast: last ? daysBetween(last, now) : null,
+      };
+    });
+
+    return {
+      familyMemberId: player.familyMemberId,
+      firstName: player.firstName,
+      lastName: player.lastName,
+      worstStatus: worstStatus(domainStatuses.map((d) => d.status)),
+      hasAnyAssessment: domainStatuses.some((d) => d.daysSinceLast !== null),
+      domains: domainStatuses,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Level-distribution summary (admin report "distribution sanity" — display
+// only, no verdicts).
+// ---------------------------------------------------------------------------
+
+export interface LevelDistribution {
+  count: number;
+  mean: number;
+  /** Population standard deviation, rounded to 2dp. */
+  stdDev: number;
+}
+
+export function summarizeLevelDistribution(
+  levels: number[],
+): LevelDistribution | null {
+  if (levels.length === 0) return null;
+  const mean = levels.reduce((sum, l) => sum + l, 0) / levels.length;
+  const variance =
+    levels.reduce((sum, l) => sum + (l - mean) ** 2, 0) / levels.length;
+  return {
+    count: levels.length,
+    mean: Math.round(mean * 100) / 100,
+    stdDev: Math.round(Math.sqrt(variance) * 100) / 100,
+  };
+}

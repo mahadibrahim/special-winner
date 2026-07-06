@@ -254,7 +254,7 @@ git commit -m "feat(curriculum): pure assessment-cadence status classification"
   - `interface LevelDistribution { count: number; mean: number; stdDev: number }`
   - `summarizeLevelDistribution(levels: number[]): LevelDistribution | null`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/unit/curriculum/assessment-cadence.test.ts` (extend the import at the top of the file first):
 
@@ -343,12 +343,12 @@ describe("summarizeLevelDistribution", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/curriculum/assessment-cadence.test.ts`
 Expected: FAIL — `worstStatus`, `computeCadenceMatrix`, `summarizeLevelDistribution` are not exported.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Append to `src/lib/curriculum/assessment-cadence.ts`:
 
@@ -483,12 +483,12 @@ export function summarizeLevelDistribution(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/curriculum/assessment-cadence.test.ts`
 Expected: PASS (all Task 1 + Task 2 tests green).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/curriculum/assessment-cadence.ts tests/unit/curriculum/assessment-cadence.test.ts
