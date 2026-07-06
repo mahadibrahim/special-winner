@@ -149,3 +149,89 @@ describe("GET - list sequences", () => {
     expect(json.sequences.some((s: any) => s.sportId === orgBSportId)).toBe(false);
   });
 });
+
+describe("GET/PUT [id] - detail and update", () => {
+  it("returns the sequence with ordered entries (200)", async () => {
+    if (!sequenceId) return;
+    const res = await apiFetch(`${ENDPOINT}/${sequenceId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    expect(json.sequence.id).toBe(sequenceId);
+    expect(Array.isArray(json.entries)).toBe(true);
+  });
+
+  it("404s for an unknown/cross-tenant id", async () => {
+    const res = await apiFetch(
+      `${ENDPOINT}/00000000-0000-4000-8000-000000000000`,
+      { method: "GET", cookie: adminCookie },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("updates name and description (200)", async () => {
+    if (!sequenceId) return;
+    const res = await apiFetch(`${ENDPOINT}/${sequenceId}`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({ description: "Updated description" }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.sequence.description).toBe("Updated description");
+  });
+});
+
+describe("PUT [id]/entries - replace ordered entries", () => {
+  it("replaces entries, assigning positions from array order (200)", async () => {
+    if (!sequenceId || !templateId) return;
+    const res = await apiFetch(`${ENDPOINT}/${sequenceId}/entries`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        entries: [
+          { templateId, objectives: ["Objective one"], notes: "Week 1 notes" },
+          { templateId }, // same template twice is legal — positions differ
+        ],
+      }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.entries).toHaveLength(2);
+    expect(json.entries[0].position).toBe(1);
+    expect(json.entries[0].objectives).toEqual(["Objective one"]);
+    expect(json.entries[1].position).toBe(2);
+
+    // Detail now reflects the entries, and list entryCount updates.
+    const detail = await expectJson(
+      await apiFetch(`${ENDPOINT}/${sequenceId}`, {
+        method: "GET",
+        cookie: adminCookie,
+      }),
+      200,
+    );
+    expect(detail.entries).toHaveLength(2);
+    expect(detail.entries[0].template.name).toBeTruthy();
+  });
+
+  it("rejects entries referencing an unknown template (400)", async () => {
+    if (!sequenceId) return;
+    const res = await apiFetch(`${ENDPOINT}/${sequenceId}/entries`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        entries: [{ templateId: "00000000-0000-4000-8000-000000000000" }],
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("blocks deleting a template that a sequence still references (400)", async () => {
+    if (!sequenceId || !templateId) return;
+    const res = await apiFetch(
+      `/api/admin/curriculum/templates/${templateId}`,
+      { method: "DELETE", cookie: adminCookie },
+    );
+    const json = await expectJson(res, 400);
+    expect(json.error).toMatch(/sequence/i);
+  });
+});

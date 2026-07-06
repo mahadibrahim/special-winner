@@ -10,6 +10,11 @@ import {
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 const sequenceSchema = z.object({
   sportId: z.string().uuid(),
   developmentStageId: z.string().uuid(),
@@ -132,13 +137,14 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error creating sequence:", error);
-    if (error.code === "23505") {
+    const code = getDbErrorCode(error);
+    if (code === "23505") {
       return new Response(
         JSON.stringify({ error: "A sequence with this name already exists for this sport" }),
         { status: 409 },
       );
     }
-    if (error.code === "23503") {
+    if (code === "23503") {
       return new Response(
         JSON.stringify({ error: "Invalid sport or stage reference" }),
         { status: 400 },
