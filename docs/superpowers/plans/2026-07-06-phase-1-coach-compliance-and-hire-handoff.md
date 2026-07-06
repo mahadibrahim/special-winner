@@ -790,7 +790,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 **Requires dev server running** (see Execution prerequisites) with the Task 1+2 migrations applied.
 
-- [ ] **Step 1: Write the failing API test**
+- [x] **Step 1: Write the failing API test**
 
 Create `tests/api/admin/applications-hire.test.ts`:
 
@@ -1016,12 +1016,12 @@ describe("POST /api/admin/applications/[id]/hire", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/applications-hire.test.ts`
 Expected: FAIL — the 404/hire assertions fail because the route doesn't exist yet (Astro returns 404 for the route, so the "unknown id" test may pass; the 200-path tests must FAIL).
 
-- [ ] **Step 3: Implement the endpoint**
+- [x] **Step 3: Implement the endpoint**
 
 Create `src/pages/api/admin/applications/[id]/hire.ts`:
 
@@ -1209,7 +1209,7 @@ export const POST: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 4: Fix the middleware coach gate**
+- [x] **Step 4: Fix the middleware coach gate**
 
 The invite lands on `/coach`, but the middleware maps the `"coach"` route role to `locals.isCoach` — which is *team-assignment-based* (`getCoachTeamIds().length > 0`). A freshly hired coach has the role but no team yet and would bounce to `/dashboard?error=unauthorized`. In `src/middleware.ts` (~line 290), replace:
 
@@ -1247,14 +1247,14 @@ with:
 
 Note: `/coach` pages already render empty states for zero teams; this only widens the gate, never narrows it.
 
-- [ ] **Step 5: Run the API test to verify it passes**
+- [x] **Step 5: Run the API test to verify it passes**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/applications-hire.test.ts`
 Expected: PASS (6 tests). If the fixture-org assertion (`organizationId not null`) fails, re-run `npm run db:seed:e2e` and restart the dev server.
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/pages/api/admin/applications/[id]/hire.ts src/middleware.ts tests/api/admin/applications-hire.test.ts
