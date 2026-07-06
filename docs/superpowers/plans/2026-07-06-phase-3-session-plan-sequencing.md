@@ -1719,7 +1719,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
   - `POST /api/admin/curriculum/sequences/[id]/attach` body `{ seasonId, weekday, startDate, timeOfDay, count }` → 200 `{ attached: true, seasonId, results: [{ teamId, created, skippedExisting }], teamsWithoutCoach: string[], truncatedBySeasonEnd: boolean }`. **Idempotent**: re-running skips existing `(team, template, date)` triples, so it also picks up teams created after the first attach.
   - `POST /api/admin/curriculum/sequences/[id]/detach` body `{ seasonId }` → 200 `{ detached: true }`. Drafts intentionally untouched.
 
-- [ ] **Step 1: Write the failing API tests**
+- [x] **Step 1: Write the failing API tests**
 
 Append to `tests/api/admin/curriculum-sequences.test.ts`. This block builds its own program/season/team so it never mutates shared staging fixtures. Note: `getCoachCookie` was already imported in Task 4's setup.
 
@@ -1909,12 +1909,12 @@ describe("attach / detach - draft generation", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm run test:api -- tests/api/admin/curriculum-sequences.test.ts`
 Expected: FAIL — attach/detach requests 404 (no endpoint files).
 
-- [ ] **Step 3: Write the attach endpoint**
+- [x] **Step 3: Write the attach endpoint**
 
 Create `src/pages/api/admin/curriculum/sequences/[id]/attach.ts`:
 
@@ -2130,7 +2130,7 @@ export const POST: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 4: Write the detach endpoint**
+- [x] **Step 4: Write the detach endpoint**
 
 Create `src/pages/api/admin/curriculum/sequences/[id]/detach.ts`:
 
@@ -2220,12 +2220,12 @@ export const POST: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `npm run test:api -- tests/api/admin/curriculum-sequences.test.ts`
 Expected: PASS (16 tests). If the DST assertion on `2026-09-05T13:00:00.000Z` fails with a 1-hour offset, check the test org's `organizations.timezone` on staging — the assertion assumes `America/New_York` (the column default).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/pages/api/admin/curriculum/sequences/ tests/api/admin/curriculum-sequences.test.ts
