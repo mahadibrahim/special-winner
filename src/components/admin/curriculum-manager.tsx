@@ -16,6 +16,7 @@ import {
   Clock,
   TrendingUp,
   Loader2,
+  ClipboardCheck,
 } from "lucide-react";
 
 interface CurriculumStats {
@@ -340,6 +341,14 @@ export function CurriculumManager() {
                 <TrendingUp className="w-5 h-5 text-amber-600 mb-2" />
                 <p className="font-medium text-ink">Featured Activities</p>
                 <p className="text-sm text-ink-muted">View and manage featured content</p>
+              </div>
+            </a>
+
+            <a href="/admin/curriculum/assessment-coverage" className="block">
+              <div className="p-4 rounded-lg bg-cream-2 hover:bg-cream-3 transition-colors">
+                <ClipboardCheck className="w-5 h-5 text-rose-600 mb-2" />
+                <p className="font-medium text-ink">Assessment Coverage</p>
+                <p className="text-sm text-ink-muted">See which rosters have stale or missing assessments</p>
               </div>
             </a>
           </div>

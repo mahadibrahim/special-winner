@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { PrePracticeChecklist } from "./pre-practice-checklist"
-import { CoachingTipCard } from "./coaching-tip-card"
+import { AssessmentNudgeCard } from "./assessment-nudge-card"
 
 interface Team {
   id: string
@@ -387,6 +387,10 @@ export default function CoachDashboardOverview() {
           <section className="dashboard-section">
             <QuickActions />
           </section>
+
+          {/* Assessment cadence nudge (Phase 4) — renders nothing when no
+              players are due, so it is NOT wrapped in a spacing section. */}
+          <AssessmentNudgeCard />
 
           {/* Pre-Practice Checklist */}
           <section className="dashboard-section">

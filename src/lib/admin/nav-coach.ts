@@ -26,7 +26,7 @@ export const COACH_NAV: NavGroup[] = [
     name: "Coaching",
     items: [
       { name: "Practices", href: "/coach/practices", icon: GraduationCap },
-      { name: "Assessments", href: "/coach/assessments", icon: ClipboardList },
+      { name: "Assessments", href: "/coach/assessments", icon: ClipboardList, badgeKey: "assessmentsDue" },
       { name: "Resources", href: "/coach/resources", icon: BookOpen },
     ],
   },
