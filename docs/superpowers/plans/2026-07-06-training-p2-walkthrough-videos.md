@@ -353,7 +353,7 @@ git commit -m "test(training): seed the referee role and a training-referee game
 - Consumes: `TRAINING_USERS` from Task 1; `jobApplications`, `roles`, `users`, `userRoles` schema exports.
 - Produces: nothing new exported — extends `seedTrainingFixtures` in place.
 
-- [ ] **Step 1: Extend `seedTrainingFixtures` with the applicant + credentials-coach fixtures**
+- [x] **Step 1: Extend `seedTrainingFixtures` with the applicant + credentials-coach fixtures**
 
 Append to the body of `seedTrainingFixtures` (from Task 1), right before its closing `}`:
 
@@ -433,7 +433,7 @@ Append to the body of `seedTrainingFixtures` (from Task 1), right before its clo
   console.log(`   ✓ Training coach for credentials demo: ${TRAINING_USERS.coach.email}`);
 ```
 
-- [ ] **Step 2: Run the seed and verify**
+- [x] **Step 2: Run the seed and verify**
 
 ```bash
 npm run db:seed:e2e
@@ -441,7 +441,7 @@ npm run db:seed:e2e
 
 Expected: new lines `✓ Training applicant reset to un-hired: training+applicant@test.aspiresports.com` and `✓ Training coach for credentials demo: training+coach@test.aspiresports.com`. Re-run again — still succeeds (idempotent).
 
-- [ ] **Step 3: Confirm the existing API tests still pass unaffected**
+- [x] **Step 3: Confirm the existing API tests still pass unaffected**
 
 Run (dev server up, per `CLAUDE.md`'s pre-push checklist env):
 
@@ -451,7 +451,7 @@ CRON_SECRET=devsecret TEST_BASE_URL=http://localhost:4321 npx vitest run --confi
 
 Expected: both files still PASS — they assert `>0`/scoped IDs, never an exact global row count, so the two new fixture rows don't break them (confirmed in Scouting Finding 8 before writing this fixture).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/lib/db/seeds/seed-e2e-tests.ts

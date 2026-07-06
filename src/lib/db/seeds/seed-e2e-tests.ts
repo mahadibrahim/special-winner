@@ -687,6 +687,79 @@ async function seedTrainingFixtures(
     });
   }
   console.log(`   ✓ Training referee-gameday fixture match reset (game ${trainingGame.id})`);
+
+  // --- Admin hire/compliance fixtures --------------------------------------
+  // Dedicated applicant, reset to un-hired on every seed run — the hire
+  // endpoint 409s once hiredUserId is set, so "Mark hired" must always find
+  // a fresh, un-hired row to click.
+  let [trainingApplication] = await db
+    .select({ id: jobApplications.id })
+    .from(jobApplications)
+    .where(eq(jobApplications.email, TRAINING_USERS.applicant.email))
+    .limit(1);
+  if (!trainingApplication) {
+    [trainingApplication] = await db
+      .insert(jobApplications)
+      .values({
+        organizationId: orgId,
+        role: "coach",
+        firstName: "Training",
+        lastName: "Applicant",
+        email: TRAINING_USERS.applicant.email,
+        experience: "3 seasons coaching U10 rec soccer.",
+        availability: ["weeknights", "weekends"],
+        source: "training fixture",
+        status: "new",
+      })
+      .returning({ id: jobApplications.id });
+  } else {
+    await db
+      .update(jobApplications)
+      .set({ status: "new", hiredUserId: null })
+      .where(eq(jobApplications.id, trainingApplication.id));
+  }
+  console.log(`   ✓ Training applicant reset to un-hired: ${TRAINING_USERS.applicant.email}`);
+
+  // Dedicated coach for the credentials-grid edit demo — kept separate from
+  // coach@test.aspiresports.com so the walkthrough never writes credential
+  // rows against the account other specs sign in as.
+  const trainingCoachPasswordHash = await hashPassword(TRAINING_USERS.coach.password);
+  let [trainingCoach] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TRAINING_USERS.coach.email))
+    .limit(1);
+  if (!trainingCoach) {
+    [trainingCoach] = await db
+      .insert(users)
+      .values({
+        email: TRAINING_USERS.coach.email,
+        passwordHash: trainingCoachPasswordHash,
+        firstName: "Training",
+        lastName: "Coach",
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: trainingCoachPasswordHash, emailVerified: true })
+      .where(eq(users.id, trainingCoach.id));
+  }
+  const [coachRoleRow] = await db
+    .select()
+    .from(roles)
+    .where(eq(roles.name, "coach"))
+    .limit(1);
+  if (!coachRoleRow) throw new Error("e2e seed: coach role missing");
+  await db.delete(userRoles).where(eq(userRoles.userId, trainingCoach.id));
+  await db.insert(userRoles).values({
+    userId: trainingCoach.id,
+    roleId: coachRoleRow.id,
+    scopeType: "organization",
+    scopeId: orgId,
+  });
+  console.log(`   ✓ Training coach for credentials demo: ${TRAINING_USERS.coach.email}`);
 }
 
 async function seedE2ETests() {
