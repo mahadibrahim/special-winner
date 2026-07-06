@@ -27,6 +27,110 @@ function activitySlug(activityId: string): string {
   return activityId.replace(/^act\./, "");
 }
 
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeWhitespace(text: string): string {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+// ---------------------------------------------------------------------------
+// Role-id token resolution. Catalog free text (escalation_path, trigger, ...)
+// embeds role ids in two shapes: the dotted catalog id ("role.director") and
+// a bare snake_case mention of the same role without the "role." prefix
+// ("If venue_manager unreachable, ..."). Both need resolving to the role's
+// display name wherever they appear in trainee-facing text — not just on the
+// safety slide, which used to be the only place this happened.
+// ---------------------------------------------------------------------------
+
+function createRoleTokenResolver(catalog: Catalog): (text: string) => string {
+  const byId = new Map(catalog.roles.map((r) => [r.id, r.name]));
+  // Longest slug first so e.g. "front_of_house" doesn't get shadowed by a
+  // shorter, unrelated slug matching a substring (defensive; not currently
+  // possible given the catalog's role ids, but cheap to guard against).
+  const bareSlugs = [...catalog.roles]
+    .map((r) => ({ slug: r.id.replace(/^role\./, ""), name: r.name }))
+    .sort((a, b) => b.slug.length - a.slug.length);
+
+  return function resolveRoleTokens(text: string): string {
+    let result = text.replace(/\brole\.[a-z][a-z0-9_]*\b/g, (token) => byId.get(token) ?? token);
+    for (const { slug, name } of bareSlugs) {
+      result = result.replace(new RegExp(`\\b${escapeRegExp(slug)}\\b`, "g"), name);
+    }
+    return result;
+  };
+}
+
+// Roles mentioned (by either token shape) in a piece of free text, resolved
+// to display names — used to build the safety slide's escalation contact
+// list.
+function mentionedRoleNames(catalog: Catalog, text: string): string[] {
+  const names: string[] = [];
+  for (const role of catalog.roles) {
+    const slug = role.id.replace(/^role\./, "");
+    const dottedRe = new RegExp(`\\b${escapeRegExp(role.id)}\\b`);
+    const bareRe = new RegExp(`\\b${escapeRegExp(slug)}\\b`);
+    if (dottedRe.test(text) || bareRe.test(text)) {
+      names.push(role.name);
+    }
+  }
+  return names;
+}
+
+// ---------------------------------------------------------------------------
+// Trigger phrasing cleanup. Catalog triggers are written in a terse ops-log
+// shorthand ("48h before event window", "T+24h after ..."); trainees read
+// this as a sentence, so spell out shorthand rather than showing it raw.
+// ---------------------------------------------------------------------------
+
+function humanizeTrigger(text: string): string {
+  return text
+    .replace(/^~/, "About ")
+    .replace(/\bT[+-](?=\d)/g, "")
+    .replace(/(\d+)h\b/g, "$1 hours")
+    .replace(/(\d+)min\b/g, "$1 minutes")
+    .replace(/\bbefore event window\b/g, "before the event")
+    .replace(/\bafter event window\b/g, "after the event");
+}
+
+// ---------------------------------------------------------------------------
+// RACI involvement -> plain-English sentence.
+// ---------------------------------------------------------------------------
+
+function involvementToSentence(involvement: Involvement): string {
+  return involvement === "Responsible" ? "You're part of this" : "You own this";
+}
+
+// ---------------------------------------------------------------------------
+// Catalog stub procedure detection. Activities not yet authored by the
+// operating team carry a fixed placeholder sop_body (see any act.*.yaml with
+// "Procedure to be authored by the operating team" — as of this writing,
+// most of the catalog). That placeholder must never reach a trainee slide
+// verbatim; render a natural fallback instead.
+// ---------------------------------------------------------------------------
+
+const STUB_SOP_BODY =
+  "Procedure to be authored by the operating team. This activity is defined\n" +
+  "in the catalog; full step-by-step SOP content will be added in a\n" +
+  "follow-up PR.";
+
+const PROCEDURE_FALLBACK_TEXT =
+  "Your lead will walk you through this step by step during your first shift.";
+
+function isStubProcedure(sopBody: string): boolean {
+  return sopBody.trim() === STUB_SOP_BODY;
+}
+
+function renderProcedureHtml(sopBody: string): string {
+  if (isStubProcedure(sopBody)) {
+    return `<p class="procedure-fallback">${escapeHtml(PROCEDURE_FALLBACK_TEXT)}</p>`;
+  }
+  const bullets = sopBodyToBullets(sopBody);
+  const stepsHtml = bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
+  return `<ol class="steps">${stepsHtml}</ol>`;
+}
+
 // ---------------------------------------------------------------------------
 // Minimal markdown-to-HTML for hand-authored intro.md content. Supports only
 // what intro authors need: "## " slide-boundary headings, blank-line
@@ -268,11 +372,14 @@ ${slidesHtml}
 `;
 }
 
-function renderTitleSlide(role: Catalog["roles"][number]): string {
+function renderTitleSlide(
+  role: Catalog["roles"][number],
+  resolveRoleTokens: (text: string) => string,
+): string {
   return `
     <h1>${escapeHtml(role.name)}</h1>
     <p class="subtitle">Training deck</p>
-    <p class="role-description">${escapeHtml(role.description.trim())}</p>
+    <p class="role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
   `.trim();
 }
 
@@ -296,7 +403,7 @@ function renderPhaseOverviewSlide(phase: Activity["phase"], entries: MatchedActi
   const items = entries
     .map(
       ({ activity, involvement }) =>
-        `<li>${escapeHtml(activity.name)} — <em>${escapeHtml(involvement)}</em></li>`,
+        `<li>${escapeHtml(activity.name)} — <em>${escapeHtml(involvementToSentence(involvement))}</em></li>`,
     )
     .join("");
   return `
@@ -313,25 +420,34 @@ function sopBodyToBullets(sopBody: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+const CHECKLIST_NOTE_TEXT = "There's a checklist for this — see the checklist slides.";
+
 function renderActivitySlide(
   roleId: string,
   activity: Activity,
   involvement: Involvement,
   screenshots: Map<string, string> | undefined,
+  resolveRoleTokens: (text: string) => string,
 ): string {
-  const bullets = sopBodyToBullets(activity.sop_body);
-  const stepsHtml = bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
   const slug = activitySlug(activity.id);
+  const when = humanizeTrigger(resolveRoleTokens(normalizeWhitespace(activity.trigger)));
+  const escalation = resolveRoleTokens(normalizeWhitespace(activity.escalation_path));
+
+  const metaLines = [`<p><strong>When:</strong> ${escapeHtml(when)}</p>`];
+  // Trainees don't need to know the tracking mechanism — only that a
+  // checklist exists for activities that use one.
+  if (activity.tracking_method === "checklist") {
+    metaLines.push(`<p>${escapeHtml(CHECKLIST_NOTE_TEXT)}</p>`);
+  }
+  metaLines.push(`<p><strong>If something goes wrong:</strong> ${escapeHtml(escalation)}</p>`);
 
   return `
     <h2>${escapeHtml(activity.name)}</h2>
-    <p class="slide-kicker">${escapeHtml(involvement)} &middot; <code>${escapeHtml(activity.id)}</code></p>
+    <p class="slide-kicker">${escapeHtml(involvementToSentence(involvement))}</p>
     <div class="activity-meta">
-      <p><strong>Trigger:</strong> ${escapeHtml(activity.trigger)}</p>
-      <p><strong>Tracking:</strong> ${escapeHtml(activity.tracking_method)}</p>
-      <p><strong>Escalation:</strong> ${escapeHtml(activity.escalation_path.trim())}</p>
+      ${metaLines.join("\n      ")}
     </div>
-    <ol class="steps">${stepsHtml}</ol>
+    ${renderProcedureHtml(activity.sop_body)}
     ${screenshotSlotHtml(roleId, slug, screenshots)}
   `.trim();
 }
@@ -357,31 +473,29 @@ function renderChecklistSlide(catalog: Catalog, templateId: string): string | nu
   `.trim();
 }
 
-function renderSafetySlide(catalog: Catalog, matched: MatchedActivity[]): string {
+function renderSafetySlide(
+  catalog: Catalog,
+  matched: MatchedActivity[],
+  resolveRoleTokens: (text: string) => string,
+): string {
   const escalations = new Set<string>();
-  const mentionedRoleIds = new Set<string>();
-  const roleMentionRe = /role\.[a-z][a-z0-9_]*/g;
+  const mentionedNames = new Set<string>();
 
   for (const { activity } of matched) {
-    const text = activity.escalation_path.trim();
-    escalations.add(text);
-    for (const m of text.matchAll(roleMentionRe)) {
-      mentionedRoleIds.add(m[0]);
+    const raw = normalizeWhitespace(activity.escalation_path);
+    escalations.add(resolveRoleTokens(raw));
+    for (const name of mentionedRoleNames(catalog, raw)) {
+      mentionedNames.add(name);
     }
   }
-
-  const roleNames = [...mentionedRoleIds]
-    .map((id) => catalog.roles.find((r) => r.id === id)?.name)
-    .filter((name): name is string => Boolean(name))
-    .sort();
 
   const escalationItems = [...escalations]
     .sort()
     .map((e) => `<li>${escapeHtml(e)}</li>`)
     .join("");
   const contactsHtml =
-    roleNames.length > 0
-      ? `<p><strong>You may need to escalate to:</strong> ${roleNames.map((n) => escapeHtml(n)).join(", ")}</p>`
+    mentionedNames.size > 0
+      ? `<p><strong>You may need to escalate to:</strong> ${[...mentionedNames].sort().map((n) => escapeHtml(n)).join(", ")}</p>`
       : "";
 
   return `
@@ -502,8 +616,9 @@ export function renderTrainingDeck(
   }
 
   const matched = matchActivities(catalog, roleId);
+  const resolveRoleTokens = createRoleTokenResolver(catalog);
   const slides: string[] = [];
-  slides.push(renderTitleSlide(role));
+  slides.push(renderTitleSlide(role, resolveRoleTokens));
 
   if (opts.intro) {
     for (const introSlide of parseIntroSlides(opts.intro)) {
@@ -516,7 +631,9 @@ export function renderTrainingDeck(
     if (entries.length === 0) continue;
     slides.push(renderPhaseOverviewSlide(phase, entries));
     for (const { activity, involvement } of entries) {
-      slides.push(renderActivitySlide(roleId, activity, involvement, opts.screenshots));
+      slides.push(
+        renderActivitySlide(roleId, activity, involvement, opts.screenshots, resolveRoleTokens),
+      );
     }
   }
 
@@ -525,7 +642,7 @@ export function renderTrainingDeck(
     if (slide) slides.push(slide);
   }
 
-  slides.push(renderSafetySlide(catalog, matched));
+  slides.push(renderSafetySlide(catalog, matched, resolveRoleTokens));
   slides.push(renderToolsSlide(roleId));
   slides.push(renderHelpSlide(catalog));
 
