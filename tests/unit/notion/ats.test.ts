@@ -18,6 +18,7 @@ const app: JobApplication = {
   resumeKey: "careers/resumes/abc.pdf",
   source: "Instagram",
   status: "new",
+  hiredUserId: null,
   notionPageId: null,
   notionSyncedAt: null,
   createdAt: new Date("2026-07-04T12:00:00Z"),

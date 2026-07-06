@@ -287,11 +287,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
         }
         // Check whether the user holds any of the required roles.
         // "admin" in the rule list means location_admin OR super_admin
-        // (both of which set isAdmin=true). "coach" means isCoach=true.
+        // (both of which set isAdmin=true). "coach" means isCoach=true
+        // (has team assignments) OR holds a `coach` role — a freshly hired
+        // coach has the role before any team assignment and must still
+        // reach /coach (Phase 1 hire handoff).
         const userRoleNames = context.locals.userRoles.map((r) => r.name);
         const hasRequiredRole = rule.roles.some((required) => {
           if (required === "admin") return context.locals.isAdmin;
-          if (required === "coach") return context.locals.isCoach;
+          if (required === "coach")
+            return (
+              context.locals.isCoach || userRoleNames.includes("coach")
+            );
           return userRoleNames.includes(required as never);
         });
         if (!hasRequiredRole) {

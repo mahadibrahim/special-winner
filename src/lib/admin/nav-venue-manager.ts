@@ -12,6 +12,7 @@ import {
   Zap,
   Key,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
 import type { NavGroup } from "./nav-super-admin";
 
@@ -40,6 +41,7 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
       { name: "Look up", href: "/admin/lookup", icon: Search },
       { name: "Rosters", href: "/admin/venue/rosters", icon: ClipboardList },
       { name: "Applications", href: "/admin/applications", icon: FileText },
+      { name: "Coach compliance", href: "/admin/coaches", icon: ShieldCheck },
     ],
   },
   {

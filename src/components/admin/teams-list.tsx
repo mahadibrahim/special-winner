@@ -165,6 +165,25 @@ export function TeamsList({ seasons, coaches }: TeamsListProps) {
         throw new Error(data.error || "Failed to save team")
       }
 
+      // Non-blocking compliance warning: the save succeeded; the assigned
+      // coach is missing required credentials (see /admin/coaches).
+      if (
+        Array.isArray(data.complianceWarnings) &&
+        data.complianceWarnings.length > 0
+      ) {
+        for (const warning of data.complianceWarnings) {
+          const missing = warning.gaps
+            .map((g: { credentialType: string }) =>
+              g.credentialType.replace(/_/g, " "),
+            )
+            .join(", ")
+          toast.warning(
+            `${warning.coachName} is missing required credentials: ${missing}. Review at /admin/coaches.`,
+            { duration: 8000 },
+          )
+        }
+      }
+
       await fetchTeams()
       setIsDialogOpen(false)
     } catch (err: any) {
