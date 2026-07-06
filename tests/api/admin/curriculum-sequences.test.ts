@@ -336,6 +336,25 @@ describe("attach / detach - draft generation", () => {
     expect(sorted[1].title).toMatch(/^Week 2 of 2 — /);
   });
 
+  it("exposes sequence progress on the coach sessions endpoint", async () => {
+    if (!sequenceId || !templateId) return;
+
+    const sessions = await expectJson(
+      await apiFetch(`/api/coach/sessions?teamId=${teamId}`, {
+        method: "GET",
+        cookie: coachCookie,
+      }),
+      200,
+    );
+    const progress = (sessions.sequenceProgress || []).find(
+      (p: any) => p.teamId === teamId,
+    );
+    expect(progress).toBeDefined();
+    expect(progress.totalWeeks).toBe(2);
+    expect(progress.currentWeek).toBeGreaterThanOrEqual(1);
+    expect(progress.sequenceName).toBe(sequenceName);
+  });
+
   it("is idempotent: re-attaching skips existing drafts", async () => {
     if (!sequenceId || !templateId) return;
 

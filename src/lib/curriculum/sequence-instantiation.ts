@@ -203,3 +203,65 @@ export function buildDraftSessionPlans(
   }
   return plans;
 }
+
+// ---------------------------------------------------------------------------
+// Coach-facing progress derivation ("Week 3 of 8"). Generated drafts are
+// ordinary session_plans rows with no sequence marker (by design), so
+// membership is inferred: a team plan counts toward the sequence when its
+// templateId is one of the sequence's entry templates.
+
+export interface TeamPlanForProgress {
+  id: string;
+  title: string;
+  templateId: string | null;
+  scheduledDate: Date;
+  status: string;
+}
+
+export interface SequenceProgress {
+  totalWeeks: number;
+  /** Sequence-derived plans that are completed or already in the past. */
+  completedWeeks: number;
+  /** 1-based, clamped to totalWeeks. */
+  currentWeek: number;
+  /** Earliest upcoming, non-cancelled, non-completed sequence plan. */
+  nextPlan: { id: string; title: string; scheduledDate: Date } | null;
+}
+
+export function computeSequenceProgress(
+  sequenceTemplateIds: string[],
+  teamPlans: TeamPlanForProgress[],
+  now: Date,
+): SequenceProgress {
+  const totalWeeks = sequenceTemplateIds.length;
+  const templateSet = new Set(sequenceTemplateIds);
+  const matching = teamPlans.filter(
+    (p) => p.templateId !== null && templateSet.has(p.templateId),
+  );
+  const completedWeeks = Math.min(
+    matching.filter(
+      (p) => p.status === "completed" || p.scheduledDate.getTime() < now.getTime(),
+    ).length,
+    totalWeeks,
+  );
+  const upcoming = matching
+    .filter(
+      (p) =>
+        p.scheduledDate.getTime() >= now.getTime() &&
+        p.status !== "completed" &&
+        p.status !== "cancelled",
+    )
+    .sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime());
+  return {
+    totalWeeks,
+    completedWeeks,
+    currentWeek: totalWeeks === 0 ? 0 : Math.min(completedWeeks + 1, totalWeeks),
+    nextPlan: upcoming[0]
+      ? {
+          id: upcoming[0].id,
+          title: upcoming[0].title,
+          scheduledDate: upcoming[0].scheduledDate,
+        }
+      : null,
+  };
+}

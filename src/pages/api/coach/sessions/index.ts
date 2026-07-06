@@ -6,10 +6,13 @@ import {
   teams,
   seasons,
   programs,
+  curriculumSequences,
+  curriculumSequenceEntries,
 } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { computeSequenceProgress } from "@/lib/curriculum/sequence-instantiation";
 
 const createSessionSchema = z.object({
   teamId: z.string().uuid(),
@@ -166,10 +169,94 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .orderBy(desc(sessionPlans.scheduledDate))
       .limit(limit);
 
+    // Sequence progress for teams whose season carries an attached curriculum
+    // sequence (Phase 3). Membership is derived by templateId match —
+    // generated drafts are indistinguishable from coach-made plans by design.
+    const seasonIds = [...new Set(coachTeams.map((t) => t.season.id))];
+    const seasonSequences = await getDb()
+      .select({
+        seasonId: seasons.id,
+        sequenceId: curriculumSequences.id,
+        sequenceName: curriculumSequences.name,
+      })
+      .from(seasons)
+      .innerJoin(
+        curriculumSequences,
+        eq(seasons.curriculumSequenceId, curriculumSequences.id),
+      )
+      .where(inArray(seasons.id, seasonIds));
+
+    let sequenceProgress: {
+      teamId: string;
+      teamName: string;
+      sequenceName: string;
+      totalWeeks: number;
+      completedWeeks: number;
+      currentWeek: number;
+      nextPlan: { id: string; title: string; scheduledDate: Date } | null;
+    }[] = [];
+
+    if (seasonSequences.length > 0) {
+      const sequenceBySeason = new Map(seasonSequences.map((s) => [s.seasonId, s]));
+      const sequenceIds = [...new Set(seasonSequences.map((s) => s.sequenceId))];
+      const entryRows = await getDb()
+        .select({
+          sequenceId: curriculumSequenceEntries.sequenceId,
+          templateId: curriculumSequenceEntries.templateId,
+        })
+        .from(curriculumSequenceEntries)
+        .where(inArray(curriculumSequenceEntries.sequenceId, sequenceIds))
+        .orderBy(asc(curriculumSequenceEntries.position));
+
+      const teamsWithSequence = coachTeams.filter((t) =>
+        sequenceBySeason.has(t.season.id),
+      );
+      const planRows = teamsWithSequence.length
+        ? await getDb()
+            .select({
+              id: sessionPlans.id,
+              teamId: sessionPlans.teamId,
+              title: sessionPlans.title,
+              templateId: sessionPlans.templateId,
+              scheduledDate: sessionPlans.scheduledDate,
+              status: sessionPlans.status,
+            })
+            .from(sessionPlans)
+            .where(
+              inArray(
+                sessionPlans.teamId,
+                teamsWithSequence.map((t) => t.id),
+              ),
+            )
+        : [];
+
+      const now = new Date();
+      sequenceProgress = teamsWithSequence
+        .map((team) => {
+          const seq = sequenceBySeason.get(team.season.id)!;
+          const templateIds = entryRows
+            .filter((e) => e.sequenceId === seq.sequenceId)
+            .map((e) => e.templateId);
+          const progress = computeSequenceProgress(
+            templateIds,
+            planRows.filter((p) => p.teamId === team.id),
+            now,
+          );
+          return {
+            teamId: team.id,
+            teamName: team.name,
+            sequenceName: seq.sequenceName,
+            ...progress,
+          };
+        })
+        .filter((p) => p.totalWeeks > 0);
+    }
+
     return new Response(
       JSON.stringify({
         sessions,
         teams: coachTeams,
+        sequenceProgress,
       }),
       {
         status: 200,

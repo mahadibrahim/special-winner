@@ -2939,7 +2939,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 **Design note (spec left room here):** the spec forbids making generated drafts distinguishable, so progress cannot be stored — it is derived: a team plan counts toward the sequence when its `templateId` is one of the sequence's entry templates. A coach who deletes a generated draft or swaps its template simply drops it from the count; that's acceptable v1 behavior.
 
-- [ ] **Step 1: Write the failing unit tests**
+- [x] **Step 1: Write the failing unit tests**
 
 Append to `tests/unit/sequence-instantiation.test.ts` (extend the import with `computeSequenceProgress` and `type TeamPlanForProgress`):
 
@@ -3034,12 +3034,12 @@ describe("computeSequenceProgress", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify the new block fails**
+- [x] **Step 2: Run tests to verify the new block fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/sequence-instantiation.test.ts`
 Expected: FAIL — `computeSequenceProgress` is not exported.
 
-- [ ] **Step 3: Implement `computeSequenceProgress`**
+- [x] **Step 3: Implement `computeSequenceProgress`**
 
 Append to `src/lib/curriculum/sequence-instantiation.ts`:
 
@@ -3107,12 +3107,12 @@ export function computeSequenceProgress(
 }
 ```
 
-- [ ] **Step 4: Run unit tests to verify they pass**
+- [x] **Step 4: Run unit tests to verify they pass**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/sequence-instantiation.test.ts`
 Expected: PASS (17 tests).
 
-- [ ] **Step 5: Extend `GET /api/coach/sessions`**
+- [x] **Step 5: Extend `GET /api/coach/sessions`**
 
 In `src/pages/api/coach/sessions/index.ts`:
 
@@ -3245,7 +3245,7 @@ import { computeSequenceProgress } from "@/lib/curriculum/sequence-instantiation
     );
 ```
 
-- [ ] **Step 6: Add an API assertion for the progress payload**
+- [x] **Step 6: Add an API assertion for the progress payload**
 
 Append inside the `describe("attach / detach - draft generation", ...)` block in `tests/api/admin/curriculum-sequences.test.ts`, directly after the first attach test (`it("attaches and generates …")`) so it runs while the season is still attached:
 
@@ -3273,7 +3273,7 @@ Append inside the `describe("attach / detach - draft generation", ...)` block in
 Run: `npm run test:api -- tests/api/admin/curriculum-sequences.test.ts`
 Expected: PASS (17 tests).
 
-- [ ] **Step 7: Render the strip in the practices overview**
+- [x] **Step 7: Render the strip in the practices overview**
 
 In `src/components/coach/practices-overview.tsx`:
 
@@ -3342,14 +3342,14 @@ interface SequenceProgressItem {
 
 (`ChevronRight` is already imported in this file.)
 
-- [ ] **Step 8: Verify by hand and type-check**
+- [x] **Step 8: Verify by hand and type-check**
 
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
 With the dev server up, sign in as `coach@test.aspiresports.com` / `TestCoach123!` and open `/coach/practices`: if any of the coach's teams sits in a season with an attached sequence (Task 6's API test leaves one attached only transiently — re-attach via the admin UI if needed), the strip shows "Week N of M" with a working link to the next draft.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/lib/curriculum/sequence-instantiation.ts tests/unit/sequence-instantiation.test.ts src/pages/api/coach/sessions/index.ts src/components/coach/practices-overview.tsx tests/api/admin/curriculum-sequences.test.ts

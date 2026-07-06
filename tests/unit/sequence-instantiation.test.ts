@@ -8,6 +8,10 @@ import {
   type SequenceEntryForBuild,
   type TemplateForBuild,
 } from "@/lib/curriculum/sequence-instantiation";
+import {
+  computeSequenceProgress,
+  type TeamPlanForProgress,
+} from "@/lib/curriculum/sequence-instantiation";
 
 // 2026 DST facts (America/New_York): spring forward Sun 2026-03-08 (EST→EDT),
 // fall back Sun 2026-11-01 (EDT→EST). 2026-03-01 and 2026-10-25 are Sundays.
@@ -200,5 +204,89 @@ describe("buildDraftSessionPlans", () => {
         dates: [dates[0]],
       }),
     ).toThrow(/unknown template/);
+  });
+});
+
+describe("computeSequenceProgress", () => {
+  const now = new Date("2026-09-10T12:00:00.000Z");
+  const templateIds = ["tpl-a", "tpl-b", "tpl-c"];
+  const plan = (
+    id: string,
+    templateId: string | null,
+    scheduledDate: string,
+    status: string,
+  ): TeamPlanForProgress => ({
+    id,
+    title: `Plan ${id}`,
+    templateId,
+    scheduledDate: new Date(scheduledDate),
+    status,
+  });
+
+  it("is week 1 with nothing completed at season start", () => {
+    const result = computeSequenceProgress(
+      templateIds,
+      [
+        plan("1", "tpl-a", "2026-09-12T13:00:00.000Z", "draft"),
+        plan("2", "tpl-b", "2026-09-19T13:00:00.000Z", "draft"),
+        plan("3", "tpl-c", "2026-09-26T13:00:00.000Z", "draft"),
+      ],
+      now,
+    );
+    expect(result).toMatchObject({ totalWeeks: 3, completedWeeks: 0, currentWeek: 1 });
+    expect(result.nextPlan?.id).toBe("1");
+  });
+
+  it("counts past or completed sequence plans as completed weeks", () => {
+    const result = computeSequenceProgress(
+      templateIds,
+      [
+        plan("1", "tpl-a", "2026-09-05T13:00:00.000Z", "completed"),
+        plan("2", "tpl-b", "2026-09-08T13:00:00.000Z", "draft"), // past → counts
+        plan("3", "tpl-c", "2026-09-19T13:00:00.000Z", "draft"),
+      ],
+      now,
+    );
+    expect(result).toMatchObject({ totalWeeks: 3, completedWeeks: 2, currentWeek: 3 });
+    expect(result.nextPlan?.id).toBe("3");
+  });
+
+  it("ignores plans whose template is not part of the sequence", () => {
+    const result = computeSequenceProgress(
+      templateIds,
+      [
+        plan("x", null, "2026-09-05T13:00:00.000Z", "completed"),
+        plan("y", "tpl-other", "2026-09-06T13:00:00.000Z", "completed"),
+      ],
+      now,
+    );
+    expect(result).toMatchObject({ totalWeeks: 3, completedWeeks: 0, currentWeek: 1 });
+    expect(result.nextPlan).toBeNull();
+  });
+
+  it("clamps currentWeek to totalWeeks when everything is done", () => {
+    const result = computeSequenceProgress(
+      templateIds,
+      [
+        plan("1", "tpl-a", "2026-08-01T13:00:00.000Z", "completed"),
+        plan("2", "tpl-b", "2026-08-08T13:00:00.000Z", "completed"),
+        plan("3", "tpl-c", "2026-08-15T13:00:00.000Z", "completed"),
+      ],
+      now,
+    );
+    expect(result).toMatchObject({ totalWeeks: 3, completedWeeks: 3, currentWeek: 3 });
+    expect(result.nextPlan).toBeNull();
+  });
+
+  it("skips cancelled plans when picking the next plan", () => {
+    const result = computeSequenceProgress(
+      templateIds,
+      [
+        plan("1", "tpl-a", "2026-09-12T13:00:00.000Z", "cancelled"),
+        plan("2", "tpl-b", "2026-09-19T13:00:00.000Z", "draft"),
+      ],
+      now,
+    );
+    expect(result.nextPlan?.id).toBe("2");
   });
 });
