@@ -465,3 +465,15 @@ export function renderTrainingDeck(
 
   return renderDeckShell(role, slides);
 }
+
+export function generateAllTrainingDecks(
+  catalog: Catalog,
+  optsByRole: Record<string, TrainingDeckOptions> = {},
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const role of catalog.roles) {
+    if (role.kind !== "worker") continue;
+    out[role.id] = renderTrainingDeck(catalog, role.id, optsByRole[role.id] ?? {});
+  }
+  return out;
+}

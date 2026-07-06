@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { renderTrainingDeck } from "../../../../src/lib/ops-catalog/views/training-deck";
+import {
+  renderTrainingDeck,
+  generateAllTrainingDecks,
+} from "../../../../src/lib/ops-catalog/views/training-deck";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
+import type { Role } from "../../../../src/lib/ops-catalog/types/role";
 
 describe("renderTrainingDeck", () => {
   it("renders a self-contained HTML deck with a title slide for the role", () => {
@@ -170,5 +174,47 @@ describe("renderTrainingDeck — your tools + help slides", () => {
     const html = renderTrainingDeck(catalog, fixtureIds.roles.venueManager);
     expect(html).toContain("Where to get help");
     expect(html).toContain("Director is the final escalation tier");
+  });
+});
+
+describe("generateAllTrainingDecks", () => {
+  it("returns one deck per worker role and excludes customer/system roles", () => {
+    const all = generateAllTrainingDecks(buildInlineCatalog());
+    expect(Object.keys(all).sort()).toEqual(
+      [fixtureIds.roles.coach, fixtureIds.roles.venueManager].sort(),
+    );
+    expect(all[fixtureIds.roles.parent]).toBeUndefined();
+  });
+
+  it("does NOT skip hand_authored worker roles, unlike generateAllRoleManuals", () => {
+    const catalog = buildInlineCatalog();
+    const handAuthored: Role = {
+      id: "role.team_captain",
+      name: "Team Captain",
+      tier: "field_side",
+      kind: "worker",
+      description: "Worker role whose manual is written by hand.",
+      manual_target: "hand_authored",
+    };
+    const all = generateAllTrainingDecks({
+      ...catalog,
+      roles: [...catalog.roles, handAuthored],
+    });
+    expect(all["role.team_captain"]).toBeDefined();
+    expect(all["role.team_captain"]).toContain("<h1>Team Captain</h1>");
+    expect(Object.keys(all).sort()).toEqual(
+      [fixtureIds.roles.coach, fixtureIds.roles.venueManager, "role.team_captain"].sort(),
+    );
+  });
+
+  it("produces byte-identical output across repeated renders of the same input", () => {
+    const catalog = buildInlineCatalog();
+    const first = renderTrainingDeck(catalog, fixtureIds.roles.venueManager);
+    const second = renderTrainingDeck(catalog, fixtureIds.roles.venueManager);
+    expect(first).toBe(second);
+
+    const allFirst = generateAllTrainingDecks(catalog);
+    const allSecond = generateAllTrainingDecks(catalog);
+    expect(allFirst).toEqual(allSecond);
   });
 });

@@ -1047,7 +1047,7 @@ git commit -m "feat(ops-catalog): training deck your-tools + help slides"
 - Consumes: `renderTrainingDeck` (Tasks 2-6); `catalog.roles: Role[]`.
 - Produces: `export function generateAllTrainingDecks(catalog: Catalog, optsByRole?: Record<string, TrainingDeckOptions>): Record<string, string>` — consumed by `scripts/ops-catalog/index.ts` in Task 9.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/unit/ops-catalog/views/training-deck.test.ts`:
 
@@ -1098,12 +1098,12 @@ describe("generateAllTrainingDecks", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — `generateAllTrainingDecks` is not exported.
 
-- [ ] **Step 3: Implement `generateAllTrainingDecks`**
+- [x] **Step 3: Implement `generateAllTrainingDecks`**
 
 In `src/lib/ops-catalog/views/training-deck.ts`, add at the end of the file (after `renderTrainingDeck`):
 
@@ -1121,12 +1121,12 @@ export function generateAllTrainingDecks(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: PASS — all tests in the file.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts
