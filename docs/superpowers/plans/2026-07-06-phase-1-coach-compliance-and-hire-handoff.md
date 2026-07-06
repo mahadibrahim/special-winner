@@ -1410,7 +1410,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
   - `GET /api/admin/coaches/credentials` → `200 { coaches: CoachRow[], requiredTypes: string[], expiringSoonDays: number }` where `CoachRow = { id, firstName, lastName, email, applicationCertifications: string | null, credentials: Array<{ id, credentialType, status, effectiveStatus, issuedAt, expiresAt, documentKey, notes, verifiedByUserId }>, gaps: Array<{ credentialType, reason }> }`
   - `POST /api/admin/coaches/credentials` body `{ userId, credentialType, status, issuedAt?: "YYYY-MM-DD" | null, expiresAt?: "YYYY-MM-DD" | null, notes?: string | null }` → `200 { credential }` | `404` (user not in org) | `400` (validation)
 
-- [ ] **Step 1: Write the failing API test**
+- [x] **Step 1: Write the failing API test**
 
 Create `tests/api/admin/coach-credentials.test.ts`:
 
@@ -1686,12 +1686,12 @@ describe("upsert + verify + list", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/coach-credentials.test.ts`
 Expected: FAIL — GET/POST return 404 (route missing).
 
-- [ ] **Step 3: Implement the endpoint**
+- [x] **Step 3: Implement the endpoint**
 
 Create `src/pages/api/admin/coaches/credentials/index.ts`:
 
@@ -1932,14 +1932,14 @@ export const POST: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/coach-credentials.test.ts`
 Expected: PASS (9 tests).
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/api/admin/coaches/credentials/index.ts tests/api/admin/coach-credentials.test.ts
