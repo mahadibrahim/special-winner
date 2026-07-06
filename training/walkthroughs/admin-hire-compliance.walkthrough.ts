@@ -11,7 +11,12 @@ import { createTour, registerVideoCapture } from "../lib/tour";
  *  - Mark hired targets training+applicant@test.aspiresports.com, which
  *    seed-e2e-tests.ts resets to un-hired on every `npm run db:seed:e2e`
  *    run (the hire endpoint 409s once already hired — re-run the seed
- *    before re-running this walkthrough).
+ *    before re-running this walkthrough for the full "click Mark hired"
+ *    beat). On a re-run WITHOUT a re-seed the applicant row renders a
+ *    "Hired" badge instead of the button (applications-list.tsx branches
+ *    on status === "hired"), so the step below degrades to capturing that
+ *    already-hired state — `npm run training:videos` must stay green on
+ *    repeat runs without a DB reset (Design Decision 1, Task 14 Step 5).
  *  - The credential edit targets training+coach@…, never
  *    coach@test.aspiresports.com, and is naturally idempotent — POST
  *    /api/admin/coaches/credentials upserts one row per (user, org, type).
@@ -36,10 +41,18 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
   const applicantRow = page.locator("tr", { hasText: TRAINING_USERS.applicant.email });
   await expect(applicantRow).toBeVisible({ timeout: 15_000 });
 
-  await tour.step(page, "Mark the training applicant hired", async () => {
-    await applicantRow.getByRole("button", { name: /mark hired/i }).click();
-    await expect(applicantRow.getByText(/hired/i)).toBeVisible({ timeout: 10_000 });
-  });
+  const markHiredButton = applicantRow.getByRole("button", { name: /mark hired/i });
+  if ((await markHiredButton.count()) > 0) {
+    await tour.step(page, "Mark the training applicant hired", async () => {
+      await markHiredButton.click();
+      await expect(applicantRow.getByText(/hired/i)).toBeVisible({ timeout: 10_000 });
+    });
+  } else {
+    // Already hired (re-run without a re-seed) — capture the hired state.
+    await tour.step(page, "The training applicant shows as hired", async () => {
+      await expect(applicantRow.getByText(/hired/i)).toBeVisible({ timeout: 10_000 });
+    });
+  }
 
   await tour.step(page, "Coach compliance grid", async () => {
     await page.goto("/admin/coaches", { waitUntil: "domcontentloaded" });

@@ -1778,7 +1778,7 @@ git commit -m "docs(training): add the training walkthrough README"
 
 **Interfaces:** none.
 
-- [ ] **Step 1: Confirm the main suite is unaffected**
+- [x] **Step 1: Confirm the main suite is unaffected**
 
 ```bash
 npx tsc --noEmit
@@ -1787,7 +1787,7 @@ npx playwright test --config playwright.config.ts --list | tail -5
 
 Expected: `tsc` reports 0 errors; the root config's test list contains no `training/` paths (it only ever scanned `tests/e2e/`, unchanged by this plan).
 
-- [ ] **Step 2: Fresh seed, then the full pipeline in one shot**
+- [x] **Step 2: Fresh seed, then the full pipeline in one shot**
 
 With the dev server running (`npm run dev:bws`):
 
@@ -1798,7 +1798,7 @@ npm run training:videos
 
 Expected: 6 passed, 0 failed.
 
-- [ ] **Step 3: Verify every output directory has the full artifact set**
+- [x] **Step 3: Verify every output directory has the full artifact set**
 
 ```bash
 for w in coach-core coach-practices admin-hire-compliance admin-sequencing referee-gameday venue-manager; do
@@ -1814,7 +1814,7 @@ done
 
 Expected: every workflow prints `video.webm: OK`, `captions.json: OK`, and `>= 3: OK`.
 
-- [ ] **Step 4: Verify the deck slot pickup end-to-end**
+- [x] **Step 4: Verify the deck slot pickup end-to-end**
 
 ```bash
 ls training/screenshots/ref/ training/screenshots/venue_manager/
@@ -1825,7 +1825,7 @@ grep -c "data:image/png;base64" docs/operations/artifacts/training/role.venue_ma
 
 Expected: `training/screenshots/ref/` contains `ref_check_in.png` and `score_reporting_final.png`; `training/screenshots/venue_manager/` contains `team_check_in.png`; both deck files' embedded-image counts are `>= 1` (each deck also inlines any pre-existing screenshots from earlier runs, so an exact count isn't asserted — just that embedding actually happened).
 
-- [ ] **Step 5: Re-run the whole pipeline once more without re-seeding, to confirm repeatability**
+- [x] **Step 5: Re-run the whole pipeline once more without re-seeding, to confirm repeatability**
 
 ```bash
 npm run training:videos
@@ -1833,7 +1833,7 @@ npm run training:videos
 
 Expected: 6 passed again — confirms every write each walkthrough performs (hire, credential edit, sequence attach, score report) is safe to run twice in a row without a DB reset in between, per Design Decision 1.
 
-- [ ] **Step 6: Final commit (if Step 3–5 required any fixes, they've already been committed per-task; this step only applies if verification itself needed a follow-up patch)**
+- [x] **Step 6: Final commit (if Step 3–5 required any fixes, they've already been committed per-task; this step only applies if verification itself needed a follow-up patch)**
 
 If all prior steps passed with no code changes, there is nothing to commit here — the plan is complete as of Task 13's commit. If a selector or fixture needed adjustment during verification, commit that fix now with a message describing what verification caught, e.g.:
 
