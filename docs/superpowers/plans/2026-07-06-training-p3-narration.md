@@ -731,7 +731,7 @@ EOF
 - Consumes: `TrainingDeckOptions.presentNarrationWorkflows` from Task 3.
 - Produces: nothing new consumed elsewhere — this is the last piece of the appendix feature's wiring.
 
-- [ ] **Step 1: Add the narration-presence probe**
+- [x] **Step 1: Add the narration-presence probe**
 
 In `scripts/ops-catalog/index.ts`'s `render` command, immediately before the `for (const role of catalog.roles) {` loop that builds `optsByRole` (the loop already reading intros and screenshots), add:
 
@@ -768,17 +768,17 @@ to:
         optsByRole[role.id] = { intro, screenshots, presentNarrationWorkflows };
 ```
 
-- [ ] **Step 2: Type check**
+- [x] **Step 2: Type check**
 
 Run: `npx tsc --noEmit`
 Expected: 0 errors.
 
-- [ ] **Step 3: Confirm render is still a no-op (no narration files exist yet)**
+- [x] **Step 3: Confirm render is still a no-op (no narration files exist yet)**
 
 Run: `npm run catalog:render && git status --porcelain docs/operations/artifacts/`
 Expected: empty output — `training/narration/` still doesn't exist, `fs.readdir` still hits `ENOENT`, `presentNarrationWorkflows` is still `[]` for every role, and `renderWalkthroughsSlide` already treats `[]` identically to `undefined`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/ops-catalog/index.ts
