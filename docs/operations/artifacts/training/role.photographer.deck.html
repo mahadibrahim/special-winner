@@ -113,47 +113,38 @@
     <p class="role-description">Field-side contractor responsible for media capture per assignment, feeding
 the media tagging and publishing pipeline.</p></section>
 <section class="slide" data-index="1"><h2>Your day: pre game</h2>
-    <ul class="phase-overview"><li>Photographer check-in — <em>Accountable | Responsible</em></li></ul></section>
+    <ul class="phase-overview"><li>Photographer check-in — <em>You own this</em></li></ul></section>
 <section class="slide" data-index="2"><h2>Photographer check-in</h2>
-    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.photographer_check_in</code></p>
+    <p class="slide-kicker">You own this</p>
     <div class="activity-meta">
-      <p><strong>Trigger:</strong> ~30 minutes before first assigned match</p>
-      <p><strong>Tracking:</strong> signature</p>
-      <p><strong>Escalation:</strong> If photographer no-show, event_lead escalates to role.venue_manager;
-pull from standby pool or accept reduced media coverage.</p>
+      <p><strong>When:</strong> About 30 minutes before first assigned match</p>
+      <p><strong>If something goes wrong:</strong> If Photographer no-show, Event Lead escalates to Venue Manager; pull from standby pool or accept reduced media coverage.</p>
     </div>
-    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <p class="procedure-fallback">Your lead will walk you through this step by step during your first shift.</p>
     <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photographer_check_in.png" alt="Screenshot: photographer_check_in" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
 <section class="slide" data-index="3"><h2>Your day: post game</h2>
-    <ul class="phase-overview"><li>Photo handoff (raw upload) — <em>Accountable | Responsible</em></li></ul></section>
+    <ul class="phase-overview"><li>Photo handoff (raw upload) — <em>You own this</em></li></ul></section>
 <section class="slide" data-index="4"><h2>Photo handoff (raw upload)</h2>
-    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.photo_handoff</code></p>
+    <p class="slide-kicker">You own this</p>
     <div class="activity-meta">
-      <p><strong>Trigger:</strong> After photographer&#39;s last match of the day</p>
-      <p><strong>Tracking:</strong> counter_increment</p>
-      <p><strong>Escalation:</strong> If upload fails, photographer notifies role.event_lead who escalates
-to role.director; raw cards are retained until upload succeeds.</p>
+      <p><strong>When:</strong> After Photographer&#39;s last match of the day</p>
+      <p><strong>If something goes wrong:</strong> If upload fails, Photographer notifies Event Lead who escalates to Director; raw cards are retained until upload succeeds.</p>
     </div>
-    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <p class="procedure-fallback">Your lead will walk you through this step by step during your first shift.</p>
     <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_handoff.png" alt="Screenshot: photo_handoff" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
 <section class="slide" data-index="5"><h2>Your day: post day</h2>
-    <ul class="phase-overview"><li>Photo publish — <em>Accountable | Responsible</em></li></ul></section>
+    <ul class="phase-overview"><li>Photo publish — <em>You own this</em></li></ul></section>
 <section class="slide" data-index="6"><h2>Photo publish</h2>
-    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.photo_publish</code></p>
+    <p class="slide-kicker">You own this</p>
     <div class="activity-meta">
-      <p><strong>Trigger:</strong> After tagging is complete (typically T+24h)</p>
-      <p><strong>Tracking:</strong> counter_increment</p>
-      <p><strong>Escalation:</strong> If photographer unreachable, role.event_lead pings role.director;
-publish authority can be re-assigned for that batch only.</p>
+      <p><strong>When:</strong> After tagging is complete (typically 24 hours)</p>
+      <p><strong>If something goes wrong:</strong> If Photographer unreachable, Event Lead pings Director; publish authority can be re-assigned for that batch only.</p>
     </div>
-    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <p class="procedure-fallback">Your lead will walk you through this step by step during your first shift.</p>
     <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_publish.png" alt="Screenshot: photo_publish" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
 <section class="slide" data-index="7"><h2>Safety &amp; escalation</h2>
-    <ul class="escalation-list"><li>If photographer no-show, event_lead escalates to role.venue_manager;
-pull from standby pool or accept reduced media coverage.</li><li>If photographer unreachable, role.event_lead pings role.director;
-publish authority can be re-assigned for that batch only.</li><li>If upload fails, photographer notifies role.event_lead who escalates
-to role.director; raw cards are retained until upload succeeds.</li></ul>
-    <p><strong>You may need to escalate to:</strong> Director, Event Lead, Venue Manager</p></section>
+    <ul class="escalation-list"><li>If Photographer no-show, Event Lead escalates to Venue Manager; pull from standby pool or accept reduced media coverage.</li><li>If Photographer unreachable, Event Lead pings Director; publish authority can be re-assigned for that batch only.</li><li>If upload fails, Photographer notifies Event Lead who escalates to Director; raw cards are retained until upload succeeds.</li></ul>
+    <p><strong>You may need to escalate to:</strong> Director, Event Lead, Photographer, Venue Manager</p></section>
 <section class="slide" data-index="8"><h2>Your tools</h2>
     <table class="tools-table"><tbody><tr><td><code>/media</code></td><td>Media dashboard</td></tr><tr><td><code>/media/queue</code></td><td>Capture queue for today&#39;s assignments</td></tr><tr><td><code>/media/jobs</code></td><td>Your assigned media jobs</td></tr><tr><td><code>/media/tag/[session_id]</code></td><td>Tag captured media to players/teams</td></tr></tbody></table></section>
 <section class="slide" data-index="9"><h2>Where to get help</h2>

@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
+import path from "node:path";
 import {
   renderTrainingDeck,
   generateAllTrainingDecks,
 } from "../../../../src/lib/ops-catalog/views/training-deck";
+import { loadCatalog } from "../../../../src/lib/ops-catalog/loader";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
 import type { Role } from "../../../../src/lib/ops-catalog/types/role";
 
@@ -61,8 +63,12 @@ describe("renderTrainingDeck — your day + activity slides", () => {
     expect(html).toMatch(/Your day: day setup.*Your day: pre game/s);
     // Per-activity detail content.
     expect(html).toContain("Rainout decision");
-    expect(html).toContain("Accountable | Responsible");
-    expect(html).toContain("Weather/field condition within 2h of kickoff suggests cancellation");
+    // Natural-language involvement, not the raw RACI label. venue_manager is
+    // both accountable and responsible for rainout_decision, which reads as
+    // full ownership.
+    expect(html).toContain("You own this");
+    // Trigger shorthand ("2h") is humanized into plain English.
+    expect(html).toContain("Weather/field condition within 2 hours of kickoff suggests cancellation");
     expect(html).toContain("Open admin panel.");
     expect(html).toContain("Check weather.");
     expect(html).toContain("Decide.");
@@ -91,6 +97,125 @@ describe("renderTrainingDeck — your day + activity slides", () => {
     expect(html).not.toContain(
       "../../../../training/screenshots/venue_manager/rainout_decision.png",
     );
+  });
+});
+
+describe("renderTrainingDeck — natural language pass", () => {
+  it("never renders the raw act.* catalog id badge on activity slides", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    expect(html).not.toMatch(/<code>act\./);
+    expect(html).not.toContain("act.rainout_decision");
+    expect(html).not.toContain("act.field_setup");
+  });
+
+  it("never renders bare RACI jargon labels", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    expect(html).not.toContain("Accountable");
+    expect(html).not.toContain("Responsible");
+  });
+
+  it("translates responsible-only involvement to \"You're part of this\"", () => {
+    // field_setup: venue_manager is accountable, coach is responsible only.
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    expect(html).toContain("You&#39;re part of this");
+  });
+
+  it("resolves role.<id> tokens AND bare role-id words in free text on activity slides, not just the safety slide", () => {
+    const catalog = buildInlineCatalog();
+    catalog.roles = [
+      ...catalog.roles,
+      {
+        id: "role.director",
+        name: "Director",
+        tier: "leadership",
+        kind: "worker",
+        description: "Oversight.",
+        manual_target: "employee_manual",
+      },
+    ];
+    catalog.activities = catalog.activities.map((a) =>
+      a.id === fixtureIds.activities.fieldSetup
+        ? {
+            ...a,
+            escalation_path:
+              "If venue_manager unreachable, escalate to role.director per the\nstandard handoff ladder.",
+          }
+        : a,
+    );
+
+    const html = renderTrainingDeck(catalog, fixtureIds.roles.venueManager);
+    expect(html).not.toContain("role.director");
+    expect(html).not.toContain("venue_manager unreachable");
+    expect(html).toContain(
+      "If Venue Manager unreachable, escalate to Director per the standard handoff ladder.",
+    );
+  });
+
+  it("never renders the catalog stub procedure text, replacing it with a natural fallback", () => {
+    const catalog = buildInlineCatalog();
+    catalog.activities = catalog.activities.map((a) =>
+      a.id === fixtureIds.activities.fieldSetup
+        ? {
+            ...a,
+            sop_body:
+              "Procedure to be authored by the operating team. This activity is defined\n" +
+              "in the catalog; full step-by-step SOP content will be added in a\n" +
+              "follow-up PR.\n",
+          }
+        : a,
+    );
+
+    const html = renderTrainingDeck(catalog, fixtureIds.roles.venueManager);
+    expect(html).not.toContain("Procedure to be authored");
+    expect(html).toContain(
+      "Your lead will walk you through this step by step during your first shift.",
+    );
+  });
+
+  it("drops the field-name 'Tracking:' label, but mentions the checklist in natural language when one exists", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    // field_setup (day_setup phase) is tracking_method "checklist".
+    expect(html).not.toContain("Tracking:");
+    expect(html).toContain("checklist for this");
+  });
+
+  it("does not mention a checklist for activities tracked another way", () => {
+    // rainout_decision is tracking_method "form" for venue_manager.
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const rainoutSlideStart = html.indexOf("<h2>Rainout decision</h2>");
+    const nextSlideStart = html.indexOf("<section", rainoutSlideStart + 1);
+    const rainoutSlide = html.slice(rainoutSlideStart, nextSlideStart);
+    expect(rainoutSlide).not.toContain("checklist for this");
+  });
+
+  it("renders 'When:' instead of 'Trigger:' and humanizes duration shorthand", () => {
+    const catalog = buildInlineCatalog();
+    catalog.activities = catalog.activities.map((a) =>
+      a.id === fixtureIds.activities.fieldSetup
+        ? { ...a, trigger: "48h before event window" }
+        : a,
+    );
+    const html = renderTrainingDeck(catalog, fixtureIds.roles.venueManager);
+    expect(html).not.toContain("Trigger:");
+    expect(html).toContain("48 hours before the event");
+  });
+});
+
+describe("renderTrainingDeck — real catalog regression guard", () => {
+  it("never renders the catalog stub procedure text in any generated deck", async () => {
+    const catalogDir = path.resolve(__dirname, "../../../../docs/operations/catalog");
+    const catalog = await loadCatalog(catalogDir);
+    const decks = generateAllTrainingDecks(catalog);
+
+    expect(Object.keys(decks).length).toBeGreaterThan(0);
+    for (const [roleId, html] of Object.entries(decks)) {
+      expect(html, `deck for ${roleId} should not leak the catalog stub string`).not.toContain(
+        "Procedure to be authored by the operating team",
+      );
+      expect(html, `deck for ${roleId} should not leak a raw act.* badge`).not.toMatch(
+        /<code>act\./,
+      );
+    }
   });
 });
 
