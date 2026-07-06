@@ -10,6 +10,11 @@ import {
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 const templateSegmentSchema = z.object({
   name: z.string(),
   type: z.string(),
@@ -179,7 +184,7 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error creating template:", error);
-    if (error.code === "23503") {
+    if (getDbErrorCode(error) === "23503") {
       return new Response(JSON.stringify({ error: "Invalid sport or stage reference" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to create template" }), { status: 500 });

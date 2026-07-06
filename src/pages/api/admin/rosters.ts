@@ -7,6 +7,11 @@ import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth"
 import { scheduleGroupCreation } from "@/lib/messaging/group-lifecycle";
 import { syncTeamGroupMembership } from "@/lib/messaging/team-group-sync";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 const rosterSchema = z.object({
   teamId: z.string().uuid("Valid team ID is required"),
   registrationId: z.string().uuid("Valid registration ID is required"),
@@ -205,7 +210,7 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error adding player to roster:", error);
-    if (error.code === "23503") {
+    if (getDbErrorCode(error) === "23503") {
       return new Response(JSON.stringify({ error: "Invalid team or registration" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to add player to roster" }), { status: 500 });

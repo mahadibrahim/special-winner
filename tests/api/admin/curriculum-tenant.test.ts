@@ -209,3 +209,154 @@ describe("curriculum/templates — tenant scoping", () => {
     expect([403, 404]).toContain(res.status);
   });
 });
+
+// ----------------------------------------------------------------------------
+// PG error-code unwrapping regression (DrizzleQueryError wraps the pg error
+// at error.cause.code, not error.code — see getDbErrorCode() in each route).
+// ----------------------------------------------------------------------------
+
+describe("curriculum/skills — duplicate slug (409)", () => {
+  it("rejects a second skill with the same sportId + slug on create", async (ctx) => {
+    if (!orgASkillDomainId || !orgADevelopmentStageId) {
+      ctx.skip();
+      return;
+    }
+    const slug = testSlug("dup-skill");
+    const basePayload = {
+      sportId: orgASportId,
+      domainId: orgASkillDomainId,
+      stageId: orgADevelopmentStageId,
+      slug,
+      assessmentMethod: "observation",
+    };
+
+    const first = await apiFetch("/api/admin/curriculum/skills", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Duplicate Skill One" }),
+    });
+    await expectJson(first, 201);
+
+    const second = await apiFetch("/api/admin/curriculum/skills", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Duplicate Skill Two" }),
+    });
+    const json = await expectJson(second, 409);
+    expect(json.error).toMatch(/already exists/i);
+  });
+
+  it("rejects a PUT that renames a skill onto another skill's slug", async (ctx) => {
+    if (!orgASkillDomainId || !orgADevelopmentStageId) {
+      ctx.skip();
+      return;
+    }
+    const takenSlug = testSlug("dup-skill-taken");
+    const movingSlug = testSlug("dup-skill-moving");
+    const basePayload = {
+      sportId: orgASportId,
+      domainId: orgASkillDomainId,
+      stageId: orgADevelopmentStageId,
+      assessmentMethod: "observation",
+    };
+
+    const takenRes = await apiFetch("/api/admin/curriculum/skills", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Taken Slug Skill", slug: takenSlug }),
+    });
+    await expectJson(takenRes, 201);
+
+    const movingRes = await apiFetch("/api/admin/curriculum/skills", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Moving Slug Skill", slug: movingSlug }),
+    });
+    const moving = await expectJson(movingRes, 201);
+
+    const putRes = await apiFetch(`/api/admin/curriculum/skills/${moving.skill.id}`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({ slug: takenSlug }),
+    });
+    const json = await expectJson(putRes, 409);
+    expect(json.error).toMatch(/already exists/i);
+  });
+});
+
+describe("curriculum/activities — duplicate slug (409)", () => {
+  it("rejects a second activity with the same sportId + slug on create", async () => {
+    const slug = testSlug("dup-act");
+    const basePayload = {
+      sportId: orgASportId,
+      slug,
+      activityType: "technical" as const,
+      howToPlay: "Duplicate slug regression test payload.",
+    };
+
+    const first = await apiFetch("/api/admin/curriculum/activities", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Duplicate Activity One" }),
+    });
+    await expectJson(first, 201);
+
+    const second = await apiFetch("/api/admin/curriculum/activities", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Duplicate Activity Two" }),
+    });
+    const json = await expectJson(second, 409);
+    expect(json.error).toMatch(/already exists/i);
+  });
+
+  it("rejects a PUT that renames an activity onto another activity's slug", async () => {
+    const takenSlug = testSlug("dup-act-taken");
+    const movingSlug = testSlug("dup-act-moving");
+    const basePayload = {
+      sportId: orgASportId,
+      activityType: "technical" as const,
+      howToPlay: "Duplicate slug regression test payload.",
+    };
+
+    const takenRes = await apiFetch("/api/admin/curriculum/activities", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Taken Slug Activity", slug: takenSlug }),
+    });
+    await expectJson(takenRes, 201);
+
+    const movingRes = await apiFetch("/api/admin/curriculum/activities", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ ...basePayload, name: "Moving Slug Activity", slug: movingSlug }),
+    });
+    const moving = await expectJson(movingRes, 201);
+
+    const putRes = await apiFetch(`/api/admin/curriculum/activities/${moving.activity.id}`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({ slug: takenSlug }),
+    });
+    const json = await expectJson(putRes, 409);
+    expect(json.error).toMatch(/already exists/i);
+  });
+});
+
+describe("curriculum/templates — invalid stage reference (400)", () => {
+  it("rejects an unknown stageId on create instead of 500ing", async () => {
+    const res = await apiFetch("/api/admin/curriculum/templates", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        sportId: orgASportId,
+        stageId: "00000000-0000-4000-8000-000000000000",
+        name: "Should be rejected",
+        totalDurationMinutes: 60,
+        structure: [],
+      }),
+    });
+    const json = await expectJson(res, 400);
+    expect(json.error).toMatch(/sport or stage/i);
+  });
+});

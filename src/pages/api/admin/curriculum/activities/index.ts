@@ -10,6 +10,11 @@ import {
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 const activitySchema = z.object({
   sportId: z.string().uuid(),
   name: z.string().min(1, "Name is required"),
@@ -194,7 +199,7 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error creating activity:", error);
-    if (error.code === "23505") {
+    if (getDbErrorCode(error) === "23505") {
       return new Response(JSON.stringify({ error: "An activity with this slug already exists" }), { status: 409 });
     }
     return new Response(JSON.stringify({ error: "Failed to create activity" }), { status: 500 });
