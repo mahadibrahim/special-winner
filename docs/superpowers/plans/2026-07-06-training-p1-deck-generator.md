@@ -1541,17 +1541,17 @@ git commit -m "feat(ops-catalog): wire training decks into catalog:render, add -
 - Consumes: everything from Tasks 1-9.
 - Produces: nothing new — this task only verifies and commits the generated artifacts.
 
-- [ ] **Step 1: Run the full ops-catalog unit test suite**
+- [x] **Step 1: Run the full ops-catalog unit test suite**
 
 Run: `npx vitest run tests/unit/ops-catalog/`
 Expected: PASS — every test file, including `role-manual.test.ts` and `training-deck.test.ts`.
 
-- [ ] **Step 2: Run catalog validation**
+- [x] **Step 2: Run catalog validation**
 
 Run: `npm run catalog:validate`
 Expected: `Validation passed: N warning(s)` (same warning count as before this plan — no new validation errors/warnings were introduced, since no catalog YAML changed).
 
-- [ ] **Step 3: Render once and check the generated decks open and print cleanly**
+- [x] **Step 3: Render once and check the generated decks open and print cleanly**
 
 Run: `npm run catalog:render`
 Expected: same summary line as Task 9 Step 5.
@@ -1561,7 +1561,7 @@ Open `docs/operations/artifacts/training/role.venue_manager.deck.html` directly 
 - Pressing the right-arrow key or clicking "Next →" advances to the next slide.
 - Print preview (Cmd+P) shows one slide per page with the nav buttons and progress indicator hidden.
 
-- [ ] **Step 4: Confirm re-render is a no-op (idempotency / byte-stability)**
+- [x] **Step 4: Confirm re-render is a no-op (idempotency / byte-stability)**
 
 Run:
 ```bash
@@ -1570,7 +1570,7 @@ git status --porcelain docs/operations/artifacts/
 ```
 Expected: no output from `git status --porcelain` — the second render produced byte-identical files to the first (or to whatever was already committed once Step 6 below commits them), matching the CI up-to-date check's exact assertion.
 
-- [ ] **Step 5: Confirm the `--embed` mode runs cleanly with no screenshots present**
+- [x] **Step 5: Confirm the `--embed` mode runs cleanly with no screenshots present**
 
 Run: `npm run catalog:render:embed`
 Expected: same summary line, with `(embed mode)` appended; no errors even though `training/screenshots/` doesn't exist yet in this repo (Phase 2 not built) — the CLI's `ENOENT`-tolerant `fs.readdir` catch handles this.
@@ -1583,7 +1583,7 @@ git status --porcelain docs/operations/artifacts/
 ```
 Expected: no output.
 
-- [ ] **Step 6: Stage and commit the generated artifacts**
+- [x] **Step 6: Stage and commit the generated artifacts**
 
 ```bash
 git add docs/operations/artifacts/training/
@@ -1595,7 +1595,7 @@ Expected: 9 new files listed, all under `docs/operations/artifacts/training/role
 git commit -m "chore(ops-catalog): render initial training decks for all worker roles"
 ```
 
-- [ ] **Step 7: Final typecheck + full ops-catalog CI-equivalent sequence**
+- [x] **Step 7: Final typecheck + full ops-catalog CI-equivalent sequence**
 
 Run, in order:
 ```bash
