@@ -4,6 +4,7 @@ import { teams, seasons, programs, users, rosters, registrations, familyMembers,
 import { eq, asc, desc, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { getCoachCredentialGapWarnings } from "@/lib/compliance/coach-credential-gaps";
 
 const teamSchema = z.object({
   seasonId: z.string().uuid("Valid season ID is required"),
@@ -188,10 +189,22 @@ export const POST: APIRoute = async (context) => {
       })
       .returning();
 
-    return new Response(JSON.stringify({ team: newTeam }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    // Soft compliance gate: warn (never block) when an assigned coach is
+    // missing required credentials.
+    const complianceWarnings = await getCoachCredentialGapWarnings(
+      orgContext.organizationId,
+      [newTeam.coachUserId, newTeam.assistantCoachUserId].filter(
+        (v): v is string => Boolean(v),
+      ),
+    );
+
+    return new Response(
+      JSON.stringify({ team: newTeam, complianceWarnings }),
+      {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error: any) {
     console.error("Error creating team:", error);
     if (error.code === "23503" || error.cause?.code === "23503") {
@@ -269,10 +282,21 @@ export const PUT: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Team not found" }), { status: 404 });
     }
 
-    return new Response(JSON.stringify({ team: updatedTeam }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    // Soft compliance gate — same contract as POST.
+    const complianceWarnings = await getCoachCredentialGapWarnings(
+      orgContext.organizationId,
+      [updatedTeam.coachUserId, updatedTeam.assistantCoachUserId].filter(
+        (v): v is string => Boolean(v),
+      ),
+    );
+
+    return new Response(
+      JSON.stringify({ team: updatedTeam, complianceWarnings }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error: any) {
     console.error("Error updating team:", error);
     if (error.code === "23503" || error.cause?.code === "23503") {

@@ -2735,7 +2735,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: `requiredCredentialGaps`, `CredentialGap` (Task 1); `coachCredentials`; existing teams endpoint behavior.
 - Produces: `getCoachCredentialGapWarnings(organizationId: string, userIds: string[]): Promise<CoachComplianceWarning[]>` where `CoachComplianceWarning = { userId: string; coachName: string; gaps: CredentialGap[] }`; teams POST → `201 { team, complianceWarnings }`, PUT → `200 { team, complianceWarnings }`. Additive response field — existing consumers (`teams-list.tsx`, `tests/e2e/seasons-scaffold.spec.ts`) read `data.team`/`data.teams` and are unaffected.
 
-- [ ] **Step 1: Write the failing API test**
+- [x] **Step 1: Write the failing API test**
 
 Create `tests/api/admin/team-compliance-warning.test.ts`:
 
@@ -2887,12 +2887,12 @@ describe("team coach assignment compliance warnings", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/team-compliance-warning.test.ts`
 Expected: FAIL — `json.complianceWarnings` is `undefined` (endpoint doesn't emit it yet).
 
-- [ ] **Step 3: Create the warnings helper**
+- [x] **Step 3: Create the warnings helper**
 
 Create `src/lib/compliance/coach-credential-gaps.ts`:
 
@@ -2965,7 +2965,7 @@ export async function getCoachCredentialGapWarnings(
 }
 ```
 
-- [ ] **Step 4: Attach warnings to the teams endpoint**
+- [x] **Step 4: Attach warnings to the teams endpoint**
 
 In `src/pages/api/admin/teams.ts`, add to the imports block at the top:
 
@@ -3032,7 +3032,7 @@ with:
     );
 ```
 
-- [ ] **Step 5: Surface the warning in the teams UI**
+- [x] **Step 5: Surface the warning in the teams UI**
 
 In `src/components/admin/teams-list.tsx`, inside `handleSubmit`, replace:
 
@@ -3077,14 +3077,14 @@ with:
 
 (`toast` is already imported from `sonner` in this file.)
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/team-compliance-warning.test.ts`
 Expected: PASS (4 tests).
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/compliance/coach-credential-gaps.ts src/pages/api/admin/teams.ts src/components/admin/teams-list.tsx tests/api/admin/team-compliance-warning.test.ts
