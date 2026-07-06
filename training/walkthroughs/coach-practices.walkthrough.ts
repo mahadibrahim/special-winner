@@ -43,8 +43,21 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
       await waitForHydration(page);
     });
 
+    // Always-available read-only beat: scroll through the session plan's
+    // activity blocks so the video shows the full plan body, not just the
+    // header. Keeps this walkthrough at >=3 recorded steps (the Task 14
+    // verification contract) even though the reflection step below almost
+    // never fires — session-detail.tsx only renders the reflection button
+    // once session.status === "completed", and this read-mostly walkthrough
+    // deliberately never completes a session (Design Decision 1). A short
+    // waitFor (not 15s) is enough for that check: the button is in the
+    // header actions block that rendered before the scroll step above.
+    await tour.step(page, "Review the session plan structure", async () => {
+      await page.mouse.wheel(0, 600);
+    });
+
     const reflectionButton = page.getByRole("button", { name: /reflection/i }).first();
-    await reflectionButton.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+    await reflectionButton.waitFor({ state: "visible", timeout: 2_000 }).catch(() => {});
     if ((await reflectionButton.count()) > 0) {
       await tour.step(page, "Open the post-session reflection form (not saved)", async () => {
         await reflectionButton.click();
