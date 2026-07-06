@@ -1488,7 +1488,7 @@ git commit -m "feat(coach-onboarding): add admin onboarding-summary + shadow-ses
 
 No dedicated automated test for this task (no existing sibling component in this codebase — e.g. `PrePracticeChecklist`, `CoachCredentialsGrid` — has a component-level test; verification is manual dev-server check now, and the new Task 9 E2E spec exercises it end-to-end).
 
-- [ ] **Step 1: Write the component**
+- [x] **Step 1: Write the component**
 
 ```tsx
 // src/components/coach/onboarding-checklist.tsx
@@ -1621,7 +1621,7 @@ export function OnboardingChecklist() {
 }
 ```
 
-- [ ] **Step 2: Insert into the dashboard (two branches — see Design decision 7)**
+- [x] **Step 2: Insert into the dashboard (two branches — see Design decision 7)**
 
 In `src/components/coach/coach-dashboard-overview.tsx`, add the import alongside the existing ones:
 
@@ -1676,7 +1676,7 @@ to:
       {/* Stats Overview */}
 ```
 
-- [ ] **Step 3: Manual verification**
+- [x] **Step 3: Manual verification**
 
 ```bash
 npm run dev
@@ -1684,7 +1684,7 @@ npm run dev
 
 Sign in as `coach@test.aspiresports.com` / `TestCoach123!`, visit `/coach`. Expected: "Getting started" card renders above the stats grid (this seeded account already has teams, so the empty-state branch isn't hit — the Task 9 E2E spec covers the zero-teams path against a freshly created coach).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/coach/onboarding-checklist.tsx src/components/coach/coach-dashboard-overview.tsx
