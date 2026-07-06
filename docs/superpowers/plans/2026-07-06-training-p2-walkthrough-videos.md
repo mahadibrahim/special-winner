@@ -1198,7 +1198,7 @@ git commit -m "feat(training): add the coach-core walkthrough"
 - Consumes: same shared helpers as Task 7.
 - Produces: `training/output/coach-practices/**`.
 
-- [ ] **Step 1: Create `training/walkthroughs/coach-practices.walkthrough.ts`**
+- [x] **Step 1: Create `training/walkthroughs/coach-practices.walkthrough.ts`**
 
 ```ts
 import { test } from "@playwright/test";
@@ -1250,7 +1250,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Type-check**
+- [x] **Step 2: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -1258,7 +1258,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run it against a live dev server**
+- [x] **Step 3: Run it against a live dev server**
 
 ```bash
 npm run training:videos -- coach-practices
@@ -1266,7 +1266,7 @@ npm run training:videos -- coach-practices
 
 Expected: 1 passed. `training/output/coach-practices/` contains `video.webm`, `captions.json`, and at least 1 PNG (more if a session/reflection was found — run Task 10's admin-sequencing walkthrough first so a real draft session exists to open).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add training/walkthroughs/coach-practices.walkthrough.ts
