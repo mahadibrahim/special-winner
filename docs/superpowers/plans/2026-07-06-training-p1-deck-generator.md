@@ -161,7 +161,7 @@ git commit -m "refactor(ops-catalog): export phase/involvement helpers for reuse
   - `export function renderTrainingDeck(catalog: Catalog, roleId: string, opts?: TrainingDeckOptions): string`
   - Internal (used by later tasks in the same file, not exported): `escapeHtml`, `activitySlug`, `SCREENSHOT_RELATIVE_PREFIX`, `screenshotSlotHtml`, `renderDeckShell`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/unit/ops-catalog/views/training-deck.test.ts`:
 
@@ -213,12 +213,12 @@ describe("renderTrainingDeck", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — cannot find module `src/lib/ops-catalog/views/training-deck.ts`.
 
-- [ ] **Step 3: Implement the shell + title slide**
+- [x] **Step 3: Implement the shell + title slide**
 
 Create `src/lib/ops-catalog/views/training-deck.ts`:
 
@@ -465,12 +465,12 @@ export function renderTrainingDeck(
 
 Note: `PHASE_ORDER`/`involvementOf`/`Activity` are imported now but not yet used — Task 3 wires them in. This is intentional (the import line for Task 3 is already correct here) but will make `tsc`/eslint flag unused imports until Task 3 lands; that's fine mid-plan since each task's own test run is what gates it, not a global lint pass (the plan's final Task 10 runs `tsc --noEmit` once everything is wired).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: PASS — all 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts
