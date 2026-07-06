@@ -3,6 +3,11 @@ import {
   generatePracticeDates,
   zonedDateTimeToUtc,
 } from "@/lib/curriculum/sequence-instantiation";
+import {
+  buildDraftSessionPlans,
+  type SequenceEntryForBuild,
+  type TemplateForBuild,
+} from "@/lib/curriculum/sequence-instantiation";
 
 // 2026 DST facts (America/New_York): spring forward Sun 2026-03-08 (EST→EDT),
 // fall back Sun 2026-11-01 (EDT→EST). 2026-03-01 and 2026-10-25 are Sundays.
@@ -83,5 +88,117 @@ describe("generatePracticeDates", () => {
     );
     expect(dates).toHaveLength(2);
     expect(truncatedBySeasonEnd).toBe(false);
+  });
+});
+
+describe("buildDraftSessionPlans", () => {
+  const templateA: TemplateForBuild = {
+    id: "tpl-a",
+    name: "Dribbling Under Pressure",
+    totalDurationMinutes: 60,
+    structure: [
+      { name: "Warmup", type: "warmup", durationMinutes: 10, description: "Free dribbling" },
+      { name: "Main game", type: "technical", durationMinutes: 40 },
+      { name: "Cooldown", type: "cooldown", durationMinutes: 10 },
+    ],
+    equipmentNeeded: ["cones", "balls"],
+    focusSkillIds: ["skill-1"],
+  };
+  const templateB: TemplateForBuild = {
+    id: "tpl-b",
+    name: "First Passing Session",
+    totalDurationMinutes: 45,
+    structure: null,
+    equipmentNeeded: null,
+    focusSkillIds: null,
+  };
+  const entries: SequenceEntryForBuild[] = [
+    { position: 2, templateId: "tpl-b", objectives: null, notes: null },
+    { position: 1, templateId: "tpl-a", objectives: ["Keep the ball close"], notes: "Focus on the shy kids" },
+  ];
+  const templatesById = new Map([
+    ["tpl-a", templateA],
+    ["tpl-b", templateB],
+  ]);
+  const dates = [
+    new Date("2026-09-05T13:00:00.000Z"),
+    new Date("2026-09-12T13:00:00.000Z"),
+  ];
+
+  it("maps entry N (by position, regardless of input order) to the Nth date", () => {
+    const plans = buildDraftSessionPlans({
+      teamId: "team-1",
+      coachUserId: "coach-1",
+      entries,
+      templatesById,
+      dates,
+    });
+    expect(plans).toHaveLength(2);
+    expect(plans[0].templateId).toBe("tpl-a");
+    expect(plans[0].scheduledDate.toISOString()).toBe("2026-09-05T13:00:00.000Z");
+    expect(plans[1].templateId).toBe("tpl-b");
+    expect(plans[1].scheduledDate.toISOString()).toBe("2026-09-12T13:00:00.000Z");
+  });
+
+  it("builds draft rows carrying the template's content and the entry's coaching intent", () => {
+    const [first] = buildDraftSessionPlans({
+      teamId: "team-1",
+      coachUserId: "coach-1",
+      entries,
+      templatesById,
+      dates,
+    });
+    expect(first).toMatchObject({
+      teamId: "team-1",
+      coachUserId: "coach-1",
+      title: "Week 1 of 2 — Dribbling Under Pressure",
+      durationMinutes: 60,
+      status: "draft",
+      objectives: ["Keep the ball close"],
+      equipmentNeeded: ["cones", "balls"],
+      focusSkillIds: ["skill-1"],
+      preSessionNotes: "Focus on the shy kids",
+    });
+    expect(first.segments).toEqual([
+      { order: 1, name: "Warmup", type: "warmup", durationMinutes: 10, notes: "Free dribbling" },
+      { order: 2, name: "Main game", type: "technical", durationMinutes: 40 },
+      { order: 3, name: "Cooldown", type: "cooldown", durationMinutes: 10 },
+    ]);
+  });
+
+  it("stops at the number of dates when fewer dates than entries (season-end truncation)", () => {
+    const plans = buildDraftSessionPlans({
+      teamId: "team-1",
+      coachUserId: "coach-1",
+      entries,
+      templatesById,
+      dates: [dates[0]],
+    });
+    expect(plans).toHaveLength(1);
+    expect(plans[0].title).toBe("Week 1 of 2 — Dribbling Under Pressure"); // "of 2": total reflects the full arc
+  });
+
+  it("handles a template without structure (empty segments, not null crash)", () => {
+    const plans = buildDraftSessionPlans({
+      teamId: "team-1",
+      coachUserId: "coach-1",
+      entries: [{ position: 1, templateId: "tpl-b", objectives: null, notes: null }],
+      templatesById,
+      dates: [dates[0]],
+    });
+    expect(plans[0].segments).toEqual([]);
+    expect(plans[0].durationMinutes).toBe(45);
+  });
+
+  it("throws when an entry references a template not in the map", () => {
+    expect(() =>
+      buildDraftSessionPlans({
+        teamId: "team-1",
+        coachUserId: "coach-1",
+        entries: [{ position: 1, templateId: "tpl-missing", objectives: null, notes: null }],
+        templatesById,
+        dates: [dates[0]],
+      }),
+    ).toThrow(/unknown template/);
   });
 });

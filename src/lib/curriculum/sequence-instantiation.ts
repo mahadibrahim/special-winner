@@ -101,3 +101,105 @@ export function generatePracticeDates(
   }
   return { dates, truncatedBySeasonEnd };
 }
+
+// ---------------------------------------------------------------------------
+// Draft building — entry N of the sequence → the Nth generated practice date.
+
+export interface TemplateSegment {
+  name: string;
+  type: string;
+  durationMinutes: number;
+  description?: string;
+  activitySuggestions?: string[];
+  coachingScript?: string;
+}
+
+export interface SequenceEntryForBuild {
+  position: number; // 1..N
+  templateId: string;
+  objectives: string[] | null;
+  notes: string | null;
+}
+
+export interface TemplateForBuild {
+  id: string;
+  name: string;
+  totalDurationMinutes: number;
+  structure: TemplateSegment[] | null;
+  equipmentNeeded: string[] | null;
+  focusSkillIds: string[] | null;
+}
+
+export interface BuildDraftsInput {
+  teamId: string;
+  coachUserId: string;
+  /** Entries in any order — sorted by `position` internally. */
+  entries: SequenceEntryForBuild[];
+  templatesById: Map<string, TemplateForBuild>;
+  /** From generatePracticeDates. Sorted entry k → dates[k]; extra entries
+   * beyond dates.length are dropped (season-end truncation). */
+  dates: Date[];
+}
+
+/** Shape matches session_plans insert columns exactly (status always "draft"). */
+export interface DraftSessionPlan {
+  teamId: string;
+  templateId: string;
+  coachUserId: string;
+  title: string;
+  scheduledDate: Date;
+  durationMinutes: number;
+  status: "draft";
+  segments: {
+    order: number;
+    name: string;
+    type: string;
+    durationMinutes: number;
+    notes?: string;
+  }[];
+  focusSkillIds: string[] | null;
+  objectives: string[] | null;
+  equipmentNeeded: string[] | null;
+  preSessionNotes: string | null;
+}
+
+export function buildDraftSessionPlans(
+  input: BuildDraftsInput,
+): DraftSessionPlan[] {
+  const sorted = [...input.entries].sort((a, b) => a.position - b.position);
+  const total = sorted.length;
+  const n = Math.min(total, input.dates.length);
+  const plans: DraftSessionPlan[] = [];
+  for (let i = 0; i < n; i++) {
+    const entry = sorted[i];
+    const template = input.templatesById.get(entry.templateId);
+    if (!template) {
+      throw new Error(
+        `Sequence entry at position ${entry.position} references unknown template ${entry.templateId}`,
+      );
+    }
+    plans.push({
+      teamId: input.teamId,
+      templateId: template.id,
+      coachUserId: input.coachUserId,
+      // "Week i of total" over sorted index, not entry.position — positions
+      // are 1..N by construction, but the index is what pairs with dates.
+      title: `Week ${i + 1} of ${total} — ${template.name}`,
+      scheduledDate: input.dates[i],
+      durationMinutes: template.totalDurationMinutes,
+      status: "draft",
+      segments: (template.structure ?? []).map((s, idx) => ({
+        order: idx + 1,
+        name: s.name,
+        type: s.type,
+        durationMinutes: s.durationMinutes,
+        ...(s.description ? { notes: s.description } : {}),
+      })),
+      focusSkillIds: template.focusSkillIds,
+      objectives: entry.objectives,
+      equipmentNeeded: template.equipmentNeeded,
+      preSessionNotes: entry.notes,
+    });
+  }
+  return plans;
+}
