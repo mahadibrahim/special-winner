@@ -442,6 +442,13 @@
       "when": 1783202142587,
       "tag": "0062_spotty_next_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1783340517575,
+      "tag": "0063_coach_credentials",
+      "breakpoints": true
     }
   ]
 }

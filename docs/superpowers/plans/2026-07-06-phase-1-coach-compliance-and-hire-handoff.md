@@ -82,7 +82,7 @@ Copied from the program plan — every task's requirements implicitly include th
   - `requiredCredentialGaps(rowsForUser: CredentialLike[], now: Date): CredentialGap[]`
   - types `CredentialLike`, `EffectiveCredentialStatus`, `CredentialGap` (all from `@/lib/compliance/coach-credentials`)
 
-- [ ] **Step 1: Write the failing unit test**
+- [x] **Step 1: Write the failing unit test**
 
 Create `tests/unit/coach-credential-status.test.ts`:
 
@@ -236,12 +236,12 @@ describe("requiredCredentialGaps", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/coach-credential-status.test.ts`
 Expected: FAIL — `Cannot find module '@/lib/compliance/coach-credentials'` (or equivalent resolve error).
 
-- [ ] **Step 3: Create the compliance module**
+- [x] **Step 3: Create the compliance module**
 
 Create `src/lib/compliance/coach-credentials.ts`:
 
@@ -338,12 +338,12 @@ export function requiredCredentialGaps(
 }
 ```
 
-- [ ] **Step 4: Run the unit test to verify it passes**
+- [x] **Step 4: Run the unit test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/coach-credential-status.test.ts`
 Expected: PASS (12 tests).
 
-- [ ] **Step 5: Create the schema file**
+- [x] **Step 5: Create the schema file**
 
 Create `src/lib/db/schema/coach-credentials.ts`:
 
@@ -445,7 +445,7 @@ export type CoachCredential = typeof coachCredentials.$inferSelect;
 export type NewCoachCredential = typeof coachCredentials.$inferInsert;
 ```
 
-- [ ] **Step 6: Export from the schema index**
+- [x] **Step 6: Export from the schema index**
 
 In `src/lib/db/schema/index.ts`, directly below the line `export * from "./coach-guidance";`, add:
 
@@ -453,12 +453,12 @@ In `src/lib/db/schema/index.ts`, directly below the line `export * from "./coach
 export * from "./coach-credentials";
 ```
 
-- [ ] **Step 7: Generate the migration**
+- [x] **Step 7: Generate the migration**
 
 Run: `npm run db:generate -- --name coach_credentials`
 Expected output ends with something like: `Your SQL migration file ➜ src/lib/db/migrations/0063_coach_credentials.sql 🚀` (the number may be higher if main has moved — use whatever it prints; referred to as `00NN` below).
 
-- [ ] **Step 8: Edit the generated migration for idempotency**
+- [x] **Step 8: Edit the generated migration for idempotency**
 
 Open `src/lib/db/migrations/00NN_coach_credentials.sql`. Drizzle emits bare `CREATE TYPE` statements; wrap each in the 0023/0024 guard pattern so a drifted DB doesn't kill the deploy. The first two statements must become exactly:
 
@@ -469,14 +469,14 @@ DO $$ BEGIN CREATE TYPE "public"."credential_status" AS ENUM('pending', 'valid',
 
 Leave the `CREATE TABLE "coach_credentials"`, FK, and index statements as generated (new table — the 0023/0024 precedent only guards types). Do NOT edit files under `src/lib/db/migrations/meta/`.
 
-- [ ] **Step 9: Apply the migration to the staging DB and type-check**
+- [x] **Step 9: Apply the migration to the staging DB and type-check**
 
 Run: `./scripts/with-bws.sh npm run db:migrate`
 Expected: completes without error (applies `00NN_coach_credentials`).
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/lib/db/schema/coach-credentials.ts src/lib/db/schema/index.ts src/lib/compliance/coach-credentials.ts src/lib/db/migrations tests/unit/coach-credential-status.test.ts
