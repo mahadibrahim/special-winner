@@ -1067,7 +1067,7 @@ git commit -m "chore(training): add the separate Playwright project for walkthro
 - Consumes: `signIn`, `waitForHydration`, `TEST_USERS` from `../../tests/utils/test-helpers`; `createTour`, `registerVideoCapture` from `../lib/tour`.
 - Produces: `training/output/coach-core/{video.webm,captions.json,*.png}` when run.
 
-- [ ] **Step 1: Create `training/walkthroughs/coach-core.walkthrough.ts`**
+- [x] **Step 1: Create `training/walkthroughs/coach-core.walkthrough.ts`**
 
 ```ts
 import { test } from "@playwright/test";
@@ -1162,7 +1162,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Type-check**
+- [x] **Step 2: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -1170,7 +1170,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run it against a live dev server**
+- [x] **Step 3: Run it against a live dev server**
 
 With the dev server already running (`npm run dev:bws` or `npm run dev`) and seeded (`npm run db:seed:e2e`):
 
@@ -1180,7 +1180,7 @@ npm run training:videos -- coach-core
 
 Expected: 1 passed. `training/output/coach-core/` contains `video.webm`, `captions.json`, and at least 5 numbered PNGs (dashboard, teams, roster, attendance, assessments — more if the conditional steps fired).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add training/walkthroughs/coach-core.walkthrough.ts
