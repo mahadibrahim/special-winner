@@ -16,6 +16,15 @@ import { createTour, registerVideoCapture } from "../lib/tour";
  * No step is tagged with a deckSlug: none of docs/operations/catalog's 63
  * activities cover coach roster/attendance/assessment UI (see the plan's
  * Scouting Finding 1).
+ *
+ * Each conditional locator below is preceded by a `waitFor(...).catch()` —
+ * roster-table.tsx, attendance-tracker.tsx, and player-assessment-detail.tsx
+ * all fetch their data client-side in a useEffect after mount, so
+ * waitForHydration (which only confirms the page's top-level component
+ * mounted) isn't sufficient on its own; an immediate `.count()` check races
+ * that fetch and can read 0 even when the element does appear a moment
+ * later. Same root cause as the fix applied to admin-hire-compliance's
+ * coach-credentials-grid check during Task 9 verification.
  */
 const WORKFLOW = "coach-core";
 registerVideoCapture(test, WORKFLOW);
@@ -38,6 +47,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
   });
 
   const rosterLink = page.locator('a[href^="/coach/roster/"]').first();
+  await rosterLink.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
   if ((await rosterLink.count()) > 0) {
     await tour.step(page, "Open a team roster", async () => {
       await rosterLink.click();
@@ -47,6 +57,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
     const teamId = new URL(page.url()).pathname.split("/").pop()!;
 
     const addNoteButton = page.getByTitle("Add note").first();
+    await addNoteButton.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
     if ((await addNoteButton.count()) > 0) {
       await tour.step(page, "Open the add-note UI for a player (not submitted)", async () => {
         await addNoteButton.click();
@@ -59,6 +70,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
     });
 
     const presentButton = page.getByTitle("Present").first();
+    await presentButton.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
     if ((await presentButton.count()) > 0) {
       await tour.step(page, "Mark a player present (not saved)", async () => {
         await presentButton.click();
@@ -72,6 +84,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
   });
 
   const playerHeading = page.getByRole("heading", { level: 3 }).first();
+  await playerHeading.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
   if ((await playerHeading.count()) > 0) {
     await tour.step(page, "Open a player's assessment detail", async () => {
       await playerHeading.click();
@@ -79,6 +92,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
     });
 
     const recordButton = page.getByRole("button", { name: /assessment/i }).first();
+    await recordButton.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
     if ((await recordButton.count()) > 0) {
       await tour.step(page, "Open the record-assessment form (not submitted)", async () => {
         await recordButton.click();

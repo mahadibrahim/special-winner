@@ -13,6 +13,13 @@ import { createTour, registerVideoCapture } from "../lib/tour";
  * attach step generates, so completing it here would make later re-runs of
  * both walkthroughs show a stale "already completed" state instead of a
  * fresh demo. No deckSlug: practice planning isn't an ops-catalog activity.
+ *
+ * The conditional locators below are preceded by a `waitFor(...).catch()` —
+ * practices-overview.tsx and session-detail.tsx fetch their data
+ * client-side in a useEffect after mount, so an immediate `.count()` check
+ * right after waitForHydration can race that fetch (same root cause as the
+ * fix applied to admin-hire-compliance's coach-credentials-grid check
+ * during Task 9 verification).
  */
 const WORKFLOW = "coach-practices";
 registerVideoCapture(test, WORKFLOW);
@@ -29,6 +36,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
   });
 
   const sessionLink = page.locator('a[href^="/coach/practices/"]').first();
+  await sessionLink.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
   if ((await sessionLink.count()) > 0) {
     await tour.step(page, "Open a practice session", async () => {
       await sessionLink.click();
@@ -36,6 +44,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
     });
 
     const reflectionButton = page.getByRole("button", { name: /reflection/i }).first();
+    await reflectionButton.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
     if ((await reflectionButton.count()) > 0) {
       await tour.step(page, "Open the post-session reflection form (not saved)", async () => {
         await reflectionButton.click();
