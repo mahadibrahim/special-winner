@@ -134,6 +134,14 @@ export const seasons = pgTable(
     dayOfWeek: varchar("day_of_week", { length: 3 }), // 'mon'..'sun'
     startTime: time("start_time"), // 18:00
     endTime: time("end_time"),     // 20:00
+    // Phase 3 (curriculum sequencing): optional pointer to the curriculum
+    // sequence attached to this season. Declared WITHOUT .references() to
+    // avoid a circular module import (programs -> curriculum-sequences ->
+    // practice-planning -> teams -> programs); the FK constraint
+    // (ON DELETE SET NULL) is added by hand in the migration instead, so
+    // deleting a sequence nulls this pointer while generated drafts —
+    // which have no FK to sequences at all — are untouched.
+    curriculumSequenceId: uuid("curriculum_sequence_id"),
     settings: jsonb("settings"),
     isTest: boolean("is_test").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
