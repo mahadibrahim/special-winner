@@ -1249,7 +1249,7 @@ git commit -m "feat(coach): assessment-cadence nudge card on the dashboard"
 }
 ```
 
-- [ ] **Step 1: Write the failing API test**
+- [x] **Step 1: Write the failing API test**
 
 Create `tests/api/admin/assessment-coverage.test.ts`:
 
@@ -1343,12 +1343,12 @@ describe("GET /api/admin/curriculum/assessment-coverage", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `TEST_BASE_URL=http://localhost:4321 npx vitest run --config vitest.config.ts --project api tests/api/admin/assessment-coverage.test.ts`
 Expected: FAIL — 404 (route missing).
 
-- [ ] **Step 3: Implement the endpoint**
+- [x] **Step 3: Implement the endpoint**
 
 Create `src/pages/api/admin/curriculum/assessment-coverage.ts`:
 
@@ -1543,12 +1543,12 @@ export const GET: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `TEST_BASE_URL=http://localhost:4321 npx vitest run --config vitest.config.ts --project api tests/api/admin/assessment-coverage.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/api/admin/curriculum/assessment-coverage.ts tests/api/admin/assessment-coverage.test.ts
