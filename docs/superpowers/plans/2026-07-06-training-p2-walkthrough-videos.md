@@ -598,7 +598,7 @@ git commit -m "test(training): seed a training curriculum sequence fixture for t
 
 Each edit is the same two-line mechanical change: add the import, call the hook as the first line of the component body. All nine are bundled into one task since none has its own test file and the "test" for each is the same shared verification step (7).
 
-- [ ] **Step 1: `practices-overview.tsx`**
+- [x] **Step 1: `practices-overview.tsx`**
 
 ```ts
 import { useState, useEffect } from "react"
@@ -615,23 +615,23 @@ export default function PracticesOverview() {
   const [sessions, setSessions] = useState<SessionPlan[]>([])
 ```
 
-- [ ] **Step 2: `roster-table.tsx`**
+- [x] **Step 2: `roster-table.tsx`**
 
 Add `import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"` near the top imports, and as the first line inside `export default function RosterTable({ teamId }: RosterTableProps) {`, add `useHydrationBeacon()`.
 
-- [ ] **Step 3: `attendance-tracker.tsx`**
+- [x] **Step 3: `attendance-tracker.tsx`**
 
 Add `import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"`, and as the first line inside `export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {`, add `useHydrationBeacon()`.
 
-- [ ] **Step 4: `player-assessment-detail.tsx`**
+- [x] **Step 4: `player-assessment-detail.tsx`**
 
 Add `import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"`, and as the first line inside `export default function PlayerAssessmentDetail({ ... }) {`, add `useHydrationBeacon()`.
 
-- [ ] **Step 5: `session-detail.tsx`**
+- [x] **Step 5: `session-detail.tsx`**
 
 Add `import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"`, and as the first line inside `export default function SessionDetail({ sessionId }: SessionDetailProps) {`, add `useHydrationBeacon()`.
 
-- [ ] **Step 6: `applications-list.tsx`, `coach-credentials-grid.tsx`, `referee-matches.tsx`, `match-report.tsx`**
+- [x] **Step 6: `applications-list.tsx`, `coach-credentials-grid.tsx`, `referee-matches.tsx`, `match-report.tsx`**
 
 Same pattern in each:
 - `applications-list.tsx`: import the hook, call it first inside `export default function ApplicationsList() {`.
@@ -639,7 +639,7 @@ Same pattern in each:
 - `referee-matches.tsx`: import the hook, call it first inside `export function RefereeMatches({ matches }: { matches: RefereeMatch[] }) {`.
 - `match-report.tsx`: import the hook, call it first inside `export function MatchReport({ data }: { data: MatchReportData }) {`.
 
-- [ ] **Step 7: Verify no existing e2e spec regresses**
+- [x] **Step 7: Verify no existing e2e spec regresses**
 
 ```bash
 grep -rn "coach/roster\|coach/attendance\|coach/assess\|coach/practices\|admin/applications\|admin/coaches\|'/referee'\|\"/referee\"" tests/e2e/
@@ -647,7 +647,7 @@ grep -rn "coach/roster\|coach/attendance\|coach/assess\|coach/practices\|admin/a
 
 Expected: only `tests/e2e/coach-dashboard.spec.ts` matches, and (already confirmed during scouting) none of its assertions visit `/coach/roster/[teamId]`, `/coach/attendance/[teamId]`, `/coach/practices/**`, `/admin/applications`, `/admin/coaches`, or `/referee/**`, nor does it call `waitForHydration()` on any route these nine components render — so this change cannot break it. If a new match ever appears here in the future, re-check it before merging.
 
-- [ ] **Step 8: Type-check**
+- [x] **Step 8: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -655,7 +655,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/components/coach/practices-overview.tsx src/components/coach/roster-table.tsx \

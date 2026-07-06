@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -27,6 +28,8 @@ interface ApplicationRow {
 }
 
 export default function ApplicationsList() {
+  useHydrationBeacon();
+
   const [rows, setRows] = useState<ApplicationRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,6 +118,8 @@ interface EditState {
 }
 
 export default function CoachCredentialsGrid() {
+  useHydrationBeacon();
+
   const [coaches, setCoaches] = useState<CoachRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);

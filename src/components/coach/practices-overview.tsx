@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -105,6 +106,8 @@ function isUpcoming(dateStr: string): boolean {
 }
 
 export default function PracticesOverview() {
+  useHydrationBeacon()
+
   const [sessions, setSessions] = useState<SessionPlan[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [sequenceProgress, setSequenceProgress] = useState<SequenceProgressItem[]>([])
