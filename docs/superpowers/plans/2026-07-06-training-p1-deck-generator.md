@@ -489,7 +489,7 @@ git commit -m "feat(ops-catalog): training deck shell + title slide"
 - Consumes: `TrainingDeckOptions.screenshots` (Task 2), `PHASE_ORDER`/`involvementOf`/`Involvement` (Task 1).
 - Produces: internal `MatchedActivity`, `matchActivities(catalog, roleId)`, `renderPhaseOverviewSlide`, `renderActivitySlide` — used by Task 4-6's slide assembly and by `generateAllTrainingDecks` (Task 7).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/unit/ops-catalog/views/training-deck.test.ts`:
 
@@ -536,12 +536,12 @@ describe("renderTrainingDeck — your day + activity slides", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — phase-overview and activity-detail content is missing (only the title slide exists so far).
 
-- [ ] **Step 3: Implement phase/activity slide rendering**
+- [x] **Step 3: Implement phase/activity slide rendering**
 
 In `src/lib/ops-catalog/views/training-deck.ts`, add (after `renderTitleSlide`, before `export interface TrainingDeckOptions`):
 
@@ -639,12 +639,12 @@ export function renderTrainingDeck(
 
 (Move the `export interface TrainingDeckOptions { ... }` declaration above `renderTrainingDeck` if it isn't already — it must be defined before use for readability, though TypeScript doesn't require declaration order for interfaces.)
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: PASS — all tests in the file.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts

@@ -48,3 +48,44 @@ describe("renderTrainingDeck", () => {
     expect(html).not.toContain("Handles <script>");
   });
 });
+
+describe("renderTrainingDeck — your day + activity slides", () => {
+  it("includes a phase-overview slide and per-activity detail slides for matched activities", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+
+    // Phase overview headings (day_setup comes before pre_game in PHASE_ORDER).
+    expect(html).toMatch(/Your day: day setup.*Your day: pre game/s);
+    // Per-activity detail content.
+    expect(html).toContain("Rainout decision");
+    expect(html).toContain("Accountable | Responsible");
+    expect(html).toContain("Weather/field condition within 2h of kickoff suggests cancellation");
+    expect(html).toContain("Open admin panel.");
+    expect(html).toContain("Check weather.");
+    expect(html).toContain("Decide.");
+  });
+
+  it("excludes activities the role has no involvement in", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.parent);
+    expect(html).not.toContain("Rainout decision");
+    expect(html).not.toContain("Field setup");
+  });
+
+  it("emits a graceful-degrade screenshot slot by default (no opts.screenshots)", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    expect(html).toContain(
+      "../../../../training/screenshots/venue_manager/rainout_decision.png",
+    );
+    expect(html).toContain("this.parentElement.classList.add('screenshot-missing')");
+  });
+
+  it("embeds a data URI screenshot when opts.screenshots has a matching slug", () => {
+    const screenshots = new Map([["rainout_decision", "data:image/png;base64,AAAA"]]);
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager, {
+      screenshots,
+    });
+    expect(html).toContain('src="data:image/png;base64,AAAA"');
+    expect(html).not.toContain(
+      "../../../../training/screenshots/venue_manager/rainout_decision.png",
+    );
+  });
+});

@@ -216,6 +216,66 @@ function renderTitleSlide(role: Catalog["roles"][number]): string {
   `.trim();
 }
 
+interface MatchedActivity {
+  activity: Activity;
+  involvement: Involvement;
+}
+
+function matchActivities(catalog: Catalog, roleId: string): MatchedActivity[] {
+  const matched: MatchedActivity[] = [];
+  for (const activity of catalog.activities) {
+    const involvement = involvementOf(activity, roleId);
+    if (involvement) matched.push({ activity, involvement });
+  }
+  // Sort by id for determinism independent of catalog load/file order.
+  matched.sort((a, b) => a.activity.id.localeCompare(b.activity.id));
+  return matched;
+}
+
+function renderPhaseOverviewSlide(phase: Activity["phase"], entries: MatchedActivity[]): string {
+  const items = entries
+    .map(
+      ({ activity, involvement }) =>
+        `<li>${escapeHtml(activity.name)} — <em>${escapeHtml(involvement)}</em></li>`,
+    )
+    .join("");
+  return `
+    <h2>Your day: ${escapeHtml(phase.replace(/_/g, " "))}</h2>
+    <ul class="phase-overview">${items}</ul>
+  `.trim();
+}
+
+function sopBodyToBullets(sopBody: string): string[] {
+  return sopBody
+    .trim()
+    .split("\n")
+    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+    .filter((line) => line.length > 0);
+}
+
+function renderActivitySlide(
+  roleId: string,
+  activity: Activity,
+  involvement: Involvement,
+  screenshots: Map<string, string> | undefined,
+): string {
+  const bullets = sopBodyToBullets(activity.sop_body);
+  const stepsHtml = bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
+  const slug = activitySlug(activity.id);
+
+  return `
+    <h2>${escapeHtml(activity.name)}</h2>
+    <p class="slide-kicker">${escapeHtml(involvement)} &middot; <code>${escapeHtml(activity.id)}</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> ${escapeHtml(activity.trigger)}</p>
+      <p><strong>Tracking:</strong> ${escapeHtml(activity.tracking_method)}</p>
+      <p><strong>Escalation:</strong> ${escapeHtml(activity.escalation_path.trim())}</p>
+    </div>
+    <ol class="steps">${stepsHtml}</ol>
+    ${screenshotSlotHtml(roleId, slug, screenshots)}
+  `.trim();
+}
+
 export interface TrainingDeckOptions {
   intro?: string;
   screenshots?: Map<string, string>;
@@ -231,8 +291,18 @@ export function renderTrainingDeck(
     throw new Error(`Unknown role "${roleId}"`);
   }
 
+  const matched = matchActivities(catalog, roleId);
   const slides: string[] = [];
   slides.push(renderTitleSlide(role));
+
+  for (const phase of PHASE_ORDER) {
+    const entries = matched.filter((m) => m.activity.phase === phase);
+    if (entries.length === 0) continue;
+    slides.push(renderPhaseOverviewSlide(phase, entries));
+    for (const { activity, involvement } of entries) {
+      slides.push(renderActivitySlide(roleId, activity, involvement, opts.screenshots));
+    }
+  }
 
   return renderDeckShell(role, slides);
 }
