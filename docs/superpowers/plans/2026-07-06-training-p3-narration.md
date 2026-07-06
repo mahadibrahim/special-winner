@@ -451,7 +451,7 @@ EOF
 - Consumes: `generateAllNarrationScripts(rootDir: string)` from Task 1.
 - Produces: `npm run training:narration` — no return value consumed elsewhere; this is a leaf CLI command.
 
-- [ ] **Step 1: Write `training/scripts/generate-narration.ts`**
+- [x] **Step 1: Write `training/scripts/generate-narration.ts`**
 
 ```typescript
 #!/usr/bin/env tsx
@@ -486,7 +486,7 @@ main().catch((err) => {
 });
 ```
 
-- [ ] **Step 2: Add the npm script**
+- [x] **Step 2: Add the npm script**
 
 In `package.json`, add next to `"training:videos"`:
 
@@ -494,7 +494,7 @@ In `package.json`, add next to `"training:videos"`:
     "training:narration": "tsx training/scripts/generate-narration.ts",
 ```
 
-- [ ] **Step 3: Run it against the current (empty) `training/output/`**
+- [x] **Step 3: Run it against the current (empty) `training/output/`**
 
 Run: `npm run training:narration`
 Expected: exit code 0, output listing all six workflows as missing (no `training/output/` exists yet), e.g.:
@@ -502,7 +502,7 @@ Expected: exit code 0, output listing all six workflows as missing (no `training
 No captions.json found for: coach-core, coach-practices, admin-hire-compliance, admin-sequencing, referee-gameday, venue-manager — run "npm run training:videos" first.
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add training/scripts/generate-narration.ts package.json
