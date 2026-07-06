@@ -1568,7 +1568,7 @@ git commit -m "feat(admin): tenant-scoped assessment-coverage report endpoint"
 - Consumes: `GET /api/admin/curriculum/assessment-coverage` (Task 6's shape); shared UI primitives `ErrorBanner` / `EmptyState` / `LoadingSkeleton`.
 - Produces: `/admin/curriculum/assessment-coverage` (SSR, middleware-gated admin page).
 
-- [ ] **Step 1: Create the report component**
+- [x] **Step 1: Create the report component**
 
 Create `src/components/admin/assessment-coverage-report.tsx`:
 
@@ -1812,7 +1812,7 @@ export function AssessmentCoverageReport() {
 }
 ```
 
-- [ ] **Step 2: Create the page**
+- [x] **Step 2: Create the page**
 
 Create `src/pages/admin/curriculum/assessment-coverage.astro` (mirrors `skills.astro`; SSR by default — no `prerender` flag, per the prerender policy for `/admin/**`):
 
@@ -1840,7 +1840,7 @@ const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 </BaseLayout>
 ```
 
-- [ ] **Step 3: Link it from the curriculum overview**
+- [x] **Step 3: Link it from the curriculum overview**
 
 In `src/components/admin/curriculum-manager.tsx`, add `ClipboardCheck` to the lucide import (the block importing `BookOpen, Dumbbell, FileText, ...`):
 
@@ -1874,7 +1874,7 @@ Then in the Quick Links grid, insert a fifth entry after the "Featured Activitie
 
 (The grid is `lg:grid-cols-4`; a fifth card wraps to a second row — fine.)
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 With the dev server running, sign in as `admin@test.aspiresports.com` / `TestAdmin123!` and load `http://localhost:4321/admin/curriculum/assessment-coverage`: the team table and coach rollup render (or the EmptyState if no running seasons); `/admin/curriculum` shows the new Quick Links card.
 
@@ -1884,7 +1884,7 @@ Expected: zero errors.
 Run: `npm run build`
 Expected: build succeeds; the new page appears in the SSR manifest (no prerender warnings beyond the known middleware false-positive noise).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/admin/assessment-coverage-report.tsx src/pages/admin/curriculum/assessment-coverage.astro src/components/admin/curriculum-manager.tsx
