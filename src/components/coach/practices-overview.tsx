@@ -59,6 +59,16 @@ interface SessionPlan {
   createdAt: string
 }
 
+interface SequenceProgressItem {
+  teamId: string
+  teamName: string
+  sequenceName: string
+  totalWeeks: number
+  completedWeeks: number
+  currentWeek: number
+  nextPlan: { id: string; title: string; scheduledDate: string } | null
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: "Draft", color: "text-ink-muted", bg: "bg-gray-500/20" },
   planned: { label: "Planned", color: "text-primary", bg: "bg-primary/10" },
@@ -97,6 +107,7 @@ function isUpcoming(dateStr: string): boolean {
 export default function PracticesOverview() {
   const [sessions, setSessions] = useState<SessionPlan[]>([])
   const [teams, setTeams] = useState<Team[]>([])
+  const [sequenceProgress, setSequenceProgress] = useState<SequenceProgressItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -116,6 +127,7 @@ export default function PracticesOverview() {
         const data = await res.json()
         setSessions(data.sessions || [])
         setTeams(data.teams || [])
+        setSequenceProgress(data.sequenceProgress || [])
       } catch (err) {
         console.error("Error fetching sessions:", err)
         setError(err instanceof Error ? err.message : "Failed to load sessions")
@@ -215,6 +227,39 @@ export default function PracticesOverview() {
           </div>
         </div>
       </div>
+
+      {/* Sequence progress (season plan pushed by the club) */}
+      {sequenceProgress.length > 0 && (
+        <section data-testid="sequence-progress" className="space-y-2">
+          {sequenceProgress.map((p) => (
+            <div key={p.teamId} className="p-4 rounded-xl bg-paper border border-border">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <p className="text-sm font-medium text-ink truncate">
+                  {p.teamName} — {p.sequenceName}
+                </p>
+                <span className="text-xs text-ink-muted shrink-0">
+                  Week {p.currentWeek} of {p.totalWeeks}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-cream-2 overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
+                  style={{ width: `${Math.round((p.completedWeeks / p.totalWeeks) * 100)}%` }}
+                />
+              </div>
+              {p.nextPlan && (
+                <a
+                  href={`/coach/practices/${p.nextPlan.id}`}
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  Next: {p.nextPlan.title}
+                  <ChevronRight className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">

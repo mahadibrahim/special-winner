@@ -10,6 +10,11 @@ import {
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 /**
  * Templates with organizationId === null are global; everyone with admin
  * access can read them but only super_admins should mutate them. We check
@@ -187,7 +192,7 @@ export const PUT: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error updating template:", error);
-    if (error.code === "23503") {
+    if (getDbErrorCode(error) === "23503") {
       return new Response(JSON.stringify({ error: "Invalid sport or stage reference" }), { status: 400 });
     }
     return new Response(JSON.stringify({ error: "Failed to update template" }), { status: 500 });
@@ -233,9 +238,18 @@ export const DELETE: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error deleting template:", error);
-    if (error.code === "23503") {
+    // Postgres raises 23001 (restrict_violation) for an explicit
+    // `ON DELETE RESTRICT` FK — distinct from 23503 (foreign_key_violation,
+    // the default NO ACTION code). curriculum_sequence_entries.template_id
+    // declares RESTRICT, so 23001 is what actually fires here; 23503 is
+    // checked too for defensiveness against other FK shapes.
+    const code = getDbErrorCode(error);
+    if (code === "23503" || code === "23001") {
       return new Response(
-        JSON.stringify({ error: "Cannot delete template that is used in session plans" }),
+        JSON.stringify({
+          error:
+            "Cannot delete template: it is used by a curriculum sequence — remove it from the sequence first",
+        }),
         { status: 400 }
       );
     }

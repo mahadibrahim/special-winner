@@ -117,3 +117,22 @@ export interface CurriculumContent {
   sessionPlans: SessionPlanContent[];
   coachGuidance: CoachGuidanceContent;
 }
+
+export interface SequenceEntryContent {
+  /** SessionPlanContent.name of the same sport — the loader resolves it to a
+   * practice_templates row via the (sportId, name) natural key. */
+  template: string;
+  objectives?: string[];
+  notes?: string;
+}
+
+export interface SequenceContent {
+  /** Natural key with sport (curriculum_sequences_sport_name_uniq). */
+  name: string;
+  sport: string; // sport slug: "soccer" | "basketball" | "hockey"
+  stage: string; // StageContent.slug
+  programType: "league" | "class" | "camp" | "clinic";
+  description: string;
+  /** Array order = position 1..N (entry N → Nth practice date). */
+  entries: SequenceEntryContent[];
+}

@@ -13,6 +13,7 @@ export * from "./teams";
 export * from "./curriculum";
 export * from "./assessments";
 export * from "./practice-planning";
+export * from "./curriculum-sequences";
 export * from "./coach-guidance";
 export * from "./coach-credentials";
 export * from "./curriculum-reviews";

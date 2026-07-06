@@ -46,18 +46,26 @@
  * at all, so it isn't subject to this guard -- it's unconditionally global.
  */
 import "dotenv/config";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../src/lib/db";
 import { organizations } from "../src/lib/db/schema/organizations";
 import { sports } from "../src/lib/db/schema/sports";
 import { developmentStages, skillDomains, skills } from "../src/lib/db/schema/curriculum";
 import { activities, practiceTemplates } from "../src/lib/db/schema/practice-planning";
 import {
+  curriculumSequences,
+  curriculumSequenceEntries,
+} from "../src/lib/db/schema/curriculum-sequences";
+import {
   coachPrompts,
   coachResources,
   coachingPrinciples,
 } from "../src/lib/db/schema/coach-guidance";
 import { CURRICULUM_CONTENT, validateRegistry } from "../src/lib/curriculum/content";
+import {
+  REFERENCE_SEQUENCES,
+  validateSequences,
+} from "../src/lib/curriculum/content/sequences";
 import {
   planUpserts,
   partitionForeignOwnership,
@@ -661,6 +669,79 @@ async function applyTemplates(
   }
 }
 
+async function applySequences(
+  db: DB,
+  orgId: string,
+  sportMap: SlugMap,
+  stageMap: SlugMap,
+): Promise<void> {
+  for (const seq of REFERENCE_SEQUENCES) {
+    const sportId = sportMap.get(seq.sport);
+    if (!sportId) {
+      throw new Error(`Cannot resolve sport for sequence "${seq.name}" (sport=${seq.sport})`);
+    }
+    const stageId = stageMap.get(seq.stage);
+    if (!stageId) {
+      throw new Error(`Cannot resolve stage "${seq.stage}" for sequence "${seq.name}"`);
+    }
+
+    // Resolve entry templates via the (sportId, name) natural key — the same
+    // key applyTemplates upserts on, so a full run is always self-consistent.
+    const templateNames = seq.entries.map((e) => e.template);
+    const templateRows = await db
+      .select({ id: practiceTemplates.id, name: practiceTemplates.name })
+      .from(practiceTemplates)
+      .where(
+        and(
+          eq(practiceTemplates.sportId, sportId),
+          inArray(practiceTemplates.name, templateNames),
+        ),
+      );
+    const templateIdByName = new Map(templateRows.map((t) => [t.name, t.id]));
+    for (const name of templateNames) {
+      if (!templateIdByName.has(name)) {
+        throw new Error(
+          `Sequence "${seq.name}": template "${name}" not found for sport ${seq.sport} — run order guarantees applyTemplates ran first, so this means a content mismatch`,
+        );
+      }
+    }
+
+    const set = {
+      organizationId: orgId,
+      developmentStageId: stageId,
+      programType: seq.programType,
+      description: seq.description,
+      updatedAt: new Date(),
+    };
+    const [row] = await db
+      .insert(curriculumSequences)
+      .values({ sportId, name: seq.name, ...set })
+      .onConflictDoUpdate({
+        target: [curriculumSequences.sportId, curriculumSequences.name],
+        set,
+      })
+      .returning({ id: curriculumSequences.id });
+
+    // Entries are replaced wholesale — order in the content file is the
+    // authoritative position 1..N.
+    await db
+      .delete(curriculumSequenceEntries)
+      .where(eq(curriculumSequenceEntries.sequenceId, row.id));
+    await db.insert(curriculumSequenceEntries).values(
+      seq.entries.map((e, i) => ({
+        sequenceId: row.id,
+        position: i + 1,
+        templateId: templateIdByName.get(e.template)!,
+        objectives: e.objectives ?? null,
+        notes: e.notes ?? null,
+      })),
+    );
+  }
+  console.log(
+    `  curriculum_sequences: ${REFERENCE_SEQUENCES.length} upserted (entries replaced)`,
+  );
+}
+
 async function applyCoachGuidance(
   db: DB,
   orgId: string,
@@ -829,6 +910,13 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
+  const sequenceViolations = validateSequences(CURRICULUM_CONTENT, REFERENCE_SEQUENCES);
+  if (sequenceViolations.length > 0) {
+    console.error("REFUSED: reference sequences failed validation:");
+    for (const v of sequenceViolations) console.error(`  - ${v}`);
+    process.exit(2);
+  }
+
   const db = getDb();
   const org = await resolveOrg(db, opts.org);
   console.log(`Target organization: ${org.name} (${org.id})`);
@@ -884,6 +972,7 @@ async function main(): Promise<void> {
       ...CURRICULUM_CONTENT.skills.map((s) => s.sport),
       ...CURRICULUM_CONTENT.activities.map((a) => a.sport),
       ...CURRICULUM_CONTENT.sessionPlans.map((p) => p.sport),
+      ...REFERENCE_SEQUENCES.map((s) => s.sport),
     ]),
   );
   const sportMap = await resolveSports(db, org.id, sportSlugs);
@@ -891,6 +980,7 @@ async function main(): Promise<void> {
   const skillIdMap = await applySkills(db, org.id, sportMap, domainMap, stageMap);
   await applyActivities(db, org.id, sportMap, stageMap, skillIdMap);
   await applyTemplates(db, org.id, sportMap, stageMap);
+  await applySequences(db, org.id, sportMap, stageMap);
   await applyCoachGuidance(
     db,
     org.id,
