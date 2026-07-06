@@ -44,7 +44,7 @@
 **Interfaces:**
 - Produces: `coachOnboardingProgress` table, `CoachOnboardingProgress` / `NewCoachOnboardingProgress` types — consumed by Tasks 3, 4, 5.
 
-- [ ] **Step 1: Confirm the next migration number**
+- [x] **Step 1: Confirm the next migration number**
 
 ```bash
 ls /Volumes/MahadData/Aspire-Sports/web-app/src/lib/db/migrations | tail -3
@@ -52,7 +52,7 @@ ls /Volumes/MahadData/Aspire-Sports/web-app/src/lib/db/migrations | tail -3
 
 Expected: the highest-numbered file is either `0064_job_applications_hired.sql` (Phase 3 branch not yet merged — you'll be `0065`) or `0065_*.sql` (Phase 3 already merged — you'll be `0066`). Note the number; `drizzle-kit generate` will pick it automatically once you run Step 4, but sanity-check the output filename matches what you expect before committing.
 
-- [ ] **Step 2: Write the schema file**
+- [x] **Step 2: Write the schema file**
 
 ```typescript
 // src/lib/db/schema/coach-onboarding.ts
@@ -129,7 +129,7 @@ export type CoachOnboardingProgress = typeof coachOnboardingProgress.$inferSelec
 export type NewCoachOnboardingProgress = typeof coachOnboardingProgress.$inferInsert;
 ```
 
-- [ ] **Step 3: Add the barrel export**
+- [x] **Step 3: Add the barrel export**
 
 In `src/lib/db/schema/index.ts`, immediately after the existing `coach-credentials` line:
 
@@ -138,7 +138,7 @@ export * from "./coach-credentials";
 export * from "./coach-onboarding";
 ```
 
-- [ ] **Step 4: Generate the migration**
+- [x] **Step 4: Generate the migration**
 
 ```bash
 cd /Volumes/MahadData/Aspire-Sports/web-app && npm run db:generate
@@ -168,7 +168,7 @@ CREATE INDEX "coach_onboarding_progress_org_idx" ON "coach_onboarding_progress" 
 CREATE INDEX "coach_onboarding_progress_user_idx" ON "coach_onboarding_progress" USING btree ("user_id");
 ```
 
-- [ ] **Step 5: Apply it locally**
+- [x] **Step 5: Apply it locally**
 
 ```bash
 npm run db:migrate
@@ -176,7 +176,7 @@ npm run db:migrate
 
 Expected: `coach_onboarding_progress` migration applied without error (this requires `DATABASE_URL` pointed at the Railway staging proxy per house rules — run via `npm run dev:bws`-sourced env, or export `DATABASE_URL` manually first).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/db/schema/coach-onboarding.ts src/lib/db/schema/index.ts src/lib/db/migrations/
@@ -195,7 +195,7 @@ git commit -m "feat(coach-onboarding): add coach_onboarding_progress table"
 - Consumes: nothing (pure module, mirrors `src/lib/compliance/coach-credentials.ts` house style).
 - Produces: `ONBOARDING_TASKS`, `MANUAL_TASK_KEYS`, `AUTO_TASK_KEYS`, `ADMIN_CONFIRM_TASK_KEYS`, `mergeOnboardingTasks(progressRows, autoFlags)`, `isOnboardingComplete(tasks)`, types `OnboardingTaskDef`, `OnboardingTaskStatus`, `AutoFlags` — consumed by Tasks 3 (DB helper), 4, 5 (API routes), 7 (dashboard card).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // tests/unit/coach-onboarding-tasks.test.ts
@@ -334,7 +334,7 @@ describe("isOnboardingComplete", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 npx vitest run tests/unit/coach-onboarding-tasks.test.ts
@@ -342,7 +342,7 @@ npx vitest run tests/unit/coach-onboarding-tasks.test.ts
 
 Expected: FAIL — `Cannot find module '@/lib/compliance/coach-onboarding'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```typescript
 // src/lib/compliance/coach-onboarding.ts
@@ -470,7 +470,7 @@ export function isOnboardingComplete(tasks: OnboardingTaskStatus[]): boolean {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 npx vitest run tests/unit/coach-onboarding-tasks.test.ts
@@ -478,7 +478,7 @@ npx vitest run tests/unit/coach-onboarding-tasks.test.ts
 
 Expected: PASS (13 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/compliance/coach-onboarding.ts tests/unit/coach-onboarding-tasks.test.ts
@@ -498,7 +498,7 @@ git commit -m "feat(coach-onboarding): add hardcoded task definitions + merge lo
 
 This helper touches the DB, so per house convention (`tests/unit` is pure-logic only, `tests/api` hits HTTP endpoints) it has no standalone test file — it's exercised end-to-end through Task 4's and Task 5's API tests.
 
-- [ ] **Step 1: Write the implementation**
+- [x] **Step 1: Write the implementation**
 
 ```typescript
 // src/lib/coach/onboarding-data.ts
@@ -613,7 +613,7 @@ export async function getOnboardingTasks(
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 ```bash
 npx tsc --noEmit
@@ -621,7 +621,7 @@ npx tsc --noEmit
 
 Expected: no new errors attributable to `src/lib/coach/onboarding-data.ts`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/coach/onboarding-data.ts
@@ -642,7 +642,7 @@ git commit -m "feat(coach-onboarding): add DB-facing auto-flag + write-once help
 - Consumes: `validateCoachAccess`, `getUserRoles`, `requireOrganizationContext` (all existing, `src/lib/auth/roles.ts`); `getOnboardingTasks` (Task 3); `MANUAL_TASK_KEYS` (Task 2); `coachOnboardingProgress` (Task 1).
 - Produces: `requireCoachPortalAccess(context)` — a new exported auth helper other coach-portal endpoints may reuse later; `GET`/`POST` on `/api/coach/onboarding`.
 
-- [ ] **Step 1: Add `requireCoachPortalAccess` to `src/lib/auth/roles.ts`**
+- [x] **Step 1: Add `requireCoachPortalAccess` to `src/lib/auth/roles.ts`**
 
 Add this function immediately after `requireCoachAccessToTeam` (after line 349 in the version read for this plan):
 
@@ -702,7 +702,7 @@ export async function requireCoachPortalAccess(context: APIContext): Promise<
 }
 ```
 
-- [ ] **Step 2: Export it from the barrel**
+- [x] **Step 2: Export it from the barrel**
 
 In `src/lib/auth/index.ts`, add `requireCoachPortalAccess` to the existing export list from `./roles`:
 
@@ -734,7 +734,7 @@ export {
 } from "./roles";
 ```
 
-- [ ] **Step 3: Write the failing API test**
+- [x] **Step 3: Write the failing API test**
 
 ```typescript
 // tests/api/coach/onboarding.test.ts
@@ -949,7 +949,7 @@ describe("Coach onboarding API", () => {
 });
 ```
 
-- [ ] **Step 4: Run test to verify it fails**
+- [x] **Step 4: Run test to verify it fails**
 
 ```bash
 npm run dev &
@@ -959,7 +959,7 @@ TEST_BASE_URL=http://localhost:4321 npx vitest run tests/api/coach/onboarding.te
 
 Expected: FAIL — `/api/coach/onboarding` does not exist (404s), or module-not-found if the route file is entirely absent.
 
-- [ ] **Step 5: Write the endpoint**
+- [x] **Step 5: Write the endpoint**
 
 ```typescript
 // src/pages/api/coach/onboarding.ts
@@ -1055,7 +1055,7 @@ export const POST: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 6: Run test to verify it passes**
+- [x] **Step 6: Run test to verify it passes**
 
 ```bash
 TEST_BASE_URL=http://localhost:4321 npx vitest run tests/api/coach/onboarding.test.ts
@@ -1063,7 +1063,7 @@ TEST_BASE_URL=http://localhost:4321 npx vitest run tests/api/coach/onboarding.te
 
 Expected: PASS (8 tests).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/auth/roles.ts src/lib/auth/index.ts src/pages/api/coach/onboarding.ts tests/api/coach/onboarding.test.ts
@@ -1082,7 +1082,7 @@ git commit -m "feat(coach-onboarding): add coach-facing onboarding endpoint + po
 - Consumes: `requireOrgAdminAccess`, `requireUserInOrg`, `ownershipDeniedResponse` (existing); `getOnboardingTasks` (Task 3); `ADMIN_CONFIRM_TASK_KEYS` (Task 2).
 - Produces: `GET`/`POST` on `/api/admin/coaches/onboarding` — consumed by Task 8 (admin grid).
 
-- [ ] **Step 1: Write the failing API test**
+- [x] **Step 1: Write the failing API test**
 
 ```typescript
 // tests/api/admin/coach-onboarding.test.ts
@@ -1283,7 +1283,7 @@ describe("Admin coach onboarding API", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 TEST_BASE_URL=http://localhost:4321 npx vitest run tests/api/admin/coach-onboarding.test.ts
@@ -1291,7 +1291,7 @@ TEST_BASE_URL=http://localhost:4321 npx vitest run tests/api/admin/coach-onboard
 
 Expected: FAIL — route does not exist (404s).
 
-- [ ] **Step 3: Write the endpoint**
+- [x] **Step 3: Write the endpoint**
 
 ```typescript
 // src/pages/api/admin/coaches/onboarding.ts
@@ -1459,7 +1459,7 @@ export const POST: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 TEST_BASE_URL=http://localhost:4321 npx vitest run tests/api/admin/coach-onboarding.test.ts
@@ -1467,7 +1467,7 @@ TEST_BASE_URL=http://localhost:4321 npx vitest run tests/api/admin/coach-onboard
 
 Expected: PASS (8 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/api/admin/coaches/onboarding.ts tests/api/admin/coach-onboarding.test.ts
