@@ -107,3 +107,31 @@ describe("renderTrainingDeck — checklist slides", () => {
     expect(occurrences).toBe(1);
   });
 });
+
+describe("renderTrainingDeck — safety & escalation slide", () => {
+  it("lists each matched activity's escalation path, deduplicated", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    expect(html).toContain("Safety &amp; escalation");
+    expect(html).toContain("If Venue Manager unreachable, on-call Director makes call.");
+    expect(html).toContain("Venue Manager radios assistant.");
+  });
+
+  it("resolves role.* mentions in escalation text to real role names", () => {
+    // The fixture's escalation_path strings use human-readable names (e.g.
+    // "Venue Manager"), not catalog role ids — real catalog activities do
+    // embed literal "role.xxx" tokens (see docs/operations/catalog/activities/
+    // act.ref_check_in.yaml's escalation_path for a real example). Mutate one
+    // fixture activity's escalation_path to exercise that real-world shape
+    // rather than asserting against text the fixture doesn't actually contain.
+    const catalog = buildInlineCatalog();
+    catalog.activities = catalog.activities.map((a) =>
+      a.id === fixtureIds.activities.postGameReport
+        ? { ...a, escalation_path: "If unresolved, escalate to role.venue_manager." }
+        : a,
+    );
+
+    const html = renderTrainingDeck(catalog, fixtureIds.roles.coach);
+    expect(html).toContain("You may need to escalate to:");
+    expect(html).toContain("Venue Manager");
+  });
+});

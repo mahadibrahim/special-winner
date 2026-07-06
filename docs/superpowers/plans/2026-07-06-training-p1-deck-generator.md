@@ -754,7 +754,7 @@ git commit -m "feat(ops-catalog): training deck checklist slides"
 - Consumes: `MatchedActivity[]`, `catalog.roles: Role[]`.
 - Produces: internal `renderSafetySlide` — used by `renderTrainingDeck`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/unit/ops-catalog/views/training-deck.test.ts`:
 
@@ -788,12 +788,12 @@ describe("renderTrainingDeck — safety & escalation slide", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — no "Safety &amp; escalation" content exists yet.
 
-- [ ] **Step 3: Implement the safety/escalation slide**
+- [x] **Step 3: Implement the safety/escalation slide**
 
 In `src/lib/ops-catalog/views/training-deck.ts`, add (after the checklist helpers):
 
@@ -841,12 +841,12 @@ Then extend `renderTrainingDeck`'s body (after the checklist-slide loop, before 
   return renderDeckShell(role, slides);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: PASS — all tests in the file.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts

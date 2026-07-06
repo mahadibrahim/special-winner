@@ -297,6 +297,40 @@ function renderChecklistSlide(catalog: Catalog, templateId: string): string | nu
   `.trim();
 }
 
+function renderSafetySlide(catalog: Catalog, matched: MatchedActivity[]): string {
+  const escalations = new Set<string>();
+  const mentionedRoleIds = new Set<string>();
+  const roleMentionRe = /role\.[a-z][a-z0-9_]*/g;
+
+  for (const { activity } of matched) {
+    const text = activity.escalation_path.trim();
+    escalations.add(text);
+    for (const m of text.matchAll(roleMentionRe)) {
+      mentionedRoleIds.add(m[0]);
+    }
+  }
+
+  const roleNames = [...mentionedRoleIds]
+    .map((id) => catalog.roles.find((r) => r.id === id)?.name)
+    .filter((name): name is string => Boolean(name))
+    .sort();
+
+  const escalationItems = [...escalations]
+    .sort()
+    .map((e) => `<li>${escapeHtml(e)}</li>`)
+    .join("");
+  const contactsHtml =
+    roleNames.length > 0
+      ? `<p><strong>You may need to escalate to:</strong> ${roleNames.map((n) => escapeHtml(n)).join(", ")}</p>`
+      : "";
+
+  return `
+    <h2>Safety &amp; escalation</h2>
+    <ul class="escalation-list">${escalationItems}</ul>
+    ${contactsHtml}
+  `.trim();
+}
+
 export interface TrainingDeckOptions {
   intro?: string;
   screenshots?: Map<string, string>;
@@ -329,6 +363,8 @@ export function renderTrainingDeck(
     const slide = renderChecklistSlide(catalog, templateId);
     if (slide) slides.push(slide);
   }
+
+  slides.push(renderSafetySlide(catalog, matched));
 
   return renderDeckShell(role, slides);
 }
