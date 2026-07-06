@@ -677,7 +677,7 @@ git commit -m "fix(e2e): add useHydrationBeacon to coach/admin/referee pages the
 **Interfaces:**
 - Produces: `export type TourPage`, `export interface StepOptions { deckSlug?: string; pauseMs?: number }`, `export interface CaptionEntry { index: number; caption: string; timestampMs: number; screenshot: string; deckSlug?: string }`, `export interface TourOptions { workflow: string; role: string; rootDir?: string }`, `export class Tour { step(page: TourPage, caption: string, fn: () => Promise<void>, opts?: StepOptions): Promise<void>; finish(): Promise<void> }`, `export function createTour(opts: TourOptions): Tour`, `export function registerVideoCapture(testObj: typeof import("@playwright/test").test, workflow: string, rootDir?: string): void`. Tasks 6–12 (walkthroughs) rely on exactly these names/signatures.
 
-- [ ] **Step 1: Write the failing unit tests**
+- [x] **Step 1: Write the failing unit tests**
 
 Create `tests/unit/training/tour.test.ts`:
 
@@ -784,12 +784,12 @@ describe("Tour", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/training/tour.test.ts`
 Expected: FAIL — `Cannot find module '../../../training/lib/tour'`.
 
-- [ ] **Step 3: Implement `training/lib/tour.ts`**
+- [x] **Step 3: Implement `training/lib/tour.ts`**
 
 Create `training/lib/tour.ts`:
 
@@ -946,12 +946,12 @@ export function registerVideoCapture(
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/training/tour.test.ts`
 Expected: PASS — all 6 tests green.
 
-- [ ] **Step 5: Type-check**
+- [x] **Step 5: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -959,7 +959,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add training/lib/tour.ts tests/unit/training/tour.test.ts
