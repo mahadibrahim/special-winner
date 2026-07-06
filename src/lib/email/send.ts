@@ -14,6 +14,7 @@ import {
   type BalanceReminderType,
 } from "./templates/payment-balance-reminder";
 import { SignInLinkEmail } from "./templates/sign-in-link";
+import { CoachInviteEmail } from "./templates/coach-invite";
 import { EmailVerificationEmail } from "./templates/email-verification";
 import { WelcomeEmail1 } from "./templates/welcome-1-welcome";
 import { WelcomeEmail2 } from "./templates/welcome-2-story";
@@ -640,6 +641,44 @@ export async function sendSignInLinkEmail(params: SendSignInLinkParams) {
     emailType: "sign_in_link",
     to: params.recipientEmail,
     subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+}
+
+// Coach hire invite (sent by POST /api/admin/applications/[id]/hire)
+export interface SendCoachInviteParams {
+  userId: string;
+  recipientEmail: string;
+  name: string;
+  inviteUrl: string;
+  expiresIn?: string;
+  brand?: BrandId;
+}
+
+export async function sendCoachInviteEmail(params: SendCoachInviteParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping coach invite email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const brandName = getBrandTheme(params.brand).displayName;
+
+  const { html, text } = await renderEmail(
+    CoachInviteEmail({
+      name: params.name,
+      inviteUrl: params.inviteUrl,
+      expiresIn: params.expiresIn ?? "72 hours",
+      brand: params.brand,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    emailType: "coach_invite",
+    to: params.recipientEmail,
+    subject: `Welcome to the ${brandName} coaching team`,
     html,
     text,
     from: fromForBrand(params.brand),

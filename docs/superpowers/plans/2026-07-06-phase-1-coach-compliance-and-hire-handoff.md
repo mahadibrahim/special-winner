@@ -587,7 +587,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: `renderEmail` from `@/lib/email/render`, `EmailLayout` primitives from `@/lib/email/components/email-layout`, `sendTransactionalEmail` (module-private in send.ts).
 - Produces: `sendCoachInviteEmail(params: SendCoachInviteParams): Promise<{ success: boolean; messageId?: string; error?: string }>` exported from `@/lib/email/send`, where `SendCoachInviteParams = { userId: string; recipientEmail: string; name: string; inviteUrl: string; expiresIn?: string; brand?: BrandId }`. Task 4 calls it.
 
-- [ ] **Step 1: Write the failing render test**
+- [x] **Step 1: Write the failing render test**
 
 Create `tests/unit/coach-invite-email.test.ts`:
 
@@ -624,12 +624,12 @@ describe("CoachInviteEmail", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/coach-invite-email.test.ts`
 Expected: FAIL — cannot resolve `@/lib/email/templates/coach-invite`.
 
-- [ ] **Step 3: Create the template**
+- [x] **Step 3: Create the template**
 
 Create `src/lib/email/templates/coach-invite.tsx` (mirrors `sign-in-link.tsx`):
 
@@ -709,7 +709,7 @@ const linkStyle = (primary: string) => ({
 export default CoachInviteEmail;
 ```
 
-- [ ] **Step 4: Add the sender to send.ts**
+- [x] **Step 4: Add the sender to send.ts**
 
 In `src/lib/email/send.ts`, below the existing template imports (after the line `import { SignInLinkEmail } from "./templates/sign-in-link";`), add:
 
@@ -759,14 +759,14 @@ export async function sendCoachInviteEmail(params: SendCoachInviteParams) {
 }
 ```
 
-- [ ] **Step 5: Run test + type check**
+- [x] **Step 5: Run test + type check**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/coach-invite-email.test.ts`
 Expected: PASS (2 tests).
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/email/templates/coach-invite.tsx src/lib/email/send.ts tests/unit/coach-invite-email.test.ts
