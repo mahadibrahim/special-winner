@@ -1,0 +1,47 @@
+id: act.class_session_open
+name: Class/camp session open
+description: |
+  Coach opens a skills class, camp block, clinic, or drop-in session:
+  walk the space, stage equipment, take attendance against the roster,
+  and verify the coach-to-player ratio is within the program cap before
+  any play begins.
+trigger: ~20 minutes before the scheduled session start
+phase: pre_game
+sport_tags: []
+venue_tags: []
+format_tags: [class, camp, clinic, drop_in]
+audience_tags: [youth]
+raci:
+  accountable: role.coach
+  responsible: [role.coach]
+  consulted: []
+  informed: [role.event_lead]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If headcount exceeds the ratio cap (e.g., a coach no-show), the coach
+  holds the start and escalates to role.event_lead; if unreachable,
+  role.venue_manager per the standard handoff ladder. A session never
+  starts over-ratio.
+sop_body: |
+  1. Arrive early enough to finish this checklist before players are
+     dropped off. Pull today's roster in /coach/attendance.
+  2. Walk the playing space: wet spots, debris, damaged fixtures. Report
+     anything unsafe to the venue manager before setup.
+  3. Stage equipment for the first activity: age-appropriate balls, cones,
+     pinnies. Confirm a first-aid kit is at the field/court.
+  4. Greet players as they arrive and mark attendance against the roster.
+     For clinics/drop-ins, only players registered by front of house
+     (walk-on registration) may join.
+  5. Before play begins, check headcount against the staffing ratio and
+     class cap for the age group — ages 4-6: 1 coach per 4 players, class
+     of 8-10 max; ages 7-9: 1:5, 10-12 max; ages 10-12: 1:6, 12-14 max.
+     For drop-in/clinic sessions, re-check as walk-ons join during the
+     intake window.
+  6. If over-ratio, hold the start and escalate per the escalation path.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.class_session_open
+expected_completion: T-5min

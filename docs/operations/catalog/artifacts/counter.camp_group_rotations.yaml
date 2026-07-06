@@ -1,0 +1,8 @@
+id: counter.camp_group_rotations
+kind: counter
+status: stub
+description: |
+  Increments once per completed camp group rotation, after the coach has
+  verified headcount at the new station against the group roster. Lets the
+  event lead see at a glance that every group moved through the daily
+  schedule with no missed headcounts.

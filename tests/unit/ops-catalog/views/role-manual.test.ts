@@ -4,6 +4,7 @@ import {
   generateAllRoleManuals,
 } from "../../../../src/lib/ops-catalog/views/role-manual";
 import { buildInlineCatalog, fixtureIds } from "../fixtures/inline-catalog";
+import type { Role } from "../../../../src/lib/ops-catalog/types/role";
 
 describe("renderRoleManual", () => {
   it("includes activities where role is accountable or responsible", () => {
@@ -50,5 +51,26 @@ describe("generateAllRoleManuals", () => {
       fixtureIds.roles.venueManager,
     ].sort());
     expect(all[fixtureIds.roles.parent]).toBeUndefined();
+  });
+
+  it("skips hand_authored worker roles so catalog:render never clobbers their manuals", () => {
+    const catalog = buildInlineCatalog();
+    const handAuthored: Role = {
+      id: "role.team_captain",
+      name: "Team Captain",
+      tier: "field_side",
+      kind: "worker",
+      description: "Worker role whose manual is written by hand.",
+      manual_target: "hand_authored",
+    };
+    const all = generateAllRoleManuals({
+      ...catalog,
+      roles: [...catalog.roles, handAuthored],
+    });
+
+    expect(all["role.team_captain"]).toBeUndefined();
+    expect(Object.keys(all).sort()).toEqual(
+      [fixtureIds.roles.coach, fixtureIds.roles.venueManager].sort(),
+    );
   });
 });

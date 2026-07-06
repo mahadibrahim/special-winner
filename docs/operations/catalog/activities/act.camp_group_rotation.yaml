@@ -1,0 +1,49 @@
+id: act.camp_group_rotation
+name: Camp group rotation
+description: |
+  Move a camp group between stations/activity blocks on the camp daily
+  schedule. At every rotation the coach verifies headcount against the
+  group roster before play resumes at the new station, then increments
+  the rotation counter.
+trigger: At each scheduled activity-block transition on the camp daily schedule
+phase: in_game
+sport_tags: []
+venue_tags: []
+format_tags: [camp]
+audience_tags: [youth]
+raci:
+  accountable: role.coach
+  responsible: [role.coach]
+  consulted: []
+  informed: [role.event_lead]
+automation_status: hybrid
+platform_features:
+  - feat.counter_service
+  - feat.activity_tracking_engine
+escalation_path: |
+  If headcount does not match the group roster, all play stops
+  immediately and the coach escalates to role.event_lead and
+  role.venue_manager; the search for the missing child takes priority
+  over every other activity on site.
+sop_body: |
+  1. Two minutes before the scheduled transition, wind down the current
+     activity and gather the group (transitions are listed on the camp
+     daily schedule, e.g., full-day blocks like 9:45-10:45 technical
+     session, 11:00-11:45 small-sided games).
+  2. Collect any equipment that belongs to the current station; carry
+     group gear (water cooler, clipboard/roster) with the group.
+  3. Walk the group to the next station together — no child moves between
+     stations alone.
+  4. At the new station, count heads against the group roster before play
+     resumes. Ages 4-6 groups are 8-10 per coach, ages 7-9 are 10-12,
+     ages 10-12 are 12-14 — know your expected number before you move.
+  5. If the count matches, increment the rotation counter and start the
+     next activity. If it does not, stop and escalate per the escalation
+     path.
+  6. For ages 4-6, plan activity changes every 8-10 minutes within a
+     station; the roster headcount is only required at station moves.
+tracking_method: counter_increment
+tracking_artifact:
+  counter: counter.camp_group_rotations
+  min_count: 0
+expected_completion: trigger+5min

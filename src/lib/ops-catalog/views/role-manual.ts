@@ -74,6 +74,9 @@ export function generateAllRoleManuals(catalog: Catalog): Record<string, string>
   const out: Record<string, string> = {};
   for (const role of catalog.roles) {
     if (role.kind !== "worker") continue;
+    // hand_authored manuals are maintained by humans; regenerating them
+    // would clobber the authored content (e.g. role.coach, role.team_captain).
+    if (role.manual_target === "hand_authored") continue;
     out[role.id] = renderRoleManual(catalog, role.id);
   }
   return out;

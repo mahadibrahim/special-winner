@@ -1,0 +1,19 @@
+id: chk.class_session_open
+kind: checklist
+status: stub
+items:
+  - id: roster_pulled
+    label: Today's roster and attendance sheet open in /coach/attendance
+  - id: space_walked
+    label: Playing space walked for hazards (wet spots, debris, damaged fixtures)
+  - id: equipment_staged
+    label: Session equipment staged (balls sized for the age group, cones, pinnies)
+  - id: first_aid_present
+    label: First-aid kit present at the field/court
+  - id: attendance_recorded
+    label: Attendance recorded against the roster
+  - id: ratio_within_cap
+    label: >-
+      Headcount vs. staffing within program ratio and class cap
+      (ages 4-6: 1:4, 8-10 max; ages 7-9: 1:5, 10-12 max;
+      ages 10-12: 1:6, 12-14 max)
