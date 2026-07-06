@@ -16,6 +16,7 @@ export * from "./practice-planning";
 export * from "./curriculum-sequences";
 export * from "./coach-guidance";
 export * from "./coach-credentials";
+export * from "./coach-onboarding";
 export * from "./curriculum-reviews";
 
 // Communication schemas
