@@ -804,36 +804,40 @@ EOF
 - Consumes: `npm run training:videos` (Phase 2, already merged).
 - Produces: `training/output/<workflow>/captions.json` for all six workflows, consumed by Task 6.
 
-- [ ] **Step 1: Confirm the dev server port is free**
+- [x] **Step 1: Confirm the dev server port is free**
 
 Run: `lsof -i :4321`
 Expected: no output (free). If occupied, use `--port 4322` and set `TRAINING_BASE_URL=http://localhost:4322` in every command below.
 
-- [ ] **Step 2: Start the dev server in the background**
+Deviation: this worktree had no `node_modules` (git worktrees don't share it), so `npm run dev` first failed with `Cannot find module '.../node_modules/.bin/astro'`. Fixed by symlinking the main checkout's `node_modules` (dependencies are identical — this worktree only added one `package.json` script line, no dependency changes): `ln -s /Volumes/MahadData/Aspire-Sports/web-app/node_modules node_modules` (after removing a stray empty `node_modules/` Astro/Vite had already created). Not committed — `node_modules` is gitignored.
+
+- [x] **Step 2: Start the dev server in the background**
 
 Run (background):
 ```bash
 R2_MOCK=1 CRON_SECRET=test E2E_TEST_ENDPOINTS=yes ./scripts/with-bws.sh npm run dev
 ```
 
-- [ ] **Step 3: Wait for the server to be ready**
+- [x] **Step 3: Wait for the server to be ready**
 
 Poll until `/api/auth/me` responds (any status, including 401 — just confirms the server is up):
 ```bash
 until curl -sf -o /dev/null -w '%{http_code}' http://localhost:4321/api/auth/me; do sleep 2; done
 ```
 
-- [ ] **Step 4: Re-seed e2e fixtures**
+- [x] **Step 4: Re-seed e2e fixtures**
 
 Run: `./scripts/with-bws.sh npm run db:seed:e2e`
 Expected: exits 0; seeds/resets the training fixtures the walkthroughs depend on (training applicant back to un-hired, training match back to unreported, etc. — see `training/README.md`'s Prerequisites section).
 
-- [ ] **Step 5: Run all six walkthroughs**
+- [x] **Step 5: Run all six walkthroughs**
 
 Run: `npm run training:videos`
 Expected: exits 0, six `training/output/<workflow>/` directories created, each containing `video.webm` + `captions.json` + per-step screenshots.
 
-- [ ] **Step 6: Verify all six captions.json files exist**
+Deviation: first full run was 5/6 green; `coach-core` failed once with `page.goto: net::ERR_ABORTED at http://localhost:4321/coach` (transient — Astro dev's on-demand SSR/Vite re-optimization can abort the very first navigation to a not-yet-compiled route under load from the prior five tests). Re-ran just that one workflow — `npm run training:videos -- coach-core` — which passed cleanly on retry. Not a code bug in this phase's changes.
+
+- [x] **Step 6: Verify all six captions.json files exist**
 
 Run:
 ```bash
@@ -843,7 +847,7 @@ done
 ```
 Expected: `OK: <workflow>` for all six. If any is missing, investigate that workflow's Playwright output before continuing (do not skip to Task 6 with a gap).
 
-- [ ] **Step 7: Stop the dev server**
+- [x] **Step 7: Stop the dev server**
 
 Kill the background `npm run dev` process (e.g. `kill %1` or the PID printed when it was started).
 
