@@ -1388,7 +1388,7 @@ git commit -m "feat(training): add the admin-hire-compliance walkthrough"
 - Consumes: `signIn`, `TEST_USERS` from `../../tests/utils/test-helpers`; `createTour`, `registerVideoCapture` from `../lib/tour`.
 - Produces: `training/output/admin-sequencing/**`; also, as a side effect of attaching, real draft `session_plans` for the coach's team in `e2e-test-spring-2026` — which is what Task 8's `coach-practices` walkthrough opens.
 
-- [ ] **Step 1: Create `training/walkthroughs/admin-sequencing.walkthrough.ts`**
+- [x] **Step 1: Create `training/walkthroughs/admin-sequencing.walkthrough.ts`**
 
 ```ts
 import { test, expect } from "@playwright/test";
@@ -1446,7 +1446,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Type-check**
+- [x] **Step 2: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -1454,7 +1454,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run it against a live dev server**
+- [x] **Step 3: Run it against a live dev server**
 
 ```bash
 npm run training:videos -- admin-sequencing
@@ -1462,7 +1462,7 @@ npm run training:videos -- admin-sequencing
 
 Expected: 1 passed. `training/output/admin-sequencing/` contains `video.webm`, `captions.json`, and 3 PNGs. Re-run it a second time without re-seeding — still passes (confirms the attach step's idempotency).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add training/walkthroughs/admin-sequencing.walkthrough.ts
