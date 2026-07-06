@@ -349,6 +349,60 @@ export async function requireCoachAccessToTeam(
 }
 
 /**
+ * Coach-portal access for endpoints that must be reachable BEFORE a coach
+ * has any team assignment (e.g. the onboarding checklist — Phase 2 of the
+ * coach-lifecycle program). `requireCoachAccess` authorizes on
+ * teamIds.length > 0 only, which is correct for team-scoped data endpoints
+ * but wrong here: a freshly hired coach has the `coach` role (stamped by
+ * the Phase 1 hire handoff) before any team assignment, and must still be
+ * able to load their checklist. Mirrors the OR-logic middleware.ts already
+ * uses for the /coach page-access rule (role OR teamIds).
+ */
+export async function requireCoachPortalAccess(context: APIContext): Promise<
+  | { authorized: false; response: Response }
+  | {
+      authorized: true;
+      user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>;
+      teamIds: string[];
+      organizationId: string;
+    }
+> {
+  const { user, isCoach: hasTeams, teamIds } = await validateCoachAccess(context);
+
+  if (!user) {
+    return {
+      authorized: false,
+      response: new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
+    };
+  }
+
+  const userRolesList = await getUserRoles(user.id);
+  const hasCoachRole = userRolesList.some((r) => r.name === "coach");
+
+  if (!hasTeams && !hasCoachRole) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: Coach access required" }),
+        { status: 403 },
+      ),
+    };
+  }
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) {
+    return { authorized: false, response: orgContext.response };
+  }
+
+  return {
+    authorized: true,
+    user,
+    teamIds,
+    organizationId: orgContext.organizationId,
+  };
+}
+
+/**
  * Get the organization ID from context or fallback to first org for super_admins
  * Returns the organization ID that should be used for filtering queries
  */
