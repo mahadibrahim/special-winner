@@ -31,6 +31,7 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   "/admin/curriculum/skills",
   "/admin/curriculum/templates",
   "/admin/curriculum/sequences", // from curriculum-manager's "Sequences" section card
+  "/admin/curriculum/assessment-coverage", // from curriculum overview's Quick Links card
 
   "/admin/media/shoots/bulk",
   "/admin/venue/walk-up",      // in venue nav as "Walk-up reg"
