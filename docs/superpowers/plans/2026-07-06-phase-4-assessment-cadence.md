@@ -512,7 +512,7 @@ git commit -m "feat(curriculum): cadence matrix, worst-status rollup, level-dist
   - `getAssessmentsDueCount(db: Database, teamIds: string[], now: Date): Promise<number>` — distinct players with `worstStatus !== "fresh"`.
   - `GET /api/coach/assessments/due` → `{ totalPlayersDue: number, teams: [{ teamId, teamName, players: [{ familyMemberId, firstName, lastName, worstStatus, hasAnyAssessment, dueDomains: DomainCadence[] }] }] }` (only non-fresh players; only teams with ≥1 such player; players sorted most-severe first).
 
-- [ ] **Step 1: Write the failing API test**
+- [x] **Step 1: Write the failing API test**
 
 API tests hit the running dev server (start it first — see Step 2). Create `tests/api/coach/assessments-due.test.ts`:
 
@@ -577,14 +577,14 @@ describe("GET /api/coach/assessments/due", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Start the dev server in another shell if not already running (`npm run dev:bws` — API tests need it; see also the memory note that `E2E_TEST_ENDPOINTS=yes` must be set on the server for other tenant suites, harmless here). Then:
 
 Run: `TEST_BASE_URL=http://localhost:4321 npx vitest run --config vitest.config.ts --project api tests/api/coach/assessments-due.test.ts`
 Expected: FAIL — 404 responses (route does not exist), so the 401/403/200 assertions fail.
 
-- [ ] **Step 3: Implement the query layer**
+- [x] **Step 3: Implement the query layer**
 
 Create `src/lib/curriculum/assessment-cadence-query.ts`:
 
@@ -724,7 +724,7 @@ export async function getAssessmentsDueCount(
 }
 ```
 
-- [ ] **Step 4: Implement the coach endpoint**
+- [x] **Step 4: Implement the coach endpoint**
 
 Create `src/pages/api/coach/assessments/due.ts`:
 
@@ -782,12 +782,12 @@ export const GET: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `TEST_BASE_URL=http://localhost:4321 npx vitest run --config vitest.config.ts --project api tests/api/coach/assessments-due.test.ts`
 Expected: PASS (3 tests). If the coach fixture has no teams, the 200 test still passes with `teams: []`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/curriculum/assessment-cadence-query.ts src/pages/api/coach/assessments/due.ts tests/api/coach/assessments-due.test.ts
