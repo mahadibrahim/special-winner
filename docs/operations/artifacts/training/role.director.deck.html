@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Director — Training Deck</title>
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --navy: oklch(0.24 0.06 260);
+    --navy-deep: oklch(0.18 0.07 262);
+    --primary: oklch(0.66 0.21 35);
+    --ochre: oklch(0.75 0.12 75);
+    --sage: oklch(0.52 0.08 155);
+    --paper: oklch(0.99 0.003 80);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  }
+  h1, h2 {
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-style: italic;
+    color: var(--navy-deep);
+  }
+  code {
+    font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    background: var(--cream-2);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+  }
+  .slide {
+    display: none;
+    min-height: 100vh;
+    padding: 8vh 10vw;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+  .slide-kicker {
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+  }
+  .subtitle {
+    color: var(--primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .nav-controls {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .nav-controls button {
+    background: var(--navy);
+    color: var(--cream);
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: "IBM Plex Sans", sans-serif;
+  }
+  .progress {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    color: var(--ink-muted);
+    font-size: 0.85rem;
+  }
+  .screenshot-frame { margin-top: 1.5rem; }
+  .screenshot-frame img {
+    max-width: 100%;
+    border: 1px solid var(--cream-3);
+    border-radius: 6px;
+  }
+  .screenshot-frame.screenshot-missing { display: none; }
+  .checklist li, .phase-overview li, .escalation-list li { margin-bottom: 0.4rem; }
+  .empty-note { color: var(--ink-muted); font-style: italic; }
+  .tools-table { border-collapse: collapse; width: 100%; }
+  .tools-table td {
+    border-bottom: 1px solid var(--cream-3);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  @media print {
+    .nav-controls, .progress { display: none; }
+    .slide {
+      display: flex !important;
+      page-break-after: always;
+      min-height: 0;
+      height: 100vh;
+    }
+  }
+</style>
+</head>
+<body>
+<section class="slide" data-index="0"><h1>Director</h1>
+    <p class="subtitle">Training deck</p>
+    <p class="role-description">Whole business / multi-venue accountability. Rarely day-of accountable; provides
+oversight, owns the catalog, and serves as the final escalation tier.</p></section>
+<section class="slide" data-index="1"><h2>Your day: post day</h2>
+    <ul class="phase-overview"><li>Rainout refund decision — <em>Accountable | Responsible</em></li><li>Rainout reschedule — <em>Accountable | Responsible</em></li><li>Weekly safety review — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="2"><h2>Rainout refund decision</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.rainout_refund_decision</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> T+24h after a recorded rainout</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If director unreachable, role.venue_manager may default to &quot;credit
+only&quot; until director sign-off; refund disbursements still require
+director authorization.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/director/rainout_refund_decision.png" alt="Screenshot: rainout_refund_decision" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="3"><h2>Rainout reschedule</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.rainout_reschedule</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> T+24h after a recorded rainout (when reschedule is the chosen path)</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If director unreachable, role.venue_manager may propose reschedule
+candidates; director sign-off still required before publish.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/director/rainout_reschedule.png" alt="Screenshot: rainout_reschedule" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="4"><h2>Weekly safety review</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.weekly_safety_review</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> Weekly cadence after the weekly metrics rollup lands</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If director unreachable in a given week, role.venue_manager drafts
+the review and director signs off retroactively; no review goes
+unsigned past two weeks.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/director/weekly_safety_review.png" alt="Screenshot: weekly_safety_review" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="5"><h2>Safety &amp; escalation</h2>
+    <ul class="escalation-list"><li>If director unreachable in a given week, role.venue_manager drafts
+the review and director signs off retroactively; no review goes
+unsigned past two weeks.</li><li>If director unreachable, role.venue_manager may default to &quot;credit
+only&quot; until director sign-off; refund disbursements still require
+director authorization.</li><li>If director unreachable, role.venue_manager may propose reschedule
+candidates; director sign-off still required before publish.</li></ul>
+    <p><strong>You may need to escalate to:</strong> Venue Manager</p></section>
+<section class="slide" data-index="6"><h2>Your tools</h2>
+    <table class="tools-table"><tbody><tr><td><code>/admin</code></td><td>Organization dashboard</td></tr><tr><td><code>/admin/reports</code></td><td>Cross-venue reporting</td></tr><tr><td><code>/admin/curriculum</code></td><td>Curriculum oversight</td></tr></tbody></table></section>
+<section class="slide" data-index="7"><h2>Where to get help</h2>
+    <ol>
+      <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
+      <li>Escalate per that chain first — most issues have a named next step.</li>
+      <li>Director is the final escalation tier for anything unresolved.</li>
+    </ol></section>
+<div class="nav-controls">
+  <button type="button" data-nav="prev">&larr; Prev</button>
+  <button type="button" data-nav="next">Next &rarr;</button>
+</div>
+<div class="progress"></div>
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+    var index = 0;
+    var progressEl = document.querySelector(".progress");
+    function render() {
+      slides.forEach(function (slide, i) {
+        slide.classList.toggle("active", i === index);
+      });
+      if (progressEl) progressEl.textContent = (index + 1) + " / " + slides.length;
+    }
+    function go(delta) {
+      index = Math.max(0, Math.min(slides.length - 1, index + delta));
+      render();
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    });
+    var prevBtn = document.querySelector("[data-nav='prev']");
+    var nextBtn = document.querySelector("[data-nav='next']");
+    if (prevBtn) prevBtn.addEventListener("click", function () { go(-1); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { go(1); });
+    render();
+  })();
+</script>
+</body>
+</html>

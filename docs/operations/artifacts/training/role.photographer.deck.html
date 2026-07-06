@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Photographer — Training Deck</title>
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --navy: oklch(0.24 0.06 260);
+    --navy-deep: oklch(0.18 0.07 262);
+    --primary: oklch(0.66 0.21 35);
+    --ochre: oklch(0.75 0.12 75);
+    --sage: oklch(0.52 0.08 155);
+    --paper: oklch(0.99 0.003 80);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  }
+  h1, h2 {
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-style: italic;
+    color: var(--navy-deep);
+  }
+  code {
+    font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    background: var(--cream-2);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+  }
+  .slide {
+    display: none;
+    min-height: 100vh;
+    padding: 8vh 10vw;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+  .slide-kicker {
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+  }
+  .subtitle {
+    color: var(--primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .nav-controls {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .nav-controls button {
+    background: var(--navy);
+    color: var(--cream);
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: "IBM Plex Sans", sans-serif;
+  }
+  .progress {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    color: var(--ink-muted);
+    font-size: 0.85rem;
+  }
+  .screenshot-frame { margin-top: 1.5rem; }
+  .screenshot-frame img {
+    max-width: 100%;
+    border: 1px solid var(--cream-3);
+    border-radius: 6px;
+  }
+  .screenshot-frame.screenshot-missing { display: none; }
+  .checklist li, .phase-overview li, .escalation-list li { margin-bottom: 0.4rem; }
+  .empty-note { color: var(--ink-muted); font-style: italic; }
+  .tools-table { border-collapse: collapse; width: 100%; }
+  .tools-table td {
+    border-bottom: 1px solid var(--cream-3);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  @media print {
+    .nav-controls, .progress { display: none; }
+    .slide {
+      display: flex !important;
+      page-break-after: always;
+      min-height: 0;
+      height: 100vh;
+    }
+  }
+</style>
+</head>
+<body>
+<section class="slide" data-index="0"><h1>Photographer</h1>
+    <p class="subtitle">Training deck</p>
+    <p class="role-description">Field-side contractor responsible for media capture per assignment, feeding
+the media tagging and publishing pipeline.</p></section>
+<section class="slide" data-index="1"><h2>Your day: pre game</h2>
+    <ul class="phase-overview"><li>Photographer check-in — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="2"><h2>Photographer check-in</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.photographer_check_in</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> ~30 minutes before first assigned match</p>
+      <p><strong>Tracking:</strong> signature</p>
+      <p><strong>Escalation:</strong> If photographer no-show, event_lead escalates to role.venue_manager;
+pull from standby pool or accept reduced media coverage.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photographer_check_in.png" alt="Screenshot: photographer_check_in" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="3"><h2>Your day: post game</h2>
+    <ul class="phase-overview"><li>Photo handoff (raw upload) — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="4"><h2>Photo handoff (raw upload)</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.photo_handoff</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> After photographer&#39;s last match of the day</p>
+      <p><strong>Tracking:</strong> counter_increment</p>
+      <p><strong>Escalation:</strong> If upload fails, photographer notifies role.event_lead who escalates
+to role.director; raw cards are retained until upload succeeds.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_handoff.png" alt="Screenshot: photo_handoff" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="5"><h2>Your day: post day</h2>
+    <ul class="phase-overview"><li>Photo publish — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="6"><h2>Photo publish</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.photo_publish</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> After tagging is complete (typically T+24h)</p>
+      <p><strong>Tracking:</strong> counter_increment</p>
+      <p><strong>Escalation:</strong> If photographer unreachable, role.event_lead pings role.director;
+publish authority can be re-assigned for that batch only.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_publish.png" alt="Screenshot: photo_publish" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="7"><h2>Safety &amp; escalation</h2>
+    <ul class="escalation-list"><li>If photographer no-show, event_lead escalates to role.venue_manager;
+pull from standby pool or accept reduced media coverage.</li><li>If photographer unreachable, role.event_lead pings role.director;
+publish authority can be re-assigned for that batch only.</li><li>If upload fails, photographer notifies role.event_lead who escalates
+to role.director; raw cards are retained until upload succeeds.</li></ul>
+    <p><strong>You may need to escalate to:</strong> Director, Event Lead, Venue Manager</p></section>
+<section class="slide" data-index="8"><h2>Your tools</h2>
+    <table class="tools-table"><tbody><tr><td><code>/media</code></td><td>Media dashboard</td></tr><tr><td><code>/media/queue</code></td><td>Capture queue for today&#39;s assignments</td></tr><tr><td><code>/media/jobs</code></td><td>Your assigned media jobs</td></tr><tr><td><code>/media/tag/[session_id]</code></td><td>Tag captured media to players/teams</td></tr></tbody></table></section>
+<section class="slide" data-index="9"><h2>Where to get help</h2>
+    <ol>
+      <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
+      <li>Escalate per that chain first — most issues have a named next step.</li>
+      <li>Director is the final escalation tier for anything unresolved.</li>
+    </ol></section>
+<div class="nav-controls">
+  <button type="button" data-nav="prev">&larr; Prev</button>
+  <button type="button" data-nav="next">Next &rarr;</button>
+</div>
+<div class="progress"></div>
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+    var index = 0;
+    var progressEl = document.querySelector(".progress");
+    function render() {
+      slides.forEach(function (slide, i) {
+        slide.classList.toggle("active", i === index);
+      });
+      if (progressEl) progressEl.textContent = (index + 1) + " / " + slides.length;
+    }
+    function go(delta) {
+      index = Math.max(0, Math.min(slides.length - 1, index + delta));
+      render();
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    });
+    var prevBtn = document.querySelector("[data-nav='prev']");
+    var nextBtn = document.querySelector("[data-nav='next']");
+    if (prevBtn) prevBtn.addEventListener("click", function () { go(-1); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { go(1); });
+    render();
+  })();
+</script>
+</body>
+</html>

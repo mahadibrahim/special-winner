@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Team Captain — Training Deck</title>
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --navy: oklch(0.24 0.06 260);
+    --navy-deep: oklch(0.18 0.07 262);
+    --primary: oklch(0.66 0.21 35);
+    --ochre: oklch(0.75 0.12 75);
+    --sage: oklch(0.52 0.08 155);
+    --paper: oklch(0.99 0.003 80);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  }
+  h1, h2 {
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-style: italic;
+    color: var(--navy-deep);
+  }
+  code {
+    font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    background: var(--cream-2);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+  }
+  .slide {
+    display: none;
+    min-height: 100vh;
+    padding: 8vh 10vw;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+  .slide-kicker {
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+  }
+  .subtitle {
+    color: var(--primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .nav-controls {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .nav-controls button {
+    background: var(--navy);
+    color: var(--cream);
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: "IBM Plex Sans", sans-serif;
+  }
+  .progress {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    color: var(--ink-muted);
+    font-size: 0.85rem;
+  }
+  .screenshot-frame { margin-top: 1.5rem; }
+  .screenshot-frame img {
+    max-width: 100%;
+    border: 1px solid var(--cream-3);
+    border-radius: 6px;
+  }
+  .screenshot-frame.screenshot-missing { display: none; }
+  .checklist li, .phase-overview li, .escalation-list li { margin-bottom: 0.4rem; }
+  .empty-note { color: var(--ink-muted); font-style: italic; }
+  .tools-table { border-collapse: collapse; width: 100%; }
+  .tools-table td {
+    border-bottom: 1px solid var(--cream-3);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  @media print {
+    .nav-controls, .progress { display: none; }
+    .slide {
+      display: flex !important;
+      page-break-after: always;
+      min-height: 0;
+      height: 100vh;
+    }
+  }
+</style>
+</head>
+<body>
+<section class="slide" data-index="0"><h1>Team Captain</h1>
+    <p class="subtitle">Training deck</p>
+    <p class="role-description">Field-side worker representing an adult-league team that does not have a
+coach. Coordinates roster and conduct for the team.</p></section>
+<section class="slide" data-index="1"><h2>Safety &amp; escalation</h2>
+    <ul class="escalation-list"></ul></section>
+<section class="slide" data-index="2"><h2>Your tools</h2>
+    <table class="tools-table"><tbody><tr><td><code>/team/[token]</code></td><td>Your team&#39;s roster and conduct tools</td></tr></tbody></table></section>
+<section class="slide" data-index="3"><h2>Where to get help</h2>
+    <ol>
+      <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
+      <li>Escalate per that chain first — most issues have a named next step.</li>
+      <li>Director is the final escalation tier for anything unresolved.</li>
+    </ol></section>
+<div class="nav-controls">
+  <button type="button" data-nav="prev">&larr; Prev</button>
+  <button type="button" data-nav="next">Next &rarr;</button>
+</div>
+<div class="progress"></div>
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+    var index = 0;
+    var progressEl = document.querySelector(".progress");
+    function render() {
+      slides.forEach(function (slide, i) {
+        slide.classList.toggle("active", i === index);
+      });
+      if (progressEl) progressEl.textContent = (index + 1) + " / " + slides.length;
+    }
+    function go(delta) {
+      index = Math.max(0, Math.min(slides.length - 1, index + delta));
+      render();
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    });
+    var prevBtn = document.querySelector("[data-nav='prev']");
+    var nextBtn = document.querySelector("[data-nav='next']");
+    if (prevBtn) prevBtn.addEventListener("click", function () { go(-1); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { go(1); });
+    render();
+  })();
+</script>
+</body>
+</html>

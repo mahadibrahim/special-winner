@@ -10,6 +10,10 @@ import { generateAutomationBacklog } from "../../src/lib/ops-catalog/views/autom
 import { renderRunbook } from "../../src/lib/ops-catalog/views/runbook";
 import { renderRaciMatrix } from "../../src/lib/ops-catalog/views/raci-matrix";
 import { renderSportAddendum } from "../../src/lib/ops-catalog/views/sport-addendum";
+import {
+  generateAllTrainingDecks,
+  type TrainingDeckOptions,
+} from "../../src/lib/ops-catalog/views/training-deck";
 
 const command = process.argv[2];
 
@@ -51,6 +55,7 @@ const commands: Record<string, () => Promise<number>> = {
 
     if (!view) {
       // Primary pipeline: write all worker role manuals + automation-backlog.json
+      // + training decks.
       const manuals = generateAllRoleManuals(catalog);
       await fs.mkdir(path.join(ARTIFACTS_DIR, "manuals"), { recursive: true });
       for (const [roleId, md] of Object.entries(manuals)) {
@@ -61,8 +66,52 @@ const commands: Record<string, () => Promise<number>> = {
         path.join(ARTIFACTS_DIR, "automation-backlog.json"),
         JSON.stringify(backlog, null, 2) + "\n",
       );
+
+      const embed = args.includes("--embed");
+      const trainingDir = path.join(ARTIFACTS_DIR, "training");
+      await fs.mkdir(trainingDir, { recursive: true });
+
+      const optsByRole: Record<string, TrainingDeckOptions> = {};
+      for (const role of catalog.roles) {
+        if (role.kind !== "worker") continue;
+
+        const introPath = path.join(trainingDir, `${role.id}.intro.md`);
+        let intro: string | undefined;
+        try {
+          intro = await fs.readFile(introPath, "utf8");
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+        }
+
+        let screenshots: Map<string, string> | undefined;
+        if (embed) {
+          screenshots = new Map();
+          const roleSlug = role.id.replace(/^role\./, "");
+          const shotDir = path.join(process.cwd(), "training/screenshots", roleSlug);
+          let files: string[] = [];
+          try {
+            files = await fs.readdir(shotDir);
+          } catch (err) {
+            if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+          }
+          for (const file of files) {
+            if (!file.endsWith(".png")) continue;
+            const slug = file.slice(0, -".png".length);
+            const bytes = await fs.readFile(path.join(shotDir, file));
+            screenshots.set(slug, `data:image/png;base64,${bytes.toString("base64")}`);
+          }
+        }
+
+        optsByRole[role.id] = { intro, screenshots };
+      }
+
+      const decks = generateAllTrainingDecks(catalog, optsByRole);
+      for (const [roleId, html] of Object.entries(decks)) {
+        await fs.writeFile(path.join(trainingDir, `${roleId}.deck.html`), html);
+      }
+
       console.log(
-        `Rendered ${Object.keys(manuals).length} role manuals + automation-backlog.json`,
+        `Rendered ${Object.keys(manuals).length} role manuals + automation-backlog.json + ${Object.keys(decks).length} training decks${embed ? " (embed mode)" : ""}`,
       );
       return 0;
     }

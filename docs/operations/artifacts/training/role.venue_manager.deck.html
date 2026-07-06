@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Venue Manager — Training Deck</title>
+<style>
+  :root {
+    --cream: oklch(0.972 0.008 80);
+    --cream-2: oklch(0.955 0.012 78);
+    --cream-3: oklch(0.935 0.018 76);
+    --ink: oklch(0.18 0.008 260);
+    --ink-2: oklch(0.26 0.012 260);
+    --ink-muted: oklch(0.42 0.01 260);
+    --navy: oklch(0.24 0.06 260);
+    --navy-deep: oklch(0.18 0.07 262);
+    --primary: oklch(0.66 0.21 35);
+    --ochre: oklch(0.75 0.12 75);
+    --sage: oklch(0.52 0.08 155);
+    --paper: oklch(0.99 0.003 80);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  }
+  h1, h2 {
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-style: italic;
+    color: var(--navy-deep);
+  }
+  code {
+    font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    background: var(--cream-2);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+  }
+  .slide {
+    display: none;
+    min-height: 100vh;
+    padding: 8vh 10vw;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+  .slide-kicker {
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+  }
+  .subtitle {
+    color: var(--primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .nav-controls {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .nav-controls button {
+    background: var(--navy);
+    color: var(--cream);
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: "IBM Plex Sans", sans-serif;
+  }
+  .progress {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    color: var(--ink-muted);
+    font-size: 0.85rem;
+  }
+  .screenshot-frame { margin-top: 1.5rem; }
+  .screenshot-frame img {
+    max-width: 100%;
+    border: 1px solid var(--cream-3);
+    border-radius: 6px;
+  }
+  .screenshot-frame.screenshot-missing { display: none; }
+  .checklist li, .phase-overview li, .escalation-list li { margin-bottom: 0.4rem; }
+  .empty-note { color: var(--ink-muted); font-style: italic; }
+  .tools-table { border-collapse: collapse; width: 100%; }
+  .tools-table td {
+    border-bottom: 1px solid var(--cream-3);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  @media print {
+    .nav-controls, .progress { display: none; }
+    .slide {
+      display: flex !important;
+      page-break-after: always;
+      min-height: 0;
+      height: 100vh;
+    }
+  }
+</style>
+</head>
+<body>
+<section class="slide" data-index="0"><h1>Venue Manager</h1>
+    <p class="subtitle">Training deck</p>
+    <p class="role-description">Single venue, single day. The on-site decision-maker accountable for the
+end-to-end execution of an event-day at one location.</p></section>
+<section class="slide" data-index="1"><h2>Your day: pre day</h2>
+    <ul class="phase-overview"><li>Staff schedule confirmation — <em>Accountable | Responsible</em></li><li>Pre-day weather pre-check — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="2"><h2>Staff schedule confirmation</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.staff_schedule_confirm</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> 48h before event window</p>
+      <p><strong>Tracking:</strong> checklist</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_schedule_confirm.png" alt="Screenshot: staff_schedule_confirm" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="3"><h2>Pre-day weather pre-check</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.weather_pre_check</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> 72h before event window for outdoor venues (scheduled review)</p>
+      <p><strong>Tracking:</strong> checklist</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/weather_pre_check.png" alt="Screenshot: weather_pre_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="4"><h2>Your day: day setup</h2>
+    <ul class="phase-overview"><li>Facility unlock — <em>Accountable | Responsible</em></li><li>First-aid kit check — <em>Accountable | Responsible</em></li><li>Opening walkthrough — <em>Accountable | Responsible</em></li><li>Pre-shift staff briefing — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="5"><h2>Facility unlock</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.facility_unlock</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> ~2h before first kickoff</p>
+      <p><strong>Tracking:</strong> checklist</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_unlock.png" alt="Screenshot: facility_unlock" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="6"><h2>First-aid kit check</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.first_aid_kit_check</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> ~60 minutes before first kickoff</p>
+      <p><strong>Tracking:</strong> checklist</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; no event begins without a verified kit.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/first_aid_kit_check.png" alt="Screenshot: first_aid_kit_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="7"><h2>Opening walkthrough</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.opening_walkthrough</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> Immediately after facility unlock</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; facilities walks the building until
+coverage resumes.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/opening_walkthrough.png" alt="Screenshot: opening_walkthrough" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="8"><h2>Pre-shift staff briefing</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.preshift_staff_briefing</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> ~60 minutes before first kickoff</p>
+      <p><strong>Tracking:</strong> signature</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, role.event_lead delivers the briefing and
+escalates to role.director per the standard handoff ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/preshift_staff_briefing.png" alt="Screenshot: preshift_staff_briefing" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="9"><h2>Your day: pre game</h2>
+    <ul class="phase-overview"><li>Field condition photo (pregame) — <em>Accountable | Responsible</em></li><li>Rainout decision — <em>Accountable | Responsible</em></li><li>Pregame weather check — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="10"><h2>Field condition photo (pregame)</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.field_condition_photo</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> ~30 minutes before first kickoff on each surface</p>
+      <p><strong>Tracking:</strong> photo_upload</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, role.facilities captures the photo and
+escalates to role.director per the standard handoff ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/field_condition_photo.png" alt="Screenshot: field_condition_photo" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="11"><h2>Rainout decision</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.rainout_decision</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> Weather/field condition within 2h of kickoff suggests cancellation</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director who has
+unilateral authority to call the event.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/rainout_decision.png" alt="Screenshot: rainout_decision" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="12"><h2>Pregame weather check</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.weather_check_pregame</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> ~90 minutes before kickoff (outdoor venues only)</p>
+      <p><strong>Tracking:</strong> checklist</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/weather_check_pregame.png" alt="Screenshot: weather_check_pregame" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="13"><h2>Your day: in game</h2>
+    <ul class="phase-overview"><li>Incident response (in-the-moment) — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="14"><h2>Incident response (in-the-moment)</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.incident_response</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> Incident observed or reported during the match</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> Any life-threatening incident escalates immediately to 911 and
+role.director; venue_manager remains accountable for documentation
+but role.event_lead may capture the initial form.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_response.png" alt="Screenshot: incident_response" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="15"><h2>Your day: post game</h2>
+    <ul class="phase-overview"><li>Incident report finalization — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="16"><h2>Incident report finalization</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.incident_report_finalization</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> After the incident is stable and the affected match is over</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, role.event_lead drafts and role.director
+finalizes; nothing closes until the report is signed off.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_report_finalization.png" alt="Screenshot: incident_report_finalization" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="17"><h2>Your day: end of day</h2>
+    <ul class="phase-overview"><li>Facility close walkthrough — <em>Accountable | Responsible</em></li><li>Facility lock and alarm — <em>Accountable | Responsible</em></li><li>Staff clock-out — <em>Accountable | Responsible</em></li><li>Staff debrief — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="18"><h2>Facility close walkthrough</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.facility_close_walkthrough</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> After the last match concludes and spectators have cleared</p>
+      <p><strong>Tracking:</strong> checklist</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; closure cannot be completed without a
+walkthrough sign-off.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_close_walkthrough.png" alt="Screenshot: facility_close_walkthrough" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="19"><h2>Facility lock and alarm</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.facility_lock_alarm</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> After the close walkthrough is signed off</p>
+      <p><strong>Tracking:</strong> checklist</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; alarm code rotation policy is enforced
+centrally.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_lock_alarm.png" alt="Screenshot: facility_lock_alarm" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="20"><h2>Staff clock-out</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.staff_clock_out</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> As each staff member finishes their last task</p>
+      <p><strong>Tracking:</strong> signature</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, role.event_lead witnesses the
+clock-out and escalates to role.director per the standard handoff
+ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_clock_out.png" alt="Screenshot: staff_clock_out" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="21"><h2>Staff debrief</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.staff_debrief</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> After facility close walkthrough is signed off</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, role.event_lead runs the debrief and
+escalates to role.director per the standard handoff ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_debrief.png" alt="Screenshot: staff_debrief" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="22"><h2>Your day: post day</h2>
+    <ul class="phase-overview"><li>Incident follow-up — <em>Accountable | Responsible</em></li></ul></section>
+<section class="slide" data-index="23"><h2>Incident follow-up</h2>
+    <p class="slide-kicker">Accountable | Responsible &middot; <code>act.incident_followup</code></p>
+    <div class="activity-meta">
+      <p><strong>Trigger:</strong> T+24h to T+48h after incident report finalization</p>
+      <p><strong>Tracking:</strong> form</p>
+      <p><strong>Escalation:</strong> If venue_manager unreachable, role.event_lead conducts follow-up
+outreach and escalates to role.director per the standard handoff
+ladder.</p>
+    </div>
+    <ol class="steps"><li>Procedure to be authored by the operating team. This activity is defined</li><li>in the catalog; full step-by-step SOP content will be added in a</li><li>follow-up PR.</li></ol>
+    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_followup.png" alt="Screenshot: incident_followup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div></section>
+<section class="slide" data-index="24"><h2>Checklist: chk.facility_close_walkthrough</h2>
+    <ul class="checklist"><li>(placeholder — full checklist items pending operator authorship)</li></ul></section>
+<section class="slide" data-index="25"><h2>Checklist: chk.facility_lock_alarm</h2>
+    <ul class="checklist"><li>(placeholder — full checklist items pending operator authorship)</li></ul></section>
+<section class="slide" data-index="26"><h2>Checklist: chk.facility_unlock</h2>
+    <ul class="checklist"><li>(placeholder — full checklist items pending operator authorship)</li></ul></section>
+<section class="slide" data-index="27"><h2>Checklist: chk.first_aid</h2>
+    <ul class="checklist"><li>(placeholder — full checklist items pending operator authorship)</li></ul></section>
+<section class="slide" data-index="28"><h2>Checklist: chk.staff_schedule_confirm</h2>
+    <ul class="checklist"><li>(placeholder — full checklist items pending operator authorship)</li></ul></section>
+<section class="slide" data-index="29"><h2>Checklist: chk.weather_pre_check</h2>
+    <ul class="checklist"><li>(placeholder — full checklist items pending operator authorship)</li></ul></section>
+<section class="slide" data-index="30"><h2>Checklist: chk.weather_pregame</h2>
+    <ul class="checklist"><li>(placeholder — full checklist items pending operator authorship)</li></ul></section>
+<section class="slide" data-index="31"><h2>Safety &amp; escalation</h2>
+    <ul class="escalation-list"><li>Any life-threatening incident escalates immediately to 911 and
+role.director; venue_manager remains accountable for documentation
+but role.event_lead may capture the initial form.</li><li>If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder.</li><li>If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; alarm code rotation policy is enforced
+centrally.</li><li>If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; closure cannot be completed without a
+walkthrough sign-off.</li><li>If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; facilities walks the building until
+coverage resumes.</li><li>If venue_manager unreachable, escalate to role.director per the
+standard handoff ladder; no event begins without a verified kit.</li><li>If venue_manager unreachable, escalate to role.director who has
+unilateral authority to call the event.</li><li>If venue_manager unreachable, role.event_lead conducts follow-up
+outreach and escalates to role.director per the standard handoff
+ladder.</li><li>If venue_manager unreachable, role.event_lead delivers the briefing and
+escalates to role.director per the standard handoff ladder.</li><li>If venue_manager unreachable, role.event_lead drafts and role.director
+finalizes; nothing closes until the report is signed off.</li><li>If venue_manager unreachable, role.event_lead runs the debrief and
+escalates to role.director per the standard handoff ladder.</li><li>If venue_manager unreachable, role.event_lead witnesses the
+clock-out and escalates to role.director per the standard handoff
+ladder.</li><li>If venue_manager unreachable, role.facilities captures the photo and
+escalates to role.director per the standard handoff ladder.</li></ul>
+    <p><strong>You may need to escalate to:</strong> Director, Event Lead, Facilities</p></section>
+<section class="slide" data-index="32"><h2>Your tools</h2>
+    <table class="tools-table"><tbody><tr><td><code>/admin/venue</code></td><td>Venue command center — today&#39;s event-day overview</td></tr><tr><td><code>/admin/venue/day/[date]</code></td><td>Run-of-show for a specific event day</td></tr><tr><td><code>/admin/venue/check-in</code></td><td>Player/team check-in</td></tr><tr><td><code>/admin/venue/walk-up</code></td><td>Walk-on registration</td></tr><tr><td><code>/admin/venue/rosters</code></td><td>Team rosters for the day</td></tr><tr><td><code>/admin/venue/reports</code></td><td>End-of-day reports</td></tr></tbody></table></section>
+<section class="slide" data-index="33"><h2>Where to get help</h2>
+    <ol>
+      <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
+      <li>Escalate per that chain first — most issues have a named next step.</li>
+      <li>Director is the final escalation tier for anything unresolved.</li>
+    </ol></section>
+<div class="nav-controls">
+  <button type="button" data-nav="prev">&larr; Prev</button>
+  <button type="button" data-nav="next">Next &rarr;</button>
+</div>
+<div class="progress"></div>
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+    var index = 0;
+    var progressEl = document.querySelector(".progress");
+    function render() {
+      slides.forEach(function (slide, i) {
+        slide.classList.toggle("active", i === index);
+      });
+      if (progressEl) progressEl.textContent = (index + 1) + " / " + slides.length;
+    }
+    function go(delta) {
+      index = Math.max(0, Math.min(slides.length - 1, index + delta));
+      render();
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    });
+    var prevBtn = document.querySelector("[data-nav='prev']");
+    var nextBtn = document.querySelector("[data-nav='next']");
+    if (prevBtn) prevBtn.addEventListener("click", function () { go(-1); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { go(1); });
+    render();
+  })();
+</script>
+</body>
+</html>

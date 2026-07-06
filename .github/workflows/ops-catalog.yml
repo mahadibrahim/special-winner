@@ -11,6 +11,7 @@ on:
       - "docs/operations/catalog/**"
       - "docs/operations/artifacts/**"
       - "scripts/ops-catalog/**"
+      - "src/lib/ops-catalog/**"
       - "tests/unit/ops-catalog/**"
       - ".github/workflows/ops-catalog.yml"
   push:
@@ -19,6 +20,7 @@ on:
       - "docs/operations/catalog/**"
       - "docs/operations/artifacts/**"
       - "scripts/ops-catalog/**"
+      - "src/lib/ops-catalog/**"
       - "tests/unit/ops-catalog/**"
       - ".github/workflows/ops-catalog.yml"
   workflow_dispatch:

@@ -5,7 +5,7 @@
 import type { Catalog } from "../loader";
 import type { Activity } from "../types/activity";
 
-const PHASE_ORDER: Activity["phase"][] = [
+export const PHASE_ORDER: Activity["phase"][] = [
   "pre_day",
   "day_setup",
   "pre_game",
@@ -15,9 +15,9 @@ const PHASE_ORDER: Activity["phase"][] = [
   "post_day",
 ];
 
-type Involvement = "Accountable" | "Responsible" | "Accountable | Responsible";
+export type Involvement = "Accountable" | "Responsible" | "Accountable | Responsible";
 
-function involvementOf(activity: Activity, roleId: string): Involvement | null {
+export function involvementOf(activity: Activity, roleId: string): Involvement | null {
   const isAccountable = activity.raci.accountable === roleId;
   const isResponsible = activity.raci.responsible.includes(roleId);
   if (isAccountable && isResponsible) return "Accountable | Responsible";
