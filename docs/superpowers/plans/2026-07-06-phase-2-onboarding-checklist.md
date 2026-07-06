@@ -1703,7 +1703,7 @@ git commit -m "feat(coach-onboarding): add dashboard checklist card"
 
 No dedicated automated test (the existing `CoachCredentialsGrid` has none either — the data-layer behavior is already covered by Task 5's API test; this task is presentation only). Manual dev-server verification in Step 3.
 
-- [ ] **Step 1: Add onboarding state + fetch, alongside the existing credentials fetch**
+- [x] **Step 1: Add onboarding state + fetch, alongside the existing credentials fetch**
 
 In `src/components/admin/coach-credentials-grid.tsx`, add new types near the top (after the existing `CoachRow` interface):
 
@@ -1755,7 +1755,7 @@ Add a loader function next to `load` and call both on mount:
 
 (Replace the existing single-effect `useEffect(() => { void load(); }, [load]);` with the two-call version above.)
 
-- [ ] **Step 2: Add the table column + confirm dialog**
+- [x] **Step 2: Add the table column + confirm dialog**
 
 Add a new header cell immediately after the existing `<th className="py-2 pr-4">Coach</th>`:
 
@@ -1867,7 +1867,7 @@ Add a second `Dialog` (separate from the existing credential-edit `Dialog`) righ
       </Dialog>
 ```
 
-- [ ] **Step 3: Manual verification**
+- [x] **Step 3: Manual verification**
 
 ```bash
 npm run dev
@@ -1875,7 +1875,7 @@ npm run dev
 
 Sign in as `admin@test.aspiresports.com` / `TestAdmin123!`, visit `/admin/coaches`. Expected: a new "Onboarding" column with an `N/6` badge per coach; clicking it opens a dialog listing all six tasks, with a "Confirm" button on the shadow-session row when incomplete.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/admin/coach-credentials-grid.tsx

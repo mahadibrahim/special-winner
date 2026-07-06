@@ -74,6 +74,20 @@ interface CoachRow {
   gaps: { credentialType: string; reason: string }[];
 }
 
+interface OnboardingTask {
+  key: string;
+  label: string;
+  kind: "manual" | "auto" | "admin_confirm";
+  completed: boolean;
+  completedAt: string | null;
+}
+
+interface OnboardingSummary {
+  id: string;
+  tasks: OnboardingTask[];
+  complete: boolean;
+}
+
 const STATUS_STYLES: Record<EffectiveStatus, string> = {
   valid: "bg-green-100 text-green-800",
   expiring_soon: "bg-amber-100 text-amber-800",
@@ -107,6 +121,9 @@ export default function CoachCredentialsGrid() {
   const [error, setError] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [onboarding, setOnboarding] = useState<Record<string, OnboardingSummary> | null>(null);
+  const [onboardingEdit, setOnboardingEdit] = useState<OnboardingSummary | null>(null);
+  const [confirmingShadow, setConfirmingShadow] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -119,9 +136,23 @@ export default function CoachCredentialsGrid() {
     }
   }, []);
 
+  const loadOnboarding = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/coaches/onboarding");
+      if (!res.ok) return; // fail-soft: onboarding column just won't render
+      const data = await res.json();
+      const byId: Record<string, OnboardingSummary> = {};
+      for (const c of data.coaches as OnboardingSummary[]) byId[c.id] = c;
+      setOnboarding(byId);
+    } catch {
+      // fail-soft
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadOnboarding();
+  }, [load, loadOnboarding]);
 
   function openEditor(coach: CoachRow, credentialType: CredentialType) {
     const existing =
@@ -183,6 +214,7 @@ export default function CoachCredentialsGrid() {
           <thead>
             <tr className="text-left border-b border-border">
               <th className="py-2 pr-4">Coach</th>
+              <th className="py-2 pr-4 whitespace-nowrap">Onboarding</th>
               {CREDENTIAL_TYPES.map((t) => (
                 <th key={t} className="py-2 pr-4 whitespace-nowrap">
                   {TYPE_LABELS[t]}
@@ -210,6 +242,24 @@ export default function CoachCredentialsGrid() {
                       {coach.applicationCertifications.length > 80 ? "…" : ""}
                     </div>
                   ) : null}
+                </td>
+                <td className="py-2 pr-4">
+                  {onboarding?.[coach.id] ? (
+                    <button
+                      type="button"
+                      onClick={() => setOnboardingEdit(onboarding[coach.id])}
+                      className={`rounded px-2 py-1 text-xs font-medium ${
+                        onboarding[coach.id].complete
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {onboarding[coach.id].tasks.filter((t) => t.completed).length}/
+                      {onboarding[coach.id].tasks.length}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
                 </td>
                 {CREDENTIAL_TYPES.map((t) => {
                   const cred =
@@ -350,6 +400,83 @@ export default function CoachCredentialsGrid() {
                 </Button>
                 <Button onClick={() => void save()} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={onboardingEdit !== null}
+        onOpenChange={(open) => {
+          if (!open) setOnboardingEdit(null);
+        }}
+      >
+        <DialogContent>
+          {onboardingEdit ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Onboarding checklist</DialogTitle>
+                <DialogDescription>
+                  {onboardingEdit.tasks.filter((t) => t.completed).length}/
+                  {onboardingEdit.tasks.length} complete.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                {onboardingEdit.tasks.map((task) => (
+                  <div
+                    key={task.key}
+                    className="flex items-center justify-between text-sm py-1"
+                  >
+                    <span
+                      className={task.completed ? "text-ink" : "text-gray-500"}
+                    >
+                      {task.label}
+                    </span>
+                    {task.completed ? (
+                      <span className="text-xs text-green-700">Done</span>
+                    ) : task.kind === "admin_confirm" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={confirmingShadow}
+                        onClick={async () => {
+                          setConfirmingShadow(true);
+                          try {
+                            const res = await fetch(
+                              "/api/admin/coaches/onboarding",
+                              {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  userId: onboardingEdit.id,
+                                  taskKey: task.key,
+                                }),
+                              },
+                            );
+                            if (!res.ok) throw new Error();
+                            toast.success("Confirmed.");
+                            await loadOnboarding();
+                            setOnboardingEdit(null);
+                          } catch {
+                            toast.error("Could not confirm — try again.");
+                          } finally {
+                            setConfirmingShadow(false);
+                          }
+                        }}
+                      >
+                        Confirm
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-gray-400">Pending</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOnboardingEdit(null)}>
+                  Close
                 </Button>
               </DialogFooter>
             </>
