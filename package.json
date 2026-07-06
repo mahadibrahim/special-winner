@@ -26,6 +26,7 @@
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "training:videos": "playwright test --config training/playwright.config.ts",
+    "training:narration": "tsx training/scripts/generate-narration.ts",
     "test:api": "vitest run --config vitest.config.ts --project api",
     "test:api:watch": "vitest --config vitest.config.ts --project api",
     "test:api:ui": "vitest --ui --config vitest.config.ts",

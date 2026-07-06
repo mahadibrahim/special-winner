@@ -70,6 +70,24 @@ const commands: Record<string, () => Promise<number>> = {
       const trainingDir = path.join(ARTIFACTS_DIR, "training");
       await fs.mkdir(trainingDir, { recursive: true });
 
+      // Phase 3: appendix slide data — which workflow narration scripts
+      // exist. Mirrors the screenshot-embed probe below: this is the only
+      // place that touches the filesystem for this feature — the pure view
+      // (src/lib/ops-catalog/views/training-deck.ts) only sees the resulting
+      // list. training/narration/ is committed content, so decks always
+      // reflect whatever is currently on disk — same rule as screenshots.
+      let presentNarrationWorkflows: string[] = [];
+      const narrationDir = path.join(process.cwd(), "training/narration");
+      try {
+        const narrationFiles = await fs.readdir(narrationDir);
+        presentNarrationWorkflows = narrationFiles
+          .filter((f) => f.endsWith(".md"))
+          .map((f) => f.slice(0, -".md".length))
+          .sort();
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      }
+
       const optsByRole: Record<string, TrainingDeckOptions> = {};
       for (const role of catalog.roles) {
         if (role.kind !== "worker") continue;
@@ -103,7 +121,7 @@ const commands: Record<string, () => Promise<number>> = {
           screenshots.set(slug, `data:image/png;base64,${bytes.toString("base64")}`);
         }
 
-        optsByRole[role.id] = { intro, screenshots };
+        optsByRole[role.id] = { intro, screenshots, presentNarrationWorkflows };
       }
 
       const decks = generateAllTrainingDecks(catalog, optsByRole);
