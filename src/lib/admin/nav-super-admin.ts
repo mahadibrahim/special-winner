@@ -96,6 +96,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
       { name: "Look up", href: "/admin/lookup", icon: Search },
       { name: "Users & staff", href: "/admin/users", icon: Users },
       { name: "Applications", href: "/admin/applications", icon: FileText },
+      { name: "Coach compliance", href: "/admin/coaches", icon: ShieldCheck },
     ],
   },
   {

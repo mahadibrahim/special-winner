@@ -2281,7 +2281,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 Verification cycle: `tsc` here, `npm run build` in Task 10 (house pattern for admin list components — no React unit harness; E2E runs post-merge only, and no new E2E spec is added).
 
-- [ ] **Step 1: Create the grid component**
+- [x] **Step 1: Create the grid component**
 
 Create `src/components/admin/coach-credentials-grid.tsx`:
 
@@ -2649,7 +2649,7 @@ export default function CoachCredentialsGrid() {
 }
 ```
 
-- [ ] **Step 2: Create the page**
+- [x] **Step 2: Create the page**
 
 Create `src/pages/admin/coaches.astro` (mirrors `applications.astro`; SSR — no prerender flag):
 
@@ -2684,7 +2684,7 @@ const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 </BaseLayout>
 ```
 
-- [ ] **Step 3: Add nav entries**
+- [x] **Step 3: Add nav entries**
 
 In `src/lib/admin/nav-super-admin.ts`, in the `People` section, after the line `{ name: "Applications", href: "/admin/applications", icon: FileText },` add:
 
@@ -2702,17 +2702,17 @@ In `src/lib/admin/nav-venue-manager.ts`, in its `People` section, after `{ name:
 
 and add `ShieldCheck` to that file's `lucide-react` import list if it is not already there.
 
-- [ ] **Step 4: Type check**
+- [x] **Step 4: Type check**
 
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 5: Manual smoke check (dev server running)**
+- [x] **Step 5: Manual smoke check (dev server running)**
 
 Sign in as `admin@test.aspiresports.com` / `TestAdmin123!` at `http://localhost:4321/signin`, open `http://localhost:4321/admin/coaches`.
 Expected: the grid renders (coaches created by earlier test runs appear); clicking a cell opens the editor; saving updates the badge.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/admin/coach-credentials-grid.tsx src/pages/admin/coaches.astro src/lib/admin/nav-super-admin.ts src/lib/admin/nav-venue-manager.ts
