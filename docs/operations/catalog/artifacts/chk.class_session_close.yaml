@@ -1,0 +1,16 @@
+id: chk.class_session_close
+kind: checklist
+status: stub
+items:
+  - id: players_released
+    label: Every player released to a recognized parent/guardian (no child leaves unaccompanied)
+  - id: parent_handoff
+    label: Parents told what the session worked on and given the at-home challenge
+  - id: equipment_teardown
+    label: Equipment counted and returned to storage (balls, cones, pinnies, portable goals)
+  - id: lost_found_sweep
+    label: Playing area swept for personal items; anything found goes to lost and found
+  - id: notes_logged
+    label: Coach notes / attendance finalized in the coach portal
+  - id: space_reset
+    label: Space left ready for the next group (trash cleared, fixtures back in place)

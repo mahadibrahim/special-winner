@@ -150,7 +150,7 @@ Seven phases form the chronological backbone. Sport- and venue-agnostic.
 |---|---|---|
 | `sport_tags` | `outdoor:soccer`, `outdoor:flag_football`, `outdoor:lacrosse`, `indoor:soccer`, `indoor:basketball`, `indoor:volleyball`, `indoor:pickleball` | Bare category (`outdoor`, `indoor`) = all sports in that category. Empty = all sports. |
 | `venue_tags` | `outdoor`, `indoor`, `owned`, `rented`, `single_field`, `multi_field`, `concessions`, `pro_shop`, `parking_managed` | Empty = all venues. |
-| `format_tags` | `league`, `tournament`, `clinic`, `drop_in`, `practice`, `private_event` | Empty = all formats. |
+| `format_tags` | `league`, `tournament`, `clinic`, `drop_in`, `practice`, `private_event`, `class`, `camp` | Empty = all formats. (`class` = skills development class, `camp` = camp day — added post-launch with the instructional-program activities.) |
 | `audience_tags` | `youth`, `adult`, `mixed` | Empty = applies to all audiences. Used when behavior diverges between youth and adult contexts (e.g., coach pregame briefing applies only to youth; adult leagues are self-managed). |
 
 ### Matching rule (one rule, all dimensions)

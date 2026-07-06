@@ -1,0 +1,46 @@
+id: act.class_session_close
+name: Class/camp session close
+description: |
+  Coach closes a skills class, camp day, clinic, or drop-in session:
+  release every player to a recognized parent/guardian with a short
+  handoff on what the session worked on, tear down and count equipment,
+  sweep the space, and log coach notes.
+trigger: At the scheduled end of the session
+phase: post_game
+sport_tags: []
+venue_tags: []
+format_tags: [class, camp, clinic, drop_in]
+audience_tags: [youth]
+raci:
+  accountable: role.coach
+  responsible: [role.coach]
+  consulted: []
+  informed: [role.event_lead, role.facilities]
+automation_status: manual
+platform_features:
+  - feat.checklist_renderer
+  - feat.activity_tracking_engine
+escalation_path: |
+  If a player has no parent/guardian at pickup, the coach stays with the
+  player and escalates to role.event_lead; if unreachable,
+  role.venue_manager per the standard handoff ladder. The coach never
+  leaves before the last player has been picked up.
+sop_body: |
+  1. End the session on time and on a positive note (cooldown, review,
+     at-home challenge per the session structure).
+  2. Release each player only to a recognized parent/guardian. No child
+     leaves unaccompanied. Stay with any un-picked-up player and escalate
+     per the escalation path.
+  3. Use pickup as the parent handoff: one sentence on what the session
+     worked on and the at-home challenge (keep it fun and brief,
+     10-15 min).
+  4. Tear down: count balls, cones, pinnies, and portable goals back into
+     storage. Flag missing or damaged equipment to facilities.
+  5. Sweep the playing area for personal items; anything found goes to
+     lost and found.
+  6. Finalize attendance and log coach notes in the coach portal while
+     the session is fresh. Leave the space ready for the next group.
+tracking_method: checklist
+tracking_artifact:
+  template_id: chk.class_session_close
+expected_completion: trigger+15min

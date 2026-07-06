@@ -7,6 +7,7 @@
     "status": "stub",
     "referenced_by": [
       "act.attendance_roster_confirm",
+      "act.camp_group_rotation",
       "act.cancellation_broadcast",
       "act.cash_concession_reconcile",
       "act.coach_pregame_briefing_dispatch",
@@ -39,6 +40,20 @@
     ]
   },
   {
+    "id": "feat.counter_service",
+    "name": "Counter Service",
+    "description": "Generic counter increments for counter.* artifacts.\n",
+    "priority": "P0",
+    "status": "stub",
+    "referenced_by": [
+      "act.camp_group_rotation",
+      "act.live_score_update",
+      "act.photo_handoff",
+      "act.photo_publish",
+      "act.walk_on_registration"
+    ]
+  },
+  {
     "id": "feat.form_renderer",
     "name": "Form Renderer",
     "description": "Generic form UI used by all frm.* artifact templates.\n",
@@ -63,19 +78,6 @@
       "act.staff_schedule_confirm",
       "act.weather_check_pregame",
       "act.weather_pre_check"
-    ]
-  },
-  {
-    "id": "feat.counter_service",
-    "name": "Counter Service",
-    "description": "Generic counter increments for counter.* artifacts.\n",
-    "priority": "P0",
-    "status": "stub",
-    "referenced_by": [
-      "act.live_score_update",
-      "act.photo_handoff",
-      "act.photo_publish",
-      "act.walk_on_registration"
     ]
   },
   {
