@@ -1276,7 +1276,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 No unit-test harness exists for React admin components (established house pattern: admin list components are exercised by post-merge E2E and type-checked); this task's verification cycle is `tsc` + the Task 10 build. Do not add new E2E specs (they only run post-merge and would not gate the PR).
 
-- [ ] **Step 1: Extend the row interface and imports**
+- [x] **Step 1: Extend the row interface and imports**
 
 In `src/components/admin/applications-list.tsx`, replace:
 
@@ -1315,7 +1315,7 @@ with:
   createdAt: string;
 ```
 
-- [ ] **Step 2: Add the hire handler**
+- [x] **Step 2: Add the hire handler**
 
 Inside the `ApplicationsList` component, directly after the `useEffect(...)` block, add:
 
@@ -1353,7 +1353,7 @@ Inside the `ApplicationsList` component, directly after the `useEffect(...)` blo
   }
 ```
 
-- [ ] **Step 3: Add the Hiring column**
+- [x] **Step 3: Add the Hiring column**
 
 In the `<thead>` row, after `<th className="py-2 pr-4">Notion</th>`, add:
 
@@ -1382,12 +1382,12 @@ In the `<tbody>` row, after the Notion `<td>` (`<td className="py-2 pr-4">{a.not
               </td>
 ```
 
-- [ ] **Step 4: Type check**
+- [x] **Step 4: Type check**
 
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/admin/applications-list.tsx

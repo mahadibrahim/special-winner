@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -20,6 +21,8 @@ interface ApplicationRow {
   source: string | null;
   notionPageId: string | null;
   notionSyncedAt: string | null;
+  status: string;
+  hiredUserId: string | null;
   createdAt: string;
 }
 
@@ -35,6 +38,38 @@ export default function ApplicationsList() {
       })
       .catch(() => setError("Could not load applications."));
   }, []);
+
+  const [hiringId, setHiringId] = useState<string | null>(null);
+
+  async function markHired(id: string) {
+    setHiringId(id);
+    try {
+      const res = await fetch(`/api/admin/applications/${id}/hire`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setRows(
+        (prev) =>
+          prev?.map((r) =>
+            r.id === id
+              ? { ...r, status: "hired", hiredUserId: data.userId }
+              : r,
+          ) ?? prev,
+      );
+      toast.success(
+        data.createdNewUser
+          ? "Hired — coach account created and invite emailed."
+          : "Hired — existing account linked and invite emailed.",
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not mark hired.",
+      );
+    } finally {
+      setHiringId(null);
+    }
+  }
 
   if (error) return <ErrorBanner message={error} />;
   if (!rows) return <LoadingSkeleton />;
@@ -58,6 +93,7 @@ export default function ApplicationsList() {
             <th className="py-2 pr-4">Facility</th>
             <th className="py-2 pr-4">Resume</th>
             <th className="py-2 pr-4">Notion</th>
+            <th className="py-2 pr-4">Hiring</th>
           </tr>
         </thead>
         <tbody>
@@ -90,6 +126,22 @@ export default function ApplicationsList() {
                 )}
               </td>
               <td className="py-2 pr-4">{a.notionSyncedAt ? "Synced" : "Pending"}</td>
+              <td className="py-2 pr-4">
+                {a.status === "hired" ? (
+                  <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
+                    Hired
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={hiringId === a.id}
+                    onClick={() => markHired(a.id)}
+                    className="rounded border border-border px-2 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {hiringId === a.id ? "Hiring…" : "Mark hired"}
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
