@@ -299,7 +299,7 @@ const DECK_CSS = `
     border-radius: 6px;
   }
   .screenshot-frame.screenshot-missing { display: none; }
-  .checklist li, .phase-overview li, .escalation-list li { margin-bottom: 0.4rem; }
+  .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
   .empty-note { color: var(--ink-muted); font-style: italic; }
   .tools-table { border-collapse: collapse; width: 100%; }
   .tools-table td {
@@ -565,6 +565,56 @@ const PORTAL_PAGES: Record<string, PortalPage[]> = {
   "role.facilities": [],
 };
 
+// ---------------------------------------------------------------------------
+// Phase 3: walkthrough narration appendix. Static, deterministic map from a
+// training walkthrough's workflow slug (matches
+// training/walkthroughs/<slug>.walkthrough.ts and training/narration/<slug>.md)
+// to the worker role(s) whose deck should list it. Kept as a literal map —
+// not derived from the catalog, same rationale as PORTAL_PAGES above — so
+// this pure view never touches the filesystem. scripts/ops-catalog/index.ts
+// is the only thing that stats training/narration/*.md, and passes the
+// resulting list of present workflow slugs in via
+// opts.presentNarrationWorkflows.
+// ---------------------------------------------------------------------------
+
+interface WalkthroughInfo {
+  roles: string[];
+  label: string;
+}
+
+const WALKTHROUGHS: Record<string, WalkthroughInfo> = {
+  "coach-core": { roles: ["role.coach"], label: "Roster, attendance, and player assessments" },
+  "coach-practices": { roles: ["role.coach"], label: "Practice sessions and post-session reflection" },
+  "admin-hire-compliance": {
+    roles: ["role.director"],
+    label: "Hiring pipeline and coach credential compliance",
+  },
+  "admin-sequencing": { roles: ["role.director"], label: "Curriculum sequencing and season attachment" },
+  "referee-gameday": { roles: ["role.ref"], label: "Match assignment, scoring, and final report" },
+  "venue-manager": { roles: ["role.venue_manager"], label: "Venue command center, check-in, and reports" },
+};
+
+function renderWalkthroughsSlide(roleId: string, presentWorkflows: string[] | undefined): string | null {
+  if (!presentWorkflows || presentWorkflows.length === 0) return null;
+  const present = new Set(presentWorkflows);
+  const entries = Object.entries(WALKTHROUGHS)
+    .filter(([workflow, info]) => present.has(workflow) && info.roles.includes(roleId))
+    .sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return null;
+
+  const items = entries
+    .map(
+      ([workflow, info]) =>
+        `<li>${escapeHtml(info.label)} — <code>training/narration/${escapeHtml(workflow)}.md</code></li>`,
+    )
+    .join("");
+  return `
+    <h2>Watch the walkthroughs</h2>
+    <p>Every workflow below has a short recorded walkthrough and a written narration script you can read alongside it.</p>
+    <ul class="walkthrough-list">${items}</ul>
+  `.trim();
+}
+
 function renderToolsSlide(roleId: string): string {
   const pages = PORTAL_PAGES[roleId] ?? [];
   if (pages.length === 0) {
@@ -603,6 +653,7 @@ function renderHelpSlide(catalog: Catalog): string {
 export interface TrainingDeckOptions {
   intro?: string;
   screenshots?: Map<string, string>;
+  presentNarrationWorkflows?: string[];
 }
 
 export function renderTrainingDeck(
@@ -645,6 +696,9 @@ export function renderTrainingDeck(
   slides.push(renderSafetySlide(catalog, matched, resolveRoleTokens));
   slides.push(renderToolsSlide(roleId));
   slides.push(renderHelpSlide(catalog));
+
+  const walkthroughsSlide = renderWalkthroughsSlide(roleId, opts.presentNarrationWorkflows);
+  if (walkthroughsSlide) slides.push(walkthroughsSlide);
 
   return renderDeckShell(role, slides);
 }

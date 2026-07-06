@@ -529,7 +529,7 @@ EOF
 - Consumes: nothing new from other tasks (self-contained view change).
 - Produces: `WALKTHROUGHS: Record<string, { roles: string[]; label: string }>` (exported for Task 4's CLI-shim wiring to reference workflow names, if useful, though the shim only needs filenames), `TrainingDeckOptions.presentNarrationWorkflows?: string[]`, consumed by `renderTrainingDeck()`. Task 4 (`scripts/ops-catalog/index.ts`) passes this option in.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/unit/ops-catalog/views/training-deck.test.ts` (new `describe` block at the end of the file, before the final closing):
 
@@ -597,12 +597,12 @@ describe("renderTrainingDeck — walkthrough appendix slide", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — `renderTrainingDeck` doesn't recognize `presentNarrationWorkflows` yet (tests assert on absent content, so failures will show as the "should contain" assertions failing).
 
-- [ ] **Step 3: Implement the appendix slide in `src/lib/ops-catalog/views/training-deck.ts`**
+- [x] **Step 3: Implement the appendix slide in `src/lib/ops-catalog/views/training-deck.ts`**
 
 Add this block after `PORTAL_PAGES` and before `renderToolsSlide` (around line 566, right after the `PORTAL_PAGES` const closes):
 
@@ -685,20 +685,25 @@ Add `.walkthrough-list` to the existing shared list-spacing rule in `DECK_CSS`:
   .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/`
 Expected: PASS, 82 tests (77 existing + 5 new) across 13 files.
 
-- [ ] **Step 5: Confirm the current render is unaffected (no narration files exist yet)**
+- [x] **Step 5: Confirm the appendix slide itself is unaffected (no narration files exist yet); regenerate decks**
 
-Run: `npm run catalog:render`
-Expected: `git status --porcelain docs/operations/artifacts/` shows no diff — `presentNarrationWorkflows` isn't wired into the CLI shim until Task 4, so `opts` never carries it yet and every deck's bytes are unchanged.
+Run: `npm run catalog:render && git status --porcelain docs/operations/artifacts/`
 
-Run: `git status --porcelain docs/operations/artifacts/`
-Expected: empty output.
+Deviation from the original expectation: this shows all 9 deck files as modified — but the diff is a one-line CSS selector addition only (`.walkthrough-list` appended to the shared list-spacing rule in `DECK_CSS`, which every deck embeds verbatim regardless of role, since it's a shell constant, not per-role content). Confirm with:
 
-- [ ] **Step 6: Commit**
+```bash
+git diff docs/operations/artifacts/training/role.facilities.deck.html
+grep -l "Watch the walkthroughs" docs/operations/artifacts/training/*.deck.html; echo "exit: $?"
+```
+
+Expected: the diff is exactly the one CSS line; the `grep -l` finds no matches (exit 1) — no deck shows appendix *content* yet, since `presentNarrationWorkflows` isn't wired into the CLI shim until Task 4. Commit these regenerated decks alongside the code change so the CI up-to-date check stays green.
+
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts

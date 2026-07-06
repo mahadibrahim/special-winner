@@ -399,3 +399,65 @@ describe("renderTrainingDeck — hand-authored intro composition", () => {
     expect(all["role.team_captain"]).toContain("You run the roster now.");
   });
 });
+
+describe("renderTrainingDeck — walkthrough appendix slide", () => {
+  it("omits the appendix slide entirely when presentNarrationWorkflows is not passed", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    expect(html).not.toContain("Watch the walkthroughs");
+  });
+
+  it("lists only the workflows relevant to this role, ignoring workflows mapped to other roles", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach, {
+      presentNarrationWorkflows: ["coach-core", "coach-practices", "admin-hire-compliance"],
+    });
+    expect(html).toContain("Watch the walkthroughs");
+    expect(html).toContain("training/narration/coach-core.md");
+    expect(html).toContain("training/narration/coach-practices.md");
+    // admin-hire-compliance maps to role.director, not role.coach.
+    expect(html).not.toContain("admin-hire-compliance");
+  });
+
+  it("lists a venue-manager-relevant workflow on the venue manager deck", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager, {
+      presentNarrationWorkflows: ["venue-manager"],
+    });
+    expect(html).toContain("Watch the walkthroughs");
+    expect(html).toContain("training/narration/venue-manager.md");
+  });
+
+  it("omits a workflow from the appendix when it is mapped but not yet present on disk", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach, {
+      presentNarrationWorkflows: ["admin-hire-compliance"],
+    });
+    expect(html).not.toContain("Watch the walkthroughs");
+    expect(html).not.toContain("training/narration/coach-core.md");
+  });
+
+  it("is byte-stable for a worker role with no mapped workflows, regardless of presentNarrationWorkflows", () => {
+    const catalog = buildInlineCatalog();
+    const teamCaptain: Role = {
+      id: "role.team_captain",
+      name: "Team Captain",
+      tier: "field_side",
+      kind: "worker",
+      description: "Worker role with no mapped training walkthrough.",
+      manual_target: "hand_authored",
+    };
+    const withCatalog = { ...catalog, roles: [...catalog.roles, teamCaptain] };
+
+    const withoutFlag = renderTrainingDeck(withCatalog, "role.team_captain");
+    const withAllWorkflows = renderTrainingDeck(withCatalog, "role.team_captain", {
+      presentNarrationWorkflows: [
+        "coach-core",
+        "coach-practices",
+        "admin-hire-compliance",
+        "admin-sequencing",
+        "referee-gameday",
+        "venue-manager",
+      ],
+    });
+
+    expect(withoutFlag).toBe(withAllWorkflows);
+    expect(withoutFlag).not.toContain("Watch the walkthroughs");
+  });
+});
