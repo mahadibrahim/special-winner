@@ -1586,7 +1586,7 @@ git commit -m "feat(training): add the referee-gameday walkthrough"
 - Consumes: `signInAsAdmin`, `waitForHydration` from `../../tests/utils/test-helpers`; `createTour`, `registerVideoCapture` from `../lib/tour`.
 - Produces: `training/output/venue-manager/**`; `training/screenshots/venue_manager/team_check_in.png` (deck slot).
 
-- [ ] **Step 1: Create `training/walkthroughs/venue-manager.walkthrough.ts`**
+- [x] **Step 1: Create `training/walkthroughs/venue-manager.walkthrough.ts`**
 
 ```ts
 import { test } from "@playwright/test";
@@ -1645,7 +1645,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Type-check**
+- [x] **Step 2: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -1653,7 +1653,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run it against a live dev server**
+- [x] **Step 3: Run it against a live dev server**
 
 ```bash
 npm run training:videos -- venue-manager
@@ -1661,7 +1661,7 @@ npm run training:videos -- venue-manager
 
 Expected: 1 passed. `training/output/venue-manager/` contains `video.webm`, `captions.json`, 3–4 PNGs. `training/screenshots/venue_manager/team_check_in.png` now exists.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add training/walkthroughs/venue-manager.walkthrough.ts
