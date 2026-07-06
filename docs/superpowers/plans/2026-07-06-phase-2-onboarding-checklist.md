@@ -1895,7 +1895,7 @@ git commit -m "feat(coach-onboarding): surface per-coach onboarding completion o
 - Consumes: nothing new — this is a content-registry addition, loaded by the existing `scripts/curriculum-load.ts` pipeline (Design decision 6).
 - Produces: one new `coach_resources` row (once loaded), title `"Assessment Calibration: What a 2, a 3, and a 4 Actually Look Like"`, `topic: "assessment-calibration"`.
 
-- [ ] **Step 1: Run the existing registry test to see the current count**
+- [x] **Step 1: Run the existing registry test to see the current count**
 
 ```bash
 npx vitest run tests/unit/curriculum/registry.test.ts -t "matches the true counts"
@@ -1903,7 +1903,7 @@ npx vitest run tests/unit/curriculum/registry.test.ts -t "matches the true count
 
 Expected: PASS at the current baseline (`resources` = 23) — confirms the starting point before this task's change.
 
-- [ ] **Step 2: Append the resource entry**
+- [x] **Step 2: Append the resource entry**
 
 In `src/lib/curriculum/content/coach-guidance.ts`, add a new entry at the end of the `COACH_RESOURCES` array (immediately before its closing `];`):
 
@@ -1981,7 +1981,7 @@ should be able to trust that those 3s mean roughly the same thing.`,
   },
 ```
 
-- [ ] **Step 3: Update the exact-count assertion**
+- [x] **Step 3: Update the exact-count assertion**
 
 In `tests/unit/curriculum/registry.test.ts`, in the `"matches the true counts..."` test, update the resources assertion and its comment:
 
@@ -1992,7 +1992,7 @@ In `tests/unit/curriculum/registry.test.ts`, in the `"matches the true counts...
       expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(24);
 ```
 
-- [ ] **Step 4: Run the registry tests to verify they pass**
+- [x] **Step 4: Run the registry tests to verify they pass**
 
 ```bash
 npx vitest run tests/unit/curriculum/registry.test.ts
@@ -2000,7 +2000,7 @@ npx vitest run tests/unit/curriculum/registry.test.ts
 
 Expected: PASS, including `"coach_resources natural key (title) has no duplicates"` and `"validateRegistry still passes with coach guidance content loaded"`.
 
-- [ ] **Step 5: Cross-link from the coach manual**
+- [x] **Step 5: Cross-link from the coach manual**
 
 In `docs/operations/artifacts/manuals/role.coach.md`, in section "## 3. Assessment duties", insert a new paragraph immediately after the `**Cadence.**` paragraph and before `**Coach notes.**`:
 
@@ -2015,7 +2015,7 @@ worked-example guide is at `/coach/resources` (topic: assessment
 calibration).
 ```
 
-- [ ] **Step 6: Load the content locally (non-blocking for CI — see note)**
+- [ ] **Step 6: Load the content locally (non-blocking for CI — see note)** — SKIPPED, see deviation note below.
 
 ```bash
 npm run curriculum:load -- --org=aspire-sports --dry-run
@@ -2023,7 +2023,9 @@ npm run curriculum:load -- --org=aspire-sports --dry-run
 
 Expected: dry-run report shows `coach_resources: 1 add` (or `0 add / 1 unchanged` if already loaded on this DB from a previous run). Re-run without `--dry-run` to actually apply it to your local/staging-pointed DB. Note: this load step does not gate CI — the registry lives in code and is tested by Step 4; the actual DB row only needs loading before a coach can see it in `/coach/resources`, which the ops runbook already covers for staging/prod (same mechanism Phase 1's credential-adjacent content used).
 
-- [ ] **Step 7: Commit**
+> **Deviation:** `ALLOW_CURRICULUM_SEED=yes ./scripts/with-bws.sh npm run curriculum:load -- --org=aspire-sports --dry-run` was attempted but refused by the script's own env guard: `DATABASE_URL does not contain 'staging'` (the Railway proxy URL injected by `bws` for this worktree doesn't literally contain the substring, even though it's presumably the intended staging DB per house convention). Bypassing requires `ALLOW_PROD_AUDIT=yes`. Per this task's explicit instruction ("do NOT run the loader against staging with write flags — dry-run only, the controller handles the real load") and being unable to positively confirm the target DB from a non-credential-printing check, I chose not to force the bypass rather than risk pointing an unverified DB context at a prod-audit flag. The registry-level verification (Step 4, `registry.test.ts`) fully covers this task's code change; the controller's verification sweep should run the dry-run (and, if appropriate, the real load) with a DB context it has already confirmed.
+
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/curriculum/content/coach-guidance.ts tests/unit/curriculum/registry.test.ts docs/operations/artifacts/manuals/role.coach.md

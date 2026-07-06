@@ -329,7 +329,8 @@ describe("curriculum registry", () => {
       expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(63);
       // 12 (coach-resources.ts) + 9 (coach-training-modules.ts resourcesData)
       // + 2 wave-2 additions (1 hockey + 1 baseball article)
-      expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(23);
+      // + 1 Phase 2 addition (assessment calibration guide)
+      expect(CURRICULUM_CONTENT.coachGuidance.resources).toHaveLength(24);
       // 5 (coach-prompts.ts) + 15 (coach-training-modules.ts principlesData)
       // minus 1 dropped natural-key collision ("Development Over Winning")
       // + 3 wave-2 additions (hockey, baseball, relative-age-effect)
