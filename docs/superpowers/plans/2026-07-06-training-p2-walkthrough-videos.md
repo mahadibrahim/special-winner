@@ -1679,7 +1679,7 @@ git commit -m "feat(training): add the venue-manager walkthrough"
 - Consumes: nothing (documentation only).
 - Produces: nothing consumed by code — the operator-facing entry point for regenerating all six videos.
 
-- [ ] **Step 1: Write `training/README.md`**
+- [x] **Step 1: Write `training/README.md`**
 
 ```md
 # Training walkthrough videos
@@ -1763,7 +1763,7 @@ and `src/lib/db/seeds/seed-e2e-tests.ts` respectively — walkthroughs import
 them rather than hardcoding credentials.
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add training/README.md
