@@ -1960,7 +1960,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: `coachCredentials.documentKey` (Task 1), `putObject` / `getSignedGetUrl` from `@/lib/storage/r2` (mock-aware: `putObject` no-ops and GET returns `https://mock-r2.local/<key>` under `R2_MOCK=1`).
 - Produces: `POST /api/admin/coaches/credentials/[id]/document` (multipart field `document`, PDF ≤5MB) → `200 { documentKey }`; `GET` → `302` to a fresh signed URL. Task 8's grid links to the GET.
 
-- [ ] **Step 1: Write the failing API test**
+- [x] **Step 1: Write the failing API test**
 
 Create `tests/api/admin/coach-credential-document.test.ts`:
 
@@ -2123,12 +2123,12 @@ describe("credential document endpoints", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/coach-credential-document.test.ts`
 Expected: FAIL — route missing (404s where 200/302/400 expected; note the cross-org test may coincidentally pass).
 
-- [ ] **Step 3: Implement the endpoint**
+- [x] **Step 3: Implement the endpoint**
 
 Create `src/pages/api/admin/coaches/credentials/[id]/document.ts`:
 
@@ -2250,14 +2250,14 @@ export const GET: APIRoute = async (context) => {
 };
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `./scripts/with-bws.sh npx vitest run --config vitest.config.ts --project api tests/api/admin/coach-credential-document.test.ts`
 Expected: PASS (5 tests). Requires the dev server started with `R2_MOCK=1`.
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "src/pages/api/admin/coaches/credentials/[id]/document.ts" tests/api/admin/coach-credential-document.test.ts
