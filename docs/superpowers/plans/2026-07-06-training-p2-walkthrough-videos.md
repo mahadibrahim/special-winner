@@ -979,7 +979,7 @@ git commit -m "feat(training): add the Tour caption/screenshot helper with unit 
 - Consumes: nothing from earlier tasks.
 - Produces: `npm run training:videos` (all six) and `npm run training:videos -- <name>` (one), used by Tasks 7–12 and the final verification task (14).
 
-- [ ] **Step 1: Create `training/playwright.config.ts`**
+- [x] **Step 1: Create `training/playwright.config.ts`**
 
 ```ts
 import { defineConfig, devices } from "@playwright/test";
@@ -1014,7 +1014,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2: Add the npm script**
+- [x] **Step 2: Add the npm script**
 
 In `package.json`, add next to the existing `"test:headed"` entry:
 
@@ -1022,7 +1022,7 @@ In `package.json`, add next to the existing `"test:headed"` entry:
     "training:videos": "playwright test --config training/playwright.config.ts",
 ```
 
-- [ ] **Step 3: Ignore the output directory**
+- [x] **Step 3: Ignore the output directory**
 
 In `.gitignore`, add a new section:
 
@@ -1033,7 +1033,7 @@ In `.gitignore`, add a new section:
 training/output/
 ```
 
-- [ ] **Step 4: Verify the root config still doesn't discover this directory**
+- [x] **Step 4: Verify the root config still doesn't discover this directory**
 
 ```bash
 grep -n "testDir" playwright.config.ts
@@ -1041,7 +1041,7 @@ grep -n "testDir" playwright.config.ts
 
 Expected: `testDir: './tests/e2e'` — unchanged, confirming `npm test`/CI never scans `training/`.
 
-- [ ] **Step 5: Verify the new config parses (no walkthrough files exist yet, so this should report zero tests, not an error)**
+- [x] **Step 5: Verify the new config parses (no walkthrough files exist yet, so this should report zero tests, not an error)**
 
 ```bash
 npx playwright test --config training/playwright.config.ts --list
@@ -1049,7 +1049,7 @@ npx playwright test --config training/playwright.config.ts --list
 
 Expected: exits 0 and reports "No tests found" (or similar) — confirms the config file itself is syntactically valid and points at the right directory before any walkthrough files exist.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add training/playwright.config.ts package.json .gitignore
