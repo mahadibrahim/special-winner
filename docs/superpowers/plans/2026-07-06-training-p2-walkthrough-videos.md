@@ -1284,7 +1284,7 @@ git commit -m "feat(training): add the coach-practices walkthrough"
 - Consumes: `signIn`, `waitForHydration`, `TEST_USERS` from `../../tests/utils/test-helpers`; `TRAINING_USERS` from `../../src/lib/db/seeds/seed-e2e-tests` (Task 1/2); `createTour`, `registerVideoCapture` from `../lib/tour`.
 - Produces: `training/output/admin-hire-compliance/**`.
 
-- [ ] **Step 1: Create `training/walkthroughs/admin-hire-compliance.walkthrough.ts`**
+- [x] **Step 1: Create `training/walkthroughs/admin-hire-compliance.walkthrough.ts`**
 
 ```ts
 import { test, expect } from "@playwright/test";
@@ -1353,7 +1353,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Type-check**
+- [x] **Step 2: Type-check**
 
 ```bash
 npx tsc --noEmit
@@ -1361,7 +1361,7 @@ npx tsc --noEmit
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run it against a live dev server (re-seed first so the applicant is un-hired)**
+- [x] **Step 3: Run it against a live dev server (re-seed first so the applicant is un-hired)**
 
 ```bash
 npm run db:seed:e2e
@@ -1370,7 +1370,7 @@ npm run training:videos -- admin-hire-compliance
 
 Expected: 1 passed. `training/output/admin-hire-compliance/` contains `video.webm`, `captions.json`, and 4–5 PNGs. Re-run `npm run db:seed:e2e` then the walkthrough again to confirm repeatability.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add training/walkthroughs/admin-hire-compliance.walkthrough.ts
