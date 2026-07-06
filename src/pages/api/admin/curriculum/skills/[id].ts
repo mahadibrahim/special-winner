@@ -10,6 +10,11 @@ import {
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 /**
  * Skills with organizationId === null are global; everyone with admin
  * access can read them but only super_admins should mutate them. We
@@ -198,7 +203,7 @@ export const PUT: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error updating skill:", error);
-    if (error.code === "23505") {
+    if (getDbErrorCode(error) === "23505") {
       return new Response(JSON.stringify({ error: "A skill with this slug already exists" }), { status: 409 });
     }
     return new Response(JSON.stringify({ error: "Failed to update skill" }), { status: 500 });
@@ -249,7 +254,7 @@ export const DELETE: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Error deleting skill:", error);
-    if (error.code === "23503") {
+    if (getDbErrorCode(error) === "23503") {
       return new Response(
         JSON.stringify({ error: "Cannot delete skill that has assessments associated with it" }),
         { status: 400 }
