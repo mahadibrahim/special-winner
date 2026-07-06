@@ -496,7 +496,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `jobApplications.hiredUserId` (uuid, nullable, FK → users, `set null`); the status value convention `"new" | "archived" | "hired"` (status is a `varchar(30)`, not a pg enum — no type change needed). Task 4 writes both fields; Task 5 reads them.
 
-- [ ] **Step 1: Update the schema file**
+- [x] **Step 1: Update the schema file**
 
 In `src/lib/db/schema/job-applications.ts`, make three edits.
 
@@ -544,12 +544,12 @@ with:
   }),
 ```
 
-- [ ] **Step 2: Generate the migration**
+- [x] **Step 2: Generate the migration**
 
 Run: `npm run db:generate -- --name job_applications_hired`
 Expected: `Your SQL migration file ➜ src/lib/db/migrations/00NN_job_applications_hired.sql`.
 
-- [ ] **Step 3: Edit the generated migration for idempotency**
+- [x] **Step 3: Edit the generated migration for idempotency**
 
 Replace the generated file's contents with exactly (idempotent column + guarded FK):
 
@@ -558,14 +558,14 @@ ALTER TABLE "job_applications" ADD COLUMN IF NOT EXISTS "hired_user_id" uuid;-->
 DO $$ BEGIN ALTER TABLE "job_applications" ADD CONSTRAINT "job_applications_hired_user_id_users_id_fk" FOREIGN KEY ("hired_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;
 ```
 
-- [ ] **Step 4: Apply and type-check**
+- [x] **Step 4: Apply and type-check**
 
 Run: `./scripts/with-bws.sh npm run db:migrate`
 Expected: completes without error.
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/db/schema/job-applications.ts src/lib/db/migrations

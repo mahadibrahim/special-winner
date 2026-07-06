@@ -449,6 +449,13 @@
       "when": 1783340517575,
       "tag": "0063_coach_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1783340616067,
+      "tag": "0064_job_applications_hired",
+      "breakpoints": true
     }
   ]
 }
