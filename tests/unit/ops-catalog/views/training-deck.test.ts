@@ -135,3 +135,40 @@ describe("renderTrainingDeck — safety & escalation slide", () => {
     expect(html).toContain("Venue Manager");
   });
 });
+
+describe("renderTrainingDeck — your tools + help slides", () => {
+  it("lists role-relevant portal pages for a role with known tooling", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    expect(html).toContain("Your tools");
+    expect(html).toContain("/admin/venue");
+  });
+
+  it("lists the coach's /coach surfaces including practices and assessments", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    expect(html).toContain("/coach/practices");
+    expect(html).toContain("/coach/assess/[playerId]");
+  });
+
+  it("gracefully degrades to an explicit no-tools note for a role with no PORTAL_PAGES entry", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.parent);
+    expect(html).toContain("No dedicated portal pages yet");
+  });
+
+  it("closes with a help slide naming the director as final escalation tier", () => {
+    const catalog = buildInlineCatalog();
+    catalog.roles = [
+      ...catalog.roles,
+      {
+        id: "role.director",
+        name: "Director",
+        tier: "leadership",
+        kind: "worker",
+        description: "Oversight.",
+        manual_target: "employee_manual",
+      },
+    ];
+    const html = renderTrainingDeck(catalog, fixtureIds.roles.venueManager);
+    expect(html).toContain("Where to get help");
+    expect(html).toContain("Director is the final escalation tier");
+  });
+});

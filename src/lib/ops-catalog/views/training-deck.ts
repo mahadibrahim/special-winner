@@ -331,6 +331,101 @@ function renderSafetySlide(catalog: Catalog, matched: MatchedActivity[]): string
   `.trim();
 }
 
+interface PortalPage {
+  path: string;
+  description: string;
+}
+
+// Hand-curated against the real route tree in src/pages/ (see Design Decision
+// 2 in the Phase 1 plan). Not derived from the catalog — nothing in the
+// schema ties an activity to a UI route today.
+const PORTAL_PAGES: Record<string, PortalPage[]> = {
+  "role.coach": [
+    { path: "/coach", description: "Dashboard — today at a glance, incl. your onboarding checklist while incomplete" },
+    { path: "/coach/teams", description: "Your team assignments" },
+    { path: "/coach/roster/[teamId]", description: "Team roster" },
+    { path: "/coach/schedule", description: "Practices and games" },
+    { path: "/coach/practices", description: "Practice planner — build and reuse session plans (sequences)" },
+    { path: "/coach/attendance/[teamId]", description: "Attendance per session" },
+    { path: "/coach/assessments", description: "Assessments due across your teams" },
+    { path: "/coach/assess/[playerId]", description: "Record a player assessment" },
+    { path: "/coach/messages", description: "Team messaging to families" },
+    { path: "/coach/standings", description: "League standings" },
+    { path: "/coach/resources", description: "Coaching guides by sport, domain, and skill" },
+  ],
+  "role.ref": [
+    { path: "/referee", description: "Today's assigned matches — check in here" },
+    { path: "/referee/matches/[gameId]", description: "Live score entry and final score attestation" },
+    { path: "/referee/pay", description: "Your match pay history" },
+  ],
+  "role.venue_manager": [
+    { path: "/admin/venue", description: "Venue command center — today's event-day overview" },
+    { path: "/admin/venue/day/[date]", description: "Run-of-show for a specific event day" },
+    { path: "/admin/venue/check-in", description: "Player/team check-in" },
+    { path: "/admin/venue/walk-up", description: "Walk-on registration" },
+    { path: "/admin/venue/rosters", description: "Team rosters for the day" },
+    { path: "/admin/venue/reports", description: "End-of-day reports" },
+  ],
+  "role.front_of_house": [
+    { path: "/admin/check-in", description: "Player/family check-in" },
+    { path: "/admin/venue/walk-up", description: "Walk-on registration and payment" },
+  ],
+  "role.event_lead": [
+    { path: "/admin/game-day/today", description: "Run-of-show for today's matches" },
+    { path: "/admin/check-in", description: "Check-in support" },
+  ],
+  "role.photographer": [
+    { path: "/media", description: "Media dashboard" },
+    { path: "/media/queue", description: "Capture queue for today's assignments" },
+    { path: "/media/jobs", description: "Your assigned media jobs" },
+    { path: "/media/tag/[session_id]", description: "Tag captured media to players/teams" },
+  ],
+  "role.team_captain": [
+    { path: "/team/[token]", description: "Your team's roster and conduct tools" },
+  ],
+  "role.director": [
+    { path: "/admin", description: "Organization dashboard" },
+    { path: "/admin/reports", description: "Cross-venue reporting" },
+    { path: "/admin/curriculum", description: "Curriculum oversight" },
+  ],
+  "role.facilities": [],
+};
+
+function renderToolsSlide(roleId: string): string {
+  const pages = PORTAL_PAGES[roleId] ?? [];
+  if (pages.length === 0) {
+    return `
+      <h2>Your tools</h2>
+      <p class="empty-note">No dedicated portal pages yet for this role — coordinate through your venue manager or director until one ships.</p>
+    `.trim();
+  }
+  const rows = pages
+    .map(
+      (p) =>
+        `<tr><td><code>${escapeHtml(p.path)}</code></td><td>${escapeHtml(p.description)}</td></tr>`,
+    )
+    .join("");
+  return `
+    <h2>Your tools</h2>
+    <table class="tools-table"><tbody>${rows}</tbody></table>
+  `.trim();
+}
+
+function renderHelpSlide(catalog: Catalog): string {
+  const director = catalog.roles.find((r) => r.id === "role.director");
+  const directorLine = director
+    ? `${escapeHtml(director.name)} is the final escalation tier for anything unresolved.`
+    : "Escalate through your standard chain for anything unresolved.";
+  return `
+    <h2>Where to get help</h2>
+    <ol>
+      <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
+      <li>Escalate per that chain first — most issues have a named next step.</li>
+      <li>${directorLine}</li>
+    </ol>
+  `.trim();
+}
+
 export interface TrainingDeckOptions {
   intro?: string;
   screenshots?: Map<string, string>;
@@ -365,6 +460,8 @@ export function renderTrainingDeck(
   }
 
   slides.push(renderSafetySlide(catalog, matched));
+  slides.push(renderToolsSlide(roleId));
+  slides.push(renderHelpSlide(catalog));
 
   return renderDeckShell(role, slides);
 }

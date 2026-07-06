@@ -865,7 +865,7 @@ git commit -m "feat(ops-catalog): training deck safety & escalation slide"
 - Consumes: `roleId: string`; `catalog.roles: Role[]` (for the help slide's director lookup).
 - Produces: internal `PORTAL_PAGES`, `renderToolsSlide`, `renderHelpSlide` — used by `renderTrainingDeck`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/unit/ops-catalog/views/training-deck.test.ts`:
 
@@ -908,12 +908,12 @@ describe("renderTrainingDeck — your tools + help slides", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — no "Your tools" or "Where to get help" content exists yet.
 
-- [ ] **Step 3: Implement the tools + help slides**
+- [x] **Step 3: Implement the tools + help slides**
 
 In `src/lib/ops-catalog/views/training-deck.ts`, add (after the safety-slide helper):
 
@@ -1023,12 +1023,12 @@ Then extend `renderTrainingDeck`'s body (after the safety slide, before `return 
   return renderDeckShell(role, slides);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: PASS — all tests in the file.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts
