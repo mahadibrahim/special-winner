@@ -140,9 +140,17 @@ export function createTour(opts: TourOptions): Tour {
 /**
  * Registers a `test.afterEach` that finalizes the Playwright-recorded video
  * for every test in the file and copies it to
- * <rootDir>/output/<workflow>/video.webm. Closing the page here (rather
- * than relying on Playwright's own teardown) is required — `Video.path()`
- * only resolves once the page/context that recorded it has closed.
+ * <rootDir>/output/<workflow>/video.webm.
+ *
+ * Closes the whole browser CONTEXT (not just the page) before reading
+ * `video.path()` — Playwright's own docs guarantee the video is fully
+ * flushed to disk "upon closing the browser context", not merely the page.
+ * An earlier version of this function called only `page.close()`, which
+ * usually left enough time for the OS to flush anyway, but produced a
+ * genuine 0-byte video.webm for the fastest walkthrough (referee-gameday,
+ * ~7s) during Task 14 end-to-end verification — a real race, not a fluke:
+ * `page.close()` alone doesn't wait for the context's video muxer to
+ * finish writing trailing frames.
  */
 export function registerVideoCapture(
   testObj: typeof PlaywrightTest,
@@ -151,7 +159,7 @@ export function registerVideoCapture(
 ): void {
   testObj.afterEach(async ({ page }) => {
     const video = page.video();
-    await page.close();
+    await page.context().close();
     if (!video) return;
     const src = await video.path();
     const destDir = path.join(rootDir ?? path.join(process.cwd(), "training"), "output", workflow);
