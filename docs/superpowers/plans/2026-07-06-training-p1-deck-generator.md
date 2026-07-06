@@ -1328,7 +1328,7 @@ git commit -m "feat(ops-catalog): compose hand-authored intro.md as opening trai
 - Consumes: `generateAllTrainingDecks(catalog, optsByRole)` and `TrainingDeckOptions` from `../../src/lib/ops-catalog/views/training-deck` (Tasks 7-8).
 - Produces: `docs/operations/artifacts/training/role.<id>.deck.html` files on disk; `npm run catalog:render` and `npm run catalog:render:embed` CLI entry points.
 
-- [ ] **Step 1: Add the import**
+- [x] **Step 1: Add the import**
 
 In `scripts/ops-catalog/index.ts`, add to the import block at the top of the file:
 
@@ -1339,7 +1339,7 @@ import {
 } from "../../src/lib/ops-catalog/views/training-deck";
 ```
 
-- [ ] **Step 2: Extend the primary render branch to also write training decks**
+- [x] **Step 2: Extend the primary render branch to also write training decks**
 
 In `scripts/ops-catalog/index.ts`, find this block inside the `render` command (the `if (!view) { ... }` branch):
 
@@ -1430,7 +1430,7 @@ Replace it with:
     }
 ```
 
-- [ ] **Step 3: Add the `--embed` npm script**
+- [x] **Step 3: Add the `--embed` npm script**
 
 In `package.json`, in the `scripts` block, immediately after the existing line:
 
@@ -1444,7 +1444,7 @@ add:
     "catalog:render:embed": "tsx scripts/ops-catalog/index.ts render --embed",
 ```
 
-- [ ] **Step 4: Fix the CI trigger-paths gap**
+- [x] **Step 4: Fix the CI trigger-paths gap**
 
 `.github/workflows/ops-catalog.yml`'s `paths:` filters (both `pull_request` and `push`) list `docs/operations/catalog/**`, `docs/operations/artifacts/**`, `scripts/ops-catalog/**`, `tests/unit/ops-catalog/**`, and the workflow file itself — but never `src/lib/ops-catalog/**`, the directory both `role-manual.ts` and the new `training-deck.ts` live in. A PR touching only a view file under `src/lib/ops-catalog/views/` would silently skip this workflow. Fix both `paths:` blocks by adding `"src/lib/ops-catalog/**"` as a new line alongside the existing four entries in each block (8 total additions — one per `pull_request` and `push` section).
 
@@ -1502,7 +1502,7 @@ to:
       - ".github/workflows/ops-catalog.yml"
 ```
 
-- [ ] **Step 5: Run the CLI to confirm decks are produced**
+- [x] **Step 5: Run the CLI to confirm decks are produced**
 
 Run: `npm run catalog:render`
 Expected: stdout ends with a line like:
@@ -1518,12 +1518,12 @@ Then confirm the files exist:
 Run: `ls docs/operations/artifacts/training/`
 Expected: 9 files named `role.<id>.deck.html`, one per worker role.
 
-- [ ] **Step 6: Run typecheck**
+- [x] **Step 6: Run typecheck**
 
 Run: `npx tsc --noEmit`
 Expected: zero errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add scripts/ops-catalog/index.ts package.json .github/workflows/ops-catalog.yml
