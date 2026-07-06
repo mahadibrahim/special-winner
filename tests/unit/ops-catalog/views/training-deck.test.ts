@@ -218,3 +218,59 @@ describe("generateAllTrainingDecks", () => {
     expect(allFirst).toEqual(allSecond);
   });
 });
+
+describe("renderTrainingDeck — hand-authored intro composition", () => {
+  const introMd = [
+    "## Welcome to the crew",
+    "",
+    "You're joining a **fast-moving** team.",
+    "",
+    "- Read the manual first",
+    "- Ask your venue manager for a walkthrough",
+    "",
+    "## What today looks like",
+    "",
+    "A quick tour of the day-of flow.",
+  ].join("\n");
+
+  it("inlines intro.md content as opening slides, before the your-day section", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager, {
+      intro: introMd,
+    });
+
+    expect(html).toMatch(/Welcome to the crew.*What today looks like.*Your day: day setup/s);
+    expect(html).toContain("<strong>fast-moving</strong>");
+    expect(html).toContain("<li>Read the manual first</li>");
+  });
+
+  it("renders a single 'Welcome' slide when intro.md has no ## headings", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager, {
+      intro: "Just a plain welcome paragraph, no headings.",
+    });
+    expect(html).toContain("<h2>Welcome</h2>");
+    expect(html).toContain("Just a plain welcome paragraph, no headings.");
+  });
+
+  it("renders no intro slides when opts.intro is omitted", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    expect(html).not.toContain("Welcome to the crew");
+  });
+
+  it("composes intro slides for a hand_authored role via generateAllTrainingDecks", () => {
+    const catalog = buildInlineCatalog();
+    const handAuthored: Role = {
+      id: "role.team_captain",
+      name: "Team Captain",
+      tier: "field_side",
+      kind: "worker",
+      description: "Worker role whose manual is written by hand.",
+      manual_target: "hand_authored",
+    };
+    const all = generateAllTrainingDecks(
+      { ...catalog, roles: [...catalog.roles, handAuthored] },
+      { "role.team_captain": { intro: "## Captain's welcome\nYou run the roster now." } },
+    );
+    expect(all["role.team_captain"]).toContain("Captain&#39;s welcome");
+    expect(all["role.team_captain"]).toContain("You run the roster now.");
+  });
+});

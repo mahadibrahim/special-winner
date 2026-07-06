@@ -1145,7 +1145,7 @@ git commit -m "feat(ops-catalog): generateAllTrainingDecks with byte-stability +
 - Consumes: `TrainingDeckOptions.intro` (Task 2).
 - Produces: internal `parseIntroSlides`, `mdBodyToHtml`, `inlineMarkdown` — wired into `renderTrainingDeck`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/unit/ops-catalog/views/training-deck.test.ts`:
 
@@ -1209,12 +1209,12 @@ describe("renderTrainingDeck — hand-authored intro composition", () => {
 
 (Reuses the `Role` import already added in Task 7's test.)
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: FAIL — `opts.intro` is accepted by the type but not rendered into any slide yet.
 
-- [ ] **Step 3: Implement intro composition**
+- [x] **Step 3: Implement intro composition**
 
 In `src/lib/ops-catalog/views/training-deck.ts`, add (after `activitySlug`, before `screenshotSlotHtml` — order doesn't matter functionally, but keep related helpers grouped):
 
@@ -1298,17 +1298,17 @@ Then update `renderTrainingDeck`'s body to compose intro slides right after the 
 
 (Only the `if (opts.intro) { ... }` block is new — it's inserted between the existing `slides.push(renderTitleSlide(role));` line and the existing `for (const phase of PHASE_ORDER) {` loop.)
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/training-deck.test.ts`
 Expected: PASS — all tests in the file.
 
-- [ ] **Step 5: Run the full ops-catalog unit suite**
+- [x] **Step 5: Run the full ops-catalog unit suite**
 
 Run: `npx vitest run tests/unit/ops-catalog/`
 Expected: PASS — every test file under `tests/unit/ops-catalog/`, including `role-manual.test.ts` and `training-deck.test.ts`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/training-deck.ts tests/unit/ops-catalog/views/training-deck.test.ts

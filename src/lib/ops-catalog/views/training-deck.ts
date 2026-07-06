@@ -27,6 +27,66 @@ function activitySlug(activityId: string): string {
   return activityId.replace(/^act\./, "");
 }
 
+// ---------------------------------------------------------------------------
+// Minimal markdown-to-HTML for hand-authored intro.md content. Supports only
+// what intro authors need: "## " slide-boundary headings, blank-line
+// paragraphs, "- " bullet lists, and **bold** inline spans. Anything fancier
+// belongs in the hand-authored role manuals, not intro slides.
+// ---------------------------------------------------------------------------
+
+function inlineMarkdown(escaped: string): string {
+  return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function mdBodyToHtml(body: string): string {
+  const blocks = body
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter((b) => b.length > 0);
+
+  return blocks
+    .map((block) => {
+      const lines = block.split("\n").map((l) => l.trim());
+      const isList = lines.length > 0 && lines.every((l) => l.startsWith("- "));
+      if (isList) {
+        const items = lines
+          .map((l) => `<li>${inlineMarkdown(escapeHtml(l.slice(2)))}</li>`)
+          .join("");
+        return `<ul>${items}</ul>`;
+      }
+      return `<p>${inlineMarkdown(escapeHtml(lines.join(" ")))}</p>`;
+    })
+    .join("\n");
+}
+
+interface IntroSlide {
+  title: string;
+  bodyHtml: string;
+}
+
+function parseIntroSlides(introMarkdown: string): IntroSlide[] {
+  const normalized = introMarkdown.replace(/\r\n/g, "\n").trim();
+  if (normalized.length === 0) return [];
+
+  const headingRe = /^##\s+(.+)$/gm;
+  const matches = [...normalized.matchAll(headingRe)];
+
+  if (matches.length === 0) {
+    return [{ title: "Welcome", bodyHtml: mdBodyToHtml(normalized) }];
+  }
+
+  const slides: IntroSlide[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+    const title = match[1].trim();
+    const start = (match.index ?? 0) + match[0].length;
+    const end = i + 1 < matches.length ? (matches[i + 1].index ?? normalized.length) : normalized.length;
+    const body = normalized.slice(start, end).trim();
+    slides.push({ title, bodyHtml: mdBodyToHtml(body) });
+  }
+  return slides;
+}
+
 // Deck output always lives at docs/operations/artifacts/training/role.<id>.deck.html.
 // Phase 2's walkthrough screenshots land at the repo-root training/screenshots/<role>/
 // directory (gitignored build artifacts, not docs content) — four directory levels up
@@ -444,6 +504,12 @@ export function renderTrainingDeck(
   const matched = matchActivities(catalog, roleId);
   const slides: string[] = [];
   slides.push(renderTitleSlide(role));
+
+  if (opts.intro) {
+    for (const introSlide of parseIntroSlides(opts.intro)) {
+      slides.push(`<h2>${escapeHtml(introSlide.title)}</h2>\n${introSlide.bodyHtml}`);
+    }
+  }
 
   for (const phase of PHASE_ORDER) {
     const entries = matched.filter((m) => m.activity.phase === phase);
