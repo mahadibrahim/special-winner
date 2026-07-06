@@ -30,6 +30,8 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   "/admin/curriculum/activities",
   "/admin/curriculum/skills",
   "/admin/curriculum/templates",
+  "/admin/curriculum/sequences", // from curriculum-manager's "Sequences" section card
+
   "/admin/media/shoots/bulk",
   "/admin/venue/walk-up",      // in venue nav as "Walk-up reg"
   "/admin/venue/check-in",     // in venue nav as "Check-in"
