@@ -2044,7 +2044,7 @@ git commit -m "content(coach-onboarding): add assessment calibration guide + man
 
 This is a **new** spec file rather than an edit to `tests/e2e/coach-dashboard.spec.ts`, per the Global Constraints note on staying conflict-tolerant with the in-flight Phase 4 branch.
 
-- [ ] **Step 1: Write the spec**
+- [x] **Step 1: Write the spec**
 
 ```typescript
 // tests/e2e/coach-onboarding-checklist.spec.ts
@@ -2080,7 +2080,7 @@ test.describe("Coach onboarding checklist", () => {
 });
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 ```bash
 PLAYWRIGHT_BASE_URL=http://localhost:4321 npm test -- coach-onboarding-checklist
@@ -2088,7 +2088,7 @@ PLAYWRIGHT_BASE_URL=http://localhost:4321 npm test -- coach-onboarding-checklist
 
 Expected: PASS. (This spec only runs post-merge on `main` per house convention — it will not gate the PR, per CLAUDE.md's `test-full` note; still run it locally before merging.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/e2e/coach-onboarding-checklist.spec.ts
