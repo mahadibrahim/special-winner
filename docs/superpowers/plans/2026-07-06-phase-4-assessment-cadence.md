@@ -810,7 +810,7 @@ git commit -m "feat(coach): assessments-due endpoint over the cadence query laye
 - Consumes: Task 3's `getAssessmentsDueCount(db, teamIds, now)`.
 - Produces: `GET /api/coach/nav-badges` → `{ inbox: number, assessmentsDue: number }`; `PortalBadges.assessmentsDue?: number`; badge renders on the "Assessments" sidebar item via the existing `badgeKey` plumbing in `PortalLayout` (no changes needed there beyond the type).
 
-- [ ] **Step 1: Update the unit test to expect the new field (failing first)**
+- [x] **Step 1: Update the unit test to expect the new field (failing first)**
 
 Replace the whole of `tests/unit/coach/coach-nav-badges.test.ts` with:
 
@@ -867,12 +867,12 @@ describe("GET /api/coach/nav-badges", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/coach/coach-nav-badges.test.ts`
 Expected: FAIL — payloads are missing `assessmentsDue`.
 
-- [ ] **Step 3: Extend the endpoint**
+- [x] **Step 3: Extend the endpoint**
 
 Replace the whole of `src/pages/api/coach/nav-badges.ts` with:
 
@@ -932,12 +932,12 @@ export const GET: APIRoute = async ({ locals }) => {
 };
 ```
 
-- [ ] **Step 4: Run the unit test to verify it passes**
+- [x] **Step 4: Run the unit test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/coach/coach-nav-badges.test.ts`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Wire the badge key through the portal chrome**
+- [x] **Step 5: Wire the badge key through the portal chrome**
 
 In `src/components/portal/portal-layout.tsx`, extend the `PortalBadges` type:
 
@@ -966,7 +966,7 @@ In `src/lib/admin/nav-coach.ts`, badge the Assessments item (line 29):
 
 No change to `CoachLayout` — it already forwards the whole `/api/coach/nav-badges` payload as `badges`, and `PortalLayout` already renders `badges[item.badgeKey]`.
 
-- [ ] **Step 6: Append the live-endpoint assertion to the API test**
+- [x] **Step 6: Append the live-endpoint assertion to the API test**
 
 Append to `tests/api/coach/assessments-due.test.ts`, inside the existing `describe` block after the last `it`:
 
@@ -982,7 +982,7 @@ Append to `tests/api/coach/assessments-due.test.ts`, inside the existing `descri
   });
 ```
 
-- [ ] **Step 7: Run tests + typecheck to verify**
+- [x] **Step 7: Run tests + typecheck to verify**
 
 Run: `TEST_BASE_URL=http://localhost:4321 npx vitest run --config vitest.config.ts --project api tests/api/coach/assessments-due.test.ts`
 Expected: PASS (4 tests).
@@ -990,7 +990,7 @@ Expected: PASS (4 tests).
 Run: `npx tsc --noEmit`
 Expected: zero errors (the widened union and type must line up).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/pages/api/coach/nav-badges.ts tests/unit/coach/coach-nav-badges.test.ts src/components/portal/portal-layout.tsx src/lib/admin/nav-super-admin.ts src/lib/admin/nav-coach.ts tests/api/coach/assessments-due.test.ts

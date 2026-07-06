@@ -55,4 +55,14 @@ describe("GET /api/coach/assessments/due", () => {
       }
     }
   });
+
+  it("nav-badges exposes the due count alongside inbox", async () => {
+    const res = await apiFetch("/api/coach/nav-badges", {
+      method: "GET",
+      cookie: coachCookie,
+    });
+    const json = await expectJson(res, 200);
+    expect(typeof json.inbox).toBe("number");
+    expect(typeof json.assessmentsDue).toBe("number");
+  });
 });
