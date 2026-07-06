@@ -60,7 +60,7 @@ Copied from the spec; every task's requirements implicitly include these:
 - Consumes: nothing new.
 - Produces (later tasks rely on these exact names): `export const PHASE_ORDER: Activity["phase"][]`, `export type Involvement = "Accountable" | "Responsible" | "Accountable | Responsible"`, `export function involvementOf(activity: Activity, roleId: string): Involvement | null`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to the bottom of `tests/unit/ops-catalog/views/role-manual.test.ts`:
 
@@ -91,12 +91,12 @@ describe("shared exports for the training-deck view", () => {
 
 (This adds a second `import` block referencing the same test file's existing `buildInlineCatalog`/`fixtureIds` import — merge it into the existing import statement at the top of the file rather than duplicating the import line.)
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/role-manual.test.ts`
 Expected: FAIL — `involvementOf` and `PHASE_ORDER` are not exported members of `role-manual.ts`.
 
-- [ ] **Step 3: Export the helpers (no behavior change)**
+- [x] **Step 3: Export the helpers (no behavior change)**
 
 In `src/lib/ops-catalog/views/role-manual.ts`, change:
 
@@ -134,12 +134,12 @@ to:
 export function involvementOf(activity: Activity, roleId: string): Involvement | null {
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config vitest.config.ts --project unit tests/unit/ops-catalog/views/role-manual.test.ts`
 Expected: PASS — all tests in the file, including the two new ones.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/ops-catalog/views/role-manual.ts tests/unit/ops-catalog/views/role-manual.test.ts
