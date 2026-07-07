@@ -21,7 +21,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If venue_manager unreachable, role.facilities captures the photo and
-  escalates to role.director per the standard handoff ladder.
+  escalates to role.director per the Coach → Venue Manager →
+  Director handoff ladder.
 sop_body: |
   1. About 30 minutes before the first match on each surface, walk to
      that surface with a phone or camera.

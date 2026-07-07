@@ -20,8 +20,8 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the
-  standard handoff ladder; closure cannot be completed without a
+  If venue_manager unreachable, escalate to role.director per the Coach → Venue Manager →
+  Director handoff ladder; closure cannot be completed without a
   walkthrough sign-off.
 sop_body: |
   1. After the last match concludes and spectators have cleared, walk the

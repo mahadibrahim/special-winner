@@ -20,8 +20,8 @@ platform_features:
   - feat.counter_service
   - feat.activity_tracking_engine
 escalation_path: |
-  If front_of_house unreachable, escalate to role.event_lead per the
-  standard handoff ladder.
+  If front_of_house unreachable, escalate directly to role.venue_manager
+  per the Coach → Venue Manager → Director handoff ladder.
 sop_body: |
   1. Throughout the drop-in/clinic intake window, greet each walk-on
      parent or adult player at the front-of-house station — the coach

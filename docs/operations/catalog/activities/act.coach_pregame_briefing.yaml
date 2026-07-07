@@ -21,8 +21,8 @@ platform_features:
   - feat.signature_capture
   - feat.activity_tracking_engine
 escalation_path: |
-  If event_lead unreachable, escalate to role.venue_manager per the
-  standard handoff ladder.
+  If event_lead unreachable, escalate to role.venue_manager per the Coach → Venue Manager →
+  Director handoff ladder.
 sop_body: |
   1. This runs for youth-league matches only, alongside team check-in,
      about 15 minutes before kickoff — adult leagues are self-managed

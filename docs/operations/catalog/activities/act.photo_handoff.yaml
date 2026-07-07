@@ -21,8 +21,10 @@ platform_features:
   - feat.counter_service
   - feat.activity_tracking_engine
 escalation_path: |
-  If upload fails, photographer notifies role.event_lead who escalates
-  to role.director; raw cards are retained until upload succeeds.
+  If upload fails, photographer notifies role.venue_manager, who
+  escalates to role.director per the Coach → Venue Manager → Director
+  handoff ladder if unresolved; raw cards are retained until upload
+  succeeds.
 sop_body: |
   1. After your last assigned match of the day, open your job in the
      media app (My jobs) and start the upload for today's session.
@@ -40,7 +42,7 @@ sop_body: |
   6. Retain your raw memory cards until you've confirmed the upload
      succeeded — don't format or reuse a card until the session shows
      uploaded.
-  7. If the upload fails or stalls, notify the event lead right away
+  7. If the upload fails or stalls, notify the venue manager right away
      rather than repeatedly retrying alone; they escalate to the
      director if it isn't resolved quickly. Keep the cards physically
      secure and retained until the upload is confirmed, however long

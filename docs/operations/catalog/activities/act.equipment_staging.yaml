@@ -20,8 +20,8 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If facilities unreachable, escalate to role.venue_manager per the
-  standard handoff ladder.
+  If facilities unreachable, escalate to role.venue_manager per the Coach → Venue Manager →
+  Director handoff ladder.
 sop_body: |
   1. About 90 minutes before first kickoff, pull the day's equipment list
      by match and surface from the schedule.

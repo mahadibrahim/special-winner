@@ -21,8 +21,9 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If front_of_house unreachable, role.event_lead inventories and
-  escalates to role.venue_manager per the standard handoff ladder.
+  If front_of_house unreachable, role.venue_manager runs the inventory
+  or assigns coverage, per the Coach → Venue Manager → Director
+  handoff ladder.
 sop_body: |
   1. After the venue clears at end of day, do one final sweep of common
      areas — bleachers, sidelines, locker rooms, restrooms, concession
@@ -43,8 +44,9 @@ sop_body: |
   7. Submit the inventory form — this is what the office uses to match
      items to inquiries and to know what's still eligible for the
      holding-window disposal.
-  8. If front of house isn't available to run this at close, the event
-     lead does the inventory and escalates per the escalation path.
+  8. If front of house isn't available to run this at close, the venue
+     manager runs the inventory or assigns coverage per the escalation
+     path.
 tools:
   - Lost-and-found holding area/bin
   - The lost and found inventory form

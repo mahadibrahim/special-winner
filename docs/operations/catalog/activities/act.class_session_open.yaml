@@ -22,8 +22,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If headcount exceeds the ratio cap (e.g., a coach no-show), the coach
-  holds the start and escalates to role.event_lead; if unreachable,
-  role.venue_manager per the standard handoff ladder. A session never
+  holds the start and escalates directly to role.venue_manager per the
+  Coach → Venue Manager → Director handoff ladder. A session never
   starts over-ratio.
 sop_body: |
   1. Arrive early enough to finish this checklist before players are

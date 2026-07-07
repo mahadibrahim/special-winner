@@ -22,8 +22,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If venue_manager unreachable, role.event_lead conducts follow-up
-  outreach and escalates to role.director per the standard handoff
-  ladder.
+  outreach; any escalation needed goes to role.director per the Coach →
+  Venue Manager → Director handoff ladder.
 sop_body: |
   1. Within 24-48 hours of the finalized incident report, follow up
      directly with the affected family (or staff member, if it's a

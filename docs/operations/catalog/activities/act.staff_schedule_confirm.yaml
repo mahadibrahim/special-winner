@@ -20,8 +20,8 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the
-  standard handoff ladder.
+  If venue_manager unreachable, escalate to role.director per the Coach → Venue Manager →
+  Director handoff ladder.
 sop_body: |
   1. 48 hours before the event window, pull the day's staffing plan and
      list every shift slot that needs to be covered — venue manager,
