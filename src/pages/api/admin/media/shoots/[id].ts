@@ -94,18 +94,28 @@ export const PATCH: APIRoute = async (context) => {
       getDb(),
       id,
       intendedScope as "internal" | "promotional" | "public",
+      orgContext.organizationId,
     );
     if (!check.canPublish) {
+      // Two independent, distinguishable blockers — surfaced separately so
+      // callers (and the audit log) can tell "nobody signed the waiver yet"
+      // apart from "someone opted out of being featured." An individual can
+      // appear in `doNotPublish` even when they're NOT in `missing` (they
+      // have a granted consent row) — opt-out wins over a stale "yes".
       console.warn(
-        `[media-publish] session ${id} has ${check.missing.length}/${check.totalTagged} tagged participants without ${intendedScope} media-auth consent`,
-        { missing: check.missing.map((m) => `${m.firstName} ${m.lastName}`) },
+        `[media-publish] session ${id} blocked: ${check.missing.length}/${check.totalTagged} tagged participants missing ${intendedScope} media-auth consent, ${check.doNotPublish.length} opted out of publish`,
+        {
+          missing: check.missing.map((m) => `${m.firstName} ${m.lastName}`),
+          doNotPublish: check.doNotPublish.map((m) => `${m.firstName} ${m.lastName}`),
+        },
       );
       if (isMediaAuthHardBlockEnabled()) {
         return new Response(
           JSON.stringify({
-            error: "Cannot publish: missing media authorization for tagged participants",
+            error: "Cannot publish: missing media authorization and/or an individual opt-out for tagged participants",
             intendedScope,
             missing: check.missing,
+            doNotPublish: check.doNotPublish,
           }),
           {
             status: 422,
@@ -121,11 +131,13 @@ export const PATCH: APIRoute = async (context) => {
         entityId: id,
         action: "publish",
         diff: {
-          softWarn: "missing_media_auth_consent",
+          softWarn: "missing_media_auth_consent_or_do_not_publish",
           intendedScope,
           missingCount: check.missing.length,
           totalTagged: check.totalTagged,
           missing: check.missing,
+          doNotPublishCount: check.doNotPublish.length,
+          doNotPublish: check.doNotPublish,
         },
       });
     }

@@ -8,8 +8,9 @@ import {
   consents,
 } from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
-import { and, eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, sql, inArray } from "drizzle-orm";
 import { requireOrgAdminAccess } from "@/lib/auth";
+import { mediaDoNotPublish } from "@/lib/db/schema/media-do-not-publish";
 
 /**
  * GET /api/admin/compliance/family-members
@@ -70,10 +71,20 @@ export const GET: APIRoute = async (context) => {
 
     // Pull all consents for those family_members in one query and reduce to
     // the most-recent per (familyMemberId, type, scope) tuple in JS.
+    //
+    // NOTE (pre-existing bug, fixed here): this used to be a raw
+    // `sql\`${consents.familyMemberId} = ANY (${memberIds})\`` predicate.
+    // Drizzle's sql-template interpolation does not bind a JS array as a
+    // single Postgres array parameter — for a single-element memberIds
+    // array in particular it produced `= ANY (($1))` with $1 bound as a
+    // bare scalar, which Postgres then rejected with "malformed array
+    // literal" trying to cast it to an array type. `inArray()` compiles to
+    // a plain `IN (...)` list and has no such edge case (see the same
+    // pattern already used throughout require-resource-ownership.ts).
     const allConsents = await db
       .select()
       .from(consents)
-      .where(sql`${consents.familyMemberId} = ANY (${memberIds})`)
+      .where(inArray(consents.familyMemberId, memberIds))
       .orderBy(desc(consents.signedAt));
 
     type LatestKey = string;
@@ -112,6 +123,26 @@ export const GET: APIRoute = async (context) => {
       };
     }
 
+    // Individual media opt-out / do-not-publish flags (product-backlog
+    // build #3) — bulk-fetched alongside consents, same pattern. Only the
+    // active row (if any) per family_member matters here.
+    const doNotPublishRows = await db
+      .select({
+        familyMemberId: mediaDoNotPublish.familyMemberId,
+        reason: mediaDoNotPublish.reason,
+      })
+      .from(mediaDoNotPublish)
+      .where(
+        and(
+          inArray(mediaDoNotPublish.familyMemberId, memberIds),
+          eq(mediaDoNotPublish.organizationId, auth.organizationId),
+          eq(mediaDoNotPublish.active, true),
+        ),
+      );
+    const doNotPublishByFm = new Map(
+      doNotPublishRows.map((r) => [r.familyMemberId, r.reason]),
+    );
+
     const result = memberRows.map((m) => ({
       id: m.id,
       firstName: m.firstName,
@@ -130,6 +161,9 @@ export const GET: APIRoute = async (context) => {
         mediaPromotional: statusFor(m.id, "media_authorization", "promotional"),
         mediaPublic: statusFor(m.id, "media_authorization", "public"),
       },
+      doNotPublish: doNotPublishByFm.has(m.id)
+        ? { active: true as const, reason: doNotPublishByFm.get(m.id) ?? null }
+        : { active: false as const },
     }));
 
     return json({ familyMembers: result });

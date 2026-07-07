@@ -22,7 +22,8 @@ import { programs, seasons } from "@/lib/db/schema/programs";
 import { sports } from "@/lib/db/schema/sports";
 import { venues } from "@/lib/db/schema/teams";
 import { teamRegistrations } from "@/lib/db/schema/team-registrations";
-import { eq, asc } from "drizzle-orm";
+import { familyMembers, registrations } from "@/lib/db/schema/registrations";
+import { eq, asc, and } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ url }) => {
   // Only available in test/dev environments — explicit opt-in.
@@ -114,6 +115,24 @@ export const GET: APIRoute = async ({ url }) => {
     .orderBy(asc(teamRegistrations.createdAt))
     .limit(1);
 
+  // A family_member with a registration anywhere in this org (oldest by
+  // registration createdAt, joined all the way through
+  // registrations -> seasons -> programs -> locations.organizationId) —
+  // lets cross-tenant tests exercise family-member-scoped endpoints (e.g.
+  // media do-not-publish) against a real Org B resource id without needing
+  // an Org B staff session.
+  const [fm] = await db
+    .select({ id: familyMembers.id })
+    .from(familyMembers)
+    .innerJoin(registrations, eq(registrations.familyMemberId, familyMembers.id))
+    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(and(eq(locations.organizationId, org.id)))
+    .orderBy(asc(registrations.createdAt))
+    .limit(1);
+  const familyMemberId = fm?.id ?? null;
+
   return new Response(
     JSON.stringify({
       org: { id: org.id, slug: org.slug, name: org.name },
@@ -125,6 +144,7 @@ export const GET: APIRoute = async ({ url }) => {
       seasonId: season?.id ?? null,
       venueId: venue?.id ?? null,
       teamRegToken: teamReg?.inviteToken ?? null,
+      familyMemberId,
     }),
     {
       status: 200,

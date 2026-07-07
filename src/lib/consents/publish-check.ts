@@ -7,6 +7,10 @@ import {
   mediaTags,
 } from "@/lib/db/schema";
 import type { MediaAuthScope } from "@/lib/consents/record";
+import {
+  getFaceTaggedDoNotPublishForSession,
+  type DoNotPublishMatch,
+} from "@/lib/consents/do-not-publish";
 
 export interface MissingConsent {
   familyMemberId: string;
@@ -19,20 +23,46 @@ export interface PublishConsentCheck {
   intendedScope: MediaAuthScope;
   totalTagged: number;
   missing: MissingConsent[];
+  /**
+   * Face-tagged individuals in the session who are on the org's active
+   * media do-not-publish list (product-backlog build #3 — an individual
+   * opt-out, never a team/roster gate). Opt-out wins even if the same
+   * individual also has a granted `missing`-clearing consent row for this
+   * scope — a takedown/opt-out intent beats a stale "yes". `canPublish` is
+   * false whenever this array is non-empty, independent of `missing`.
+   *
+   * This is populated purely from face tags (`mediaTags.familyMemberId`).
+   * Team tags (`mediaTags.teamId`) never feed this list — a team/wide
+   * session with no face tags always gets `doNotPublish: []` here,
+   * regardless of any roster member's opt-out status. See
+   * `src/lib/consents/do-not-publish.ts` for the individual-only framing.
+   */
+  doNotPublish: DoNotPublishMatch[];
 }
 
 /**
  * Returns the list of tagged participants in a shoot session who do NOT have
- * an active media_authorization consent for the session's intendedScope.
+ * an active media_authorization consent for the session's intendedScope,
+ * plus any face-tagged individual who is on the org's active do-not-publish
+ * list (opt-out wins over a stale consent — see `doNotPublish` above).
  *
- * If `missing` is empty, the session can be published cleanly. Otherwise the
- * caller decides whether to soft-warn (log + allow) or hard-block (refuse)
- * based on rollout phase — see `MEDIA_AUTH_HARD_BLOCK` env var in callers.
+ * If both `missing` and `doNotPublish` are empty, the session can be
+ * published cleanly. Otherwise the caller decides whether to soft-warn
+ * (log + allow) or hard-block (refuse) based on rollout phase — see
+ * `MEDIA_AUTH_HARD_BLOCK` env var in callers.
+ *
+ * Team-tag media is NEVER gated here — only individually face-tagged media
+ * is checked, for both the missing-consent path (pre-existing behavior) and
+ * the do-not-publish path (new in build #3). A team/wide session's tags
+ * carry no `familyMemberId`, so they're filtered out at the SQL layer for
+ * `missing`, and `getFaceTaggedDoNotPublishForSession` only ever looks at
+ * face tags — there is no roster-level blocking anywhere in this function.
  */
 export async function checkSessionPublishConsent(
   db: Database,
   sessionId: string,
   intendedScope: MediaAuthScope,
+  organizationId: string,
 ): Promise<PublishConsentCheck> {
   // Distinct family_members tagged across any asset in the session. Tags
   // without a familyMemberId (team tags) don't gate publish, so filter them
@@ -54,7 +84,18 @@ export async function checkSessionPublishConsent(
     );
 
   if (tagged.length === 0) {
-    return { canPublish: true, intendedScope, totalTagged: 0, missing: [] };
+    // No face tags at all in this session — including a pure team/wide
+    // session, which by definition has zero familyMemberId tags. There is
+    // nothing for the do-not-publish check to match either (it's scoped to
+    // face tags), so this is the "team-tag path publishes by default, no
+    // roster blocking" case in one early return.
+    return {
+      canPublish: true,
+      intendedScope,
+      totalTagged: 0,
+      missing: [],
+      doNotPublish: [],
+    };
   }
 
   const taggedIds = tagged.map((t) => t.familyMemberId);
@@ -62,6 +103,16 @@ export async function checkSessionPublishConsent(
   // For each tagged family_member, fetch the most-recent media_authorization
   // consent for the intended scope. Active = status='granted' AND not expired.
   // Drizzle: we use a window-function lateral via DISTINCT ON for efficiency.
+  //
+  // NOTE (pre-existing bug, fixed here): this used to interpolate the array
+  // directly as `= ANY (${taggedIds})`. Drizzle's sql-template does not bind
+  // a JS array as a single Postgres array parameter — for a single-tagged-
+  // participant session in particular it produced `= ANY (($1))` with $1
+  // bound as a bare scalar, and Postgres rejected it with "malformed array
+  // literal" trying to cast it to an array type (same bug found and fixed
+  // in src/pages/api/admin/compliance/family-members.ts while wiring
+  // Task 3). `sql.join(...)` renders a proper `IN (...)` list instead —
+  // the same pattern already used in src/pages/api/public/seasons.ts.
   const latestRows = await db.execute<{
     family_member_id: string;
     status: "granted" | "revoked";
@@ -72,7 +123,7 @@ export async function checkSessionPublishConsent(
       ${consents.status} AS status,
       ${consents.expiresAt} AS expires_at
     FROM ${consents}
-    WHERE ${consents.familyMemberId} = ANY (${taggedIds})
+    WHERE ${consents.familyMemberId} IN (${sql.join(taggedIds.map((id) => sql`${id}`), sql`, `)})
       AND ${consents.type} = 'media_authorization'
       AND ${consents.scope} = ${intendedScope}
     ORDER BY ${consents.familyMemberId}, ${consents.signedAt} DESC
@@ -103,11 +154,21 @@ export async function checkSessionPublishConsent(
       lastName: t.lastName,
     }));
 
+  // Individual opt-out check (build #3) — face-tagged individuals only,
+  // scoped to this org. Opt-out wins even for an individual who IS in
+  // `grantedSet` above (a stale "yes" doesn't override a takedown/opt-out).
+  const doNotPublish = await getFaceTaggedDoNotPublishForSession(
+    db,
+    sessionId,
+    organizationId,
+  );
+
   return {
-    canPublish: missing.length === 0,
+    canPublish: missing.length === 0 && doNotPublish.length === 0,
     intendedScope,
     totalTagged: tagged.length,
     missing,
+    doNotPublish,
   };
 }
 
