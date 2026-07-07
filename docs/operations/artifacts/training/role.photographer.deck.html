@@ -135,7 +135,13 @@
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* "safe center": center vertically when content fits (the common
+       case), but fall back to start-alignment when content is taller than
+       the frame (e.g. a role with many activities on the "Your toolkit"
+       slide) — plain "center" on overflowing flex content makes the top of
+       the content inaccessible via scroll (scrollTop can't go negative),
+       silently hiding the heading. */
+    justify-content: safe center;
     padding: 8vh 10vw;
     background: var(--cream);
     color: var(--ink);
@@ -146,6 +152,11 @@
        exceed the available height on some slides — scroll rather than
        silently overflow into (or under) the touchline footer. */
     overflow-y: auto;
+    /* Round-3 composition pass: a slightly larger base size + wider measure
+       (see the .slide p/.slide li rule below) so single-column slides use
+       more of the 16:9 frame instead of a narrow left-pinned column of body
+       text with the whole right side sitting empty. */
+    font-size: 1.05rem;
   }
   .slide.active {
     opacity: 1;
@@ -171,37 +182,105 @@
     font-style: italic;
     font-size: 0.95rem;
   }
-  /* Meta-chip row (activity slides) — a compact one-line strip of data
-     labels directly under the title: WHEN, YOU OWN THIS/YOU ASSIST, and
-     (when the activity has one) CHECKLIST. Replaces the old floating
-     top-right time-rail chip, the old italic ownership caption line, and
-     the old "checklist exists" filler sentence. Text keeps its natural
-     sentence case in the DOM; uppercase is a pure display transform so the
-     underlying value stays intact/greppable. */
-  .meta-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0 0 1.75rem;
+  /* Round-3 two-column composition system — shared by the activity slide
+     (steps + a meta/tools rail), the agenda and "how time works" slides
+     (a list + a stat callout), and the toolkit slide (two tool-category
+     panels side by side). One grid + one paper-surface panel style reused
+     everywhere there's a natural "main content + companion data" shape,
+     instead of a bespoke layout per slide. */
+  .frame-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: stretch;
+    margin-top: 0.25rem;
   }
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.3rem 0.65rem;
-    background: var(--cream-2);
+  .frame-main {
+    min-width: 0;
+  }
+  .frame-panel {
+    background: var(--paper);
     border: 1px solid var(--cream-3);
-    border-radius: 3px;
+    border-radius: 10px;
+    padding: 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+  .frame-panel-heading {
+    margin: 0;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-muted);
-    white-space: nowrap;
   }
-  .meta-chip--owner {
+  .frame-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+  .frame-stat-value {
+    margin: 0;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.25rem;
+    line-height: 1;
     color: var(--navy-deep);
-    border-color: var(--ochre);
+  }
+  .frame-stat-label {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+  /* Activity slide's right-rail panel — vertically stacked meta rows
+     (replaces the old horizontal meta-chip row: WHEN / ownership /
+     CHECKLIST used to sit as inline chips directly under the title; the
+     two-column composition pass moves them into labeled rows in the paper
+     panel so the panel — not a thin chip strip — is what carries that
+     data, freeing the title area and giving the right column real content). */
+  .panel-meta { display: flex; flex-direction: column; gap: 1.1rem; }
+  .panel-meta-row { display: flex; flex-direction: column; gap: 0.2rem; }
+  .panel-meta-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-meta-value { font-size: 0.95rem; color: var(--ink-2); }
+  .panel-meta-row--owner .panel-meta-value { color: var(--navy-deep); font-weight: 600; }
+  .panel-tools {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--cream-3);
+  }
+  .panel-tools-label {
+    margin: 0 0 0.75rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-tools-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .panel-tools-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .panel-tools-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .nav-controls {
     position: fixed;
@@ -265,9 +344,9 @@
      (verified against the real act.weather_pre_check 6-step slide, which is
      long enough to hit exactly this). */
   .escalation-footnote {
-    margin-top: 1.75rem;
-    padding-top: 1rem;
-    max-width: 68ch;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    max-width: 78ch;
     border-top: 1px dashed var(--cream-3);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -277,44 +356,164 @@
   /* Chapter divider slides (agenda's per-phase dividers + the checklist
      appendix divider) — a big Newsreader chapter name distinct from a
      normal content slide's h2, so it reads as a section break when
-     flipping through the deck. */
+     flipping through the deck. Sized up considerably in the round-3
+     composition pass (3rem -> 5.5rem) so the phase name genuinely
+     dominates the frame instead of sitting as a small headline over a
+     mostly-empty slide. */
   .divider-title {
     margin: 0 0 2rem;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 3rem;
-    line-height: 1.15;
+    font-size: 5.5rem;
+    line-height: 1.05;
     color: var(--navy-deep);
   }
+  /* Textblock wrapper establishes its own stacking context (position +
+     z-index) so it reliably paints above .divider-mark below — position:
+     absolute elements otherwise paint above static in-flow content
+     regardless of DOM order. */
+  .divider-textblock {
+    position: relative;
+    z-index: 1;
+    max-width: 64ch;
+  }
+  /* Giant translucent phase-number watermark, filling the right side of
+     phase-divider slides that would otherwise be almost entirely empty —
+     a short kicker + title + activity list is real content but doesn't
+     come close to using a 16:9 frame on its own. Echoes the poster
+     slide's big-quote-mark motif (a large translucent Newsreader glyph)
+     so the two "mostly typographic" slide kinds in the deck share one
+     visual language. */
+  .divider-mark {
+    position: absolute;
+    z-index: 0;
+    right: 4vw;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
+  }
   /* Agenda slide ("Your day at a glance") — one row per phase with its
-     activity count, right-aligned in mono like the other data labels. */
+     activity count, right-aligned in mono like the other data labels.
+     Lives in the shared .frame-layout grid alongside a stat panel (total
+     phases/activities) so the list's companion data fills the right
+     column instead of leaving it empty. */
   .agenda-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-width: 46ch;
   }
   .agenda-list li {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.7rem 0;
+    padding: 0.85rem 0;
     border-bottom: 1px solid var(--cream-3);
   }
   .agenda-phase {
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     color: var(--navy-deep);
   }
   .agenda-count {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--ink-muted);
     white-space: nowrap;
+  }
+  /* "How time works on your day" timeline slide — a left rail line with a
+     dot per stop, label + activity name per row. Lives in the shared
+     .frame-layout grid next to a stat panel (see renderRoleTimelineSlide). */
+  .timeline-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+  .timeline-list::before {
+    content: "";
+    position: absolute;
+    left: 9rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 1px;
+    background: var(--cream-3);
+  }
+  .timeline-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding: 0.65rem 0 0.65rem 1.75rem;
+  }
+  .timeline-row::before {
+    content: "";
+    position: absolute;
+    left: calc(9rem - 4px);
+    top: 1rem;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--ochre);
+  }
+  /* Single-line labels ("72 hours before", "48 hours after") — the column
+     is sized to fit the longest real label without wrapping; a wrapped
+     second line would run under the rail dot positioned for one line. */
+  .timeline-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    max-width: none;
+    white-space: nowrap;
+  }
+  .timeline-name {
+    font-size: 1rem;
+    color: var(--ink);
+    max-width: none;
+  }
+  /* "Your toolkit" slide — two category panels side by side, reusing the
+     .frame-panel paper-surface card so it shares the same visual language
+     as the activity slide's meta/tools rail and the agenda/timeline stat
+     panels. */
+  .toolkit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    margin-top: 1.5rem;
+  }
+  .toolkit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+  .toolkit-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+  .toolkit-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .belief { margin-top: 1.25rem; }
   .belief h3 {
@@ -343,21 +542,32 @@
     text-align: left;
     vertical-align: top;
   }
-  /* Readable measure — body copy tops out around 68 characters, headings
-     and the tools table (needs its full width) are exempt. */
+  /* Readable measure — body copy tops out around 74 characters (widened
+     from 68 in the round-3 composition pass to use more of the frame),
+     headings and the tools table (needs its full width) are exempt. */
   .slide p,
   .slide li {
-    max-width: 68ch;
+    max-width: 74ch;
   }
   /* Checklist slides — clipboard-card treatment, sage tick squares that
      stay empty (not checked) since this is a training reference, not a
-     live tracker. */
+     live tracker. Widened and centered in the frame (round-3 composition
+     pass) rather than left-pinned at a narrow content width — a checklist
+     card is a standalone object on its own slide, so centering it reads
+     as a deliberate poster-like composition instead of body text that
+     happens to stop halfway across. */
   .clipboard-card {
     background: var(--paper);
     border: 1px solid var(--cream-3);
     border-radius: 10px;
-    padding: 2.5rem 3rem;
+    padding: 3rem 4rem;
     box-shadow: 0 8px 24px oklch(0.2 0.02 260 / 0.08);
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .clipboard-card .checklist--ticks li {
+    font-size: 1.05rem;
   }
   .checklist--ticks { list-style: none; margin: 0; padding: 0; }
   .checklist--ticks li {
@@ -390,21 +600,36 @@
     letter-spacing: 0.25em;
     color: oklch(0.85 0.02 80 / 0.65);
   }
+  /* Round-3 composition pass: the poster previously read as a short
+     left-pinned caption with the entire right ~60% of the navy frame
+     empty. Pairs the existing opening quote mark with a big translucent
+     CLOSING quote mark filling the right side — a classic magazine
+     pull-quote bracket, not a bolted-on decoration — instead of just
+     enlarging the opening mark in place (which at large sizes collided
+     with the statement's first line). .poster-layout is a simple flex
+     row so the statement keeps its own comfortable measure and the
+     closing mark absorbs the remaining width. */
+  .poster-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
   .poster-statement-wrap {
     position: relative;
-    max-width: 34ch;
+    max-width: 40ch;
+    flex: 0 0 auto;
   }
   .poster-quote {
     position: absolute;
-    top: -3.5rem;
-    left: -2rem;
+    top: -4rem;
+    left: -2.5rem;
     z-index: 0;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
-    font-size: 15rem;
+    font-size: 16rem;
     line-height: 1;
     color: var(--primary);
-    opacity: 0.4;
+    opacity: 0.35;
     pointer-events: none;
   }
   .poster-statement {
@@ -415,9 +640,21 @@
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 500;
-    font-size: 2.5rem;
-    line-height: 1.35;
+    font-size: 3.1rem;
+    line-height: 1.3;
     color: var(--cream);
+  }
+  .poster-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 24rem;
+    line-height: 1;
+    color: var(--primary);
+    opacity: 0.14;
+    pointer-events: none;
   }
   /* Touchline footer — sits on every slide, baked in per-slide at render
      time (not via JS) so the counter and tick position are deterministic
@@ -468,15 +705,54 @@
   /* Hero-scale wordmark — title slide only. The poster (purpose) slide
      keeps its existing treatment (no logo); this is a much bigger lockup
      reusing the same dark-lettered mark since the title slide sits on the
-     cream background. */
+     cream background. Sized up again in the round-3 composition pass
+     (260x72 -> 360x100) — "genuinely large" per the redesign brief, not
+     just modestly bigger than the footer mark. */
   .hero-logo {
-    width: 260px;
-    height: 72px;
+    width: 360px;
+    height: 100px;
     margin: 0 0 3rem;
     background-repeat: no-repeat;
     background-position: left center;
     background-size: contain;
     background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K);
+  }
+  /* Title slide role name — explicit large size (h1 has no font-size of
+     its own in this stylesheet otherwise, so it fell back to the browser
+     default ~2rem) plus a wider description measure, so the title slide's
+     text block is a real typographic statement rather than a small
+     logo+heading pair floating in a mostly-empty frame. */
+  .title-role-name {
+    font-size: 4.5rem;
+    line-height: 1.05;
+  }
+  .title-role-description {
+    max-width: 52ch;
+    font-size: 1.2rem;
+    line-height: 1.5;
+  }
+  /* Title-slide layout — the logo/name/description block paired with a
+     giant translucent initial letter filling the right side, the same
+     "big translucent Newsreader glyph" motif as the poster's quote marks
+     and the phase divider's numeral, so the deck's three mostly-typographic
+     slide kinds read as one family instead of three unrelated treatments. */
+  .title-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
+  .title-layout > .title-main { flex: 0 0 auto; max-width: 60ch; }
+  .title-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
   }
   .touchline-logo--dark { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); }
   .touchline-logo--light { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiNGRkZGRkY7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); display: none; }
@@ -511,6 +787,7 @@
     [data-kind="poster"] .poster-role-label { color: var(--ink-muted); }
     [data-kind="poster"] .poster-statement { color: var(--navy-deep); }
     [data-kind="poster"] .poster-quote { opacity: 0.25; }
+    [data-kind="poster"] .poster-mark { opacity: 0.12; }
     [data-kind="poster"] .touchline-counter { color: var(--ink-muted) !important; }
     [data-kind="poster"] .touchline-logo--dark { display: block !important; }
     [data-kind="poster"] .touchline-logo--light { display: none !important; }
@@ -518,24 +795,32 @@
 </style>
 </head>
 <body>
-<section class="slide" data-index="0"><div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
-    <h1>Photographer</h1>
-    <p class="role-description">Field-side contractor responsible for media capture per assignment, feeding
-the media tagging and publishing pipeline.</p><footer class="touchline">
-      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">01 / 16</span>
-      <span class="touchline-tick" style="left: 6.250%"></span>
-    </footer></section>
-<section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Photographer</p>
-    <div class="poster-statement-wrap">
-      <span class="poster-quote" aria-hidden="true">&#8220;</span>
-      <p class="poster-statement">You capture the proof. The memories families keep — and you guard the trust behind every photo of someone&#39;s child.</p>
+<section class="slide" data-index="0"><div class="title-layout">
+      <div class="title-main">
+        <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
+        <h1 class="title-role-name">Photographer</h1>
+        <p class="role-description title-role-description">Field-side contractor responsible for media capture per assignment, feeding
+the media tagging and publishing pipeline.</p>
+      </div>
+      <span class="title-mark" aria-hidden="true">P</span>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">02 / 16</span>
-      <span class="touchline-tick" style="left: 12.500%"></span>
+      <span class="touchline-counter">01 / 18</span>
+      <span class="touchline-tick" style="left: 5.556%"></span>
+    </footer></section>
+<section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Photographer</p>
+    <div class="poster-layout">
+      <div class="poster-statement-wrap">
+        <span class="poster-quote" aria-hidden="true">&#8220;</span>
+        <p class="poster-statement">You capture the proof. The memories families keep — and you guard the trust behind every photo of someone&#39;s child.</p>
+      </div>
+      <span class="poster-mark" aria-hidden="true">&#8221;</span>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">02 / 18</span>
+      <span class="touchline-tick" style="left: 11.111%"></span>
     </footer></section>
 <section class="slide" data-index="2"><h2>Your job</h2>
     <p>You capture and deliver media for your assigned matches. You check in before the game, hand off your raw footage once it ends, and it feeds into the day&#39;s photo publish.</p>
@@ -546,10 +831,47 @@ the media tagging and publishing pipeline.</p><footer class="touchline">
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">03 / 16</span>
-      <span class="touchline-tick" style="left: 18.750%"></span>
+      <span class="touchline-counter">03 / 18</span>
+      <span class="touchline-tick" style="left: 16.667%"></span>
     </footer></section>
-<section class="slide" data-index="3"><h2>What we believe</h2>
+<section class="slide" data-index="3"><h2>Your toolkit</h2>
+    <p class="slide-kicker">Everything your activities call for, in one place.</p>
+    <div class="toolkit-grid">
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Digital &amp; platform tools</p>
+      <ul class="toolkit-list"><li>The activity completion signature capture (/admin/activity-completions/[id])</li><li>The admin Tag Queue (/admin/media/tag-queue) — org-admin publish action</li><li>The event lead&#39;s check-in station (in-person sign-in)</li><li>The media app — My Jobs (/media/jobs)</li><li>The media-authorization consent check (automatic, platform-run)</li><li>The tagging queue (/media/queue) — confirm the session shows &quot;ready&quot;</li><li>The tagging queue (/media/queue) — receives the handed-off session</li></ul>
+    </div>
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Physical &amp; on-site tools</p>
+      <ul class="toolkit-list"><li>Camera body, charged batteries, and memory cards</li><li>Camera memory cards (SD cards), retained until upload is confirmed</li></ul>
+    </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">04 / 18</span>
+      <span class="touchline-tick" style="left: 22.222%"></span>
+    </footer></section>
+<section class="slide" data-index="4"><h2>How time works on your day</h2>
+    <div class="frame-layout">
+      <ol class="timeline-list"><li class="timeline-row"><span class="timeline-label">30 minutes before</span><span class="timeline-name">Photographer check-in</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Photo handoff (raw upload)</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Photo publish</span></li></ol>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">At a glance</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">3</p>
+          <p class="frame-stat-label">3 stops across your day</p>
+        </div>
+        <div class="frame-stat">
+          <p class="frame-stat-value">2</p>
+          <p class="frame-stat-label">2 activities triggered by events, not the clock</p>
+        </div>
+      </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">05 / 18</span>
+      <span class="touchline-tick" style="left: 27.778%"></span>
+    </footer></section>
+<section class="slide" data-index="5"><h2>What we believe</h2>
     <p>These four beliefs shape every practice plan, every sideline conversation, and every call we make about a kid.</p>
     <div class="belief">
       <h3>Development Over Winning</h3>
@@ -561,10 +883,10 @@ the media tagging and publishing pipeline.</p><footer class="touchline">
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">04 / 16</span>
-      <span class="touchline-tick" style="left: 25.000%"></span>
+      <span class="touchline-counter">06 / 18</span>
+      <span class="touchline-tick" style="left: 33.333%"></span>
     </footer></section>
-<section class="slide" data-index="4"><h2>What we believe (continued)</h2>
+<section class="slide" data-index="6"><h2>What we believe (continued)</h2>
     <div class="belief">
       <h3>Long-Term Athlete Development</h3>
       <p>We're building athletes for age 25, not just age 8. We never trade away a child's long-term growth for a short-term result.</p>
@@ -575,95 +897,147 @@ the media tagging and publishing pipeline.</p><footer class="touchline">
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">05 / 16</span>
-      <span class="touchline-tick" style="left: 31.250%"></span>
+      <span class="touchline-counter">07 / 18</span>
+      <span class="touchline-tick" style="left: 38.889%"></span>
     </footer></section>
-<section class="slide" data-index="5"><h2>How that shows up day to day</h2>
+<section class="slide" data-index="7"><h2>How that shows up day to day</h2>
     <p>We coach to two goals at once: compete to win, and grow every player's character and competence. When those two pull in different directions, character comes first.</p>
     <p>Day to day, that means we praise effort, learning, and bouncing back from mistakes — the things a kid actually controls — over results they can't always control.</p>
     <p><strong>Whatever your role, this is what families should feel from us.</strong></p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">06 / 16</span>
-      <span class="touchline-tick" style="left: 37.500%"></span>
+      <span class="touchline-counter">08 / 18</span>
+      <span class="touchline-tick" style="left: 44.444%"></span>
     </footer></section>
-<section class="slide" data-index="6"><h2>Your day at a glance</h2>
-    <ul class="agenda-list"><li><span class="agenda-phase">Pre game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post day</span><span class="agenda-count">1 activity</span></li></ul><footer class="touchline">
+<section class="slide" data-index="8"><h2>Your day at a glance</h2>
+    <div class="frame-layout">
+      <ul class="agenda-list"><li><span class="agenda-phase">Pre game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post day</span><span class="agenda-count">1 activity</span></li></ul>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">Today, in total</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">3</p>
+          <p class="frame-stat-label">3 phases</p>
+        </div>
+        <div class="frame-stat">
+          <p class="frame-stat-value">3</p>
+          <p class="frame-stat-label">3 activities</p>
+        </div>
+      </div>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">07 / 16</span>
-      <span class="touchline-tick" style="left: 43.750%"></span>
-    </footer></section>
-<section class="slide" data-index="7" data-kind="divider"><p class="slide-kicker">Phase 1 of 3</p>
-    <p class="divider-title">Pre game</p>
-    <ul class="phase-overview"><li>Photographer check-in — <em>You own this</em></li></ul><footer class="touchline">
-      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">08 / 16</span>
+      <span class="touchline-counter">09 / 18</span>
       <span class="touchline-tick" style="left: 50.000%"></span>
     </footer></section>
-<section class="slide" data-index="8"><h2>Photographer check-in</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 30 minutes before first assigned match</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>About 30 minutes before your first assigned match, go to the event lead&#39;s station to sign in — this starts your pay clock for the session, so don&#39;t skip it even if you&#39;re already shooting warmups.</li><li>Confirm your assignment against the event lead&#39;s schedule — venue, match(es), and session type (game, team posed, practice, event) — and flag any mismatch before signing.</li><li>Confirm your gear: camera body, charged batteries plus a backup, memory cards with enough free space for the day, and any lens or flash the shot list calls for.</li><li>Review the shot list or session notes with the event lead — required shots (team photos, action shots, specific players if requested), any restricted subjects, and the day&#39;s intended media-auth scope if it&#39;s already set (internal, promotional, or public), so you know what you&#39;re shooting for.</li><li>Sign the check-in. The event lead countersigns to confirm your arrival and gear are in order.</li><li>Once signed, your session moves from confirmed to checked-in in the platform — this is what the event lead and venue manager see reflected on the day&#39;s operations view.</li><li>If you&#39;re a no-show, or running late enough that you&#39;ll miss the window, the event lead escalates to the venue manager immediately per the escalation path — don&#39;t wait until your scheduled start to raise it.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photographer_check_in.png" alt="Screenshot: photographer_check_in" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="9" data-kind="divider"><span class="divider-mark" aria-hidden="true">01</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 1 of 3</p>
+      <p class="divider-title">Pre game</p>
+      <ul class="phase-overview"><li>Photographer check-in — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">10 / 18</span>
+      <span class="touchline-tick" style="left: 55.556%"></span>
+    </footer></section>
+<section class="slide" data-index="10"><h2>Photographer check-in</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>About 30 minutes before your first assigned match, go to the event lead&#39;s station to sign in — this starts your pay clock for the session, so don&#39;t skip it even if you&#39;re already shooting warmups.</li><li>Confirm your assignment against the event lead&#39;s schedule — venue, match(es), and session type (game, team posed, practice, event) — and flag any mismatch before signing.</li><li>Confirm your gear: camera body, charged batteries plus a backup, memory cards with enough free space for the day, and any lens or flash the shot list calls for.</li><li>Review the shot list or session notes with the event lead — required shots (team photos, action shots, specific players if requested), any restricted subjects, and the day&#39;s intended media-auth scope if it&#39;s already set (internal, promotional, or public), so you know what you&#39;re shooting for.</li><li>Sign the check-in. The event lead countersigns to confirm your arrival and gear are in order.</li><li>Once signed, your session moves from confirmed to checked-in in the platform — this is what the event lead and venue manager see reflected on the day&#39;s operations view.</li><li>If you&#39;re a no-show, or running late enough that you&#39;ll miss the window, the event lead escalates to the venue manager immediately per the escalation path — don&#39;t wait until your scheduled start to raise it.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photographer_check_in.png" alt="Screenshot: photographer_check_in" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 30 minutes before first assigned match</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The event lead&#39;s check-in station (in-person sign-in)</li><li>Camera body, charged batteries, and memory cards</li><li>The activity completion signature capture (/admin/activity-completions/[id])</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Photographer no-show, Event Lead escalates to Venue Manager; pull from standby pool or accept reduced media coverage.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">09 / 16</span>
-      <span class="touchline-tick" style="left: 56.250%"></span>
+      <span class="touchline-counter">11 / 18</span>
+      <span class="touchline-tick" style="left: 61.111%"></span>
     </footer></section>
-<section class="slide" data-index="9" data-kind="divider"><p class="slide-kicker">Phase 2 of 3</p>
-    <p class="divider-title">Post game</p>
-    <ul class="phase-overview"><li>Photo handoff (raw upload) — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="11" data-kind="divider"><span class="divider-mark" aria-hidden="true">02</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 2 of 3</p>
+      <p class="divider-title">Post game</p>
+      <ul class="phase-overview"><li>Photo handoff (raw upload) — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">10 / 16</span>
-      <span class="touchline-tick" style="left: 62.500%"></span>
+      <span class="touchline-counter">12 / 18</span>
+      <span class="touchline-tick" style="left: 66.667%"></span>
     </footer></section>
-<section class="slide" data-index="10"><h2>Photo handoff (raw upload)</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: After Photographer&#39;s last match of the day</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>After your last assigned match of the day, open your job in the media app (My jobs) and start the upload for today&#39;s session.</li><li>Upload every raw photo and video from the session — don&#39;t cull or pre-select before uploading. Raw handoff means complete, unedited coverage; culling happens downstream in tagging, not here.</li><li>Confirm each asset finishes uploading (the app marks it uploaded) before closing the app or putting your device away — a transfer left mid-upload doesn&#39;t count as handed off.</li><li>Once every asset from the session is uploaded, the session moves to uploaded status and hands off to the tagging queue — this is what makes the day&#39;s photos visible to the tagging team.</li><li>Each completed upload increments the day&#39;s photo-upload counter automatically; no manual count is needed.</li><li>Retain your raw memory cards until you&#39;ve confirmed the upload succeeded — don&#39;t format or reuse a card until the session shows uploaded.</li><li>If the upload fails or stalls, notify the event lead right away rather than repeatedly retrying alone; they escalate to the director if it isn&#39;t resolved quickly. Keep the cards physically secure and retained until the upload is confirmed, however long that takes.</li><li>Once the issue is resolved and the upload completes, confirm the counter reflects today&#39;s full session before considering handoff done.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_handoff.png" alt="Screenshot: photo_handoff" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="12"><h2>Photo handoff (raw upload)</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>After your last assigned match of the day, open your job in the media app (My jobs) and start the upload for today&#39;s session.</li><li>Upload every raw photo and video from the session — don&#39;t cull or pre-select before uploading. Raw handoff means complete, unedited coverage; culling happens downstream in tagging, not here.</li><li>Confirm each asset finishes uploading (the app marks it uploaded) before closing the app or putting your device away — a transfer left mid-upload doesn&#39;t count as handed off.</li><li>Once every asset from the session is uploaded, the session moves to uploaded status and hands off to the tagging queue — this is what makes the day&#39;s photos visible to the tagging team.</li><li>Each completed upload increments the day&#39;s photo-upload counter automatically; no manual count is needed.</li><li>Retain your raw memory cards until you&#39;ve confirmed the upload succeeded — don&#39;t format or reuse a card until the session shows uploaded.</li><li>If the upload fails or stalls, notify the event lead right away rather than repeatedly retrying alone; they escalate to the director if it isn&#39;t resolved quickly. Keep the cards physically secure and retained until the upload is confirmed, however long that takes.</li><li>Once the issue is resolved and the upload completes, confirm the counter reflects today&#39;s full session before considering handoff done.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_handoff.png" alt="Screenshot: photo_handoff" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After Photographer&#39;s last match of the day</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The media app — My Jobs (/media/jobs)</li><li>Camera memory cards (SD cards), retained until upload is confirmed</li><li>The tagging queue (/media/queue) — receives the handed-off session</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If upload fails, Photographer notifies Event Lead who escalates to Director; raw cards are retained until upload succeeds.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">11 / 16</span>
-      <span class="touchline-tick" style="left: 68.750%"></span>
+      <span class="touchline-counter">13 / 18</span>
+      <span class="touchline-tick" style="left: 72.222%"></span>
     </footer></section>
-<section class="slide" data-index="11" data-kind="divider"><p class="slide-kicker">Phase 3 of 3</p>
-    <p class="divider-title">Post day</p>
-    <ul class="phase-overview"><li>Photo publish — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="13" data-kind="divider"><span class="divider-mark" aria-hidden="true">03</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 3 of 3</p>
+      <p class="divider-title">Post day</p>
+      <ul class="phase-overview"><li>Photo publish — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">12 / 16</span>
-      <span class="touchline-tick" style="left: 75.000%"></span>
+      <span class="touchline-counter">14 / 18</span>
+      <span class="touchline-tick" style="left: 77.778%"></span>
     </footer></section>
-<section class="slide" data-index="12"><h2>Photo publish</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: After tagging is complete (typically 24 hours)</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>Confirm tagging is complete for the session — it should show &quot;ready&quot; in the tagging queue, meaning every asset worth keeping has been tagged to the right players or teams.</li><li>Confirm the session&#39;s intended media-auth scope (internal, promotional, or public) is set correctly for how these photos are meant to be used — this determines whose consent the platform checks before allowing publish.</li><li>Publishing a session (flipping it from ready to published) is an org-admin action in the admin media console — request that publish from whoever holds that access for your org (typically the director or office) rather than trying to do it yourself if you don&#39;t have admin login.</li><li>When publish is attempted, the platform automatically checks every tagged family member against their media-authorization consent for the session&#39;s intended scope. If any tagged participant is missing consent for that scope, publish either hard-blocks with the list of missing names (if the org has consent enforcement turned on) or proceeds with a logged warning — either way, treat a soft-warn as unfinished business, not &quot;handled,&quot; and follow up on the missing consent.</li><li>If publish is blocked for missing consent, resolve the actual gap — confirm with the family, or drop that specific photo from the publish batch — rather than working around it by re-tagging around the flagged family members or loosening the intended scope to dodge the check.</li><li>Once publish succeeds, each newly published asset increments the day&#39;s photos-published counter; no manual count is needed.</li><li>Spot-check that published photos are visible where families expect to see them before considering the batch done.</li><li>If you&#39;re unreachable to coordinate the publish request, the event lead pings the director, and publish authority for that batch can be reassigned per the escalation path — the consent check still applies regardless of who executes the publish.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_publish.png" alt="Screenshot: photo_publish" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="14"><h2>Photo publish</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Confirm tagging is complete for the session — it should show &quot;ready&quot; in the tagging queue, meaning every asset worth keeping has been tagged to the right players or teams.</li><li>Confirm the session&#39;s intended media-auth scope (internal, promotional, or public) is set correctly for how these photos are meant to be used — this determines whose consent the platform checks before allowing publish.</li><li>Publishing a session (flipping it from ready to published) is an org-admin action in the admin media console — request that publish from whoever holds that access for your org (typically the director or office) rather than trying to do it yourself if you don&#39;t have admin login.</li><li>When publish is attempted, the platform automatically checks every tagged family member against their media-authorization consent for the session&#39;s intended scope. If any tagged participant is missing consent for that scope, publish either hard-blocks with the list of missing names (if the org has consent enforcement turned on) or proceeds with a logged warning — either way, treat a soft-warn as unfinished business, not &quot;handled,&quot; and follow up on the missing consent.</li><li>If publish is blocked for missing consent, resolve the actual gap — confirm with the family, or drop that specific photo from the publish batch — rather than working around it by re-tagging around the flagged family members or loosening the intended scope to dodge the check.</li><li>Once publish succeeds, each newly published asset increments the day&#39;s photos-published counter; no manual count is needed.</li><li>Spot-check that published photos are visible where families expect to see them before considering the batch done.</li><li>If you&#39;re unreachable to coordinate the publish request, the event lead pings the director, and publish authority for that batch can be reassigned per the escalation path — the consent check still applies regardless of who executes the publish.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/photographer/photo_publish.png" alt="Screenshot: photo_publish" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After tagging is complete (typically 24 hours)</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The tagging queue (/media/queue) — confirm the session shows &quot;ready&quot;</li><li>The admin Tag Queue (/admin/media/tag-queue) — org-admin publish action</li><li>The media-authorization consent check (automatic, platform-run)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Photographer unreachable, Event Lead pings Director; publish authority can be re-assigned for that batch only.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">13 / 16</span>
-      <span class="touchline-tick" style="left: 81.250%"></span>
+      <span class="touchline-counter">15 / 18</span>
+      <span class="touchline-tick" style="left: 83.333%"></span>
     </footer></section>
-<section class="slide" data-index="13"><h2>Safety &amp; escalation</h2>
+<section class="slide" data-index="15"><h2>Safety &amp; escalation</h2>
     <ul class="escalation-list"><li>If Photographer no-show, Event Lead escalates to Venue Manager; pull from standby pool or accept reduced media coverage.</li><li>If Photographer unreachable, Event Lead pings Director; publish authority can be re-assigned for that batch only.</li><li>If upload fails, Photographer notifies Event Lead who escalates to Director; raw cards are retained until upload succeeds.</li></ul>
     <p><strong>You may need to escalate to:</strong> Director, Event Lead, Photographer, Venue Manager</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">14 / 16</span>
-      <span class="touchline-tick" style="left: 87.500%"></span>
+      <span class="touchline-counter">16 / 18</span>
+      <span class="touchline-tick" style="left: 88.889%"></span>
     </footer></section>
-<section class="slide" data-index="14"><h2>Your tools</h2>
+<section class="slide" data-index="16"><h2>Your tools</h2>
     <table class="tools-table"><tbody><tr><td><code>/media</code></td><td>Media dashboard</td></tr><tr><td><code>/media/queue</code></td><td>Capture queue for today&#39;s assignments</td></tr><tr><td><code>/media/jobs</code></td><td>Your assigned media jobs</td></tr><tr><td><code>/media/tag/[session_id]</code></td><td>Tag captured media to players/teams</td></tr></tbody></table><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">15 / 16</span>
-      <span class="touchline-tick" style="left: 93.750%"></span>
+      <span class="touchline-counter">17 / 18</span>
+      <span class="touchline-tick" style="left: 94.444%"></span>
     </footer></section>
-<section class="slide" data-index="15"><h2>Where to get help</h2>
+<section class="slide" data-index="17"><h2>Where to get help</h2>
     <ol>
       <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
       <li>Escalate per that chain first — most issues have a named next step.</li>
@@ -671,7 +1045,7 @@ the media tagging and publishing pipeline.</p><footer class="touchline">
     </ol><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">16 / 16</span>
+      <span class="touchline-counter">18 / 18</span>
       <span class="touchline-tick" style="left: 100.000%"></span>
     </footer></section>
 <div class="nav-controls">

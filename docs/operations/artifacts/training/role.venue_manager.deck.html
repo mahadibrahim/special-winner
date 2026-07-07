@@ -135,7 +135,13 @@
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* "safe center": center vertically when content fits (the common
+       case), but fall back to start-alignment when content is taller than
+       the frame (e.g. a role with many activities on the "Your toolkit"
+       slide) — plain "center" on overflowing flex content makes the top of
+       the content inaccessible via scroll (scrollTop can't go negative),
+       silently hiding the heading. */
+    justify-content: safe center;
     padding: 8vh 10vw;
     background: var(--cream);
     color: var(--ink);
@@ -146,6 +152,11 @@
        exceed the available height on some slides — scroll rather than
        silently overflow into (or under) the touchline footer. */
     overflow-y: auto;
+    /* Round-3 composition pass: a slightly larger base size + wider measure
+       (see the .slide p/.slide li rule below) so single-column slides use
+       more of the 16:9 frame instead of a narrow left-pinned column of body
+       text with the whole right side sitting empty. */
+    font-size: 1.05rem;
   }
   .slide.active {
     opacity: 1;
@@ -171,37 +182,105 @@
     font-style: italic;
     font-size: 0.95rem;
   }
-  /* Meta-chip row (activity slides) — a compact one-line strip of data
-     labels directly under the title: WHEN, YOU OWN THIS/YOU ASSIST, and
-     (when the activity has one) CHECKLIST. Replaces the old floating
-     top-right time-rail chip, the old italic ownership caption line, and
-     the old "checklist exists" filler sentence. Text keeps its natural
-     sentence case in the DOM; uppercase is a pure display transform so the
-     underlying value stays intact/greppable. */
-  .meta-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0 0 1.75rem;
+  /* Round-3 two-column composition system — shared by the activity slide
+     (steps + a meta/tools rail), the agenda and "how time works" slides
+     (a list + a stat callout), and the toolkit slide (two tool-category
+     panels side by side). One grid + one paper-surface panel style reused
+     everywhere there's a natural "main content + companion data" shape,
+     instead of a bespoke layout per slide. */
+  .frame-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: stretch;
+    margin-top: 0.25rem;
   }
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.3rem 0.65rem;
-    background: var(--cream-2);
+  .frame-main {
+    min-width: 0;
+  }
+  .frame-panel {
+    background: var(--paper);
     border: 1px solid var(--cream-3);
-    border-radius: 3px;
+    border-radius: 10px;
+    padding: 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+  .frame-panel-heading {
+    margin: 0;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-muted);
-    white-space: nowrap;
   }
-  .meta-chip--owner {
+  .frame-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+  .frame-stat-value {
+    margin: 0;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.25rem;
+    line-height: 1;
     color: var(--navy-deep);
-    border-color: var(--ochre);
+  }
+  .frame-stat-label {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+  /* Activity slide's right-rail panel — vertically stacked meta rows
+     (replaces the old horizontal meta-chip row: WHEN / ownership /
+     CHECKLIST used to sit as inline chips directly under the title; the
+     two-column composition pass moves them into labeled rows in the paper
+     panel so the panel — not a thin chip strip — is what carries that
+     data, freeing the title area and giving the right column real content). */
+  .panel-meta { display: flex; flex-direction: column; gap: 1.1rem; }
+  .panel-meta-row { display: flex; flex-direction: column; gap: 0.2rem; }
+  .panel-meta-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-meta-value { font-size: 0.95rem; color: var(--ink-2); }
+  .panel-meta-row--owner .panel-meta-value { color: var(--navy-deep); font-weight: 600; }
+  .panel-tools {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--cream-3);
+  }
+  .panel-tools-label {
+    margin: 0 0 0.75rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-tools-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .panel-tools-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .panel-tools-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .nav-controls {
     position: fixed;
@@ -265,9 +344,9 @@
      (verified against the real act.weather_pre_check 6-step slide, which is
      long enough to hit exactly this). */
   .escalation-footnote {
-    margin-top: 1.75rem;
-    padding-top: 1rem;
-    max-width: 68ch;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    max-width: 78ch;
     border-top: 1px dashed var(--cream-3);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -277,44 +356,164 @@
   /* Chapter divider slides (agenda's per-phase dividers + the checklist
      appendix divider) — a big Newsreader chapter name distinct from a
      normal content slide's h2, so it reads as a section break when
-     flipping through the deck. */
+     flipping through the deck. Sized up considerably in the round-3
+     composition pass (3rem -> 5.5rem) so the phase name genuinely
+     dominates the frame instead of sitting as a small headline over a
+     mostly-empty slide. */
   .divider-title {
     margin: 0 0 2rem;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 3rem;
-    line-height: 1.15;
+    font-size: 5.5rem;
+    line-height: 1.05;
     color: var(--navy-deep);
   }
+  /* Textblock wrapper establishes its own stacking context (position +
+     z-index) so it reliably paints above .divider-mark below — position:
+     absolute elements otherwise paint above static in-flow content
+     regardless of DOM order. */
+  .divider-textblock {
+    position: relative;
+    z-index: 1;
+    max-width: 64ch;
+  }
+  /* Giant translucent phase-number watermark, filling the right side of
+     phase-divider slides that would otherwise be almost entirely empty —
+     a short kicker + title + activity list is real content but doesn't
+     come close to using a 16:9 frame on its own. Echoes the poster
+     slide's big-quote-mark motif (a large translucent Newsreader glyph)
+     so the two "mostly typographic" slide kinds in the deck share one
+     visual language. */
+  .divider-mark {
+    position: absolute;
+    z-index: 0;
+    right: 4vw;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
+  }
   /* Agenda slide ("Your day at a glance") — one row per phase with its
-     activity count, right-aligned in mono like the other data labels. */
+     activity count, right-aligned in mono like the other data labels.
+     Lives in the shared .frame-layout grid alongside a stat panel (total
+     phases/activities) so the list's companion data fills the right
+     column instead of leaving it empty. */
   .agenda-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-width: 46ch;
   }
   .agenda-list li {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.7rem 0;
+    padding: 0.85rem 0;
     border-bottom: 1px solid var(--cream-3);
   }
   .agenda-phase {
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     color: var(--navy-deep);
   }
   .agenda-count {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--ink-muted);
     white-space: nowrap;
+  }
+  /* "How time works on your day" timeline slide — a left rail line with a
+     dot per stop, label + activity name per row. Lives in the shared
+     .frame-layout grid next to a stat panel (see renderRoleTimelineSlide). */
+  .timeline-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+  .timeline-list::before {
+    content: "";
+    position: absolute;
+    left: 9rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 1px;
+    background: var(--cream-3);
+  }
+  .timeline-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding: 0.65rem 0 0.65rem 1.75rem;
+  }
+  .timeline-row::before {
+    content: "";
+    position: absolute;
+    left: calc(9rem - 4px);
+    top: 1rem;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--ochre);
+  }
+  /* Single-line labels ("72 hours before", "48 hours after") — the column
+     is sized to fit the longest real label without wrapping; a wrapped
+     second line would run under the rail dot positioned for one line. */
+  .timeline-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    max-width: none;
+    white-space: nowrap;
+  }
+  .timeline-name {
+    font-size: 1rem;
+    color: var(--ink);
+    max-width: none;
+  }
+  /* "Your toolkit" slide — two category panels side by side, reusing the
+     .frame-panel paper-surface card so it shares the same visual language
+     as the activity slide's meta/tools rail and the agenda/timeline stat
+     panels. */
+  .toolkit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    margin-top: 1.5rem;
+  }
+  .toolkit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+  .toolkit-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+  .toolkit-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .belief { margin-top: 1.25rem; }
   .belief h3 {
@@ -343,21 +542,32 @@
     text-align: left;
     vertical-align: top;
   }
-  /* Readable measure — body copy tops out around 68 characters, headings
-     and the tools table (needs its full width) are exempt. */
+  /* Readable measure — body copy tops out around 74 characters (widened
+     from 68 in the round-3 composition pass to use more of the frame),
+     headings and the tools table (needs its full width) are exempt. */
   .slide p,
   .slide li {
-    max-width: 68ch;
+    max-width: 74ch;
   }
   /* Checklist slides — clipboard-card treatment, sage tick squares that
      stay empty (not checked) since this is a training reference, not a
-     live tracker. */
+     live tracker. Widened and centered in the frame (round-3 composition
+     pass) rather than left-pinned at a narrow content width — a checklist
+     card is a standalone object on its own slide, so centering it reads
+     as a deliberate poster-like composition instead of body text that
+     happens to stop halfway across. */
   .clipboard-card {
     background: var(--paper);
     border: 1px solid var(--cream-3);
     border-radius: 10px;
-    padding: 2.5rem 3rem;
+    padding: 3rem 4rem;
     box-shadow: 0 8px 24px oklch(0.2 0.02 260 / 0.08);
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .clipboard-card .checklist--ticks li {
+    font-size: 1.05rem;
   }
   .checklist--ticks { list-style: none; margin: 0; padding: 0; }
   .checklist--ticks li {
@@ -390,21 +600,36 @@
     letter-spacing: 0.25em;
     color: oklch(0.85 0.02 80 / 0.65);
   }
+  /* Round-3 composition pass: the poster previously read as a short
+     left-pinned caption with the entire right ~60% of the navy frame
+     empty. Pairs the existing opening quote mark with a big translucent
+     CLOSING quote mark filling the right side — a classic magazine
+     pull-quote bracket, not a bolted-on decoration — instead of just
+     enlarging the opening mark in place (which at large sizes collided
+     with the statement's first line). .poster-layout is a simple flex
+     row so the statement keeps its own comfortable measure and the
+     closing mark absorbs the remaining width. */
+  .poster-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
   .poster-statement-wrap {
     position: relative;
-    max-width: 34ch;
+    max-width: 40ch;
+    flex: 0 0 auto;
   }
   .poster-quote {
     position: absolute;
-    top: -3.5rem;
-    left: -2rem;
+    top: -4rem;
+    left: -2.5rem;
     z-index: 0;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
-    font-size: 15rem;
+    font-size: 16rem;
     line-height: 1;
     color: var(--primary);
-    opacity: 0.4;
+    opacity: 0.35;
     pointer-events: none;
   }
   .poster-statement {
@@ -415,9 +640,21 @@
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 500;
-    font-size: 2.5rem;
-    line-height: 1.35;
+    font-size: 3.1rem;
+    line-height: 1.3;
     color: var(--cream);
+  }
+  .poster-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 24rem;
+    line-height: 1;
+    color: var(--primary);
+    opacity: 0.14;
+    pointer-events: none;
   }
   /* Touchline footer — sits on every slide, baked in per-slide at render
      time (not via JS) so the counter and tick position are deterministic
@@ -468,15 +705,54 @@
   /* Hero-scale wordmark — title slide only. The poster (purpose) slide
      keeps its existing treatment (no logo); this is a much bigger lockup
      reusing the same dark-lettered mark since the title slide sits on the
-     cream background. */
+     cream background. Sized up again in the round-3 composition pass
+     (260x72 -> 360x100) — "genuinely large" per the redesign brief, not
+     just modestly bigger than the footer mark. */
   .hero-logo {
-    width: 260px;
-    height: 72px;
+    width: 360px;
+    height: 100px;
     margin: 0 0 3rem;
     background-repeat: no-repeat;
     background-position: left center;
     background-size: contain;
     background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K);
+  }
+  /* Title slide role name — explicit large size (h1 has no font-size of
+     its own in this stylesheet otherwise, so it fell back to the browser
+     default ~2rem) plus a wider description measure, so the title slide's
+     text block is a real typographic statement rather than a small
+     logo+heading pair floating in a mostly-empty frame. */
+  .title-role-name {
+    font-size: 4.5rem;
+    line-height: 1.05;
+  }
+  .title-role-description {
+    max-width: 52ch;
+    font-size: 1.2rem;
+    line-height: 1.5;
+  }
+  /* Title-slide layout — the logo/name/description block paired with a
+     giant translucent initial letter filling the right side, the same
+     "big translucent Newsreader glyph" motif as the poster's quote marks
+     and the phase divider's numeral, so the deck's three mostly-typographic
+     slide kinds read as one family instead of three unrelated treatments. */
+  .title-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
+  .title-layout > .title-main { flex: 0 0 auto; max-width: 60ch; }
+  .title-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
   }
   .touchline-logo--dark { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); }
   .touchline-logo--light { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiNGRkZGRkY7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); display: none; }
@@ -511,6 +787,7 @@
     [data-kind="poster"] .poster-role-label { color: var(--ink-muted); }
     [data-kind="poster"] .poster-statement { color: var(--navy-deep); }
     [data-kind="poster"] .poster-quote { opacity: 0.25; }
+    [data-kind="poster"] .poster-mark { opacity: 0.12; }
     [data-kind="poster"] .touchline-counter { color: var(--ink-muted) !important; }
     [data-kind="poster"] .touchline-logo--dark { display: block !important; }
     [data-kind="poster"] .touchline-logo--light { display: none !important; }
@@ -518,24 +795,32 @@
 </style>
 </head>
 <body>
-<section class="slide" data-index="0"><div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
-    <h1>Venue Manager</h1>
-    <p class="role-description">Single venue, single day. The on-site decision-maker accountable for the
-end-to-end execution of an event-day at one location.</p><footer class="touchline">
-      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">01 / 42</span>
-      <span class="touchline-tick" style="left: 2.381%"></span>
-    </footer></section>
-<section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Venue Manager</p>
-    <div class="poster-statement-wrap">
-      <span class="poster-quote" aria-hidden="true">&#8220;</span>
-      <p class="poster-statement">You make the whole day work. From unlock to lock-up, every family&#39;s experience runs through the venue you run — smooth, safe, end to end.</p>
+<section class="slide" data-index="0"><div class="title-layout">
+      <div class="title-main">
+        <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
+        <h1 class="title-role-name">Venue Manager</h1>
+        <p class="role-description title-role-description">Single venue, single day. The on-site decision-maker accountable for the
+end-to-end execution of an event-day at one location.</p>
+      </div>
+      <span class="title-mark" aria-hidden="true">V</span>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">02 / 42</span>
-      <span class="touchline-tick" style="left: 4.762%"></span>
+      <span class="touchline-counter">01 / 44</span>
+      <span class="touchline-tick" style="left: 2.273%"></span>
+    </footer></section>
+<section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Venue Manager</p>
+    <div class="poster-layout">
+      <div class="poster-statement-wrap">
+        <span class="poster-quote" aria-hidden="true">&#8220;</span>
+        <p class="poster-statement">You make the whole day work. From unlock to lock-up, every family&#39;s experience runs through the venue you run — smooth, safe, end to end.</p>
+      </div>
+      <span class="poster-mark" aria-hidden="true">&#8221;</span>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">02 / 44</span>
+      <span class="touchline-tick" style="left: 4.545%"></span>
     </footer></section>
 <section class="slide" data-index="2"><h2>Your job</h2>
     <p>You run the venue from unlock to lock-up. Across the day you confirm staffing and check the weather ahead of time, open the facility and brief your team, run the pregame weather and rainout call, handle incidents as they happen, and close everything down — walkthrough, lock, alarm, staff clock-out, and debrief. You&#39;re the person everything on site routes through.</p>
@@ -546,10 +831,47 @@ end-to-end execution of an event-day at one location.</p><footer class="touchlin
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">03 / 42</span>
-      <span class="touchline-tick" style="left: 7.143%"></span>
+      <span class="touchline-counter">03 / 44</span>
+      <span class="touchline-tick" style="left: 6.818%"></span>
     </footer></section>
-<section class="slide" data-index="3"><h2>What we believe</h2>
+<section class="slide" data-index="3"><h2>Your toolkit</h2>
+    <p class="slide-kicker">Everything your activities call for, in one place.</p>
+    <div class="toolkit-grid">
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Digital &amp; platform tools</p>
+      <ul class="toolkit-list"><li>Camera or phone (scene/injury/damage photos, with consent)</li><li>Camera or phone with location/timestamp on</li><li>First-aid kit at the field/court</li><li>Opening walkthrough findings (reference for safety reminders)</li><li>Phone (follow-up call or in-person check-in with the affected family/staff member)</li><li>The activity completion signature capture (/admin/activity-completions/[id])</li><li>The clock-out station (in-person sign-out)</li><li>The day&#39;s staffing plan</li><li>The day&#39;s surface list (which fields/courts host a match today)</li><li>The finalized incident report (reference for what happened)</li><li>The full incident report form</li><li>The in-the-moment incident response form (starting point)</li><li>The incident follow-up form</li><li>The incident response form</li><li>The opening walkthrough findings form</li><li>The pregame weather check checklist</li><li>The rainout decision form</li><li>The staff debrief form</li><li>The weather pre-check checklist</li><li>Today&#39;s incident report, if one was filed (reference)</li><li>Today&#39;s staffing plan</li><li>Today&#39;s staffing plan and match schedule</li><li>Weather app or National Weather Service forecast (temperature, precipitation, wind, lightning risk)</li><li>Weather app or National Weather Service radar (lightning, precipitation, heat index)</li><li>Weather app or National Weather Service radar (live lightning, precipitation, temperature)</li></ul>
+    </div>
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Physical &amp; on-site tools</p>
+      <ul class="toolkit-list"><li>AED (battery indicator and pad expiration check)</li><li>Alarm keypad and the current code</li><li>Alarm keypad and the current code (plus the backup entry procedure)</li><li>Building key ring</li><li>Bulk restock supply (bandages, gauze, tape, cold packs, CPR mask)</li><li>First-aid kit manifest</li><li>Flashlight (checking dim locker rooms and storage)</li><li>HVAC and lighting panel</li><li>Lighting and HVAC panel</li><li>Lost-and-found bin</li><li>Notepad (capturing huddle notes on what worked and what broke)</li><li>On-site surface walk (standing water, saturated turf)</li><li>On-site surface walk, if accessible (baseline field condition)</li><li>Phone (call 911 for a life-threatening incident)</li><li>Phone (consulting the director before the call)</li><li>Phone (direct contact for unacknowledged slots)</li><li>Phone camera (documenting findings by location and severity)</li><li>Printed sign-in sheet</li><li>The fixed walkthrough route</li><li>The fixed walkthrough route (same route as the opening walkthrough)</li><li>The standby pool roster</li></ul>
+    </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">04 / 44</span>
+      <span class="touchline-tick" style="left: 9.091%"></span>
+    </footer></section>
+<section class="slide" data-index="4"><h2>How time works on your day</h2>
+    <div class="frame-layout">
+      <ol class="timeline-list"><li class="timeline-row"><span class="timeline-label">72 hours before</span><span class="timeline-name">Pre-day weather pre-check</span></li><li class="timeline-row"><span class="timeline-label">48 hours before</span><span class="timeline-name">Staff schedule confirmation</span></li><li class="timeline-row"><span class="timeline-label">2 hours before</span><span class="timeline-name">Facility unlock</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Opening walkthrough</span></li><li class="timeline-row"><span class="timeline-label">1 hour before</span><span class="timeline-name">First-aid kit check</span></li><li class="timeline-row"><span class="timeline-label">1 hour before</span><span class="timeline-name">Pre-shift staff briefing</span></li><li class="timeline-row"><span class="timeline-label">90 minutes before</span><span class="timeline-name">Pregame weather check</span></li><li class="timeline-row"><span class="timeline-label">30 minutes before</span><span class="timeline-name">Field condition photo (pregame)</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Rainout decision</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Incident response (in-the-moment)</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Incident report finalization</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Facility close walkthrough</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Facility lock and alarm</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Staff clock-out</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Staff debrief</span></li><li class="timeline-row"><span class="timeline-label">48 hours after</span><span class="timeline-name">Incident follow-up</span></li></ol>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">At a glance</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">16</p>
+          <p class="frame-stat-label">16 stops across your day</p>
+        </div>
+        <div class="frame-stat">
+          <p class="frame-stat-value">8</p>
+          <p class="frame-stat-label">8 activities triggered by events, not the clock</p>
+        </div>
+      </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">05 / 44</span>
+      <span class="touchline-tick" style="left: 11.364%"></span>
+    </footer></section>
+<section class="slide" data-index="5"><h2>What we believe</h2>
     <p>These four beliefs shape every practice plan, every sideline conversation, and every call we make about a kid.</p>
     <div class="belief">
       <h3>Development Over Winning</h3>
@@ -561,10 +883,10 @@ end-to-end execution of an event-day at one location.</p><footer class="touchlin
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">04 / 42</span>
-      <span class="touchline-tick" style="left: 9.524%"></span>
+      <span class="touchline-counter">06 / 44</span>
+      <span class="touchline-tick" style="left: 13.636%"></span>
     </footer></section>
-<section class="slide" data-index="4"><h2>What we believe (continued)</h2>
+<section class="slide" data-index="6"><h2>What we believe (continued)</h2>
     <div class="belief">
       <h3>Long-Term Athlete Development</h3>
       <p>We're building athletes for age 25, not just age 8. We never trade away a child's long-term growth for a short-term result.</p>
@@ -575,328 +897,524 @@ end-to-end execution of an event-day at one location.</p><footer class="touchlin
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">05 / 42</span>
-      <span class="touchline-tick" style="left: 11.905%"></span>
+      <span class="touchline-counter">07 / 44</span>
+      <span class="touchline-tick" style="left: 15.909%"></span>
     </footer></section>
-<section class="slide" data-index="5"><h2>How that shows up day to day</h2>
+<section class="slide" data-index="7"><h2>How that shows up day to day</h2>
     <p>We coach to two goals at once: compete to win, and grow every player's character and competence. When those two pull in different directions, character comes first.</p>
     <p>Day to day, that means we praise effort, learning, and bouncing back from mistakes — the things a kid actually controls — over results they can't always control.</p>
     <p><strong>Whatever your role, this is what families should feel from us.</strong></p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">06 / 42</span>
-      <span class="touchline-tick" style="left: 14.286%"></span>
+      <span class="touchline-counter">08 / 44</span>
+      <span class="touchline-tick" style="left: 18.182%"></span>
     </footer></section>
-<section class="slide" data-index="6"><h2>Your day at a glance</h2>
-    <ul class="agenda-list"><li><span class="agenda-phase">Pre day</span><span class="agenda-count">2 activities</span></li><li><span class="agenda-phase">Day setup</span><span class="agenda-count">4 activities</span></li><li><span class="agenda-phase">Pre game</span><span class="agenda-count">3 activities</span></li><li><span class="agenda-phase">In game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">End of day</span><span class="agenda-count">4 activities</span></li><li><span class="agenda-phase">Post day</span><span class="agenda-count">1 activity</span></li></ul><footer class="touchline">
+<section class="slide" data-index="8"><h2>Your day at a glance</h2>
+    <div class="frame-layout">
+      <ul class="agenda-list"><li><span class="agenda-phase">Pre day</span><span class="agenda-count">2 activities</span></li><li><span class="agenda-phase">Day setup</span><span class="agenda-count">4 activities</span></li><li><span class="agenda-phase">Pre game</span><span class="agenda-count">3 activities</span></li><li><span class="agenda-phase">In game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">End of day</span><span class="agenda-count">4 activities</span></li><li><span class="agenda-phase">Post day</span><span class="agenda-count">1 activity</span></li></ul>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">Today, in total</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">7</p>
+          <p class="frame-stat-label">7 phases</p>
+        </div>
+        <div class="frame-stat">
+          <p class="frame-stat-value">16</p>
+          <p class="frame-stat-label">16 activities</p>
+        </div>
+      </div>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">07 / 42</span>
-      <span class="touchline-tick" style="left: 16.667%"></span>
+      <span class="touchline-counter">09 / 44</span>
+      <span class="touchline-tick" style="left: 20.455%"></span>
     </footer></section>
-<section class="slide" data-index="7" data-kind="divider"><p class="slide-kicker">Phase 1 of 7</p>
-    <p class="divider-title">Pre day</p>
-    <ul class="phase-overview"><li>Staff schedule confirmation — <em>You own this</em></li><li>Pre-day weather pre-check — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="9" data-kind="divider"><span class="divider-mark" aria-hidden="true">01</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 1 of 7</p>
+      <p class="divider-title">Pre day</p>
+      <ul class="phase-overview"><li>Staff schedule confirmation — <em>You own this</em></li><li>Pre-day weather pre-check — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">08 / 42</span>
-      <span class="touchline-tick" style="left: 19.048%"></span>
+      <span class="touchline-counter">10 / 44</span>
+      <span class="touchline-tick" style="left: 22.727%"></span>
     </footer></section>
-<section class="slide" data-index="8"><h2>Staff schedule confirmation</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: 48 hours before the event</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Staff schedule confirm</span></div>
-    <ol class="steps"><li>48 hours before the event window, pull the day&#39;s staffing plan and list every shift slot that needs to be covered — venue manager, event leads, facilities, front of house, and photographer.</li><li>Check the acknowledgment status the platform has already collected for each assigned person (the schedule invite went out automatically when the plan was published).</li><li>For any slot still unacknowledged, contact the assigned person directly and get a yes/no before moving on to the next slot.</li><li>For any no-response or decline, pull a replacement from that role&#39;s standby pool and confirm their availability for the full shift.</li><li>Watch for double-booked people or shift times that don&#39;t cover the full event window, and fix the gap before confirming the slot.</li><li>Confirm contractor slots (ref, photographer) separately — they come from the assignor/contractor pool, not the staff schedule, and need their own acknowledgment check.</li><li>Once every slot on the plan shows a confirmed name, mark the checklist complete.</li><li>If any role still can&#39;t be filled by T-24h, escalate per the escalation path rather than running the event short-staffed.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_schedule_confirm.png" alt="Screenshot: staff_schedule_confirm" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="10"><h2>Staff schedule confirmation</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>48 hours before the event window, pull the day&#39;s staffing plan and list every shift slot that needs to be covered — venue manager, event leads, facilities, front of house, and photographer.</li><li>Check the acknowledgment status the platform has already collected for each assigned person (the schedule invite went out automatically when the plan was published).</li><li>For any slot still unacknowledged, contact the assigned person directly and get a yes/no before moving on to the next slot.</li><li>For any no-response or decline, pull a replacement from that role&#39;s standby pool and confirm their availability for the full shift.</li><li>Watch for double-booked people or shift times that don&#39;t cover the full event window, and fix the gap before confirming the slot.</li><li>Confirm contractor slots (ref, photographer) separately — they come from the assignor/contractor pool, not the staff schedule, and need their own acknowledgment check.</li><li>Once every slot on the plan shows a confirmed name, mark the checklist complete.</li><li>If any role still can&#39;t be filled by T-24h, escalate per the escalation path rather than running the event short-staffed.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_schedule_confirm.png" alt="Screenshot: staff_schedule_confirm" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">48 hours before the event</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Staff schedule confirm</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The day&#39;s staffing plan</li><li>Phone (direct contact for unacknowledged slots)</li><li>The standby pool roster</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">09 / 42</span>
-      <span class="touchline-tick" style="left: 21.429%"></span>
+      <span class="touchline-counter">11 / 44</span>
+      <span class="touchline-tick" style="left: 25.000%"></span>
     </footer></section>
-<section class="slide" data-index="9"><h2>Pre-day weather pre-check</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: 72 hours before the event for outdoor venues (scheduled review)</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Weather pre check</span></div>
-    <ol class="steps"><li>72 hours before the event window, pull up every outdoor match on the day&#39;s schedule and check the forecast for temperature, precipitation chance, wind, and lightning risk on a weather app or the National Weather Service (a built-in weather-alert dashboard is planned).</li><li>Flag a heat advisory if the forecast heat index reaches 95°F or higher during the event window, and flag a precipitation risk if the chance of rain is 60% or higher during that window.</li><li>If the surface is accessible, walk it and note current field condition (standing water from recent rain, firmness) as a baseline.</li><li>If nothing is flagged, complete the checklist — no further action is needed until the pregame recheck 90 minutes before kickoff.</li><li>If something is flagged, notify the event lead and the director right away so staffing and family communications can adjust early, and schedule a follow-up recheck at T-24h before the forecast locks in.</li><li>Re-run the T-24h recheck if step 5 applied, and carry any still-open risk forward into the pregame weather check.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/weather_pre_check.png" alt="Screenshot: weather_pre_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="11"><h2>Pre-day weather pre-check</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>72 hours before the event window, pull up every outdoor match on the day&#39;s schedule and check the forecast for temperature, precipitation chance, wind, and lightning risk on a weather app or the National Weather Service (a built-in weather-alert dashboard is planned).</li><li>Flag a heat advisory if the forecast heat index reaches 95°F or higher during the event window, and flag a precipitation risk if the chance of rain is 60% or higher during that window.</li><li>If the surface is accessible, walk it and note current field condition (standing water from recent rain, firmness) as a baseline.</li><li>If nothing is flagged, complete the checklist — no further action is needed until the pregame recheck 90 minutes before kickoff.</li><li>If something is flagged, notify the event lead and the director right away so staffing and family communications can adjust early, and schedule a follow-up recheck at T-24h before the forecast locks in.</li><li>Re-run the T-24h recheck if step 5 applied, and carry any still-open risk forward into the pregame weather check.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/weather_pre_check.png" alt="Screenshot: weather_pre_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">72 hours before the event for outdoor venues (scheduled review)</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Weather pre check</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Weather app or National Weather Service forecast (temperature, precipitation, wind, lightning risk)</li><li>On-site surface walk, if accessible (baseline field condition)</li><li>The weather pre-check checklist</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">10 / 42</span>
-      <span class="touchline-tick" style="left: 23.810%"></span>
+      <span class="touchline-counter">12 / 44</span>
+      <span class="touchline-tick" style="left: 27.273%"></span>
     </footer></section>
-<section class="slide" data-index="10" data-kind="divider"><p class="slide-kicker">Phase 2 of 7</p>
-    <p class="divider-title">Day setup</p>
-    <ul class="phase-overview"><li>Facility unlock — <em>You own this</em></li><li>First-aid kit check — <em>You own this</em></li><li>Opening walkthrough — <em>You own this</em></li><li>Pre-shift staff briefing — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="12" data-kind="divider"><span class="divider-mark" aria-hidden="true">02</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 2 of 7</p>
+      <p class="divider-title">Day setup</p>
+      <ul class="phase-overview"><li>Facility unlock — <em>You own this</em></li><li>First-aid kit check — <em>You own this</em></li><li>Opening walkthrough — <em>You own this</em></li><li>Pre-shift staff briefing — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">11 / 42</span>
-      <span class="touchline-tick" style="left: 26.190%"></span>
+      <span class="touchline-counter">13 / 44</span>
+      <span class="touchline-tick" style="left: 29.545%"></span>
     </footer></section>
-<section class="slide" data-index="11"><h2>Facility unlock</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 2 hours before first kickoff</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Facility unlock</span></div>
-    <ol class="steps"><li>Arrive at least 2 hours before first kickoff — before any other staff.</li><li>Disarm the alarm with the current code; if the code fails, use the backup entry procedure and log the discrepancy.</li><li>Unlock the exterior doors staff and families will need today (main entrance, staff entrance, any concessions or loading doors) per the day&#39;s traffic plan.</li><li>Unlock interior doors: locker rooms, storage/equipment room, concessions, restrooms, office.</li><li>Turn on lights throughout the facility and set HVAC to the comfortable operating range for the season.</li><li>Confirm restrooms are functioning — running water, no leaks, no overnight plumbing issues.</li><li>Note anything unusual from overnight (forced-entry signs, alarm trouble codes, standing water) and escalate per the escalation path before staff arrive.</li><li>Mark the checklist complete once the building is ready for staff — this clears the way for the opening walkthrough.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_unlock.png" alt="Screenshot: facility_unlock" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="13"><h2>Facility unlock</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Arrive at least 2 hours before first kickoff — before any other staff.</li><li>Disarm the alarm with the current code; if the code fails, use the backup entry procedure and log the discrepancy.</li><li>Unlock the exterior doors staff and families will need today (main entrance, staff entrance, any concessions or loading doors) per the day&#39;s traffic plan.</li><li>Unlock interior doors: locker rooms, storage/equipment room, concessions, restrooms, office.</li><li>Turn on lights throughout the facility and set HVAC to the comfortable operating range for the season.</li><li>Confirm restrooms are functioning — running water, no leaks, no overnight plumbing issues.</li><li>Note anything unusual from overnight (forced-entry signs, alarm trouble codes, standing water) and escalate per the escalation path before staff arrive.</li><li>Mark the checklist complete once the building is ready for staff — this clears the way for the opening walkthrough.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_unlock.png" alt="Screenshot: facility_unlock" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 2 hours before first kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Facility unlock</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Alarm keypad and the current code (plus the backup entry procedure)</li><li>Building key ring</li><li>Lighting and HVAC panel</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">12 / 42</span>
-      <span class="touchline-tick" style="left: 28.571%"></span>
+      <span class="touchline-counter">14 / 44</span>
+      <span class="touchline-tick" style="left: 31.818%"></span>
     </footer></section>
-<section class="slide" data-index="12"><h2>First-aid kit check</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 60 minutes before first kickoff</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: First aid</span></div>
-    <ol class="steps"><li>Open every first-aid kit on premises — one per field/court plus any building kit.</li><li>Check contents against the kit manifest: bandages, gauze, tape, antiseptic wipes, gloves, cold packs, CPR mask.</li><li>Restock any missing or expired item from bulk supply before moving to the next kit.</li><li>Locate the AED and confirm it&#39;s in its wall mount or designated spot.</li><li>Check the AED&#39;s battery indicator and confirm the pads are within their expiration date; swap in fresh pads from backup stock if they&#39;ve expired.</li><li>Confirm each kit&#39;s location is known to today&#39;s coaches and event leads — a kit at the field/court is one of the items on their own session-open check.</li><li>Log the check complete. No event begins without a verified kit — if any kit or the AED can&#39;t be verified, escalate immediately per the escalation path and hold the start of play at that surface.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/first_aid_kit_check.png" alt="Screenshot: first_aid_kit_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="14"><h2>First-aid kit check</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Open every first-aid kit on premises — one per field/court plus any building kit.</li><li>Check contents against the kit manifest: bandages, gauze, tape, antiseptic wipes, gloves, cold packs, CPR mask.</li><li>Restock any missing or expired item from bulk supply before moving to the next kit.</li><li>Locate the AED and confirm it&#39;s in its wall mount or designated spot.</li><li>Check the AED&#39;s battery indicator and confirm the pads are within their expiration date; swap in fresh pads from backup stock if they&#39;ve expired.</li><li>Confirm each kit&#39;s location is known to today&#39;s coaches and event leads — a kit at the field/court is one of the items on their own session-open check.</li><li>Log the check complete. No event begins without a verified kit — if any kit or the AED can&#39;t be verified, escalate immediately per the escalation path and hold the start of play at that surface.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/first_aid_kit_check.png" alt="Screenshot: first_aid_kit_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 60 minutes before first kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">First aid</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>First-aid kit manifest</li><li>Bulk restock supply (bandages, gauze, tape, cold packs, CPR mask)</li><li>AED (battery indicator and pad expiration check)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder; no event begins without a verified kit.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">13 / 42</span>
-      <span class="touchline-tick" style="left: 30.952%"></span>
+      <span class="touchline-counter">15 / 44</span>
+      <span class="touchline-tick" style="left: 34.091%"></span>
     </footer></section>
-<section class="slide" data-index="13"><h2>Opening walkthrough</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: Immediately after facility unlock</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>Immediately after unlock, walk the entire facility in a fixed route: playing surfaces, restrooms, locker rooms, bleachers/spectator areas, then the parking lot.</li><li>At each surface, look for standing water, debris, damaged fixtures (goals, nets, benches, lighting), and anything a player or spectator could trip on or be hurt by.</li><li>Check restrooms and locker rooms for cleanliness, supplies (soap, paper towels or toilet paper), and any plumbing issues.</li><li>Check bleachers and spectator areas for structural issues (loose bolts, damaged seating) and general cleanliness.</li><li>Check the parking lot for surface hazards and lighting, and confirm the overflow path is clear.</li><li>Record every finding in the walkthrough form with location and severity, even minor ones — this is the day&#39;s baseline safety record.</li><li>Route anything unsafe to facilities for correction before players and spectators arrive; anything that can&#39;t be resolved before the event escalates per the escalation path.</li><li>Submit the completed form before the pre-shift staff briefing so findings can be shared with the team.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/opening_walkthrough.png" alt="Screenshot: opening_walkthrough" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="15"><h2>Opening walkthrough</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Immediately after unlock, walk the entire facility in a fixed route: playing surfaces, restrooms, locker rooms, bleachers/spectator areas, then the parking lot.</li><li>At each surface, look for standing water, debris, damaged fixtures (goals, nets, benches, lighting), and anything a player or spectator could trip on or be hurt by.</li><li>Check restrooms and locker rooms for cleanliness, supplies (soap, paper towels or toilet paper), and any plumbing issues.</li><li>Check bleachers and spectator areas for structural issues (loose bolts, damaged seating) and general cleanliness.</li><li>Check the parking lot for surface hazards and lighting, and confirm the overflow path is clear.</li><li>Record every finding in the walkthrough form with location and severity, even minor ones — this is the day&#39;s baseline safety record.</li><li>Route anything unsafe to facilities for correction before players and spectators arrive; anything that can&#39;t be resolved before the event escalates per the escalation path.</li><li>Submit the completed form before the pre-shift staff briefing so findings can be shared with the team.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/opening_walkthrough.png" alt="Screenshot: opening_walkthrough" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">Immediately after facility unlock</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The fixed walkthrough route</li><li>The opening walkthrough findings form</li><li>Phone camera (documenting findings by location and severity)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder; Facilities walks the building until coverage resumes.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">14 / 42</span>
-      <span class="touchline-tick" style="left: 33.333%"></span>
+      <span class="touchline-counter">16 / 44</span>
+      <span class="touchline-tick" style="left: 36.364%"></span>
     </footer></section>
-<section class="slide" data-index="14"><h2>Pre-shift staff briefing</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 60 minutes before first kickoff</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>About 60 minutes before first kickoff, once the facility unlock and first-aid kit check are done, gather every on-shift staff member in one spot — event leads, facilities, front of house, photographer.</li><li>Keep it to 5-10 minutes. Cover today&#39;s schedule (match count, key times), anything special about today (VIP guests, a rescheduled match, a tournament format quirk), the weather outlook if outdoor, and any safety reminders (first-aid kit locations, incident escalation path).</li><li>Call out any staffing changes from the schedule confirm — who&#39;s covering for a standby swap, who&#39;s new to the venue today.</li><li>Ask if anyone has a conflict or needs to leave early, and confirm coverage for that window now rather than discovering it mid-shift.</li><li>Pass around the sign-in sheet — every attendee signs to confirm they were briefed.</li><li>Front of house checks the sign-in sheet against today&#39;s staffing plan and signs to confirm the full roster attended and the sheet is complete.</li><li>File the signed sheet with today&#39;s event records.</li><li>If the venue manager can&#39;t deliver the briefing, the event lead runs it and escalates per the escalation path.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/preshift_staff_briefing.png" alt="Screenshot: preshift_staff_briefing" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="16"><h2>Pre-shift staff briefing</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>About 60 minutes before first kickoff, once the facility unlock and first-aid kit check are done, gather every on-shift staff member in one spot — event leads, facilities, front of house, photographer.</li><li>Keep it to 5-10 minutes. Cover today&#39;s schedule (match count, key times), anything special about today (VIP guests, a rescheduled match, a tournament format quirk), the weather outlook if outdoor, and any safety reminders (first-aid kit locations, incident escalation path).</li><li>Call out any staffing changes from the schedule confirm — who&#39;s covering for a standby swap, who&#39;s new to the venue today.</li><li>Ask if anyone has a conflict or needs to leave early, and confirm coverage for that window now rather than discovering it mid-shift.</li><li>Pass around the sign-in sheet — every attendee signs to confirm they were briefed.</li><li>Front of house checks the sign-in sheet against today&#39;s staffing plan and signs to confirm the full roster attended and the sheet is complete.</li><li>File the signed sheet with today&#39;s event records.</li><li>If the venue manager can&#39;t deliver the briefing, the event lead runs it and escalates per the escalation path.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/preshift_staff_briefing.png" alt="Screenshot: preshift_staff_briefing" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 60 minutes before first kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Today&#39;s staffing plan and match schedule</li><li>Printed sign-in sheet</li><li>Opening walkthrough findings (reference for safety reminders)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, Event Lead delivers the briefing and escalates to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">15 / 42</span>
-      <span class="touchline-tick" style="left: 35.714%"></span>
+      <span class="touchline-counter">17 / 44</span>
+      <span class="touchline-tick" style="left: 38.636%"></span>
     </footer></section>
-<section class="slide" data-index="15" data-kind="divider"><p class="slide-kicker">Phase 3 of 7</p>
-    <p class="divider-title">Pre game</p>
-    <ul class="phase-overview"><li>Field condition photo (pregame) — <em>You own this</em></li><li>Rainout decision — <em>You own this</em></li><li>Pregame weather check — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="17" data-kind="divider"><span class="divider-mark" aria-hidden="true">03</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 3 of 7</p>
+      <p class="divider-title">Pre game</p>
+      <ul class="phase-overview"><li>Field condition photo (pregame) — <em>You own this</em></li><li>Rainout decision — <em>You own this</em></li><li>Pregame weather check — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">16 / 42</span>
-      <span class="touchline-tick" style="left: 38.095%"></span>
+      <span class="touchline-counter">18 / 44</span>
+      <span class="touchline-tick" style="left: 40.909%"></span>
     </footer></section>
-<section class="slide" data-index="16"><h2>Field condition photo (pregame)</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 30 minutes before first kickoff on each surface</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>About 30 minutes before the first match on each surface, walk to that surface with a phone or camera.</li><li>Frame a wide shot showing the full playing surface — turf/grass condition, lines, and goals or nets in position.</li><li>Take the photo with location and timestamp on so it&#39;s date-stamped automatically.</li><li>Upload it to the day&#39;s match record under that surface before the first whistle.</li><li>Repeat for every surface hosting a match that day — one dated photo per surface, before its first kickoff.</li><li>If the photo reveals a condition issue (standing water, divots, damaged line paint), flag it to facilities right away rather than waiting for the field damage process.</li><li>Don&#39;t skip this even on a clear day — it&#39;s the baseline any later damage claim gets measured against.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/field_condition_photo.png" alt="Screenshot: field_condition_photo" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="18"><h2>Field condition photo (pregame)</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>About 30 minutes before the first match on each surface, walk to that surface with a phone or camera.</li><li>Frame a wide shot showing the full playing surface — turf/grass condition, lines, and goals or nets in position.</li><li>Take the photo with location and timestamp on so it&#39;s date-stamped automatically.</li><li>Upload it to the day&#39;s match record under that surface before the first whistle.</li><li>Repeat for every surface hosting a match that day — one dated photo per surface, before its first kickoff.</li><li>If the photo reveals a condition issue (standing water, divots, damaged line paint), flag it to facilities right away rather than waiting for the field damage process.</li><li>Don&#39;t skip this even on a clear day — it&#39;s the baseline any later damage claim gets measured against.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/field_condition_photo.png" alt="Screenshot: field_condition_photo" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 30 minutes before first kickoff on each surface</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Camera or phone with location/timestamp on</li><li>The day&#39;s surface list (which fields/courts host a match today)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, Facilities captures the photo and escalates to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">17 / 42</span>
-      <span class="touchline-tick" style="left: 40.476%"></span>
+      <span class="touchline-counter">19 / 44</span>
+      <span class="touchline-tick" style="left: 43.182%"></span>
     </footer></section>
-<section class="slide" data-index="17"><h2>Rainout decision</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: Weather/field condition within 2 hours of kickoff suggests cancellation</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>When weather or field conditions within 2 hours of kickoff raise real doubt — active lightning, sustained heavy rain producing standing water or unsafe footing, or a heat index at or above the venue&#39;s cutoff — check current conditions on a weather app or the National Weather Service (a built-in weather-alert dashboard is planned) and the field condition status.</li><li>Consult the director before making the call. This is a consequential decision; if the director can&#39;t be reached in time, the decision defaults to them per the escalation path.</li><li>For lightning specifically, use the standard flash-to-bang rule: suspend play if thunder follows lightning within 30 seconds, and don&#39;t resume until 30 minutes have passed with no further lightning.</li><li>Decide one of three outcomes: play as scheduled, delay the start (name a re-check time), or cancel.</li><li>Record the decision, the specific conditions that drove it, and your name as authorizing signer in the rainout decision form.</li><li>Submit the form. This triggers the platform&#39;s cancellation broadcast to parents, coaches, refs, captains, and the venue team automatically — don&#39;t message people separately ahead of the form.</li><li>If the outcome is cancel, remember the refund/reschedule call (rainout refund decision, rainout reschedule) belongs to the director within the next 24 hours — your job ends at the call and the record.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/rainout_decision.png" alt="Screenshot: rainout_decision" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="19"><h2>Rainout decision</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>When weather or field conditions within 2 hours of kickoff raise real doubt — active lightning, sustained heavy rain producing standing water or unsafe footing, or a heat index at or above the venue&#39;s cutoff — check current conditions on a weather app or the National Weather Service (a built-in weather-alert dashboard is planned) and the field condition status.</li><li>Consult the director before making the call. This is a consequential decision; if the director can&#39;t be reached in time, the decision defaults to them per the escalation path.</li><li>For lightning specifically, use the standard flash-to-bang rule: suspend play if thunder follows lightning within 30 seconds, and don&#39;t resume until 30 minutes have passed with no further lightning.</li><li>Decide one of three outcomes: play as scheduled, delay the start (name a re-check time), or cancel.</li><li>Record the decision, the specific conditions that drove it, and your name as authorizing signer in the rainout decision form.</li><li>Submit the form. This triggers the platform&#39;s cancellation broadcast to parents, coaches, refs, captains, and the venue team automatically — don&#39;t message people separately ahead of the form.</li><li>If the outcome is cancel, remember the refund/reschedule call (rainout refund decision, rainout reschedule) belongs to the director within the next 24 hours — your job ends at the call and the record.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/rainout_decision.png" alt="Screenshot: rainout_decision" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">Weather/field condition within 2 hours of kickoff suggests cancellation</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Weather app or National Weather Service radar (lightning, precipitation, heat index)</li><li>Phone (consulting the director before the call)</li><li>The rainout decision form</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director who has unilateral authority to call the event.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">18 / 42</span>
-      <span class="touchline-tick" style="left: 42.857%"></span>
+      <span class="touchline-counter">20 / 44</span>
+      <span class="touchline-tick" style="left: 45.455%"></span>
     </footer></section>
-<section class="slide" data-index="18"><h2>Pregame weather check</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 90 minutes before kickoff (outdoor venues only)</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Weather pregame</span></div>
-    <ol class="steps"><li>About 90 minutes before kickoff at any outdoor venue, re-check a weather app or the National Weather Service for live conditions (a built-in weather-alert dashboard is planned) — this replaces the 72h pre-check with real-time data.</li><li>Check the lightning radar for detected strikes within 10 miles of the venue.</li><li>Check current precipitation on radar and confirm whether it&#39;s arriving before, during, or after the event window.</li><li>Walk the surface (or have facilities confirm) for standing water, saturated turf, or other unsafe footing from overnight or same-day rain.</li><li>Check current temperature and heat index against the venue&#39;s heat-advisory cutoff.</li><li>If any reading crosses a risk threshold — active lightning, heavy rain producing standing water, a heat advisory — move straight to the rainout decision rather than waiting out the clock.</li><li>If conditions are clear, complete the checklist and log the readings for the record; that&#39;s the data trail if conditions change later and the call gets challenged.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/weather_check_pregame.png" alt="Screenshot: weather_check_pregame" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="20"><h2>Pregame weather check</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>About 90 minutes before kickoff at any outdoor venue, re-check a weather app or the National Weather Service for live conditions (a built-in weather-alert dashboard is planned) — this replaces the 72h pre-check with real-time data.</li><li>Check the lightning radar for detected strikes within 10 miles of the venue.</li><li>Check current precipitation on radar and confirm whether it&#39;s arriving before, during, or after the event window.</li><li>Walk the surface (or have facilities confirm) for standing water, saturated turf, or other unsafe footing from overnight or same-day rain.</li><li>Check current temperature and heat index against the venue&#39;s heat-advisory cutoff.</li><li>If any reading crosses a risk threshold — active lightning, heavy rain producing standing water, a heat advisory — move straight to the rainout decision rather than waiting out the clock.</li><li>If conditions are clear, complete the checklist and log the readings for the record; that&#39;s the data trail if conditions change later and the call gets challenged.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/weather_check_pregame.png" alt="Screenshot: weather_check_pregame" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 90 minutes before kickoff (outdoor venues only)</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Weather pregame</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Weather app or National Weather Service radar (live lightning, precipitation, temperature)</li><li>On-site surface walk (standing water, saturated turf)</li><li>The pregame weather check checklist</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">19 / 42</span>
-      <span class="touchline-tick" style="left: 45.238%"></span>
+      <span class="touchline-counter">21 / 44</span>
+      <span class="touchline-tick" style="left: 47.727%"></span>
     </footer></section>
-<section class="slide" data-index="19" data-kind="divider"><p class="slide-kicker">Phase 4 of 7</p>
-    <p class="divider-title">In game</p>
-    <ul class="phase-overview"><li>Incident response (in-the-moment) — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="21" data-kind="divider"><span class="divider-mark" aria-hidden="true">04</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 4 of 7</p>
+      <p class="divider-title">In game</p>
+      <ul class="phase-overview"><li>Incident response (in-the-moment) — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">20 / 42</span>
-      <span class="touchline-tick" style="left: 47.619%"></span>
+      <span class="touchline-counter">22 / 44</span>
+      <span class="touchline-tick" style="left: 50.000%"></span>
     </footer></section>
-<section class="slide" data-index="20"><h2>Incident response (in-the-moment)</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: Incident observed or reported during the match</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>The moment an incident is reported to you — injury, altercation, medical event, or property damage — get to the scene. If you didn&#39;t witness it yourself, find whoever did (coach, ref, event lead) before writing anything down.</li><li>Scene safety and care come before documentation. If it&#39;s life-threatening, call 911 immediately — this also escalates directly to the director; don&#39;t wait to finish a form first. Never leave an injured or distressed child unattended while you sort out logistics.</li><li>Get first-hand information from whoever responded: who was involved, what immediate care was given, whether 911 was called and when, and the exact time.</li><li>Open the incident response form and capture what you have within about 5 minutes of the incident — this is the in-the-moment record, not the full report. It doesn&#39;t need to be complete, it needs to be fast and accurate: what happened, who responded, what care was given, whether 911 was called.</li><li>If a parent is on-site, notify them directly and in person before they hear about it secondhand. Stick to what happened and what was done — don&#39;t speculate about diagnosis or fault.</li><li>Handle this discreetly — this record names a minor. Don&#39;t discuss specifics in a group chat, in front of other families, or with anyone who doesn&#39;t need to know; the incident form is the record, not a text thread.</li><li>Submit the form as soon as the immediate situation is stable. This starts the clock on the incident report finalization, which happens once the affected match is over.</li><li>If you can&#39;t capture this yourself, the event lead may capture the initial form from the same first-hand accounts — you remain accountable for it either way.</li><li>This form is the fast first pass, not the final record used for disputes or insurance — every incident captured here still needs the full finalized report before it&#39;s closed.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_response.png" alt="Screenshot: incident_response" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="22"><h2>Incident response (in-the-moment)</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>The moment an incident is reported to you — injury, altercation, medical event, or property damage — get to the scene. If you didn&#39;t witness it yourself, find whoever did (coach, ref, event lead) before writing anything down.</li><li>Scene safety and care come before documentation. If it&#39;s life-threatening, call 911 immediately — this also escalates directly to the director; don&#39;t wait to finish a form first. Never leave an injured or distressed child unattended while you sort out logistics.</li><li>Get first-hand information from whoever responded: who was involved, what immediate care was given, whether 911 was called and when, and the exact time.</li><li>Open the incident response form and capture what you have within about 5 minutes of the incident — this is the in-the-moment record, not the full report. It doesn&#39;t need to be complete, it needs to be fast and accurate: what happened, who responded, what care was given, whether 911 was called.</li><li>If a parent is on-site, notify them directly and in person before they hear about it secondhand. Stick to what happened and what was done — don&#39;t speculate about diagnosis or fault.</li><li>Handle this discreetly — this record names a minor. Don&#39;t discuss specifics in a group chat, in front of other families, or with anyone who doesn&#39;t need to know; the incident form is the record, not a text thread.</li><li>Submit the form as soon as the immediate situation is stable. This starts the clock on the incident report finalization, which happens once the affected match is over.</li><li>If you can&#39;t capture this yourself, the event lead may capture the initial form from the same first-hand accounts — you remain accountable for it either way.</li><li>This form is the fast first pass, not the final record used for disputes or insurance — every incident captured here still needs the full finalized report before it&#39;s closed.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_response.png" alt="Screenshot: incident_response" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">Incident observed or reported during the match</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Phone (call 911 for a life-threatening incident)</li><li>The incident response form</li><li>First-aid kit at the field/court</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> Any life-threatening incident escalates immediately to 911 and Director; Venue Manager remains accountable for documentation but Event Lead may capture the initial form.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">21 / 42</span>
-      <span class="touchline-tick" style="left: 50.000%"></span>
+      <span class="touchline-counter">23 / 44</span>
+      <span class="touchline-tick" style="left: 52.273%"></span>
     </footer></section>
-<section class="slide" data-index="21" data-kind="divider"><p class="slide-kicker">Phase 5 of 7</p>
-    <p class="divider-title">Post game</p>
-    <ul class="phase-overview"><li>Incident report finalization — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="23" data-kind="divider"><span class="divider-mark" aria-hidden="true">05</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 5 of 7</p>
+      <p class="divider-title">Post game</p>
+      <ul class="phase-overview"><li>Incident report finalization — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">22 / 42</span>
-      <span class="touchline-tick" style="left: 52.381%"></span>
+      <span class="touchline-counter">24 / 44</span>
+      <span class="touchline-tick" style="left: 54.545%"></span>
     </footer></section>
-<section class="slide" data-index="22"><h2>Incident report finalization</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: After the incident is stable and the affected match is over</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>Once the affected match is over and the situation is stable, pull up the in-the-moment incident response form as your starting point — this report builds on it, it doesn&#39;t replace it.</li><li>Identify every witness — players, coaches, refs, spectators who saw what happened — and get a brief statement from each while memories are fresh; don&#39;t rely on a single account.</li><li>Record post-event status: how the affected person is doing now (returned to play, sent home, went to urgent care/ER, refused further care), not just what happened in the moment.</li><li>Attach any relevant photos (of the scene, of visible injury if appropriate and consented to, of property damage) to support the record.</li><li>Complete every section of the full incident report form — witnesses, statements, photos, post-event status, and anything from the in-the-moment response you need to correct or add detail to.</li><li>Handle the report discreetly throughout — it names a minor. Store it only in the platform record; don&#39;t forward statements or photos over text or email, and don&#39;t discuss specifics with anyone outside the people who need to know to do their job.</li><li>Consult the director before finalizing anything serious enough to carry insurance or legal exposure (a trip to the ER, a serious altercation, anything with a clear liability question) — this is the record the office and insurer treat as authoritative, so get it right rather than fast on anything consequential.</li><li>Submit the finalized report. Nothing about this incident closes until this report is signed off — the incident follow-up activity depends on it being complete.</li><li>If you&#39;re unreachable, the event lead drafts the report from the same witness statements and evidence, and the director finalizes it before it&#39;s considered closed.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_report_finalization.png" alt="Screenshot: incident_report_finalization" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="24"><h2>Incident report finalization</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Once the affected match is over and the situation is stable, pull up the in-the-moment incident response form as your starting point — this report builds on it, it doesn&#39;t replace it.</li><li>Identify every witness — players, coaches, refs, spectators who saw what happened — and get a brief statement from each while memories are fresh; don&#39;t rely on a single account.</li><li>Record post-event status: how the affected person is doing now (returned to play, sent home, went to urgent care/ER, refused further care), not just what happened in the moment.</li><li>Attach any relevant photos (of the scene, of visible injury if appropriate and consented to, of property damage) to support the record.</li><li>Complete every section of the full incident report form — witnesses, statements, photos, post-event status, and anything from the in-the-moment response you need to correct or add detail to.</li><li>Handle the report discreetly throughout — it names a minor. Store it only in the platform record; don&#39;t forward statements or photos over text or email, and don&#39;t discuss specifics with anyone outside the people who need to know to do their job.</li><li>Consult the director before finalizing anything serious enough to carry insurance or legal exposure (a trip to the ER, a serious altercation, anything with a clear liability question) — this is the record the office and insurer treat as authoritative, so get it right rather than fast on anything consequential.</li><li>Submit the finalized report. Nothing about this incident closes until this report is signed off — the incident follow-up activity depends on it being complete.</li><li>If you&#39;re unreachable, the event lead drafts the report from the same witness statements and evidence, and the director finalizes it before it&#39;s considered closed.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_report_finalization.png" alt="Screenshot: incident_report_finalization" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After the incident is stable and the affected match is over</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The in-the-moment incident response form (starting point)</li><li>Camera or phone (scene/injury/damage photos, with consent)</li><li>The full incident report form</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, Event Lead drafts and Director finalizes; nothing closes until the report is signed off.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">23 / 42</span>
-      <span class="touchline-tick" style="left: 54.762%"></span>
+      <span class="touchline-counter">25 / 44</span>
+      <span class="touchline-tick" style="left: 56.818%"></span>
     </footer></section>
-<section class="slide" data-index="23" data-kind="divider"><p class="slide-kicker">Phase 6 of 7</p>
-    <p class="divider-title">End of day</p>
-    <ul class="phase-overview"><li>Facility close walkthrough — <em>You own this</em></li><li>Facility lock and alarm — <em>You own this</em></li><li>Staff clock-out — <em>You own this</em></li><li>Staff debrief — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="25" data-kind="divider"><span class="divider-mark" aria-hidden="true">06</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 6 of 7</p>
+      <p class="divider-title">End of day</p>
+      <ul class="phase-overview"><li>Facility close walkthrough — <em>You own this</em></li><li>Facility lock and alarm — <em>You own this</em></li><li>Staff clock-out — <em>You own this</em></li><li>Staff debrief — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">24 / 42</span>
-      <span class="touchline-tick" style="left: 57.143%"></span>
+      <span class="touchline-counter">26 / 44</span>
+      <span class="touchline-tick" style="left: 59.091%"></span>
     </footer></section>
-<section class="slide" data-index="24"><h2>Facility close walkthrough</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: After the last match concludes and spectators have cleared</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Facility close walkthrough</span></div>
-    <ol class="steps"><li>After the last match concludes and spectators have cleared, walk the same fixed route as the opening walkthrough: playing surfaces, locker rooms, restrooms, bleachers, then the parking lot.</li><li>Check every locker room and restroom stall for anyone still inside; call out before entering an occupied-looking space.</li><li>Confirm no personal belongings, equipment, or trash was left behind on the surfaces or in the stands; route anything found to lost and found.</li><li>Confirm the day&#39;s equipment has been accounted for by facilities (equipment storage should already be underway).</li><li>Check for any new safety issue from the day&#39;s use — damaged fixtures, spills, tripping hazards — and note it for the next opening walkthrough or an immediate work order.</li><li>Confirm exterior areas (parking lot, entrances) are clear of people and hazards.</li><li>Sign off the walkthrough — facility lock and alarm cannot start without this sign-off.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_close_walkthrough.png" alt="Screenshot: facility_close_walkthrough" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="26"><h2>Facility close walkthrough</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>After the last match concludes and spectators have cleared, walk the same fixed route as the opening walkthrough: playing surfaces, locker rooms, restrooms, bleachers, then the parking lot.</li><li>Check every locker room and restroom stall for anyone still inside; call out before entering an occupied-looking space.</li><li>Confirm no personal belongings, equipment, or trash was left behind on the surfaces or in the stands; route anything found to lost and found.</li><li>Confirm the day&#39;s equipment has been accounted for by facilities (equipment storage should already be underway).</li><li>Check for any new safety issue from the day&#39;s use — damaged fixtures, spills, tripping hazards — and note it for the next opening walkthrough or an immediate work order.</li><li>Confirm exterior areas (parking lot, entrances) are clear of people and hazards.</li><li>Sign off the walkthrough — facility lock and alarm cannot start without this sign-off.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_close_walkthrough.png" alt="Screenshot: facility_close_walkthrough" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After the last match concludes and spectators have cleared</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Facility close walkthrough</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The fixed walkthrough route (same route as the opening walkthrough)</li><li>Flashlight (checking dim locker rooms and storage)</li><li>Lost-and-found bin</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder; closure cannot be completed without a walkthrough sign-off.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">25 / 42</span>
-      <span class="touchline-tick" style="left: 59.524%"></span>
+      <span class="touchline-counter">27 / 44</span>
+      <span class="touchline-tick" style="left: 61.364%"></span>
     </footer></section>
-<section class="slide" data-index="25"><h2>Facility lock and alarm</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: After the close walkthrough is signed off</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Facility lock alarm</span></div>
-    <ol class="steps"><li>Confirm the close walkthrough is signed off before starting — lock-up never happens first.</li><li>Power down field/court lighting, scoreboards, and any powered equipment not needed overnight.</li><li>Set HVAC to its overnight/unoccupied setting.</li><li>Walk back through and lock all interior doors: locker rooms, storage/equipment room, concessions, office.</li><li>Confirm interior lights are off except any required security lighting.</li><li>Lock all exterior doors, confirming each is fully secured (not just latched).</li><li>Set the alarm with the current code and wait for the confirmation tone or light before you leave — don&#39;t assume it armed.</li><li>Confirm the perimeter is secure (gates latched, no propped doors) on your way to your vehicle.</li><li>Log the lock-and-alarm completion. Alarm code rotation follows the centrally-enforced policy — never share or write down the code.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_lock_alarm.png" alt="Screenshot: facility_lock_alarm" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="27"><h2>Facility lock and alarm</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Confirm the close walkthrough is signed off before starting — lock-up never happens first.</li><li>Power down field/court lighting, scoreboards, and any powered equipment not needed overnight.</li><li>Set HVAC to its overnight/unoccupied setting.</li><li>Walk back through and lock all interior doors: locker rooms, storage/equipment room, concessions, office.</li><li>Confirm interior lights are off except any required security lighting.</li><li>Lock all exterior doors, confirming each is fully secured (not just latched).</li><li>Set the alarm with the current code and wait for the confirmation tone or light before you leave — don&#39;t assume it armed.</li><li>Confirm the perimeter is secure (gates latched, no propped doors) on your way to your vehicle.</li><li>Log the lock-and-alarm completion. Alarm code rotation follows the centrally-enforced policy — never share or write down the code.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/facility_lock_alarm.png" alt="Screenshot: facility_lock_alarm" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After the close walkthrough is signed off</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Facility lock alarm</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Alarm keypad and the current code</li><li>Building key ring</li><li>HVAC and lighting panel</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, escalate to Director per the standard handoff ladder; alarm code rotation policy is enforced centrally.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">26 / 42</span>
-      <span class="touchline-tick" style="left: 61.905%"></span>
+      <span class="touchline-counter">28 / 44</span>
+      <span class="touchline-tick" style="left: 63.636%"></span>
     </footer></section>
-<section class="slide" data-index="26"><h2>Staff clock-out</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: As each staff member finishes their last task</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>When a staff member finishes their last task for the day (final equipment stored, facility close walkthrough done, cash reconciled — whatever their role&#39;s closing task is), they come to the clock-out station before leaving the venue.</li><li>Confirm their name against today&#39;s staffing plan and capture the actual end time — not the scheduled end time, the real one.</li><li>Ask if there&#39;s anything to note for payroll or the office: worked past the scheduled end time, left early with venue manager sign-off, covered an extra task outside their normal role.</li><li>The staff member signs to confirm the end time and notes are accurate.</li><li>Front of house checks the signature against the staffing plan and signs to close that person&#39;s labor record for the day.</li><li>Repeat for each staff member as they finish, in any order — this isn&#39;t a single end-of-day batch, it&#39;s per-person as people wrap up.</li><li>Once every staffed slot for the day has a signed clock-out, the record is complete and ready to feed the payroll integration.</li><li>If the venue manager isn&#39;t available to witness a clock-out, the event lead witnesses it and escalates per the escalation path.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_clock_out.png" alt="Screenshot: staff_clock_out" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="28"><h2>Staff clock-out</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>When a staff member finishes their last task for the day (final equipment stored, facility close walkthrough done, cash reconciled — whatever their role&#39;s closing task is), they come to the clock-out station before leaving the venue.</li><li>Confirm their name against today&#39;s staffing plan and capture the actual end time — not the scheduled end time, the real one.</li><li>Ask if there&#39;s anything to note for payroll or the office: worked past the scheduled end time, left early with venue manager sign-off, covered an extra task outside their normal role.</li><li>The staff member signs to confirm the end time and notes are accurate.</li><li>Front of house checks the signature against the staffing plan and signs to close that person&#39;s labor record for the day.</li><li>Repeat for each staff member as they finish, in any order — this isn&#39;t a single end-of-day batch, it&#39;s per-person as people wrap up.</li><li>Once every staffed slot for the day has a signed clock-out, the record is complete and ready to feed the payroll integration.</li><li>If the venue manager isn&#39;t available to witness a clock-out, the event lead witnesses it and escalates per the escalation path.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_clock_out.png" alt="Screenshot: staff_clock_out" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">As each staff member finishes their last task</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The clock-out station (in-person sign-out)</li><li>Today&#39;s staffing plan</li><li>The activity completion signature capture (/admin/activity-completions/[id])</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, Event Lead witnesses the clock-out and escalates to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">27 / 42</span>
-      <span class="touchline-tick" style="left: 64.286%"></span>
+      <span class="touchline-counter">29 / 44</span>
+      <span class="touchline-tick" style="left: 65.909%"></span>
     </footer></section>
-<section class="slide" data-index="27"><h2>Staff debrief</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: After facility close walkthrough is signed off</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>Once the facility close walkthrough is signed off, gather whoever&#39;s still on shift for a 5-10 minute huddle — don&#39;t hold people who&#39;ve already clocked out waiting for this.</li><li>Ask what worked today: anything that ran smoother than expected, any process worth repeating.</li><li>Ask what broke or ran rough: equipment failures, staffing gaps, confused parents, anything that slowed the day down.</li><li>Ask if anything needs to go to the office: a facility repair request, a supply reorder, a schedule conflict for next time, a personnel note.</li><li>Capture incident or safety mentions even briefly — the full incident report is a separate activity, but the debrief should flag that one happened so it isn&#39;t lost.</li><li>Write the notes into the debrief form in plain language — this feeds directly into tonight&#39;s daily digest and the weekly review, so vague notes (&quot;things were fine&quot;) aren&#39;t useful to future you.</li><li>Submit the form before leaving the venue.</li><li>If the venue manager isn&#39;t available, the event lead runs the debrief and escalates per the escalation path.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_debrief.png" alt="Screenshot: staff_debrief" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="29"><h2>Staff debrief</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Once the facility close walkthrough is signed off, gather whoever&#39;s still on shift for a 5-10 minute huddle — don&#39;t hold people who&#39;ve already clocked out waiting for this.</li><li>Ask what worked today: anything that ran smoother than expected, any process worth repeating.</li><li>Ask what broke or ran rough: equipment failures, staffing gaps, confused parents, anything that slowed the day down.</li><li>Ask if anything needs to go to the office: a facility repair request, a supply reorder, a schedule conflict for next time, a personnel note.</li><li>Capture incident or safety mentions even briefly — the full incident report is a separate activity, but the debrief should flag that one happened so it isn&#39;t lost.</li><li>Write the notes into the debrief form in plain language — this feeds directly into tonight&#39;s daily digest and the weekly review, so vague notes (&quot;things were fine&quot;) aren&#39;t useful to future you.</li><li>Submit the form before leaving the venue.</li><li>If the venue manager isn&#39;t available, the event lead runs the debrief and escalates per the escalation path.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/staff_debrief.png" alt="Screenshot: staff_debrief" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After facility close walkthrough is signed off</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The staff debrief form</li><li>Notepad (capturing huddle notes on what worked and what broke)</li><li>Today&#39;s incident report, if one was filed (reference)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, Event Lead runs the debrief and escalates to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">28 / 42</span>
-      <span class="touchline-tick" style="left: 66.667%"></span>
+      <span class="touchline-counter">30 / 44</span>
+      <span class="touchline-tick" style="left: 68.182%"></span>
     </footer></section>
-<section class="slide" data-index="28" data-kind="divider"><p class="slide-kicker">Phase 7 of 7</p>
-    <p class="divider-title">Post day</p>
-    <ul class="phase-overview"><li>Incident follow-up — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="30" data-kind="divider"><span class="divider-mark" aria-hidden="true">07</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 7 of 7</p>
+      <p class="divider-title">Post day</p>
+      <ul class="phase-overview"><li>Incident follow-up — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">29 / 42</span>
-      <span class="touchline-tick" style="left: 69.048%"></span>
+      <span class="touchline-counter">31 / 44</span>
+      <span class="touchline-tick" style="left: 70.455%"></span>
     </footer></section>
-<section class="slide" data-index="29"><h2>Incident follow-up</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: 24 hours to 48 hours after incident report finalization</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>Within 24-48 hours of the finalized incident report, follow up directly with the affected family (or staff member, if it&#39;s a staff incident) — a phone call or in-person check-in, not just a text.</li><li>Ask about recovery status and, for a player, whether or when they expect to return to play — record what they tell you, not what you assume.</li><li>If the incident involves any injury claim, confirm whether the family has been in contact with insurance and capture the contact status (not yet, in progress, resolved).</li><li>Note whether the family has any outstanding question or concern from the incident that the office should address — don&#39;t let this follow-up be a formality if they still have something unresolved.</li><li>Decide whether any additional action is needed from the office: a policy referral (feeds the weekly safety review), a facility referral (feeds the field damage report if one hasn&#39;t already been filed), or a direct follow-up from the director.</li><li>Record the outreach, what you learned, and any recommended additional action on the incident follow-up form, and submit it.</li><li>Handle this discreetly like every other step in the incident chain — it still names a minor; keep the conversation and the record between you, the family, and anyone else who needs to know.</li><li>If you&#39;re unreachable within the window, the event lead conducts the outreach and escalates to the director per the standard handoff ladder — the 24-48h window doesn&#39;t stretch just because you&#39;re unavailable.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_followup.png" alt="Screenshot: incident_followup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="31"><h2>Incident follow-up</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Within 24-48 hours of the finalized incident report, follow up directly with the affected family (or staff member, if it&#39;s a staff incident) — a phone call or in-person check-in, not just a text.</li><li>Ask about recovery status and, for a player, whether or when they expect to return to play — record what they tell you, not what you assume.</li><li>If the incident involves any injury claim, confirm whether the family has been in contact with insurance and capture the contact status (not yet, in progress, resolved).</li><li>Note whether the family has any outstanding question or concern from the incident that the office should address — don&#39;t let this follow-up be a formality if they still have something unresolved.</li><li>Decide whether any additional action is needed from the office: a policy referral (feeds the weekly safety review), a facility referral (feeds the field damage report if one hasn&#39;t already been filed), or a direct follow-up from the director.</li><li>Record the outreach, what you learned, and any recommended additional action on the incident follow-up form, and submit it.</li><li>Handle this discreetly like every other step in the incident chain — it still names a minor; keep the conversation and the record between you, the family, and anyone else who needs to know.</li><li>If you&#39;re unreachable within the window, the event lead conducts the outreach and escalates to the director per the standard handoff ladder — the 24-48h window doesn&#39;t stretch just because you&#39;re unavailable.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/venue_manager/incident_followup.png" alt="Screenshot: incident_followup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">24 hours to 48 hours after incident report finalization</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Phone (follow-up call or in-person check-in with the affected family/staff member)</li><li>The incident follow-up form</li><li>The finalized incident report (reference for what happened)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, Event Lead conducts follow-up outreach and escalates to Director per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">30 / 42</span>
-      <span class="touchline-tick" style="left: 71.429%"></span>
+      <span class="touchline-counter">32 / 44</span>
+      <span class="touchline-tick" style="left: 72.727%"></span>
     </footer></section>
-<section class="slide" data-index="30" data-kind="divider"><p class="slide-kicker">Appendix</p>
-    <p class="divider-title">Checklists</p>
-    <ul class="phase-overview"><li>Facility close walkthrough</li><li>Facility lock alarm</li><li>Facility unlock</li><li>First aid</li><li>Staff schedule confirm</li><li>Weather pre check</li><li>Weather pregame</li></ul><footer class="touchline">
+<section class="slide" data-index="32" data-kind="divider"><div class="divider-textblock">
+      <p class="slide-kicker">Appendix</p>
+      <p class="divider-title">Checklists</p>
+      <ul class="phase-overview"><li>Facility close walkthrough</li><li>Facility lock alarm</li><li>Facility unlock</li><li>First aid</li><li>Staff schedule confirm</li><li>Weather pre check</li><li>Weather pregame</li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">31 / 42</span>
-      <span class="touchline-tick" style="left: 73.810%"></span>
+      <span class="touchline-counter">33 / 44</span>
+      <span class="touchline-tick" style="left: 75.000%"></span>
     </footer></section>
-<section class="slide" data-index="31"><div class="clipboard-card">
+<section class="slide" data-index="33"><div class="clipboard-card">
       <h2>Facility close walkthrough</h2>
       <ul class="checklist checklist--ticks"><li>Playing surfaces walked for people, belongings, and equipment left behind</li><li>Locker rooms and restrooms checked for anyone still inside</li><li>Personal items found routed to lost and found</li><li>Day&#39;s equipment confirmed accounted for by facilities</li><li>Any new safety issue from the day&#39;s use noted for follow-up</li><li>Parking lot and entrances confirmed clear of people and hazards</li><li>Walkthrough signed off before facility lock and alarm</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">32 / 42</span>
-      <span class="touchline-tick" style="left: 76.190%"></span>
+      <span class="touchline-counter">34 / 44</span>
+      <span class="touchline-tick" style="left: 77.273%"></span>
     </footer></section>
-<section class="slide" data-index="32"><div class="clipboard-card">
+<section class="slide" data-index="34"><div class="clipboard-card">
       <h2>Facility lock alarm</h2>
       <ul class="checklist checklist--ticks"><li>Close walkthrough confirmed signed off before lock-up begins</li><li>Field/court lighting, scoreboards, and unneeded equipment powered down</li><li>HVAC set to the overnight/unoccupied setting</li><li>Interior doors locked (locker rooms, storage, concessions, office)</li><li>Interior lights off except required security lighting</li><li>Exterior doors locked and confirmed secure</li><li>Alarm armed with the current code and arming confirmed before leaving</li><li>Perimeter confirmed secure (gates latched, no propped doors)</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">33 / 42</span>
-      <span class="touchline-tick" style="left: 78.571%"></span>
+      <span class="touchline-counter">35 / 44</span>
+      <span class="touchline-tick" style="left: 79.545%"></span>
     </footer></section>
-<section class="slide" data-index="33"><div class="clipboard-card">
+<section class="slide" data-index="35"><div class="clipboard-card">
       <h2>Facility unlock</h2>
       <ul class="checklist checklist--ticks"><li>Alarm disarmed with the current code (backup entry logged if the code failed)</li><li>Exterior doors unlocked per today&#39;s traffic plan</li><li>Interior doors unlocked (locker rooms, storage, concessions, restrooms, office)</li><li>Lights on throughout the facility</li><li>HVAC set to the seasonal operating range</li><li>Restrooms checked for running water and no leaks</li><li>Any overnight issues (forced entry, alarm trouble, standing water) noted and escalated</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">34 / 42</span>
-      <span class="touchline-tick" style="left: 80.952%"></span>
+      <span class="touchline-counter">36 / 44</span>
+      <span class="touchline-tick" style="left: 81.818%"></span>
     </footer></section>
-<section class="slide" data-index="34"><div class="clipboard-card">
+<section class="slide" data-index="36"><div class="clipboard-card">
       <h2>First aid</h2>
       <ul class="checklist checklist--ticks"><li>Every first-aid kit on premises opened and inspected</li><li>Contents verified against the kit manifest (bandages, gauze, tape, antiseptic wipes, gloves, cold packs, CPR mask)</li><li>Missing or expired items restocked from bulk supply</li><li>AED located in its wall mount / designated spot</li><li>AED battery indicator checked and OK</li><li>AED pads within their expiration date</li><li>Kit locations confirmed known to today&#39;s coaches and event leads</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">35 / 42</span>
-      <span class="touchline-tick" style="left: 83.333%"></span>
+      <span class="touchline-counter">37 / 44</span>
+      <span class="touchline-tick" style="left: 84.091%"></span>
     </footer></section>
-<section class="slide" data-index="35"><div class="clipboard-card">
+<section class="slide" data-index="37"><div class="clipboard-card">
       <h2>Staff schedule confirm</h2>
       <ul class="checklist checklist--ticks"><li>Day&#39;s staffing plan pulled — every shift slot listed</li><li>Platform acknowledgment status checked for each assigned person</li><li>Every unacknowledged slot followed up directly</li><li>No-responses/declines backfilled from the standby pool</li><li>No double-booked people or shift gaps in the event window</li><li>Contractor slots (ref, photographer) confirmed with the assignor/contractor pool</li><li>Every slot on the plan shows a confirmed name</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">36 / 42</span>
-      <span class="touchline-tick" style="left: 85.714%"></span>
+      <span class="touchline-counter">38 / 44</span>
+      <span class="touchline-tick" style="left: 86.364%"></span>
     </footer></section>
-<section class="slide" data-index="36"><div class="clipboard-card">
+<section class="slide" data-index="38"><div class="clipboard-card">
       <h2>Weather pre check</h2>
       <ul class="checklist checklist--ticks"><li>72h forecast reviewed for precipitation, wind, lightning, and heat index</li><li>Heat advisory checked (heat index of 95°F or higher flags a risk)</li><li>Precipitation risk checked (60% or higher chance during the event window flags a risk)</li><li>Current field/turf condition noted if the outdoor surface is accessible</li><li>Any at-risk match flagged to the event lead and director</li><li>T-24h recheck scheduled if a risk was flagged</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">37 / 42</span>
-      <span class="touchline-tick" style="left: 88.095%"></span>
+      <span class="touchline-counter">39 / 44</span>
+      <span class="touchline-tick" style="left: 88.636%"></span>
     </footer></section>
-<section class="slide" data-index="37"><div class="clipboard-card">
+<section class="slide" data-index="39"><div class="clipboard-card">
       <h2>Weather pregame</h2>
       <ul class="checklist checklist--ticks"><li>Weather-alert dashboard checked for live conditions</li><li>Lightning radar checked (strikes within 10 miles)</li><li>Precipitation radar checked against the event window</li><li>Field/court surface walked or confirmed by facilities for standing water or unsafe footing</li><li>Current temperature/heat index checked against the venue&#39;s advisory cutoff</li><li>Readings logged for the record even when conditions are clear</li><li>Any risk threshold crossed routed immediately to the rainout decision</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">38 / 42</span>
-      <span class="touchline-tick" style="left: 90.476%"></span>
+      <span class="touchline-counter">40 / 44</span>
+      <span class="touchline-tick" style="left: 90.909%"></span>
     </footer></section>
-<section class="slide" data-index="38"><h2>Safety &amp; escalation</h2>
+<section class="slide" data-index="40"><h2>Safety &amp; escalation</h2>
     <ul class="escalation-list"><li>Any life-threatening incident escalates immediately to 911 and Director; Venue Manager remains accountable for documentation but Event Lead may capture the initial form.</li><li>If Venue Manager unreachable, Event Lead conducts follow-up outreach and escalates to Director per the standard handoff ladder.</li><li>If Venue Manager unreachable, Event Lead delivers the briefing and escalates to Director per the standard handoff ladder.</li><li>If Venue Manager unreachable, Event Lead drafts and Director finalizes; nothing closes until the report is signed off.</li><li>If Venue Manager unreachable, Event Lead runs the debrief and escalates to Director per the standard handoff ladder.</li><li>If Venue Manager unreachable, Event Lead witnesses the clock-out and escalates to Director per the standard handoff ladder.</li><li>If Venue Manager unreachable, Facilities captures the photo and escalates to Director per the standard handoff ladder.</li><li>If Venue Manager unreachable, escalate to Director per the standard handoff ladder.</li><li>If Venue Manager unreachable, escalate to Director per the standard handoff ladder; Facilities walks the building until coverage resumes.</li><li>If Venue Manager unreachable, escalate to Director per the standard handoff ladder; alarm code rotation policy is enforced centrally.</li><li>If Venue Manager unreachable, escalate to Director per the standard handoff ladder; closure cannot be completed without a walkthrough sign-off.</li><li>If Venue Manager unreachable, escalate to Director per the standard handoff ladder; no event begins without a verified kit.</li><li>If Venue Manager unreachable, escalate to Director who has unilateral authority to call the event.</li></ul>
     <p><strong>You may need to escalate to:</strong> Director, Event Lead, Facilities, Venue Manager</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">39 / 42</span>
-      <span class="touchline-tick" style="left: 92.857%"></span>
+      <span class="touchline-counter">41 / 44</span>
+      <span class="touchline-tick" style="left: 93.182%"></span>
     </footer></section>
-<section class="slide" data-index="39"><h2>Your tools</h2>
+<section class="slide" data-index="41"><h2>Your tools</h2>
     <table class="tools-table"><tbody><tr><td><code>/admin/venue</code></td><td>Venue command center — today&#39;s event-day overview</td></tr><tr><td><code>/admin/venue/day/[date]</code></td><td>Run-of-show for a specific event day</td></tr><tr><td><code>/admin/venue/check-in</code></td><td>Player/team check-in</td></tr><tr><td><code>/admin/venue/walk-up</code></td><td>Walk-on registration</td></tr><tr><td><code>/admin/venue/rosters</code></td><td>Team rosters for the day</td></tr><tr><td><code>/admin/venue/reports</code></td><td>End-of-day reports</td></tr></tbody></table><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">40 / 42</span>
-      <span class="touchline-tick" style="left: 95.238%"></span>
+      <span class="touchline-counter">42 / 44</span>
+      <span class="touchline-tick" style="left: 95.455%"></span>
     </footer></section>
-<section class="slide" data-index="40"><h2>Where to get help</h2>
+<section class="slide" data-index="42"><h2>Where to get help</h2>
     <ol>
       <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
       <li>Escalate per that chain first — most issues have a named next step.</li>
@@ -904,15 +1422,15 @@ end-to-end execution of an event-day at one location.</p><footer class="touchlin
     </ol><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">41 / 42</span>
-      <span class="touchline-tick" style="left: 97.619%"></span>
+      <span class="touchline-counter">43 / 44</span>
+      <span class="touchline-tick" style="left: 97.727%"></span>
     </footer></section>
-<section class="slide" data-index="41"><h2>Watch the walkthroughs</h2>
+<section class="slide" data-index="43"><h2>Watch the walkthroughs</h2>
     <p>Every workflow below has a short recorded walkthrough and a written narration script you can read alongside it.</p>
     <ul class="walkthrough-list"><li>Venue command center, check-in, and reports — <code>training/narration/venue-manager.md</code></li></ul><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">42 / 42</span>
+      <span class="touchline-counter">44 / 44</span>
       <span class="touchline-tick" style="left: 100.000%"></span>
     </footer></section>
 <div class="nav-controls">

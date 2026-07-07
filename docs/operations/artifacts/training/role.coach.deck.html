@@ -135,7 +135,13 @@
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* "safe center": center vertically when content fits (the common
+       case), but fall back to start-alignment when content is taller than
+       the frame (e.g. a role with many activities on the "Your toolkit"
+       slide) — plain "center" on overflowing flex content makes the top of
+       the content inaccessible via scroll (scrollTop can't go negative),
+       silently hiding the heading. */
+    justify-content: safe center;
     padding: 8vh 10vw;
     background: var(--cream);
     color: var(--ink);
@@ -146,6 +152,11 @@
        exceed the available height on some slides — scroll rather than
        silently overflow into (or under) the touchline footer. */
     overflow-y: auto;
+    /* Round-3 composition pass: a slightly larger base size + wider measure
+       (see the .slide p/.slide li rule below) so single-column slides use
+       more of the 16:9 frame instead of a narrow left-pinned column of body
+       text with the whole right side sitting empty. */
+    font-size: 1.05rem;
   }
   .slide.active {
     opacity: 1;
@@ -171,37 +182,105 @@
     font-style: italic;
     font-size: 0.95rem;
   }
-  /* Meta-chip row (activity slides) — a compact one-line strip of data
-     labels directly under the title: WHEN, YOU OWN THIS/YOU ASSIST, and
-     (when the activity has one) CHECKLIST. Replaces the old floating
-     top-right time-rail chip, the old italic ownership caption line, and
-     the old "checklist exists" filler sentence. Text keeps its natural
-     sentence case in the DOM; uppercase is a pure display transform so the
-     underlying value stays intact/greppable. */
-  .meta-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0 0 1.75rem;
+  /* Round-3 two-column composition system — shared by the activity slide
+     (steps + a meta/tools rail), the agenda and "how time works" slides
+     (a list + a stat callout), and the toolkit slide (two tool-category
+     panels side by side). One grid + one paper-surface panel style reused
+     everywhere there's a natural "main content + companion data" shape,
+     instead of a bespoke layout per slide. */
+  .frame-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: stretch;
+    margin-top: 0.25rem;
   }
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.3rem 0.65rem;
-    background: var(--cream-2);
+  .frame-main {
+    min-width: 0;
+  }
+  .frame-panel {
+    background: var(--paper);
     border: 1px solid var(--cream-3);
-    border-radius: 3px;
+    border-radius: 10px;
+    padding: 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+  .frame-panel-heading {
+    margin: 0;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-muted);
-    white-space: nowrap;
   }
-  .meta-chip--owner {
+  .frame-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+  .frame-stat-value {
+    margin: 0;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.25rem;
+    line-height: 1;
     color: var(--navy-deep);
-    border-color: var(--ochre);
+  }
+  .frame-stat-label {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+  /* Activity slide's right-rail panel — vertically stacked meta rows
+     (replaces the old horizontal meta-chip row: WHEN / ownership /
+     CHECKLIST used to sit as inline chips directly under the title; the
+     two-column composition pass moves them into labeled rows in the paper
+     panel so the panel — not a thin chip strip — is what carries that
+     data, freeing the title area and giving the right column real content). */
+  .panel-meta { display: flex; flex-direction: column; gap: 1.1rem; }
+  .panel-meta-row { display: flex; flex-direction: column; gap: 0.2rem; }
+  .panel-meta-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-meta-value { font-size: 0.95rem; color: var(--ink-2); }
+  .panel-meta-row--owner .panel-meta-value { color: var(--navy-deep); font-weight: 600; }
+  .panel-tools {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--cream-3);
+  }
+  .panel-tools-label {
+    margin: 0 0 0.75rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-tools-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .panel-tools-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .panel-tools-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .nav-controls {
     position: fixed;
@@ -265,9 +344,9 @@
      (verified against the real act.weather_pre_check 6-step slide, which is
      long enough to hit exactly this). */
   .escalation-footnote {
-    margin-top: 1.75rem;
-    padding-top: 1rem;
-    max-width: 68ch;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    max-width: 78ch;
     border-top: 1px dashed var(--cream-3);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -277,44 +356,164 @@
   /* Chapter divider slides (agenda's per-phase dividers + the checklist
      appendix divider) — a big Newsreader chapter name distinct from a
      normal content slide's h2, so it reads as a section break when
-     flipping through the deck. */
+     flipping through the deck. Sized up considerably in the round-3
+     composition pass (3rem -> 5.5rem) so the phase name genuinely
+     dominates the frame instead of sitting as a small headline over a
+     mostly-empty slide. */
   .divider-title {
     margin: 0 0 2rem;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 3rem;
-    line-height: 1.15;
+    font-size: 5.5rem;
+    line-height: 1.05;
     color: var(--navy-deep);
   }
+  /* Textblock wrapper establishes its own stacking context (position +
+     z-index) so it reliably paints above .divider-mark below — position:
+     absolute elements otherwise paint above static in-flow content
+     regardless of DOM order. */
+  .divider-textblock {
+    position: relative;
+    z-index: 1;
+    max-width: 64ch;
+  }
+  /* Giant translucent phase-number watermark, filling the right side of
+     phase-divider slides that would otherwise be almost entirely empty —
+     a short kicker + title + activity list is real content but doesn't
+     come close to using a 16:9 frame on its own. Echoes the poster
+     slide's big-quote-mark motif (a large translucent Newsreader glyph)
+     so the two "mostly typographic" slide kinds in the deck share one
+     visual language. */
+  .divider-mark {
+    position: absolute;
+    z-index: 0;
+    right: 4vw;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
+  }
   /* Agenda slide ("Your day at a glance") — one row per phase with its
-     activity count, right-aligned in mono like the other data labels. */
+     activity count, right-aligned in mono like the other data labels.
+     Lives in the shared .frame-layout grid alongside a stat panel (total
+     phases/activities) so the list's companion data fills the right
+     column instead of leaving it empty. */
   .agenda-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-width: 46ch;
   }
   .agenda-list li {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.7rem 0;
+    padding: 0.85rem 0;
     border-bottom: 1px solid var(--cream-3);
   }
   .agenda-phase {
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     color: var(--navy-deep);
   }
   .agenda-count {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--ink-muted);
     white-space: nowrap;
+  }
+  /* "How time works on your day" timeline slide — a left rail line with a
+     dot per stop, label + activity name per row. Lives in the shared
+     .frame-layout grid next to a stat panel (see renderRoleTimelineSlide). */
+  .timeline-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+  .timeline-list::before {
+    content: "";
+    position: absolute;
+    left: 9rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 1px;
+    background: var(--cream-3);
+  }
+  .timeline-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding: 0.65rem 0 0.65rem 1.75rem;
+  }
+  .timeline-row::before {
+    content: "";
+    position: absolute;
+    left: calc(9rem - 4px);
+    top: 1rem;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--ochre);
+  }
+  /* Single-line labels ("72 hours before", "48 hours after") — the column
+     is sized to fit the longest real label without wrapping; a wrapped
+     second line would run under the rail dot positioned for one line. */
+  .timeline-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    max-width: none;
+    white-space: nowrap;
+  }
+  .timeline-name {
+    font-size: 1rem;
+    color: var(--ink);
+    max-width: none;
+  }
+  /* "Your toolkit" slide — two category panels side by side, reusing the
+     .frame-panel paper-surface card so it shares the same visual language
+     as the activity slide's meta/tools rail and the agenda/timeline stat
+     panels. */
+  .toolkit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    margin-top: 1.5rem;
+  }
+  .toolkit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+  .toolkit-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+  .toolkit-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .belief { margin-top: 1.25rem; }
   .belief h3 {
@@ -343,21 +542,32 @@
     text-align: left;
     vertical-align: top;
   }
-  /* Readable measure — body copy tops out around 68 characters, headings
-     and the tools table (needs its full width) are exempt. */
+  /* Readable measure — body copy tops out around 74 characters (widened
+     from 68 in the round-3 composition pass to use more of the frame),
+     headings and the tools table (needs its full width) are exempt. */
   .slide p,
   .slide li {
-    max-width: 68ch;
+    max-width: 74ch;
   }
   /* Checklist slides — clipboard-card treatment, sage tick squares that
      stay empty (not checked) since this is a training reference, not a
-     live tracker. */
+     live tracker. Widened and centered in the frame (round-3 composition
+     pass) rather than left-pinned at a narrow content width — a checklist
+     card is a standalone object on its own slide, so centering it reads
+     as a deliberate poster-like composition instead of body text that
+     happens to stop halfway across. */
   .clipboard-card {
     background: var(--paper);
     border: 1px solid var(--cream-3);
     border-radius: 10px;
-    padding: 2.5rem 3rem;
+    padding: 3rem 4rem;
     box-shadow: 0 8px 24px oklch(0.2 0.02 260 / 0.08);
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .clipboard-card .checklist--ticks li {
+    font-size: 1.05rem;
   }
   .checklist--ticks { list-style: none; margin: 0; padding: 0; }
   .checklist--ticks li {
@@ -390,21 +600,36 @@
     letter-spacing: 0.25em;
     color: oklch(0.85 0.02 80 / 0.65);
   }
+  /* Round-3 composition pass: the poster previously read as a short
+     left-pinned caption with the entire right ~60% of the navy frame
+     empty. Pairs the existing opening quote mark with a big translucent
+     CLOSING quote mark filling the right side — a classic magazine
+     pull-quote bracket, not a bolted-on decoration — instead of just
+     enlarging the opening mark in place (which at large sizes collided
+     with the statement's first line). .poster-layout is a simple flex
+     row so the statement keeps its own comfortable measure and the
+     closing mark absorbs the remaining width. */
+  .poster-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
   .poster-statement-wrap {
     position: relative;
-    max-width: 34ch;
+    max-width: 40ch;
+    flex: 0 0 auto;
   }
   .poster-quote {
     position: absolute;
-    top: -3.5rem;
-    left: -2rem;
+    top: -4rem;
+    left: -2.5rem;
     z-index: 0;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
-    font-size: 15rem;
+    font-size: 16rem;
     line-height: 1;
     color: var(--primary);
-    opacity: 0.4;
+    opacity: 0.35;
     pointer-events: none;
   }
   .poster-statement {
@@ -415,9 +640,21 @@
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 500;
-    font-size: 2.5rem;
-    line-height: 1.35;
+    font-size: 3.1rem;
+    line-height: 1.3;
     color: var(--cream);
+  }
+  .poster-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 24rem;
+    line-height: 1;
+    color: var(--primary);
+    opacity: 0.14;
+    pointer-events: none;
   }
   /* Touchline footer — sits on every slide, baked in per-slide at render
      time (not via JS) so the counter and tick position are deterministic
@@ -468,15 +705,54 @@
   /* Hero-scale wordmark — title slide only. The poster (purpose) slide
      keeps its existing treatment (no logo); this is a much bigger lockup
      reusing the same dark-lettered mark since the title slide sits on the
-     cream background. */
+     cream background. Sized up again in the round-3 composition pass
+     (260x72 -> 360x100) — "genuinely large" per the redesign brief, not
+     just modestly bigger than the footer mark. */
   .hero-logo {
-    width: 260px;
-    height: 72px;
+    width: 360px;
+    height: 100px;
     margin: 0 0 3rem;
     background-repeat: no-repeat;
     background-position: left center;
     background-size: contain;
     background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K);
+  }
+  /* Title slide role name — explicit large size (h1 has no font-size of
+     its own in this stylesheet otherwise, so it fell back to the browser
+     default ~2rem) plus a wider description measure, so the title slide's
+     text block is a real typographic statement rather than a small
+     logo+heading pair floating in a mostly-empty frame. */
+  .title-role-name {
+    font-size: 4.5rem;
+    line-height: 1.05;
+  }
+  .title-role-description {
+    max-width: 52ch;
+    font-size: 1.2rem;
+    line-height: 1.5;
+  }
+  /* Title-slide layout — the logo/name/description block paired with a
+     giant translucent initial letter filling the right side, the same
+     "big translucent Newsreader glyph" motif as the poster's quote marks
+     and the phase divider's numeral, so the deck's three mostly-typographic
+     slide kinds read as one family instead of three unrelated treatments. */
+  .title-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
+  .title-layout > .title-main { flex: 0 0 auto; max-width: 60ch; }
+  .title-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
   }
   .touchline-logo--dark { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); }
   .touchline-logo--light { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiNGRkZGRkY7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); display: none; }
@@ -511,6 +787,7 @@
     [data-kind="poster"] .poster-role-label { color: var(--ink-muted); }
     [data-kind="poster"] .poster-statement { color: var(--navy-deep); }
     [data-kind="poster"] .poster-quote { opacity: 0.25; }
+    [data-kind="poster"] .poster-mark { opacity: 0.12; }
     [data-kind="poster"] .touchline-counter { color: var(--ink-muted) !important; }
     [data-kind="poster"] .touchline-logo--dark { display: block !important; }
     [data-kind="poster"] .touchline-logo--light { display: none !important; }
@@ -518,24 +795,32 @@
 </style>
 </head>
 <body>
-<section class="slide" data-index="0"><div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
-    <h1>Coach</h1>
-    <p class="role-description">Field-side worker accountable for one team&#39;s compliance, conduct, and
-attendance during youth programs.</p><footer class="touchline">
-      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">01 / 21</span>
-      <span class="touchline-tick" style="left: 4.762%"></span>
-    </footer></section>
-<section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Coach</p>
-    <div class="poster-statement-wrap">
-      <span class="poster-quote" aria-hidden="true">&#8220;</span>
-      <p class="poster-statement">You develop people. Every practice is a chance to help a child get better at the game and more confident in themselves — development over winning, always.</p>
+<section class="slide" data-index="0"><div class="title-layout">
+      <div class="title-main">
+        <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
+        <h1 class="title-role-name">Coach</h1>
+        <p class="role-description title-role-description">Field-side worker accountable for one team&#39;s compliance, conduct, and
+attendance during youth programs.</p>
+      </div>
+      <span class="title-mark" aria-hidden="true">C</span>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">02 / 21</span>
-      <span class="touchline-tick" style="left: 9.524%"></span>
+      <span class="touchline-counter">01 / 23</span>
+      <span class="touchline-tick" style="left: 4.348%"></span>
+    </footer></section>
+<section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Coach</p>
+    <div class="poster-layout">
+      <div class="poster-statement-wrap">
+        <span class="poster-quote" aria-hidden="true">&#8220;</span>
+        <p class="poster-statement">You develop people. Every practice is a chance to help a child get better at the game and more confident in themselves — development over winning, always.</p>
+      </div>
+      <span class="poster-mark" aria-hidden="true">&#8221;</span>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">02 / 23</span>
+      <span class="touchline-tick" style="left: 8.696%"></span>
     </footer></section>
 <section class="slide" data-index="2"><h2>Your job</h2>
     <p>You run one team&#39;s sessions from open to close. You start and end each class or camp session, rotate group activities during camp play, and support the pregame briefing before youth league matches. Attendance, conduct, and compliance for your team run through you.</p>
@@ -546,10 +831,47 @@ attendance during youth programs.</p><footer class="touchline">
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">03 / 21</span>
-      <span class="touchline-tick" style="left: 14.286%"></span>
+      <span class="touchline-counter">03 / 23</span>
+      <span class="touchline-tick" style="left: 13.043%"></span>
     </footer></section>
-<section class="slide" data-index="3"><h2>What we believe</h2>
+<section class="slide" data-index="3"><h2>Your toolkit</h2>
+    <p class="slide-kicker">Everything your activities call for, in one place.</p>
+    <div class="toolkit-grid">
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Digital &amp; platform tools</p>
+      <ul class="toolkit-list"><li>Age-appropriate balls, cones, and pinnies</li><li>Camp daily schedule (station transition times)</li><li>Group roster on a clipboard (headcount reference at each station)</li><li>The attendance roster (/coach/attendance)</li><li>The coach portal — attendance and session notes (/coach/attendance)</li><li>The coach pregame briefing dispatch packet (reference for rules-of-the-day)</li><li>Today&#39;s weather/facility check notes (special-situations reference)</li></ul>
+    </div>
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Physical &amp; on-site tools</p>
+      <ul class="toolkit-list"><li>First-aid kit (on-site)</li><li>Lost-and-found bin</li><li>Printed sign-in sheet (coach acknowledgment)</li><li>Storage bins for balls, cones, pinnies, and portable goals</li><li>Water cooler carried with the group</li></ul>
+    </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">04 / 23</span>
+      <span class="touchline-tick" style="left: 17.391%"></span>
+    </footer></section>
+<section class="slide" data-index="4"><h2>How time works on your day</h2>
+    <div class="frame-layout">
+      <ol class="timeline-list"><li class="timeline-row"><span class="timeline-label">20 minutes before</span><span class="timeline-name">Class/camp session open</span></li><li class="timeline-row"><span class="timeline-label">15 minutes before</span><span class="timeline-name">Coach pregame briefing (youth league)</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Camp group rotation</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Class/camp session close</span></li></ol>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">At a glance</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">4</p>
+          <p class="frame-stat-label">4 stops across your day</p>
+        </div>
+        <div class="frame-stat">
+          <p class="frame-stat-value">2</p>
+          <p class="frame-stat-label">2 activities triggered by events, not the clock</p>
+        </div>
+      </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">05 / 23</span>
+      <span class="touchline-tick" style="left: 21.739%"></span>
+    </footer></section>
+<section class="slide" data-index="5"><h2>What we believe</h2>
     <p>These four beliefs shape every practice plan, every sideline conversation, and every call we make about a kid.</p>
     <div class="belief">
       <h3>Development Over Winning</h3>
@@ -561,10 +883,10 @@ attendance during youth programs.</p><footer class="touchline">
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">04 / 21</span>
-      <span class="touchline-tick" style="left: 19.048%"></span>
+      <span class="touchline-counter">06 / 23</span>
+      <span class="touchline-tick" style="left: 26.087%"></span>
     </footer></section>
-<section class="slide" data-index="4"><h2>What we believe (continued)</h2>
+<section class="slide" data-index="6"><h2>What we believe (continued)</h2>
     <div class="belief">
       <h3>Long-Term Athlete Development</h3>
       <p>We're building athletes for age 25, not just age 8. We never trade away a child's long-term growth for a short-term result.</p>
@@ -575,131 +897,195 @@ attendance during youth programs.</p><footer class="touchline">
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">05 / 21</span>
-      <span class="touchline-tick" style="left: 23.810%"></span>
+      <span class="touchline-counter">07 / 23</span>
+      <span class="touchline-tick" style="left: 30.435%"></span>
     </footer></section>
-<section class="slide" data-index="5"><h2>How that shows up day to day</h2>
+<section class="slide" data-index="7"><h2>How that shows up day to day</h2>
     <p>We coach to two goals at once: compete to win, and grow every player's character and competence. When those two pull in different directions, character comes first.</p>
     <p>Day to day, that means we praise effort, learning, and bouncing back from mistakes — the things a kid actually controls — over results they can't always control.</p>
     <p><strong>Whatever your role, this is what families should feel from us.</strong></p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">06 / 21</span>
-      <span class="touchline-tick" style="left: 28.571%"></span>
+      <span class="touchline-counter">08 / 23</span>
+      <span class="touchline-tick" style="left: 34.783%"></span>
     </footer></section>
-<section class="slide" data-index="6"><h2>Your day at a glance</h2>
-    <ul class="agenda-list"><li><span class="agenda-phase">Pre game</span><span class="agenda-count">2 activities</span></li><li><span class="agenda-phase">In game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post game</span><span class="agenda-count">1 activity</span></li></ul><footer class="touchline">
+<section class="slide" data-index="8"><h2>Your day at a glance</h2>
+    <div class="frame-layout">
+      <ul class="agenda-list"><li><span class="agenda-phase">Pre game</span><span class="agenda-count">2 activities</span></li><li><span class="agenda-phase">In game</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Post game</span><span class="agenda-count">1 activity</span></li></ul>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">Today, in total</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">3</p>
+          <p class="frame-stat-label">3 phases</p>
+        </div>
+        <div class="frame-stat">
+          <p class="frame-stat-value">4</p>
+          <p class="frame-stat-label">4 activities</p>
+        </div>
+      </div>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">07 / 21</span>
-      <span class="touchline-tick" style="left: 33.333%"></span>
+      <span class="touchline-counter">09 / 23</span>
+      <span class="touchline-tick" style="left: 39.130%"></span>
     </footer></section>
-<section class="slide" data-index="7" data-kind="divider"><p class="slide-kicker">Phase 1 of 3</p>
-    <p class="divider-title">Pre game</p>
-    <ul class="phase-overview"><li>Class/camp session open — <em>You own this</em></li><li>Coach pregame briefing (youth league) — <em>You&#39;re part of this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="9" data-kind="divider"><span class="divider-mark" aria-hidden="true">01</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 1 of 3</p>
+      <p class="divider-title">Pre game</p>
+      <ul class="phase-overview"><li>Class/camp session open — <em>You own this</em></li><li>Coach pregame briefing (youth league) — <em>You&#39;re part of this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">08 / 21</span>
-      <span class="touchline-tick" style="left: 38.095%"></span>
+      <span class="touchline-counter">10 / 23</span>
+      <span class="touchline-tick" style="left: 43.478%"></span>
     </footer></section>
-<section class="slide" data-index="8"><h2>Class/camp session open</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 20 minutes before the scheduled session start</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Class session open</span></div>
-    <ol class="steps"><li>Arrive early enough to finish this checklist before players are dropped off. Pull today&#39;s roster in /coach/attendance.</li><li>Walk the playing space: wet spots, debris, damaged fixtures. Report anything unsafe to the venue manager before setup.</li><li>Stage equipment for the first activity: age-appropriate balls, cones, pinnies. Confirm a first-aid kit is at the field/court.</li><li>Greet players as they arrive and mark attendance against the roster. For clinics/drop-ins, only players registered by front of house (walk-on registration) may join.</li><li>Before play begins, check headcount against the staffing ratio and class cap for the age group — ages 4-6: 1 coach per 4 players, class of 8-10 max; ages 7-9: 1:5, 10-12 max; ages 10-12: 1:6, 12-14 max. For drop-in/clinic sessions, re-check as walk-ons join during the intake window.</li><li>If over-ratio, hold the start and escalate per the escalation path.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/class_session_open.png" alt="Screenshot: class_session_open" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="10"><h2>Class/camp session open</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Arrive early enough to finish this checklist before players are dropped off. Pull today&#39;s roster in /coach/attendance.</li><li>Walk the playing space: wet spots, debris, damaged fixtures. Report anything unsafe to the venue manager before setup.</li><li>Stage equipment for the first activity: age-appropriate balls, cones, pinnies. Confirm a first-aid kit is at the field/court.</li><li>Greet players as they arrive and mark attendance against the roster. For clinics/drop-ins, only players registered by front of house (walk-on registration) may join.</li><li>Before play begins, check headcount against the staffing ratio and class cap for the age group — ages 4-6: 1 coach per 4 players, class of 8-10 max; ages 7-9: 1:5, 10-12 max; ages 10-12: 1:6, 12-14 max. For drop-in/clinic sessions, re-check as walk-ons join during the intake window.</li><li>If over-ratio, hold the start and escalate per the escalation path.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/class_session_open.png" alt="Screenshot: class_session_open" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 20 minutes before the scheduled session start</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Class session open</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The attendance roster (/coach/attendance)</li><li>First-aid kit (on-site)</li><li>Age-appropriate balls, cones, and pinnies</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If headcount exceeds the ratio cap (e.g., a Coach no-show), the Coach holds the start and escalates to Event Lead; if unreachable, Venue Manager per the standard handoff ladder. A session never starts over-ratio.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">09 / 21</span>
-      <span class="touchline-tick" style="left: 42.857%"></span>
+      <span class="touchline-counter">11 / 23</span>
+      <span class="touchline-tick" style="left: 47.826%"></span>
     </footer></section>
-<section class="slide" data-index="9"><h2>Coach pregame briefing (youth league)</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: About 15 minutes before each youth-league kickoff</span><span class="meta-chip meta-chip--owner">You assist</span></div>
-    <ol class="steps"><li>This runs for youth-league matches only, alongside team check-in, about 15 minutes before kickoff — adult leagues are self-managed and skip it entirely.</li><li>Gather both teams&#39; coaches together, not one at a time, so both hear the same information.</li><li>Cover rules of the day: any format quirks (small-sided rules, quarter/half length for the age group), and anything from the coach pregame dispatch packet worth repeating out loud.</li><li>Cover special situations: weather watch status if outdoor, any field/court condition notes, rescheduled or shortened matches.</li><li>Restate conduct expectations — sideline coaching by parents, unsporting conduct, and that the code of conduct enforcement activity is what handles violations, not an on-field argument.</li><li>Introduce the ref crew for the match if the coaches haven&#39;t already met them at this venue.</li><li>Ask if either coach has a conflict to flag before kickoff (a player who needs to leave early, an injury from warmups).</li><li>Each coach signs to acknowledge the briefing.</li><li>If the event lead can&#39;t run the briefing, escalate to the venue manager per the escalation path rather than skipping it.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/coach_pregame_briefing.png" alt="Screenshot: coach_pregame_briefing" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="11"><h2>Coach pregame briefing (youth league)</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>This runs for youth-league matches only, alongside team check-in, about 15 minutes before kickoff — adult leagues are self-managed and skip it entirely.</li><li>Gather both teams&#39; coaches together, not one at a time, so both hear the same information.</li><li>Cover rules of the day: any format quirks (small-sided rules, quarter/half length for the age group), and anything from the coach pregame dispatch packet worth repeating out loud.</li><li>Cover special situations: weather watch status if outdoor, any field/court condition notes, rescheduled or shortened matches.</li><li>Restate conduct expectations — sideline coaching by parents, unsporting conduct, and that the code of conduct enforcement activity is what handles violations, not an on-field argument.</li><li>Introduce the ref crew for the match if the coaches haven&#39;t already met them at this venue.</li><li>Ask if either coach has a conflict to flag before kickoff (a player who needs to leave early, an injury from warmups).</li><li>Each coach signs to acknowledge the briefing.</li><li>If the event lead can&#39;t run the briefing, escalate to the venue manager per the escalation path rather than skipping it.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/coach_pregame_briefing.png" alt="Screenshot: coach_pregame_briefing" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 15 minutes before each youth-league kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You assist</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The coach pregame briefing dispatch packet (reference for rules-of-the-day)</li><li>Printed sign-in sheet (coach acknowledgment)</li><li>Today&#39;s weather/facility check notes (special-situations reference)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Event Lead unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">10 / 21</span>
-      <span class="touchline-tick" style="left: 47.619%"></span>
+      <span class="touchline-counter">12 / 23</span>
+      <span class="touchline-tick" style="left: 52.174%"></span>
     </footer></section>
-<section class="slide" data-index="10" data-kind="divider"><p class="slide-kicker">Phase 2 of 3</p>
-    <p class="divider-title">In game</p>
-    <ul class="phase-overview"><li>Camp group rotation — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="12" data-kind="divider"><span class="divider-mark" aria-hidden="true">02</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 2 of 3</p>
+      <p class="divider-title">In game</p>
+      <ul class="phase-overview"><li>Camp group rotation — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">11 / 21</span>
-      <span class="touchline-tick" style="left: 52.381%"></span>
+      <span class="touchline-counter">13 / 23</span>
+      <span class="touchline-tick" style="left: 56.522%"></span>
     </footer></section>
-<section class="slide" data-index="11"><h2>Camp group rotation</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: At each scheduled activity-block transition on the camp daily schedule</span><span class="meta-chip meta-chip--owner">You own this</span></div>
-    <ol class="steps"><li>Two minutes before the scheduled transition, wind down the current activity and gather the group (transitions are listed on the camp daily schedule, e.g., full-day blocks like 9:45-10:45 technical session, 11:00-11:45 small-sided games).</li><li>Collect any equipment that belongs to the current station; carry group gear (water cooler, clipboard/roster) with the group.</li><li>Walk the group to the next station together — no child moves between stations alone.</li><li>At the new station, count heads against the group roster before play resumes. Ages 4-6 groups are 8-10 per coach, ages 7-9 are 10-12, ages 10-12 are 12-14 — know your expected number before you move.</li><li>If the count matches, increment the rotation counter and start the next activity. If it does not, stop and escalate per the escalation path.</li><li>For ages 4-6, plan activity changes every 8-10 minutes within a station; the roster headcount is only required at station moves.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/camp_group_rotation.png" alt="Screenshot: camp_group_rotation" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="13"><h2>Camp group rotation</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>Two minutes before the scheduled transition, wind down the current activity and gather the group (transitions are listed on the camp daily schedule, e.g., full-day blocks like 9:45-10:45 technical session, 11:00-11:45 small-sided games).</li><li>Collect any equipment that belongs to the current station; carry group gear (water cooler, clipboard/roster) with the group.</li><li>Walk the group to the next station together — no child moves between stations alone.</li><li>At the new station, count heads against the group roster before play resumes. Ages 4-6 groups are 8-10 per coach, ages 7-9 are 10-12, ages 10-12 are 12-14 — know your expected number before you move.</li><li>If the count matches, increment the rotation counter and start the next activity. If it does not, stop and escalate per the escalation path.</li><li>For ages 4-6, plan activity changes every 8-10 minutes within a station; the roster headcount is only required at station moves.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/camp_group_rotation.png" alt="Screenshot: camp_group_rotation" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">At each scheduled activity-block transition on the camp daily schedule</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>Group roster on a clipboard (headcount reference at each station)</li><li>Water cooler carried with the group</li><li>Camp daily schedule (station transition times)</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If headcount does not match the group roster, all play stops immediately and the Coach escalates to Event Lead and Venue Manager; the search for the missing child takes priority over every other activity on site.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">12 / 21</span>
-      <span class="touchline-tick" style="left: 57.143%"></span>
+      <span class="touchline-counter">14 / 23</span>
+      <span class="touchline-tick" style="left: 60.870%"></span>
     </footer></section>
-<section class="slide" data-index="12" data-kind="divider"><p class="slide-kicker">Phase 3 of 3</p>
-    <p class="divider-title">Post game</p>
-    <ul class="phase-overview"><li>Class/camp session close — <em>You own this</em></li></ul><footer class="touchline">
+<section class="slide" data-index="14" data-kind="divider"><span class="divider-mark" aria-hidden="true">03</span>
+    <div class="divider-textblock">
+      <p class="slide-kicker">Phase 3 of 3</p>
+      <p class="divider-title">Post game</p>
+      <ul class="phase-overview"><li>Class/camp session close — <em>You own this</em></li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">13 / 21</span>
-      <span class="touchline-tick" style="left: 61.905%"></span>
+      <span class="touchline-counter">15 / 23</span>
+      <span class="touchline-tick" style="left: 65.217%"></span>
     </footer></section>
-<section class="slide" data-index="13"><h2>Class/camp session close</h2>
-    <div class="meta-chip-row"><span class="meta-chip meta-chip--when">When: At the scheduled end of the session</span><span class="meta-chip meta-chip--owner">You own this</span><span class="meta-chip meta-chip--checklist">Checklist: Class session close</span></div>
-    <ol class="steps"><li>End the session on time and on a positive note (cooldown, review, at-home challenge per the session structure).</li><li>Release each player only to a recognized parent/guardian. No child leaves unaccompanied. Stay with any un-picked-up player and escalate per the escalation path.</li><li>Use pickup as the parent handoff: one sentence on what the session worked on and the at-home challenge (keep it fun and brief, 10-15 min).</li><li>Tear down: count balls, cones, pinnies, and portable goals back into storage. Flag missing or damaged equipment to facilities.</li><li>Sweep the playing area for personal items; anything found goes to lost and found.</li><li>Finalize attendance and log coach notes in the coach portal while the session is fresh. Leave the space ready for the next group.</li></ol>
-    <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/class_session_close.png" alt="Screenshot: class_session_close" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+<section class="slide" data-index="15"><h2>Class/camp session close</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        <ol class="steps"><li>End the session on time and on a positive note (cooldown, review, at-home challenge per the session structure).</li><li>Release each player only to a recognized parent/guardian. No child leaves unaccompanied. Stay with any un-picked-up player and escalate per the escalation path.</li><li>Use pickup as the parent handoff: one sentence on what the session worked on and the at-home challenge (keep it fun and brief, 10-15 min).</li><li>Tear down: count balls, cones, pinnies, and portable goals back into storage. Flag missing or damaged equipment to facilities.</li><li>Sweep the playing area for personal items; anything found goes to lost and found.</li><li>Finalize attendance and log coach notes in the coach portal while the session is fresh. Leave the space ready for the next group.</li></ol>
+        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/coach/class_session_close.png" alt="Screenshot: class_session_close" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">At the scheduled end of the session</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Class session close</span></div></div>
+        <div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list"><li>The coach portal — attendance and session notes (/coach/attendance)</li><li>Storage bins for balls, cones, pinnies, and portable goals</li><li>Lost-and-found bin</li></ul>
+      </div>
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If a Player has no Parent/guardian at pickup, the Coach stays with the Player and escalates to Event Lead; if unreachable, Venue Manager per the standard handoff ladder. The Coach never leaves before the last Player has been picked up.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">14 / 21</span>
-      <span class="touchline-tick" style="left: 66.667%"></span>
+      <span class="touchline-counter">16 / 23</span>
+      <span class="touchline-tick" style="left: 69.565%"></span>
     </footer></section>
-<section class="slide" data-index="14" data-kind="divider"><p class="slide-kicker">Appendix</p>
-    <p class="divider-title">Checklists</p>
-    <ul class="phase-overview"><li>Class session close</li><li>Class session open</li></ul><footer class="touchline">
+<section class="slide" data-index="16" data-kind="divider"><div class="divider-textblock">
+      <p class="slide-kicker">Appendix</p>
+      <p class="divider-title">Checklists</p>
+      <ul class="phase-overview"><li>Class session close</li><li>Class session open</li></ul>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">15 / 21</span>
-      <span class="touchline-tick" style="left: 71.429%"></span>
+      <span class="touchline-counter">17 / 23</span>
+      <span class="touchline-tick" style="left: 73.913%"></span>
     </footer></section>
-<section class="slide" data-index="15"><div class="clipboard-card">
+<section class="slide" data-index="17"><div class="clipboard-card">
       <h2>Class session close</h2>
       <ul class="checklist checklist--ticks"><li>Every player released to a recognized parent/guardian (no child leaves unaccompanied)</li><li>Parents told what the session worked on and given the at-home challenge</li><li>Equipment counted and returned to storage (balls, cones, pinnies, portable goals)</li><li>Playing area swept for personal items; anything found goes to lost and found</li><li>Coach notes / attendance finalized in the coach portal</li><li>Space left ready for the next group (trash cleared, fixtures back in place)</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">16 / 21</span>
-      <span class="touchline-tick" style="left: 76.190%"></span>
+      <span class="touchline-counter">18 / 23</span>
+      <span class="touchline-tick" style="left: 78.261%"></span>
     </footer></section>
-<section class="slide" data-index="16"><div class="clipboard-card">
+<section class="slide" data-index="18"><div class="clipboard-card">
       <h2>Class session open</h2>
       <ul class="checklist checklist--ticks"><li>Today&#39;s roster and attendance sheet open in /coach/attendance</li><li>Playing space walked for hazards (wet spots, debris, damaged fixtures)</li><li>Session equipment staged (balls sized for the age group, cones, pinnies)</li><li>First-aid kit present at the field/court</li><li>Attendance recorded against the roster</li><li>Headcount vs. staffing within program ratio and class cap (ages 4-6: 1:4, 8-10 max; ages 7-9: 1:5, 10-12 max; ages 10-12: 1:6, 12-14 max)</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">17 / 21</span>
-      <span class="touchline-tick" style="left: 80.952%"></span>
+      <span class="touchline-counter">19 / 23</span>
+      <span class="touchline-tick" style="left: 82.609%"></span>
     </footer></section>
-<section class="slide" data-index="17"><h2>Safety &amp; escalation</h2>
+<section class="slide" data-index="19"><h2>Safety &amp; escalation</h2>
     <ul class="escalation-list"><li>If Event Lead unreachable, escalate to Venue Manager per the standard handoff ladder.</li><li>If a Player has no Parent/guardian at pickup, the Coach stays with the Player and escalates to Event Lead; if unreachable, Venue Manager per the standard handoff ladder. The Coach never leaves before the last Player has been picked up.</li><li>If headcount does not match the group roster, all play stops immediately and the Coach escalates to Event Lead and Venue Manager; the search for the missing child takes priority over every other activity on site.</li><li>If headcount exceeds the ratio cap (e.g., a Coach no-show), the Coach holds the start and escalates to Event Lead; if unreachable, Venue Manager per the standard handoff ladder. A session never starts over-ratio.</li></ul>
     <p><strong>You may need to escalate to:</strong> Coach, Event Lead, Parent, Player, Venue Manager</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">18 / 21</span>
-      <span class="touchline-tick" style="left: 85.714%"></span>
+      <span class="touchline-counter">20 / 23</span>
+      <span class="touchline-tick" style="left: 86.957%"></span>
     </footer></section>
-<section class="slide" data-index="18"><h2>Your tools</h2>
+<section class="slide" data-index="20"><h2>Your tools</h2>
     <table class="tools-table"><tbody><tr><td><code>/coach</code></td><td>Dashboard — today at a glance, incl. your onboarding checklist while incomplete</td></tr><tr><td><code>/coach/teams</code></td><td>Your team assignments</td></tr><tr><td><code>/coach/roster/[teamId]</code></td><td>Team roster</td></tr><tr><td><code>/coach/schedule</code></td><td>Practices and games</td></tr><tr><td><code>/coach/practices</code></td><td>Practice planner — build and reuse session plans (sequences)</td></tr><tr><td><code>/coach/attendance/[teamId]</code></td><td>Attendance per session</td></tr><tr><td><code>/coach/assessments</code></td><td>Assessments due across your teams</td></tr><tr><td><code>/coach/assess/[playerId]</code></td><td>Record a player assessment</td></tr><tr><td><code>/coach/messages</code></td><td>Team messaging to families</td></tr><tr><td><code>/coach/standings</code></td><td>League standings</td></tr><tr><td><code>/coach/resources</code></td><td>Coaching guides by sport, domain, and skill</td></tr></tbody></table><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">19 / 21</span>
-      <span class="touchline-tick" style="left: 90.476%"></span>
+      <span class="touchline-counter">21 / 23</span>
+      <span class="touchline-tick" style="left: 91.304%"></span>
     </footer></section>
-<section class="slide" data-index="19"><h2>Where to get help</h2>
+<section class="slide" data-index="21"><h2>Where to get help</h2>
     <ol>
       <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
       <li>Escalate per that chain first — most issues have a named next step.</li>
@@ -707,15 +1093,15 @@ attendance during youth programs.</p><footer class="touchline">
     </ol><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">20 / 21</span>
-      <span class="touchline-tick" style="left: 95.238%"></span>
+      <span class="touchline-counter">22 / 23</span>
+      <span class="touchline-tick" style="left: 95.652%"></span>
     </footer></section>
-<section class="slide" data-index="20"><h2>Watch the walkthroughs</h2>
+<section class="slide" data-index="22"><h2>Watch the walkthroughs</h2>
     <p>Every workflow below has a short recorded walkthrough and a written narration script you can read alongside it.</p>
     <ul class="walkthrough-list"><li>Roster, attendance, and player assessments — <code>training/narration/coach-core.md</code></li><li>Practice sessions and post-session reflection — <code>training/narration/coach-practices.md</code></li></ul><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">21 / 21</span>
+      <span class="touchline-counter">23 / 23</span>
       <span class="touchline-tick" style="left: 100.000%"></span>
     </footer></section>
 <div class="nav-controls">

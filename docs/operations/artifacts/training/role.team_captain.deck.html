@@ -135,7 +135,13 @@
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* "safe center": center vertically when content fits (the common
+       case), but fall back to start-alignment when content is taller than
+       the frame (e.g. a role with many activities on the "Your toolkit"
+       slide) — plain "center" on overflowing flex content makes the top of
+       the content inaccessible via scroll (scrollTop can't go negative),
+       silently hiding the heading. */
+    justify-content: safe center;
     padding: 8vh 10vw;
     background: var(--cream);
     color: var(--ink);
@@ -146,6 +152,11 @@
        exceed the available height on some slides — scroll rather than
        silently overflow into (or under) the touchline footer. */
     overflow-y: auto;
+    /* Round-3 composition pass: a slightly larger base size + wider measure
+       (see the .slide p/.slide li rule below) so single-column slides use
+       more of the 16:9 frame instead of a narrow left-pinned column of body
+       text with the whole right side sitting empty. */
+    font-size: 1.05rem;
   }
   .slide.active {
     opacity: 1;
@@ -171,37 +182,105 @@
     font-style: italic;
     font-size: 0.95rem;
   }
-  /* Meta-chip row (activity slides) — a compact one-line strip of data
-     labels directly under the title: WHEN, YOU OWN THIS/YOU ASSIST, and
-     (when the activity has one) CHECKLIST. Replaces the old floating
-     top-right time-rail chip, the old italic ownership caption line, and
-     the old "checklist exists" filler sentence. Text keeps its natural
-     sentence case in the DOM; uppercase is a pure display transform so the
-     underlying value stays intact/greppable. */
-  .meta-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0 0 1.75rem;
+  /* Round-3 two-column composition system — shared by the activity slide
+     (steps + a meta/tools rail), the agenda and "how time works" slides
+     (a list + a stat callout), and the toolkit slide (two tool-category
+     panels side by side). One grid + one paper-surface panel style reused
+     everywhere there's a natural "main content + companion data" shape,
+     instead of a bespoke layout per slide. */
+  .frame-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: stretch;
+    margin-top: 0.25rem;
   }
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.3rem 0.65rem;
-    background: var(--cream-2);
+  .frame-main {
+    min-width: 0;
+  }
+  .frame-panel {
+    background: var(--paper);
     border: 1px solid var(--cream-3);
-    border-radius: 3px;
+    border-radius: 10px;
+    padding: 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+  .frame-panel-heading {
+    margin: 0;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-muted);
-    white-space: nowrap;
   }
-  .meta-chip--owner {
+  .frame-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+  .frame-stat-value {
+    margin: 0;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.25rem;
+    line-height: 1;
     color: var(--navy-deep);
-    border-color: var(--ochre);
+  }
+  .frame-stat-label {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+  /* Activity slide's right-rail panel — vertically stacked meta rows
+     (replaces the old horizontal meta-chip row: WHEN / ownership /
+     CHECKLIST used to sit as inline chips directly under the title; the
+     two-column composition pass moves them into labeled rows in the paper
+     panel so the panel — not a thin chip strip — is what carries that
+     data, freeing the title area and giving the right column real content). */
+  .panel-meta { display: flex; flex-direction: column; gap: 1.1rem; }
+  .panel-meta-row { display: flex; flex-direction: column; gap: 0.2rem; }
+  .panel-meta-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-meta-value { font-size: 0.95rem; color: var(--ink-2); }
+  .panel-meta-row--owner .panel-meta-value { color: var(--navy-deep); font-weight: 600; }
+  .panel-tools {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--cream-3);
+  }
+  .panel-tools-label {
+    margin: 0 0 0.75rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-tools-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .panel-tools-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .panel-tools-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .nav-controls {
     position: fixed;
@@ -265,9 +344,9 @@
      (verified against the real act.weather_pre_check 6-step slide, which is
      long enough to hit exactly this). */
   .escalation-footnote {
-    margin-top: 1.75rem;
-    padding-top: 1rem;
-    max-width: 68ch;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    max-width: 78ch;
     border-top: 1px dashed var(--cream-3);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -277,44 +356,164 @@
   /* Chapter divider slides (agenda's per-phase dividers + the checklist
      appendix divider) — a big Newsreader chapter name distinct from a
      normal content slide's h2, so it reads as a section break when
-     flipping through the deck. */
+     flipping through the deck. Sized up considerably in the round-3
+     composition pass (3rem -> 5.5rem) so the phase name genuinely
+     dominates the frame instead of sitting as a small headline over a
+     mostly-empty slide. */
   .divider-title {
     margin: 0 0 2rem;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 3rem;
-    line-height: 1.15;
+    font-size: 5.5rem;
+    line-height: 1.05;
     color: var(--navy-deep);
   }
+  /* Textblock wrapper establishes its own stacking context (position +
+     z-index) so it reliably paints above .divider-mark below — position:
+     absolute elements otherwise paint above static in-flow content
+     regardless of DOM order. */
+  .divider-textblock {
+    position: relative;
+    z-index: 1;
+    max-width: 64ch;
+  }
+  /* Giant translucent phase-number watermark, filling the right side of
+     phase-divider slides that would otherwise be almost entirely empty —
+     a short kicker + title + activity list is real content but doesn't
+     come close to using a 16:9 frame on its own. Echoes the poster
+     slide's big-quote-mark motif (a large translucent Newsreader glyph)
+     so the two "mostly typographic" slide kinds in the deck share one
+     visual language. */
+  .divider-mark {
+    position: absolute;
+    z-index: 0;
+    right: 4vw;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
+  }
   /* Agenda slide ("Your day at a glance") — one row per phase with its
-     activity count, right-aligned in mono like the other data labels. */
+     activity count, right-aligned in mono like the other data labels.
+     Lives in the shared .frame-layout grid alongside a stat panel (total
+     phases/activities) so the list's companion data fills the right
+     column instead of leaving it empty. */
   .agenda-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-width: 46ch;
   }
   .agenda-list li {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.7rem 0;
+    padding: 0.85rem 0;
     border-bottom: 1px solid var(--cream-3);
   }
   .agenda-phase {
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     color: var(--navy-deep);
   }
   .agenda-count {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--ink-muted);
     white-space: nowrap;
+  }
+  /* "How time works on your day" timeline slide — a left rail line with a
+     dot per stop, label + activity name per row. Lives in the shared
+     .frame-layout grid next to a stat panel (see renderRoleTimelineSlide). */
+  .timeline-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+  .timeline-list::before {
+    content: "";
+    position: absolute;
+    left: 9rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 1px;
+    background: var(--cream-3);
+  }
+  .timeline-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding: 0.65rem 0 0.65rem 1.75rem;
+  }
+  .timeline-row::before {
+    content: "";
+    position: absolute;
+    left: calc(9rem - 4px);
+    top: 1rem;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--ochre);
+  }
+  /* Single-line labels ("72 hours before", "48 hours after") — the column
+     is sized to fit the longest real label without wrapping; a wrapped
+     second line would run under the rail dot positioned for one line. */
+  .timeline-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    max-width: none;
+    white-space: nowrap;
+  }
+  .timeline-name {
+    font-size: 1rem;
+    color: var(--ink);
+    max-width: none;
+  }
+  /* "Your toolkit" slide — two category panels side by side, reusing the
+     .frame-panel paper-surface card so it shares the same visual language
+     as the activity slide's meta/tools rail and the agenda/timeline stat
+     panels. */
+  .toolkit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    margin-top: 1.5rem;
+  }
+  .toolkit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+  .toolkit-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+  .toolkit-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .belief { margin-top: 1.25rem; }
   .belief h3 {
@@ -343,21 +542,32 @@
     text-align: left;
     vertical-align: top;
   }
-  /* Readable measure — body copy tops out around 68 characters, headings
-     and the tools table (needs its full width) are exempt. */
+  /* Readable measure — body copy tops out around 74 characters (widened
+     from 68 in the round-3 composition pass to use more of the frame),
+     headings and the tools table (needs its full width) are exempt. */
   .slide p,
   .slide li {
-    max-width: 68ch;
+    max-width: 74ch;
   }
   /* Checklist slides — clipboard-card treatment, sage tick squares that
      stay empty (not checked) since this is a training reference, not a
-     live tracker. */
+     live tracker. Widened and centered in the frame (round-3 composition
+     pass) rather than left-pinned at a narrow content width — a checklist
+     card is a standalone object on its own slide, so centering it reads
+     as a deliberate poster-like composition instead of body text that
+     happens to stop halfway across. */
   .clipboard-card {
     background: var(--paper);
     border: 1px solid var(--cream-3);
     border-radius: 10px;
-    padding: 2.5rem 3rem;
+    padding: 3rem 4rem;
     box-shadow: 0 8px 24px oklch(0.2 0.02 260 / 0.08);
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .clipboard-card .checklist--ticks li {
+    font-size: 1.05rem;
   }
   .checklist--ticks { list-style: none; margin: 0; padding: 0; }
   .checklist--ticks li {
@@ -390,21 +600,36 @@
     letter-spacing: 0.25em;
     color: oklch(0.85 0.02 80 / 0.65);
   }
+  /* Round-3 composition pass: the poster previously read as a short
+     left-pinned caption with the entire right ~60% of the navy frame
+     empty. Pairs the existing opening quote mark with a big translucent
+     CLOSING quote mark filling the right side — a classic magazine
+     pull-quote bracket, not a bolted-on decoration — instead of just
+     enlarging the opening mark in place (which at large sizes collided
+     with the statement's first line). .poster-layout is a simple flex
+     row so the statement keeps its own comfortable measure and the
+     closing mark absorbs the remaining width. */
+  .poster-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
   .poster-statement-wrap {
     position: relative;
-    max-width: 34ch;
+    max-width: 40ch;
+    flex: 0 0 auto;
   }
   .poster-quote {
     position: absolute;
-    top: -3.5rem;
-    left: -2rem;
+    top: -4rem;
+    left: -2.5rem;
     z-index: 0;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
-    font-size: 15rem;
+    font-size: 16rem;
     line-height: 1;
     color: var(--primary);
-    opacity: 0.4;
+    opacity: 0.35;
     pointer-events: none;
   }
   .poster-statement {
@@ -415,9 +640,21 @@
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 500;
-    font-size: 2.5rem;
-    line-height: 1.35;
+    font-size: 3.1rem;
+    line-height: 1.3;
     color: var(--cream);
+  }
+  .poster-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 24rem;
+    line-height: 1;
+    color: var(--primary);
+    opacity: 0.14;
+    pointer-events: none;
   }
   /* Touchline footer — sits on every slide, baked in per-slide at render
      time (not via JS) so the counter and tick position are deterministic
@@ -468,15 +705,54 @@
   /* Hero-scale wordmark — title slide only. The poster (purpose) slide
      keeps its existing treatment (no logo); this is a much bigger lockup
      reusing the same dark-lettered mark since the title slide sits on the
-     cream background. */
+     cream background. Sized up again in the round-3 composition pass
+     (260x72 -> 360x100) — "genuinely large" per the redesign brief, not
+     just modestly bigger than the footer mark. */
   .hero-logo {
-    width: 260px;
-    height: 72px;
+    width: 360px;
+    height: 100px;
     margin: 0 0 3rem;
     background-repeat: no-repeat;
     background-position: left center;
     background-size: contain;
     background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K);
+  }
+  /* Title slide role name — explicit large size (h1 has no font-size of
+     its own in this stylesheet otherwise, so it fell back to the browser
+     default ~2rem) plus a wider description measure, so the title slide's
+     text block is a real typographic statement rather than a small
+     logo+heading pair floating in a mostly-empty frame. */
+  .title-role-name {
+    font-size: 4.5rem;
+    line-height: 1.05;
+  }
+  .title-role-description {
+    max-width: 52ch;
+    font-size: 1.2rem;
+    line-height: 1.5;
+  }
+  /* Title-slide layout — the logo/name/description block paired with a
+     giant translucent initial letter filling the right side, the same
+     "big translucent Newsreader glyph" motif as the poster's quote marks
+     and the phase divider's numeral, so the deck's three mostly-typographic
+     slide kinds read as one family instead of three unrelated treatments. */
+  .title-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
+  .title-layout > .title-main { flex: 0 0 auto; max-width: 60ch; }
+  .title-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
   }
   .touchline-logo--dark { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiMxQzE5MTc7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); }
   .touchline-logo--light { background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDI3LjIuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0MDAgMTgwLjgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMCAxODAuODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8c3R5bGUgdHlwZT0idGV4dC9jc3MiPgoJLnN0MHtmaWxsOiMyMDE1QjQ7fQoJLnN0MXtmaWxsOiNGRkZGRkY7fQoJLnN0MntmaWxsOiNGMTI1MjQ7fQo8L3N0eWxlPgo8Zz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QwIiBkPSJNMjcxLjgsNDAuN2M0LjgsMCw4LTMuMSw4LjItNy42YzAtNC41LTMuNS03LjgtOC4xLTcuOGMtNC44LDAtOC40LDMuMS04LjQsNy41CgkJCQlDMjYzLjQsMzcuMywyNjcuMSw0MC43LDI3MS44LDQwLjd6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0zOTYuNiwxMTUuNGMtMi01LjUtMTEuMy0xMS41LTE4LjEtOS4zYy0yLjksMC45LTE3LjcsMC44LTIxLTAuNWMtMC4xLDAtMC4xLTAuMS0wLjItMC4xCgkJCQljLTAuMiwwLTUuNy0zLjMtNS44LTUuNGMtMC40LTMuMywwLjQtNy4zLDEuNi0xMS40YzguMS0zLjgsMTUuOS04LjUsMjQtMTIuNWMwLjktMC41LDIuNC0xLjQsMi43LTIuOGw0LjktMTEuOFY2MQoJCQkJYzAuMi0wLjMsMC4yLTAuNSwwLjItMC43YzAtMC41LTAuMi0wLjktMC40LTEuMmwtMC4yLDAuMmMtMC4yLTAuMi0wLjYtMC41LTAuNy0wLjdsLTEwLjYtNS45Yy0xLjEtMC43LTIuNC0xLTMuNS0xCgkJCQljLTIuMiwwLTQuMiwxLTYuNCwyLjFjLTEwLDUuNS0yMS4zLDE4LjgtMjYuOSwzMmMtNC44LDQuNi01LDMuNS04LDQuN2MtMywxLjItNC43LDAuOC01LjYsMC4zYy0wLjktMC41LTAuOS0xLjYtMC4xLTIuNwoJCQkJTDMzNiw2MS40YzAuNy0xLjYsMC42LTIuNC0xLjEtMy41bC05LjctNS40Yy0xLjYtMC45LTIuNy0wLjUtNC4yLDAuNWwtMjAuOSwyMC4zYzIuNi02LjEsNS4zLTEyLjEsOC4yLTE4YzAuNi0xLDAuNy0yLjQtMS41LTIuNAoJCQkJaC0xMy4yYy0xLjMsMC0yLDAuMy0yLjQsMS42Yy0zLjksMTAuMy04LjQsMjEuMS0xMi45LDMxLjZjLTcuOSw1LjktMTcuNywxMi42LTIxLjUsMTUuNGMtMS44LDEuMi0zLjMsMS42LTIuMi0xLjRsMTcuNy00NC43CgkJCQljMC43LTEuNiwwLjctMi40LTEuNi0yLjRoLTEyLjNjLTEuNiwwLTIuNiwwLjMtMy4xLDEuOWwtMTIuMiwzMC45Yy04LjEsNi40LTE1LjEsMTAuNS0yMi44LDEzLjFjNC4yLTYuOSwxMC44LTIwLjMsMTMuMi0yNi43CgkJCQljMy4zLTksMS44LTEyLjUtNS43LTE4LjdjLTEuMS0wLjktMi0xLjQtMy4xLTEuNGMtMC43LDAtMS42LDAuMy0yLjYsMC45Yy05LjksNi42LTE5LjQsMTUuMy0yOC43LDIyLjcKCQkJCWMzLjEtNy4xLDYuMi0xMy45LDkuNS0yMC4zYzAuOS0xLjksMC40LTIuNC0xLjYtMi40aC0xMi40Yy0xLjgsMC0yLjksMC4zLTMuNywyLjNjLTMuNiw5LjktNy4zLDIwLjEtMTEuMSwzMC40CgkJCQljLTcuOSw1LjktMTguMywxMy0yMi42LDE2LjJsMy43LTI0LjFjMC45LTYuMiwyLTcuOCw4LjYtMTIuNWMxLjYtMS4yLDEuOC0yLjQsMC45LTRsLTQuMi04Yy0wLjYtMS4yLTAuOS0xLjYtMi4yLTFsLTEyLjMsNS4yCgkJCQljLTEuMSwwLjMtMS44LDEuNC0yLDIuNmwtMi42LDE1LjZjLTQuMywzLjQtOC4zLDYuNi0xMS41LDkuMmMtOS41LDcuMy0yMy41LDE3LjQtMjYuNCwxOS43YzUuNS0yNC4zLDE3LjItNjEuOSwyOS42LTg3LjQKCQkJCWMwLjYtMC45LDAuOS0xLjYtMC40LTIuM2MtNi0zLjYtMTEuOS04LjMtMTcuNy0xMi43Yy0wLjUtMC4zLTAuOS0wLjMtMS4zLDAuMmMtNy43LDE0LjItMjguMiw0MS40LTQ3LjgsNjQuNQoJCQkJYy0yNi45LDcuOC01My44LDIyLjktNjQsMzcuM2MtMS41LDIuMS0xLjgsMy41LDAuNCw1LjJjNC4yLDMuMSw3LjUsNi4xLDExLjksOS4yYzIsMS40LDQsMi4xLDYuMiwyLjFjMS41LDAsMi45LTAuMyw0LjYtMC45CgkJCQljMTIuNC00LjMsMzUuOS0zMy42LDQ0LjEtNDMuN2M4LjEtMS42LDE2LjMtMi4zLDI0LjktMi42Yy01LjMsMTMuOS0xMC42LDI2LjktMTQuNSwzNC44Yy0wLjQsMC45LTAuNiwxLjQsMC4yLDIuMwoJCQkJYzQsNC4zLDguMSw4LjMsMTIuNCwxMi41YzAuNiwwLjUsMS4xLDAuOSwxLjYsMC45YzAuOSwwLDItMC45LDIuOS0xLjZjNy4xLTUuOSwyNy41LTIzLjIsMzguNS0zMi43YzEuNC0xLDIuOC0yLjEsNC4zLTMuMgoJCQkJbC0yLjYsMTUuNGMtMC4yLDEuOS0xLjEsMy4xLTIuOSw0LjJsLTEyLjQsNy41Yy0xLjYsMS0xLjgsMi4xLTAuNywzLjVsOS4xLDEwLjFjMC45LDEuMiwxLjYsMC41LDIuNiwwbDEzLjctOC41CgkJCQljMi4yLTEuNCw0LjgtMi40LDUuMS01LjdjNS4xLTQuMSwxMS42LTkuMiwxNy41LTE0Yy04LDIwLjgtMTYuNiw0MS43LTI1LjksNjFjLTAuNywxLjctMC4yLDEuOSwxLjUsMS45aDE0LjMKCQkJCWMzLjMsMCwzLjUtMy4zLDQuOC02LjZjNy0xOC4yLDE0LjEtMzkuMiwyMS44LTU5LjZjMTEuMy0xMC4yLDMzLjMtMjkuOCwzNC42LTI4LjZjMS44LDEuNy0xNi4xLDMwLTIwLjcsMzUuOQoJCQkJYy01LjksMC4zLTkuMywyLjMtMTIuMyw2LjRjLTAuOSwxLjQtMC45LDIuMywwLjQsMy41bDkuNyw3LjNjMS41LDEsMi43LDAuNyw0LjQsMGM0LjQtMS45LDctNC4yLDEwLjEtNy4xCgkJCQljMS44LTEuOSwzLjgtMy41LDYuNC00LjVjOC4zLTMuMiwxNC40LTYuMywyMC4zLTEwLjNsLTMuOCw5LjhjLTAuNiwxLTAuNiwxLjksMC40LDIuOGw4LjQsOC44YzAuOSwwLjcsMS42LDEuMiwyLjYsMS4yCgkJCQljMC43LDAsMS41LTAuNSwyLjQtMS4yYzQuNy0zLjgsMTQuNS0xMS42LDIzLjctMTguOWMtMi43LDYtNS4zLDExLjgtNy44LDE3LjRjLTAuNywxLjcsMCwyLjgsMS44LDIuOGgxMy40CgkJCQljMiwwLjIsMi45LTAuNywzLjMtMi40YzMuOC05LjUsNy41LTE5LjQsMTEuMi0yOS4zYzgtNy42LDEzLjktMTQuNCwyMi41LTIxLjhjMC40LTAuNSwxLjMtMC4zLDAuNywwLjdsLTkuNSwxOC42CgkJCQljLTAuNSwxLjQtMC45LDIuNiwwLjcsMy44YzQuNCwyLjksMTEuNSw3LjIsMTUuOSwxMC41YzEuMSwwLjksMiwxLDMuMSwwLjdjNS4xLTMuNywwLjctMC42LDUuNi00LjJjLTAuMiwxLjQtMC4zLDIuOC0wLjMsNC4xCgkJCQljMCwxLjcsMCw0LDEuOCw1LjRjMCwwLDE1LjcsMTMuMiwxNS43LDEzLjJjMS41LDEuNCwzLjYsMC45LDUuNSwwLjdjMS44LTAuMiwzLjUtMC40LDUuMy0wLjRjMS4zLTAuMywyLjctMC41LDQtMC41CgkJCQljMi4zLTAuMSw2LjYtMC42LDguOC0xLjJjNi4zLTEuOSwxMS4zLTEuNywxMi4xLTFjMi44LDIuNSw2LjEsNy43LTcsMTEuNmMtNS4xLDEuNS0xOTEuOCwxLjItMTkxLjgsMS4yYy0wLjYsMC0wLjcsMC4yLTAuNCwwLjUKCQkJCWMxMC4yLDEwLjksMTYuMSwxNi41LDI2LDI3LjRjMS44LDIuMSwzLjUsMi4zLDUuNywxLjdjNDYtMTEuMSwxMTguNC0xNC44LDE1My45LTE4YzAsMCwwLDAsMC4xLDBjMy44LTAuNiw3LjYtMS4xLDExLjQtMgoJCQkJYzIuOC0wLjYsNi0xLjEsOC42LTIuNGMzLjYtMS44LDUuNC01LjQsNS45LTkuMkMzOTguNywxMjIuNiwzOTguNCwxMjAuMywzOTYuNiwxMTUuNHogTTM3NS41LDYwLjdjMS4xLDAsMi4yLDAuMiwzLjEsMC43CgkJCQljMC41LDAuMiwwLjcsMC45LDAuNCwxLjRsLTMuNyw1LjVjLTAuNiwxLTIsMS43LTIuNywyLjFjLTQuOCwyLjEtOS45LDQuNy0xNC42LDYuOUMzNjAuNyw3Mi41LDM2OC42LDYwLjcsMzc1LjUsNjAuN3oKCQkJCSBNMzEuNiwxMDMuMWMtNC44LDMuNi0xMC4yLDUuNS0xNi42LDQuOWMtMS4xLTAuMy0xLjgtMC45LTAuNC0yLjRjMTEuNS0xMy41LDI1LjYtMjEuNyw0MS0yNi4zQzQ2LjIsOTAsMzcuNiw5OC42LDMxLjYsMTAzLjF6CgkJCQkgTTc5LjEsNjMuOGMxMy4yLTE2LjgsMjUuMi0zMy4xLDMyLjQtNDEuNmMtMi43LDkuNy03LjUsMjQuNC0xMywzOS40QzkyLjUsNjEuNyw4NS45LDYyLjQsNzkuMSw2My44eiIvPgoJCTwvZz4KCTwvZz4KCTxnPgoJCTxnPgoJCQk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNMjYwLjEsMTc2LjFsMS45LTEuNmMwLjUsMSwxLDEuNiwxLjUsMi4xYzAuNSwwLjQsMS4yLDAuNiwxLjksMC42YzAuOSwwLDEuNy0wLjMsMi4yLTAuOAoJCQkJYzAuNi0wLjUsMC45LTEuMiwwLjktMi4xYzAtMC42LTAuMi0xLjEtMC41LTEuNmMtMC4zLTAuNC0wLjgtMC45LTEuNi0xLjNjLTAuMi0wLjEtMC40LTAuMi0wLjctMC40Yy0xLjMtMC43LTIuMi0xLjMtMi42LTEuOAoJCQkJYy0wLjMtMC40LTAuNi0wLjgtMC43LTEuMnMtMC4yLTEtMC4yLTEuNWMwLTEuNSwwLjUtMi44LDEuNS0zLjdzMi4zLTEuNCwzLjktMS40YzEuMSwwLDIsMC4yLDIuOCwwLjdjMC44LDAuNCwxLjUsMS4xLDIsMgoJCQkJbC0xLjcsMS41Yy0wLjQtMC42LTAuOC0xLjEtMS4zLTEuNHMtMS0wLjUtMS42LTAuNWMtMC45LDAtMS42LDAuMi0yLjEsMC44Yy0wLjUsMC41LTAuOCwxLjEtMC44LDEuOWMwLDEsMC44LDEuOCwyLjMsMi43CgkJCQljMC40LDAuMiwwLjcsMC40LDAuOSwwLjVjMS4yLDAuNywyLDEuNCwyLjUsMi4xYzAuNSwwLjcsMC43LDEuNiwwLjcsMi43YzAsMS43LTAuNSwzLTEuNiwzLjljLTEuMSwxLTIuNSwxLjUtNC4zLDEuNQoJCQkJYy0xLjIsMC0yLjMtMC4zLTMuMi0wLjlDMjYxLjMsMTc4LjEsMjYwLjYsMTc3LjIsMjYwLjEsMTc2LjF6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0yODYuMywxNzkuMWgtMi43bDIuMy0xNy40aDMuNmMxLjQsMCwyLjQsMC4xLDMsMC4yYzAuNiwwLjIsMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwwLjktMC4yLDEuNy0wLjUsMi40Yy0wLjMsMC43LTAuOCwxLjMtMS40LDEuOGMtMC41LDAuNC0xLjEsMC43LTEuOCwwLjlzLTEuOCwwLjMtMy4zLDAuM2gtMC44aC0wLjcKCQkJCUwyODYuMywxNzkuMXogTTI4Ny42LDE2OS4yaDAuOWMxLjcsMCwyLjktMC4yLDMuNS0wLjZzMC45LTEuMSwwLjktMi4xYzAtMC44LTAuMy0xLjQtMC44LTEuOHMtMS41LTAuNS0zLTAuNWgtMC45TDI4Ny42LDE2OS4yeiIKCQkJCS8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zMTYuOCwxNjEuMmMyLjYsMCw0LjgsMC44LDYuMywyLjNjMS42LDEuNSwyLjQsMy42LDIuNCw2LjJjMCwxLjQtMC4zLDIuNy0wLjgsMy45cy0xLjIsMi4zLTIuMiwzLjIKCQkJCWMtMC45LDAuOS0yLDEuNS0zLjIsMmMtMS4yLDAuNS0yLjUsMC43LTMuOCwwLjdjLTIuNSwwLTQuNi0wLjgtNi4xLTIuM2MtMS42LTEuNi0yLjMtMy42LTIuMy02LjFjMC0xLjQsMC4yLTIuNywwLjgtNAoJCQkJYzAuNS0xLjIsMS4yLTIuMywyLjItMy4yYzAuOS0wLjgsMS45LTEuNSwzLjEtMkMzMTQuMiwxNjEuNSwzMTUuNSwxNjEuMiwzMTYuOCwxNjEuMnogTTMyMi43LDE2OS44YzAtMS44LTAuNi0zLjMtMS43LTQuNAoJCQkJYy0xLjEtMS4xLTIuNi0xLjctNC40LTEuN2MtMC45LDAtMS44LDAuMi0yLjYsMC41Yy0wLjgsMC4zLTEuNSwwLjgtMi4xLDEuNWMtMC43LDAuNy0xLjIsMS41LTEuNiwyLjRjLTAuNCwwLjktMC41LDEuOS0wLjUsMi45CgkJCQljMCwxLjgsMC41LDMuMywxLjYsNC40YzEuMSwxLjEsMi41LDEuNyw0LjMsMS43YzIsMCwzLjctMC43LDUtMi4xQzMyMiwxNzMuNiwzMjIuNywxNzEuOSwzMjIuNywxNjkuOHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTMzOS45LDE3OS4xaC0yLjdsMi4zLTE3LjRoMy4xYzEuNCwwLDIuNCwwLjEsMywwLjJzMS4yLDAuNCwxLjYsMC44YzAuNSwwLjQsMC45LDAuOSwxLjIsMS41CgkJCQljMC4zLDAuNiwwLjQsMS4zLDAuNCwyLjFjMCwxLjQtMC40LDIuNi0xLjIsMy41cy0xLjksMS41LTMuMywxLjdsNC44LDcuNmgtMy4xbC00LjYtNy41aC0wLjZMMzM5LjksMTc5LjF6IE0zNDEuMiwxNjkuNGgwLjUKCQkJCWMxLjcsMCwyLjktMC4yLDMuNS0wLjZjMC42LTAuNCwwLjktMS4yLDAuOS0yLjJjMC0wLjktMC4zLTEuNS0wLjgtMS45Yy0wLjUtMC40LTEuNS0wLjUtMy0wLjVoLTAuNEwzNDEuMiwxNjkuNHoiLz4KCQkJPHBhdGggY2xhc3M9InN0MiIgZD0iTTM2Mi45LDE3OS4xbDItMTQuOWgtNC43bDAuMy0yLjVoMTEuOWwtMC4zLDIuNWgtNC40bC0yLDE0LjlIMzYyLjl6Ii8+CgkJCTxwYXRoIGNsYXNzPSJzdDIiIGQ9Ik0zODEuMiwxNzYuMWwxLjktMS42YzAuNSwxLDEsMS42LDEuNSwyLjFjMC41LDAuNCwxLjIsMC42LDEuOSwwLjZjMC45LDAsMS43LTAuMywyLjItMC44CgkJCQljMC42LTAuNSwwLjktMS4yLDAuOS0yLjFjMC0wLjYtMC4yLTEuMS0wLjUtMS42Yy0wLjMtMC40LTAuOC0wLjktMS42LTEuM2MtMC4yLTAuMS0wLjQtMC4yLTAuNy0wLjRjLTEuMy0wLjctMi4yLTEuMy0yLjYtMS44CgkJCQljLTAuMy0wLjQtMC42LTAuOC0wLjctMS4yYy0wLjItMC41LTAuMi0xLTAuMi0xLjVjMC0xLjUsMC41LTIuOCwxLjUtMy43czIuMy0xLjQsMy45LTEuNGMxLjEsMCwyLDAuMiwyLjgsMC43czEuNSwxLjEsMiwyCgkJCQlsLTEuNywxLjVjLTAuNC0wLjYtMC44LTEuMS0xLjMtMS40Yy0wLjUtMC4zLTEtMC41LTEuNi0wLjVjLTAuOSwwLTEuNiwwLjItMi4xLDAuOGMtMC41LDAuNS0wLjgsMS4xLTAuOCwxLjkKCQkJCWMwLDEsMC44LDEuOCwyLjMsMi43YzAuNCwwLjIsMC43LDAuNCwwLjksMC41YzEuMiwwLjcsMiwxLjQsMi41LDIuMWMwLjUsMC43LDAuNywxLjYsMC43LDIuN2MwLDEuNy0wLjUsMy0xLjYsMy45CgkJCQlzLTIuNSwxLjUtNC4zLDEuNWMtMS4yLDAtMi4zLTAuMy0zLjItMC45QzM4Mi41LDE3OC4xLDM4MS44LDE3Ny4yLDM4MS4yLDE3Ni4xeiIvPgoJCTwvZz4KCTwvZz4KPC9nPgo8L3N2Zz4K); display: none; }
@@ -511,6 +787,7 @@
     [data-kind="poster"] .poster-role-label { color: var(--ink-muted); }
     [data-kind="poster"] .poster-statement { color: var(--navy-deep); }
     [data-kind="poster"] .poster-quote { opacity: 0.25; }
+    [data-kind="poster"] .poster-mark { opacity: 0.12; }
     [data-kind="poster"] .touchline-counter { color: var(--ink-muted) !important; }
     [data-kind="poster"] .touchline-logo--dark { display: block !important; }
     [data-kind="poster"] .touchline-logo--light { display: none !important; }
@@ -518,19 +795,27 @@
 </style>
 </head>
 <body>
-<section class="slide" data-index="0"><div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
-    <h1>Team Captain</h1>
-    <p class="role-description">Field-side worker representing an adult-league team that does not have a
-Coach. Coordinates roster and conduct for the team.</p><footer class="touchline">
+<section class="slide" data-index="0"><div class="title-layout">
+      <div class="title-main">
+        <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
+        <h1 class="title-role-name">Team Captain</h1>
+        <p class="role-description title-role-description">Field-side worker representing an adult-league team that does not have a
+Coach. Coordinates roster and conduct for the team.</p>
+      </div>
+      <span class="title-mark" aria-hidden="true">T</span>
+    </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-counter">01 / 9</span>
       <span class="touchline-tick" style="left: 11.111%"></span>
     </footer></section>
 <section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Team Captain</p>
-    <div class="poster-statement-wrap">
-      <span class="poster-quote" aria-hidden="true">&#8220;</span>
-      <p class="poster-statement">You lead from inside the game. Your teammates take their cues from how you compete, communicate, and treat the other side.</p>
+    <div class="poster-layout">
+      <div class="poster-statement-wrap">
+        <span class="poster-quote" aria-hidden="true">&#8220;</span>
+        <p class="poster-statement">You lead from inside the game. Your teammates take their cues from how you compete, communicate, and treat the other side.</p>
+      </div>
+      <span class="poster-mark" aria-hidden="true">&#8221;</span>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
