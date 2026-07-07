@@ -10,6 +10,7 @@ import { isSoccerOneHost } from "@/lib/organization/soccerone-routing";
 // Chrome imports ship both brands' scoped CSS in every bundle (~3-4 KB gz, accepted); brand-specific element rules in soccerone-tokens.css must stay scoped to html[data-brand]. Note: prerendered pages bake data-brand at build time (always "aspire") — keep shared booking surfaces SSR.
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import { AppToaster } from '@/components/ui/app-toaster';
 import { getBrandTheme } from '@/lib/branding/themes';
 import { resolveNavUser } from '@/lib/branding/nav-user';
 
@@ -110,5 +111,6 @@ const navUser = resolveNavUser({
     {navigation && (theme.chrome === "soccerone" ? <SoccerOneHeader /> : <Navigation client:idle {...(navUser !== undefined ? { initialUser: navUser } : {})} />)}
     <slot />
     {footer && (theme.chrome === "soccerone" ? <SoccerOneFooter /> : <Footer />)}
+    <AppToaster client:load />
   </body>
 </html>

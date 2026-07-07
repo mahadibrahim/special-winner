@@ -7,7 +7,6 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import PickupGames from '@/components/soccerone/PickupGames';
 import SoccerOnePricingBand from '@/components/soccerone/SoccerOnePricingBand.astro';
 import SoccerOneLevels from '@/components/soccerone/SoccerOneLevels.astro';
-import { Toaster } from 'sonner';
 import { getDb } from "@/lib/db";
 import { dropInRateCard } from "@/lib/db/schema/drop-in";
 
@@ -48,7 +47,6 @@ setMarketingEdgeCache(Astro);
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="pickup-main">
 

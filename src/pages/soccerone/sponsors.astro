@@ -4,7 +4,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import SponsorInquiryForm from '@/components/soccerone/SponsorInquiryForm';
-import { Toaster } from 'sonner';
 
 // --- Sponsorship content (single source of truth for prices) ---
 const TIERS = [
@@ -90,7 +89,6 @@ setMarketingEdgeCache(Astro);
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="sponsors-main">
 

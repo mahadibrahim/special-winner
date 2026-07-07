@@ -4,16 +4,25 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { MembershipTiersLive } from '@/components/soccerone/MembershipTiersLive';
-import { Toaster } from 'sonner';
 
 // Server-side fetch from the same host so the middleware resolves to the
 // SoccerOne org for the public-tiers endpoint.
 const host = Astro.url.host;
 const proto = Astro.url.protocol;
-const tiersRes = await fetch(`${proto}//${host}/api/public/membership-tiers`, {
-  headers: { host },
-});
-const { tiers = [] } = tiersRes.ok ? await tiersRes.json() : { tiers: [] };
+// Guarded like leagues.astro's equivalent self-fetch: a resolution/network
+// failure degrades to the marketing fallback numbers instead of a 500.
+let tiers: unknown[] = [];
+try {
+  const tiersRes = await fetch(`${proto}//${host}/api/public/membership-tiers`, {
+    headers: { host },
+  });
+  if (tiersRes.ok) {
+    const body = await tiersRes.json();
+    tiers = body.tiers ?? [];
+  }
+} catch (err) {
+  console.error("[soccerone/memberships] failed to load tiers", err);
+}
 const authed = !!Astro.locals.user;
 
 // The comparison table quotes the same live tier rows the cards use, so the
@@ -53,7 +62,6 @@ const bookingWindow = (t: any, fallback: number): number =>
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="mem-main">
 
