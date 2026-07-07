@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { formatDateOnly } from "@/lib/time/format-date"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -96,6 +97,11 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
     color: "bg-red-100 text-red-800 border-red-200",
     icon: XCircle,
   },
+  credited: {
+    label: "Issued as credit",
+    color: "bg-purple-100 text-purple-800 border-purple-200",
+    icon: CheckCircle2,
+  },
 }
 
 export function RefundsManagement() {
@@ -110,6 +116,11 @@ export function RefundsManagement() {
   const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null)
   const [actionType, setActionType] = useState<"approve" | "deny">("approve")
   const [denialReason, setDenialReason] = useState("")
+  // Customer-request approve dialog defaults to credit — owner policy is
+  // refunds default to store credit; cash is the director-approved
+  // exception (unchecked). Opposite default from the admin-direct refund
+  // dialog in registration-detail.tsx, which defaults to cash.
+  const [asCredit, setAsCredit] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
 
   // Expanded rows
@@ -139,6 +150,7 @@ export function RefundsManagement() {
     setSelectedRefund(refund)
     setActionType(action)
     setDenialReason("")
+    setAsCredit(true)
     setIsActionDialogOpen(true)
   }
 
@@ -155,6 +167,7 @@ export function RefundsManagement() {
         body: JSON.stringify({
           action: actionType,
           reason: actionType === "deny" ? denialReason : undefined,
+          asCredit: actionType === "approve" ? asCredit : undefined,
         }),
       })
 
@@ -279,6 +292,7 @@ export function RefundsManagement() {
                   <SelectItem value="processed">Processed</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="denied">Denied</SelectItem>
+                  <SelectItem value="credited">Issued as credit</SelectItem>
                   <SelectItem value="all">All Requests</SelectItem>
                 </SelectContent>
               </Select>
@@ -461,17 +475,35 @@ export function RefundsManagement() {
           </DialogHeader>
 
           {actionType === "approve" ? (
-            <div className="py-4">
+            <div className="py-4 space-y-4">
               <div className="p-4 rounded-lg bg-green-50 border border-green-200">
                 <p className="text-sm text-green-800">
                   <strong>This will:</strong>
                 </p>
                 <ul className="text-sm text-green-700 mt-2 space-y-1">
-                  <li>• Process a Stripe refund to the original payment method</li>
-                  <li>• Update the registration status to "Refunded"</li>
-                  <li>• Send a confirmation email to the parent</li>
+                  {asCredit ? (
+                    <>
+                      <li>• Issue an account credit — no Stripe refund is made</li>
+                      <li>• Update the registration status to "Credited"</li>
+                      <li>• Send a confirmation email to the parent</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>• Process a Stripe refund to the original payment method</li>
+                      <li>• Update the registration status to "Refunded"</li>
+                      <li>• Send a confirmation email to the parent</li>
+                    </>
+                  )}
                 </ul>
               </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  id="approve-as-credit"
+                  checked={asCredit}
+                  onCheckedChange={(v) => setAsCredit(v === true)}
+                />
+                <span className="text-sm">Issue as store credit (uncheck for a cash refund)</span>
+              </label>
             </div>
           ) : (
             <div className="py-4 space-y-4">
@@ -517,7 +549,7 @@ export function RefundsManagement() {
               ) : actionType === "approve" ? (
                 <>
                   <CheckCircle2 className="w-4 h-4 mr-1" />
-                  Approve & Process Refund
+                  {asCredit ? "Approve & Issue Credit" : "Approve & Process Refund"}
                 </>
               ) : (
                 <>
