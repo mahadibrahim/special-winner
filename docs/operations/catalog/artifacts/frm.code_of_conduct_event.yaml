@@ -2,7 +2,50 @@ id: frm.code_of_conduct_event
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: person_type
+    label: Who was involved
+    type: enum
+    options:
+      - Coach
+      - Parent
+      - Spectator
+      - Team captain
+      - Other
+    required: true
+  - id: person_name
+    label: Name
+    type: text
+    required: true
+  - id: team_affiliation
+    label: Team / family (if applicable)
+    type: text
+    required: false
+  - id: behavior_observed
+    label: What happened
+    type: long_text
+    required: true
+  - id: action_taken
+    label: Action taken
+    type: enum
+    options:
+      - Verbal reminder
+      - Formal warning
+      - Removed from sideline
+      - Removed from venue
+    required: true
+  - id: witnessed_by
+    label: Witnessed by
+    type: text
+    required: false
+  - id: coach_notified
+    label: Coach notified afterward (if a parent from their team was involved)?
+    type: boolean
+    required: false
+  - id: escalated
+    label: Escalated beyond event lead?
+    type: boolean
+    required: true
+  - id: escalated_to
+    label: Escalated to (venue manager / director / law enforcement)
     type: text
     required: false

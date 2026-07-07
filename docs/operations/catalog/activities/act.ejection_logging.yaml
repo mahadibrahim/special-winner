@@ -24,9 +24,40 @@ escalation_path: |
   verbal account and files; escalate to role.director for any ejection
   carrying multi-match suspension.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. When you issue an ejection — sending off a player, or ejecting a
+     coach from the sideline — note the exact time, who was ejected
+     (player number/name, or "Coach"), and the reason immediately.
+     Memory of exact wording fades fast once play resumes.
+  2. If play can continue, don't stop to file anything on the spot —
+     finish officiating the match. The ejection gets logged as part of
+     the match report you file at the final whistle (final score
+     attestation).
+  3. On the match report, log the ejection as an incident: type "Red
+     card" for a player sent off (the closest match to an ejection in
+     today's incident types), the side, the player/number or "COACH" if
+     it was a coach, the minute, and a description that spells out the
+     reason — and for a coach, states plainly that it was a coach
+     ejection, not a player card.
+  4. If the ejection carries a suspension under your league's rules
+     (e.g., a red card that sits a player for the next match), say so
+     explicitly in the incident description — the office relies on this
+     note to catch the suspension, since there's no separate suspension
+     field yet.
+  5. For an ejected coach, also flag it directly to the event lead in
+     person before you leave — the report captures the record, but the
+     event lead needs to know in the moment in case the coach needs to
+     be walked off site.
+  6. Submit the match report as usual. This is what files the ejection
+     into the incident log, alongside the score and every other
+     incident from the match.
+  7. If you can't complete the report yourself (injury, emergency), give
+     the event lead your verbal account of what happened — who, what,
+     when, why — and have them file it on your behalf per the
+     escalation path.
+  8. Any ejection you believe could carry a multi-match suspension gets
+     escalated to the director in addition to being logged — don't
+     count on the office catching it from the incident description
+     alone.
 tracking_method: form
 tracking_artifact:
   template_id: frm.ejection_log

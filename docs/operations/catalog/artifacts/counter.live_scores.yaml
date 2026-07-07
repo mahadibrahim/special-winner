@@ -1,4 +1,8 @@
 id: counter.live_scores
 kind: counter
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Increments once per match when the referee submits the final score.
+  A proxy for score-tracking coverage until real-time per-goal entry
+  (feat.live_score_entry) ships — today it confirms a match has an
+  authoritative score on record, not a live in-play feed.

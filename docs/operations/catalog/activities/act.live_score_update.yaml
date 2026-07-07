@@ -25,9 +25,38 @@ escalation_path: |
   enters the running score in batch; escalate to role.venue_manager
   if the issue persists across matches.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Throughout the match, keep your own live tally of the score as
+     goals happen — who scored, which side, roughly what minute. This
+     is the authoritative running score until it's entered into the
+     system at the final report.
+  2. If the venue has a manual scoreboard or signage table, keep it
+     updated goal by goal so spectators and any parents following along
+     see the score change in real time. There's no in-app live-score
+     screen yet (real-time phone entry is still on the roadmap), so this
+     is how "live" actually reaches spectators today.
+  3. At each stoppage — end of a period or half, an injury break —
+     cross-check your tally against your assistant ref's count and the
+     venue scoreboard if one is running, so a missed goal doesn't carry
+     through to the end of the match.
+  4. If the event lead or a parent asks for the current score mid-match,
+     you should be able to answer immediately and with confidence, not
+     have to go check anything.
+  5. If your tally and your assistant's disagree, stop at the next dead
+     ball and reconcile with the two captains/coaches before play
+     resumes — sorting this out live is far easier than reconstructing
+     it after the final whistle.
+  6. Reconcile your running tally one more time at the final whistle
+     before you go to file the match report. The number you enter as
+     the final score should match what you and your assistant have been
+     tracking all match, not a guess.
+  7. If the count becomes genuinely unclear and can't be resolved on the
+     field, flag it to the event lead immediately rather than guessing —
+     the event lead escalates to the venue manager if it can't be
+     resolved before the match needs to continue.
+  8. Once the final report is submitted, that entry is what the
+     platform's score and standings pipeline treats as the record of the
+     match's scoring — there's no separate live feed to reconcile it
+     against today.
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.live_scores

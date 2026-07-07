@@ -1,4 +1,10 @@
 id: evt.timekeeping_clock
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Records a match's check-in time (act.ref_check_in) and final-report
+  submission time (act.score_reporting_final) as the system's proxy for
+  kickoff and final whistle, since there is no dedicated in-app clock
+  start/stop control. Used to sanity-check a match's actual elapsed time
+  against its scheduled duration for stipend calculation and
+  time-related disputes.

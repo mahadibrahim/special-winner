@@ -23,9 +23,41 @@ escalation_path: |
   lead takes over; escalate to role.venue_manager only if the match
   must be paused.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Start the match clock at kickoff using your own watch or
+     stopwatch — there's no in-app clock to start. Track time against
+     the format's standard structure (halves/quarters/periods) for the
+     sport you're officiating.
+  2. Run the clock exactly as your sport/format's rules describe
+     (running clock vs. stop clock, halftime length), call stoppage or
+     added time as usual, and blow the final whistle when regulation and
+     any added time expire.
+  3. Note the actual kickoff time and final whistle time — if the match
+     started late (delayed team, weather hold) or ran long (stoppage
+     time, an injury delay), you'll want these when you fill out the
+     match report.
+  4. There's no separate clock-start/clock-stop button in the system
+     today. What it actually captures is your check-in time and your
+     final-report submission time as the proxy for kickoff and final
+     whistle — so an accurate check-in and a prompt final-report
+     submission are what keep the match record's elapsed time close to
+     what really happened on the field.
+  5. If the match ran unusually long or short of its scheduled duration
+     (called early for weather, extended for a delay), say so in the
+     match notes on the final report. That's what the office, and any
+     stipend or time dispute review, will check against.
+  6. If you're unable to keep time yourself mid-match (injury, needing
+     to step away), hand it to your assistant ref; if none is
+     available, ask the event lead to keep visible time from the
+     sideline until you're back.
+  7. If play has to stop for something beyond a normal stoppage (medical
+     emergency, weather), note the stoppage length so the resumed clock
+     and the final report reflect actual playing time. Escalate to the
+     venue manager only if the match itself needs to be paused or
+     abandoned.
+  8. Submit the final report as promptly as possible after the final
+     whistle — the gap between your actual final whistle and when the
+     report lands is exactly the kind of drift timekeeping exists to
+     keep small.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.timekeeping_clock
