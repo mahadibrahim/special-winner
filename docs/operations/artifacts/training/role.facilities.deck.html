@@ -198,6 +198,18 @@
   .frame-main {
     min-width: 0;
   }
+  /* Round-4 crowding pass: continuation pages of a paginated activity (see
+     renderActivitySlides) drop the two-column .frame-layout grid entirely
+     (no meta/tools panel repeats, no escalation until the last page) and
+     render the remaining steps as a solo block. Capped to the same width
+     the procedure column would have inside the two-column grid (measured
+     ~609px at the deck's 1280px design width) so continuation pages read
+     as a visual continuation of the same column, not a sudden full-width
+     reflow, and so the pagination estimator's per-line budget (calibrated
+     at that column width) stays valid. */
+  .frame-main--continuation {
+    max-width: 610px;
+  }
   .frame-panel {
     background: var(--paper);
     border: 1px solid var(--cream-3);
@@ -303,8 +315,19 @@
     font-family: "IBM Plex Sans", sans-serif;
   }
   .screenshot-frame { margin-top: 1.5rem; }
+  /* Round-4 crowding pass: per-activity screenshots previously had no
+     height cap (only max-width:100%), so a tall/portrait-ish capture could
+     push an already-long procedure well past the frame. Capping height and
+     letting object-fit:contain scale the image down (same technique as the
+     tour treatment's .screenshot-frame--tour below) keeps every activity
+     screenshot's contribution to slide height bounded and predictable —
+     which the pagination estimator in the JS below relies on (see
+     SCREENSHOT_BLOCK_PX). */
   .screenshot-frame img {
+    display: block;
     max-width: 100%;
+    max-height: 260px;
+    object-fit: contain;
     border: 1px solid var(--cream-3);
     border-radius: 6px;
   }
@@ -675,6 +698,19 @@
     line-height: 1.3;
     color: var(--cream);
   }
+  /* Round-4 crowding pass: at the full 3.1rem size, a purpose statement
+     over ~125 characters wraps to 9+ lines in the narrow 40ch column and
+     runs the statement's last line under the touchline footer (measured
+     against every real ROLE_PURPOSE entry at the deck's 1280x720 design
+     viewport — see renderRolePurposeSlide, which applies this class by
+     length rather than shrinking every statement uniformly). Smaller size
+     + slightly tighter line-height buys enough extra lines of headroom for
+     the longest real statement (role.event_lead, 159 chars) to clear the
+     footer with room to spare. */
+  .poster-statement--long {
+    font-size: 2.5rem;
+    line-height: 1.28;
+  }
   .poster-mark {
     flex: 1 1 auto;
     text-align: center;
@@ -837,8 +873,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">01 / 37</span>
-      <span class="touchline-tick" style="left: 2.703%"></span>
+      <span class="touchline-counter">01 / 52</span>
+      <span class="touchline-tick" style="left: 1.923%"></span>
     </footer></section>
 <section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Facilities</p>
     <div class="poster-layout">
@@ -850,8 +886,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">02 / 37</span>
-      <span class="touchline-tick" style="left: 5.405%"></span>
+      <span class="touchline-counter">02 / 52</span>
+      <span class="touchline-tick" style="left: 3.846%"></span>
     </footer></section>
 <section class="slide" data-index="2"><h2>Your job</h2>
     <p>You keep the field, court, and equipment ready all day. You check equipment ahead of time, stage gear, set up parking and signage, prep the field or court and check lines before each match, then turn the field over and reset it between matches, log any field damage, and store equipment and handle trash at the end of the day.</p>
@@ -862,10 +898,10 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">03 / 37</span>
-      <span class="touchline-tick" style="left: 8.108%"></span>
+      <span class="touchline-counter">03 / 52</span>
+      <span class="touchline-tick" style="left: 5.769%"></span>
     </footer></section>
-<section class="slide" data-index="3"><h2>Your toolkit</h2>
+<section class="slide" data-index="3"><h2>Your toolkit (1/3)</h2>
     <p class="slide-kicker">Everything your activities call for, in one place.</p>
     <div class="toolkit-grid">
       <div class="frame-panel">
@@ -874,15 +910,49 @@ turnover, reset, and close-down.</p>
     </div>
       <div class="frame-panel">
       <p class="frame-panel-heading">Physical &amp; on-site tools</p>
-      <ul class="toolkit-list"><li>Camera or phone (dated photos of the damage)</li><li>Camera or phone (photo upload confirming placement)</li><li>Camera or phone (photo upload of the configured surface)</li><li>Camera or phone (photo upload of the field lines)</li><li>Cones, ropes, and directional signage</li><li>Corner flags and boundary markers</li><li>Corner flags and team benches</li><li>Field-marking paint or chalk</li><li>Field-marking paint or chalk (line touch-ups)</li><li>Labeled storage bins and shelving</li><li>Measuring wheel or tape (yard-line spacing)</li><li>Portable scoreboard (reset between matches)</li><li>Portable scoreboards</li><li>Recycling bins</li><li>Reserved-row and accessible-parking markers</li><li>Sanitizing wipes or spray for shared-touch equipment</li><li>Storage area shelving and labels</li><li>The morning&#39;s equipment staging count (for comparison)</li><li>The most recent field condition photo on file (baseline comparison)</li><li>Trash bags and a pickup bucket for rapid sideline sweep</li><li>Trash bags and replacement liners</li><li>Two-way radio (coordinating with the entry attendant)</li><li>Water coolers or jugs</li><li>Wayfinding signs, sponsor banners, and safety placards</li></ul>
+      <ul class="toolkit-list"><li>Camera or phone (dated photos of the damage)</li><li>Camera or phone (photo upload confirming placement)</li><li>Camera or phone (photo upload of the configured surface)</li><li>Camera or phone (photo upload of the field lines)</li><li>Cones, ropes, and directional signage</li><li>Corner flags and boundary markers</li><li>Corner flags and team benches</li><li>Field-marking paint or chalk</li><li>Field-marking paint or chalk (line touch-ups)</li><li>Labeled storage bins and shelving</li><li>Measuring wheel or tape (yard-line spacing)</li></ul>
     </div>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">04 / 37</span>
-      <span class="touchline-tick" style="left: 10.811%"></span>
+      <span class="touchline-counter">04 / 52</span>
+      <span class="touchline-tick" style="left: 7.692%"></span>
     </footer></section>
-<section class="slide" data-index="4"><h2>How time works on your day</h2>
+<section class="slide" data-index="4"><h2>Your toolkit (2/3)</h2>
+    <p class="slide-kicker">Everything your activities call for, in one place.</p>
+    <div class="toolkit-grid">
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Digital &amp; platform tools</p>
+      
+    </div>
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Physical &amp; on-site tools</p>
+      <ul class="toolkit-list"><li>Portable scoreboard (reset between matches)</li><li>Portable scoreboards</li><li>Recycling bins</li><li>Reserved-row and accessible-parking markers</li><li>Sanitizing wipes or spray for shared-touch equipment</li><li>Storage area shelving and labels</li><li>The morning&#39;s equipment staging count (for comparison)</li><li>The most recent field condition photo on file (baseline comparison)</li><li>Trash bags and a pickup bucket for rapid sideline sweep</li><li>Trash bags and replacement liners</li><li>Two-way radio (coordinating with the entry attendant)</li></ul>
+    </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">05 / 52</span>
+      <span class="touchline-tick" style="left: 9.615%"></span>
+    </footer></section>
+<section class="slide" data-index="5"><h2>Your toolkit (3/3)</h2>
+    <p class="slide-kicker">Everything your activities call for, in one place.</p>
+    <div class="toolkit-grid">
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Digital &amp; platform tools</p>
+      
+    </div>
+      <div class="frame-panel">
+      <p class="frame-panel-heading">Physical &amp; on-site tools</p>
+      <ul class="toolkit-list"><li>Water coolers or jugs</li><li>Wayfinding signs, sponsor banners, and safety placards</li></ul>
+    </div>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">06 / 52</span>
+      <span class="touchline-tick" style="left: 11.538%"></span>
+    </footer></section>
+<section class="slide" data-index="6"><h2>How time works on your day</h2>
     <div class="frame-layout">
       <ol class="timeline-list"><li class="timeline-row"><span class="timeline-label">48 hours before</span><span class="timeline-name">Equipment inventory check</span></li><li class="timeline-row"><span class="timeline-label">90 minutes before</span><span class="timeline-name">Equipment staging</span></li><li class="timeline-row"><span class="timeline-label">90 minutes before</span><span class="timeline-name">Signage setup</span></li><li class="timeline-row"><span class="timeline-label">1 hour before</span><span class="timeline-name">Parking setup</span></li><li class="timeline-row"><span class="timeline-label">30 minutes before</span><span class="timeline-name">Field/court setup (per match)</span></li><li class="timeline-row"><span class="timeline-label">30 minutes before</span><span class="timeline-name">Flag football field line check</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Equipment turnover (between matches)</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Field damage report</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Field reset between matches</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Equipment storage</span></li><li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Trash disposal</span></li></ol>
       <div class="frame-panel">
@@ -899,10 +969,10 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">05 / 37</span>
-      <span class="touchline-tick" style="left: 13.514%"></span>
+      <span class="touchline-counter">07 / 52</span>
+      <span class="touchline-tick" style="left: 13.462%"></span>
     </footer></section>
-<section class="slide" data-index="5"><h2>What we believe</h2>
+<section class="slide" data-index="7"><h2>What we believe</h2>
     <p>These four beliefs shape every practice plan, every sideline conversation, and every call we make about a kid.</p>
     <div class="belief">
       <h3>Development Over Winning</h3>
@@ -914,10 +984,10 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">06 / 37</span>
-      <span class="touchline-tick" style="left: 16.216%"></span>
+      <span class="touchline-counter">08 / 52</span>
+      <span class="touchline-tick" style="left: 15.385%"></span>
     </footer></section>
-<section class="slide" data-index="6"><h2>What we believe (continued)</h2>
+<section class="slide" data-index="8"><h2>What we believe (continued)</h2>
     <div class="belief">
       <h3>Long-Term Athlete Development</h3>
       <p>We're building athletes for age 25, not just age 8. We never trade away a child's long-term growth for a short-term result.</p>
@@ -928,19 +998,19 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">07 / 37</span>
-      <span class="touchline-tick" style="left: 18.919%"></span>
+      <span class="touchline-counter">09 / 52</span>
+      <span class="touchline-tick" style="left: 17.308%"></span>
     </footer></section>
-<section class="slide" data-index="7"><h2>How that shows up day to day</h2>
+<section class="slide" data-index="9"><h2>How that shows up day to day</h2>
     <p>We coach to two goals at once: compete to win, and grow every player's character and competence. When those two pull in different directions, character comes first.</p>
     <p>Day to day, that means we praise effort, learning, and bouncing back from mistakes — the things a kid actually controls — over results they can't always control.</p>
     <p><strong>Whatever your role, this is what families should feel from us.</strong></p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">08 / 37</span>
-      <span class="touchline-tick" style="left: 21.622%"></span>
+      <span class="touchline-counter">10 / 52</span>
+      <span class="touchline-tick" style="left: 19.231%"></span>
     </footer></section>
-<section class="slide" data-index="8"><h2>Your day at a glance</h2>
+<section class="slide" data-index="10"><h2>Your day at a glance</h2>
     <div class="frame-layout">
       <ul class="agenda-list"><li><span class="agenda-phase">Pre day</span><span class="agenda-count">1 activity</span></li><li><span class="agenda-phase">Day setup</span><span class="agenda-count">3 activities</span></li><li><span class="agenda-phase">Pre game</span><span class="agenda-count">2 activities</span></li><li><span class="agenda-phase">Post game</span><span class="agenda-count">3 activities</span></li><li><span class="agenda-phase">End of day</span><span class="agenda-count">2 activities</span></li></ul>
       <div class="frame-panel">
@@ -957,10 +1027,10 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">09 / 37</span>
-      <span class="touchline-tick" style="left: 24.324%"></span>
+      <span class="touchline-counter">11 / 52</span>
+      <span class="touchline-tick" style="left: 21.154%"></span>
     </footer></section>
-<section class="slide" data-index="9" data-kind="divider"><span class="divider-mark" aria-hidden="true">01</span>
+<section class="slide" data-index="11" data-kind="divider"><span class="divider-mark" aria-hidden="true">01</span>
     <div class="divider-textblock">
       <p class="slide-kicker">Phase 1 of 5</p>
       <p class="divider-title">Pre day</p>
@@ -968,14 +1038,14 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">10 / 37</span>
-      <span class="touchline-tick" style="left: 27.027%"></span>
+      <span class="touchline-counter">12 / 52</span>
+      <span class="touchline-tick" style="left: 23.077%"></span>
     </footer></section>
-<section class="slide" data-index="10"><h2>Equipment inventory check</h2>
+<section class="slide" data-index="12"><h2>Equipment inventory check (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>48 hours before the event window, walk the storage area with the equipment manifest in hand.</li><li>Count balls by sport and size against the manifest (age-appropriate sizes per program).</li><li>Count cones, pinnies/scrimmage vests, and portable goals or nets against the manifest.</li><li>Count jerseys if venue-supplied, plus scoreboards, whistles, and clipboards.</li><li>Check first-aid restock supply (bandages, tape, ice packs) against par for the upcoming event — separate from the field kits checked day-of.</li><li>Note any shortage or damaged item found during the count.</li><li>Order or arrange a borrow from another venue for anything short, with enough lead time to arrive before the event; flag to the venue manager if a shortage can&#39;t be resolved in time.</li><li>Log the completed count so equipment storage has a clean baseline to compare against after the event.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_inventory_check.png" alt="Screenshot: equipment_inventory_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>48 hours before the event window, walk the storage area with the equipment manifest in hand.</li><li>Count balls by sport and size against the manifest (age-appropriate sizes per program).</li><li>Count cones, pinnies/scrimmage vests, and portable goals or nets against the manifest.</li><li>Count jerseys if venue-supplied, plus scoreboards, whistles, and clipboards.</li><li>Check first-aid restock supply (bandages, tape, ice packs) against par for the upcoming event — separate from the field kits checked day-of.</li><li>Note any shortage or damaged item found during the count.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">48 hours before the event</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Equipment inventory</span></div></div>
@@ -984,14 +1054,24 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>The equipment manifest (printed or clipboard checklist)</li><li>Storage area shelving and labels</li><li>First-aid restock supply log</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">13 / 52</span>
+      <span class="touchline-tick" style="left: 25.000%"></span>
+    </footer></section>
+<section class="slide" data-index="13"><h2>Equipment inventory check (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="7"><li>Order or arrange a borrow from another venue for anything short, with enough lead time to arrive before the event; flag to the venue manager if a shortage can&#39;t be resolved in time.</li><li>Log the completed count so equipment storage has a clean baseline to compare against after the event.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_inventory_check.png" alt="Screenshot: equipment_inventory_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">11 / 37</span>
-      <span class="touchline-tick" style="left: 29.730%"></span>
+      <span class="touchline-counter">14 / 52</span>
+      <span class="touchline-tick" style="left: 26.923%"></span>
     </footer></section>
-<section class="slide" data-index="11" data-kind="divider"><span class="divider-mark" aria-hidden="true">02</span>
+<section class="slide" data-index="14" data-kind="divider"><span class="divider-mark" aria-hidden="true">02</span>
     <div class="divider-textblock">
       <p class="slide-kicker">Phase 2 of 5</p>
       <p class="divider-title">Day setup</p>
@@ -999,14 +1079,14 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">12 / 37</span>
-      <span class="touchline-tick" style="left: 32.432%"></span>
+      <span class="touchline-counter">15 / 52</span>
+      <span class="touchline-tick" style="left: 28.846%"></span>
     </footer></section>
-<section class="slide" data-index="12"><h2>Equipment staging</h2>
+<section class="slide" data-index="15"><h2>Equipment staging (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>About 90 minutes before first kickoff, pull the day&#39;s equipment list by match and surface from the schedule.</li><li>Move balls (correct size and sport per age group), cones, and pinnies from storage to the staging area near each playing surface.</li><li>Move scoreboards to each surface, power them on, and reset to 0-0.</li><li>Move a first-aid kit to each field/court — the venue manager&#39;s first-aid kit check should already have verified its contents.</li><li>Move water coolers or jugs to each staging area per group.</li><li>Stage match-specific equipment (portable goals, nets, corner flags) near each surface without placing it yet — full placement happens at field/court setup closer to kickoff.</li><li>Confirm each match crew can grab their equipment without going back to storage.</li><li>Note anything missing from the staging pass, pull from backup stock, or flag it to the venue manager.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_staging.png" alt="Screenshot: equipment_staging" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>About 90 minutes before first kickoff, pull the day&#39;s equipment list by match and surface from the schedule.</li><li>Move balls (correct size and sport per age group), cones, and pinnies from storage to the staging area near each playing surface.</li><li>Move scoreboards to each surface, power them on, and reset to 0-0.</li><li>Move a first-aid kit to each field/court — the venue manager&#39;s first-aid kit check should already have verified its contents.</li><li>Move water coolers or jugs to each staging area per group.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 90 minutes before first kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Equipment staging</span></div></div>
@@ -1015,18 +1095,28 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>The day&#39;s match/surface schedule</li><li>Portable scoreboards</li><li>Water coolers or jugs</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">16 / 52</span>
+      <span class="touchline-tick" style="left: 30.769%"></span>
+    </footer></section>
+<section class="slide" data-index="16"><h2>Equipment staging (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="6"><li>Stage match-specific equipment (portable goals, nets, corner flags) near each surface without placing it yet — full placement happens at field/court setup closer to kickoff.</li><li>Confirm each match crew can grab their equipment without going back to storage.</li><li>Note anything missing from the staging pass, pull from backup stock, or flag it to the venue manager.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_staging.png" alt="Screenshot: equipment_staging" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">13 / 37</span>
-      <span class="touchline-tick" style="left: 35.135%"></span>
+      <span class="touchline-counter">17 / 52</span>
+      <span class="touchline-tick" style="left: 32.692%"></span>
     </footer></section>
-<section class="slide" data-index="13"><h2>Parking setup</h2>
+<section class="slide" data-index="17"><h2>Parking setup (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>About 60 minutes before first kickoff at managed-parking venues, place cones and ropes to mark the traffic flow into and out of the lot.</li><li>Place directional and reserved-row signage (staff, accessible, VIP if applicable) in their assigned spots.</li><li>If the venue attends the entry point, staff it with an attendant/greeter per the day&#39;s staffing plan.</li><li>Walk the overflow route and confirm it&#39;s clear of obstructions and clearly marked.</li><li>Confirm accessible parking spaces are clear, correctly marked, and closest to the accessible entrance.</li><li>Check lot lighting is functioning if the event runs into evening.</li><li>Note any surface hazard (potholes, debris) in the lot and flag it to the venue manager.</li><li>Confirm setup is complete before the first families are expected to arrive.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/parking_setup.png" alt="Screenshot: parking_setup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>About 60 minutes before first kickoff at managed-parking venues, place cones and ropes to mark the traffic flow into and out of the lot.</li><li>Place directional and reserved-row signage (staff, accessible, VIP if applicable) in their assigned spots.</li><li>If the venue attends the entry point, staff it with an attendant/greeter per the day&#39;s staffing plan.</li><li>Walk the overflow route and confirm it&#39;s clear of obstructions and clearly marked.</li><li>Confirm accessible parking spaces are clear, correctly marked, and closest to the accessible entrance.</li><li>Check lot lighting is functioning if the event runs into evening.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 60 minutes before first kickoff (managed-parking venues only)</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Parking setup</span></div></div>
@@ -1035,18 +1125,28 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Cones, ropes, and directional signage</li><li>Reserved-row and accessible-parking markers</li><li>Two-way radio (coordinating with the entry attendant)</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">18 / 52</span>
+      <span class="touchline-tick" style="left: 34.615%"></span>
+    </footer></section>
+<section class="slide" data-index="18"><h2>Parking setup (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="7"><li>Note any surface hazard (potholes, debris) in the lot and flag it to the venue manager.</li><li>Confirm setup is complete before the first families are expected to arrive.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/parking_setup.png" alt="Screenshot: parking_setup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">14 / 37</span>
-      <span class="touchline-tick" style="left: 37.838%"></span>
+      <span class="touchline-counter">19 / 52</span>
+      <span class="touchline-tick" style="left: 36.538%"></span>
     </footer></section>
-<section class="slide" data-index="14"><h2>Signage setup</h2>
+<section class="slide" data-index="19"><h2>Signage setup (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>About 90 minutes before first kickoff, pull the day&#39;s signage plan (wayfinding, sponsor banners, field-of-play markers, safety placards).</li><li>Place wayfinding signage at entrances, restrooms, and any surface families need to find.</li><li>Hang sponsor banners in their assigned locations per the sponsorship agreement, if any.</li><li>Place field-of-play markers (out-of-bounds, spectator line) so spectators know where they can and can&#39;t stand.</li><li>Place safety placards (first-aid location, emergency exit, no pets, etc.) wherever required.</li><li>Walk the completed layout and photograph each signage zone to confirm placement.</li><li>Upload the photos to the day&#39;s record; pull a replacement from backup stock or flag the venue manager for anything missing or damaged.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/signage_setup.png" alt="Screenshot: signage_setup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>About 90 minutes before first kickoff, pull the day&#39;s signage plan (wayfinding, sponsor banners, field-of-play markers, safety placards).</li><li>Place wayfinding signage at entrances, restrooms, and any surface families need to find.</li><li>Hang sponsor banners in their assigned locations per the sponsorship agreement, if any.</li><li>Place field-of-play markers (out-of-bounds, spectator line) so spectators know where they can and can&#39;t stand.</li><li>Place safety placards (first-aid location, emergency exit, no pets, etc.) wherever required.</li><li>Walk the completed layout and photograph each signage zone to confirm placement.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 90 minutes before first kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
@@ -1055,14 +1155,24 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>The day&#39;s signage plan</li><li>Wayfinding signs, sponsor banners, and safety placards</li><li>Camera or phone (photo upload confirming placement)</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">20 / 52</span>
+      <span class="touchline-tick" style="left: 38.462%"></span>
+    </footer></section>
+<section class="slide" data-index="20"><h2>Signage setup (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="7"><li>Upload the photos to the day&#39;s record; pull a replacement from backup stock or flag the venue manager for anything missing or damaged.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/signage_setup.png" alt="Screenshot: signage_setup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">15 / 37</span>
-      <span class="touchline-tick" style="left: 40.541%"></span>
+      <span class="touchline-counter">21 / 52</span>
+      <span class="touchline-tick" style="left: 40.385%"></span>
     </footer></section>
-<section class="slide" data-index="15" data-kind="divider"><span class="divider-mark" aria-hidden="true">03</span>
+<section class="slide" data-index="21" data-kind="divider"><span class="divider-mark" aria-hidden="true">03</span>
     <div class="divider-textblock">
       <p class="slide-kicker">Phase 3 of 5</p>
       <p class="divider-title">Pre game</p>
@@ -1070,14 +1180,14 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">16 / 37</span>
-      <span class="touchline-tick" style="left: 43.243%"></span>
+      <span class="touchline-counter">22 / 52</span>
+      <span class="touchline-tick" style="left: 42.308%"></span>
     </footer></section>
-<section class="slide" data-index="16"><h2>Field/court setup (per match)</h2>
+<section class="slide" data-index="22"><h2>Field/court setup (per match) (1/3)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>About 30 minutes before each kickoff, place goals/nets in their marked positions and anchor or counterweight them — every movable goal is anchored at all times, not just during play (CPSC / ASTM F2056; see the safety &amp; policy standards reference). Auger/screw anchors: minimum two per goal, one each side. Peg/stake anchors: two to four per goal, ~10-inch stakes driven at an angle. Indoor or artificial turf, where anchors can&#39;t penetrate: sandbags or counterweights sized to the goal&#39;s total weight (goals typically run 150-500 lb). Never use net pegs to anchor the goal itself. An unsecured goal is a serious tip-over hazard — movable goals are built to the ASTM F2056 200 lb tip-over-resistance standard, but that standard assumes the goal is anchored as designed.</li><li>Place corner flags and any required field markings for the sport.</li><li>Place team benches on the correct sidelines per the match assignment.</li><li>Set up the scoreboard for the match — reset to 0-0, team names/colors if the board supports it.</li><li>Place any match-specific equipment the sport calls for.</li><li>Confirm the surface is otherwise clear of the prior match&#39;s equipment and debris.</li><li>Any goal not being used for today&#39;s matches stays locked in storage or chained to a fixed structure with its net removed — an unattended, unanchored goal is the highest-risk configuration on site. Players, including kids at camps and clinics, never move or hang on a goal; that&#39;s a facilities/coach task only.</li><li>Photograph the fully configured surface before handing it off, and upload it to the match record.</li><li>Facilities&#39; anchoring is the first check, not the only one: the referee independently re-checks every goal&#39;s anchoring before every game at ref check-in — that check isn&#39;t skippable even when facilities already confirmed it.</li><li>If anything can&#39;t be resolved in the 30-minute window, notify the venue manager and event lead immediately — a match doesn&#39;t start on an unsafe or incomplete surface.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/field_court_setup.png" alt="Screenshot: field_court_setup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>About 30 minutes before each kickoff, place goals/nets in their marked positions and anchor or counterweight them — every movable goal is anchored at all times, not just during play (CPSC / ASTM F2056; see the safety &amp; policy standards reference). Auger/screw anchors: minimum two per goal, one each side. Peg/stake anchors: two to four per goal, ~10-inch stakes driven at an angle. Indoor or artificial turf, where anchors can&#39;t penetrate: sandbags or counterweights sized to the goal&#39;s total weight (goals typically run 150-500 lb). Never use net pegs to anchor the goal itself. An unsecured goal is a serious tip-over hazard — movable goals are built to the ASTM F2056 200 lb tip-over-resistance standard, but that standard assumes the goal is anchored as designed.</li><li>Place corner flags and any required field markings for the sport.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 30 minutes before each kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
@@ -1086,18 +1196,38 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Goals/nets with auger/peg anchors or sandbags/counterweights sized to the goal&#39;s weight</li><li>Corner flags and team benches</li><li>Camera or phone (photo upload of the configured surface)</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">23 / 52</span>
+      <span class="touchline-tick" style="left: 44.231%"></span>
+    </footer></section>
+<section class="slide" data-index="23"><h2>Field/court setup (per match) (2/3)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="3"><li>Place team benches on the correct sidelines per the match assignment.</li><li>Set up the scoreboard for the match — reset to 0-0, team names/colors if the board supports it.</li><li>Place any match-specific equipment the sport calls for.</li><li>Confirm the surface is otherwise clear of the prior match&#39;s equipment and debris.</li><li>Any goal not being used for today&#39;s matches stays locked in storage or chained to a fixed structure with its net removed — an unattended, unanchored goal is the highest-risk configuration on site. Players, including kids at camps and clinics, never move or hang on a goal; that&#39;s a facilities/coach task only.</li></ol>
+      
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">24 / 52</span>
+      <span class="touchline-tick" style="left: 46.154%"></span>
+    </footer></section>
+<section class="slide" data-index="24"><h2>Field/court setup (per match) (3/3)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="8"><li>Photograph the fully configured surface before handing it off, and upload it to the match record.</li><li>Facilities&#39; anchoring is the first check, not the only one: the referee independently re-checks every goal&#39;s anchoring before every game at ref check-in — that check isn&#39;t skippable even when facilities already confirmed it.</li><li>If anything can&#39;t be resolved in the 30-minute window, notify the venue manager and event lead immediately — a match doesn&#39;t start on an unsafe or incomplete surface.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/field_court_setup.png" alt="Screenshot: field_court_setup" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">17 / 37</span>
-      <span class="touchline-tick" style="left: 45.946%"></span>
+      <span class="touchline-counter">25 / 52</span>
+      <span class="touchline-tick" style="left: 48.077%"></span>
     </footer></section>
-<section class="slide" data-index="17"><h2>Flag football field line check</h2>
+<section class="slide" data-index="25"><h2>Flag football field line check (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>About 30 minutes before each flag football kickoff, walk the full length of the field.</li><li>Verify yard lines are visible and accurately spaced per the field&#39;s marking standard.</li><li>Verify both end zones are clearly marked at the correct depth.</li><li>Verify sideline and out-of-bounds markings are visible along the full length of the field.</li><li>Check flag-pulling zone markings if the format uses them, and confirm no line has faded or shifted since the last match.</li><li>Touch up or re-mark anything faded or unclear before the match starts — don&#39;t let players guess at boundaries.</li><li>Photograph the field lines and upload the photo to the match record.</li><li>If field conditions (mud, standing water) are obscuring lines faster than they can be maintained, flag it to the venue manager — this may factor into a rainout call.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/flag_field_line_check.png" alt="Screenshot: flag_field_line_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>About 30 minutes before each flag football kickoff, walk the full length of the field.</li><li>Verify yard lines are visible and accurately spaced per the field&#39;s marking standard.</li><li>Verify both end zones are clearly marked at the correct depth.</li><li>Verify sideline and out-of-bounds markings are visible along the full length of the field.</li><li>Check flag-pulling zone markings if the format uses them, and confirm no line has faded or shifted since the last match.</li><li>Touch up or re-mark anything faded or unclear before the match starts — don&#39;t let players guess at boundaries.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">About 30 minutes before each flag football kickoff</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
@@ -1106,14 +1236,24 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Field-marking paint or chalk</li><li>Measuring wheel or tape (yard-line spacing)</li><li>Camera or phone (photo upload of the field lines)</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">26 / 52</span>
+      <span class="touchline-tick" style="left: 50.000%"></span>
+    </footer></section>
+<section class="slide" data-index="26"><h2>Flag football field line check (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="7"><li>Photograph the field lines and upload the photo to the match record.</li><li>If field conditions (mud, standing water) are obscuring lines faster than they can be maintained, flag it to the venue manager — this may factor into a rainout call.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/flag_field_line_check.png" alt="Screenshot: flag_field_line_check" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">18 / 37</span>
-      <span class="touchline-tick" style="left: 48.649%"></span>
+      <span class="touchline-counter">27 / 52</span>
+      <span class="touchline-tick" style="left: 51.923%"></span>
     </footer></section>
-<section class="slide" data-index="18" data-kind="divider"><span class="divider-mark" aria-hidden="true">04</span>
+<section class="slide" data-index="27" data-kind="divider"><span class="divider-mark" aria-hidden="true">04</span>
     <div class="divider-textblock">
       <p class="slide-kicker">Phase 4 of 5</p>
       <p class="divider-title">Post game</p>
@@ -1121,14 +1261,14 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">19 / 37</span>
-      <span class="touchline-tick" style="left: 51.351%"></span>
+      <span class="touchline-counter">28 / 52</span>
+      <span class="touchline-tick" style="left: 53.846%"></span>
     </footer></section>
-<section class="slide" data-index="19"><h2>Equipment turnover (between matches)</h2>
+<section class="slide" data-index="28"><h2>Equipment turnover (between matches) (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>At the final whistle, move immediately to the just-finished surface — the next match&#39;s crew is on the clock behind you.</li><li>Collect match-specific equipment: balls, pinnies, corner flags, and anything not staying with the field.</li><li>Re-secure goals/nets if they were repositioned during the match; reset any that came loose using the same anchoring standard as field/court setup (auger/peg anchors, or sandbags/counterweights indoors) — never leave a goal unanchored between matches.</li><li>Reset the scoreboard to 0-0 and update team names/colors for the next match.</li><li>Sanitize shared-touch equipment (balls, pinnies) as needed between matches per the venue&#39;s routine.</li><li>Count balls and pinnies back against the pre-match count and note anything missing.</li><li>Confirm the surface is ready for the next match crew to take over within the 10-minute turnover window.</li><li>Flag anything damaged during the match to the field damage report process rather than trying to fix it yourself.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_turnover.png" alt="Screenshot: equipment_turnover" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>At the final whistle, move immediately to the just-finished surface — the next match&#39;s crew is on the clock behind you.</li><li>Collect match-specific equipment: balls, pinnies, corner flags, and anything not staying with the field.</li><li>Re-secure goals/nets if they were repositioned during the match; reset any that came loose using the same anchoring standard as field/court setup (auger/peg anchors, or sandbags/counterweights indoors) — never leave a goal unanchored between matches.</li><li>Reset the scoreboard to 0-0 and update team names/colors for the next match.</li><li>Sanitize shared-touch equipment (balls, pinnies) as needed between matches per the venue&#39;s routine.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">Final whistle of each match</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Equipment turnover</span></div></div>
@@ -1137,18 +1277,28 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Portable scoreboard (reset between matches)</li><li>Sanitizing wipes or spray for shared-touch equipment</li><li>Pre-match ball/pinnie count sheet</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">29 / 52</span>
+      <span class="touchline-tick" style="left: 55.769%"></span>
+    </footer></section>
+<section class="slide" data-index="29"><h2>Equipment turnover (between matches) (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="6"><li>Count balls and pinnies back against the pre-match count and note anything missing.</li><li>Confirm the surface is ready for the next match crew to take over within the 10-minute turnover window.</li><li>Flag anything damaged during the match to the field damage report process rather than trying to fix it yourself.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_turnover.png" alt="Screenshot: equipment_turnover" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">20 / 37</span>
-      <span class="touchline-tick" style="left: 54.054%"></span>
+      <span class="touchline-counter">30 / 52</span>
+      <span class="touchline-tick" style="left: 57.692%"></span>
     </footer></section>
-<section class="slide" data-index="20"><h2>Field damage report</h2>
+<section class="slide" data-index="30"><h2>Field damage report (1/3)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>When you notice or are told about damage to a playing surface or facility — turf burns, goal damage, broken equipment, vandalism — go assess it in person before filing anything; don&#39;t file off a secondhand description alone if you can get eyes on it in a reasonable time.</li><li>Pull the most recent field condition photo (pregame) for that surface if one&#39;s on file — it&#39;s your baseline for showing what&#39;s new versus pre-existing wear.</li><li>Take dated photos of the damage from a distance (showing location and context) and up close (showing the specific damage), and note whether the surface or area is safe to keep using or needs to come out of rotation right away.</li><li>If the damage makes the surface unsafe for continued play, flag the venue manager immediately to pull it from the day&#39;s schedule — don&#39;t wait for the report to be filed before raising that.</li><li>Note when and how the damage likely occurred if it&#39;s evident (during a specific match, overnight, weather-related, vandalism) — this matters for any charge-back decision.</li><li>Estimate repair urgency (can wait for routine maintenance vs. needs prompt repair) and, if you can, a rough sense of scope (spot repair vs. bigger job) — you&#39;re not pricing it, just giving the office enough to prioritize.</li><li>Complete the field damage report form with the photos, baseline comparison, cause if known, and urgency, and submit it.</li><li>Consult the venue manager on anything ambiguous (is this normal wear or real damage, does this need to come out of rotation) before finalizing, and escalate to the director for repair authorization on anything beyond routine maintenance or any damage that might be charged back to a team or renter — don&#39;t authorize a chargeback call yourself.</li><li>If you&#39;re unreachable, the venue manager logs the damage and escalates to the director for repair authorization per the escalation path.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/field_damage_report.png" alt="Screenshot: field_damage_report" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>When you notice or are told about damage to a playing surface or facility — turf burns, goal damage, broken equipment, vandalism — go assess it in person before filing anything; don&#39;t file off a secondhand description alone if you can get eyes on it in a reasonable time.</li><li>Pull the most recent field condition photo (pregame) for that surface if one&#39;s on file — it&#39;s your baseline for showing what&#39;s new versus pre-existing wear.</li><li>Take dated photos of the damage from a distance (showing location and context) and up close (showing the specific damage), and note whether the surface or area is safe to keep using or needs to come out of rotation right away.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">Damage observed at any point during or after a match</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div></div>
@@ -1157,18 +1307,38 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Camera or phone (dated photos of the damage)</li><li>The most recent field condition photo on file (baseline comparison)</li><li>The field damage report form</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">31 / 52</span>
+      <span class="touchline-tick" style="left: 59.615%"></span>
+    </footer></section>
+<section class="slide" data-index="31"><h2>Field damage report (2/3)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="4"><li>If the damage makes the surface unsafe for continued play, flag the venue manager immediately to pull it from the day&#39;s schedule — don&#39;t wait for the report to be filed before raising that.</li><li>Note when and how the damage likely occurred if it&#39;s evident (during a specific match, overnight, weather-related, vandalism) — this matters for any charge-back decision.</li><li>Estimate repair urgency (can wait for routine maintenance vs. needs prompt repair) and, if you can, a rough sense of scope (spot repair vs. bigger job) — you&#39;re not pricing it, just giving the office enough to prioritize.</li><li>Complete the field damage report form with the photos, baseline comparison, cause if known, and urgency, and submit it.</li></ol>
+      
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">32 / 52</span>
+      <span class="touchline-tick" style="left: 61.538%"></span>
+    </footer></section>
+<section class="slide" data-index="32"><h2>Field damage report (3/3)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="8"><li>Consult the venue manager on anything ambiguous (is this normal wear or real damage, does this need to come out of rotation) before finalizing, and escalate to the director for repair authorization on anything beyond routine maintenance or any damage that might be charged back to a team or renter — don&#39;t authorize a chargeback call yourself.</li><li>If you&#39;re unreachable, the venue manager logs the damage and escalates to the director for repair authorization per the escalation path.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/field_damage_report.png" alt="Screenshot: field_damage_report" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, Venue Manager logs the damage and escalates to Director for repair authorization.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">21 / 37</span>
-      <span class="touchline-tick" style="left: 56.757%"></span>
+      <span class="touchline-counter">33 / 52</span>
+      <span class="touchline-tick" style="left: 63.462%"></span>
     </footer></section>
-<section class="slide" data-index="21"><h2>Field reset between matches</h2>
+<section class="slide" data-index="33"><h2>Field reset between matches (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>At the final whistle, do a rapid trash pickup along the sidelines and benches before the next teams arrive.</li><li>Sweep the playing surface for debris, displaced equipment, and any personal items (route items to lost and found).</li><li>Check field markings/lines and re-line or touch up any that shifted or faded during the match.</li><li>Replace any displaced markers — corner flags, cone lines, boundary markers — to their correct position.</li><li>Confirm benches and team areas are clear and ready for the next teams.</li><li>Confirm the surface meets the same safety standard as the pregame field/court setup — no new hazards introduced during play.</li><li>Complete within the 10-minute turnover window so the next match isn&#39;t delayed.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/field_reset_between_matches.png" alt="Screenshot: field_reset_between_matches" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>At the final whistle, do a rapid trash pickup along the sidelines and benches before the next teams arrive.</li><li>Sweep the playing surface for debris, displaced equipment, and any personal items (route items to lost and found).</li><li>Check field markings/lines and re-line or touch up any that shifted or faded during the match.</li><li>Replace any displaced markers — corner flags, cone lines, boundary markers — to their correct position.</li><li>Confirm benches and team areas are clear and ready for the next teams.</li><li>Confirm the surface meets the same safety standard as the pregame field/court setup — no new hazards introduced during play.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">Final whistle of each match</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Field reset</span></div></div>
@@ -1177,14 +1347,24 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Trash bags and a pickup bucket for rapid sideline sweep</li><li>Field-marking paint or chalk (line touch-ups)</li><li>Corner flags and boundary markers</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">34 / 52</span>
+      <span class="touchline-tick" style="left: 65.385%"></span>
+    </footer></section>
+<section class="slide" data-index="34"><h2>Field reset between matches (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="7"><li>Complete within the 10-minute turnover window so the next match isn&#39;t delayed.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/field_reset_between_matches.png" alt="Screenshot: field_reset_between_matches" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">22 / 37</span>
-      <span class="touchline-tick" style="left: 59.459%"></span>
+      <span class="touchline-counter">35 / 52</span>
+      <span class="touchline-tick" style="left: 67.308%"></span>
     </footer></section>
-<section class="slide" data-index="22" data-kind="divider"><span class="divider-mark" aria-hidden="true">05</span>
+<section class="slide" data-index="35" data-kind="divider"><span class="divider-mark" aria-hidden="true">05</span>
     <div class="divider-textblock">
       <p class="slide-kicker">Phase 5 of 5</p>
       <p class="divider-title">End of day</p>
@@ -1192,14 +1372,14 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">23 / 37</span>
-      <span class="touchline-tick" style="left: 62.162%"></span>
+      <span class="touchline-counter">36 / 52</span>
+      <span class="touchline-tick" style="left: 69.231%"></span>
     </footer></section>
-<section class="slide" data-index="23"><h2>Equipment storage</h2>
+<section class="slide" data-index="36"><h2>Equipment storage (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>After the last match concludes, collect all equipment from staging areas across every surface.</li><li>Return each item to its labeled storage location — balls, cones, pinnies, scoreboards, first-aid kits. Any goal not staying set up overnight is locked in storage or chained to a fixed structure with its net removed — never left standing unanchored and unattended.</li><li>Count balls and pinnies on return and compare against the morning&#39;s equipment staging count.</li><li>Note anything damaged during the day&#39;s use or missing from the return count.</li><li>Log any first-aid kit items used during the day so the next inventory check starts from an accurate baseline.</li><li>Coil cords, fold pinnies, and stack cones so the space is ready for the next equipment inventory check.</li><li>Log the completed storage count — any shortfall becomes the first line item on the next inventory check.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_storage.png" alt="Screenshot: equipment_storage" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>After the last match concludes, collect all equipment from staging areas across every surface.</li><li>Return each item to its labeled storage location — balls, cones, pinnies, scoreboards, first-aid kits. Any goal not staying set up overnight is locked in storage or chained to a fixed structure with its net removed — never left standing unanchored and unattended.</li><li>Count balls and pinnies on return and compare against the morning&#39;s equipment staging count.</li><li>Note anything damaged during the day&#39;s use or missing from the return count.</li><li>Log any first-aid kit items used during the day so the next inventory check starts from an accurate baseline.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After last match concludes</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Equipment storage</span></div></div>
@@ -1208,18 +1388,28 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Labeled storage bins and shelving</li><li>The morning&#39;s equipment staging count (for comparison)</li><li>First-aid kit contents log</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">37 / 52</span>
+      <span class="touchline-tick" style="left: 71.154%"></span>
+    </footer></section>
+<section class="slide" data-index="37"><h2>Equipment storage (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="6"><li>Coil cords, fold pinnies, and stack cones so the space is ready for the next equipment inventory check.</li><li>Log the completed storage count — any shortfall becomes the first line item on the next inventory check.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/equipment_storage.png" alt="Screenshot: equipment_storage" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">24 / 37</span>
-      <span class="touchline-tick" style="left: 64.865%"></span>
+      <span class="touchline-counter">38 / 52</span>
+      <span class="touchline-tick" style="left: 73.077%"></span>
     </footer></section>
-<section class="slide" data-index="24"><h2>Trash disposal</h2>
+<section class="slide" data-index="38"><h2>Trash disposal (1/2)</h2>
     <div class="frame-layout">
       <div class="frame-main">
-        <ol class="steps"><li>After the last match concludes at an owned venue, pull all interior trash bags — restrooms, concessions, locker rooms, office.</li><li>Pull all sideline and spectator-area trash bags and any recycling.</li><li>Walk bags to the dumpster/disposal area; don&#39;t leave bagged trash staged inside overnight.</li><li>Replace liners in every bin you emptied.</li><li>Break down and dispose of any cardboard or bulk packaging from the day (concession deliveries, equipment boxes).</li><li>Confirm the dumpster/disposal area lid or gate is closed and locked after use.</li><li>Note any overflow issue (dumpster full, missed pickup) and flag it to the venue manager so the hauler can be contacted before the next event.</li></ol>
-        <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/trash_disposal.png" alt="Screenshot: trash_disposal" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
+        <ol class="steps" start="1"><li>After the last match concludes at an owned venue, pull all interior trash bags — restrooms, concessions, locker rooms, office.</li><li>Pull all sideline and spectator-area trash bags and any recycling.</li><li>Walk bags to the dumpster/disposal area; don&#39;t leave bagged trash staged inside overnight.</li><li>Replace liners in every bin you emptied.</li><li>Break down and dispose of any cardboard or bulk packaging from the day (concession deliveries, equipment boxes).</li><li>Confirm the dumpster/disposal area lid or gate is closed and locked after use.</li></ol>
+        
       </div>
       <aside class="frame-panel">
         <div class="panel-meta"><div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">After last match concludes (owned venues)</span></div><div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span></div><div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Trash disposal</span></div></div>
@@ -1228,109 +1418,119 @@ turnover, reset, and close-down.</p>
         <ul class="panel-tools-list"><li>Trash bags and replacement liners</li><li>Dumpster/disposal area key or access code</li><li>Recycling bins</li></ul>
       </div>
       </aside>
+    </div><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">39 / 52</span>
+      <span class="touchline-tick" style="left: 75.000%"></span>
+    </footer></section>
+<section class="slide" data-index="39"><h2>Trash disposal (2/2)</h2>
+    <div class="frame-main frame-main--continuation">
+      <ol class="steps" start="7"><li>Note any overflow issue (dumpster full, missed pickup) and flag it to the venue manager so the hauler can be contacted before the next event.</li></ol>
+      <div class="screenshot-frame"><img class="screenshot" src="../../../../training/screenshots/facilities/trash_disposal.png" alt="Screenshot: trash_disposal" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>
     </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">25 / 37</span>
-      <span class="touchline-tick" style="left: 67.568%"></span>
+      <span class="touchline-counter">40 / 52</span>
+      <span class="touchline-tick" style="left: 76.923%"></span>
     </footer></section>
-<section class="slide" data-index="25" data-kind="divider"><div class="divider-textblock">
+<section class="slide" data-index="40" data-kind="divider"><div class="divider-textblock">
       <p class="slide-kicker">Appendix</p>
       <p class="divider-title">Checklists</p>
       <ul class="phase-overview"><li>Equipment inventory</li><li>Equipment staging</li><li>Equipment storage</li><li>Equipment turnover</li><li>Field reset</li><li>Parking setup</li><li>Trash disposal</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">26 / 37</span>
-      <span class="touchline-tick" style="left: 70.270%"></span>
+      <span class="touchline-counter">41 / 52</span>
+      <span class="touchline-tick" style="left: 78.846%"></span>
     </footer></section>
-<section class="slide" data-index="26"><div class="clipboard-card">
+<section class="slide" data-index="41"><div class="clipboard-card">
       <h2>Equipment inventory</h2>
       <ul class="checklist checklist--ticks"><li>Balls counted by sport/size against the manifest</li><li>Cones and pinnies/scrimmage vests counted against the manifest</li><li>Portable goals/nets counted against the manifest</li><li>Jerseys, scoreboards, whistles, and clipboards counted</li><li>First-aid restock supply checked against par</li><li>Any shortage or damaged item noted</li><li>Shortages ordered or borrowed with lead time before the event</li><li>Unresolvable shortages flagged to the venue manager</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">27 / 37</span>
-      <span class="touchline-tick" style="left: 72.973%"></span>
+      <span class="touchline-counter">42 / 52</span>
+      <span class="touchline-tick" style="left: 80.769%"></span>
     </footer></section>
-<section class="slide" data-index="27"><div class="clipboard-card">
+<section class="slide" data-index="42"><div class="clipboard-card">
       <h2>Equipment staging</h2>
       <ul class="checklist checklist--ticks"><li>Day&#39;s equipment list pulled by match/surface</li><li>Balls (correct size/sport), cones, and pinnies staged at each surface</li><li>Scoreboards staged, powered, and reset to 0-0</li><li>First-aid kit staged at each field/court</li><li>Water coolers/jugs staged per group</li><li>Portable goals, nets, and corner flags staged near each surface</li><li>Each match crew confirmed able to grab-and-go without returning to storage</li><li>Any missing item pulled from backup stock or flagged to the venue manager</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">28 / 37</span>
-      <span class="touchline-tick" style="left: 75.676%"></span>
+      <span class="touchline-counter">43 / 52</span>
+      <span class="touchline-tick" style="left: 82.692%"></span>
     </footer></section>
-<section class="slide" data-index="28"><div class="clipboard-card">
+<section class="slide" data-index="43"><div class="clipboard-card">
       <h2>Equipment storage</h2>
       <ul class="checklist checklist--ticks"><li>All equipment collected from staging areas across every surface</li><li>Each item returned to its labeled storage location</li><li>Any goal not staying set up overnight locked in storage or chained to a fixed structure, net removed</li><li>Balls and pinnies counted on return against the morning&#39;s staging count</li><li>Damaged or missing items noted</li><li>First-aid items used during the day logged for restock</li><li>Storage area organized (cords coiled, pinnies folded, cones stacked)</li><li>Completed storage count logged for the next inventory check</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">29 / 37</span>
-      <span class="touchline-tick" style="left: 78.378%"></span>
+      <span class="touchline-counter">44 / 52</span>
+      <span class="touchline-tick" style="left: 84.615%"></span>
     </footer></section>
-<section class="slide" data-index="29"><div class="clipboard-card">
+<section class="slide" data-index="44"><div class="clipboard-card">
       <h2>Equipment turnover</h2>
       <ul class="checklist checklist--ticks"><li>Match-specific equipment (balls, pinnies, corner flags) collected from the finished match</li><li>Goals/nets re-secured (auger/peg anchors, or sandbags/counterweights indoors) if repositioned during the match</li><li>Scoreboard reset to 0-0 with the next match&#39;s team names/colors</li><li>Shared-touch equipment sanitized per venue routine</li><li>Balls and pinnies counted back against the pre-match count</li><li>Surface confirmed ready for the next match crew</li><li>Any damage found routed to the field damage report</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">30 / 37</span>
-      <span class="touchline-tick" style="left: 81.081%"></span>
+      <span class="touchline-counter">45 / 52</span>
+      <span class="touchline-tick" style="left: 86.538%"></span>
     </footer></section>
-<section class="slide" data-index="30"><div class="clipboard-card">
+<section class="slide" data-index="45"><div class="clipboard-card">
       <h2>Field reset</h2>
       <ul class="checklist checklist--ticks"><li>Sidelines and benches cleared of trash</li><li>Playing surface swept for debris and personal items</li><li>Field markings/lines checked and touched up if needed</li><li>Displaced markers (corner flags, boundary markers) replaced</li><li>Bench and team areas confirmed clear and ready</li><li>Surface confirmed free of new hazards from the prior match</li><li>Reset completed within the 10-minute turnover window</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">31 / 37</span>
-      <span class="touchline-tick" style="left: 83.784%"></span>
+      <span class="touchline-counter">46 / 52</span>
+      <span class="touchline-tick" style="left: 88.462%"></span>
     </footer></section>
-<section class="slide" data-index="31"><div class="clipboard-card">
+<section class="slide" data-index="46"><div class="clipboard-card">
       <h2>Parking setup</h2>
       <ul class="checklist checklist--ticks"><li>Cones/ropes placed to mark traffic flow</li><li>Directional and reserved-row signage placed</li><li>Entry point staffed if attended parking</li><li>Overflow route walked and confirmed clear</li><li>Accessible parking spaces clear, marked, and closest to the accessible entrance</li><li>Lot lighting checked if the event runs into evening</li><li>Any surface hazard flagged to the venue manager</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">32 / 37</span>
-      <span class="touchline-tick" style="left: 86.486%"></span>
+      <span class="touchline-counter">47 / 52</span>
+      <span class="touchline-tick" style="left: 90.385%"></span>
     </footer></section>
-<section class="slide" data-index="32"><div class="clipboard-card">
+<section class="slide" data-index="47"><div class="clipboard-card">
       <h2>Trash disposal</h2>
       <ul class="checklist checklist--ticks"><li>Interior trash bags pulled (restrooms, concessions, locker rooms, office)</li><li>Sideline and spectator-area trash and recycling pulled</li><li>Bags walked to the dumpster/disposal area</li><li>Liners replaced in every emptied bin</li><li>Cardboard and bulk packaging broken down and disposed</li><li>Dumpster/disposal area closed and locked after use</li><li>Any overflow or missed-pickup issue flagged to the venue manager</li></ul>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">33 / 37</span>
-      <span class="touchline-tick" style="left: 89.189%"></span>
+      <span class="touchline-counter">48 / 52</span>
+      <span class="touchline-tick" style="left: 92.308%"></span>
     </footer></section>
-<section class="slide" data-index="33"><h2>Safety &amp; escalation</h2>
+<section class="slide" data-index="48"><h2>Safety &amp; escalation</h2>
     <ul class="escalation-list"><li>If Facilities unreachable, Venue Manager logs the damage and escalates to Director for repair authorization.</li><li>If Facilities unreachable, escalate to Venue Manager per the Coach → Venue Manager → Director handoff ladder.</li></ul>
     <p><strong>You may need to escalate to:</strong> Director, Facilities, Venue Manager</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">34 / 37</span>
-      <span class="touchline-tick" style="left: 91.892%"></span>
+      <span class="touchline-counter">49 / 52</span>
+      <span class="touchline-tick" style="left: 94.231%"></span>
     </footer></section>
-<section class="slide" data-index="34"><h2>Your tools</h2>
+<section class="slide" data-index="49"><h2>Your tools</h2>
       <p class="empty-note">No dedicated portal pages yet for this role — coordinate through your venue manager or director until one ships.</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">35 / 37</span>
-      <span class="touchline-tick" style="left: 94.595%"></span>
+      <span class="touchline-counter">50 / 52</span>
+      <span class="touchline-tick" style="left: 96.154%"></span>
     </footer></section>
-<section class="slide" data-index="35"><h2>Using the system</h2>
+<section class="slide" data-index="50"><h2>Using the system</h2>
           <p class="empty-note tour-empty-note">You work off the checklists in this deck — there&#39;s no separate app screen for your day-of setup, field prep, and teardown work.</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">36 / 37</span>
-      <span class="touchline-tick" style="left: 97.297%"></span>
+      <span class="touchline-counter">51 / 52</span>
+      <span class="touchline-tick" style="left: 98.077%"></span>
     </footer></section>
-<section class="slide" data-index="36"><h2>Where to get help</h2>
+<section class="slide" data-index="51"><h2>Where to get help</h2>
     <ol>
       <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
       <li>Escalate per that chain first — most issues have a named next step.</li>
@@ -1338,7 +1538,7 @@ turnover, reset, and close-down.</p>
     </ol><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">37 / 37</span>
+      <span class="touchline-counter">52 / 52</span>
       <span class="touchline-tick" style="left: 100.000%"></span>
     </footer></section>
 <div class="nav-controls">

@@ -68,3 +68,7 @@ dist-preview/
 # Phase 2 training walkthrough output (video/screenshots/captions) —
 # regenerated on demand via `npm run training:videos`, never committed.
 training/output/
+
+# Scratch tooling for the training-deck crowding audit (Playwright
+# screenshots, calibration scripts) — not reusable build artifacts.
+.scratch-audit/

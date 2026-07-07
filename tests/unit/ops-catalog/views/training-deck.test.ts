@@ -264,19 +264,24 @@ describe("renderTrainingDeck — procedure step parsing (real catalog fixture)",
     const catalog = await loadCatalog(catalogDir);
     const html = renderTrainingDeck(catalog, "role.venue_manager");
 
-    const slideStart = html.indexOf("<h2>Pre-day weather pre-check</h2>");
-    expect(slideStart).toBeGreaterThan(-1);
-    const nextSlideStart = html.indexOf("<section", slideStart + 1);
-    const slide = html.slice(slideStart, nextSlideStart);
+    // Round-4 crowding pass: this activity's 6 real steps (one of them, step
+    // 2, is a long ~540-character paragraph) estimate past one slide's
+    // budget, so renderActivitySlides paginates it into "Pre-day weather
+    // pre-check (i/N)" continuation slides (see the deck-crowding-audit) —
+    // collect every <ol class="steps"> across all of that activity's slides,
+    // in slide order, rather than assuming a single slide/single <ol>.
+    const slideSections = html.split('<section class="slide"');
+    const activitySlides = slideSections.filter((s) => /<h2>Pre-day weather pre-check(?: \(\d+\/\d+\))?<\/h2>/.test(s));
+    expect(activitySlides.length).toBeGreaterThan(0);
 
-    // Scope to the numbered-steps <ol> specifically — the two-column layout
-    // (round 3) also renders a "Tools" <ul> of <li>s in the same slide's
-    // right-rail panel, which a slide-wide <li> match would now also pick up.
-    const stepsOlStart = slide.indexOf('<ol class="steps">');
-    const stepsOlEnd = slide.indexOf("</ol>", stepsOlStart);
-    const stepsOl = slide.slice(stepsOlStart, stepsOlEnd);
-
-    const stepMatches = [...stepsOl.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
+    const stepMatches: string[] = [];
+    for (const slide of activitySlides) {
+      const stepsOlStart = slide.indexOf('<ol class="steps"');
+      if (stepsOlStart === -1) continue;
+      const stepsOlEnd = slide.indexOf("</ol>", stepsOlStart);
+      const stepsOl = slide.slice(stepsOlStart, stepsOlEnd);
+      stepMatches.push(...[...stepsOl.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]));
+    }
     expect(stepMatches).toHaveLength(6);
 
     // Full first step, reassembled from its wrapped source lines — proves
