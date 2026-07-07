@@ -99,4 +99,15 @@ describe("getRefereeMatchDetail — activeSuspensions filtering (real DB)", () =
       expect([homeTeamId, awayTeamId]).toContain(id);
     }
   });
+
+  it("excludes ejection-type rows from the bulk-editable incidents list", async () => {
+    // Regression: MatchReport's bulk incidents editor has no "ejection"
+    // <option>, so an ejection surfaced there could round-trip back into a
+    // /report submit and get 400'd by the Task 5 guard. This game had 5
+    // ejection incidents seeded above (one per suspension fixture) and no
+    // yellow_card/red_card/injury/other incidents — the bulk list must be empty.
+    const detail = await getRefereeMatchDetail(refUserId, gameId);
+    expect(detail).not.toBeNull();
+    expect(detail!.incidents).toEqual([]);
+  });
 });

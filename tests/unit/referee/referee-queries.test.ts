@@ -96,7 +96,7 @@ describe("referee-queries", () => {
     expect(result!.incidents).toEqual(incidentRows);
   });
 
-  it("getRefereeMatchDetail does not leak homeTeamId/awayTeamId onto the returned shape", async () => {
+  it("getRefereeMatchDetail includes homeTeamId/awayTeamId (needed by the UI to label suspensions by side)", async () => {
     detailRows = [
       {
         gameId: "g1",
@@ -114,8 +114,8 @@ describe("referee-queries", () => {
     incidentRows = [];
     const result = await getRefereeMatchDetail("u1", "g1");
     expect(result).not.toBeNull();
-    expect(result).not.toHaveProperty("homeTeamId");
-    expect(result).not.toHaveProperty("awayTeamId");
+    expect(result!.homeTeamId).toBe("team-home");
+    expect(result!.awayTeamId).toBe("team-away");
   });
 
   it("getRefereeMatchDetail surfaces an activeSuspensions flag for the home team", async () => {

@@ -71,6 +71,8 @@ export type RefereeMatchDetail = {
   homeScore: number | null;
   awayScore: number | null;
   refereeNotes: string | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
   homeTeamName: string | null;
   awayTeamName: string | null;
   incidents: Array<{
@@ -123,6 +125,13 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
     .limit(1);
   if (!row) return null;
 
+  // Excludes type='ejection': those are managed exclusively through the
+  // ejections endpoint/form + activeSuspensions banner below, never through
+  // the bulk-editable incidents list on the /report page. MatchReport's type
+  // <select> has no "ejection" option, so surfacing one here would let it
+  // round-trip back into a /report submit's bulk `incidents` array — which
+  // Task 5's guard on report.ts now rejects with 400, breaking the whole
+  // resubmit for any game with an ejection on it.
   const incidents = await db
     .select({
       id: gameIncidents.id,
@@ -133,7 +142,7 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
       description: gameIncidents.description,
     })
     .from(gameIncidents)
-    .where(eq(gameIncidents.gameId, gameId))
+    .where(and(eq(gameIncidents.gameId, gameId), ne(gameIncidents.type, "ejection")))
     .orderBy(asc(gameIncidents.minute));
 
   // Team-level flag for either roster in this game — empty for a TBD-team
@@ -163,6 +172,5 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
           .orderBy(asc(suspensions.createdAt))
       : [];
 
-  const { homeTeamId, awayTeamId, ...rest } = row;
-  return { ...rest, incidents, activeSuspensions };
+  return { ...row, incidents, activeSuspensions };
 }
