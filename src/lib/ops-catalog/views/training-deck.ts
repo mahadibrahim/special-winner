@@ -376,7 +376,13 @@ ${FONT_FACE_CSS}
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* "safe center": center vertically when content fits (the common
+       case), but fall back to start-alignment when content is taller than
+       the frame (e.g. a role with many activities on the "Your toolkit"
+       slide) — plain "center" on overflowing flex content makes the top of
+       the content inaccessible via scroll (scrollTop can't go negative),
+       silently hiding the heading. */
+    justify-content: safe center;
     padding: 8vh 10vw;
     background: var(--cream);
     color: var(--ink);
@@ -678,41 +684,45 @@ ${FONT_FACE_CSS}
   .timeline-list::before {
     content: "";
     position: absolute;
-    left: 6.5rem;
-    top: 0.6rem;
-    bottom: 0.6rem;
+    left: 9rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
     width: 1px;
     background: var(--cream-3);
   }
   .timeline-row {
     position: relative;
     display: grid;
-    grid-template-columns: 6.5rem 1fr;
+    grid-template-columns: 9rem 1fr;
     align-items: baseline;
-    gap: 1.5rem;
-    padding: 0.85rem 0 0.85rem 1.75rem;
+    gap: 1.25rem;
+    padding: 0.65rem 0 0.65rem 1.75rem;
   }
   .timeline-row::before {
     content: "";
     position: absolute;
-    left: calc(6.5rem - 4px);
-    top: 1.15rem;
+    left: calc(9rem - 4px);
+    top: 1rem;
     width: 9px;
     height: 9px;
     border-radius: 50%;
     background: var(--ochre);
   }
+  /* Single-line labels ("72 hours before", "48 hours after") — the column
+     is sized to fit the longest real label without wrapping; a wrapped
+     second line would run under the rail dot positioned for one line. */
   .timeline-label {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     color: var(--ink-muted);
     max-width: none;
+    white-space: nowrap;
   }
   .timeline-name {
-    font-size: 1.02rem;
+    font-size: 1rem;
     color: var(--ink);
     max-width: none;
   }
@@ -727,13 +737,13 @@ ${FONT_FACE_CSS}
     align-items: start;
     margin-top: 1.5rem;
   }
-  .toolkit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+  .toolkit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
   .toolkit-list li {
     position: relative;
     padding-left: 1.1rem;
     max-width: none;
-    font-size: 0.92rem;
-    line-height: 1.45;
+    font-size: 0.88rem;
+    line-height: 1.4;
     color: var(--ink-2);
   }
   .toolkit-list li::before {
@@ -831,28 +841,36 @@ ${FONT_FACE_CSS}
     letter-spacing: 0.25em;
     color: oklch(0.85 0.02 80 / 0.65);
   }
-  /* Widened from 34ch and the quote mark enlarged (round-3 composition
-     pass) — the poster previously read as a short left-pinned caption with
-     the entire right ~60% of the navy frame empty. A wider statement
-     column plus a much bigger bleeding quote mark gives the slide real
-     presence across more of the frame while staying a single centered
-     statement, not a two-column layout (the poster is deliberately the
-     deck's one quiet, non-data slide). */
+  /* Round-3 composition pass: the poster previously read as a short
+     left-pinned caption with the entire right ~60% of the navy frame
+     empty. Pairs the existing opening quote mark with a big translucent
+     CLOSING quote mark filling the right side — a classic magazine
+     pull-quote bracket, not a bolted-on decoration — instead of just
+     enlarging the opening mark in place (which at large sizes collided
+     with the statement's first line). .poster-layout is a simple flex
+     row so the statement keeps its own comfortable measure and the
+     closing mark absorbs the remaining width. */
+  .poster-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
   .poster-statement-wrap {
     position: relative;
-    max-width: 46ch;
+    max-width: 40ch;
+    flex: 0 0 auto;
   }
   .poster-quote {
     position: absolute;
-    top: -5rem;
-    left: -3rem;
+    top: -4rem;
+    left: -2.5rem;
     z-index: 0;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
-    font-size: 22rem;
+    font-size: 16rem;
     line-height: 1;
     color: var(--primary);
-    opacity: 0.4;
+    opacity: 0.35;
     pointer-events: none;
   }
   .poster-statement {
@@ -866,6 +884,18 @@ ${FONT_FACE_CSS}
     font-size: 3.1rem;
     line-height: 1.3;
     color: var(--cream);
+  }
+  .poster-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 24rem;
+    line-height: 1;
+    color: var(--primary);
+    opacity: 0.14;
+    pointer-events: none;
   }
   /* Touchline footer — sits on every slide, baked in per-slide at render
      time (not via JS) so the counter and tick position are deterministic
@@ -942,6 +972,29 @@ ${FONT_FACE_CSS}
     font-size: 1.2rem;
     line-height: 1.5;
   }
+  /* Title-slide layout — the logo/name/description block paired with a
+     giant translucent initial letter filling the right side, the same
+     "big translucent Newsreader glyph" motif as the poster's quote marks
+     and the phase divider's numeral, so the deck's three mostly-typographic
+     slide kinds read as one family instead of three unrelated treatments. */
+  .title-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
+  .title-layout > .title-main { flex: 0 0 auto; max-width: 60ch; }
+  .title-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
+  }
   .touchline-logo--dark { background-image: url(${LOGO_DARK_DATA_URI}); }
   .touchline-logo--light { background-image: url(${LOGO_LIGHT_DATA_URI}); display: none; }
   [data-kind="poster"] .touchline-logo--dark { display: none; }
@@ -975,6 +1028,7 @@ ${FONT_FACE_CSS}
     [data-kind="poster"] .poster-role-label { color: var(--ink-muted); }
     [data-kind="poster"] .poster-statement { color: var(--navy-deep); }
     [data-kind="poster"] .poster-quote { opacity: 0.25; }
+    [data-kind="poster"] .poster-mark { opacity: 0.12; }
     [data-kind="poster"] .touchline-counter { color: var(--ink-muted) !important; }
     [data-kind="poster"] .touchline-logo--dark { display: block !important; }
     [data-kind="poster"] .touchline-logo--light { display: none !important; }
@@ -1061,10 +1115,16 @@ function renderTitleSlide(
   role: Catalog["roles"][number],
   resolveRoleTokens: (text: string) => string,
 ): string {
+  const initial = role.name.trim().charAt(0).toUpperCase();
   return `
-    <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
-    <h1 class="title-role-name">${escapeHtml(role.name)}</h1>
-    <p class="role-description title-role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
+    <div class="title-layout">
+      <div class="title-main">
+        <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
+        <h1 class="title-role-name">${escapeHtml(role.name)}</h1>
+        <p class="role-description title-role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
+      </div>
+      <span class="title-mark" aria-hidden="true">${escapeHtml(initial)}</span>
+    </div>
   `.trim();
 }
 
@@ -1106,9 +1166,12 @@ function renderRolePurposeSlide(role: Catalog["roles"][number]): string | null {
   if (!purpose) return null;
   return `
     <p class="poster-role-label">${escapeHtml(role.name)}</p>
-    <div class="poster-statement-wrap">
-      <span class="poster-quote" aria-hidden="true">&#8220;</span>
-      <p class="poster-statement">${escapeHtml(purpose)}</p>
+    <div class="poster-layout">
+      <div class="poster-statement-wrap">
+        <span class="poster-quote" aria-hidden="true">&#8220;</span>
+        <p class="poster-statement">${escapeHtml(purpose)}</p>
+      </div>
+      <span class="poster-mark" aria-hidden="true">&#8221;</span>
     </div>
   `.trim();
 }
@@ -1391,26 +1454,86 @@ interface TimelineEntry {
   isTimeRelative: boolean;
 }
 
+// Second-pass fallback for event-based triggers phrased as "after <some
+// other activity>" (e.g. "Immediately after facility unlock") — resolves
+// the referenced activity's own numeric minutes (if it has one, from
+// earlier in the same phase or an earlier phase) so the event-based
+// activity sorts right after it, instead of defaulting to the phase
+// midpoint and potentially landing chronologically before things that
+// actually happen first. Word-overlap match on the sibling's name against
+// the trigger text — good enough for the catalog's actual "after X" phrasing
+// (single real match today: opening_walkthrough referencing "facility
+// unlock"); anything that doesn't match falls through to the phase-midpoint
+// default further down, which is still an honest "As it happens" label, just
+// without the extra precision.
+//
+// Requires ALL of the sibling's significant words to appear in the trigger
+// text (not just a majority) — several activity names in this catalog share
+// a common lead word ("Facility unlock" / "Facility close walkthrough" /
+// "Facility lock and alarm"), and a partial-overlap threshold matched
+// "staff_debrief" (triggered "after facility close walkthrough...") against
+// the wrong sibling ("Facility unlock") on the strength of "facility" alone.
+// Requiring every word closes that false-positive without losing the one
+// real match this exists for.
+function resolveEventBasedMinutes(
+  humanizedTrigger: string,
+  ownPhaseIndex: number,
+  resolved: Array<{ name: string; phaseIndex: number; minutes: number | null }>,
+): number | null {
+  if (!/\bafter\b/i.test(humanizedTrigger)) return null;
+  const lowerTrigger = humanizedTrigger.toLowerCase();
+  for (const sibling of resolved) {
+    if (sibling.minutes === null || sibling.phaseIndex > ownPhaseIndex) continue;
+    const words = sibling.name.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    if (words.length === 0) continue;
+    const allWordsMatch = words.every((w) => lowerTrigger.includes(w));
+    if (allWordsMatch) return sibling.minutes + 1;
+  }
+  return null;
+}
+
 function buildRoleTimeline(
   matched: MatchedActivity[],
   resolveRoleTokens: (text: string) => string,
 ): TimelineEntry[] {
-  const withSortKeys = matched.map(({ activity }) => {
+  // Pass 1: parse whatever numeric before/after value each trigger has.
+  const parsed = matched.map(({ activity }) => {
     const humanTrigger = humanizeTrigger(resolveRoleTokens(normalizeWhitespace(activity.trigger)));
     const minutes = parseTimeRelativeMinutes(humanTrigger);
     return {
       activity,
-      label: timelineLabelFor(minutes),
-      isTimeRelative: minutes !== null,
+      humanTrigger,
+      minutes,
       phaseIndex: PHASE_ORDER.indexOf(activity.phase),
-      minutes: minutes ?? 0,
     };
   });
+
+  // Pass 2: for triggers with no numeric value, try to resolve "after
+  // <sibling activity>" against the pass-1 results before falling back to
+  // the phase midpoint (minutes = 0, relative to that phase).
+  const withSortKeys = parsed.map((entry) => {
+    if (entry.minutes !== null) {
+      return { ...entry, sortMinutes: entry.minutes, isTimeRelative: true };
+    }
+    const resolvedMinutes = resolveEventBasedMinutes(
+      entry.humanTrigger,
+      entry.phaseIndex,
+      parsed.map((p) => ({ name: p.activity.name, phaseIndex: p.phaseIndex, minutes: p.minutes })),
+    );
+    return { ...entry, sortMinutes: resolvedMinutes ?? 0, isTimeRelative: false };
+  });
+
   withSortKeys.sort(
     (a, b) =>
-      a.phaseIndex - b.phaseIndex || a.minutes - b.minutes || a.activity.id.localeCompare(b.activity.id),
+      a.phaseIndex - b.phaseIndex ||
+      a.sortMinutes - b.sortMinutes ||
+      a.activity.id.localeCompare(b.activity.id),
   );
-  return withSortKeys.map(({ activity, label, isTimeRelative }) => ({ activity, label, isTimeRelative }));
+  return withSortKeys.map(({ activity, minutes, isTimeRelative }) => ({
+    activity,
+    label: timelineLabelFor(isTimeRelative ? minutes : null),
+    isTimeRelative,
+  }));
 }
 
 function renderRoleTimelineSlide(

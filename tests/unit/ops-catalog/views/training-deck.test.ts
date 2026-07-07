@@ -15,7 +15,7 @@ describe("renderTrainingDeck", () => {
     expect(html).toMatch(/^<!doctype html>/);
     expect(html).toContain("<html lang=\"en\">");
     expect(html).toContain("<title>Venue Manager — Training Deck</title>");
-    expect(html).toContain("<h1>Venue Manager</h1>");
+    expect(html).toContain('<h1 class="title-role-name">Venue Manager</h1>');
     expect(html).toContain("Day-of operational lead at the venue.");
     // No external network dependency.
     expect(html).not.toContain("https://fonts.googleapis.com");
@@ -174,13 +174,17 @@ describe("renderTrainingDeck — natural language pass", () => {
     );
   });
 
-  it("drops the field-name 'Tracking:' label, but surfaces the checklist as a meta-chip when one exists", () => {
+  it("drops the field-name 'Tracking:' label, but surfaces the checklist as a labeled panel row when one exists", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     // field_setup (day_setup phase) is tracking_method "checklist" -> chk.field_setup,
-    // surfaced as a "Checklist: Field setup" meta-chip (round 2 anatomy —
-    // replaced the old "There's a checklist for this" filler sentence).
+    // surfaced as a "Checklist / Field setup" panel row (round 3 anatomy — the
+    // activity slide's right-rail panel — replacing round 2's horizontal
+    // meta-chip row, which itself replaced the old "There's a checklist for
+    // this" filler sentence).
     expect(html).not.toContain("Tracking:");
-    expect(html).toContain('<span class="meta-chip meta-chip--checklist">Checklist: Field setup</span>');
+    expect(html).toContain(
+      '<div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Field setup</span></div>',
+    );
   });
 
   it("does not mention a checklist for activities tracked another way", () => {
@@ -265,7 +269,14 @@ describe("renderTrainingDeck — procedure step parsing (real catalog fixture)",
     const nextSlideStart = html.indexOf("<section", slideStart + 1);
     const slide = html.slice(slideStart, nextSlideStart);
 
-    const stepMatches = [...slide.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
+    // Scope to the numbered-steps <ol> specifically — the two-column layout
+    // (round 3) also renders a "Tools" <ul> of <li>s in the same slide's
+    // right-rail panel, which a slide-wide <li> match would now also pick up.
+    const stepsOlStart = slide.indexOf('<ol class="steps">');
+    const stepsOlEnd = slide.indexOf("</ol>", stepsOlStart);
+    const stepsOl = slide.slice(stepsOlStart, stepsOlEnd);
+
+    const stepMatches = [...stepsOl.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
     expect(stepMatches).toHaveLength(6);
 
     // Full first step, reassembled from its 3 wrapped source lines — proves
@@ -430,18 +441,20 @@ describe("renderTrainingDeck — brand design pass", () => {
     expect(html).toMatch(/<span class="touchline-tick" style="left: [\d.]+%"><\/span>/);
   });
 
-  it("renders a mono WHEN meta-chip on activity slides carrying the extracted 'When' value", () => {
+  it("renders a labeled WHEN panel row on activity slides carrying the extracted 'When' value", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     // field_setup's fixture trigger ("60 minutes before first kickoff") is
     // humanized unchanged (no T+/- or Nh shorthand to expand) and now lives
-    // in the meta-chip row's WHEN chip (round 2: replaced the old
-    // top-right-floating .time-rail element), not in a separate "When:"
-    // meta line.
+    // in the activity slide's right-rail panel as a labeled WHEN row (round
+    // 3: replaced round 2's horizontal meta-chip row, which itself replaced
+    // the old top-right-floating .time-rail element), not in a separate
+    // "When:" meta line.
     expect(html).toContain(
-      '<span class="meta-chip meta-chip--when">When: 60 minutes before first kickoff</span>',
+      '<div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">60 minutes before first kickoff</span></div>',
     );
     expect(html).not.toContain("<strong>When:</strong>");
     expect(html).not.toContain('class="time-rail"');
+    expect(html).not.toContain('class="meta-chip-row"');
   });
 
   it("gives the poster slide a print-CSS override back to the cream/ink palette", () => {
@@ -454,11 +467,14 @@ describe("renderTrainingDeck — brand design pass", () => {
     expect(printBlock).toContain("color: var(--ink) !important;");
   });
 
-  it("restricts the primary red-orange accent to the poster quote mark, focus states, links, and the touchline tick", () => {
+  it("restricts the primary red-orange accent to the poster's paired quote marks, focus states, links, and the touchline tick", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
     const primaryUsages = [...html.matchAll(/color:\s*var\(--primary\)|background:\s*var\(--primary\)|outline:\s*2px solid var\(--primary\)/g)];
-    // a { color }, focus-visible outline, .poster-quote color, .touchline-tick background.
-    expect(primaryUsages.length).toBe(4);
+    // a { color }, focus-visible outline, .poster-quote (opening mark)
+    // color, .poster-mark (closing mark, added in the round-3 composition
+    // pass so the poster's right column isn't empty) color, .touchline-tick
+    // background.
+    expect(primaryUsages.length).toBe(5);
   });
 });
 
@@ -486,7 +502,7 @@ describe("generateAllTrainingDecks", () => {
       roles: [...catalog.roles, handAuthored],
     });
     expect(all["role.team_captain"]).toBeDefined();
-    expect(all["role.team_captain"]).toContain("<h1>Team Captain</h1>");
+    expect(all["role.team_captain"]).toContain('<h1 class="title-role-name">Team Captain</h1>');
     expect(Object.keys(all).sort()).toEqual(
       [fixtureIds.roles.coach, fixtureIds.roles.venueManager, "role.team_captain"].sort(),
     );
@@ -613,18 +629,21 @@ describe("renderTrainingDeck — company philosophy section", () => {
     return html.split('<section class="slide"');
   }
 
-  it("renders 3 'What we believe' slides right after the role-summary slide, ending with a line connecting back to the role", () => {
+  it("renders 3 'What we believe' slides right after the toolkit/timeline slides, ending with a line connecting back to the role", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
     const slides = slideBodies(html);
     // slides[1] = title, slides[2] = purpose, slides[3] = "Your job" role
-    // summary, slides[4..6] = philosophy section.
+    // summary, slides[4] = "Your toolkit", slides[5] = "How time works on
+    // your day", slides[6..8] = philosophy section.
     expect(slides[3]).toContain("<h2>Your job</h2>");
-    expect(slides[4]).toContain("<h2>What we believe</h2>");
-    expect(slides[4]).toContain("Development Over Winning");
-    expect(slides[4]).toContain("Every Child Can Improve");
-    expect(slides[5]).toContain("Long-Term Athlete Development");
-    expect(slides[5]).toContain("Holistic Growth");
-    expect(slides[6]).toContain("Whatever your role, this is what families should feel from us.");
+    expect(slides[4]).toContain("<h2>Your toolkit</h2>");
+    expect(slides[5]).toContain("<h2>How time works on your day</h2>");
+    expect(slides[6]).toContain("<h2>What we believe</h2>");
+    expect(slides[6]).toContain("Development Over Winning");
+    expect(slides[6]).toContain("Every Child Can Improve");
+    expect(slides[7]).toContain("Long-Term Athlete Development");
+    expect(slides[7]).toContain("Holistic Growth");
+    expect(slides[8]).toContain("Whatever your role, this is what families should feel from us.");
     // Natural language, not framework jargon.
     expect(html).not.toContain("ELM framework");
     expect(html).not.toContain("Double-Goal Coach");
@@ -635,20 +654,21 @@ describe("renderTrainingDeck — company philosophy section", () => {
     const venueHtml = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     const coachSlides = slideBodies(coachHtml);
     const venueSlides = slideBodies(venueHtml);
-    // Both roles have a purpose slide AND a role-summary slide (whose
-    // content legitimately differs per role — slides[3] is skipped below),
-    // so the philosophy section lands at the same slide indices (4, 5, 6)
-    // for both. Each slide's touchline footer (see renderTouchlineFooter) is
-    // deliberately position-dependent — its "NN / total" counter and tick
-    // offset are baked from (index, total slide count), which can
-    // legitimately differ between two role decks with a different number of
-    // matched activities. Strip the footer before comparing so this
-    // assertion is about the philosophy content itself, not a coincidence of
-    // the two fixture roles currently having equal slide counts.
+    // Both roles have a purpose slide, a role-summary slide, a toolkit
+    // slide, and a timeline slide (whose content legitimately differs per
+    // role — slides[3..5] are skipped below), so the philosophy section
+    // lands at the same slide indices (6, 7, 8) for both. Each slide's
+    // touchline footer (see renderTouchlineFooter) is deliberately
+    // position-dependent — its "NN / total" counter and tick offset are
+    // baked from (index, total slide count), which can legitimately differ
+    // between two role decks with a different number of matched activities.
+    // Strip the footer before comparing so this assertion is about the
+    // philosophy content itself, not a coincidence of the two fixture roles
+    // currently having equal slide counts.
     const withoutFooter = (slide: string) => slide.slice(0, slide.indexOf('<footer class="touchline"'));
-    expect(withoutFooter(coachSlides[4])).toBe(withoutFooter(venueSlides[4]));
-    expect(withoutFooter(coachSlides[5])).toBe(withoutFooter(venueSlides[5]));
     expect(withoutFooter(coachSlides[6])).toBe(withoutFooter(venueSlides[6]));
+    expect(withoutFooter(coachSlides[7])).toBe(withoutFooter(venueSlides[7]));
+    expect(withoutFooter(coachSlides[8])).toBe(withoutFooter(venueSlides[8]));
   });
 });
 
@@ -714,7 +734,7 @@ describe("renderTrainingDeck — walkthrough appendix slide", () => {
   });
 });
 
-describe("renderTrainingDeck — meta-chip anatomy (round 2)", () => {
+describe("renderTrainingDeck — two-column activity slide anatomy + tools panel (round 3)", () => {
   function activitySlideHtml(html: string, heading: string): string {
     const start = html.indexOf(`<h2>${heading}</h2>`);
     expect(start, `slide "${heading}" should exist`).toBeGreaterThan(-1);
@@ -722,44 +742,73 @@ describe("renderTrainingDeck — meta-chip anatomy (round 2)", () => {
     return html.slice(start, end);
   }
 
-  it("renders a WHEN + ownership + checklist meta-chip row directly under the title, replacing the old kicker/filler-sentence anatomy", () => {
+  it("renders a two-column .frame-layout with the procedure on the left and a meta/tools panel on the right, replacing the old horizontal meta-chip row", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     const slide = activitySlideHtml(html, "Field setup");
 
-    // Chip row lands immediately after the h2, before the rest of the slide
-    // body (field_setup's fixture sop_body is a single unnumbered sentence,
-    // so it renders as a <p>, not <ol class="steps"> — see the "moves
-    // escalation to a footnote" test below for the <ol> ordering case).
-    const chipRowIdx = slide.indexOf('<div class="meta-chip-row">');
+    // The frame-layout grid lands immediately after the h2.
+    const frameLayoutIdx = slide.indexOf('<div class="frame-layout">');
     const h2Idx = slide.indexOf("<h2>");
-    expect(chipRowIdx).toBeGreaterThan(h2Idx);
+    expect(frameLayoutIdx).toBeGreaterThan(h2Idx);
+    expect(slide).toContain('<div class="frame-main">');
+    expect(slide).toContain('<aside class="frame-panel">');
 
-    expect(slide).toContain('<span class="meta-chip meta-chip--when">When: 60 minutes before first kickoff</span>');
+    expect(slide).toContain(
+      '<div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">60 minutes before first kickoff</span></div>',
+    );
     // venue_manager is Accountable (not Responsible) on field_setup -> owns it.
-    expect(slide).toContain('<span class="meta-chip meta-chip--owner">You own this</span>');
-    expect(slide).toContain('<span class="meta-chip meta-chip--checklist">Checklist: Field setup</span>');
+    expect(slide).toContain(
+      '<span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You own this</span>',
+    );
+    expect(slide).toContain(
+      '<div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">Field setup</span></div>',
+    );
 
-    // The old filler sentence and floating italic kicker line are gone.
+    // The old filler sentence, floating italic kicker line, and round-2
+    // horizontal meta-chip row are all gone.
     expect(html).not.toContain("There's a checklist for this");
     expect(slide).not.toContain('class="slide-kicker"');
+    expect(slide).not.toContain('class="meta-chip-row"');
+    expect(slide).not.toContain("meta-chip");
   });
 
-  it("labels a Responsible-only involvement as 'You assist' in the chip, distinct from the narrative 'You're part of this' sentence used elsewhere", () => {
+  it("labels a Responsible-only involvement as 'You assist' in the panel, distinct from the narrative 'You're part of this' sentence used elsewhere", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
     const slide = activitySlideHtml(html, "Field setup");
-    expect(slide).toContain('<span class="meta-chip meta-chip--owner">You assist</span>');
+    expect(slide).toContain(
+      '<span class="panel-meta-label">Accountability</span><span class="panel-meta-value">You assist</span>',
+    );
   });
 
-  it("omits the checklist chip for activities tracked another way", () => {
+  it("omits the checklist row for activities tracked another way", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     const slide = activitySlideHtml(html, "Rainout decision");
-    expect(slide).not.toContain("meta-chip--checklist");
+    expect(slide).not.toContain(">Checklist<");
   });
 
-  it("moves escalation to a visually distinct footnote block at the bottom of the slide, after the steps and screenshot slot", () => {
+  it("renders a Tools block in the panel listing the activity's tools[], for an activity that has tools", () => {
+    // rainout_decision carries fixture tools (see inline-catalog.ts).
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const slide = activitySlideHtml(html, "Rainout decision");
+    const panelToolsIdx = slide.indexOf('<div class="panel-tools">');
+    expect(panelToolsIdx).toBeGreaterThan(-1);
+    expect(slide).toContain('<p class="panel-tools-label">Tools</p>');
+    expect(slide).toContain('<ul class="panel-tools-list"><li>Cones and directional signage</li><li>Weather app or National Weather Service radar</li></ul>');
+  });
+
+  it("omits the Tools block gracefully for an activity with no tools", () => {
+    // post_game_report has no `tools` field in the fixture.
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const slide = activitySlideHtml(html, "Post-game report");
+    expect(slide).not.toContain('class="panel-tools"');
+    expect(slide).not.toContain(">Tools<");
+  });
+
+  it("moves escalation to a visually distinct footnote block spanning the full slide width, after the two-column layout", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     const slide = activitySlideHtml(html, "Rainout decision");
 
+    const frameLayoutIdx = slide.indexOf('<div class="frame-layout">');
     const stepsIdx = slide.indexOf('<ol class="steps">');
     const screenshotIdx = slide.indexOf('<div class="screenshot-frame">');
     const footnoteIdx = slide.indexOf('<div class="escalation-footnote">');
@@ -767,6 +816,7 @@ describe("renderTrainingDeck — meta-chip anatomy (round 2)", () => {
     expect(stepsIdx).toBeGreaterThan(-1);
     expect(footnoteIdx).toBeGreaterThan(screenshotIdx);
     expect(footnoteIdx).toBeGreaterThan(stepsIdx);
+    expect(footnoteIdx).toBeGreaterThan(frameLayoutIdx);
     expect(slide).toContain(
       '<div class="escalation-footnote"><strong>If something goes wrong:</strong> If Venue Manager unreachable, on-call Director makes call.</div>',
     );
@@ -778,29 +828,36 @@ describe("renderTrainingDeck — flow chapters: agenda, phase dividers, checklis
     return html.split('<section class="slide"');
   }
 
-  it("renders an agenda slide ('Your day at a glance') listing each phase with its activity count, right after the role-summary slide", () => {
+  it("renders an agenda slide ('Your day at a glance') listing each phase with its activity count plus a totals panel, right after the toolkit/timeline slides", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     const slides = slideBodies(html);
-    // slides[1]=title, [2]=purpose, [3]=your job, [4..6]=philosophy, [7]=agenda.
-    expect(slides[7]).toContain("<h2>Your day at a glance</h2>");
-    expect(slides[7]).toContain(
+    // slides[1]=title, [2]=purpose, [3]=your job, [4]=toolkit, [5]=timeline,
+    // [6..8]=philosophy, [9]=agenda.
+    expect(slides[9]).toContain("<h2>Your day at a glance</h2>");
+    expect(slides[9]).toContain('<div class="frame-layout">');
+    expect(slides[9]).toContain(
       '<li><span class="agenda-phase">Day setup</span><span class="agenda-count">1 activity</span></li>',
     );
-    expect(slides[7]).toContain(
+    expect(slides[9]).toContain(
       '<li><span class="agenda-phase">Pre game</span><span class="agenda-count">1 activity</span></li>',
     );
+    // Companion stat panel — totals, not left as empty space.
+    expect(slides[9]).toContain('<p class="frame-panel-heading">Today, in total</p>');
+    expect(slides[9]).toContain('<p class="frame-stat-value">2</p>');
+    expect(slides[9]).toContain('<p class="frame-stat-label">2 phases</p>');
   });
 
-  it("renders a phase-divider slide (kind=divider, big chapter name, activity list) immediately before each phase's activity slides", () => {
+  it("renders a phase-divider slide (kind=divider, big chapter name + numeral watermark, activity list) immediately before each phase's activity slides", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     const slides = slideBodies(html);
-    // slides[8] = day_setup divider (first phase in PHASE_ORDER with entries).
-    expect(slides[8]).toContain('data-kind="divider"');
-    expect(slides[8]).toContain("Phase 1 of 2");
-    expect(slides[8]).toContain('<p class="divider-title">Day setup</p>');
-    expect(slides[8]).toContain("Field setup");
+    // slides[10] = day_setup divider (first phase in PHASE_ORDER with entries).
+    expect(slides[10]).toContain('data-kind="divider"');
+    expect(slides[10]).toContain("Phase 1 of 2");
+    expect(slides[10]).toContain('<p class="divider-title">Day setup</p>');
+    expect(slides[10]).toContain('<span class="divider-mark" aria-hidden="true">01</span>');
+    expect(slides[10]).toContain("Field setup");
     // The activity slide follows immediately.
-    expect(slides[9]).toContain("<h2>Field setup</h2>");
+    expect(slides[11]).toContain("<h2>Field setup</h2>");
   });
 
   it("renders a checklist-appendix divider before the checklist slides, titled 'Checklists' with derived (not raw-id) names", () => {
@@ -826,8 +883,8 @@ describe("renderTrainingDeck — hero logo scale (round 2)", () => {
 
     const heroRuleMatch = html.match(/\.hero-logo\s*\{[^}]*\}/);
     expect(heroRuleMatch).not.toBeNull();
-    expect(heroRuleMatch![0]).toContain("width: 260px");
-    expect(heroRuleMatch![0]).toContain("height: 72px");
+    expect(heroRuleMatch![0]).toContain("width: 360px");
+    expect(heroRuleMatch![0]).toContain("height: 100px");
 
     const footerRuleMatch = html.match(/\.touchline-logo\s*\{[^}]*\}/);
     expect(footerRuleMatch).not.toBeNull();
@@ -871,8 +928,10 @@ describe("renderTrainingDeck — 'Your job' role-summary slide (round 2)", () =>
     // phases should show a cluster line.
     expect(slides[3]).toContain("<strong>Day setup:</strong> field setup");
     expect(slides[3]).toContain("<strong>Pre game:</strong> rainout decision");
-    // Next slide is the first philosophy slide.
-    expect(slides[4]).toContain("<h2>What we believe</h2>");
+    // Next slides are the new toolkit + timeline slides, then philosophy.
+    expect(slides[4]).toContain("<h2>Your toolkit</h2>");
+    expect(slides[5]).toContain("<h2>How time works on your day</h2>");
+    expect(slides[6]).toContain("<h2>What we believe</h2>");
   });
 
   it("renders different per-role content for a different role (not shared/copy-pasted text)", () => {
@@ -929,5 +988,115 @@ describe("renderTrainingDeck — 'Your job' role-summary slide (round 2)", () =>
     expect(slides[3]).not.toMatch(/\bact\.[a-z0-9_]+\b/);
     expect(slides[3]).not.toContain("Accountable");
     expect(slides[3]).not.toContain("Responsible");
+  });
+});
+
+describe("renderTrainingDeck — 'Your toolkit' slide (round 3)", () => {
+  function slideBodies(html: string): string[] {
+    return html.split('<section class="slide"');
+  }
+
+  it("renders right after 'Your job', deduping tools across the role's matched activities into digital vs physical categories", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const slides = slideBodies(html);
+    // slides[1]=title, [2]=purpose, [3]=your job, [4]=toolkit.
+    expect(slides[4]).toContain("<h2>Your toolkit</h2>");
+    expect(slides[4]).toContain('<div class="toolkit-grid">');
+    expect(slides[4]).toContain('<p class="frame-panel-heading">Digital &amp; platform tools</p>');
+    expect(slides[4]).toContain('<p class="frame-panel-heading">Physical &amp; on-site tools</p>');
+
+    // venue_manager's matched activities are field_setup and rainout_decision,
+    // whose fixture tools[] share "Cones and directional signage" — deduped
+    // to one entry, not two.
+    const conesOccurrences = (slides[4].match(/Cones and directional signage/g) ?? []).length;
+    expect(conesOccurrences).toBe(1);
+
+    // "The day's staffing plan (/admin/venue/day/[date])" contains a route
+    // path -> digital; "Weather app or National Weather Service radar"
+    // contains "app" -> digital; "Cones and directional signage" has neither
+    // a route nor a digital keyword -> physical.
+    expect(slides[4]).toContain(
+      "The day&#39;s staffing plan (/admin/venue/day/[date])",
+    );
+    expect(slides[4]).toContain("Weather app or National Weather Service radar");
+  });
+
+  it("renders different, role-specific tool lists for a different role", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const slides = slideBodies(html);
+    // Coach is Responsible on field_setup only (post_game_report has no
+    // fixture tools), so the coach's toolkit has field_setup's two tools and
+    // NOT rainout_decision's weather-app tool.
+    expect(slides[4]).toContain("Cones and directional signage");
+    expect(slides[4]).toContain("The day&#39;s staffing plan (/admin/venue/day/[date])");
+    expect(slides[4]).not.toContain("Weather app or National Weather Service radar");
+  });
+
+  it("degrades gracefully to an explicit empty-state note for a role whose matched activities carry no tools", () => {
+    const catalog = buildInlineCatalog();
+    // post_game_report is coach's only Accountable activity and has no
+    // fixture tools; restricting the catalog to just that activity exercises
+    // the fully-empty path (matched.length > 0, but zero tools total).
+    const noToolsCatalog = {
+      ...catalog,
+      activities: catalog.activities.filter((a) => a.id === fixtureIds.activities.postGameReport),
+    };
+    const html = renderTrainingDeck(noToolsCatalog, fixtureIds.roles.coach);
+    const slides = slideBodies(html);
+    const toolkitSlide = slides.find((s) => s.includes("<h2>Your toolkit</h2>"));
+    expect(toolkitSlide).toBeDefined();
+    expect(toolkitSlide).toContain("No tools are catalogued for your activities yet.");
+  });
+
+  it("is omitted entirely for a role with zero matched activities", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.parent);
+    expect(html).not.toContain("<h2>Your toolkit</h2>");
+  });
+});
+
+describe("renderTrainingDeck — 'How time works on your day' timeline slide (round 3)", () => {
+  function slideBodies(html: string): string[] {
+    return html.split('<section class="slide"');
+  }
+
+  it("renders right after the toolkit slide, ordering matched activities chronologically with parsed before/after labels", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const slides = slideBodies(html);
+    // slides[5] = timeline (title, purpose, your job, toolkit, timeline).
+    expect(slides[5]).toContain("<h2>How time works on your day</h2>");
+    expect(slides[5]).toContain('<div class="frame-layout">');
+    expect(slides[5]).toContain('<ol class="timeline-list">');
+
+    // field_setup (day_setup, "60 minutes before first kickoff") sorts
+    // before rainout_decision (pre_game, event-based trigger) since
+    // day_setup precedes pre_game in PHASE_ORDER.
+    const fieldSetupIdx = slides[5].indexOf("Field setup");
+    const rainoutIdx = slides[5].indexOf("Rainout decision");
+    expect(fieldSetupIdx).toBeGreaterThan(-1);
+    expect(rainoutIdx).toBeGreaterThan(fieldSetupIdx);
+
+    // 60 minutes is an exact multiple of an hour, so timelineLabelFor
+    // renders the coarser, more natural "1 hour before" rather than
+    // "60 minutes before".
+    expect(slides[5]).toContain(
+      '<li class="timeline-row"><span class="timeline-label">1 hour before</span><span class="timeline-name">Field setup</span></li>',
+    );
+    // rainout_decision's fixture trigger ("Weather/field condition within 2h
+    // of kickoff suggests cancellation") has no clean before/after phrase to
+    // parse, so it's an honest "As it happens" rather than a fabricated time.
+    expect(slides[5]).toContain(
+      '<li class="timeline-row"><span class="timeline-label">As it happens</span><span class="timeline-name">Rainout decision</span></li>',
+    );
+
+    // Stat panel — real counts, not decorative filler.
+    expect(slides[5]).toContain('<p class="frame-panel-heading">At a glance</p>');
+    expect(slides[5]).toContain('<p class="frame-stat-value">2</p>');
+    expect(slides[5]).toContain("2 stops across your day");
+    expect(slides[5]).toContain("1 activity triggered by events, not the clock");
+  });
+
+  it("is omitted entirely for a role with zero matched activities", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.parent);
+    expect(html).not.toContain("<h2>How time works on your day</h2>");
   });
 });
