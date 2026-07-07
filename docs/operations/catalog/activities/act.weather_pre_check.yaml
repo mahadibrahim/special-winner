@@ -21,16 +21,22 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the Coach → Venue Manager →
-  Director handoff ladder.
+  If venue_manager unreachable, escalate to role.director per the
+  Coach → Venue Manager → Director handoff ladder.
 sop_body: |
   1. 72 hours before the event window, pull up every outdoor match on the
-     day's schedule and check the forecast for temperature, precipitation
-     chance, wind, and lightning risk on a weather app or the National
-     Weather Service (a built-in weather-alert dashboard is planned).
-  2. Flag a heat advisory if the forecast heat index reaches 95°F or
-     higher during the event window, and flag a precipitation risk if the
-     chance of rain is 60% or higher during that window.
+     day's schedule and check the forecast for temperature, humidity,
+     precipitation, wind, and lightning risk on weather.gov (National
+     Weather Service) — a built-in weather-alert dashboard is planned.
+  2. Flag a heat risk if the forecast projects Wet Bulb Globe Temperature
+     (WBGT) at or above 85.8°F during the event window. WBGT — not the
+     heat index or a fixed air-temperature cutoff — is the standard
+     (NATA / Korey Stringer Institute; see the safety & policy standards
+     reference). Flag a field-condition risk if the forecast shows
+     sustained rain likely to leave the surface unsafe (standing water,
+     unstable footing) rather than keying off a rain-percentage
+     threshold — rain alone doesn't stop play; unsafe field conditions
+     and lightning do.
   3. If the surface is accessible, walk it and note current field
      condition (standing water from recent rain, firmness) as a baseline.
   4. If nothing is flagged, complete the checklist — no further action is
@@ -42,7 +48,7 @@ sop_body: |
   6. Re-run the T-24h recheck if step 5 applied, and carry any still-open
      risk forward into the pregame weather check.
 tools:
-  - Weather app or National Weather Service forecast (temperature, precipitation, wind, lightning risk)
+  - weather.gov / National Weather Service forecast (temperature, humidity, precipitation, wind, lightning risk)
   - On-site surface walk, if accessible (baseline field condition)
   - The weather pre-check checklist
 tracking_method: checklist

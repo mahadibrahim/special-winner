@@ -254,11 +254,11 @@ describe("renderTrainingDeck — real catalog regression guard", () => {
 describe("renderTrainingDeck — procedure step parsing (real catalog fixture)", () => {
   // TDD fixture: act.weather_pre_check's real sop_body
   // (docs/operations/catalog/activities/act.weather_pre_check.yaml) is a
-  // 6-step numbered procedure whose sentences wrap across 16 physical YAML
-  // lines. The old line-splitting renderer turned every physical line into
-  // its own renumbered <li>, mangling this into 16 fragments (e.g. step 1's
-  // "...on the" / "day's schedule..." split across two <li>s). Assert the
-  // real, true step count and that no fragment ends mid-sentence.
+  // 6-step numbered procedure whose sentences wrap across multiple physical
+  // YAML lines. The old line-splitting renderer turned every physical line
+  // into its own renumbered <li>, mangling this (e.g. step 1's "...on the"
+  // / "day's schedule..." split across two <li>s). Assert the real, true
+  // step count and that no fragment ends mid-sentence.
   it("renders exactly the 6 real steps of act.weather_pre_check as whole sentences, not one <li> per wrapped source line", async () => {
     const catalogDir = path.resolve(__dirname, "../../../../docs/operations/catalog");
     const catalog = await loadCatalog(catalogDir);
@@ -279,11 +279,11 @@ describe("renderTrainingDeck — procedure step parsing (real catalog fixture)",
     const stepMatches = [...stepsOl.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
     expect(stepMatches).toHaveLength(6);
 
-    // Full first step, reassembled from its 3 wrapped source lines — proves
+    // Full first step, reassembled from its wrapped source lines — proves
     // continuation lines are folded into the step, not split into their own
     // list items.
     expect(stepMatches[0]).toBe(
-      "72 hours before the event window, pull up every outdoor match on the day&#39;s schedule and check the forecast for temperature, precipitation chance, wind, and lightning risk on a weather app or the National Weather Service (a built-in weather-alert dashboard is planned).",
+      "72 hours before the event window, pull up every outdoor match on the day&#39;s schedule and check the forecast for temperature, humidity, precipitation, wind, and lightning risk on weather.gov (National Weather Service) — a built-in weather-alert dashboard is planned.",
     );
     // Last step, reassembled from its 2 wrapped source lines.
     expect(stepMatches[5]).toBe(

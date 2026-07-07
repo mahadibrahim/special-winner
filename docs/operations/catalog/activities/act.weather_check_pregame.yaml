@@ -21,30 +21,37 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the Coach → Venue Manager →
-  Director handoff ladder.
+  If venue_manager unreachable, escalate to role.director per the
+  Coach → Venue Manager → Director handoff ladder.
 sop_body: |
-  1. About 90 minutes before kickoff at any outdoor venue, re-check a
-     weather app or the National Weather Service for live conditions
-     (a built-in weather-alert dashboard is planned) — this replaces
-     the 72h pre-check with real-time data.
-  2. Check the lightning radar for detected strikes within 10 miles of
-     the venue.
+  1. About 90 minutes before kickoff at any outdoor venue, re-check
+     weather.gov (National Weather Service) for live conditions (a
+     built-in weather-alert dashboard is planned) — this replaces the
+     72h pre-check with real-time data.
+  2. Check the lightning radar for detected strikes within 10 nautical
+     miles of the venue; the 5-nautical-mile evacuation trigger and the
+     rest of the lightning protocol live on the rainout decision.
   3. Check current precipitation on radar and confirm whether it's
-     arriving before, during, or after the event window.
+     arriving before, during, or after the event window — rain alone
+     doesn't stop play; unsafe field conditions and lightning do.
   4. Walk the surface (or have facilities confirm) for standing water,
      saturated turf, or other unsafe footing from overnight or same-day
      rain.
-  5. Check current temperature and heat index against the venue's
-     heat-advisory cutoff.
+  5. Take a WBGT (Wet Bulb Globe Temperature) reading — not air
+     temperature or heat index — 3-4 feet off the ground, in the sun.
+     Once WBGT is above 70°F, re-take it every 30 minutes for the
+     duration of the event; assign that recurring reading to a
+     designated weather monitor who is not the coach or referee (they
+     can't monitor conditions while working the match).
   6. If any reading crosses a risk threshold — active lightning, heavy
-     rain producing standing water, a heat advisory — move straight to
-     the rainout decision rather than waiting out the clock.
+     rain producing standing water, WBGT at or above 85.8°F — move
+     straight to the rainout decision rather than waiting out the clock.
   7. If conditions are clear, complete the checklist and log the readings
      for the record; that's the data trail if conditions change later and
      the call gets challenged.
 tools:
-  - Weather app or National Weather Service radar (live lightning, precipitation, temperature)
+  - weather.gov / National Weather Service radar (live lightning, precipitation, temperature)
+  - WBGT meter (heat-stress reading, not a plain thermometer)
   - On-site surface walk (standing water, saturated turf)
   - The pregame weather check checklist
 tracking_method: checklist

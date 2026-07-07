@@ -3,11 +3,11 @@ kind: checklist
 status: stub
 items:
   - id: forecast_reviewed
-    label: 72h forecast reviewed for precipitation, wind, lightning, and heat index
+    label: 72h forecast reviewed on weather.gov for precipitation, wind, lightning, and WBGT
   - id: heat_advisory_checked
-    label: Heat advisory checked (heat index of 95°F or higher flags a risk)
+    label: Heat risk checked (WBGT projected at 85.8°F or higher flags a risk)
   - id: precip_risk_checked
-    label: Precipitation risk checked (60% or higher chance during the event window flags a risk)
+    label: Field-playability risk checked (sustained rain likely to leave the surface unsafe, not a rain-percentage threshold)
   - id: field_condition_noted
     label: Current field/turf condition noted if the outdoor surface is accessible
   - id: risk_flagged
