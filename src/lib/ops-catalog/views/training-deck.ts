@@ -186,6 +186,13 @@ function involvementToSentence(involvement: Involvement): string {
   return involvement === "Responsible" ? "You're part of this" : "You own this";
 }
 
+// Short, uppercase chip label for the meta-chip row (see renderActivitySlide)
+// — distinct from involvementToSentence's narrative-sentence form used
+// elsewhere (phase overview/divider lists, etc.).
+function involvementToChipLabel(involvement: Involvement): string {
+  return involvement === "Responsible" ? "You assist" : "You own this";
+}
+
 // ---------------------------------------------------------------------------
 // Catalog stub procedure detection. Activities not yet authored by the
 // operating team carry a fixed placeholder sop_body (see any act.*.yaml with
@@ -210,9 +217,23 @@ function renderProcedureHtml(sopBody: string): string {
   if (isStubProcedure(sopBody)) {
     return `<p class="procedure-fallback">${escapeHtml(PROCEDURE_FALLBACK_TEXT)}</p>`;
   }
-  const bullets = sopBodyToBullets(sopBody);
-  const stepsHtml = bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
-  return `<ol class="steps">${stepsHtml}</ol>`;
+  const steps = parseProcedureSteps(sopBody);
+  if (steps.length > 0) {
+    const stepsHtml = steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+    return `<ol class="steps">${stepsHtml}</ol>`;
+  }
+  // No numbered steps detected — freeform procedure text (not currently used
+  // by any real catalog activity, but the schema doesn't require numbering,
+  // so this path must render something sane rather than an empty <ol>).
+  // Preserve intentional paragraph breaks (blank lines between paragraphs)
+  // rather than collapsing everything into one block or, worse, splitting on
+  // every line break the way the old renderer did for numbered steps.
+  const paragraphs = sopBody
+    .trim()
+    .split(/\n{2,}/)
+    .map((p) => normalizeWhitespace(p))
+    .filter((p) => p.length > 0);
+  return paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +383,10 @@ ${FONT_FACE_CSS}
     opacity: 0;
     pointer-events: none;
     transition: opacity 150ms ease;
+    /* Defensive: a long numbered procedure plus its escalation footnote can
+       exceed the available height on some slides — scroll rather than
+       silently overflow into (or under) the touchline footer. */
+    overflow-y: auto;
   }
   .slide.active {
     opacity: 1;
@@ -387,15 +412,22 @@ ${FONT_FACE_CSS}
     font-style: italic;
     font-size: 0.95rem;
   }
-  /* Mono time-rail chip (activity slides) — a data label, not an eyebrow.
-     Text keeps its natural sentence case in the DOM; uppercase is a pure
-     display transform so the underlying value stays intact/greppable. */
-  .time-rail {
-    position: absolute;
-    top: 8vh;
-    right: 10vw;
-    max-width: 32ch;
-    margin: 0;
+  /* Meta-chip row (activity slides) — a compact one-line strip of data
+     labels directly under the title: WHEN, YOU OWN THIS/YOU ASSIST, and
+     (when the activity has one) CHECKLIST. Replaces the old floating
+     top-right time-rail chip, the old italic ownership caption line, and
+     the old "checklist exists" filler sentence. Text keeps its natural
+     sentence case in the DOM; uppercase is a pure display transform so the
+     underlying value stays intact/greppable. */
+  .meta-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 1.75rem;
+  }
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
     padding: 0.3rem 0.65rem;
     background: var(--cream-2);
     border: 1px solid var(--cream-3);
@@ -403,10 +435,14 @@ ${FONT_FACE_CSS}
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    text-align: right;
     color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .meta-chip--owner {
+    color: var(--navy-deep);
+    border-color: var(--ochre);
   }
   .nav-controls {
     position: fixed;
@@ -438,6 +474,89 @@ ${FONT_FACE_CSS}
   .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
   .phase-overview li::marker { color: var(--ochre); }
   .empty-note { color: var(--ink-muted); font-style: italic; }
+  /* Numbered procedure steps — comfortable spacing between steps and a
+     styled (accent-colored, monospace) number, instead of the browser's
+     tight default <ol> rendering. */
+  ol.steps {
+    margin: 0 0 1.75rem;
+    padding-left: 1.5rem;
+  }
+  ol.steps li {
+    margin-bottom: 1rem;
+    padding-left: 0.4rem;
+    line-height: 1.55;
+  }
+  /* Ochre, not the primary accent — .phase-overview li::marker already uses
+     ochre for list markers elsewhere in the deck, and the single hot-spot
+     accent (--primary) stays reserved for the poster quote mark, focus
+     states, links, and the touchline tick (see the brand design pass test
+     in training-deck.test.ts). */
+  ol.steps li::marker {
+    color: var(--ochre);
+    font-weight: 600;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  /* Escalation footnote — a visually distinct block (dashed rule + smaller
+     muted text) that trails the procedure/screenshot, not a mid-slide meta
+     line next to the title. Deliberately NOT pinned to the viewport bottom
+     via margin-top: auto — a long multi-step procedure plus a long
+     escalation sentence can exceed the slide's available height, and an
+     auto-margin push would then force it to visually collide with the
+     touchline footer instead of just flowing naturally after the content
+     (verified against the real act.weather_pre_check 6-step slide, which is
+     long enough to hit exactly this). */
+  .escalation-footnote {
+    margin-top: 1.75rem;
+    padding-top: 1rem;
+    max-width: 68ch;
+    border-top: 1px dashed var(--cream-3);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--ink-muted);
+  }
+  .escalation-footnote strong { color: var(--ink-2); }
+  /* Chapter divider slides (agenda's per-phase dividers + the checklist
+     appendix divider) — a big Newsreader chapter name distinct from a
+     normal content slide's h2, so it reads as a section break when
+     flipping through the deck. */
+  .divider-title {
+    margin: 0 0 2rem;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 3rem;
+    line-height: 1.15;
+    color: var(--navy-deep);
+  }
+  /* Agenda slide ("Your day at a glance") — one row per phase with its
+     activity count, right-aligned in mono like the other data labels. */
+  .agenda-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: 46ch;
+  }
+  .agenda-list li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--cream-3);
+  }
+  .agenda-phase {
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 1.3rem;
+    color: var(--navy-deep);
+  }
+  .agenda-count {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
   .belief { margin-top: 1.25rem; }
   .belief h3 {
     margin: 0 0 0.25rem;
@@ -446,6 +565,18 @@ ${FONT_FACE_CSS}
     font-size: 1.05rem;
     font-weight: 600;
   }
+  /* "Your job" role-summary slide. */
+  .role-summary-flow { margin-top: 1rem; }
+  .role-summary-clusters { margin-top: 1.5rem; }
+  .role-summary-clusters h3 {
+    margin: 0 0 0.5rem;
+    color: var(--navy-deep);
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+  .role-summary-clusters ul { margin: 0; padding-left: 1.25rem; }
+  .role-summary-clusters li { margin-bottom: 0.4rem; }
   .tools-table { border-collapse: collapse; width: 100%; }
   .tools-table td {
     border-bottom: 1px solid var(--cream-3);
@@ -455,7 +586,7 @@ ${FONT_FACE_CSS}
   }
   /* Readable measure — body copy tops out around 68 characters, headings
      and the tools table (needs its full width) are exempt. */
-  .slide p:not(.time-rail),
+  .slide p,
   .slide li {
     max-width: 68ch;
   }
@@ -566,12 +697,27 @@ ${FONT_FACE_CSS}
      duplication. One CSS rule, reused via class, keeps each variant's bytes
      in the document exactly once. */
   .touchline-logo {
-    height: 16px;
-    width: 36px;
+    /* Modestly larger than the original 16x36 footer mark (see the hero-scale
+       treatment on the title slide's .hero-logo below for the "big" logo). */
+    height: 20px;
+    width: 45px;
     display: block;
     background-repeat: no-repeat;
     background-position: left center;
     background-size: contain;
+  }
+  /* Hero-scale wordmark — title slide only. The poster (purpose) slide
+     keeps its existing treatment (no logo); this is a much bigger lockup
+     reusing the same dark-lettered mark since the title slide sits on the
+     cream background. */
+  .hero-logo {
+    width: 260px;
+    height: 72px;
+    margin: 0 0 3rem;
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: contain;
+    background-image: url(${LOGO_DARK_DATA_URI});
   }
   .touchline-logo--dark { background-image: url(${LOGO_DARK_DATA_URI}); }
   .touchline-logo--light { background-image: url(${LOGO_LIGHT_DATA_URI}); display: none; }
@@ -639,7 +785,7 @@ const NAV_SCRIPT = `
 
 interface SlideEntry {
   html: string;
-  kind?: "poster";
+  kind?: "poster" | "divider";
 }
 
 // Touchline footer: a full-width hairline with a small position tick baked
@@ -693,6 +839,7 @@ function renderTitleSlide(
   resolveRoleTokens: (text: string) => string,
 ): string {
   return `
+    <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
     <h1>${escapeHtml(role.name)}</h1>
     <p class="role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
   `.trim();
@@ -740,6 +887,117 @@ function renderRolePurposeSlide(role: Catalog["roles"][number]): string | null {
       <span class="poster-quote" aria-hidden="true">&#8220;</span>
       <p class="poster-statement">${escapeHtml(purpose)}</p>
     </div>
+  `.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Role summary ("Your job") slide — immediately after the purpose poster,
+// before the philosophy section. The poster answers WHY the role exists in
+// one line; this slide answers WHAT the job is and HOW the day goes,
+// concretely, so a new hire gets a real orientation instead of jumping
+// straight from "why" to a phase-by-phase activity list.
+//
+// The orienting paragraph below is hand-drafted per role from the REAL
+// catalog data — each role's `description` field plus its actual
+// accountable/responsible activities grouped by phase (dumped and reviewed
+// against docs/operations/catalog/activities/*.yaml while authoring this).
+// It intentionally does not claim any duty the catalog doesn't assign to the
+// role — draft copy, editable later, not a marketing statement like
+// ROLE_PURPOSE above. role.team_captain has no matched activities in the
+// catalog today (hand-authored manual, no act.* rows reference it), so its
+// paragraph says so rather than inventing day-of duties.
+// ---------------------------------------------------------------------------
+
+const ROLE_SUMMARY_PARAGRAPH: Record<string, string> = {
+  "role.coach":
+    "You run one team's sessions from open to close. You start and end each class or camp session, rotate group activities during camp play, and support the pregame briefing before youth league matches. Attendance, conduct, and compliance for your team run through you.",
+  "role.ref":
+    "You officiate the matches you're assigned. Once you check in, you keep live score, track time, and make the final score attestation — and you log any ejections after the match. Your call is the call.",
+  "role.venue_manager":
+    "You run the venue from unlock to lock-up. Across the day you confirm staffing and check the weather ahead of time, open the facility and brief your team, run the pregame weather and rainout call, handle incidents as they happen, and close everything down — walkthrough, lock, alarm, staff clock-out, and debrief. You're the person everything on site routes through.",
+  "role.event_lead":
+    "You own the run-of-show for a match or event slot within the venue. You confirm referees ahead of time, check in coaches, referees, photographers, and teams before kickoff, brief coaches pregame, and enforce the code of conduct and respond to incidents once play starts. After the match, you log referee stipends and run the staff debrief.",
+  "role.facilities":
+    "You keep the field, court, and equipment ready all day. You check equipment ahead of time, stage gear, set up parking and signage, prep the field or court and check lines before each match, then turn the field over and reset it between matches, log any field damage, and store equipment and handle trash at the end of the day.",
+  "role.front_of_house":
+    "You run check-in, concessions, and the front-of-house experience for the day. You set up and count concessions inventory in the morning, handle walk-on registrations before games, manage spectators during play, and reconcile cash and lost-and-found at the end of the day.",
+  "role.director":
+    "You hold organization-wide accountability rather than day-of duties. When something needs a final call — a rainout refund or reschedule decision, or a weekly safety review — it lands with you. You own the catalog and standards every other role works from, and you're the last stop when an issue can't be resolved on site.",
+  "role.photographer":
+    "You capture and deliver media for your assigned matches. You check in before the game, hand off your raw footage once it ends, and it feeds into the day's photo publish.",
+  "role.team_captain":
+    "Your team doesn't have a coach, so you're the one who keeps the roster and conduct organized for the group.",
+};
+
+function lowerFirst(text: string): string {
+  return text.length === 0 ? text : text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+// Oxford-comma join: "a", "a and b", "a, b, and c".
+function joinNaturally(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function renderRoleSummarySlide(
+  role: Catalog["roles"][number],
+  phaseGroups: Array<{ phase: Activity["phase"]; entries: MatchedActivity[] }>,
+): string | null {
+  const paragraph = ROLE_SUMMARY_PARAGRAPH[role.id];
+  if (!paragraph) return null;
+
+  if (phaseGroups.length === 0) {
+    return `
+      <h2>Your job</h2>
+      <p>${escapeHtml(paragraph)}</p>
+      <p class="empty-note">Day-of specifics for this role aren't in the catalog yet — check with your venue manager or director.</p>
+    `.trim();
+  }
+
+  const flowLine = joinNaturally(phaseGroups.map(({ phase }) => lowerFirst(humanizePhase(phase))));
+
+  // "What you're responsible for" is about ownership, not assistance — only
+  // Accountable (incl. Accountable | Responsible) entries count as a
+  // cluster the trainee "owns"; Responsible-only (assist) activities belong
+  // on the agenda/activity slides, not this summary. One cluster per phase,
+  // in phase order — no arbitrary truncation. In practice this lands at
+  // 3-5 clusters for nearly every role (PHASE_ORDER caps out at 7 phases
+  // total, and most roles own activities in only a handful of them); the
+  // one real-catalog exception is role.venue_manager, who owns something in
+  // every single phase — truncating there would silently drop End of
+  // day/Post day (lock-up, debrief, follow-up) right after a summary
+  // paragraph that explicitly promises "unlock to lock-up", which would
+  // make the slide contradict itself. Showing the true count is more
+  // honest than hitting an arbitrary cap.
+  const ownedClusters = phaseGroups
+    .map(({ phase, entries }) => ({
+      phase,
+      names: entries
+        .filter(({ involvement }) => involvement !== "Responsible")
+        .map(({ activity }) => lowerFirst(activity.name)),
+    }))
+    .filter((g) => g.names.length > 0);
+
+  const clustersHtml =
+    ownedClusters.length > 0
+      ? `<div class="role-summary-clusters">
+      <h3>What you're responsible for</h3>
+      <ul>${ownedClusters
+        .map(
+          ({ phase, names }) =>
+            `<li><strong>${escapeHtml(humanizePhase(phase))}:</strong> ${escapeHtml(joinNaturally(names))}</li>`,
+        )
+        .join("")}</ul>
+    </div>`
+      : "";
+
+  return `
+    <h2>Your job</h2>
+    <p>${escapeHtml(paragraph)}</p>
+    <p class="role-summary-flow"><strong>How the day flows for you:</strong> ${escapeHtml(flowLine)}.</p>
+    ${clustersHtml}
   `.trim();
 }
 
@@ -803,29 +1061,121 @@ function matchActivities(catalog: Catalog, roleId: string): MatchedActivity[] {
   return matched;
 }
 
-function renderPhaseOverviewSlide(phase: Activity["phase"], entries: MatchedActivity[]): string {
-  const items = entries
+function humanizePhase(phase: Activity["phase"]): string {
+  const words = phase.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+// ---------------------------------------------------------------------------
+// Chapter dividers. The deck is organized into chapters — an agenda slide
+// ("Your day at a glance"), then one divider + activity-slide group per
+// phase, then an appendix divider + checklist slides. Dividers share one
+// rendering shape (kicker + big Newsreader chapter name + a list of what's
+// inside), rendered with data-kind="divider" so DECK_CSS can give them a
+// distinct, bigger treatment than a normal content slide.
+// ---------------------------------------------------------------------------
+
+function renderDividerSlide(kicker: string, title: string, items: string[]): SlideEntry {
+  const itemsHtml = items.map((item) => `<li>${item}</li>`).join("");
+  return {
+    html: `
+    <p class="slide-kicker">${escapeHtml(kicker)}</p>
+    <p class="divider-title">${escapeHtml(title)}</p>
+    <ul class="phase-overview">${itemsHtml}</ul>
+  `.trim(),
+    kind: "divider",
+  };
+}
+
+function renderPhaseDividerSlide(
+  phase: Activity["phase"],
+  entries: MatchedActivity[],
+  phaseNumber: number,
+  totalPhases: number,
+): SlideEntry {
+  const items = entries.map(
+    ({ activity, involvement }) =>
+      `${escapeHtml(activity.name)} — <em>${escapeHtml(involvementToSentence(involvement))}</em>`,
+  );
+  return renderDividerSlide(`Phase ${phaseNumber} of ${totalPhases}`, humanizePhase(phase), items);
+}
+
+function pluralize(count: number, singular: string, plural: string = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function renderAgendaSlide(phaseGroups: Array<{ phase: Activity["phase"]; entries: MatchedActivity[] }>): string {
+  const items = phaseGroups
     .map(
-      ({ activity, involvement }) =>
-        `<li>${escapeHtml(activity.name)} — <em>${escapeHtml(involvementToSentence(involvement))}</em></li>`,
+      ({ phase, entries }) =>
+        `<li><span class="agenda-phase">${escapeHtml(humanizePhase(phase))}</span><span class="agenda-count">${escapeHtml(pluralize(entries.length, "activity", "activities"))}</span></li>`,
     )
     .join("");
   return `
-    <h2>Your day: ${escapeHtml(phase.replace(/_/g, " "))}</h2>
-    <ul class="phase-overview">${items}</ul>
+    <h2>Your day at a glance</h2>
+    <ul class="agenda-list">${items}</ul>
   `.trim();
 }
 
-function sopBodyToBullets(sopBody: string): string[] {
-  return sopBody
+// ---------------------------------------------------------------------------
+// Procedure step parsing. sop_body is authored as a numbered list in a YAML
+// block scalar, but long steps wrap across multiple source lines for
+// readability (see docs/operations/catalog/activities/act.weather_pre_check.yaml
+// for the canonical example: 6 numbered steps whose sentences wrap across 16
+// physical lines). A continuation line belongs to the PREVIOUS step, not a
+// new one — so splitting naively on "\n" (the old behavior) turned every
+// physical line into its own renumbered <li>, mangling a 6-step procedure
+// into 16 fragments. Parse by finding step-start boundaries ("^<n>. ") and
+// folding every line up to the next boundary into that step.
+// ---------------------------------------------------------------------------
+
+const STEP_START_RE = /^\d+\.\s+/;
+
+function parseProcedureSteps(sopBody: string): string[] {
+  const lines = sopBody
+    .replace(/\r\n/g, "\n")
     .trim()
     .split("\n")
-    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+    .map((line) => line.trim())
     .filter((line) => line.length > 0);
+
+  const steps: string[] = [];
+  let current: string[] | null = null;
+  let sawStepMarker = false;
+
+  for (const line of lines) {
+    if (STEP_START_RE.test(line)) {
+      sawStepMarker = true;
+      if (current !== null) steps.push(current.join(" "));
+      current = [line.replace(STEP_START_RE, "")];
+    } else if (current !== null) {
+      // Continuation of the step currently being accumulated.
+      current.push(line);
+    }
+    // else: text appears before any numbered step marker — not part of a
+    // numbered procedure; handled by the freeform fallback in
+    // renderProcedureHtml, which re-reads the raw sopBody rather than this
+    // partial state.
+  }
+  if (current !== null) steps.push(current.join(" "));
+
+  return sawStepMarker ? steps : [];
 }
 
-const CHECKLIST_NOTE_TEXT = "There's a checklist for this — see the checklist slides.";
+function checklistTemplateIdFor(activity: Activity): string | undefined {
+  if (activity.tracking_method !== "checklist") return undefined;
+  const ta = activity.tracking_artifact as Record<string, unknown>;
+  return typeof ta.template_id === "string" ? ta.template_id : undefined;
+}
 
+// Round-2 slide anatomy: a compact meta-chip row directly under the title
+// (WHEN / YOU OWN THIS-or-YOU ASSIST / CHECKLIST), replacing both the
+// floating top-right time-rail chip and the italic "You own this"
+// slide-kicker line, plus the "There's a checklist for this — see the
+// checklist slides" filler sentence (the checklist chip already says so).
+// Escalation moves out of the meta area entirely into a visually distinct
+// footnote block at the bottom of the slide (see .escalation-footnote),
+// not mid-slide next to the steps.
 function renderActivitySlide(
   roleId: string,
   activity: Activity,
@@ -837,39 +1187,58 @@ function renderActivitySlide(
   const when = humanizeTrigger(resolveRoleTokens(normalizeWhitespace(activity.trigger)));
   const escalation = resolveRoleTokens(normalizeWhitespace(activity.escalation_path));
 
-  // The "When" value moved out of the meta list and into the mono time-rail
-  // chip at the slide top (see .time-rail in DECK_CSS) — it's extracted,
-  // not duplicated, so the meta list below only covers checklist/escalation
-  // info and stays quiet.
-  const metaLines: string[] = [];
-  // Trainees don't need to know the tracking mechanism — only that a
-  // checklist exists for activities that use one.
-  if (activity.tracking_method === "checklist") {
-    metaLines.push(`<p>${escapeHtml(CHECKLIST_NOTE_TEXT)}</p>`);
+  const chips: string[] = [
+    `<span class="meta-chip meta-chip--when">When: ${escapeHtml(when)}</span>`,
+    `<span class="meta-chip meta-chip--owner">${escapeHtml(involvementToChipLabel(involvement))}</span>`,
+  ];
+  const checklistTemplateId = checklistTemplateIdFor(activity);
+  if (checklistTemplateId) {
+    chips.push(
+      `<span class="meta-chip meta-chip--checklist">Checklist: ${escapeHtml(deriveArtifactTitle(checklistTemplateId))}</span>`,
+    );
   }
-  metaLines.push(`<p><strong>If something goes wrong:</strong> ${escapeHtml(escalation)}</p>`);
 
   return `
-    <p class="time-rail">${escapeHtml(when)}</p>
     <h2>${escapeHtml(activity.name)}</h2>
-    <p class="slide-kicker">${escapeHtml(involvementToSentence(involvement))}</p>
-    <div class="activity-meta">
-      ${metaLines.join("\n      ")}
-    </div>
+    <div class="meta-chip-row">${chips.join("")}</div>
     ${renderProcedureHtml(activity.sop_body)}
     ${screenshotSlotHtml(roleId, slug, screenshots)}
+    <div class="escalation-footnote"><strong>If something goes wrong:</strong> ${escapeHtml(escalation)}</div>
   `.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Checklist title resolution. ArtifactTemplate (see
+// src/lib/ops-catalog/types/artifact-template.ts) has no name/title field on
+// ChecklistTemplateSchema or FormTemplateSchema today — only
+// SignatureTemplateSchema/SystemEventTemplateSchema/CounterTemplateSchema
+// carry free-text ("prompt"/"description"), and none carry a display name.
+// Adding one would mean a schema change (small) PLUS authoring real names
+// into all ~36 checklist/form template YAML files (content work, not a
+// mechanical rename) — deferred rather than done here; this derives a
+// human title from the id instead: strip the "chk."/"frm."/etc. prefix,
+// replace underscores with spaces, and capitalize the first letter only
+// (sentence case, matching the deck's other headings).
+// ---------------------------------------------------------------------------
+
+function deriveArtifactTitle(templateId: string): string {
+  const slug = templateId.replace(/^[a-z]+\./, "");
+  const words = slug.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function collectChecklistTemplateIds(matched: MatchedActivity[]): string[] {
   const ids = new Set<string>();
   for (const { activity } of matched) {
-    if (activity.tracking_method !== "checklist") continue;
-    const ta = activity.tracking_artifact as Record<string, unknown>;
-    const templateId = typeof ta.template_id === "string" ? ta.template_id : undefined;
+    const templateId = checklistTemplateIdFor(activity);
     if (templateId) ids.add(templateId);
   }
   return [...ids].sort();
+}
+
+function renderChecklistAppendixDividerSlide(catalog: Catalog, templateIds: string[]): SlideEntry {
+  const items = templateIds.map((id) => escapeHtml(deriveArtifactTitle(id)));
+  return renderDividerSlide("Appendix", "Checklists", items);
 }
 
 function renderChecklistSlide(catalog: Catalog, templateId: string): string | null {
@@ -878,7 +1247,7 @@ function renderChecklistSlide(catalog: Catalog, templateId: string): string | nu
   const items = template.items.map((item) => `<li>${escapeHtml(item.label)}</li>`).join("");
   return `
     <div class="clipboard-card">
-      <h2>Checklist: ${escapeHtml(templateId)}</h2>
+      <h2>${escapeHtml(deriveArtifactTitle(templateId))}</h2>
       <ul class="checklist checklist--ticks">${items}</ul>
     </div>
   `.trim();
@@ -1079,11 +1448,21 @@ export function renderTrainingDeck(
 
   const matched = matchActivities(catalog, roleId);
   const resolveRoleTokens = createRoleTokenResolver(catalog);
+  // Computed once, up front, so both the "Your job" summary slide and the
+  // agenda/phase-divider chapters below can share the same grouping.
+  const phaseGroups = PHASE_ORDER.map((phase) => ({
+    phase,
+    entries: matched.filter((m) => m.activity.phase === phase),
+  })).filter((group) => group.entries.length > 0);
+
   const slides: SlideEntry[] = [];
   slides.push({ html: renderTitleSlide(role, resolveRoleTokens) });
 
   const purposeSlide = renderRolePurposeSlide(role);
   if (purposeSlide) slides.push({ html: purposeSlide, kind: "poster" });
+
+  const summarySlide = renderRoleSummarySlide(role, phaseGroups);
+  if (summarySlide) slides.push({ html: summarySlide });
 
   for (const philosophySlide of COMPANY_PHILOSOPHY_SLIDES) {
     slides.push({ html: philosophySlide });
@@ -1095,20 +1474,28 @@ export function renderTrainingDeck(
     }
   }
 
-  for (const phase of PHASE_ORDER) {
-    const entries = matched.filter((m) => m.activity.phase === phase);
-    if (entries.length === 0) continue;
-    slides.push({ html: renderPhaseOverviewSlide(phase, entries) });
+  // Chapters: agenda -> one phase-divider + its activity slides per phase ->
+  // a checklist appendix chapter (its own divider) -> safety/tools/help.
+  if (phaseGroups.length > 0) {
+    slides.push({ html: renderAgendaSlide(phaseGroups) });
+  }
+
+  phaseGroups.forEach(({ phase, entries }, i) => {
+    slides.push(renderPhaseDividerSlide(phase, entries, i + 1, phaseGroups.length));
     for (const { activity, involvement } of entries) {
       slides.push({
         html: renderActivitySlide(roleId, activity, involvement, opts.screenshots, resolveRoleTokens),
       });
     }
-  }
+  });
 
-  for (const templateId of collectChecklistTemplateIds(matched)) {
-    const slide = renderChecklistSlide(catalog, templateId);
-    if (slide) slides.push({ html: slide });
+  const checklistTemplateIds = collectChecklistTemplateIds(matched);
+  if (checklistTemplateIds.length > 0) {
+    slides.push(renderChecklistAppendixDividerSlide(catalog, checklistTemplateIds));
+    for (const templateId of checklistTemplateIds) {
+      const slide = renderChecklistSlide(catalog, templateId);
+      if (slide) slides.push({ html: slide });
+    }
   }
 
   slides.push({ html: renderSafetySlide(catalog, matched, resolveRoleTokens) });
