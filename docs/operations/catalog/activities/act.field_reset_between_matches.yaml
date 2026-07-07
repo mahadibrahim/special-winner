@@ -37,6 +37,10 @@ sop_body: |
      field/court setup — no new hazards introduced during play.
   7. Complete within the 15-minute turnover window so the next match
      isn't delayed.
+tools:
+  - Trash bags and a pickup bucket for rapid sideline sweep
+  - Field-marking paint or chalk (line touch-ups)
+  - Corner flags and boundary markers
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.field_reset

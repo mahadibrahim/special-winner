@@ -39,6 +39,10 @@ sop_body: |
   7. Upload the photos to the day's record; pull a replacement from
      backup stock or flag the venue manager for anything missing or
      damaged.
+tools:
+  - The day's signage plan
+  - Wayfinding signs, sponsor banners, and safety placards
+  - Camera or phone (photo upload confirming placement)
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: signage_setup

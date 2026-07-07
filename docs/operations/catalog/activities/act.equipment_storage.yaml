@@ -37,6 +37,10 @@ sop_body: |
      the next equipment inventory check.
   7. Log the completed storage count — any shortfall becomes the first
      line item on the next inventory check.
+tools:
+  - Labeled storage bins and shelving
+  - The morning's equipment staging count (for comparison)
+  - First-aid kit contents log
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_storage

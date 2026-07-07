@@ -56,6 +56,10 @@ sop_body: |
   9. If you're unreachable, the venue manager logs the damage and
      escalates to the director for repair authorization per the
      escalation path.
+tools:
+  - Camera or phone (dated photos of the damage)
+  - The most recent field condition photo on file (baseline comparison)
+  - The field damage report form
 tracking_method: form
 tracking_artifact:
   template_id: frm.field_damage_report
