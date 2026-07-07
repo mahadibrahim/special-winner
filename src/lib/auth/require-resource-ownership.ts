@@ -30,6 +30,8 @@ import { locations, userOrganizationAccess } from "@/lib/db/schema/organizations
 import { venues } from "@/lib/db/schema/teams";
 import { conversations } from "@/lib/db/schema/conversations";
 import { shootSessions } from "@/lib/db/schema/media";
+import { incidents } from "@/lib/db/schema/incidents";
+import { familyMembers } from "@/lib/db/schema/registrations";
 
 export type OwnershipResult<T> =
   | { ok: true; row: T }
@@ -254,6 +256,54 @@ export async function requireSameOrgShootSession(
         eq(shootSessions.organizationId, orgId),
       ),
     )
+    .limit(1);
+
+  if (!row) return NOT_FOUND;
+  return { ok: true, row };
+}
+
+/**
+ * incidents.organizationId — direct (denormalized at insert time so
+ * tenant-scoping doesn't require a venue/game join on every lookup).
+ */
+export async function requireSameOrgIncident(
+  orgId: string,
+  incidentId: string,
+): Promise<OwnershipResult<typeof incidents.$inferSelect>> {
+  const [row] = await getDb()
+    .select()
+    .from(incidents)
+    .where(and(eq(incidents.id, incidentId), eq(incidents.organizationId, orgId)))
+    .limit(1);
+
+  if (!row) return NOT_FOUND;
+  return { ok: true, row };
+}
+
+/**
+ * family_members -> registrations -> seasons -> programs -> locations.organizationId
+ *
+ * Only confirms a family_member belongs to the org via an existing
+ * registration — this is the incident-subject "participant" path, which by
+ * definition points at an already-registered person, not a fresh
+ * resolvePerson() insert. A family_member with no registration in this org
+ * (or no registration at all) is treated as not-found.
+ */
+export async function requireSameOrgFamilyMember(
+  orgId: string,
+  familyMemberId: string,
+): Promise<OwnershipResult<{ id: string; organizationId: string }>> {
+  const [row] = await getDb()
+    .select({
+      id: familyMembers.id,
+      organizationId: locations.organizationId,
+    })
+    .from(familyMembers)
+    .innerJoin(registrations, eq(registrations.familyMemberId, familyMembers.id))
+    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(and(eq(familyMembers.id, familyMemberId), eq(locations.organizationId, orgId)))
     .limit(1);
 
   if (!row) return NOT_FOUND;
