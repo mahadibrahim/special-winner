@@ -324,17 +324,31 @@ and how the owner actually wants routine team content to flow.
 
 ---
 
-## Rough sequencing
+## Sequencing (owner-agreed, 2026-07-07)
 
-1. **Account credit** (#1) and **incident reporting** (#3) — highest
-   priority, both close a live gap between what's already promised/
-   expected and what the code does, and both have a clear existing
-   pattern to extend (discount ledger; stub form schema).
-2. **Ejection/suspension tracker** (#2) — safety-sensitive, additive to
-   the existing incident model.
-3. **Media do-not-publish shortlist** (#6) — small, standalone, ship
-   whenever convenient.
-4. **Time tracking + geofencing** (#4) — biggest net-new build; do the
-   schema/UX design work before #5.
-5. **Gusto export** (#5) — sequenced after #4 so there's real labor data
-   to export.
+Framing: split the six into **protect the business** (risk / liability /
+trust / promises already made) versus **run it cheaper** (efficiency).
+Do the protection group first — skipping an efficiency build just leaves
+manual work; skipping a protection build risks a lawsuit, a refund
+dispute against your own written policy, a banned adult back on the
+field, or a child-privacy miss. A second thread ties them together: the
+revised SOPs now *describe* incident reporting, ejection tracking, and
+credit as in-app processes, so building them is also what makes the SOPs
+and the training decks actually true.
+
+1. **Incident reporting (#3)** — first. Highest-consequence gap; pairs
+   with the Ohio concussion obligations (same-day digital record is the
+   liability shield); the field schema is already fully specified.
+2. **Account credit (#1)** — the public refund policy already promises
+   credit the product can't issue; the ledger pattern exists to copy.
+3. **Media do-not-publish shortlist (#6)** — pulled forward as a quick
+   win: smallest lift (one table + one query) and it closes a live
+   child-privacy gap (photographers guessing opt-outs from memory).
+4. **Ejection/suspension tracker (#2)** — build the thin slice now
+   (flag + suspension + admin/next-ref banner); auto-blocking a
+   suspended person waits on rosters becoming real foreign keys.
+5. **Time tracking + geofencing (#4)** — biggest net-new build; needs a
+   real design pass (GPS tolerance, don't hard-block on a bad fix) and a
+   counsel check on employee-location tracking. Do the schema/UX first.
+6. **Gusto export (#5)** — after #4, so there's real labor data to
+   export.
