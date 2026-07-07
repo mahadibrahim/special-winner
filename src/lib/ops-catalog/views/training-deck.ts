@@ -463,6 +463,18 @@ ${FONT_FACE_CSS}
   .frame-main {
     min-width: 0;
   }
+  /* Round-4 crowding pass: continuation pages of a paginated activity (see
+     renderActivitySlides) drop the two-column .frame-layout grid entirely
+     (no meta/tools panel repeats, no escalation until the last page) and
+     render the remaining steps as a solo block. Capped to the same width
+     the procedure column would have inside the two-column grid (measured
+     ~609px at the deck's 1280px design width) so continuation pages read
+     as a visual continuation of the same column, not a sudden full-width
+     reflow, and so the pagination estimator's per-line budget (calibrated
+     at that column width) stays valid. */
+  .frame-main--continuation {
+    max-width: 610px;
+  }
   .frame-panel {
     background: var(--paper);
     border: 1px solid var(--cream-3);
@@ -568,8 +580,19 @@ ${FONT_FACE_CSS}
     font-family: "IBM Plex Sans", sans-serif;
   }
   .screenshot-frame { margin-top: 1.5rem; }
+  /* Round-4 crowding pass: per-activity screenshots previously had no
+     height cap (only max-width:100%), so a tall/portrait-ish capture could
+     push an already-long procedure well past the frame. Capping height and
+     letting object-fit:contain scale the image down (same technique as the
+     tour treatment's .screenshot-frame--tour below) keeps every activity
+     screenshot's contribution to slide height bounded and predictable —
+     which the pagination estimator in the JS below relies on (see
+     SCREENSHOT_BLOCK_PX). */
   .screenshot-frame img {
+    display: block;
     max-width: 100%;
+    max-height: 260px;
+    object-fit: contain;
     border: 1px solid var(--cream-3);
     border-radius: 6px;
   }
@@ -940,6 +963,19 @@ ${FONT_FACE_CSS}
     line-height: 1.3;
     color: var(--cream);
   }
+  /* Round-4 crowding pass: at the full 3.1rem size, a purpose statement
+     over ~125 characters wraps to 9+ lines in the narrow 40ch column and
+     runs the statement's last line under the touchline footer (measured
+     against every real ROLE_PURPOSE entry at the deck's 1280x720 design
+     viewport — see renderRolePurposeSlide, which applies this class by
+     length rather than shrinking every statement uniformly). Smaller size
+     + slightly tighter line-height buys enough extra lines of headroom for
+     the longest real statement (role.event_lead, 159 chars) to clear the
+     footer with room to spare. */
+  .poster-statement--long {
+    font-size: 2.5rem;
+    line-height: 1.28;
+  }
   .poster-mark {
     flex: 1 1 auto;
     text-align: center;
@@ -1216,15 +1252,25 @@ const ROLE_PURPOSE: Record<string, string> = {
     "You lead from inside the game. Your teammates take their cues from how you compete, communicate, and treat the other side.",
 };
 
+// Statements longer than this wrap to enough lines at the full 3.1rem size
+// to run under the touchline footer at the deck's 1280x720 design viewport
+// — see the .poster-statement--long comment in DECK_CSS for the measured
+// basis. 125 was picked to include role.ref's 146-char statement (which
+// fits at full size with essentially zero margin — a single extra word
+// would tip it over) as well as every statement that measurably overflows.
+const POSTER_STATEMENT_LONG_THRESHOLD = 125;
+
 function renderRolePurposeSlide(role: Catalog["roles"][number]): string | null {
   const purpose = ROLE_PURPOSE[role.id];
   if (!purpose) return null;
+  const statementClass =
+    purpose.length > POSTER_STATEMENT_LONG_THRESHOLD ? "poster-statement poster-statement--long" : "poster-statement";
   return `
     <p class="poster-role-label">${escapeHtml(role.name)}</p>
     <div class="poster-layout">
       <div class="poster-statement-wrap">
         <span class="poster-quote" aria-hidden="true">&#8220;</span>
-        <p class="poster-statement">${escapeHtml(purpose)}</p>
+        <p class="${statementClass}">${escapeHtml(purpose)}</p>
       </div>
       <span class="poster-mark" aria-hidden="true">&#8221;</span>
     </div>
@@ -1408,6 +1454,23 @@ interface RoleToolkit {
   physical: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Round-4 crowding pass: shared slide-frame constants. The deck's design
+// viewport (see the deck-crowding-audit) is 1280x720; every slide shares the
+// same 8vh top/bottom padding and the same h2-plus-hairline-rule header
+// composition regardless of which slide type follows it, so the toolkit,
+// timeline, and activity paginators below all budget against these same
+// numbers rather than each re-deriving them.
+// ---------------------------------------------------------------------------
+const ACTIVITY_VIEWPORT_HEIGHT_PX = 720;
+const ACTIVITY_BOTTOM_PADDING_PX = 58;
+const ACTIVITY_SAFETY_MARGIN_PX = 24;
+// h2 + its hairline rule/margin + the frame-layout's own small margin-top —
+// fixed regardless of content since the title is always one line. Shared by
+// the activity slide and the "How time works on your day" timeline slide,
+// which both put a .frame-layout grid directly under the h2.
+const FRAME_LAYOUT_TOP_PX = 146;
+
 function buildRoleToolkit(matched: MatchedActivity[]): RoleToolkit {
   const seen = new Set<string>();
   const digital: string[] = [];
@@ -1456,6 +1519,105 @@ function renderRoleToolkitSlide(matched: MatchedActivity[]): string | null {
       ${renderToolkitCategory("Physical & on-site tools", physical)}
     </div>
   `.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Round-4 crowding pass: toolkit pagination. role.venue_manager alone
+// catalogues 40+ distinct tools across its matched activities (see the
+// deck-crowding-audit) — comfortably more than the two-column toolkit grid
+// fits on one 720px-tall slide. Same estimate-then-paginate approach as
+// renderActivitySlides above: a conservative chars-per-line height estimate
+// (calibrated against a real Playwright measurement of the venue_manager
+// toolkit slide), producing "Your toolkit (i/N)" continuation slides only
+// when the estimate says the full list won't fit — every role whose tools
+// already fit on one slide renders byte-identical output to
+// renderRoleToolkitSlide above.
+const TOOLKIT_ITEM_LINE_HEIGHT_PX = 19.5;
+const TOOLKIT_ITEM_GAP_PX = 8.8;
+const TOOLKIT_CHARS_PER_LINE = 60;
+// h2 + kicker + the grid's own margin-top, fixed regardless of content.
+const TOOLKIT_GRID_TOP_PX = 216;
+// A larger safety margin than the activity/timeline paginators' shared
+// ACTIVITY_SAFETY_MARGIN_PX: the first calibration pass (see the
+// deck-crowding-audit) under-budgeted here by 24-70px on every real
+// multi-page toolkit (event_lead, facilities, ref, venue_manager) — the
+// per-item estimate is close but not quite conservative enough once ~20+
+// real tool strings are packed onto one page, so this pass carries its own,
+// wider margin rather than nudging the shared constant (which the
+// activity/timeline paginators verified fits fine at 24).
+const TOOLKIT_SAFETY_MARGIN_PX = 120;
+const TOOLKIT_PAGE_BUDGET_PX =
+  ACTIVITY_VIEWPORT_HEIGHT_PX - TOOLKIT_GRID_TOP_PX - ACTIVITY_BOTTOM_PADDING_PX - TOOLKIT_SAFETY_MARGIN_PX;
+
+function paginateToolkitCategory(tools: string[]): string[][] {
+  if (tools.length === 0) return [[]];
+  const pages: string[][] = [];
+  let current: string[] = [];
+  let currentHeight = 0;
+  for (const tool of tools) {
+    const itemHeight = estimateWrappedLines(tool, TOOLKIT_CHARS_PER_LINE) * TOOLKIT_ITEM_LINE_HEIGHT_PX;
+    const gap = current.length > 0 ? TOOLKIT_ITEM_GAP_PX : 0;
+    if (current.length > 0 && currentHeight + gap + itemHeight > TOOLKIT_PAGE_BUDGET_PX) {
+      pages.push(current);
+      current = [tool];
+      currentHeight = itemHeight;
+    } else {
+      current.push(tool);
+      currentHeight += gap + itemHeight;
+    }
+  }
+  if (current.length > 0) pages.push(current);
+  return pages;
+}
+
+// Renders one category panel for a single toolkit page. `categoryHasItems`
+// distinguishes "this role has zero tools in this category, period" (shows
+// the original "None catalogued yet." empty-state note) from "this category
+// simply ran out of items on an earlier page" (renders nothing extra —
+// repeating an empty-state note on every trailing page would misleadingly
+// suggest the whole category is empty).
+function renderToolkitCategoryPage(heading: string, toolsChunk: string[], categoryHasItems: boolean): string {
+  let listHtml: string;
+  if (toolsChunk.length > 0) {
+    listHtml = `<ul class="toolkit-list">${toolsChunk.map((tool) => `<li>${escapeHtml(tool)}</li>`).join("")}</ul>`;
+  } else if (!categoryHasItems) {
+    listHtml = `<p class="empty-note">None catalogued yet.</p>`;
+  } else {
+    listHtml = "";
+  }
+  return `
+    <div class="frame-panel">
+      <p class="frame-panel-heading">${escapeHtml(heading)}</p>
+      ${listHtml}
+    </div>
+  `.trim();
+}
+
+function renderRoleToolkitSlides(matched: MatchedActivity[]): SlideEntry[] {
+  const single = renderRoleToolkitSlide(matched);
+  if (single === null) return [];
+
+  const { digital, physical } = buildRoleToolkit(matched);
+  if (digital.length === 0 && physical.length === 0) return [{ html: single }];
+
+  const digitalPages = paginateToolkitCategory(digital);
+  const physicalPages = paginateToolkitCategory(physical);
+  const totalPages = Math.max(digitalPages.length, physicalPages.length);
+  if (totalPages <= 1) return [{ html: single }];
+
+  return Array.from({ length: totalPages }, (_, i) => {
+    const title = `Your toolkit (${i + 1}/${totalPages})`;
+    return {
+      html: `
+    <h2>${escapeHtml(title)}</h2>
+    <p class="slide-kicker">Everything your activities call for, in one place.</p>
+    <div class="toolkit-grid">
+      ${renderToolkitCategoryPage("Digital & platform tools", digitalPages[i] ?? [], digital.length > 0)}
+      ${renderToolkitCategoryPage("Physical & on-site tools", physicalPages[i] ?? [], physical.length > 0)}
+    </div>
+  `.trim(),
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1628,6 +1790,82 @@ function renderRoleTimelineSlide(
       </div>
     </div>
   `.trim();
+}
+
+// Round-4 crowding pass: timeline pagination. role.venue_manager's day has
+// 16 real stops (see the deck-crowding-audit) — every row renders at a
+// fixed height (the label is single-line/nowrap by design, see
+// .timeline-label in DECK_CSS, and real activity names are short enough
+// never to wrap the .timeline-name column), so unlike the activity/toolkit
+// estimators above, pagination here is a simple fixed-row-count budget, no
+// per-text estimate needed. Produces "How time works on your day (i/N)"
+// continuation slides only when entries.length exceeds one page's worth of
+// rows; every role within that budget renders byte-identical output to
+// renderRoleTimelineSlide above.
+const TIMELINE_ROW_HEIGHT_PX = 41;
+// h2 + the frame-layout's own margin-top, fixed regardless of content —
+// same value as FRAME_LAYOUT_TOP_PX (both slides share the same h2/rule
+// composition above the grid).
+const TIMELINE_LIST_TOP_PX = FRAME_LAYOUT_TOP_PX;
+// A wider safety margin than the shared ACTIVITY_SAFETY_MARGIN_PX: at that
+// margin the last row of a full page sat right at the touchline hairline
+// (0px overflow, but visually touching the footer rule) — see the
+// deck-crowding-audit screenshots. One fewer row per page buys real
+// breathing room above the footer.
+const TIMELINE_SAFETY_MARGIN_PX = 64;
+const TIMELINE_PAGE_BUDGET_PX =
+  ACTIVITY_VIEWPORT_HEIGHT_PX - TIMELINE_LIST_TOP_PX - ACTIVITY_BOTTOM_PADDING_PX - TIMELINE_SAFETY_MARGIN_PX;
+const TIMELINE_ROWS_PER_PAGE = Math.max(1, Math.floor(TIMELINE_PAGE_BUDGET_PX / TIMELINE_ROW_HEIGHT_PX));
+
+function renderRoleTimelineSlides(
+  matched: MatchedActivity[],
+  resolveRoleTokens: (text: string) => string,
+): SlideEntry[] {
+  const single = renderRoleTimelineSlide(matched, resolveRoleTokens);
+  if (single === null) return [];
+
+  const entries = buildRoleTimeline(matched, resolveRoleTokens);
+  if (entries.length <= TIMELINE_ROWS_PER_PAGE) return [{ html: single }];
+
+  const eventBasedCount = entries.filter((entry) => !entry.isTimeRelative).length;
+  const pages: TimelineEntry[][] = [];
+  for (let i = 0; i < entries.length; i += TIMELINE_ROWS_PER_PAGE) {
+    pages.push(entries.slice(i, i + TIMELINE_ROWS_PER_PAGE));
+  }
+
+  const eventStatHtml =
+    eventBasedCount > 0
+      ? `<div class="frame-stat">
+          <p class="frame-stat-value">${eventBasedCount}</p>
+          <p class="frame-stat-label">${escapeHtml(pluralize(eventBasedCount, "activity", "activities"))} triggered by events, not the clock</p>
+        </div>`
+      : "";
+
+  return pages.map((pageEntries, i) => {
+    const itemsHtml = pageEntries
+      .map(
+        (entry) =>
+          `<li class="timeline-row"><span class="timeline-label">${escapeHtml(entry.label)}</span><span class="timeline-name">${escapeHtml(entry.activity.name)}</span></li>`,
+      )
+      .join("");
+    const title = `How time works on your day (${i + 1}/${pages.length})`;
+    return {
+      html: `
+    <h2>${escapeHtml(title)}</h2>
+    <div class="frame-layout">
+      <ol class="timeline-list">${itemsHtml}</ol>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">At a glance</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">${entries.length}</p>
+          <p class="frame-stat-label">${escapeHtml(pluralize(entries.length, "stop", "stops"))} across your day</p>
+        </div>
+        ${eventStatHtml}
+      </div>
+    </div>
+  `.trim(),
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1889,6 +2127,218 @@ function renderActivitySlide(
 }
 
 // ---------------------------------------------------------------------------
+// Round-4 crowding pass: activity-slide pagination. A handful of real
+// catalog activities (e.g. act.rainout_refund_decision, act.incident_response)
+// have procedures long enough — sometimes paired with a real embedded
+// screenshot (see SCREENSHOT_BLOCK_PX below) — that the two-column slide
+// from renderActivitySlide above runs past the 720px-tall design frame and
+// relies on .slide's overflow-y:auto to hide it, which is exactly the
+// silent-scroll crowding this pass exists to catch and fix (see the
+// deck-crowding-audit plan). renderTrainingDeck can't measure real rendered
+// height (this module stays pure/synchronous, no browser at generation
+// time — see the file-header comment), so pagination is decided by a
+// character-count height ESTIMATE, calibrated against real Playwright
+// measurements of every flagged deck at the deck's 1280x720 design
+// viewport (see docs/superpowers/plans's crowding-audit notes). Constants
+// are deliberately conservative (low chars-per-line, i.e. they predict
+// MORE wrapped lines than most real text needs) so the estimator never
+// UNDER-predicts height — the failure mode that would matter is silently
+// leaving a slide un-split, not splitting a slide slightly earlier than
+// strictly necessary.
+//
+// When the estimate says everything fits on one page, output is IDENTICAL
+// to the single-page renderActivitySlide above (same function, called
+// once) — this pass changes nothing for the ~190 real activity slides that
+// were never crowded.
+const STEP_LINE_HEIGHT_PX = 26;
+const STEP_CHARS_PER_LINE = 56;
+const STEP_GAP_PX = 16;
+const STEPS_LIST_TRAILING_MARGIN_PX = 28;
+const ESCALATION_MARGIN_TOP_PX = 32;
+const ESCALATION_BASE_PX = 21;
+const ESCALATION_LINE_HEIGHT_PX = 20;
+const ESCALATION_CHARS_PER_LINE = 55;
+// margin-top (1.5rem=24) + the CSS max-height cap (260px) added to
+// .screenshot-frame img above — a real embedded screenshot's contribution
+// to slide height is now bounded and known at generation time, which is
+// exactly what makes accounting for it here possible.
+const SCREENSHOT_BLOCK_PX = 284;
+// Budget for a page's step-chunk height alone (panel/meta on page 1 is
+// small enough in practice not to be the binding column — see the
+// crowding-audit calibration notes — so it isn't separately modeled here).
+const ACTIVITY_PAGE_BUDGET_PX =
+  ACTIVITY_VIEWPORT_HEIGHT_PX - FRAME_LAYOUT_TOP_PX - ACTIVITY_BOTTOM_PADDING_PX - ACTIVITY_SAFETY_MARGIN_PX;
+
+function estimateWrappedLines(text: string, charsPerLine: number): number {
+  return Math.max(1, Math.ceil(text.length / charsPerLine));
+}
+
+function estimateStepHeight(step: string): number {
+  return estimateWrappedLines(step, STEP_CHARS_PER_LINE) * STEP_LINE_HEIGHT_PX;
+}
+
+function estimateStepsBlockHeight(steps: string[]): number {
+  if (steps.length === 0) return 0;
+  const stepsHeight = steps.reduce((sum, s) => sum + estimateStepHeight(s), 0);
+  return stepsHeight + (steps.length - 1) * STEP_GAP_PX + STEPS_LIST_TRAILING_MARGIN_PX;
+}
+
+function estimateEscalationHeight(text: string): number {
+  const lines = estimateWrappedLines(text, ESCALATION_CHARS_PER_LINE);
+  return ESCALATION_BASE_PX + lines * ESCALATION_LINE_HEIGHT_PX;
+}
+
+// Greedy bin-pack of procedure steps into pages, each page's estimated
+// height capped at ACTIVITY_PAGE_BUDGET_PX. The true LAST page also has to
+// carry the escalation footnote (always) and the screenshot (if any) — both
+// only render once, at the end — so after the greedy pass, check whether
+// the last page plus that reserve still fits; if not, peel steps off the
+// end into further trailing pages (looped, not a single peel, in case a
+// long final step + a long escalation still don't fit after one peel).
+function paginateProcedureSteps(
+  steps: string[],
+  hasScreenshot: boolean,
+  escalationHeight: number,
+): string[][] {
+  const pages: string[][] = [];
+  let current: string[] = [];
+  let currentHeight = 0;
+
+  for (const step of steps) {
+    const stepHeight = estimateStepHeight(step);
+    const gap = current.length > 0 ? STEP_GAP_PX : 0;
+    const prospective = currentHeight + gap + stepHeight;
+    if (current.length > 0 && prospective + STEPS_LIST_TRAILING_MARGIN_PX > ACTIVITY_PAGE_BUDGET_PX) {
+      pages.push(current);
+      current = [step];
+      currentHeight = stepHeight;
+    } else {
+      current.push(step);
+      currentHeight = prospective;
+    }
+  }
+  if (current.length > 0) pages.push(current);
+
+  const reserve = ESCALATION_MARGIN_TOP_PX + escalationHeight + (hasScreenshot ? SCREENSHOT_BLOCK_PX : 0);
+  while (pages.length > 0) {
+    const last = pages[pages.length - 1];
+    if (last.length <= 1) break;
+    const lastHeight = estimateStepsBlockHeight(last);
+    if (lastHeight + reserve <= ACTIVITY_PAGE_BUDGET_PX) break;
+    const moved = last.pop();
+    if (moved === undefined) break;
+    pages.push([moved]);
+  }
+  return pages;
+}
+
+function renderActivityMetaRowsHtml(activity: Activity, when: string, involvement: Involvement): string {
+  const metaRows: string[] = [
+    `<div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">${escapeHtml(when)}</span></div>`,
+    `<div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">${escapeHtml(involvementToChipLabel(involvement))}</span></div>`,
+  ];
+  const checklistTemplateId = checklistTemplateIdFor(activity);
+  if (checklistTemplateId) {
+    metaRows.push(
+      `<div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">${escapeHtml(deriveArtifactTitle(checklistTemplateId))}</span></div>`,
+    );
+  }
+  return metaRows.join("");
+}
+
+function renderActivityToolsHtml(activity: Activity): string {
+  const tools = activity.tools ?? [];
+  if (tools.length === 0) return "";
+  return `<div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list">${tools.map((tool) => `<li>${escapeHtml(tool)}</li>`).join("")}</ul>
+      </div>`;
+}
+
+function renderEscalationFootnoteHtml(escalation: string): string {
+  return `<div class="escalation-footnote"><strong>If something goes wrong:</strong> ${escapeHtml(escalation)}</div>`;
+}
+
+// Paginated replacement for a single renderActivitySlide call — returns 2+
+// SlideEntry objects ("Activity name (i/N)") when the estimator says the
+// procedure won't fit on one slide, or exactly 1 (byte-identical to
+// renderActivitySlide's own output) when it fits, which is the common case.
+function renderActivitySlides(
+  roleId: string,
+  activity: Activity,
+  involvement: Involvement,
+  screenshots: Map<string, string> | undefined,
+  resolveRoleTokens: (text: string) => string,
+): SlideEntry[] {
+  const single = renderActivitySlide(roleId, activity, involvement, screenshots, resolveRoleTokens);
+
+  // Stub/freeform procedures are short by construction (see
+  // isStubProcedure/renderProcedureHtml) and are never numbered-step lists
+  // pagination operates on — only a real parsed step list is eligible.
+  const steps = parseProcedureSteps(activity.sop_body);
+  if (isStubProcedure(activity.sop_body) || steps.length === 0) {
+    return [{ html: single }];
+  }
+
+  const slug = activitySlug(activity.id);
+  const hasScreenshot = Boolean(screenshots?.get(slug));
+  const escalation = resolveRoleTokens(normalizeWhitespace(activity.escalation_path));
+  const escalationHeight = estimateEscalationHeight(escalation);
+
+  const pages = paginateProcedureSteps(steps, hasScreenshot, escalationHeight);
+  if (pages.length <= 1) {
+    return [{ html: single }];
+  }
+
+  const when = humanizeTrigger(resolveRoleTokens(normalizeWhitespace(activity.trigger)));
+  const metaRowsHtml = renderActivityMetaRowsHtml(activity, when, involvement);
+  const toolsHtml = renderActivityToolsHtml(activity);
+  const total = pages.length;
+
+  return pages.map((pageSteps, i) => {
+    const isFirst = i === 0;
+    const isLast = i === total - 1;
+    const startIndex = pages.slice(0, i).reduce((n, p) => n + p.length, 0) + 1;
+    const stepsHtml = `<ol class="steps" start="${startIndex}">${pageSteps
+      .map((s) => `<li>${escapeHtml(s)}</li>`)
+      .join("")}</ol>`;
+    const screenshotHtml = isLast ? screenshotSlotHtml(roleId, slug, screenshots) : "";
+    const escalationHtml = isLast ? renderEscalationFootnoteHtml(escalation) : "";
+    const title = `${escapeHtml(activity.name)} (${i + 1}/${total})`;
+
+    if (isFirst) {
+      return {
+        html: `
+    <h2>${title}</h2>
+    <div class="frame-layout">
+      <div class="frame-main">
+        ${stepsHtml}
+        ${screenshotHtml}
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta">${metaRowsHtml}</div>
+        ${toolsHtml}
+      </aside>
+    </div>
+    ${escalationHtml}
+  `.trim(),
+      };
+    }
+
+    return {
+      html: `
+    <h2>${title}</h2>
+    <div class="frame-main frame-main--continuation">
+      ${stepsHtml}
+      ${screenshotHtml}
+    </div>
+    ${escalationHtml}
+  `.trim(),
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Checklist title resolution. ArtifactTemplate (see
 // src/lib/ops-catalog/types/artifact-template.ts) has no name/title field on
 // ChecklistTemplateSchema or FormTemplateSchema today — only
@@ -1939,9 +2389,24 @@ function renderSafetySlide(
   matched: MatchedActivity[],
   resolveRoleTokens: (text: string) => string,
 ): string {
+  const { escalations, mentionedNames } = collectSafetySlideData(catalog, matched, resolveRoleTokens);
+  const escalationItems = escalations.map((e) => `<li>${escapeHtml(e)}</li>`).join("");
+  const contactsHtml = renderSafetyContactsHtml(mentionedNames);
+
+  return `
+    <h2>Safety &amp; escalation</h2>
+    <ul class="escalation-list">${escalationItems}</ul>
+    ${contactsHtml}
+  `.trim();
+}
+
+function collectSafetySlideData(
+  catalog: Catalog,
+  matched: MatchedActivity[],
+  resolveRoleTokens: (text: string) => string,
+): { escalations: string[]; mentionedNames: string[] } {
   const escalations = new Set<string>();
   const mentionedNames = new Set<string>();
-
   for (const { activity } of matched) {
     const raw = normalizeWhitespace(activity.escalation_path);
     escalations.add(resolveRoleTokens(raw));
@@ -1949,21 +2414,104 @@ function renderSafetySlide(
       mentionedNames.add(name);
     }
   }
+  return { escalations: [...escalations].sort(), mentionedNames: [...mentionedNames].sort() };
+}
 
-  const escalationItems = [...escalations]
-    .sort()
-    .map((e) => `<li>${escapeHtml(e)}</li>`)
-    .join("");
-  const contactsHtml =
-    mentionedNames.size > 0
-      ? `<p><strong>You may need to escalate to:</strong> ${[...mentionedNames].sort().map((n) => escapeHtml(n)).join(", ")}</p>`
-      : "";
+function renderSafetyContactsHtml(mentionedNames: string[]): string {
+  if (mentionedNames.length === 0) return "";
+  return `<p><strong>You may need to escalate to:</strong> ${mentionedNames.map((n) => escapeHtml(n)).join(", ")}</p>`;
+}
 
-  return `
-    <h2>Safety &amp; escalation</h2>
-    <ul class="escalation-list">${escalationItems}</ul>
+// ---------------------------------------------------------------------------
+// Round-4 crowding pass: safety/escalation pagination. role.venue_manager
+// alone has 13 distinct escalation paths (one per matched activity, several
+// full sentences) — comfortably more than one slide fits (see the
+// deck-crowding-audit). Same estimate-then-paginate shape as the toolkit/
+// timeline paginators above: every real escalation-list item renders at
+// either 1 or 2 lines (calibrated against a real Playwright measurement of
+// the venue_manager slide, which has one 98-char item at 1 line and every
+// longer item at 2), so a conservative chars-per-line estimate decides the
+// split. The "You may need to escalate to" contacts line — a short summary,
+// not a per-item entry — only ever appears on the LAST page, mirroring how
+// the activity slide's escalation footnote and toolkit's tools panel each
+// appear once rather than repeating per page.
+const SAFETY_LIST_ITEM_LINE_HEIGHT_PX = 22;
+const SAFETY_LIST_ITEM_CHARS_PER_LINE = 95;
+const SAFETY_LIST_ITEM_GAP_PX = 6.4;
+// h2 + its hairline rule/margin, fixed regardless of content — the
+// escalation list sits directly under the h2 with no intervening kicker.
+const SAFETY_LIST_TOP_PX = 158;
+// ul's own margin-bottom + the contacts <p>'s own margin-top — both
+// default UA margins, which do NOT collapse here since .slide is a flex
+// container (flex-item siblings' margins never collapse, unlike normal
+// block flow) — see the deck-crowding-audit calibration notes.
+const SAFETY_CONTACTS_GAP_PX = 34;
+const SAFETY_SAFETY_MARGIN_PX = 40;
+const SAFETY_PAGE_BUDGET_PX =
+  ACTIVITY_VIEWPORT_HEIGHT_PX - SAFETY_LIST_TOP_PX - ACTIVITY_BOTTOM_PADDING_PX - SAFETY_SAFETY_MARGIN_PX;
+
+function paginateSafetyEscalations(escalations: string[]): string[][] {
+  const pages: string[][] = [];
+  let current: string[] = [];
+  let currentHeight = 0;
+  for (const item of escalations) {
+    const itemHeight = estimateWrappedLines(item, SAFETY_LIST_ITEM_CHARS_PER_LINE) * SAFETY_LIST_ITEM_LINE_HEIGHT_PX;
+    const gap = current.length > 0 ? SAFETY_LIST_ITEM_GAP_PX : 0;
+    if (current.length > 0 && currentHeight + gap + itemHeight > SAFETY_PAGE_BUDGET_PX) {
+      pages.push(current);
+      current = [item];
+      currentHeight = itemHeight;
+    } else {
+      current.push(item);
+      currentHeight += gap + itemHeight;
+    }
+  }
+  if (current.length > 0) pages.push(current);
+
+  // The true last page also carries the contacts line — peel the final
+  // item off onto a new trailing page if adding it would overflow.
+  if (pages.length > 0) {
+    const contactsHeight = SAFETY_LIST_ITEM_LINE_HEIGHT_PX + SAFETY_CONTACTS_GAP_PX;
+    while (pages.length > 0) {
+      const last = pages[pages.length - 1];
+      if (last.length <= 1) break;
+      const lastHeight =
+        last.reduce((sum, item) => sum + estimateWrappedLines(item, SAFETY_LIST_ITEM_CHARS_PER_LINE) * SAFETY_LIST_ITEM_LINE_HEIGHT_PX, 0) +
+        (last.length - 1) * SAFETY_LIST_ITEM_GAP_PX;
+      if (lastHeight + contactsHeight <= SAFETY_PAGE_BUDGET_PX) break;
+      const moved = last.pop();
+      if (moved === undefined) break;
+      pages.push([moved]);
+    }
+  }
+  return pages.length > 0 ? pages : [[]];
+}
+
+function renderSafetySlides(
+  catalog: Catalog,
+  matched: MatchedActivity[],
+  resolveRoleTokens: (text: string) => string,
+): SlideEntry[] {
+  const { escalations, mentionedNames } = collectSafetySlideData(catalog, matched, resolveRoleTokens);
+  const pages = paginateSafetyEscalations(escalations);
+  if (pages.length <= 1) {
+    return [{ html: renderSafetySlide(catalog, matched, resolveRoleTokens) }];
+  }
+
+  const total = pages.length;
+  return pages.map((pageItems, i) => {
+    const isLast = i === total - 1;
+    const title = `Safety & escalation (${i + 1}/${total})`;
+    const itemsHtml = pageItems.map((e) => `<li>${escapeHtml(e)}</li>`).join("");
+    const contactsHtml = isLast ? renderSafetyContactsHtml(mentionedNames) : "";
+    return {
+      html: `
+    <h2>${escapeHtml(title)}</h2>
+    <ul class="escalation-list">${itemsHtml}</ul>
     ${contactsHtml}
-  `.trim();
+  `.trim(),
+    };
+  });
 }
 
 interface PortalPage {
@@ -2356,11 +2904,13 @@ export function renderTrainingDeck(
   const summarySlide = renderRoleSummarySlide(role, phaseGroups);
   if (summarySlide) slides.push({ html: summarySlide });
 
-  const toolkitSlide = renderRoleToolkitSlide(matched);
-  if (toolkitSlide) slides.push({ html: toolkitSlide });
+  for (const slide of renderRoleToolkitSlides(matched)) {
+    slides.push(slide);
+  }
 
-  const timelineSlide = renderRoleTimelineSlide(matched, resolveRoleTokens);
-  if (timelineSlide) slides.push({ html: timelineSlide });
+  for (const slide of renderRoleTimelineSlides(matched, resolveRoleTokens)) {
+    slides.push(slide);
+  }
 
   for (const philosophySlide of COMPANY_PHILOSOPHY_SLIDES) {
     slides.push({ html: philosophySlide });
@@ -2381,9 +2931,9 @@ export function renderTrainingDeck(
   phaseGroups.forEach(({ phase, entries }, i) => {
     slides.push(renderPhaseDividerSlide(phase, entries, i + 1, phaseGroups.length));
     for (const { activity, involvement } of entries) {
-      slides.push({
-        html: renderActivitySlide(roleId, activity, involvement, opts.screenshots, resolveRoleTokens),
-      });
+      for (const slide of renderActivitySlides(roleId, activity, involvement, opts.screenshots, resolveRoleTokens)) {
+        slides.push(slide);
+      }
     }
   });
 
@@ -2396,7 +2946,9 @@ export function renderTrainingDeck(
     }
   }
 
-  slides.push({ html: renderSafetySlide(catalog, matched, resolveRoleTokens) });
+  for (const slide of renderSafetySlides(catalog, matched, resolveRoleTokens)) {
+    slides.push(slide);
+  }
   slides.push({ html: renderToolsSlide(roleId) });
 
   for (const usingSystemSlide of renderUsingSystemChapter(roleId, opts.tourScreenshots)) {
