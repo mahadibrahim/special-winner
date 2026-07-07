@@ -242,6 +242,12 @@ export const gameIncidentTypeEnum = pgEnum("game_incident_type", [
   "red_card",
   "injury",
   "other",
+  // Added for the ejection/suspension tracker (product backlog build #4).
+  // A distinct enum value, not an is_ejection boolean — a coach ejection
+  // isn't a red card. Created only via the additive
+  // POST /api/referee/matches/[gameId]/ejections endpoint, never the
+  // delete-all-reinsert /report bulk array (see report.ts).
+  "ejection",
 ]);
 export const gameSideEnum = pgEnum("game_side", ["home", "away"]);
 

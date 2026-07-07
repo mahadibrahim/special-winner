@@ -2,6 +2,8 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { RefereeLayout } from '@/components/referee/referee-layout';
 import { MatchReport } from '@/components/referee/match-report';
+import { EjectionForm } from '@/components/referee/ejection-form';
+import { ActiveSuspensionBanner } from '@/components/referee/active-suspension-banner';
 import { getRefereeMatchDetail } from '@/lib/referee/referee-queries';
 
 export const prerender = false;
@@ -30,6 +32,17 @@ const data = {
     breadcrumbs={[{ label: "My matches", href: "/referee" }]}
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <MatchReport client:load data={data} />
+    <div class="space-y-6 max-w-2xl">
+      <ActiveSuspensionBanner
+        client:load
+        suspensions={detail.activeSuspensions}
+        homeTeamId={detail.homeTeamId}
+        awayTeamId={detail.awayTeamId}
+        homeTeamName={detail.homeTeamName}
+        awayTeamName={detail.awayTeamName}
+      />
+      <EjectionForm client:load gameId={detail.gameId} homeTeamName={detail.homeTeamName} awayTeamName={detail.awayTeamName} />
+      <MatchReport client:load data={data} />
+    </div>
   </RefereeLayout>
 </BaseLayout>

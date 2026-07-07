@@ -50,6 +50,7 @@ import {
   practiceTemplates,
   curriculumSequences,
   curriculumSequenceEntries,
+  suspensions,
 } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
@@ -666,6 +667,24 @@ async function seedTrainingFixtures(
         refereeNotes: null,
       })
       .where(eq(games.id, trainingGame.id));
+    // suspensions.gameIncidentId is FK RESTRICT — a walkthrough that logged
+    // an ejection-with-suspension against this training fixture (e.g. via
+    // the /referee UI) would otherwise make this delete fail on every
+    // subsequent seed run. Clear dependent suspensions first; the training
+    // fixture is meant to reset to a clean slate each run, ejections
+    // included.
+    const staleIncidents = await db
+      .select({ id: gameIncidents.id })
+      .from(gameIncidents)
+      .where(eq(gameIncidents.gameId, trainingGame.id));
+    if (staleIncidents.length > 0) {
+      await db.delete(suspensions).where(
+        inArray(
+          suspensions.gameIncidentId,
+          staleIncidents.map((i) => i.id),
+        ),
+      );
+    }
     await db.delete(gameIncidents).where(eq(gameIncidents.gameId, trainingGame.id));
   }
 

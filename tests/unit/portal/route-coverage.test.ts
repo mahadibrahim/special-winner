@@ -54,6 +54,15 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   // product decision — likely alongside "Compliance" — out of scope for
   // this change). Remove once it gets a real nav home.
   "/admin/incidents",
+
+  // Same failure mode as /admin/incidents above (build #1), now for
+  // build #4 (ejection/suspension tracker): src/pages/admin/suspensions
+  // landed without a nav entry. Deliberately not super-admin-only (see
+  // the plan) so location_admin can reach it — but choosing where it
+  // lives in the nav (likely near a future "Compliance"/incidents group)
+  // is a product decision out of scope for this change. Remove once it
+  // gets a real nav home.
+  "/admin/suspensions",
 ]);
 
 /** Recursively collect .astro files under a directory. */

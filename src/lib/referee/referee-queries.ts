@@ -1,7 +1,14 @@
-import { and, eq, lt, ne, asc, sql, desc } from "drizzle-orm";
+import { and, eq, lt, ne, asc, sql, desc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import { games, gameOfficials, gameIncidents, teams } from "@/lib/db/schema/teams";
+import { suspensions, type Suspension } from "@/lib/db/schema/suspensions";
+
+// Suspension statuses that mean "this person currently can't play/coach" —
+// excludes 'served' (already completed) and 'appealed' (under review, not
+// an active bar). Director-driven escalation to 'season'/'permanent' still
+// counts as active for banner purposes.
+const ACTIVE_SUSPENSION_STATUSES = ["active", "season", "permanent"] as const;
 
 export type RefereeAssignment = {
   gameId: string;
@@ -64,6 +71,8 @@ export type RefereeMatchDetail = {
   homeScore: number | null;
   awayScore: number | null;
   refereeNotes: string | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
   homeTeamName: string | null;
   awayTeamName: string | null;
   incidents: Array<{
@@ -74,6 +83,17 @@ export type RefereeMatchDetail = {
     minute: number | null;
     description: string | null;
   }>;
+  activeSuspensions: ActiveSuspensionFlag[];
+};
+
+export type ActiveSuspensionFlag = {
+  id: string;
+  personName: string;
+  teamId: string;
+  status: Suspension["status"];
+  gamesMissed: number;
+  gamesServed: number;
+  escalatedToDirector: boolean;
 };
 
 /**
@@ -92,6 +112,8 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
       homeScore: games.homeScore,
       awayScore: games.awayScore,
       refereeNotes: games.refereeNotes,
+      homeTeamId: games.homeTeamId,
+      awayTeamId: games.awayTeamId,
       homeTeamName: home.name,
       awayTeamName: away.name,
     })
@@ -103,6 +125,13 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
     .limit(1);
   if (!row) return null;
 
+  // Excludes type='ejection': those are managed exclusively through the
+  // ejections endpoint/form + activeSuspensions banner below, never through
+  // the bulk-editable incidents list on the /report page. MatchReport's type
+  // <select> has no "ejection" option, so surfacing one here would let it
+  // round-trip back into a /report submit's bulk `incidents` array — which
+  // Task 5's guard on report.ts now rejects with 400, breaking the whole
+  // resubmit for any game with an ejection on it.
   const incidents = await db
     .select({
       id: gameIncidents.id,
@@ -113,7 +142,35 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
       description: gameIncidents.description,
     })
     .from(gameIncidents)
-    .where(eq(gameIncidents.gameId, gameId))
+    .where(and(eq(gameIncidents.gameId, gameId), ne(gameIncidents.type, "ejection")))
     .orderBy(asc(gameIncidents.minute));
-  return { ...row, incidents };
+
+  // Team-level flag for either roster in this game — empty for a TBD-team
+  // game (homeTeamId/awayTeamId null, e.g. an unfilled fixture slot).
+  const teamIds = [row.homeTeamId, row.awayTeamId].filter(
+    (id): id is string => id != null,
+  );
+  const activeSuspensions =
+    teamIds.length > 0
+      ? await db
+          .select({
+            id: suspensions.id,
+            personName: suspensions.personName,
+            teamId: suspensions.teamId,
+            status: suspensions.status,
+            gamesMissed: suspensions.gamesMissed,
+            gamesServed: suspensions.gamesServed,
+            escalatedToDirector: suspensions.escalatedToDirector,
+          })
+          .from(suspensions)
+          .where(
+            and(
+              inArray(suspensions.teamId, teamIds),
+              inArray(suspensions.status, ACTIVE_SUSPENSION_STATUSES),
+            ),
+          )
+          .orderBy(asc(suspensions.createdAt))
+      : [];
+
+  return { ...row, incidents, activeSuspensions };
 }
