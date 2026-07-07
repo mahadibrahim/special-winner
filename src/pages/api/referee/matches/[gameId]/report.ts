@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { games, gameOfficials, gameIncidents } from "@/lib/db/schema/teams";
+import { games, gameIncidents } from "@/lib/db/schema/teams";
+import { requireAssignedOfficial } from "@/lib/referee/require-assigned-official";
 
 export const prerender = false;
 const json = (b: unknown, s = 200) =>
@@ -34,12 +35,7 @@ export const POST: APIRoute = async (context) => {
 
   const db = getDb();
   // Authoritative gate: caller must be an assigned official on this game.
-  const [assignment] = await db
-    .select({ id: gameOfficials.id })
-    .from(gameOfficials)
-    .where(and(eq(gameOfficials.gameId, gameId), eq(gameOfficials.userId, user.id)))
-    .limit(1);
-  if (!assignment) return json({ error: "Not found" }, 404);
+  if (!(await requireAssignedOfficial(user.id, gameId))) return json({ error: "Not found" }, 404);
 
   let body: ReportBody;
   try {
