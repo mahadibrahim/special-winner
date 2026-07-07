@@ -47,6 +47,20 @@ export interface StepOptions {
    * steps feed. Only meaningful together with `deckSlug` — ignored
    * otherwise. */
   deckRole?: string;
+  /** Product-tour slug (see PRODUCT_TOUR in
+   * src/lib/ops-catalog/views/training-deck.ts) this step illustrates. When
+   * set, the step's screenshot is ALSO copied to
+   * training/screenshots/<role>/tour/<slug>.png — the "Using the system"
+   * chapter's screenshot slot, distinct from the per-activity deckSlug slot
+   * above. A tour step and a catalog deckSlug are independent concepts (a
+   * screen can illustrate both, neither, or just one), so a single
+   * `tour.step()` call may set both `deckSlug` and `tourSlug` together. */
+  tourSlug?: string;
+  /** Overrides the Tour's own `role` (see TourOptions.role) for JUST this
+   * step's product-tour copy destination — mirrors `deckRole` above but for
+   * `tourSlug`. Only meaningful together with `tourSlug` — ignored
+   * otherwise. */
+  tourRole?: string;
   /** Pause after the action completes, in ms. Default 400 — long enough to
    * read the resulting screen in the recorded video. */
   pauseMs?: number;
@@ -58,6 +72,7 @@ export interface CaptionEntry {
   timestampMs: number;
   screenshot: string;
   deckSlug?: string;
+  tourSlug?: string;
 }
 
 export interface TourOptions {
@@ -123,6 +138,15 @@ export class Tour {
       await fs.copyFile(screenshotPath, path.join(deckDir, `${stepOptions.deckSlug}.png`));
     }
 
+    if (stepOptions.tourSlug) {
+      const tourDir = path.join(
+        this.deckScreenshotDir(stepOptions.tourRole ?? this.opts.role),
+        "tour",
+      );
+      await fs.mkdir(tourDir, { recursive: true });
+      await fs.copyFile(screenshotPath, path.join(tourDir, `${stepOptions.tourSlug}.png`));
+    }
+
     const entry: CaptionEntry = {
       index,
       caption,
@@ -130,6 +154,7 @@ export class Tour {
       screenshot: filename,
     };
     if (stepOptions.deckSlug) entry.deckSlug = stepOptions.deckSlug;
+    if (stepOptions.tourSlug) entry.tourSlug = stepOptions.tourSlug;
     this.captions.push(entry);
   }
 

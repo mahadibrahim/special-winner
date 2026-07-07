@@ -105,6 +105,60 @@ describe("Tour", () => {
     await expect(fs.stat(path.join(rootDir, "screenshots", "coach"))).rejects.toThrow();
   });
 
+  it("copies the step screenshot into the product-tour screenshot slot when tourSlug is set", async () => {
+    const page = fakePage();
+    const tour = createTour({ workflow: "tour-coach", role: "coach", rootDir });
+    await tour.step(page, "Coach dashboard", async () => {}, {
+      tourSlug: "dashboard",
+    });
+
+    const stat = await fs.stat(
+      path.join(rootDir, "screenshots", "coach", "tour", "dashboard.png"),
+    );
+    expect(stat.isFile()).toBe(true);
+  });
+
+  it("copies to tourRole's tour directory instead of the tour's own role when set", async () => {
+    const page = fakePage();
+    const tour = createTour({ workflow: "tour-venue", role: "venue_manager", rootDir });
+    await tour.step(page, "Venue command center", async () => {}, {
+      tourSlug: "command-center",
+      tourRole: "event_lead",
+    });
+
+    const stat = await fs.stat(
+      path.join(rootDir, "screenshots", "event_lead", "tour", "command-center.png"),
+    );
+    expect(stat.isFile()).toBe(true);
+    await expect(
+      fs.stat(path.join(rootDir, "screenshots", "venue_manager", "tour", "command-center.png")),
+    ).rejects.toThrow();
+  });
+
+  it("records tourSlug on the caption entry when set", async () => {
+    const page = fakePage();
+    const tour = createTour({ workflow: "tour-coach", role: "coach", rootDir });
+    await tour.step(page, "Coach dashboard", async () => {}, { tourSlug: "dashboard" });
+    await tour.finish();
+
+    const captions = JSON.parse(
+      await fs.readFile(path.join(rootDir, "output", "tour-coach", "captions.json"), "utf8"),
+    );
+    expect(captions[0]).toMatchObject({ tourSlug: "dashboard" });
+  });
+
+  it("a step can set both deckSlug and tourSlug together", async () => {
+    const page = fakePage();
+    const tour = createTour({ workflow: "tour-venue", role: "event_lead", rootDir });
+    await tour.step(page, "Check-in station", async () => {}, {
+      deckSlug: "team_check_in",
+      tourSlug: "check-in",
+    });
+
+    await fs.stat(path.join(rootDir, "screenshots", "event_lead", "team_check_in.png"));
+    await fs.stat(path.join(rootDir, "screenshots", "event_lead", "tour", "check-in.png"));
+  });
+
   it("slugifies captions into zero-padded, filesystem-safe screenshot filenames", async () => {
     const page = fakePage();
     const tour = createTour({ workflow: "demo-workflow", role: "coach", rootDir });
