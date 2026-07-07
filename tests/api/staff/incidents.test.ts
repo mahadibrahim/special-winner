@@ -174,6 +174,20 @@ describe("POST /api/staff/incidents", () => {
   });
 
   it("auto-completes the game's act.incident_response activity_completions row", async () => {
+    // Reset to pending first — this fixture game is shared across repeated
+    // local runs (bootstrapActivityCompletions is onConflictDoNothing, so a
+    // prior run's "completed" status would otherwise persist and make this
+    // test fail on re-run rather than actually verifying anything).
+    await getDb()
+      .update(activityCompletions)
+      .set({ status: "pending", completedAt: null, completedByUserId: null })
+      .where(
+        and(
+          eq(activityCompletions.gameId, gameId),
+          eq(activityCompletions.activityId, "act.incident_response"),
+        ),
+      );
+
     const before = await getDb()
       .select()
       .from(activityCompletions)
