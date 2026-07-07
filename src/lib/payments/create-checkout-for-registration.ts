@@ -16,6 +16,10 @@ import {
   getOrganizationPaymentConfig,
 } from "@/lib/stripe/connect";
 import type { PaymentMethodCategory } from "@/lib/payments/surcharge";
+import {
+  getAccountCreditBalanceCents,
+  redeemAccountCredit,
+} from "@/lib/payments/account-credit";
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -42,8 +46,9 @@ export type CheckoutResult =
       clientSecret: string
       sessionId: string
       surchargeCents: number
+      creditAppliedCents: number
     }
-  | { kind: "paid_zero"; registrationId: string };
+  | { kind: "paid_zero"; registrationId: string; creditAppliedCents: number };
 
 // baseUrl currently unused in Phase 1 (no redirect URLs); retained for Phase 2 magic-link emails
 export interface CreateCheckoutForRegistrationInput {
@@ -55,6 +60,11 @@ export interface CreateCheckoutForRegistrationInput {
   extraMetadata?: Record<string, string>;
   /** "bank" → ACH only, no surcharge. "card" → card + wallets + BNPL with surcharge. */
   paymentMethodCategory?: PaymentMethodCategory;
+  /** Apply the user's account credit balance to this checkout. The client
+   *  never supplies an amount — the server computes min(balance, amountDue)
+   *  so over-apply is impossible by construction (mirrors discountCode: a
+   *  code string, not an amount). */
+  applyAccountCredit?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +82,7 @@ export async function createCheckoutForRegistration(
     discountCode,
     extraMetadata,
     paymentMethodCategory,
+    applyAccountCredit,
   } = input;
   void baseUrl;
 
@@ -108,6 +119,12 @@ export async function createCheckoutForRegistration(
   }
 
   const { registration, familyMember, season, program, location } = result;
+
+  // Resolved early (moved up from where it's used for Stripe Connect
+  // routing below) so account-credit redemption — which needs an
+  // organizationId to scope the balance — can run after the discount step
+  // and before the single zero-check.
+  const orgId = location.organizationId;
 
   // 3. Already paid?
   if (registration.paymentStatus === "paid") {
@@ -197,30 +214,58 @@ export async function createCheckoutForRegistration(
     }
   }
 
-  // 6. Zero after discount — mark paid and return. (Usage was already
-  //    recorded in the redemption transaction above.)
+  // 6. Apply account credit, after the discount step and before the single
+  //    zero-check below. The server computes min(balance, amountDue) — the
+  //    client only sends a boolean, so over-apply is impossible by
+  //    construction. Redemption is recorded immediately (same known
+  //    limitation as the discount-code redemption above: an abandoned,
+  //    never-paid checkout still consumes the credit — accepted, matches
+  //    existing discount-code behavior).
+  let creditAppliedCents = 0;
+  if (applyAccountCredit && amountDue > 0) {
+    const balanceCents = await getAccountCreditBalanceCents(userId, orgId ?? "");
+    const toApply = Math.min(balanceCents, amountDue);
+    if (toApply > 0) {
+      const redemption = await redeemAccountCredit({
+        userId,
+        organizationId: orgId ?? "",
+        registrationId,
+        amountCentsRequested: toApply,
+      });
+      creditAppliedCents = redemption.redeemedCents;
+      amountDue = Math.max(0, amountDue - creditAppliedCents);
+    }
+  }
+
+  // 7. Single zero-check — covers both "discount alone covered it" and
+  //    "discount + credit covered it". Reuses the existing paid_zero comp
+  //    path that 100%-off discount codes already use. (Discount/credit
+  //    usage was already recorded in their respective transactions above.)
   if (amountDue <= 0) {
     await db
       .update(registrations)
       .set({
         status: "confirmed",
         paymentStatus: "paid",
-        amountDueCents: registration.amountDueCents - discountAmountCents,
-        amountPaidCents: registration.amountDueCents - discountAmountCents,
+        amountDueCents:
+          registration.amountDueCents - discountAmountCents - creditAppliedCents,
+        amountPaidCents:
+          registration.amountDueCents - discountAmountCents - creditAppliedCents,
         updatedAt: new Date(),
       })
       .where(eq(registrations.id, registrationId));
 
-    return { kind: "paid_zero", registrationId };
+    return { kind: "paid_zero", registrationId, creditAppliedCents };
   }
 
-  // 7. Discount applied but amount > 0 — update amountDueCents. (Usage was
-  //    already recorded in the redemption transaction above.)
-  if (appliedDiscountCodeId && discountAmountCents > 0) {
+  // Discount and/or credit applied but amount still > 0 — persist the
+  // reduced amountDueCents.
+  if ((appliedDiscountCodeId && discountAmountCents > 0) || creditAppliedCents > 0) {
     await db
       .update(registrations)
       .set({
-        amountDueCents: registration.amountDueCents - discountAmountCents,
+        amountDueCents:
+          registration.amountDueCents - discountAmountCents - creditAppliedCents,
         updatedAt: new Date(),
       })
       .where(eq(registrations.id, registrationId));
@@ -241,7 +286,6 @@ export async function createCheckoutForRegistration(
   //     Connect is used when the org has a connected account and onboarding
   //     is complete; otherwise the payment goes to the platform account
   //     (HQ direct or franchise-not-yet-onboarded).
-  const orgId = location.organizationId;
   const paymentConfig = orgId
     ? await getOrganizationPaymentConfig(orgId)
     : null;
@@ -282,6 +326,7 @@ export async function createCheckoutForRegistration(
       clientSecret: session.clientSecret,
       sessionId: session.id,
       surchargeCents: session.surchargeCents,
+      creditAppliedCents,
     };
   }
 
@@ -307,5 +352,6 @@ export async function createCheckoutForRegistration(
     clientSecret: session.clientSecret,
     sessionId: session.id,
     surchargeCents: session.surchargeCents,
+    creditAppliedCents,
   };
 }
