@@ -50,6 +50,10 @@ sop_body: |
      aren't also getting a stale automated packet, and that any
      last-minute change (a swapped ref, a moved field) is reflected in
      whichever version actually reached the coach.
+tools:
+  - The automated pregame briefing dispatch job — you verify it fired
+  - The activity tracking dashboard (/admin/game-day/today)
+  - Direct message to the coach (manual fallback using roster/assignment/ref data from the admin tools)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.coach_pregame_dispatch

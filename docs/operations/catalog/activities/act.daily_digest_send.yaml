@@ -56,6 +56,10 @@ sop_body: |
   8. Once the job recovers, confirm the next digest doesn't double-cover
      a day that was already manually summarized — note in the manual
      summary which day it covered so no one double-counts.
+tools:
+  - The automated daily digest job — you verify it fired
+  - The activity tracking dashboard (/admin/game-day/today)
+  - Email inbox (guaranteed fallback delivery channel)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.daily_digest_sent

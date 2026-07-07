@@ -50,6 +50,10 @@ sop_body: |
      version of the message with wrong field/time info re-sent
      alongside a corrected one — a wrong assignment reaching a parent is
      worse than a late one.
+tools:
+  - The automated T-24h reminder job — you verify it fired
+  - The activity tracking dashboard (/admin/game-day/today)
+  - Email inbox (guaranteed fallback delivery channel)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.t24h_reminder_sent

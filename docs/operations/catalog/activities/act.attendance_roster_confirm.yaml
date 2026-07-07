@@ -49,6 +49,10 @@ sop_body: |
   8. Escalate to the director if the outage isn't resolved before the
      72h-to-24h window closes, since the T-24h reminder depends on an
      accurate confirmed roster.
+tools:
+  - The automated roster-confirmation broadcast job — you verify it fired
+  - The activity tracking dashboard (/admin/game-day/today)
+  - Direct messages to families (manual fallback while automation is down)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.attendance_broadcast_sent

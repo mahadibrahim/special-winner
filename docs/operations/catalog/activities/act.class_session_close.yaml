@@ -40,6 +40,10 @@ sop_body: |
      lost and found.
   6. Finalize attendance and log coach notes in the coach portal while
      the session is fresh. Leave the space ready for the next group.
+tools:
+  - The coach portal — attendance and session notes (/coach/attendance)
+  - Storage bins for balls, cones, pinnies, and portable goals
+  - Lost-and-found bin
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.class_session_close

@@ -55,6 +55,10 @@ sop_body: |
   8. Once the platform recovers, confirm no family received a stale
      pre-decision message alongside the automated one, and that anyone
      manually notified isn't double-messaged in a confusing way.
+tools:
+  - The automated cancellation broadcast job — you verify it fired
+  - The activity tracking dashboard (/admin/game-day/today)
+  - Team group chats and the phone tree (manual fallback)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.cancellation_broadcast_sent

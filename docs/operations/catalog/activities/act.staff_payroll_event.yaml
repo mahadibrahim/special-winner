@@ -47,6 +47,10 @@ sop_body: |
      entered as fallback so staff pay isn't delayed by a platform gap.
   7. Whoever enters the manual batch should still record it in the
      platform once done, so the labor record reflects reality.
+tools:
+  - The payroll export handoff — you pull it into the org's payroll provider
+  - The external acknowledgment readback on the activity completion page (/admin/activity-completions/[id]) — manual confirmation until a live payroll webhook exists
+  - The org's actual W-2 payroll provider
 tracking_method: external_acknowledgment
 tracking_artifact:
   external_system: payroll

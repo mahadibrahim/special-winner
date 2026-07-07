@@ -56,6 +56,10 @@ sop_body: |
   8. While automation is down, the event lead manually records the score
      on the printed standings sheet so anyone asking in person gets an
      accurate answer, and reconciles it once the platform recovers.
+tools:
+  - The public league standings page
+  - The coach standings page (/coach/standings)
+  - The parent/player dashboard standings view
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.score_posted

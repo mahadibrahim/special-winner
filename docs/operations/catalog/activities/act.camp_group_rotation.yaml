@@ -42,6 +42,10 @@ sop_body: |
      path.
   6. For ages 4-6, plan activity changes every 8-10 minutes within a
      station; the roster headcount is only required at station moves.
+tools:
+  - Group roster on a clipboard (headcount reference at each station)
+  - Water cooler carried with the group
+  - Camp daily schedule (station transition times)
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.camp_group_rotations
