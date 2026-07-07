@@ -20,6 +20,9 @@ interface OrderSummaryProps {
   /** Card processing fee in cents — 0 for bank, computed by the parent for card. */
   surchargeCents?: number
   paymentMethodCategory?: "bank" | "card"
+  /** Account credit being applied to this checkout, in cents. 0/undefined
+   *  renders nothing — matches the surcharge row's "only show if > 0" pattern. */
+  creditAppliedCents?: number
 }
 
 export function OrderSummary({
@@ -33,14 +36,16 @@ export function OrderSummary({
   appliedDiscount,
   surchargeCents = 0,
   paymentMethodCategory,
+  creditAppliedCents = 0,
 }: OrderSummaryProps) {
   const baseAmount =
     paymentOption === "deposit" && allowDeposit && seasonDeposit
       ? seasonDeposit
       : seasonPrice
   const discountAmount = appliedDiscount ? appliedDiscount.discountAmountCents / 100 : 0
+  const creditAmount = creditAppliedCents / 100
   const surchargeAmount = surchargeCents / 100
-  const totalDue = baseAmount - discountAmount + surchargeAmount
+  const totalDue = Math.max(0, baseAmount - discountAmount - creditAmount) + surchargeAmount
 
   return (
     <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
@@ -65,6 +70,12 @@ export function OrderSummary({
         <div className="flex items-center justify-between mb-2 text-green-400">
           <span>Discount ({appliedDiscount.code})</span>
           <span>-${discountAmount.toFixed(2)}</span>
+        </div>
+      )}
+      {creditAppliedCents > 0 && (
+        <div className="flex items-center justify-between mb-2 text-green-400">
+          <span>Account credit applied</span>
+          <span>-${creditAmount.toFixed(2)}</span>
         </div>
       )}
       {surchargeCents > 0 && (

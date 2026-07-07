@@ -16,6 +16,10 @@ const refundSchema = z.object({
   amountCents: z.number().int().min(0),
   reason: z.string().optional(),
   alsoCancel: z.boolean().optional(),
+  /** Issue as account credit instead of a Stripe refund. Admin-direct
+   *  default is cash (the director-approved exception path) — the client
+   *  must opt in explicitly. */
+  asCredit: z.boolean().optional(),
 });
 
 /**
@@ -54,7 +58,7 @@ export const POST: APIRoute = async (context) => {
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
-    const { amountCents, reason, alsoCancel } = validation.data;
+    const { amountCents, reason, alsoCancel, asCredit } = validation.data;
 
     const [row] = await getDb()
       .select({
@@ -93,6 +97,7 @@ export const POST: APIRoute = async (context) => {
       childName,
       programName: row.program.name,
       seasonName: row.season.name,
+      asCredit,
     });
 
     if (!result.ok) {
@@ -130,6 +135,7 @@ export const POST: APIRoute = async (context) => {
           amountCents,
           stripeRefundId: result.stripeRefundId,
           isPartial: result.isPartial,
+          isCredit: Boolean(asCredit),
         },
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },

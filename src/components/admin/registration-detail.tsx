@@ -420,6 +420,10 @@ function RefundDialog({
   const [amountDollars, setAmountDollars] = useState((amountPaidCents / 100).toFixed(2));
   const [reason, setReason] = useState("");
   const [alsoCancel, setAlsoCancel] = useState(true);
+  // Admin-direct refund default is cash — this is the director-approved
+  // exception path (owner policy: refunds default to credit everywhere
+  // else, e.g. the customer-request approve dialog).
+  const [asCredit, setAsCredit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Re-seed the amount field whenever the dialog reopens with a new paid amount.
@@ -446,13 +450,18 @@ function RefundDialog({
           amountCents: cents,
           reason: reason.trim() || undefined,
           alsoCancel,
+          asCredit,
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `Failed (${res.status})`);
       }
-      toast.success(`Refunded $${(cents / 100).toFixed(2)}`);
+      toast.success(
+        asCredit
+          ? `Issued $${(cents / 100).toFixed(2)} as account credit`
+          : `Refunded $${(cents / 100).toFixed(2)}`,
+      );
       onDone();
       setReason("");
     } catch (err) {
@@ -468,7 +477,9 @@ function RefundDialog({
         <DialogHeader>
           <DialogTitle>Issue refund</DialogTitle>
           <DialogDescription>
-            Sends the refund directly through Stripe. The customer will receive an email.
+            {asCredit
+              ? "Issues an account credit the customer can apply to a future registration. No Stripe refund is made."
+              : "Sends the refund directly through Stripe. The customer will receive an email."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -505,6 +516,14 @@ function RefundDialog({
             />
             <span className="text-sm">Also cancel the registration</span>
           </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              id="as-credit"
+              checked={asCredit}
+              onCheckedChange={(v) => setAsCredit(v === true)}
+            />
+            <span className="text-sm">Issue as store credit instead of a Stripe refund</span>
+          </label>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
@@ -512,7 +531,7 @@ function RefundDialog({
           </Button>
           <Button onClick={handleRefund} disabled={submitting}>
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Process refund
+            {asCredit ? "Issue credit" : "Process refund"}
           </Button>
         </DialogFooter>
       </DialogContent>

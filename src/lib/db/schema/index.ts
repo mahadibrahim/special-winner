@@ -101,3 +101,6 @@ export * from "./ops-pings";
 
 // In-app incident reporting (fast same-day capture; product-backlog build #1)
 export * from "./incidents";
+
+// Account-credit ledger (refunds-as-credit; product-backlog build #2)
+export * from "./account-credits";

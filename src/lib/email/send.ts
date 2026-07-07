@@ -352,7 +352,7 @@ export interface SendRefundNotificationParams {
   programName: string;
   seasonName: string;
   refundAmountCents: number;
-  refundStatus: "approved" | "denied";
+  refundStatus: "approved" | "denied" | "credited";
   denialReason?: string;
   /** Brand attribution for the registration — controls email template + link origin. */
   brand?: BrandId;
@@ -383,12 +383,21 @@ export async function sendRefundNotificationEmail(params: SendRefundNotification
   const subject =
     params.refundStatus === "approved"
       ? `Refund approved — ${formatCurrency(params.refundAmountCents)} for ${params.childName}`
-      : `Refund request update — ${params.childName}`;
+      : params.refundStatus === "credited"
+        ? `${formatCurrency(params.refundAmountCents)} account credit issued — ${params.childName}`
+        : `Refund request update — ${params.childName}`;
+
+  const emailType =
+    params.refundStatus === "approved"
+      ? "refund_approved"
+      : params.refundStatus === "credited"
+        ? "refund_credited"
+        : "refund_denied";
 
   return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
-    emailType: params.refundStatus === "approved" ? "refund_approved" : "refund_denied",
+    emailType,
     to: params.parentEmail,
     subject,
     html,
