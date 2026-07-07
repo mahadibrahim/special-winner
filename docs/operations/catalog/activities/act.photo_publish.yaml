@@ -1,10 +1,19 @@
 id: act.photo_publish
 name: Photo publish
 description: |
-  Photographer (or media tagger) publishes the curated, tagged photos
-  to the public-facing media gallery so families can view and order
-  prints. Each publish increments the day's published-photo counter.
-trigger: After tagging is complete (typically T+24h)
+  Photographer (or media tagger) publishes a session's team/wide photos
+  to the public-facing media gallery by default so families can view
+  and order prints. Consent is captured at registration, not per
+  photo: adults are opt-out, kids are opt-in but the workable default
+  is still publish, gated by a per-event do-not-publish shortlist
+  pulled from the roster rather than tagging and clearing every photo
+  individually. Each publish increments the day's published-photo
+  counter. Note: the platform's automated consent gate
+  (src/lib/consents/publish-check.ts) checks registration/roster
+  consent records for tagged family members — this SOP's default-
+  publish / do-not-publish-shortlist workflow is the policy that gate
+  supports, not a separate product feature.
+trigger: After the session is organized for publish (typically T+24h)
 phase: post_day
 sport_tags: []
 venue_tags: []
@@ -24,43 +33,60 @@ escalation_path: |
   If photographer unreachable, role.event_lead pings role.director; publish
   authority can be re-assigned for that batch only.
 sop_body: |
-  1. Confirm tagging is complete for the session — it should show
-     "ready" in the tagging queue, meaning every asset worth keeping
-     has been tagged to the right players or teams.
-  2. Confirm the session's intended media-auth scope (internal,
-     promotional, or public) is set correctly for how these photos are
-     meant to be used — this determines whose consent the platform
-     checks before allowing publish.
-  3. Publishing a session (flipping it from ready to published) is an
+  1. Confirm the session is organized for publish — it should show
+     "ready" in the tagging queue. Team/wide media (bench shots, crowd
+     shots, action shots where no single player is the clear subject)
+     doesn't need every individual player tagged and cleared one by
+     one; that per-photo model is gone. Tag individual players only
+     where you're building an individual-highlight product that calls
+     for it.
+  2. Before publishing, pull the event's do-not-publish shortlist from
+     the roster — the list of participants (almost always kids) whose
+     family didn't consent to publish at registration. This is a
+     roster-level list you check once per event, not something you
+     build photo by photo.
+  3. Adults are opt-out by default: publish unless a specific adult
+     opted out at registration. Kids are stricter — consent is opt-in
+     — but the workable default is still publish for team/wide media;
+     it's the do-not-publish shortlist that carves out the exceptions,
+     not a requirement that every kid be individually cleared first.
+  4. Don't publish a photo where a shortlisted participant is the
+     clear, identifiable subject (a solo shot, a close-up, anything
+     that singles them out). A shortlisted kid appearing incidentally
+     in a team/wide shot isn't grounds to hold the whole batch —use
+     judgment on "clear subject" vs. "incidentally present," and when
+     genuinely unsure, hold that specific photo rather than the batch.
+  5. Publishing a session (flipping it from ready to published) is an
      org-admin action in the admin media console — request that
      publish from whoever holds that access for your org (typically
      the director or office) rather than trying to do it yourself if
      you don't have admin login.
-  4. When publish is attempted, the platform automatically checks every
-     tagged family member against their media-authorization consent for
-     the session's intended scope. If any tagged participant is missing
-     consent for that scope, publish either hard-blocks with the list
-     of missing names (if the org has consent enforcement turned on) or
-     proceeds with a logged warning — either way, treat a soft-warn as
-     unfinished business, not "handled," and follow up on the missing
-     consent.
-  5. If publish is blocked for missing consent, resolve the actual gap
-     — confirm with the family, or drop that specific photo from the
-     publish batch — rather than working around it by re-tagging around
-     the flagged family members or loosening the intended scope to
-     dodge the check.
-  6. Once publish succeeds, each newly published asset increments the
+  6. The platform still runs its own automated consent check at
+     publish time against registration/roster consent records for any
+     tagged family member. Treat a soft-warn from that check as
+     unfinished business, not "handled" — it's a backstop behind the
+     do-not-publish shortlist, not a replacement for checking it
+     yourself first.
+  7. Once publish succeeds, each newly published asset increments the
      day's photos-published counter; no manual count is needed.
-  7. Spot-check that published photos are visible where families expect
+  8. Spot-check that published photos are visible where families expect
      to see them before considering the batch done.
-  8. If you're unreachable to coordinate the publish request, the
-     event lead pings the director, and publish authority for that
-     batch can be reassigned per the escalation path — the consent
-     check still applies regardless of who executes the publish.
+  9. If a family requests a takedown after publish — even outside the
+     original do-not-publish shortlist — action it promptly: pull the
+     specific photo (or, if requested, every photo of their child) from
+     the public gallery. Takedown-on-request applies regardless of
+     whether the family flagged do-not-publish at registration; asking
+     later still gets honored.
+  10. If you're unreachable to coordinate the publish request, the
+      event lead pings the director, and publish authority for that
+      batch can be reassigned per the escalation path — the shortlist
+      check and the platform's consent check still apply regardless of
+      who executes the publish.
 tools:
   - The tagging queue (/media/queue) — confirm the session shows "ready"
+  - The event's do-not-publish shortlist (pulled from the roster at registration)
   - The admin Tag Queue (/admin/media/tag-queue) — org-admin publish action
-  - The media-authorization consent check (automatic, platform-run)
+  - The media-authorization consent check (automatic, platform-run backstop)
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.photos_published

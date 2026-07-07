@@ -3,8 +3,10 @@ kind: counter
 status: stub
 description: |
   Increments once per media asset whose parent shoot session is
-  transitioned to published status in the admin media console, after
-  the platform's consent check confirms (or logs an override of)
-  media-authorization coverage for the session's intended scope. Used
-  as the day's published-volume figure and to confirm families have
-  curated, tagged photos available to view.
+  transitioned to published status in the admin media console. Team/
+  wide media publishes by default (adults opt-out, kids opt-in but
+  default-publish for team/wide shots), gated operationally by the
+  event's do-not-publish shortlist and backstopped by the platform's
+  automated consent check against registration/roster records. Used as
+  the day's published-volume figure and to confirm families have
+  photos available to view.
