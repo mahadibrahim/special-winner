@@ -376,7 +376,13 @@ ${FONT_FACE_CSS}
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* "safe center": center vertically when content fits (the common
+       case), but fall back to start-alignment when content is taller than
+       the frame (e.g. a role with many activities on the "Your toolkit"
+       slide) — plain "center" on overflowing flex content makes the top of
+       the content inaccessible via scroll (scrollTop can't go negative),
+       silently hiding the heading. */
+    justify-content: safe center;
     padding: 8vh 10vw;
     background: var(--cream);
     color: var(--ink);
@@ -387,6 +393,11 @@ ${FONT_FACE_CSS}
        exceed the available height on some slides — scroll rather than
        silently overflow into (or under) the touchline footer. */
     overflow-y: auto;
+    /* Round-3 composition pass: a slightly larger base size + wider measure
+       (see the .slide p/.slide li rule below) so single-column slides use
+       more of the 16:9 frame instead of a narrow left-pinned column of body
+       text with the whole right side sitting empty. */
+    font-size: 1.05rem;
   }
   .slide.active {
     opacity: 1;
@@ -412,37 +423,105 @@ ${FONT_FACE_CSS}
     font-style: italic;
     font-size: 0.95rem;
   }
-  /* Meta-chip row (activity slides) — a compact one-line strip of data
-     labels directly under the title: WHEN, YOU OWN THIS/YOU ASSIST, and
-     (when the activity has one) CHECKLIST. Replaces the old floating
-     top-right time-rail chip, the old italic ownership caption line, and
-     the old "checklist exists" filler sentence. Text keeps its natural
-     sentence case in the DOM; uppercase is a pure display transform so the
-     underlying value stays intact/greppable. */
-  .meta-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0 0 1.75rem;
+  /* Round-3 two-column composition system — shared by the activity slide
+     (steps + a meta/tools rail), the agenda and "how time works" slides
+     (a list + a stat callout), and the toolkit slide (two tool-category
+     panels side by side). One grid + one paper-surface panel style reused
+     everywhere there's a natural "main content + companion data" shape,
+     instead of a bespoke layout per slide. */
+  .frame-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: stretch;
+    margin-top: 0.25rem;
   }
-  .meta-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.3rem 0.65rem;
-    background: var(--cream-2);
+  .frame-main {
+    min-width: 0;
+  }
+  .frame-panel {
+    background: var(--paper);
     border: 1px solid var(--cream-3);
-    border-radius: 3px;
+    border-radius: 10px;
+    padding: 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+  .frame-panel-heading {
+    margin: 0;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-muted);
-    white-space: nowrap;
   }
-  .meta-chip--owner {
+  .frame-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+  .frame-stat-value {
+    margin: 0;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.25rem;
+    line-height: 1;
     color: var(--navy-deep);
-    border-color: var(--ochre);
+  }
+  .frame-stat-label {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+  /* Activity slide's right-rail panel — vertically stacked meta rows
+     (replaces the old horizontal meta-chip row: WHEN / ownership /
+     CHECKLIST used to sit as inline chips directly under the title; the
+     two-column composition pass moves them into labeled rows in the paper
+     panel so the panel — not a thin chip strip — is what carries that
+     data, freeing the title area and giving the right column real content). */
+  .panel-meta { display: flex; flex-direction: column; gap: 1.1rem; }
+  .panel-meta-row { display: flex; flex-direction: column; gap: 0.2rem; }
+  .panel-meta-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-meta-value { font-size: 0.95rem; color: var(--ink-2); }
+  .panel-meta-row--owner .panel-meta-value { color: var(--navy-deep); font-weight: 600; }
+  .panel-tools {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--cream-3);
+  }
+  .panel-tools-label {
+    margin: 0 0 0.75rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .panel-tools-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .panel-tools-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .panel-tools-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .nav-controls {
     position: fixed;
@@ -506,9 +585,9 @@ ${FONT_FACE_CSS}
      (verified against the real act.weather_pre_check 6-step slide, which is
      long enough to hit exactly this). */
   .escalation-footnote {
-    margin-top: 1.75rem;
-    padding-top: 1rem;
-    max-width: 68ch;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    max-width: 78ch;
     border-top: 1px dashed var(--cream-3);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -518,44 +597,164 @@ ${FONT_FACE_CSS}
   /* Chapter divider slides (agenda's per-phase dividers + the checklist
      appendix divider) — a big Newsreader chapter name distinct from a
      normal content slide's h2, so it reads as a section break when
-     flipping through the deck. */
+     flipping through the deck. Sized up considerably in the round-3
+     composition pass (3rem -> 5.5rem) so the phase name genuinely
+     dominates the frame instead of sitting as a small headline over a
+     mostly-empty slide. */
   .divider-title {
     margin: 0 0 2rem;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 3rem;
-    line-height: 1.15;
+    font-size: 5.5rem;
+    line-height: 1.05;
     color: var(--navy-deep);
   }
+  /* Textblock wrapper establishes its own stacking context (position +
+     z-index) so it reliably paints above .divider-mark below — position:
+     absolute elements otherwise paint above static in-flow content
+     regardless of DOM order. */
+  .divider-textblock {
+    position: relative;
+    z-index: 1;
+    max-width: 64ch;
+  }
+  /* Giant translucent phase-number watermark, filling the right side of
+     phase-divider slides that would otherwise be almost entirely empty —
+     a short kicker + title + activity list is real content but doesn't
+     come close to using a 16:9 frame on its own. Echoes the poster
+     slide's big-quote-mark motif (a large translucent Newsreader glyph)
+     so the two "mostly typographic" slide kinds in the deck share one
+     visual language. */
+  .divider-mark {
+    position: absolute;
+    z-index: 0;
+    right: 4vw;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
+  }
   /* Agenda slide ("Your day at a glance") — one row per phase with its
-     activity count, right-aligned in mono like the other data labels. */
+     activity count, right-aligned in mono like the other data labels.
+     Lives in the shared .frame-layout grid alongside a stat panel (total
+     phases/activities) so the list's companion data fills the right
+     column instead of leaving it empty. */
   .agenda-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-width: 46ch;
   }
   .agenda-list li {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.7rem 0;
+    padding: 0.85rem 0;
     border-bottom: 1px solid var(--cream-3);
   }
   .agenda-phase {
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     color: var(--navy-deep);
   }
   .agenda-count {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--ink-muted);
     white-space: nowrap;
+  }
+  /* "How time works on your day" timeline slide — a left rail line with a
+     dot per stop, label + activity name per row. Lives in the shared
+     .frame-layout grid next to a stat panel (see renderRoleTimelineSlide). */
+  .timeline-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+  .timeline-list::before {
+    content: "";
+    position: absolute;
+    left: 9rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 1px;
+    background: var(--cream-3);
+  }
+  .timeline-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding: 0.65rem 0 0.65rem 1.75rem;
+  }
+  .timeline-row::before {
+    content: "";
+    position: absolute;
+    left: calc(9rem - 4px);
+    top: 1rem;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--ochre);
+  }
+  /* Single-line labels ("72 hours before", "48 hours after") — the column
+     is sized to fit the longest real label without wrapping; a wrapped
+     second line would run under the rail dot positioned for one line. */
+  .timeline-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    max-width: none;
+    white-space: nowrap;
+  }
+  .timeline-name {
+    font-size: 1rem;
+    color: var(--ink);
+    max-width: none;
+  }
+  /* "Your toolkit" slide — two category panels side by side, reusing the
+     .frame-panel paper-surface card so it shares the same visual language
+     as the activity slide's meta/tools rail and the agenda/timeline stat
+     panels. */
+  .toolkit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    margin-top: 1.5rem;
+  }
+  .toolkit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+  .toolkit-list li {
+    position: relative;
+    padding-left: 1.1rem;
+    max-width: none;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+  .toolkit-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ochre);
   }
   .belief { margin-top: 1.25rem; }
   .belief h3 {
@@ -584,21 +783,32 @@ ${FONT_FACE_CSS}
     text-align: left;
     vertical-align: top;
   }
-  /* Readable measure — body copy tops out around 68 characters, headings
-     and the tools table (needs its full width) are exempt. */
+  /* Readable measure — body copy tops out around 74 characters (widened
+     from 68 in the round-3 composition pass to use more of the frame),
+     headings and the tools table (needs its full width) are exempt. */
   .slide p,
   .slide li {
-    max-width: 68ch;
+    max-width: 74ch;
   }
   /* Checklist slides — clipboard-card treatment, sage tick squares that
      stay empty (not checked) since this is a training reference, not a
-     live tracker. */
+     live tracker. Widened and centered in the frame (round-3 composition
+     pass) rather than left-pinned at a narrow content width — a checklist
+     card is a standalone object on its own slide, so centering it reads
+     as a deliberate poster-like composition instead of body text that
+     happens to stop halfway across. */
   .clipboard-card {
     background: var(--paper);
     border: 1px solid var(--cream-3);
     border-radius: 10px;
-    padding: 2.5rem 3rem;
+    padding: 3rem 4rem;
     box-shadow: 0 8px 24px oklch(0.2 0.02 260 / 0.08);
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .clipboard-card .checklist--ticks li {
+    font-size: 1.05rem;
   }
   .checklist--ticks { list-style: none; margin: 0; padding: 0; }
   .checklist--ticks li {
@@ -631,21 +841,36 @@ ${FONT_FACE_CSS}
     letter-spacing: 0.25em;
     color: oklch(0.85 0.02 80 / 0.65);
   }
+  /* Round-3 composition pass: the poster previously read as a short
+     left-pinned caption with the entire right ~60% of the navy frame
+     empty. Pairs the existing opening quote mark with a big translucent
+     CLOSING quote mark filling the right side — a classic magazine
+     pull-quote bracket, not a bolted-on decoration — instead of just
+     enlarging the opening mark in place (which at large sizes collided
+     with the statement's first line). .poster-layout is a simple flex
+     row so the statement keeps its own comfortable measure and the
+     closing mark absorbs the remaining width. */
+  .poster-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
   .poster-statement-wrap {
     position: relative;
-    max-width: 34ch;
+    max-width: 40ch;
+    flex: 0 0 auto;
   }
   .poster-quote {
     position: absolute;
-    top: -3.5rem;
-    left: -2rem;
+    top: -4rem;
+    left: -2.5rem;
     z-index: 0;
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
-    font-size: 15rem;
+    font-size: 16rem;
     line-height: 1;
     color: var(--primary);
-    opacity: 0.4;
+    opacity: 0.35;
     pointer-events: none;
   }
   .poster-statement {
@@ -656,9 +881,21 @@ ${FONT_FACE_CSS}
     font-family: "Newsreader", "Source Serif 4", Georgia, serif;
     font-style: italic;
     font-weight: 500;
-    font-size: 2.5rem;
-    line-height: 1.35;
+    font-size: 3.1rem;
+    line-height: 1.3;
     color: var(--cream);
+  }
+  .poster-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 24rem;
+    line-height: 1;
+    color: var(--primary);
+    opacity: 0.14;
+    pointer-events: none;
   }
   /* Touchline footer — sits on every slide, baked in per-slide at render
      time (not via JS) so the counter and tick position are deterministic
@@ -709,15 +946,54 @@ ${FONT_FACE_CSS}
   /* Hero-scale wordmark — title slide only. The poster (purpose) slide
      keeps its existing treatment (no logo); this is a much bigger lockup
      reusing the same dark-lettered mark since the title slide sits on the
-     cream background. */
+     cream background. Sized up again in the round-3 composition pass
+     (260x72 -> 360x100) — "genuinely large" per the redesign brief, not
+     just modestly bigger than the footer mark. */
   .hero-logo {
-    width: 260px;
-    height: 72px;
+    width: 360px;
+    height: 100px;
     margin: 0 0 3rem;
     background-repeat: no-repeat;
     background-position: left center;
     background-size: contain;
     background-image: url(${LOGO_DARK_DATA_URI});
+  }
+  /* Title slide role name — explicit large size (h1 has no font-size of
+     its own in this stylesheet otherwise, so it fell back to the browser
+     default ~2rem) plus a wider description measure, so the title slide's
+     text block is a real typographic statement rather than a small
+     logo+heading pair floating in a mostly-empty frame. */
+  .title-role-name {
+    font-size: 4.5rem;
+    line-height: 1.05;
+  }
+  .title-role-description {
+    max-width: 52ch;
+    font-size: 1.2rem;
+    line-height: 1.5;
+  }
+  /* Title-slide layout — the logo/name/description block paired with a
+     giant translucent initial letter filling the right side, the same
+     "big translucent Newsreader glyph" motif as the poster's quote marks
+     and the phase divider's numeral, so the deck's three mostly-typographic
+     slide kinds read as one family instead of three unrelated treatments. */
+  .title-layout {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+  }
+  .title-layout > .title-main { flex: 0 0 auto; max-width: 60ch; }
+  .title-mark {
+    flex: 1 1 auto;
+    text-align: center;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 26rem;
+    line-height: 1;
+    color: var(--ochre);
+    opacity: 0.16;
+    pointer-events: none;
   }
   .touchline-logo--dark { background-image: url(${LOGO_DARK_DATA_URI}); }
   .touchline-logo--light { background-image: url(${LOGO_LIGHT_DATA_URI}); display: none; }
@@ -752,6 +1028,7 @@ ${FONT_FACE_CSS}
     [data-kind="poster"] .poster-role-label { color: var(--ink-muted); }
     [data-kind="poster"] .poster-statement { color: var(--navy-deep); }
     [data-kind="poster"] .poster-quote { opacity: 0.25; }
+    [data-kind="poster"] .poster-mark { opacity: 0.12; }
     [data-kind="poster"] .touchline-counter { color: var(--ink-muted) !important; }
     [data-kind="poster"] .touchline-logo--dark { display: block !important; }
     [data-kind="poster"] .touchline-logo--light { display: none !important; }
@@ -838,10 +1115,16 @@ function renderTitleSlide(
   role: Catalog["roles"][number],
   resolveRoleTokens: (text: string) => string,
 ): string {
+  const initial = role.name.trim().charAt(0).toUpperCase();
   return `
-    <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
-    <h1>${escapeHtml(role.name)}</h1>
-    <p class="role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
+    <div class="title-layout">
+      <div class="title-main">
+        <div class="hero-logo" role="img" aria-label="Aspire Sports"></div>
+        <h1 class="title-role-name">${escapeHtml(role.name)}</h1>
+        <p class="role-description title-role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
+      </div>
+      <span class="title-mark" aria-hidden="true">${escapeHtml(initial)}</span>
+    </div>
   `.trim();
 }
 
@@ -883,9 +1166,12 @@ function renderRolePurposeSlide(role: Catalog["roles"][number]): string | null {
   if (!purpose) return null;
   return `
     <p class="poster-role-label">${escapeHtml(role.name)}</p>
-    <div class="poster-statement-wrap">
-      <span class="poster-quote" aria-hidden="true">&#8220;</span>
-      <p class="poster-statement">${escapeHtml(purpose)}</p>
+    <div class="poster-layout">
+      <div class="poster-statement-wrap">
+        <span class="poster-quote" aria-hidden="true">&#8220;</span>
+        <p class="poster-statement">${escapeHtml(purpose)}</p>
+      </div>
+      <span class="poster-mark" aria-hidden="true">&#8221;</span>
     </div>
   `.trim();
 }
@@ -1002,6 +1288,294 @@ function renderRoleSummarySlide(
 }
 
 // ---------------------------------------------------------------------------
+// "Your toolkit" slide — placed right after "Your job", before the
+// philosophy section. Dedupes activity.tools across every activity the role
+// is Accountable or Responsible for (the same `matched` set the agenda/phase
+// chapters use) into one orientation list, instead of only ever seeing tools
+// scattered one activity at a time on individual activity slides.
+//
+// Categorization is a display heuristic, not authoritative: a tool string
+// reads as "digital & platform" if it embeds a route path (contains "/") or
+// one of a short list of software-shaped nouns (form, checklist, dashboard,
+// ...); everything else is treated as "physical & on-site". Good enough to
+// usefully sort ~170 free-text catalog tool strings; not worth a schema
+// field for what is fundamentally a display grouping. Known miss: "Your own
+// watch or stopwatch (there's no in-app clock)" contains "app" as a
+// substring of "in-app" and gets misclassified as digital despite the
+// sentence explicitly denying an app exists — an acceptable false positive
+// for a heuristic this simple, not worth a special case for one activity.
+// ---------------------------------------------------------------------------
+
+const DIGITAL_TOOL_KEYWORDS = [
+  "form",
+  "checklist",
+  "dashboard",
+  "portal",
+  "app",
+  "page",
+  "log",
+  "queue",
+  "job",
+  "calendar",
+  "record",
+  "readback",
+  "export",
+  "consent",
+  "webhook",
+  "provider",
+  "standings",
+  "list",
+  "plan",
+  "schedule",
+  "packet",
+  "digest",
+  "broadcast",
+  "reminder",
+  "rollup",
+  "system",
+  "signature",
+  "attestation",
+  "report",
+  "channel",
+  "email",
+  "inbox",
+  "station",
+];
+
+function isDigitalTool(tool: string): boolean {
+  if (tool.includes("/")) return true;
+  const lower = tool.toLowerCase();
+  return DIGITAL_TOOL_KEYWORDS.some((keyword) => lower.includes(keyword));
+}
+
+interface RoleToolkit {
+  digital: string[];
+  physical: string[];
+}
+
+function buildRoleToolkit(matched: MatchedActivity[]): RoleToolkit {
+  const seen = new Set<string>();
+  const digital: string[] = [];
+  const physical: string[] = [];
+  for (const { activity } of matched) {
+    for (const tool of activity.tools ?? []) {
+      if (seen.has(tool)) continue;
+      seen.add(tool);
+      (isDigitalTool(tool) ? digital : physical).push(tool);
+    }
+  }
+  digital.sort((a, b) => a.localeCompare(b));
+  physical.sort((a, b) => a.localeCompare(b));
+  return { digital, physical };
+}
+
+function renderToolkitCategory(heading: string, tools: string[]): string {
+  const listHtml =
+    tools.length > 0
+      ? `<ul class="toolkit-list">${tools.map((tool) => `<li>${escapeHtml(tool)}</li>`).join("")}</ul>`
+      : `<p class="empty-note">None catalogued yet.</p>`;
+  return `
+    <div class="frame-panel">
+      <p class="frame-panel-heading">${escapeHtml(heading)}</p>
+      ${listHtml}
+    </div>
+  `.trim();
+}
+
+function renderRoleToolkitSlide(matched: MatchedActivity[]): string | null {
+  if (matched.length === 0) return null;
+  const { digital, physical } = buildRoleToolkit(matched);
+
+  if (digital.length === 0 && physical.length === 0) {
+    return `
+      <h2>Your toolkit</h2>
+      <p class="empty-note">No tools are catalogued for your activities yet.</p>
+    `.trim();
+  }
+
+  return `
+    <h2>Your toolkit</h2>
+    <p class="slide-kicker">Everything your activities call for, in one place.</p>
+    <div class="toolkit-grid">
+      ${renderToolkitCategory("Digital & platform tools", digital)}
+      ${renderToolkitCategory("Physical & on-site tools", physical)}
+    </div>
+  `.trim();
+}
+
+// ---------------------------------------------------------------------------
+// "How time works on your day" slide — a vertical timeline built from the
+// role's matched activities' `trigger` values (the same source as each
+// activity slide's WHEN row), ordered chronologically. Triggers that name a
+// clock-relative offset ("72h before event window", "60 minutes before
+// first kickoff", the T+/- shorthand under expected_completion's influence)
+// get a real "N hours/minutes before/after" label parsed straight from the
+// humanized trigger text; triggers that are event-based rather than
+// clock-based (e.g. "Immediately after facility unlock", "Incident observed
+// or reported during the match") don't have a number to parse and group
+// under "As it happens" instead of a fabricated time.
+//
+// Chronological order is anchored on the activity's catalog `phase`
+// (PHASE_ORDER is already a reliable pre_day -> post_day sequence) as the
+// primary sort key, with the parsed before/after minutes as a secondary,
+// within-phase tiebreaker. Sorting on parsed minutes ALONE (ignoring phase)
+// would be wrong: two activities' free-text triggers aren't on a shared
+// numeric scale across phases (a pre_day "48h before" and a post_day event
+// trigger with no number can't be meaningfully compared as raw numbers), so
+// phase does the macro ordering and the parsed minutes only refine order
+// among same-phase activities.
+// ---------------------------------------------------------------------------
+
+function parseTimeRelativeMinutes(humanizedTrigger: string): number | null {
+  const beforeHours = humanizedTrigger.match(/(\d+)\s*hours?\s*before/i);
+  if (beforeHours) return -parseInt(beforeHours[1], 10) * 60;
+  const beforeMinutes = humanizedTrigger.match(/(\d+)\s*minutes?\s*before/i);
+  if (beforeMinutes) return -parseInt(beforeMinutes[1], 10);
+  const afterHours = humanizedTrigger.match(/(\d+)\s*hours?\s*after/i);
+  if (afterHours) return parseInt(afterHours[1], 10) * 60;
+  const afterMinutes = humanizedTrigger.match(/(\d+)\s*minutes?\s*after/i);
+  if (afterMinutes) return parseInt(afterMinutes[1], 10);
+  return null;
+}
+
+function timelineLabelFor(minutes: number | null): string {
+  if (minutes === null) return "As it happens";
+  if (minutes === 0) return "At kickoff";
+  const abs = Math.abs(minutes);
+  const useHours = abs >= 60 && abs % 60 === 0;
+  const value = useHours ? abs / 60 : abs;
+  const unit = useHours ? (value === 1 ? "hour" : "hours") : value === 1 ? "minute" : "minutes";
+  return `${value} ${unit} ${minutes < 0 ? "before" : "after"}`;
+}
+
+interface TimelineEntry {
+  activity: Activity;
+  label: string;
+  isTimeRelative: boolean;
+}
+
+// Second-pass fallback for event-based triggers phrased as "after <some
+// other activity>" (e.g. "Immediately after facility unlock") — resolves
+// the referenced activity's own numeric minutes (if it has one, from
+// earlier in the same phase or an earlier phase) so the event-based
+// activity sorts right after it, instead of defaulting to the phase
+// midpoint and potentially landing chronologically before things that
+// actually happen first. Word-overlap match on the sibling's name against
+// the trigger text — good enough for the catalog's actual "after X" phrasing
+// (single real match today: opening_walkthrough referencing "facility
+// unlock"); anything that doesn't match falls through to the phase-midpoint
+// default further down, which is still an honest "As it happens" label, just
+// without the extra precision.
+//
+// Requires ALL of the sibling's significant words to appear in the trigger
+// text (not just a majority) — several activity names in this catalog share
+// a common lead word ("Facility unlock" / "Facility close walkthrough" /
+// "Facility lock and alarm"), and a partial-overlap threshold matched
+// "staff_debrief" (triggered "after facility close walkthrough...") against
+// the wrong sibling ("Facility unlock") on the strength of "facility" alone.
+// Requiring every word closes that false-positive without losing the one
+// real match this exists for.
+function resolveEventBasedMinutes(
+  humanizedTrigger: string,
+  ownPhaseIndex: number,
+  resolved: Array<{ name: string; phaseIndex: number; minutes: number | null }>,
+): number | null {
+  if (!/\bafter\b/i.test(humanizedTrigger)) return null;
+  const lowerTrigger = humanizedTrigger.toLowerCase();
+  for (const sibling of resolved) {
+    if (sibling.minutes === null || sibling.phaseIndex > ownPhaseIndex) continue;
+    const words = sibling.name.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    if (words.length === 0) continue;
+    const allWordsMatch = words.every((w) => lowerTrigger.includes(w));
+    if (allWordsMatch) return sibling.minutes + 1;
+  }
+  return null;
+}
+
+function buildRoleTimeline(
+  matched: MatchedActivity[],
+  resolveRoleTokens: (text: string) => string,
+): TimelineEntry[] {
+  // Pass 1: parse whatever numeric before/after value each trigger has.
+  const parsed = matched.map(({ activity }) => {
+    const humanTrigger = humanizeTrigger(resolveRoleTokens(normalizeWhitespace(activity.trigger)));
+    const minutes = parseTimeRelativeMinutes(humanTrigger);
+    return {
+      activity,
+      humanTrigger,
+      minutes,
+      phaseIndex: PHASE_ORDER.indexOf(activity.phase),
+    };
+  });
+
+  // Pass 2: for triggers with no numeric value, try to resolve "after
+  // <sibling activity>" against the pass-1 results before falling back to
+  // the phase midpoint (minutes = 0, relative to that phase).
+  const withSortKeys = parsed.map((entry) => {
+    if (entry.minutes !== null) {
+      return { ...entry, sortMinutes: entry.minutes, isTimeRelative: true };
+    }
+    const resolvedMinutes = resolveEventBasedMinutes(
+      entry.humanTrigger,
+      entry.phaseIndex,
+      parsed.map((p) => ({ name: p.activity.name, phaseIndex: p.phaseIndex, minutes: p.minutes })),
+    );
+    return { ...entry, sortMinutes: resolvedMinutes ?? 0, isTimeRelative: false };
+  });
+
+  withSortKeys.sort(
+    (a, b) =>
+      a.phaseIndex - b.phaseIndex ||
+      a.sortMinutes - b.sortMinutes ||
+      a.activity.id.localeCompare(b.activity.id),
+  );
+  return withSortKeys.map(({ activity, minutes, isTimeRelative }) => ({
+    activity,
+    label: timelineLabelFor(isTimeRelative ? minutes : null),
+    isTimeRelative,
+  }));
+}
+
+function renderRoleTimelineSlide(
+  matched: MatchedActivity[],
+  resolveRoleTokens: (text: string) => string,
+): string | null {
+  if (matched.length === 0) return null;
+  const entries = buildRoleTimeline(matched, resolveRoleTokens);
+  const eventBasedCount = entries.filter((entry) => !entry.isTimeRelative).length;
+
+  const itemsHtml = entries
+    .map(
+      (entry) =>
+        `<li class="timeline-row"><span class="timeline-label">${escapeHtml(entry.label)}</span><span class="timeline-name">${escapeHtml(entry.activity.name)}</span></li>`,
+    )
+    .join("");
+
+  const eventStatHtml =
+    eventBasedCount > 0
+      ? `<div class="frame-stat">
+          <p class="frame-stat-value">${eventBasedCount}</p>
+          <p class="frame-stat-label">${escapeHtml(pluralize(eventBasedCount, "activity", "activities"))} triggered by events, not the clock</p>
+        </div>`
+      : "";
+
+  return `
+    <h2>How time works on your day</h2>
+    <div class="frame-layout">
+      <ol class="timeline-list">${itemsHtml}</ol>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">At a glance</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">${entries.length}</p>
+          <p class="frame-stat-label">${escapeHtml(pluralize(entries.length, "stop", "stops"))} across your day</p>
+        </div>
+        ${eventStatHtml}
+      </div>
+    </div>
+  `.trim();
+}
+
+// ---------------------------------------------------------------------------
 // Company philosophy section. Shared, identical across every deck regardless
 // of role — trainees should come away from this section with the same
 // picture of what the organization believes, no matter which role they're
@@ -1075,13 +1649,21 @@ function humanizePhase(phase: Activity["phase"]): string {
 // distinct, bigger treatment than a normal content slide.
 // ---------------------------------------------------------------------------
 
-function renderDividerSlide(kicker: string, title: string, items: string[]): SlideEntry {
+// `mark` is an optional giant translucent numeral/glyph rendered behind the
+// textblock, filling the right side of the frame (see .divider-mark) — used
+// for phase dividers (the phase number) but left off the checklist appendix
+// divider, which has no natural single-glyph equivalent.
+function renderDividerSlide(kicker: string, title: string, items: string[], mark?: string): SlideEntry {
   const itemsHtml = items.map((item) => `<li>${item}</li>`).join("");
+  const markHtml = mark ? `<span class="divider-mark" aria-hidden="true">${escapeHtml(mark)}</span>` : "";
   return {
     html: `
-    <p class="slide-kicker">${escapeHtml(kicker)}</p>
-    <p class="divider-title">${escapeHtml(title)}</p>
-    <ul class="phase-overview">${itemsHtml}</ul>
+    ${markHtml}
+    <div class="divider-textblock">
+      <p class="slide-kicker">${escapeHtml(kicker)}</p>
+      <p class="divider-title">${escapeHtml(title)}</p>
+      <ul class="phase-overview">${itemsHtml}</ul>
+    </div>
   `.trim(),
     kind: "divider",
   };
@@ -1097,7 +1679,12 @@ function renderPhaseDividerSlide(
     ({ activity, involvement }) =>
       `${escapeHtml(activity.name)} — <em>${escapeHtml(involvementToSentence(involvement))}</em>`,
   );
-  return renderDividerSlide(`Phase ${phaseNumber} of ${totalPhases}`, humanizePhase(phase), items);
+  return renderDividerSlide(
+    `Phase ${phaseNumber} of ${totalPhases}`,
+    humanizePhase(phase),
+    items,
+    String(phaseNumber).padStart(2, "0"),
+  );
 }
 
 function pluralize(count: number, singular: string, plural: string = `${singular}s`): string {
@@ -1111,9 +1698,26 @@ function renderAgendaSlide(phaseGroups: Array<{ phase: Activity["phase"]; entrie
         `<li><span class="agenda-phase">${escapeHtml(humanizePhase(phase))}</span><span class="agenda-count">${escapeHtml(pluralize(entries.length, "activity", "activities"))}</span></li>`,
     )
     .join("");
+  const totalActivities = phaseGroups.reduce((sum, group) => sum + group.entries.length, 0);
+  // Companion stat panel (shared .frame-layout/.frame-panel, see
+  // renderActivitySlide) — the phase list alone left the whole right column
+  // empty; a same-day totals callout is real, relevant data, not filler.
   return `
     <h2>Your day at a glance</h2>
-    <ul class="agenda-list">${items}</ul>
+    <div class="frame-layout">
+      <ul class="agenda-list">${items}</ul>
+      <div class="frame-panel">
+        <p class="frame-panel-heading">Today, in total</p>
+        <div class="frame-stat">
+          <p class="frame-stat-value">${phaseGroups.length}</p>
+          <p class="frame-stat-label">${escapeHtml(pluralize(phaseGroups.length, "phase"))}</p>
+        </div>
+        <div class="frame-stat">
+          <p class="frame-stat-value">${totalActivities}</p>
+          <p class="frame-stat-label">${escapeHtml(pluralize(totalActivities, "activity", "activities"))}</p>
+        </div>
+      </div>
+    </div>
   `.trim();
 }
 
@@ -1168,14 +1772,20 @@ function checklistTemplateIdFor(activity: Activity): string | undefined {
   return typeof ta.template_id === "string" ? ta.template_id : undefined;
 }
 
-// Round-2 slide anatomy: a compact meta-chip row directly under the title
-// (WHEN / YOU OWN THIS-or-YOU ASSIST / CHECKLIST), replacing both the
-// floating top-right time-rail chip and the italic "You own this"
-// slide-kicker line, plus the "There's a checklist for this — see the
-// checklist slides" filler sentence (the checklist chip already says so).
-// Escalation moves out of the meta area entirely into a visually distinct
-// footnote block at the bottom of the slide (see .escalation-footnote),
-// not mid-slide next to the steps.
+// Round-3 slide anatomy: a two-column composition (see .frame-layout in
+// DECK_CSS). Left column (.frame-main, ~60-62% of the frame) carries the
+// numbered procedure + screenshot slot; right column (.frame-panel, a
+// paper-surface card with a hairline border) carries the activity's meta
+// data — WHEN / accountability / checklist as labeled rows, then a "Tools"
+// block listing activity.tools — so the previously-empty right column now
+// fills with real per-activity data instead of a floating chip strip.
+// Superseded anatomy, for history: round 2 put WHEN / YOU OWN THIS-or-YOU
+// ASSIST / CHECKLIST in a horizontal meta-chip row directly under the
+// title; that row is gone, replaced by the panel's vertical meta rows.
+// Escalation stays a full-width footnote below the two-column region
+// (tried inside the panel too — a full-width footnote reads better because
+// it doesn't compete with the panel's tools list for a narrow column, and
+// it gives the slide one more element spanning the full frame width).
 function renderActivitySlide(
   roleId: string,
   activity: Activity,
@@ -1187,22 +1797,38 @@ function renderActivitySlide(
   const when = humanizeTrigger(resolveRoleTokens(normalizeWhitespace(activity.trigger)));
   const escalation = resolveRoleTokens(normalizeWhitespace(activity.escalation_path));
 
-  const chips: string[] = [
-    `<span class="meta-chip meta-chip--when">When: ${escapeHtml(when)}</span>`,
-    `<span class="meta-chip meta-chip--owner">${escapeHtml(involvementToChipLabel(involvement))}</span>`,
+  const metaRows: string[] = [
+    `<div class="panel-meta-row"><span class="panel-meta-label">When</span><span class="panel-meta-value">${escapeHtml(when)}</span></div>`,
+    `<div class="panel-meta-row panel-meta-row--owner"><span class="panel-meta-label">Accountability</span><span class="panel-meta-value">${escapeHtml(involvementToChipLabel(involvement))}</span></div>`,
   ];
   const checklistTemplateId = checklistTemplateIdFor(activity);
   if (checklistTemplateId) {
-    chips.push(
-      `<span class="meta-chip meta-chip--checklist">Checklist: ${escapeHtml(deriveArtifactTitle(checklistTemplateId))}</span>`,
+    metaRows.push(
+      `<div class="panel-meta-row"><span class="panel-meta-label">Checklist</span><span class="panel-meta-value">${escapeHtml(deriveArtifactTitle(checklistTemplateId))}</span></div>`,
     );
   }
 
+  const tools = activity.tools ?? [];
+  const toolsHtml =
+    tools.length > 0
+      ? `<div class="panel-tools">
+        <p class="panel-tools-label">Tools</p>
+        <ul class="panel-tools-list">${tools.map((tool) => `<li>${escapeHtml(tool)}</li>`).join("")}</ul>
+      </div>`
+      : "";
+
   return `
     <h2>${escapeHtml(activity.name)}</h2>
-    <div class="meta-chip-row">${chips.join("")}</div>
-    ${renderProcedureHtml(activity.sop_body)}
-    ${screenshotSlotHtml(roleId, slug, screenshots)}
+    <div class="frame-layout">
+      <div class="frame-main">
+        ${renderProcedureHtml(activity.sop_body)}
+        ${screenshotSlotHtml(roleId, slug, screenshots)}
+      </div>
+      <aside class="frame-panel">
+        <div class="panel-meta">${metaRows.join("")}</div>
+        ${toolsHtml}
+      </aside>
+    </div>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> ${escapeHtml(escalation)}</div>
   `.trim();
 }
@@ -1463,6 +2089,12 @@ export function renderTrainingDeck(
 
   const summarySlide = renderRoleSummarySlide(role, phaseGroups);
   if (summarySlide) slides.push({ html: summarySlide });
+
+  const toolkitSlide = renderRoleToolkitSlide(matched);
+  if (toolkitSlide) slides.push({ html: toolkitSlide });
+
+  const timelineSlide = renderRoleTimelineSlide(matched, resolveRoleTokens);
+  if (timelineSlide) slides.push({ html: timelineSlide });
 
   for (const philosophySlide of COMPANY_PHILOSOPHY_SLIDES) {
     slides.push({ html: philosophySlide });
