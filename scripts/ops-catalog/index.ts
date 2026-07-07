@@ -121,7 +121,26 @@ const commands: Record<string, () => Promise<number>> = {
           screenshots.set(slug, `data:image/png;base64,${bytes.toString("base64")}`);
         }
 
-        optsByRole[role.id] = { intro, screenshots, presentNarrationWorkflows };
+        // "Using the system" product-tour screenshots — a sibling tour/
+        // subdirectory of the per-activity slot above, same
+        // committed-input/always-embed rule.
+        let tourScreenshots: Map<string, string> | undefined;
+        const tourShotDir = path.join(shotDir, "tour");
+        let tourFiles: string[] = [];
+        try {
+          tourFiles = await fs.readdir(tourShotDir);
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+        }
+        for (const file of tourFiles.sort()) {
+          if (!file.endsWith(".png")) continue;
+          const slug = file.slice(0, -".png".length);
+          const bytes = await fs.readFile(path.join(tourShotDir, file));
+          tourScreenshots ??= new Map();
+          tourScreenshots.set(slug, `data:image/png;base64,${bytes.toString("base64")}`);
+        }
+
+        optsByRole[role.id] = { intro, screenshots, tourScreenshots, presentNarrationWorkflows };
       }
 
       const decks = generateAllTrainingDecks(catalog, optsByRole);
