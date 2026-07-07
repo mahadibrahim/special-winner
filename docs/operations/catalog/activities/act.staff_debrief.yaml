@@ -42,6 +42,10 @@ sop_body: |
   7. Submit the form before leaving the venue.
   8. If the venue manager isn't available, the event lead runs the
      debrief and escalates per the escalation path.
+tools:
+  - The staff debrief form
+  - Notepad (capturing huddle notes on what worked and what broke)
+  - Today's incident report, if one was filed (reference)
 tracking_method: form
 tracking_artifact:
   template_id: frm.staff_debrief

@@ -47,6 +47,10 @@ sop_body: |
      (rainout refund decision, rainout reschedule) belongs to the
      director within the next 24 hours — your job ends at the call and
      the record.
+tools:
+  - Weather app or National Weather Service radar (lightning, precipitation, heat index)
+  - Phone (consulting the director before the call)
+  - The rainout decision form
 tracking_method: form
 tracking_artifact:
   template_id: frm.rainout_decision

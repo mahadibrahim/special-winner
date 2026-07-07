@@ -44,6 +44,10 @@ sop_body: |
      event escalates per the escalation path.
   8. Submit the completed form before the pre-shift staff briefing so
      findings can be shared with the team.
+tools:
+  - The fixed walkthrough route
+  - The opening walkthrough findings form
+  - Phone camera (documenting findings by location and severity)
 tracking_method: form
 tracking_artifact:
   template_id: frm.opening_walkthrough_findings

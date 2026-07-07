@@ -58,6 +58,10 @@ sop_body: |
   9. This form is the fast first pass, not the final record used for
      disputes or insurance — every incident captured here still needs
      the full finalized report before it's closed.
+tools:
+  - Phone (call 911 for a life-threatening incident)
+  - The incident response form
+  - First-aid kit at the field/court
 tracking_method: form
 tracking_artifact:
   template_id: frm.incident_response

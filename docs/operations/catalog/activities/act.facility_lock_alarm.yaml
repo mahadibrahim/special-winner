@@ -41,6 +41,10 @@ sop_body: |
      your way to your vehicle.
   9. Log the lock-and-alarm completion. Alarm code rotation follows the
      centrally-enforced policy — never share or write down the code.
+tools:
+  - Alarm keypad and the current code
+  - Building key ring
+  - HVAC and lighting panel
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.facility_lock_alarm

@@ -51,6 +51,10 @@ sop_body: |
      the outreach and escalates to the director per the standard
      handoff ladder — the 24-48h window doesn't stretch just because
      you're unavailable.
+tools:
+  - Phone (follow-up call or in-person check-in with the affected family/staff member)
+  - The incident follow-up form
+  - The finalized incident report (reference for what happened)
 tracking_method: form
 tracking_artifact:
   template_id: frm.incident_followup

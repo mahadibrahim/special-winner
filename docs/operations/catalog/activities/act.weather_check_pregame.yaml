@@ -42,6 +42,10 @@ sop_body: |
   7. If conditions are clear, complete the checklist and log the readings
      for the record; that's the data trail if conditions change later and
      the call gets challenged.
+tools:
+  - Weather app or National Weather Service radar (live lightning, precipitation, temperature)
+  - On-site surface walk (standing water, saturated turf)
+  - The pregame weather check checklist
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.weather_pregame

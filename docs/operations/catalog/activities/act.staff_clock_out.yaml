@@ -44,6 +44,10 @@ sop_body: |
      record is complete and ready to feed the payroll integration.
   8. If the venue manager isn't available to witness a clock-out, the
      event lead witnesses it and escalates per the escalation path.
+tools:
+  - The clock-out station (in-person sign-out)
+  - Today's staffing plan
+  - The activity completion signature capture (/admin/activity-completions/[id])
 tracking_method: signature
 tracking_artifact:
   template_id: sig.staff_clock_out

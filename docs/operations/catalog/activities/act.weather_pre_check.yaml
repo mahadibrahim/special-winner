@@ -40,6 +40,10 @@ sop_body: |
      in.
   6. Re-run the T-24h recheck if step 5 applied, and carry any still-open
      risk forward into the pregame weather check.
+tools:
+  - Weather app or National Weather Service forecast (temperature, precipitation, wind, lightning risk)
+  - On-site surface walk, if accessible (baseline field condition)
+  - The weather pre-check checklist
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.weather_pre_check
