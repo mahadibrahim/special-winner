@@ -2,5 +2,15 @@ id: chk.weather_pre_check
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: forecast_reviewed
+    label: 72h forecast reviewed for precipitation, wind, lightning, and heat index
+  - id: heat_advisory_checked
+    label: Heat advisory checked (heat index of 95°F or higher flags a risk)
+  - id: precip_risk_checked
+    label: Precipitation risk checked (60% or higher chance during the event window flags a risk)
+  - id: field_condition_noted
+    label: Current field/turf condition noted if the outdoor surface is accessible
+  - id: risk_flagged
+    label: Any at-risk match flagged to the event lead and director
+  - id: recheck_scheduled
+    label: T-24h recheck scheduled if a risk was flagged

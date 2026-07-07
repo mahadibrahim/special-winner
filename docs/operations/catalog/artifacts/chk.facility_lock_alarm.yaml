@@ -2,5 +2,19 @@ id: chk.facility_lock_alarm
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: walkthrough_confirmed
+    label: Close walkthrough confirmed signed off before lock-up begins
+  - id: equipment_powered_down
+    label: Field/court lighting, scoreboards, and unneeded equipment powered down
+  - id: hvac_set_overnight
+    label: HVAC set to the overnight/unoccupied setting
+  - id: interior_doors_locked
+    label: Interior doors locked (locker rooms, storage, concessions, office)
+  - id: interior_lights_off
+    label: Interior lights off except required security lighting
+  - id: exterior_doors_locked
+    label: Exterior doors locked and confirmed secure
+  - id: alarm_armed_confirmed
+    label: Alarm armed with the current code and arming confirmed before leaving
+  - id: perimeter_secure
+    label: Perimeter confirmed secure (gates latched, no propped doors)

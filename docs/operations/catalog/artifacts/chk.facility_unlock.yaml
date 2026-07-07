@@ -2,5 +2,17 @@ id: chk.facility_unlock
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: alarm_disarmed
+    label: Alarm disarmed with the current code (backup entry logged if the code failed)
+  - id: exterior_doors_unlocked
+    label: Exterior doors unlocked per today's traffic plan
+  - id: interior_doors_unlocked
+    label: Interior doors unlocked (locker rooms, storage, concessions, restrooms, office)
+  - id: lights_on
+    label: Lights on throughout the facility
+  - id: hvac_set
+    label: HVAC set to the seasonal operating range
+  - id: restrooms_checked
+    label: Restrooms checked for running water and no leaks
+  - id: overnight_issues_noted
+    label: Any overnight issues (forced entry, alarm trouble, standing water) noted and escalated

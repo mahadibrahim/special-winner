@@ -2,5 +2,17 @@ id: chk.facility_close_walkthrough
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: surfaces_walked
+    label: Playing surfaces walked for people, belongings, and equipment left behind
+  - id: locker_rooms_checked
+    label: Locker rooms and restrooms checked for anyone still inside
+  - id: lost_items_collected
+    label: Personal items found routed to lost and found
+  - id: equipment_accounted
+    label: Day's equipment confirmed accounted for by facilities
+  - id: new_hazards_noted
+    label: Any new safety issue from the day's use noted for follow-up
+  - id: exterior_cleared
+    label: Parking lot and entrances confirmed clear of people and hazards
+  - id: signed_off
+    label: Walkthrough signed off before facility lock and alarm

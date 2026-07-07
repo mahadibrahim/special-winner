@@ -2,5 +2,19 @@ id: chk.equipment_inventory
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: balls_counted
+    label: Balls counted by sport/size against the manifest
+  - id: cones_pinnies_counted
+    label: Cones and pinnies/scrimmage vests counted against the manifest
+  - id: goals_nets_counted
+    label: Portable goals/nets counted against the manifest
+  - id: jerseys_scoreboards_counted
+    label: Jerseys, scoreboards, whistles, and clipboards counted
+  - id: first_aid_restock_checked
+    label: First-aid restock supply checked against par
+  - id: shortages_noted
+    label: Any shortage or damaged item noted
+  - id: shortages_ordered
+    label: Shortages ordered or borrowed with lead time before the event
+  - id: venue_manager_notified
+    label: Unresolvable shortages flagged to the venue manager

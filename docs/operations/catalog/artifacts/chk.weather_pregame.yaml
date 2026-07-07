@@ -2,5 +2,17 @@ id: chk.weather_pregame
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: dashboard_checked
+    label: Weather-alert dashboard checked for live conditions
+  - id: lightning_radar_checked
+    label: Lightning radar checked (strikes within 10 miles)
+  - id: precip_radar_checked
+    label: Precipitation radar checked against the event window
+  - id: field_walked
+    label: Field/court surface walked or confirmed by facilities for standing water or unsafe footing
+  - id: heat_index_checked
+    label: Current temperature/heat index checked against the venue's advisory cutoff
+  - id: readings_logged
+    label: Readings logged for the record even when conditions are clear
+  - id: escalate_if_risk
+    label: Any risk threshold crossed routed immediately to the rainout decision

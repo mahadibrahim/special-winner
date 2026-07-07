@@ -2,5 +2,17 @@ id: chk.equipment_storage
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: equipment_collected
+    label: All equipment collected from staging areas across every surface
+  - id: returned_to_labeled_storage
+    label: Each item returned to its labeled storage location
+  - id: balls_pinnies_counted
+    label: Balls and pinnies counted on return against the morning's staging count
+  - id: damage_missing_noted
+    label: Damaged or missing items noted
+  - id: first_aid_usage_logged
+    label: First-aid items used during the day logged for restock
+  - id: storage_organized
+    label: Storage area organized (cords coiled, pinnies folded, cones stacked)
+  - id: count_logged
+    label: Completed storage count logged for the next inventory check

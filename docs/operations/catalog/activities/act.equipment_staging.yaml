@@ -23,9 +23,21 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 90 minutes before first kickoff, pull the day's equipment list
+     by match and surface from the schedule.
+  2. Move balls (correct size and sport per age group), cones, and
+     pinnies from storage to the staging area near each playing surface.
+  3. Move scoreboards to each surface, power them on, and reset to 0-0.
+  4. Move a first-aid kit to each field/court — the venue manager's
+     first-aid kit check should already have verified its contents.
+  5. Move water coolers or jugs to each staging area per group.
+  6. Stage match-specific equipment (portable goals, nets, corner flags)
+     near each surface without placing it yet — full placement happens at
+     field/court setup closer to kickoff.
+  7. Confirm each match crew can grab their equipment without going back
+     to storage.
+  8. Note anything missing from the staging pass, pull from backup stock,
+     or flag it to the venue manager.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_staging

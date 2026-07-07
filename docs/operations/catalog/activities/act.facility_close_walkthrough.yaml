@@ -24,9 +24,23 @@ escalation_path: |
   standard handoff ladder; closure cannot be completed without a
   walkthrough sign-off.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. After the last match concludes and spectators have cleared, walk the
+     same fixed route as the opening walkthrough: playing surfaces,
+     locker rooms, restrooms, bleachers, then the parking lot.
+  2. Check every locker room and restroom stall for anyone still inside;
+     call out before entering an occupied-looking space.
+  3. Confirm no personal belongings, equipment, or trash was left behind
+     on the surfaces or in the stands; route anything found to lost and
+     found.
+  4. Confirm the day's equipment has been accounted for by facilities
+     (equipment storage should already be underway).
+  5. Check for any new safety issue from the day's use — damaged
+     fixtures, spills, tripping hazards — and note it for the next
+     opening walkthrough or an immediate work order.
+  6. Confirm exterior areas (parking lot, entrances) are clear of people
+     and hazards.
+  7. Sign off the walkthrough — facility lock and alarm cannot start
+     without this sign-off.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.facility_close_walkthrough

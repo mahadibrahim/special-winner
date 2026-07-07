@@ -23,9 +23,22 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 90 minutes before first kickoff, pull the day's signage plan
+     (wayfinding, sponsor banners, field-of-play markers, safety
+     placards).
+  2. Place wayfinding signage at entrances, restrooms, and any surface
+     families need to find.
+  3. Hang sponsor banners in their assigned locations per the
+     sponsorship agreement, if any.
+  4. Place field-of-play markers (out-of-bounds, spectator line) so
+     spectators know where they can and can't stand.
+  5. Place safety placards (first-aid location, emergency exit, no pets,
+     etc.) wherever required.
+  6. Walk the completed layout and photograph each signage zone to
+     confirm placement.
+  7. Upload the photos to the day's record; pull a replacement from
+     backup stock or flag the venue manager for anything missing or
+     damaged.
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: signage_setup

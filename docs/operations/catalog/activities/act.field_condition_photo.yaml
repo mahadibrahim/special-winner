@@ -23,9 +23,21 @@ escalation_path: |
   If venue_manager unreachable, role.facilities captures the photo and
   escalates to role.director per the standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 30 minutes before the first match on each surface, walk to
+     that surface with a phone or camera.
+  2. Frame a wide shot showing the full playing surface — turf/grass
+     condition, lines, and goals or nets in position.
+  3. Take the photo with location and timestamp on so it's date-stamped
+     automatically.
+  4. Upload it to the day's match record under that surface before the
+     first whistle.
+  5. Repeat for every surface hosting a match that day — one dated photo
+     per surface, before its first kickoff.
+  6. If the photo reveals a condition issue (standing water, divots,
+     damaged line paint), flag it to facilities right away rather than
+     waiting for the field damage process.
+  7. Don't skip this even on a clear day — it's the baseline any later
+     damage claim gets measured against.
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: field_condition_pregame

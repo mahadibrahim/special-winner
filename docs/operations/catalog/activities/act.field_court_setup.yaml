@@ -23,9 +23,23 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 30 minutes before each kickoff, place goals/nets in their
+     marked positions and secure them (anchored or weighted per the
+     venue's safety standard — an unsecured goal is a serious tip-over
+     hazard).
+  2. Place corner flags and any required field markings for the sport.
+  3. Place team benches on the correct sidelines per the match
+     assignment.
+  4. Set up the scoreboard for the match — reset to 0-0, team
+     names/colors if the board supports it.
+  5. Place any match-specific equipment the sport calls for.
+  6. Confirm the surface is otherwise clear of the prior match's
+     equipment and debris.
+  7. Photograph the fully configured surface before handing it off, and
+     upload it to the match record.
+  8. If anything can't be resolved in the 30-minute window, notify the
+     venue manager and event lead immediately — a match doesn't start on
+     an unsafe or incomplete surface.
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: field_setup

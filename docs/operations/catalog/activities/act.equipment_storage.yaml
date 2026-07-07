@@ -23,9 +23,20 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. After the last match concludes, collect all equipment from staging
+     areas across every surface.
+  2. Return each item to its labeled storage location — balls, cones,
+     pinnies, goals/nets, scoreboards, first-aid kits.
+  3. Count balls and pinnies on return and compare against the morning's
+     equipment staging count.
+  4. Note anything damaged during the day's use or missing from the
+     return count.
+  5. Log any first-aid kit items used during the day so the next
+     inventory check starts from an accurate baseline.
+  6. Coil cords, fold pinnies, and stack cones so the space is ready for
+     the next equipment inventory check.
+  7. Log the completed storage count — any shortfall becomes the first
+     line item on the next inventory check.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_storage

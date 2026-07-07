@@ -23,9 +23,22 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At the final whistle, move immediately to the just-finished surface
+     — the next match's crew is on the clock behind you.
+  2. Collect match-specific equipment: balls, pinnies, corner flags, and
+     anything not staying with the field.
+  3. Re-secure goals/nets if they were repositioned during the match;
+     reset any that came loose.
+  4. Reset the scoreboard to 0-0 and update team names/colors for the
+     next match.
+  5. Sanitize shared-touch equipment (balls, pinnies) as needed between
+     matches per the venue's routine.
+  6. Count balls and pinnies back against the pre-match count and note
+     anything missing.
+  7. Confirm the surface is ready for the next match crew to take over
+     within the 15-minute turnover window.
+  8. Flag anything damaged during the match to the field damage report
+     process rather than trying to fix it yourself.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_turnover

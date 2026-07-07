@@ -25,9 +25,28 @@ escalation_path: |
   If venue_manager unreachable, escalate to role.director who has
   unilateral authority to call the event.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. When weather or field conditions within 2 hours of kickoff raise
+     real doubt — active lightning, sustained heavy rain producing
+     standing water or unsafe footing, or a heat index at or above the
+     venue's cutoff — pull the current weather-alert dashboard reading
+     and the field condition status.
+  2. Consult the director before making the call. This is a consequential
+     decision; if the director can't be reached in time, the decision
+     defaults to them per the escalation path.
+  3. For lightning specifically, use the standard flash-to-bang rule:
+     suspend play if thunder follows lightning within 30 seconds, and
+     don't resume until 30 minutes have passed with no further lightning.
+  4. Decide one of three outcomes: play as scheduled, delay the start
+     (name a re-check time), or cancel.
+  5. Record the decision, the specific conditions that drove it, and your
+     name as authorizing signer in the rainout decision form.
+  6. Submit the form. This triggers the platform's cancellation broadcast
+     to parents, coaches, refs, captains, and the venue team
+     automatically — don't message people separately ahead of the form.
+  7. If the outcome is cancel, remember the refund/reschedule call
+     (rainout refund decision, rainout reschedule) belongs to the
+     director within the next 24 hours — your job ends at the call and
+     the record.
 tracking_method: form
 tracking_artifact:
   template_id: frm.rainout_decision

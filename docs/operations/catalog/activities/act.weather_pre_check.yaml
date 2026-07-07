@@ -24,9 +24,22 @@ escalation_path: |
   If venue_manager unreachable, escalate to role.director per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. 72 hours before the event window, pull up every outdoor match on the
+     day's schedule and check the forecast for temperature, precipitation
+     chance, wind, and lightning risk on the weather-alert dashboard.
+  2. Flag a heat advisory if the forecast heat index reaches 95°F or
+     higher during the event window, and flag a precipitation risk if the
+     chance of rain is 60% or higher during that window.
+  3. If the surface is accessible, walk it and note current field
+     condition (standing water from recent rain, firmness) as a baseline.
+  4. If nothing is flagged, complete the checklist — no further action is
+     needed until the pregame recheck 90 minutes before kickoff.
+  5. If something is flagged, notify the event lead and the director
+     right away so staffing and family communications can adjust early,
+     and schedule a follow-up recheck at T-24h before the forecast locks
+     in.
+  6. Re-run the T-24h recheck if step 5 applied, and carry any still-open
+     risk forward into the pregame weather check.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.weather_pre_check

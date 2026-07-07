@@ -23,9 +23,24 @@ escalation_path: |
   If venue_manager unreachable, escalate to role.director per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Arrive at least 2 hours before first kickoff — before any other
+     staff.
+  2. Disarm the alarm with the current code; if the code fails, use the
+     backup entry procedure and log the discrepancy.
+  3. Unlock the exterior doors staff and families will need today (main
+     entrance, staff entrance, any concessions or loading doors) per the
+     day's traffic plan.
+  4. Unlock interior doors: locker rooms, storage/equipment room,
+     concessions, restrooms, office.
+  5. Turn on lights throughout the facility and set HVAC to the
+     comfortable operating range for the season.
+  6. Confirm restrooms are functioning — running water, no leaks, no
+     overnight plumbing issues.
+  7. Note anything unusual from overnight (forced-entry signs, alarm
+     trouble codes, standing water) and escalate per the escalation path
+     before staff arrive.
+  8. Mark the checklist complete once the building is ready for staff —
+     this clears the way for the opening walkthrough.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.facility_unlock

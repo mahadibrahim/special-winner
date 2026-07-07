@@ -23,9 +23,21 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 30 minutes before each flag football kickoff, walk the full
+     length of the field.
+  2. Verify yard lines are visible and accurately spaced per the field's
+     marking standard.
+  3. Verify both end zones are clearly marked at the correct depth.
+  4. Verify sideline and out-of-bounds markings are visible along the
+     full length of the field.
+  5. Check flag-pulling zone markings if the format uses them, and
+     confirm no line has faded or shifted since the last match.
+  6. Touch up or re-mark anything faded or unclear before the match
+     starts — don't let players guess at boundaries.
+  7. Photograph the field lines and upload the photo to the match record.
+  8. If field conditions (mud, standing water) are obscuring lines faster
+     than they can be maintained, flag it to the venue manager — this may
+     factor into a rainout call.
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: flag_lines

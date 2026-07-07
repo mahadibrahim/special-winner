@@ -24,9 +24,26 @@ escalation_path: |
   standard handoff ladder; facilities walks the building until
   coverage resumes.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Immediately after unlock, walk the entire facility in a fixed route:
+     playing surfaces, restrooms, locker rooms, bleachers/spectator
+     areas, then the parking lot.
+  2. At each surface, look for standing water, debris, damaged fixtures
+     (goals, nets, benches, lighting), and anything a player or spectator
+     could trip on or be hurt by.
+  3. Check restrooms and locker rooms for cleanliness, supplies (soap,
+     paper towels or toilet paper), and any plumbing issues.
+  4. Check bleachers and spectator areas for structural issues (loose
+     bolts, damaged seating) and general cleanliness.
+  5. Check the parking lot for surface hazards and lighting, and confirm
+     the overflow path is clear.
+  6. Record every finding in the walkthrough form with location and
+     severity, even minor ones — this is the day's baseline safety
+     record.
+  7. Route anything unsafe to facilities for correction before players
+     and spectators arrive; anything that can't be resolved before the
+     event escalates per the escalation path.
+  8. Submit the completed form before the pre-shift staff briefing so
+     findings can be shared with the team.
 tracking_method: form
 tracking_artifact:
   template_id: frm.opening_walkthrough_findings
