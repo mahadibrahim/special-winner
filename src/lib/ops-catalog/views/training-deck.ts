@@ -6,9 +6,93 @@
 // Decisions for why decks are NOT skipped for hand_authored roles, unlike
 // generateAllRoleManuals.
 
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Catalog } from "../loader";
 import type { Activity } from "../types/activity";
 import { PHASE_ORDER, involvementOf, type Involvement } from "./role-manual";
+
+// ---------------------------------------------------------------------------
+// Brand asset embedding. Decks are self-contained HTML files (no CDN, no
+// relative asset links that could go stale) — so the brand fonts and the
+// logo marks are embedded as base64 data URIs, read once at module load
+// from committed repo assets. This is the one place this view touches the
+// filesystem (every other view/helper in this file stays pure); it's a
+// deliberate, narrow exception for physically-large static binary assets
+// that are impractical to inline as literal source strings, not a return to
+// ad hoc fs access — reads are synchronous, happen once per process, and
+// are fully deterministic (same committed bytes in, same output every
+// time), so byte-stable double-render still holds.
+//
+// Paths are resolved from this module's own location via import.meta.url
+// rather than process.cwd(), so rendering doesn't depend on the caller's
+// working directory (mirrors the repo-root resolution pattern already used
+// in scripts/bws-load-secrets.mjs).
+// ---------------------------------------------------------------------------
+
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(MODULE_DIR, "../../../..");
+
+interface FontSpec {
+  family: string;
+  weight: 400 | 500 | 600;
+  style: "normal" | "italic";
+  file: string;
+}
+
+// Newsreader (400/500/600, incl. italic), IBM Plex Sans (400/500/600), IBM
+// Plex Mono (400/500) — see training/assets/fonts/README.md for provenance
+// and license (both families SIL OFL).
+const FONT_SPECS: FontSpec[] = [
+  { family: "Newsreader", weight: 400, style: "normal", file: "newsreader-normal-400.woff2" },
+  { family: "Newsreader", weight: 500, style: "normal", file: "newsreader-normal-500.woff2" },
+  { family: "Newsreader", weight: 600, style: "normal", file: "newsreader-normal-600.woff2" },
+  { family: "Newsreader", weight: 400, style: "italic", file: "newsreader-italic-400.woff2" },
+  { family: "Newsreader", weight: 500, style: "italic", file: "newsreader-italic-500.woff2" },
+  { family: "Newsreader", weight: 600, style: "italic", file: "newsreader-italic-600.woff2" },
+  { family: "IBM Plex Sans", weight: 400, style: "normal", file: "ibmplexsans-400.woff2" },
+  { family: "IBM Plex Sans", weight: 500, style: "normal", file: "ibmplexsans-500.woff2" },
+  { family: "IBM Plex Sans", weight: 600, style: "normal", file: "ibmplexsans-600.woff2" },
+  { family: "IBM Plex Mono", weight: 400, style: "normal", file: "ibmplexmono-400.woff2" },
+  { family: "IBM Plex Mono", weight: 500, style: "normal", file: "ibmplexmono-500.woff2" },
+];
+
+function buildFontFaceCss(): string {
+  const fontsDir = path.join(REPO_ROOT, "training/assets/fonts");
+  return FONT_SPECS.map((spec) => {
+    const bytes = fs.readFileSync(path.join(fontsDir, spec.file));
+    const base64 = bytes.toString("base64");
+    return `  @font-face {
+    font-family: "${spec.family}";
+    font-style: ${spec.style};
+    font-weight: ${spec.weight};
+    font-display: swap;
+    src: url(data:font/woff2;base64,${base64}) format("woff2");
+  }`;
+  }).join("\n");
+}
+
+const FONT_FACE_CSS = buildFontFaceCss();
+
+function svgDataUri(fileName: string): string {
+  const svg = fs.readFileSync(path.join(REPO_ROOT, "public/images", fileName), "utf8");
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+
+// public/images/logo.svg and logo-dark.svg are named for the WORDMARK'S OWN
+// ink color, not the background it's meant for: logo.svg's letterforms are
+// cream/white (built to sit on the navy sidebar/footer — see
+// portal-layout.tsx and footer.tsx), while logo-dark.svg's letterforms are
+// near-black ink (built to sit on the cream/light nav — see
+// navigation.tsx). The poster slide is the deck's one navy surface, so it
+// needs the LIGHT-lettered logo.svg to stay visible; every other (cream)
+// slide's footer needs the DARK-lettered logo-dark.svg. Both variants are
+// embedded once and swapped per slide via CSS (see `.touchline-logo--*`),
+// so the poster's print mode (cream/ink, see print CSS below) can swap back
+// without a second asset read.
+const LOGO_LIGHT_DATA_URI = svgDataUri("logo.svg");
+const LOGO_DARK_DATA_URI = svgDataUri("logo-dark.svg");
 
 // ---------------------------------------------------------------------------
 // Small pure helpers
@@ -217,7 +301,15 @@ function screenshotSlotHtml(
 // ---------------------------------------------------------------------------
 
 const DECK_CSS = `
+${FONT_FACE_CSS}
   :root {
+    /* Tokens copied verbatim from src/styles/globals.css (:root, light
+       mode) — decks are standalone files with no shared stylesheet, so
+       these are copied, not imported. --primary matches the semantic
+       --primary token (which resolves to --primary-orange, not the
+       brighter --primary-orange-bright variant some earlier deck drafts
+       used) since this is the single hot-spot accent, not a UI-state
+       color. */
     --cream: oklch(0.972 0.008 80);
     --cream-2: oklch(0.955 0.012 78);
     --cream-3: oklch(0.935 0.018 76);
@@ -226,7 +318,7 @@ const DECK_CSS = `
     --ink-muted: oklch(0.42 0.01 260);
     --navy: oklch(0.24 0.06 260);
     --navy-deep: oklch(0.18 0.07 262);
-    --primary: oklch(0.66 0.21 35);
+    --primary: oklch(0.58 0.19 35);
     --ochre: oklch(0.75 0.12 75);
     --sage: oklch(0.52 0.08 155);
     --paper: oklch(0.99 0.003 80);
@@ -236,43 +328,94 @@ const DECK_CSS = `
     margin: 0;
     background: var(--cream);
     color: var(--ink);
-    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   h1, h2 {
-    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-family: "Newsreader", "Source Serif 4", Georgia, "Times New Roman", serif;
     font-style: italic;
+    font-weight: 600;
     color: var(--navy-deep);
   }
   code {
-    font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
     background: var(--cream-2);
     padding: 0.1em 0.4em;
     border-radius: 3px;
   }
+  a { color: var(--primary); }
+  button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  /* Slides are stacked full-viewport and cross-faded via opacity rather
+     than display:none/flex, so the active slide change can transition —
+     display can't be animated, opacity can. */
   .slide {
-    display: none;
-    min-height: 100vh;
-    padding: 8vh 10vw;
+    position: fixed;
+    inset: 0;
+    display: flex;
     flex-direction: column;
     justify-content: center;
+    padding: 8vh 10vw;
+    background: var(--cream);
+    color: var(--ink);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
   }
-  .slide.active { display: flex; }
+  .slide.active {
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .slide { transition: none; }
+  }
+  /* Hairline warm-gray rule under every heading, except the poster (its
+     own reversed treatment has no rule). */
+  .slide:not([data-kind="poster"]) h1,
+  .slide:not([data-kind="poster"]) h2 {
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--cream-3);
+  }
+  /* Informative label, not a decorative kicker — italic + muted rather
+     than the small-caps treatment reserved for the poster's role label
+     (the deck's only small-caps label; see the poster styles below). */
   .slide-kicker {
     color: var(--ink-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.8rem;
+    font-style: italic;
+    font-size: 0.95rem;
   }
-  .subtitle {
-    color: var(--primary);
-    font-weight: 600;
+  /* Mono time-rail chip (activity slides) — a data label, not an eyebrow.
+     Text keeps its natural sentence case in the DOM; uppercase is a pure
+     display transform so the underlying value stays intact/greppable. */
+  .time-rail {
+    position: absolute;
+    top: 8vh;
+    right: 10vw;
+    max-width: 32ch;
+    margin: 0;
+    padding: 0.3rem 0.65rem;
+    background: var(--cream-2);
+    border: 1px solid var(--cream-3);
+    border-radius: 3px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    text-align: right;
+    color: var(--ink-muted);
   }
   .nav-controls {
     position: fixed;
-    bottom: 1.5rem;
+    /* Cleared above the touchline footer's row (bottom: 5vh + its own line
+       height) so the "NN / total" counter never sits underneath these
+       buttons. */
+    bottom: calc(5vh + 3rem);
     right: 1.5rem;
+    z-index: 2;
     display: flex;
     gap: 0.5rem;
   }
@@ -285,13 +428,6 @@ const DECK_CSS = `
     cursor: pointer;
     font-family: "IBM Plex Sans", sans-serif;
   }
-  .progress {
-    position: fixed;
-    bottom: 1.5rem;
-    left: 1.5rem;
-    color: var(--ink-muted);
-    font-size: 0.85rem;
-  }
   .screenshot-frame { margin-top: 1.5rem; }
   .screenshot-frame img {
     max-width: 100%;
@@ -300,8 +436,8 @@ const DECK_CSS = `
   }
   .screenshot-frame.screenshot-missing { display: none; }
   .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
+  .phase-overview li::marker { color: var(--ochre); }
   .empty-note { color: var(--ink-muted); font-style: italic; }
-  .role-purpose { font-size: 1.15rem; }
   .belief { margin-top: 1.25rem; }
   .belief h3 {
     margin: 0 0 0.25rem;
@@ -317,14 +453,162 @@ const DECK_CSS = `
     text-align: left;
     vertical-align: top;
   }
+  /* Readable measure — body copy tops out around 68 characters, headings
+     and the tools table (needs its full width) are exempt. */
+  .slide p:not(.time-rail),
+  .slide li {
+    max-width: 68ch;
+  }
+  /* Checklist slides — clipboard-card treatment, sage tick squares that
+     stay empty (not checked) since this is a training reference, not a
+     live tracker. */
+  .clipboard-card {
+    background: var(--paper);
+    border: 1px solid var(--cream-3);
+    border-radius: 10px;
+    padding: 2.5rem 3rem;
+    box-shadow: 0 8px 24px oklch(0.2 0.02 260 / 0.08);
+  }
+  .checklist--ticks { list-style: none; margin: 0; padding: 0; }
+  .checklist--ticks li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    max-width: none;
+  }
+  .checklist--ticks li::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--sage);
+    border-radius: 3px;
+    background: transparent;
+  }
+  /* Locker-room poster — the purpose slide, the deck's one non-cream
+     slide. */
+  [data-kind="poster"] {
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color: var(--cream);
+  }
+  .poster-role-label {
+    margin: 0 0 3rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: oklch(0.85 0.02 80 / 0.65);
+  }
+  .poster-statement-wrap {
+    position: relative;
+    max-width: 34ch;
+  }
+  .poster-quote {
+    position: absolute;
+    top: -3.5rem;
+    left: -2rem;
+    z-index: 0;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-size: 15rem;
+    line-height: 1;
+    color: var(--primary);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .poster-statement {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    max-width: none;
+    font-family: "Newsreader", "Source Serif 4", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 2.5rem;
+    line-height: 1.35;
+    color: var(--cream);
+  }
+  /* Touchline footer — sits on every slide, baked in per-slide at render
+     time (not via JS) so the counter and tick position are deterministic
+     static HTML/CSS. */
+  .touchline {
+    position: absolute;
+    left: 10vw;
+    right: 10vw;
+    bottom: 5vh;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 0.85rem;
+  }
+  .touchline::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: var(--cream-3);
+  }
+  .touchline-tick {
+    position: absolute;
+    top: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    transform: translateX(-50%);
+  }
+  /* Logo wordmarks are embedded once here as background-images (not per-slide
+     <img src="data:..."> tags) — with 15-40 slides per deck, repeating a
+     ~9KB data URI per slide would multiply into hundreds of KB of pure
+     duplication. One CSS rule, reused via class, keeps each variant's bytes
+     in the document exactly once. */
+  .touchline-logo {
+    height: 16px;
+    width: 36px;
+    display: block;
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: contain;
+  }
+  .touchline-logo--dark { background-image: url(${LOGO_DARK_DATA_URI}); }
+  .touchline-logo--light { background-image: url(${LOGO_LIGHT_DATA_URI}); display: none; }
+  [data-kind="poster"] .touchline-logo--dark { display: none; }
+  [data-kind="poster"] .touchline-logo--light { display: block; }
+  .touchline-counter {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+  }
+  [data-kind="poster"] .touchline-counter { color: oklch(0.85 0.02 80 / 0.65); }
   @media print {
-    .nav-controls, .progress { display: none; }
+    .nav-controls { display: none; }
     .slide {
+      position: static;
+      opacity: 1 !important;
+      pointer-events: auto;
       display: flex !important;
       page-break-after: always;
       min-height: 0;
       height: 100vh;
     }
+    /* The poster is the only non-cream slide on screen, but printed pages
+       shouldn't burn toner on a full-bleed navy background — reverse back
+       to the standard cream/ink palette for print only. */
+    [data-kind="poster"] {
+      background: var(--cream) !important;
+      color: var(--ink) !important;
+    }
+    [data-kind="poster"] .poster-role-label { color: var(--ink-muted); }
+    [data-kind="poster"] .poster-statement { color: var(--navy-deep); }
+    [data-kind="poster"] .poster-quote { opacity: 0.25; }
+    [data-kind="poster"] .touchline-counter { color: var(--ink-muted) !important; }
+    [data-kind="poster"] .touchline-logo--dark { display: block !important; }
+    [data-kind="poster"] .touchline-logo--light { display: none !important; }
   }
 `;
 
@@ -332,12 +616,10 @@ const NAV_SCRIPT = `
   (function () {
     var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
     var index = 0;
-    var progressEl = document.querySelector(".progress");
     function render() {
       slides.forEach(function (slide, i) {
         slide.classList.toggle("active", i === index);
       });
-      if (progressEl) progressEl.textContent = (index + 1) + " / " + slides.length;
     }
     function go(delta) {
       index = Math.max(0, Math.min(slides.length - 1, index + delta));
@@ -355,9 +637,35 @@ const NAV_SCRIPT = `
   })();
 `;
 
-function renderDeckShell(role: Catalog["roles"][number], slideBodies: string[]): string {
-  const slidesHtml = slideBodies
-    .map((body, i) => `<section class="slide" data-index="${i}">${body}</section>`)
+interface SlideEntry {
+  html: string;
+  kind?: "poster";
+}
+
+// Touchline footer: a full-width hairline with a small position tick baked
+// in per slide (index/total known at render time), plus the brand wordmark
+// (dark-lettered variant by default; the poster swaps to the light-lettered
+// variant via CSS, see [data-kind="poster"] rules) and a "NN / total" mono
+// counter. Deterministic — no client JS involved in producing it.
+function renderTouchlineFooter(index: number, total: number): string {
+  const current = index + 1;
+  const counter = `${String(current).padStart(2, "0")} / ${total}`;
+  const percent = total > 0 ? (current / total) * 100 : 0;
+  return `<footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">${counter}</span>
+      <span class="touchline-tick" style="left: ${percent.toFixed(3)}%"></span>
+    </footer>`;
+}
+
+function renderDeckShell(role: Catalog["roles"][number], slides: SlideEntry[]): string {
+  const total = slides.length;
+  const slidesHtml = slides
+    .map((slide, i) => {
+      const kindAttr = slide.kind ? ` data-kind="${slide.kind}"` : "";
+      return `<section class="slide" data-index="${i}"${kindAttr}>${slide.html}${renderTouchlineFooter(i, total)}</section>`;
+    })
     .join("\n");
 
   return `<!doctype html>
@@ -374,7 +682,6 @@ ${slidesHtml}
   <button type="button" data-nav="prev">&larr; Prev</button>
   <button type="button" data-nav="next">Next &rarr;</button>
 </div>
-<div class="progress"></div>
 <script>${NAV_SCRIPT}</script>
 </body>
 </html>
@@ -387,18 +694,20 @@ function renderTitleSlide(
 ): string {
   return `
     <h1>${escapeHtml(role.name)}</h1>
-    <p class="subtitle">Training deck</p>
     <p class="role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
   `.trim();
 }
 
 // ---------------------------------------------------------------------------
-// Role purpose slide. Training must cover the WHY, not just the mechanics —
-// this slide answers "why does this role exist" in one user-reviewed
-// sentence, immediately after the title slide, before any activity content.
-// Statements are verbatim as reviewed; do not rephrase without re-review.
-// Roles not yet covered here (defensive — every current worker role has an
-// entry) skip the slide gracefully rather than showing a placeholder.
+// Role purpose slide — rendered as a locker-room poster, the deck's one
+// full-bleed navy slide (see [data-kind="poster"] in DECK_CSS and the "kind"
+// passed at the push site in renderTrainingDeck). Training must cover the
+// WHY, not just the mechanics — this slide answers "why does this role
+// exist" in one user-reviewed sentence, immediately after the title slide,
+// before any activity content. Statements are verbatim as reviewed; do not
+// rephrase without re-review. Roles not yet covered here (defensive — every
+// current worker role has an entry) skip the slide gracefully rather than
+// showing a placeholder.
 // ---------------------------------------------------------------------------
 
 const ROLE_PURPOSE: Record<string, string> = {
@@ -422,12 +731,15 @@ const ROLE_PURPOSE: Record<string, string> = {
     "You lead from inside the game. Your teammates take their cues from how you compete, communicate, and treat the other side.",
 };
 
-function renderRolePurposeSlide(roleId: string): string | null {
-  const purpose = ROLE_PURPOSE[roleId];
+function renderRolePurposeSlide(role: Catalog["roles"][number]): string | null {
+  const purpose = ROLE_PURPOSE[role.id];
   if (!purpose) return null;
   return `
-    <h2>Why this role matters</h2>
-    <p class="role-purpose">${escapeHtml(purpose)}</p>
+    <p class="poster-role-label">${escapeHtml(role.name)}</p>
+    <div class="poster-statement-wrap">
+      <span class="poster-quote" aria-hidden="true">&#8220;</span>
+      <p class="poster-statement">${escapeHtml(purpose)}</p>
+    </div>
   `.trim();
 }
 
@@ -525,7 +837,11 @@ function renderActivitySlide(
   const when = humanizeTrigger(resolveRoleTokens(normalizeWhitespace(activity.trigger)));
   const escalation = resolveRoleTokens(normalizeWhitespace(activity.escalation_path));
 
-  const metaLines = [`<p><strong>When:</strong> ${escapeHtml(when)}</p>`];
+  // The "When" value moved out of the meta list and into the mono time-rail
+  // chip at the slide top (see .time-rail in DECK_CSS) — it's extracted,
+  // not duplicated, so the meta list below only covers checklist/escalation
+  // info and stays quiet.
+  const metaLines: string[] = [];
   // Trainees don't need to know the tracking mechanism — only that a
   // checklist exists for activities that use one.
   if (activity.tracking_method === "checklist") {
@@ -534,6 +850,7 @@ function renderActivitySlide(
   metaLines.push(`<p><strong>If something goes wrong:</strong> ${escapeHtml(escalation)}</p>`);
 
   return `
+    <p class="time-rail">${escapeHtml(when)}</p>
     <h2>${escapeHtml(activity.name)}</h2>
     <p class="slide-kicker">${escapeHtml(involvementToSentence(involvement))}</p>
     <div class="activity-meta">
@@ -560,8 +877,10 @@ function renderChecklistSlide(catalog: Catalog, templateId: string): string | nu
   if (!template || template.kind !== "checklist") return null;
   const items = template.items.map((item) => `<li>${escapeHtml(item.label)}</li>`).join("");
   return `
-    <h2>Checklist: ${escapeHtml(templateId)}</h2>
-    <ul class="checklist">${items}</ul>
+    <div class="clipboard-card">
+      <h2>Checklist: ${escapeHtml(templateId)}</h2>
+      <ul class="checklist checklist--ticks">${items}</ul>
+    </div>
   `.trim();
 }
 
@@ -760,44 +1079,44 @@ export function renderTrainingDeck(
 
   const matched = matchActivities(catalog, roleId);
   const resolveRoleTokens = createRoleTokenResolver(catalog);
-  const slides: string[] = [];
-  slides.push(renderTitleSlide(role, resolveRoleTokens));
+  const slides: SlideEntry[] = [];
+  slides.push({ html: renderTitleSlide(role, resolveRoleTokens) });
 
-  const purposeSlide = renderRolePurposeSlide(roleId);
-  if (purposeSlide) slides.push(purposeSlide);
+  const purposeSlide = renderRolePurposeSlide(role);
+  if (purposeSlide) slides.push({ html: purposeSlide, kind: "poster" });
 
   for (const philosophySlide of COMPANY_PHILOSOPHY_SLIDES) {
-    slides.push(philosophySlide);
+    slides.push({ html: philosophySlide });
   }
 
   if (opts.intro) {
     for (const introSlide of parseIntroSlides(opts.intro)) {
-      slides.push(`<h2>${escapeHtml(introSlide.title)}</h2>\n${introSlide.bodyHtml}`);
+      slides.push({ html: `<h2>${escapeHtml(introSlide.title)}</h2>\n${introSlide.bodyHtml}` });
     }
   }
 
   for (const phase of PHASE_ORDER) {
     const entries = matched.filter((m) => m.activity.phase === phase);
     if (entries.length === 0) continue;
-    slides.push(renderPhaseOverviewSlide(phase, entries));
+    slides.push({ html: renderPhaseOverviewSlide(phase, entries) });
     for (const { activity, involvement } of entries) {
-      slides.push(
-        renderActivitySlide(roleId, activity, involvement, opts.screenshots, resolveRoleTokens),
-      );
+      slides.push({
+        html: renderActivitySlide(roleId, activity, involvement, opts.screenshots, resolveRoleTokens),
+      });
     }
   }
 
   for (const templateId of collectChecklistTemplateIds(matched)) {
     const slide = renderChecklistSlide(catalog, templateId);
-    if (slide) slides.push(slide);
+    if (slide) slides.push({ html: slide });
   }
 
-  slides.push(renderSafetySlide(catalog, matched, resolveRoleTokens));
-  slides.push(renderToolsSlide(roleId));
-  slides.push(renderHelpSlide(catalog));
+  slides.push({ html: renderSafetySlide(catalog, matched, resolveRoleTokens) });
+  slides.push({ html: renderToolsSlide(roleId) });
+  slides.push({ html: renderHelpSlide(catalog) });
 
   const walkthroughsSlide = renderWalkthroughsSlide(roleId, opts.presentNarrationWorkflows);
-  if (walkthroughsSlide) slides.push(walkthroughsSlide);
+  if (walkthroughsSlide) slides.push({ html: walkthroughsSlide });
 
   return renderDeckShell(role, slides);
 }
