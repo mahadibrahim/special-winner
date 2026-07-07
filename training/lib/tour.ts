@@ -26,6 +26,12 @@ import type { test as PlaywrightTest } from "@playwright/test";
 export interface TourPage {
   screenshot(options: { path: string }): Promise<unknown>;
   waitForTimeout(timeout: number): Promise<void>;
+  /** Optional — present on a real Playwright `Page`, absent on the plain
+   * fake used in tour.test.ts. Duck-typed (checked with `typeof === "function"`
+   * at the call site) so the unit-test fake stays a valid `TourPage` without
+   * implementing browser-only APIs. */
+  addStyleTag?(options: { content: string }): Promise<unknown>;
+  evaluate?<T>(pageFunction: () => T): Promise<T>;
 }
 
 export interface StepOptions {
@@ -47,6 +53,20 @@ export interface StepOptions {
    * steps feed. Only meaningful together with `deckSlug` — ignored
    * otherwise. */
   deckRole?: string;
+  /** Product-tour slug (see PRODUCT_TOUR in
+   * src/lib/ops-catalog/views/training-deck.ts) this step illustrates. When
+   * set, the step's screenshot is ALSO copied to
+   * training/screenshots/<role>/tour/<slug>.png — the "Using the system"
+   * chapter's screenshot slot, distinct from the per-activity deckSlug slot
+   * above. A tour step and a catalog deckSlug are independent concepts (a
+   * screen can illustrate both, neither, or just one), so a single
+   * `tour.step()` call may set both `deckSlug` and `tourSlug` together. */
+  tourSlug?: string;
+  /** Overrides the Tour's own `role` (see TourOptions.role) for JUST this
+   * step's product-tour copy destination — mirrors `deckRole` above but for
+   * `tourSlug`. Only meaningful together with `tourSlug` — ignored
+   * otherwise. */
+  tourRole?: string;
   /** Pause after the action completes, in ms. Default 400 — long enough to
    * read the resulting screen in the recorded video. */
   pauseMs?: number;
@@ -58,6 +78,7 @@ export interface CaptionEntry {
   timestampMs: number;
   screenshot: string;
   deckSlug?: string;
+  tourSlug?: string;
 }
 
 export interface TourOptions {
@@ -70,6 +91,43 @@ export interface TourOptions {
   /** Root directory for all training output. Defaults to <cwd>/training;
    * override in unit tests to avoid touching the real repo tree. */
   rootDir?: string;
+}
+
+/**
+ * Hides the Astro dev toolbar (the dark rounded pill Astro's dev server
+ * injects at the bottom of every page, as `<astro-dev-toolbar>`) before a
+ * screenshot is taken. It's a dev-only overlay — real customers never see
+ * it — but it renders on top of the app in every captured screenshot, so
+ * training-deck images must have it stripped out.
+ *
+ * Two layers of belt-and-suspenders: a stylesheet `display: none` (survives
+ * even if the element re-mounts) plus an outright DOM removal (covers any
+ * shadow-DOM internals that ignore page-level CSS). Both are best-effort —
+ * `.catch(() => {})` — since a screenshot must never fail just because the
+ * toolbar happened to be mid-animation or the page navigated away between
+ * calls.
+ *
+ * Duck-typed against `TourPage`'s optional `addStyleTag`/`evaluate`: the
+ * plain fake object in tour.test.ts doesn't implement either, so this is a
+ * no-op there, and a real Playwright `Page` (which has both) gets the full
+ * treatment.
+ */
+async function hideDevToolbar(page: TourPage): Promise<void> {
+  if (typeof page.addStyleTag === "function") {
+    await page
+      .addStyleTag({
+        content:
+          "astro-dev-toolbar { display: none !important; visibility: hidden !important; }",
+      })
+      .catch(() => {});
+  }
+  if (typeof page.evaluate === "function") {
+    await page
+      .evaluate(() => {
+        document.querySelector("astro-dev-toolbar")?.remove();
+      })
+      .catch(() => {});
+  }
 }
 
 function slugifyCaption(caption: string): string {
@@ -109,6 +167,7 @@ export class Tour {
   ): Promise<void> {
     await fn();
     await page.waitForTimeout(stepOptions.pauseMs ?? 400);
+    await hideDevToolbar(page);
 
     const index = this.nextIndex++;
     const filename = `${String(index).padStart(2, "0")}-${slugifyCaption(caption)}.png`;
@@ -123,6 +182,15 @@ export class Tour {
       await fs.copyFile(screenshotPath, path.join(deckDir, `${stepOptions.deckSlug}.png`));
     }
 
+    if (stepOptions.tourSlug) {
+      const tourDir = path.join(
+        this.deckScreenshotDir(stepOptions.tourRole ?? this.opts.role),
+        "tour",
+      );
+      await fs.mkdir(tourDir, { recursive: true });
+      await fs.copyFile(screenshotPath, path.join(tourDir, `${stepOptions.tourSlug}.png`));
+    }
+
     const entry: CaptionEntry = {
       index,
       caption,
@@ -130,6 +198,7 @@ export class Tour {
       screenshot: filename,
     };
     if (stepOptions.deckSlug) entry.deckSlug = stepOptions.deckSlug;
+    if (stepOptions.tourSlug) entry.tourSlug = stepOptions.tourSlug;
     this.captions.push(entry);
   }
 

@@ -316,6 +316,30 @@ function screenshotSlotHtml(
   return `<div class="screenshot-frame"><img class="screenshot" src="${relPath}" alt="Screenshot: ${escapeHtml(slug)}" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>`;
 }
 
+// Same graceful-degrade shape as screenshotSlotHtml above (embedded data URI
+// when present, else a relative path with an onerror fallback), but reads
+// from the "Using the system" product tour's own screenshot slot —
+// training/screenshots/<role>/tour/<slug>.png, a sibling of (not the same
+// directory as) the per-activity slot above. Kept as a separate function
+// rather than an extra parameter on screenshotSlotHtml so the two concepts
+// (an activity's illustrative screenshot vs. a tour step's screenshot) stay
+// textually distinct at every call site. The "--tour" modifier class gets
+// the large, framed treatment product-tour slides need (see .screenshot-frame--tour
+// in DECK_CSS) instead of the smaller inline treatment activity slides use.
+function tourScreenshotSlotHtml(
+  roleId: string,
+  slug: string,
+  tourScreenshots: Map<string, string> | undefined,
+): string {
+  const embedded = tourScreenshots?.get(slug);
+  if (embedded) {
+    return `<div class="screenshot-frame screenshot-frame--tour"><img class="screenshot" src="${embedded}" alt="Screenshot: ${escapeHtml(slug)}" /></div>`;
+  }
+  const roleSlug = roleId.replace(/^role\./, "");
+  const relPath = `${SCREENSHOT_RELATIVE_PREFIX}/${roleSlug}/tour/${slug}.png`;
+  return `<div class="screenshot-frame screenshot-frame--tour"><img class="screenshot" src="${relPath}" alt="Screenshot: ${escapeHtml(slug)}" onerror="this.parentElement.classList.add('screenshot-missing')" /></div>`;
+}
+
 // ---------------------------------------------------------------------------
 // Deck shell: design tokens (copied from src/styles/globals.css — decks are
 // standalone files, so tokens are copied, not imported), nav script, print CSS.
@@ -550,6 +574,37 @@ ${FONT_FACE_CSS}
     border-radius: 6px;
   }
   .screenshot-frame.screenshot-missing { display: none; }
+  /* Product-tour slides — the screenshot IS the slide (a visual how-to,
+     not an activity procedure with an inline screenshot alongside a meta
+     panel), so it gets a much larger, framed treatment:
+     centered, a real drop shadow, capped height so a tall screen capture
+     never pushes the caption below the fold. */
+  .screenshot-frame--tour {
+    margin: 1.5rem auto 0;
+    max-width: 900px;
+  }
+  .screenshot-frame--tour img {
+    display: block;
+    width: 100%;
+    max-height: 56vh;
+    object-fit: contain;
+    object-position: top center;
+    border-radius: 8px;
+    box-shadow: 0 12px 32px oklch(0.2 0.02 260 / 0.14);
+  }
+  .tour-step-kicker { margin-bottom: 0.5rem; }
+  .tour-caption {
+    margin: 1.5rem auto 0;
+    max-width: 68ch;
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+    text-align: center;
+  }
+  .tour-empty-note {
+    margin-top: 1.5rem;
+    text-align: center;
+  }
   .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
   .phase-overview li::marker { color: var(--ochre); }
   .empty-note { color: var(--ink-muted); font-style: italic; }
@@ -2041,6 +2096,212 @@ function renderToolsSlide(roleId: string): string {
   `.trim();
 }
 
+// ---------------------------------------------------------------------------
+// "Using the system" product tour — a visual, screen-by-screen how-to
+// chapter, distinct from the per-activity procedure slides above (those
+// teach a catalogued SOP; this teaches the app itself). Hand-curated per
+// role against the REAL route tree in src/pages/ (same verification standard
+// as PORTAL_PAGES above) and the actual screens each role's real login
+// reaches — not every PORTAL_PAGES entry gets a tour step, and not every
+// tour step's route is literally under the role's own portal (see the
+// role.photographer note below).
+//
+// Order matters: each array is the sequence a new hire would actually walk,
+// not alphabetical or route-tree order.
+// ---------------------------------------------------------------------------
+
+interface TourStep {
+  /** Screenshot filename stem — training/screenshots/<role>/tour/<slug>.png. */
+  slug: string;
+  /** Plain "how to" caption — a visual tutorial line, not an SOP step. */
+  caption: string;
+}
+
+const PRODUCT_TOUR: Record<string, TourStep[]> = {
+  "role.coach": [
+    {
+      slug: "dashboard",
+      caption:
+        "This is your dashboard — today's schedule and quick links at a glance. While you're new, an onboarding checklist walks you through setup here too; it disappears once every task is done.",
+    },
+    {
+      slug: "teams",
+      caption: "My teams — every team you coach this season. Tap one to open its roster.",
+    },
+    {
+      slug: "roster",
+      caption: "Team roster — every player on your team. Tap a name to open their card.",
+    },
+    {
+      slug: "attendance",
+      caption:
+        "Attendance — mark who showed up for today's practice or game, one tap per player.",
+    },
+    {
+      slug: "assess-player",
+      caption:
+        "Tap a player to open their card, then record a skill assessment on a 1–5 scale.",
+    },
+    {
+      slug: "practices",
+      caption:
+        "Practice sessions — your planned sessions and how far along your curriculum sequence is.",
+    },
+    {
+      slug: "resources",
+      caption: "Coaching resources — sport guides and skill minibooks to help you plan and teach.",
+    },
+    {
+      slug: "messages",
+      caption: "Messages — send an update straight to your team's families.",
+    },
+  ],
+  "role.ref": [
+    {
+      slug: "my-matches",
+      caption: "My matches — every match assigned to you today. This is where your day starts.",
+    },
+    {
+      slug: "match-detail",
+      caption: "Open a match to get the live score entry and incident log for that game.",
+    },
+    {
+      slug: "enter-score",
+      caption: "Enter the score — type the running score for each team as the match plays out.",
+    },
+    {
+      slug: "log-incident",
+      caption:
+        "Log an incident — record a card or ejection with the minute and a short note.",
+    },
+    {
+      slug: "submit-report",
+      caption: "Submit the report — file the final score and incidents once the match ends.",
+    },
+  ],
+  "role.venue_manager": [
+    {
+      slug: "command-center",
+      caption: "Venue command center — today's full event-day run-of-show in one view.",
+    },
+    {
+      slug: "check-in",
+      caption: "Check-in station — check players and teams in as they arrive.",
+    },
+    {
+      slug: "walk-up",
+      caption:
+        "Walk-up registration — register and collect payment from a family that shows up without registering ahead.",
+    },
+  ],
+  "role.director": [
+    {
+      slug: "applications",
+      caption: "Applications — review coach and staff applicants and mark them hired.",
+    },
+    {
+      slug: "coaches-credentials",
+      caption: "Coach credentials — track SafeSport and background-check status for every coach.",
+    },
+    {
+      slug: "curriculum",
+      caption: "Curriculum — the skills, sequences, and templates every coach teaches from.",
+    },
+    {
+      slug: "assessment-coverage",
+      caption:
+        "Assessment coverage — see which teams and players are falling behind on skill assessments.",
+    },
+  ],
+  "role.photographer": [
+    {
+      slug: "my-jobs",
+      caption: "My jobs — the shoots assigned to you, with date and location.",
+    },
+    {
+      slug: "job-detail",
+      caption: "Job detail — check in for the shoot and hand off your footage once it wraps.",
+    },
+    {
+      slug: "tagging-queue",
+      caption: "Tagging queue — sessions waiting to be tagged to the right players and teams.",
+    },
+    {
+      slug: "tag-session",
+      caption:
+        "Tag a session — match each photo or clip to the players and teams in it before it publishes.",
+    },
+  ],
+  "role.team_captain": [
+    {
+      slug: "team-page",
+      caption:
+        "Your team page — the link you share with teammates. It shows who's joined and their payment status.",
+    },
+  ],
+};
+
+// role.venue_manager's tour is copied into role.event_lead's own tour
+// directory during screenshot capture (see training/walkthroughs' tour
+// specs) — both roles run the exact same command-center/check-in/walk-up
+// screens day-of, so role.event_lead reads the same PRODUCT_TOUR entry
+// rather than duplicating the array.
+PRODUCT_TOUR["role.event_lead"] = PRODUCT_TOUR["role.venue_manager"];
+
+// Roles with genuinely no product surface — day-of work runs entirely off
+// this deck's checklists, not a screen. A short honest note, not a silently
+// missing chapter, so the omission reads as deliberate rather than an
+// oversight.
+const PRODUCT_TOUR_NO_SURFACE_NOTE: Record<string, string> = {
+  "role.facilities":
+    "You work off the checklists in this deck — there's no separate app screen for your day-of setup, field prep, and teardown work.",
+};
+
+function deriveTourStepLabel(slug: string): string {
+  const words = slug.replace(/[-_]/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function renderUsingSystemChapter(
+  roleId: string,
+  tourScreenshots: Map<string, string> | undefined,
+): SlideEntry[] {
+  const steps = PRODUCT_TOUR[roleId];
+  if (steps && steps.length > 0) {
+    const slides: SlideEntry[] = [
+      renderDividerSlide(
+        "Product tour",
+        "Using the system",
+        steps.map((s) => escapeHtml(deriveTourStepLabel(s.slug))),
+      ),
+    ];
+    steps.forEach((step, i) => {
+      slides.push({
+        html: `
+          <p class="slide-kicker tour-step-kicker">Using the system — step ${i + 1} of ${steps.length}</p>
+          ${tourScreenshotSlotHtml(roleId, step.slug, tourScreenshots)}
+          <p class="tour-caption">${escapeHtml(step.caption)}</p>
+        `.trim(),
+      });
+    });
+    return slides;
+  }
+
+  const note = PRODUCT_TOUR_NO_SURFACE_NOTE[roleId];
+  if (note) {
+    return [
+      {
+        html: `
+          <h2>Using the system</h2>
+          <p class="empty-note tour-empty-note">${escapeHtml(note)}</p>
+        `.trim(),
+      },
+    ];
+  }
+
+  return [];
+}
+
 function renderHelpSlide(catalog: Catalog): string {
   const director = catalog.roles.find((r) => r.id === "role.director");
   const directorLine = director
@@ -2059,6 +2320,11 @@ function renderHelpSlide(catalog: Catalog): string {
 export interface TrainingDeckOptions {
   intro?: string;
   screenshots?: Map<string, string>;
+  /** "Using the system" product-tour screenshots — training/screenshots/<role>/tour/*.png,
+   * keyed by slug (see PRODUCT_TOUR above). Deliberately separate from
+   * `screenshots` (the per-activity slot), since a tour step and a catalog
+   * activity are independent concepts. */
+  tourScreenshots?: Map<string, string>;
   presentNarrationWorkflows?: string[];
 }
 
@@ -2132,6 +2398,11 @@ export function renderTrainingDeck(
 
   slides.push({ html: renderSafetySlide(catalog, matched, resolveRoleTokens) });
   slides.push({ html: renderToolsSlide(roleId) });
+
+  for (const usingSystemSlide of renderUsingSystemChapter(roleId, opts.tourScreenshots)) {
+    slides.push(usingSystemSlide);
+  }
+
   slides.push({ html: renderHelpSlide(catalog) });
 
   const walkthroughsSlide = renderWalkthroughsSlide(roleId, opts.presentNarrationWorkflows);
