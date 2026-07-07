@@ -1,0 +1,35 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { AdminLayout } from "../../../components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { IncidentsList } from "../../../components/admin/incidents/incidents-list";
+
+export const prerender = false;
+
+// Middleware guarantees user is an admin for /admin routes. Not in
+// SUPER_ADMIN_ONLY_PREFIXES (src/middleware.ts) — venue managers see their
+// own venues' incidents, scoped server-side by GET /api/admin/incidents.
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+---
+
+<BaseLayout title="Incidents — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/incidents"
+    user={{
+      firstName: Astro.locals.user!.firstName,
+      lastName: Astro.locals.user!.lastName,
+      email: Astro.locals.user!.email,
+    }}
+  >
+    <div class="mx-auto max-w-4xl p-6">
+      <h1 class="mb-2 text-2xl font-semibold">Incidents</h1>
+      <p class="mb-6 text-sm text-ink-2">
+        Fast in-the-moment reports filed from the staff app. Full finalized reports are a
+        separate, not-yet-built follow-on.
+      </p>
+      <IncidentsList client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>

@@ -1,0 +1,30 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { AdminLayout } from "../../../components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { IncidentDetail } from "../../../components/admin/incidents/incident-detail";
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+---
+
+<BaseLayout title="Incident detail — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/incidents"
+    user={{
+      firstName: Astro.locals.user!.firstName,
+      lastName: Astro.locals.user!.lastName,
+      email: Astro.locals.user!.email,
+    }}
+  >
+    <div class="mx-auto max-w-2xl p-6">
+      <a href="/admin/incidents" class="text-sm text-ink-2 hover:underline">&larr; Back to incidents</a>
+      <h1 class="mb-6 mt-2 text-2xl font-semibold">Incident detail</h1>
+      <IncidentDetail client:load incidentId={id!} />
+    </div>
+  </AdminLayout>
+</BaseLayout>
