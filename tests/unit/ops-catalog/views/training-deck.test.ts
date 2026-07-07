@@ -400,6 +400,79 @@ describe("renderTrainingDeck — hand-authored intro composition", () => {
   });
 });
 
+describe("renderTrainingDeck — role purpose slide", () => {
+  // Splitting on the section-open tag isolates each slide's body (including
+  // its own trailing `</section>`), independent of exact whitespace — same
+  // technique used implicitly elsewhere via toContain, but here we need
+  // positional ("immediately after the title slide") not just presence
+  // assertions.
+  function slideBodies(html: string): string[] {
+    return html.split('<section class="slide"');
+  }
+
+  it("renders the role purpose slide immediately after the title slide, with the exact reviewed statement, for the coach role", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const slides = slideBodies(html);
+    // slides[0] is pre-slide shell markup, slides[1] the title slide, slides[2] the purpose slide.
+    expect(slides[2]).toContain("<h2>Why this role matters</h2>");
+    expect(slides[2]).toContain(
+      "You develop people. Every practice is a chance to help a child get better at the game and more confident in themselves — development over winning, always.",
+    );
+  });
+
+  it("renders the exact reviewed statement for the venue manager role", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const slides = slideBodies(html);
+    expect(slides[2]).toContain("<h2>Why this role matters</h2>");
+    // escapeHtml turns the statement's apostrophe into &#39; — same convention
+    // already used elsewhere in this file (see "You&#39;re part of this").
+    expect(slides[2]).toContain(
+      "You make the whole day work. From unlock to lock-up, every family&#39;s experience runs through the venue you run — smooth, safe, end to end.",
+    );
+  });
+
+  it("skips the purpose slide gracefully for a role with no ROLE_PURPOSE entry, without breaking the rest of the deck", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.parent);
+    expect(html).not.toContain("Why this role matters");
+    // Philosophy section (always present) becomes the very next slide instead.
+    const slides = slideBodies(html);
+    expect(slides[2]).toContain("<h2>What we believe</h2>");
+  });
+});
+
+describe("renderTrainingDeck — company philosophy section", () => {
+  function slideBodies(html: string): string[] {
+    return html.split('<section class="slide"');
+  }
+
+  it("renders 3 'What we believe' slides right after the purpose slide, ending with a line connecting back to the role", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const slides = slideBodies(html);
+    // slides[1] = title, slides[2] = purpose, slides[3..5] = philosophy section.
+    expect(slides[3]).toContain("<h2>What we believe</h2>");
+    expect(slides[3]).toContain("Development Over Winning");
+    expect(slides[3]).toContain("Every Child Can Improve");
+    expect(slides[4]).toContain("Long-Term Athlete Development");
+    expect(slides[4]).toContain("Holistic Growth");
+    expect(slides[5]).toContain("Whatever your role, this is what families should feel from us.");
+    // Natural language, not framework jargon.
+    expect(html).not.toContain("ELM framework");
+    expect(html).not.toContain("Double-Goal Coach");
+  });
+
+  it("is byte-identical across two different roles' decks", () => {
+    const coachHtml = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const venueHtml = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const coachSlides = slideBodies(coachHtml);
+    const venueSlides = slideBodies(venueHtml);
+    // Both roles have a purpose slide, so the philosophy section lands at the
+    // same slide indices (3, 4, 5) for both.
+    expect(coachSlides[3]).toBe(venueSlides[3]);
+    expect(coachSlides[4]).toBe(venueSlides[4]);
+    expect(coachSlides[5]).toBe(venueSlides[5]);
+  });
+});
+
 describe("renderTrainingDeck — walkthrough appendix slide", () => {
   it("omits the appendix slide entirely when presentNarrationWorkflows is not passed", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);

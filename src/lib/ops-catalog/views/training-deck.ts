@@ -301,6 +301,15 @@ const DECK_CSS = `
   .screenshot-frame.screenshot-missing { display: none; }
   .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
   .empty-note { color: var(--ink-muted); font-style: italic; }
+  .role-purpose { font-size: 1.15rem; }
+  .belief { margin-top: 1.25rem; }
+  .belief h3 {
+    margin: 0 0 0.25rem;
+    color: var(--navy-deep);
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
   .tools-table { border-collapse: collapse; width: 100%; }
   .tools-table td {
     border-bottom: 1px solid var(--cream-3);
@@ -382,6 +391,89 @@ function renderTitleSlide(
     <p class="role-description">${escapeHtml(resolveRoleTokens(role.description.trim()))}</p>
   `.trim();
 }
+
+// ---------------------------------------------------------------------------
+// Role purpose slide. Training must cover the WHY, not just the mechanics —
+// this slide answers "why does this role exist" in one user-reviewed
+// sentence, immediately after the title slide, before any activity content.
+// Statements are verbatim as reviewed; do not rephrase without re-review.
+// Roles not yet covered here (defensive — every current worker role has an
+// entry) skip the slide gracefully rather than showing a placeholder.
+// ---------------------------------------------------------------------------
+
+const ROLE_PURPOSE: Record<string, string> = {
+  "role.coach":
+    "You develop people. Every practice is a chance to help a child get better at the game and more confident in themselves — development over winning, always.",
+  "role.ref":
+    "You guarantee fair play. You control the game so it stays safe, honest, and worth playing — kids can't fall in love with a sport they can't trust.",
+  "role.venue_manager":
+    "You make the whole day work. From unlock to lock-up, every family's experience runs through the venue you run — smooth, safe, end to end.",
+  "role.event_lead":
+    "You own the event experience. Check-ins, briefings, and the moments in between — you make game day feel organized to every coach, ref, and family who walks in.",
+  "role.facilities":
+    "You set the stage. Safe fields, staged equipment, clean grounds — the play can only be as good as the place you prepare.",
+  "role.front_of_house":
+    "You are the first hello and the last impression. Registration, concessions, lost-and-found — families judge the whole organization by how you treat them.",
+  "role.director":
+    "You hold the standard. The judgment calls — refunds, reschedules, safety reviews — set the tone for what this organization actually values.",
+  "role.photographer":
+    "You capture the proof. The memories families keep — and you guard the trust behind every photo of someone's child.",
+  "role.team_captain":
+    "You lead from inside the game. Your teammates take their cues from how you compete, communicate, and treat the other side.",
+};
+
+function renderRolePurposeSlide(roleId: string): string | null {
+  const purpose = ROLE_PURPOSE[roleId];
+  if (!purpose) return null;
+  return `
+    <h2>Why this role matters</h2>
+    <p class="role-purpose">${escapeHtml(purpose)}</p>
+  `.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Company philosophy section. Shared, identical across every deck regardless
+// of role — trainees should come away from this section with the same
+// picture of what the organization believes, no matter which role they're
+// training for. Distilled by hand from src/data/coaching-philosophy.ts
+// (coachingPhilosophy.coreBeliefs, .doubleGoalCoach, .elmFramework) — that
+// file is the source of record for the underlying research; this is
+// slide-sized copy in plain language (no unexplained framework acronyms),
+// hardcoded here rather than imported so this view stays dependency-free and
+// deterministic. If the source philosophy changes, update this by hand.
+// ---------------------------------------------------------------------------
+
+const COMPANY_PHILOSOPHY_SLIDES: string[] = [
+  `
+    <h2>What we believe</h2>
+    <p>These four beliefs shape every practice plan, every sideline conversation, and every call we make about a kid.</p>
+    <div class="belief">
+      <h3>Development Over Winning</h3>
+      <p>We measure success by effort, improvement, and enjoyment — not the scoreboard. Winning takes care of itself when kids develop the right way.</p>
+    </div>
+    <div class="belief">
+      <h3>Every Child Can Improve</h3>
+      <p>There's no such thing as a "non-athletic" kid. With the right environment and encouragement, every child can grow their abilities — talent is built, not discovered.</p>
+    </div>
+  `.trim(),
+  `
+    <h2>What we believe (continued)</h2>
+    <div class="belief">
+      <h3>Long-Term Athlete Development</h3>
+      <p>We're building athletes for age 25, not just age 8. We never trade away a child's long-term growth for a short-term result.</p>
+    </div>
+    <div class="belief">
+      <h3>Holistic Growth</h3>
+      <p>Sport develops the whole child — skills, game understanding, fitness, and confidence together. We pay attention to all of it, not just the physical side.</p>
+    </div>
+  `.trim(),
+  `
+    <h2>How that shows up day to day</h2>
+    <p>We coach to two goals at once: compete to win, and grow every player's character and competence. When those two pull in different directions, character comes first.</p>
+    <p>Day to day, that means we praise effort, learning, and bouncing back from mistakes — the things a kid actually controls — over results they can't always control.</p>
+    <p><strong>Whatever your role, this is what families should feel from us.</strong></p>
+  `.trim(),
+];
 
 interface MatchedActivity {
   activity: Activity;
@@ -670,6 +762,13 @@ export function renderTrainingDeck(
   const resolveRoleTokens = createRoleTokenResolver(catalog);
   const slides: string[] = [];
   slides.push(renderTitleSlide(role, resolveRoleTokens));
+
+  const purposeSlide = renderRolePurposeSlide(roleId);
+  if (purposeSlide) slides.push(purposeSlide);
+
+  for (const philosophySlide of COMPANY_PHILOSOPHY_SLIDES) {
+    slides.push(philosophySlide);
+  }
 
   if (opts.intro) {
     for (const introSlide of parseIntroSlides(opts.intro)) {
