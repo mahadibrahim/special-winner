@@ -2,6 +2,8 @@
 
 This directory holds the source-of-truth operating model for Aspire Sports.
 
+> **Looking for the training decks, role SOPs/manuals, walkthrough videos, or safety standards?** See **[Training & delivery system](training-and-delivery-system.md)** — the canonical map of everything built on top of this catalog. This README covers editing the catalog itself.
+
 ## Layout
 
 - `catalog/` — source YAML files (the canonical operating model)
