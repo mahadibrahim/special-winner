@@ -21,8 +21,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If broadcast job fails, on-call platform engineer escalates to
-  role.director; venue_manager and event_lead manually notify
-  affected parties via existing channels.
+  role.director; venue_manager and event_lead manually notify affected
+  parties via existing channels.
 sop_body: |
   1. The moment the rainout decision form is submitted with a cancel or
      delay outcome, the platform composes the cancellation/delay notice

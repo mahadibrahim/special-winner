@@ -19,9 +19,9 @@ automation_status: hybrid
 platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
-  If primary ref unable to operate clock, the assistant ref or event
-  lead takes over; escalate to role.venue_manager only if the match
-  must be paused.
+  If primary ref unable to operate clock, the assistant ref or event lead
+  takes over; escalate to role.venue_manager only if the match must be
+  paused.
 sop_body: |
   1. Start the match clock at kickoff using your own watch or
      stopwatch — there's no in-app clock to start. Track time against

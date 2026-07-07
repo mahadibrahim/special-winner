@@ -20,8 +20,8 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If facilities unreachable, escalate to role.venue_manager per the
-  standard handoff ladder.
+  If facilities unreachable, escalate to role.venue_manager per the Coach →
+  Venue Manager → Director handoff ladder.
 sop_body: |
   1. After the last match concludes at an owned venue, pull all interior
      trash bags — restrooms, concessions, locker rooms, office.

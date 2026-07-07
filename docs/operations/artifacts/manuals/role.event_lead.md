@@ -10,8 +10,8 @@ event slot within a venue's event-day.
 - Trigger: 48h before kickoff (after assignor publishes schedule)
 - Expected completion: T-48h
 - Tracking: checklist
-- Escalation: If event_lead unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If event_lead unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. Once the assignor publishes the match schedule (around 48 hours
    before kickoff), pull the full match list for today's event window
@@ -33,37 +33,6 @@ standard handoff ladder.
 8. If a match still has no confirmed ref by T-24h, escalate per the
    escalation path — don't let it ride into game day unresolved.
 
-## day_setup
-
-### Pre-shift staff briefing (`act.preshift_staff_briefing`) — Responsible
-
-- Trigger: ~60 minutes before first kickoff
-- Expected completion: T-60min
-- Tracking: signature
-- Escalation: If venue_manager unreachable, role.event_lead delivers the briefing and
-escalates to role.director per the standard handoff ladder.
-
-1. About 60 minutes before first kickoff, once the facility unlock and
-   first-aid kit check are done, gather every on-shift staff member in
-   one spot — event leads, facilities, front of house, photographer.
-2. Keep it to 5-10 minutes. Cover today's schedule (match count, key
-   times), anything special about today (VIP guests, a rescheduled
-   match, a tournament format quirk), the weather outlook if outdoor,
-   and any safety reminders (first-aid kit locations, incident
-   escalation path).
-3. Call out any staffing changes from the schedule confirm — who's
-   covering for a standby swap, who's new to the venue today.
-4. Ask if anyone has a conflict or needs to leave early, and confirm
-   coverage for that window now rather than discovering it mid-shift.
-5. Pass around the sign-in sheet — every attendee signs to confirm
-   they were briefed.
-6. Front of house checks the sign-in sheet against today's staffing
-   plan and signs to confirm the full roster attended and the sheet is
-   complete.
-7. File the signed sheet with today's event records.
-8. If the venue manager can't deliver the briefing, the event lead
-   runs it and escalates per the escalation path.
-
 ## pre_game
 
 ### Coach pregame briefing (youth league) (`act.coach_pregame_briefing`) — Accountable | Responsible
@@ -71,8 +40,8 @@ escalates to role.director per the standard handoff ladder.
 - Trigger: ~15 minutes before each youth-league kickoff
 - Expected completion: T-15min
 - Tracking: signature
-- Escalation: If event_lead unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If event_lead unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. This runs for youth-league matches only, alongside team check-in,
    about 15 minutes before kickoff — adult leagues are self-managed
@@ -100,8 +69,8 @@ standard handoff ladder.
 - Trigger: ~30 minutes before first assigned match
 - Expected completion: T-30min
 - Tracking: signature
-- Escalation: If photographer no-show, event_lead escalates to role.venue_manager;
-pull from standby pool or accept reduced media coverage.
+- Escalation: If photographer no-show, event_lead escalates to role.venue_manager; pull
+from standby pool or accept reduced media coverage.
 
 1. About 30 minutes before your first assigned match, go to the event
    lead's station to sign in — this starts your pay clock for the
@@ -110,14 +79,15 @@ pull from standby pool or accept reduced media coverage.
 2. Confirm your assignment against the event lead's schedule — venue,
    match(es), and session type (game, team posed, practice, event) —
    and flag any mismatch before signing.
-3. Confirm your gear: camera body, charged batteries plus a backup,
+3. Confirm your gear — camera body, charged batteries plus a backup,
    memory cards with enough free space for the day, and any lens or
-   flash the shot list calls for.
+   flash the shot list calls for. This is your own equipment; Aspire
+   doesn't supply, issue, or track camera gear.
 4. Review the shot list or session notes with the event lead —
    required shots (team photos, action shots, specific players if
-   requested), any restricted subjects, and the day's intended
-   media-auth scope if it's already set (internal, promotional, or
-   public), so you know what you're shooting for.
+   requested) and the event's do-not-publish shortlist pulled from
+   the roster, so you know which kids' families opted out of publish
+   before you're framing shots, not after.
 5. Sign the check-in. The event lead countersigns to confirm your
    arrival and gear are in order.
 6. Once signed, your session moves from confirmed to checked-in in the
@@ -133,9 +103,9 @@ pull from standby pool or accept reduced media coverage.
 - Trigger: ~30 minutes before each kickoff
 - Expected completion: T-30min
 - Tracking: signature
-- Escalation: If event_lead unreachable, escalate to role.venue_manager per the
-standard handoff ladder; backup ref pulled from standby pool if
-scheduled ref no-shows.
+- Escalation: If event_lead unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder; backup ref pulled from standby
+pool if scheduled ref no-shows.
 
 1. About 30 minutes before their assigned kickoff, the ref reports to
    the event lead's check-in station — the same match shows up in the
@@ -147,15 +117,21 @@ scheduled ref no-shows.
 4. Confirm the ref knows their match: teams, field/court, kickoff
    time, and any special notes from the pregame weather or facility
    check.
-5. The ref signs in on the spot. This is what starts the stipend
+5. Before every game, independently inspect the goal anchoring on
+   the assigned field/court — this is a second check on top of
+   facilities' field/court setup, not a redundant one, and it isn't
+   skippable even when facilities already confirmed it (Montana
+   Youth Soccer 2-1100 model; see the safety & policy standards
+   reference). Flag anything unanchored to facilities before kickoff.
+6. The ref signs in on the spot. This is what starts the stipend
    clock, so don't let a ref skip it and go straight to the field.
-6. Note the actual check-in time — if it's inside the 30-minute
+7. Note the actual check-in time — if it's inside the 30-minute
    window but tight, give the ref a heads-up on time remaining before
    kickoff.
-7. If the scheduled ref doesn't show by check-in time, pull the backup
+8. If the scheduled ref doesn't show by check-in time, pull the backup
    from the standby pool immediately and check them in instead —
    don't wait past the window hoping the original ref appears.
-8. If the event lead is unavailable to run check-in, escalate to the
+9. If the event lead is unavailable to run check-in, escalate to the
    venue manager per the escalation path.
 
 ### Team check-in (`act.team_check_in`) — Accountable | Responsible
@@ -163,8 +139,8 @@ scheduled ref no-shows.
 - Trigger: ~15 minutes before each kickoff
 - Expected completion: T-15min
 - Tracking: form
-- Escalation: If event_lead unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If event_lead unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. About 15 minutes before kickoff, have both teams' coaches (youth
    leagues) or captains (adult leagues) come to the check-in station —
@@ -236,6 +212,15 @@ enforcement as appropriate.
    manager and, for a genuine safety threat, the director and law
    enforcement as appropriate. Don't try to talk someone down who's
    already crossed into a safety issue.
+9. This form is for conduct — sideline behavior, disputes, unsporting
+   conduct. If what you're looking at is a suspected child-abuse
+   concern instead (grooming behavior, an inappropriate one-on-one
+   interaction with a minor), this form isn't the right channel:
+   covered adults are required to report any suspicion of child
+   sexual abuse to law enforcement within 24 hours, and to limit
+   one-on-one adult-minor interaction to observable settings as a
+   matter of policy. Treat it as a reporting obligation, not a
+   conduct write-up, and loop in the director immediately.
 
 ### Incident response (in-the-moment) (`act.incident_response`) — Responsible
 
@@ -243,8 +228,8 @@ enforcement as appropriate.
 - Expected completion: trigger+5min
 - Tracking: form
 - Escalation: Any life-threatening incident escalates immediately to 911 and
-role.director; venue_manager remains accountable for documentation
-but role.event_lead may capture the initial form.
+role.director; venue_manager remains accountable for documentation but
+role.event_lead may capture the initial form.
 
 1. The moment an incident is reported to you — injury, altercation,
    medical event, or property damage — get to the scene. If you
@@ -255,30 +240,47 @@ but role.event_lead may capture the initial form.
    directly to the director; don't wait to finish a form first.
    Never leave an injured or distressed child unattended while you
    sort out logistics.
-3. Get first-hand information from whoever responded: who was
+3. If the incident is or could be a concussion — any sign after a hit
+   to the head or body: confusion, headache, dizziness, memory gaps,
+   loss of consciousness — remove the athlete from play immediately.
+   A coach, referee, or official makes this call on the spot; the
+   athlete doesn't get to self-diagnose back into the game. For any
+   athlete under 19, this is an Ohio legal requirement, not just good
+   practice (ORC 3707.511; see the safety & policy standards
+   reference): no return to play the same day, and no return to any
+   Aspire activity without written clearance from a physician or an
+   Ohio-authorized licensed health-care provider. Coaches and refs
+   are required to hold concussion-recognition training (CDC HEADS UP
+   or NFHS) current within the past three years as a condition of the
+   role.
+4. Get first-hand information from whoever responded: who was
    involved, what immediate care was given, whether 911 was called
    and when, and the exact time.
-4. Open the incident response form and capture what you have within
+5. Open the incident response form and capture what you have within
    about 5 minutes of the incident — this is the in-the-moment
    record, not the full report. It doesn't need to be complete, it
    needs to be fast and accurate: what happened, who responded, what
    care was given, whether 911 was called.
-5. If a parent is on-site, notify them directly and in person before
+6. If a parent is on-site, notify them directly and in person before
    they hear about it secondhand. Stick to what happened and what was
    done — don't speculate about diagnosis or fault.
-6. Handle this discreetly — this record names a minor. Don't discuss
+7. Handle this discreetly — this record names a minor. Don't discuss
    specifics in a group chat, in front of other families, or with
    anyone who doesn't need to know; the incident form is the record,
-   not a text thread.
-7. Submit the form as soon as the immediate situation is stable. This
+   not a text thread. If what you're looking at is a suspected abuse
+   concern rather than an accident or medical event, this form isn't
+   the right channel — covered adults must report suspected child
+   abuse to law enforcement within 24 hours; see code of conduct
+   enforcement for the mandatory-reporting framing.
+8. Submit the form as soon as the immediate situation is stable. This
    starts the clock on the incident report finalization, which
    happens once the affected match is over.
-8. If you can't capture this yourself, the event lead may capture
+9. If you can't capture this yourself, the event lead may capture
    the initial form from the same first-hand accounts — you remain
    accountable for it either way.
-9. This form is the fast first pass, not the final record used for
-   disputes or insurance — every incident captured here still needs
-   the full finalized report before it's closed.
+10. This form is the fast first pass, not the final record used for
+    disputes or insurance — every incident captured here still needs
+    the full finalized report before it's closed.
 
 ## post_game
 
@@ -293,30 +295,40 @@ escalates to role.director for sign-off.
 1. After a ref's last match of the day, pull their check-in
    record(s) — one per match — to confirm which matches they
    actually worked today.
-2. Apply the standard per-match stipend rate for each match worked,
-   then add any on-file add-ons (travel, doubleheader bonus,
+2. For each match, confirm the in-app closeout is submitted — the
+   final score attestation with cards/incidents logged — before
+   locking that match's stipend line. Check-in alone never locks
+   pay; a match with no closeout submitted stays open, not paid,
+   until the closeout lands.
+3. Apply the standard per-match stipend rate for each closed-out
+   match, then add any on-file add-ons (travel, doubleheader bonus,
    last-minute fill-in premium — whatever your org's pay schedule
    defines) on top of the base.
-3. Total the day's stipend across every match the ref worked and
-   record the breakdown (base rate x number of matches, plus each
-   add-on line) rather than just the final total — the ref and the
-   office both need to see how the number was built.
-4. Walk the ref through the total before they leave and get their
+4. Total the day's stipend across every closed-out match and record
+   the breakdown (base rate x number of matches, plus each add-on
+   line) rather than just the final total — the ref and the office
+   both need to see how the number was built. A match still awaiting
+   closeout isn't in this total yet.
+5. Walk the ref through the total before they leave and get their
    acknowledgment that it matches what they expect for today's work —
    resolve any discrepancy on the spot rather than after they've
    left.
-5. Record the stipend log — matches worked, base rate, add-ons,
+6. Record the stipend log — matches worked, base rate, add-ons,
    total, and the ref's acknowledgment — on the ref stipend log form.
-6. Submit the form. This hands the day's stipend record to the
+7. Submit the form. This hands the day's stipend record to the
    platform's payroll integration for the ref payroll event, which
    processes it for payout — you're not disbursing money yourself
    here, just logging what's owed and getting it acknowledged.
-7. If a ref disputes the total and it isn't resolved on the spot, log
+8. If a match's closeout lands after the ref has already left (a late
+   score attestation), log that match's stipend as a separate,
+   late-add line once the closeout is submitted — don't hold up the
+   rest of the day's stipend log waiting on it.
+9. If a ref disputes the total and it isn't resolved on the spot, log
    the dispute and the ref's stated expectation on the form rather
    than logging a number they haven't agreed to, and flag it to the
    venue manager.
-8. If you're unreachable, the venue manager logs the stipend and
-   escalates to the director for sign-off.
+10. If you're unreachable, the venue manager logs the stipend and
+    escalates to the director for sign-off.
 
 ## end_of_day
 
@@ -325,8 +337,9 @@ escalates to role.director for sign-off.
 - Trigger: After facility close walkthrough is signed off
 - Expected completion: phase_end
 - Tracking: form
-- Escalation: If venue_manager unreachable, role.event_lead runs the debrief and
-escalates to role.director per the standard handoff ladder.
+- Escalation: If venue_manager unreachable, role.event_lead runs the debrief; any
+unresolved item escalates to role.director per the Coach → Venue Manager
+→ Director handoff ladder.
 
 1. Once the facility close walkthrough is signed off, gather whoever's
    still on shift for a 5-10 minute huddle — don't hold people who've
@@ -346,4 +359,5 @@ escalates to role.director per the standard handoff ladder.
    so vague notes ("things were fine") aren't useful to future you.
 7. Submit the form before leaving the venue.
 8. If the venue manager isn't available, the event lead runs the
-   debrief and escalates per the escalation path.
+   debrief; anything unresolved escalates to the director per the
+   escalation path.

@@ -5,7 +5,7 @@ items:
   - id: roster_pulled
     label: Today's roster and attendance sheet open in /coach/attendance
   - id: space_walked
-    label: Playing space walked for hazards (wet spots, debris, damaged fixtures)
+    label: Playing space walked for hazards (wet spots, debris, damaged fixtures, any goal anchored/counterweighted)
   - id: equipment_staged
     label: Session equipment staged (balls sized for the age group, cones, pinnies)
   - id: first_aid_present

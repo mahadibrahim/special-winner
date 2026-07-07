@@ -3,16 +3,12 @@ kind: checklist
 status: stub
 items:
   - id: equipment_powered_on
-    label: Fountain machine, warmers, and hot-food equipment powered on and at operating temp
-  - id: stand_restocked
-    label: Front cooler / display cases restocked from the back cooler
+    label: Register/POS terminal powered on
   - id: pos_ready
-    label: POS terminal connected, logged in, and opening cash bank confirmed
-  - id: fountain_calibrated
-    label: Fountain syrup ratios calibrated and taste-tested per flavor
-  - id: handwash_sanitizer_stocked
-    label: Hand-wash and sanitizer stations stocked
-  - id: food_safety_checked
-    label: Cold items cold, hot items hot, date-sensitive stock within date
+    label: POS terminal connected, logged in, and configured for card-only payment (no cash drawer)
+  - id: stand_restocked
+    label: Shelf-stable snacks and drinks restocked from back stock
+  - id: card_only_signage
+    label: Card-only / no-cash signage posted at the register
   - id: walkway_clear
     label: Stand walkway clear, signage up, menu board updated for today's pricing

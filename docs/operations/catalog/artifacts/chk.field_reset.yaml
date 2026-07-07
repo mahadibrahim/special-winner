@@ -15,4 +15,4 @@ items:
   - id: safety_recheck
     label: Surface confirmed free of new hazards from the prior match
   - id: within_window
-    label: Reset completed within the 15-minute turnover window
+    label: Reset completed within the 10-minute turnover window

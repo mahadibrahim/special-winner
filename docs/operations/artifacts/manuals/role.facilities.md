@@ -10,8 +10,8 @@ turnover, reset, and close-down.
 - Trigger: 48h before event window
 - Expected completion: T-48h
 - Tracking: checklist
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. 48 hours before the event window, walk the storage area with the
    equipment manifest in hand.
@@ -38,8 +38,8 @@ standard handoff ladder.
 - Trigger: ~90 minutes before first kickoff
 - Expected completion: T-90min
 - Tracking: checklist
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. About 90 minutes before first kickoff, pull the day's equipment list
    by match and surface from the schedule.
@@ -62,8 +62,8 @@ standard handoff ladder.
 - Trigger: ~60 minutes before first kickoff (managed-parking venues only)
 - Expected completion: T-60min
 - Tracking: checklist
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. About 60 minutes before first kickoff at managed-parking venues,
    place cones and ropes to mark the traffic flow into and out of the
@@ -87,8 +87,8 @@ standard handoff ladder.
 - Trigger: ~90 minutes before first kickoff
 - Expected completion: T-90min
 - Tracking: photo_upload
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. About 90 minutes before first kickoff, pull the day's signage plan
    (wayfinding, sponsor banners, field-of-play markers, safety
@@ -114,13 +114,21 @@ standard handoff ladder.
 - Trigger: ~30 minutes before each kickoff
 - Expected completion: T-30min
 - Tracking: photo_upload
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. About 30 minutes before each kickoff, place goals/nets in their
-   marked positions and secure them (anchored or weighted per the
-   venue's safety standard — an unsecured goal is a serious tip-over
-   hazard).
+   marked positions and anchor or counterweight them — every movable
+   goal is anchored at all times, not just during play (CPSC / ASTM
+   F2056; see the safety & policy standards reference). Auger/screw
+   anchors: minimum two per goal, one each side. Peg/stake anchors:
+   two to four per goal, ~10-inch stakes driven at an angle. Indoor
+   or artificial turf, where anchors can't penetrate: sandbags or
+   counterweights sized to the goal's total weight (goals typically
+   run 150-500 lb). Never use net pegs to anchor the goal itself. An
+   unsecured goal is a serious tip-over hazard — movable goals are
+   built to the ASTM F2056 200 lb tip-over-resistance standard, but
+   that standard assumes the goal is anchored as designed.
 2. Place corner flags and any required field markings for the sport.
 3. Place team benches on the correct sidelines per the match
    assignment.
@@ -129,19 +137,28 @@ standard handoff ladder.
 5. Place any match-specific equipment the sport calls for.
 6. Confirm the surface is otherwise clear of the prior match's
    equipment and debris.
-7. Photograph the fully configured surface before handing it off, and
+7. Any goal not being used for today's matches stays locked in
+   storage or chained to a fixed structure with its net removed — an
+   unattended, unanchored goal is the highest-risk configuration on
+   site. Players, including kids at camps and clinics, never move or
+   hang on a goal; that's a facilities/coach task only.
+8. Photograph the fully configured surface before handing it off, and
    upload it to the match record.
-8. If anything can't be resolved in the 30-minute window, notify the
-   venue manager and event lead immediately — a match doesn't start on
-   an unsafe or incomplete surface.
+9. Facilities' anchoring is the first check, not the only one: the
+   referee independently re-checks every goal's anchoring before
+   every game at ref check-in — that check isn't skippable even when
+   facilities already confirmed it.
+10. If anything can't be resolved in the 30-minute window, notify the
+    venue manager and event lead immediately — a match doesn't start
+    on an unsafe or incomplete surface.
 
 ### Flag football field line check (`act.flag_field_line_check`) — Accountable | Responsible
 
 - Trigger: ~30 minutes before each flag football kickoff
 - Expected completion: T-30min
 - Tracking: photo_upload
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. About 30 minutes before each flag football kickoff, walk the full
    length of the field.
@@ -164,17 +181,19 @@ standard handoff ladder.
 ### Equipment turnover (between matches) (`act.equipment_turnover`) — Accountable | Responsible
 
 - Trigger: Final whistle of each match
-- Expected completion: T+15min
+- Expected completion: T+10min
 - Tracking: checklist
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. At the final whistle, move immediately to the just-finished surface
    — the next match's crew is on the clock behind you.
 2. Collect match-specific equipment: balls, pinnies, corner flags, and
    anything not staying with the field.
 3. Re-secure goals/nets if they were repositioned during the match;
-   reset any that came loose.
+   reset any that came loose using the same anchoring standard as
+   field/court setup (auger/peg anchors, or sandbags/counterweights
+   indoors) — never leave a goal unanchored between matches.
 4. Reset the scoreboard to 0-0 and update team names/colors for the
    next match.
 5. Sanitize shared-touch equipment (balls, pinnies) as needed between
@@ -182,7 +201,7 @@ standard handoff ladder.
 6. Count balls and pinnies back against the pre-match count and note
    anything missing.
 7. Confirm the surface is ready for the next match crew to take over
-   within the 15-minute turnover window.
+   within the 10-minute turnover window.
 8. Flag anything damaged during the match to the field damage report
    process rather than trying to fix it yourself.
 
@@ -231,10 +250,10 @@ escalates to role.director for repair authorization.
 ### Field reset between matches (`act.field_reset_between_matches`) — Accountable | Responsible
 
 - Trigger: Final whistle of each match
-- Expected completion: T+15min
+- Expected completion: T+10min
 - Tracking: checklist
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. At the final whistle, do a rapid trash pickup along the sidelines
    and benches before the next teams arrive.
@@ -248,7 +267,7 @@ standard handoff ladder.
    teams.
 6. Confirm the surface meets the same safety standard as the pregame
    field/court setup — no new hazards introduced during play.
-7. Complete within the 15-minute turnover window so the next match
+7. Complete within the 10-minute turnover window so the next match
    isn't delayed.
 
 ## end_of_day
@@ -258,13 +277,15 @@ standard handoff ladder.
 - Trigger: After last match concludes
 - Expected completion: phase_end
 - Tracking: checklist
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. After the last match concludes, collect all equipment from staging
    areas across every surface.
 2. Return each item to its labeled storage location — balls, cones,
-   pinnies, goals/nets, scoreboards, first-aid kits.
+   pinnies, scoreboards, first-aid kits. Any goal not staying set up
+   overnight is locked in storage or chained to a fixed structure with
+   its net removed — never left standing unanchored and unattended.
 3. Count balls and pinnies on return and compare against the morning's
    equipment staging count.
 4. Note anything damaged during the day's use or missing from the
@@ -281,8 +302,8 @@ standard handoff ladder.
 - Trigger: After last match concludes (owned venues)
 - Expected completion: phase_end
 - Tracking: checklist
-- Escalation: If facilities unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+- Escalation: If facilities unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. After the last match concludes at an owned venue, pull all interior
    trash bags — restrooms, concessions, locker rooms, office.

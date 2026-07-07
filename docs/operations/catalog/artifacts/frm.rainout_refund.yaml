@@ -2,15 +2,22 @@ id: frm.rainout_refund
 kind: form
 status: stub
 fields:
+  - id: cancellation_cause
+    label: Cancellation cause
+    type: enum
+    options:
+      - Weather / lightning / field condition
+      - Company-caused
+    required: true
   - id: outcome
     label: Outcome
     type: enum
     options:
       - Reschedule (no refund/credit)
-      - Full refund
-      - Partial refund
       - Full credit
       - Partial credit
+      - Full refund
+      - Partial refund
     required: true
   - id: affected_registrations_count
     label: Registrations affected
@@ -20,12 +27,16 @@ fields:
     label: Rationale for the outcome chosen
     type: long_text
     required: true
+  - id: credit_tier_pct
+    label: Tiered-credit percentage applied, if a multi-session program (75% / 50% / 25% / not applicable)
+    type: text
+    required: false
   - id: proration_basis
     label: Proration basis (if partial)
     type: long_text
     required: false
   - id: refund_actioned
-    label: Refunds actioned per registration (if refund outcome)?
+    label: Refunds actioned per registration (if refund outcome — company-caused only)?
     type: boolean
     required: false
   - id: credit_terms

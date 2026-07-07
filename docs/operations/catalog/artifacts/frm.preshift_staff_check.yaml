@@ -1,0 +1,16 @@
+id: frm.preshift_staff_check
+kind: form
+status: stub
+fields:
+  - id: check_run
+    label: Check run today (vs. skipped as routine)?
+    type: boolean
+    required: true
+  - id: items_flagged
+    label: Items flagged (schedule surprise, VIP guest, weather watch, walkthrough finding, staffing swap)
+    type: long_text
+    required: false
+  - id: checked_by
+    label: Checked by
+    type: text
+    required: true

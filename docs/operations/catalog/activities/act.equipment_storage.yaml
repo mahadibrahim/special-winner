@@ -20,13 +20,15 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If facilities unreachable, escalate to role.venue_manager per the
-  standard handoff ladder.
+  If facilities unreachable, escalate to role.venue_manager per the Coach →
+  Venue Manager → Director handoff ladder.
 sop_body: |
   1. After the last match concludes, collect all equipment from staging
      areas across every surface.
   2. Return each item to its labeled storage location — balls, cones,
-     pinnies, goals/nets, scoreboards, first-aid kits.
+     pinnies, scoreboards, first-aid kits. Any goal not staying set up
+     overnight is locked in storage or chained to a fixed structure with
+     its net removed — never left standing unanchored and unattended.
   3. Count balls and pinnies on return and compare against the morning's
      equipment staging count.
   4. Note anything damaged during the day's use or missing from the

@@ -10,9 +10,9 @@ authority.
 - Trigger: ~30 minutes before each kickoff
 - Expected completion: T-30min
 - Tracking: signature
-- Escalation: If event_lead unreachable, escalate to role.venue_manager per the
-standard handoff ladder; backup ref pulled from standby pool if
-scheduled ref no-shows.
+- Escalation: If event_lead unreachable, escalate to role.venue_manager per the Coach →
+Venue Manager → Director handoff ladder; backup ref pulled from standby
+pool if scheduled ref no-shows.
 
 1. About 30 minutes before their assigned kickoff, the ref reports to
    the event lead's check-in station — the same match shows up in the
@@ -24,15 +24,21 @@ scheduled ref no-shows.
 4. Confirm the ref knows their match: teams, field/court, kickoff
    time, and any special notes from the pregame weather or facility
    check.
-5. The ref signs in on the spot. This is what starts the stipend
+5. Before every game, independently inspect the goal anchoring on
+   the assigned field/court — this is a second check on top of
+   facilities' field/court setup, not a redundant one, and it isn't
+   skippable even when facilities already confirmed it (Montana
+   Youth Soccer 2-1100 model; see the safety & policy standards
+   reference). Flag anything unanchored to facilities before kickoff.
+6. The ref signs in on the spot. This is what starts the stipend
    clock, so don't let a ref skip it and go straight to the field.
-6. Note the actual check-in time — if it's inside the 30-minute
+7. Note the actual check-in time — if it's inside the 30-minute
    window but tight, give the ref a heads-up on time remaining before
    kickoff.
-7. If the scheduled ref doesn't show by check-in time, pull the backup
+8. If the scheduled ref doesn't show by check-in time, pull the backup
    from the standby pool immediately and check them in instead —
    don't wait past the window hoping the original ref appears.
-8. If the event lead is unavailable to run check-in, escalate to the
+9. If the event lead is unavailable to run check-in, escalate to the
    venue manager per the escalation path.
 
 ## in_game
@@ -42,9 +48,9 @@ scheduled ref no-shows.
 - Trigger: Each scoring event during the match
 - Expected completion: phase_end
 - Tracking: counter_increment
-- Escalation: If the entry app fails, ref keeps a paper tally and event_lead
-enters the running score in batch; escalate to role.venue_manager
-if the issue persists across matches.
+- Escalation: If the entry app fails, ref keeps a paper tally and event_lead enters the
+running score in batch; escalate to role.venue_manager if the issue
+persists across matches.
 
 1. Throughout the match, keep your own live tally of the score as
    goals happen — who scored, which side, roughly what minute. This
@@ -85,8 +91,8 @@ if the issue persists across matches.
 - Expected completion: phase_end
 - Tracking: signature
 - Escalation: If ref unable to sign, event_lead captures a co-attestation with the
-ref's verbal confirmation and escalates to role.venue_manager for
-any contested score.
+ref's verbal confirmation and escalates to role.venue_manager for any
+contested score.
 
 1. At the final whistle, open the match from My Matches — the same
    match that showed up at check-in — and go to its match report.
@@ -126,9 +132,9 @@ any contested score.
 - Trigger: Match clock start at kickoff
 - Expected completion: phase_end
 - Tracking: system_event
-- Escalation: If primary ref unable to operate clock, the assistant ref or event
-lead takes over; escalate to role.venue_manager only if the match
-must be paused.
+- Escalation: If primary ref unable to operate clock, the assistant ref or event lead
+takes over; escalate to role.venue_manager only if the match must be
+paused.
 
 1. Start the match clock at kickoff using your own watch or
    stopwatch — there's no in-app clock to start. Track time against

@@ -1,9 +1,11 @@
 id: act.concession_inventory_count
 name: Concession inventory count (open)
 description: |
-  Count opening inventory of concession stock — drinks, snacks, hot food
-  pars, paper goods — so end-of-day reconciliation can compute usage and
-  shrink. Numbers are entered in the inventory form.
+  Count opening inventory of concession stock — bottled/canned drinks,
+  packaged snacks, paper goods — so end-of-day reconciliation can
+  compute usage and shrink. Aspire concessions are shelf-stable only
+  (no hot food), so there are no hot-food pars to count. Numbers are
+  entered in the inventory form.
 trigger: After concession setup, before first sale
 phase: day_setup
 sport_tags: []
@@ -21,25 +23,23 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If front_of_house unreachable, escalate to role.venue_manager per the
-  standard handoff ladder.
+  Coach → Venue Manager → Director handoff ladder.
 sop_body: |
   1. Do this right after concession setup finishes and before the stand
      opens for its first sale — counting after sales have started
      makes the numbers useless for reconciliation.
-  2. Count drinks by type and size, working from the front cooler back
-     to the stockroom so nothing gets double-counted.
-  3. Count snacks and packaged goods by SKU.
-  4. Count hot-food pars — the prepped starting quantity for items made
-     in batches (hot dogs, pretzels), not raw ingredient stock.
-  5. Count paper goods and consumables that affect per-unit cost
+  2. Count bottled/canned drinks by type and size, working from the
+     display case back to the stockroom so nothing gets double-counted.
+  3. Count packaged snacks and other shelf-stable goods by SKU.
+  4. Count paper goods and consumables that affect per-unit cost
      tracking: cups, napkins, condiment packets.
-  6. Enter every count into the inventory form by item — don't batch
+  5. Enter every count into the inventory form by item — don't batch
      categories together, since end-of-day reconciliation matches this
      count line-by-line against the closing count.
-  7. Note anything already damaged, short-dated, or missing from the
+  6. Note anything already damaged, short-dated, or missing from the
      expected opening stock before the first sale, and flag it to the
      venue manager if it looks like a shrink or delivery problem.
-  8. Submit the form. This is what the cash and concession reconcile
+  7. Submit the form. This is what the concession settlement reconcile
      compares against at the end of the day.
 tools:
   - The concession inventory form

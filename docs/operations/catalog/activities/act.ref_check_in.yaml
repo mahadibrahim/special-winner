@@ -21,9 +21,9 @@ platform_features:
   - feat.signature_capture
   - feat.activity_tracking_engine
 escalation_path: |
-  If event_lead unreachable, escalate to role.venue_manager per the
-  standard handoff ladder; backup ref pulled from standby pool if
-  scheduled ref no-shows.
+  If event_lead unreachable, escalate to role.venue_manager per the Coach →
+  Venue Manager → Director handoff ladder; backup ref pulled from standby
+  pool if scheduled ref no-shows.
 sop_body: |
   1. About 30 minutes before their assigned kickoff, the ref reports to
      the event lead's check-in station — the same match shows up in the
@@ -35,15 +35,21 @@ sop_body: |
   4. Confirm the ref knows their match: teams, field/court, kickoff
      time, and any special notes from the pregame weather or facility
      check.
-  5. The ref signs in on the spot. This is what starts the stipend
+  5. Before every game, independently inspect the goal anchoring on
+     the assigned field/court — this is a second check on top of
+     facilities' field/court setup, not a redundant one, and it isn't
+     skippable even when facilities already confirmed it (Montana
+     Youth Soccer 2-1100 model; see the safety & policy standards
+     reference). Flag anything unanchored to facilities before kickoff.
+  6. The ref signs in on the spot. This is what starts the stipend
      clock, so don't let a ref skip it and go straight to the field.
-  6. Note the actual check-in time — if it's inside the 30-minute
+  7. Note the actual check-in time — if it's inside the 30-minute
      window but tight, give the ref a heads-up on time remaining before
      kickoff.
-  7. If the scheduled ref doesn't show by check-in time, pull the backup
+  8. If the scheduled ref doesn't show by check-in time, pull the backup
      from the standby pool immediately and check them in instead —
      don't wait past the window hoping the original ref appears.
-  8. If the event lead is unavailable to run check-in, escalate to the
+  9. If the event lead is unavailable to run check-in, escalate to the
      venue manager per the escalation path.
 tools:
   - The event lead's check-in station

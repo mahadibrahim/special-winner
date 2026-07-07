@@ -13,15 +13,16 @@ audience_tags: []
 raci:
   accountable: role.front_of_house
   responsible: [role.front_of_house]
-  consulted: [role.event_lead]
+  consulted: []
   informed: [role.venue_manager]
 automation_status: manual
 platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If issue exceeds front_of_house scope, escalate to role.event_lead;
-  any safety-relevant escalation goes to role.venue_manager.
+  If an issue exceeds front_of_house scope, or is safety-relevant, escalate
+  immediately to role.venue_manager per the Coach → Venue Manager →
+  Director handoff ladder.
 sop_body: |
   1. When a spectator complaint or sideline issue is raised — a seating
      conflict, a lost parent, a behavior concern — respond in person
@@ -35,11 +36,10 @@ sop_body: |
      the sideline, a dispute between parents), speak with the person
      directly, calmly, and away from the match.
   5. If the person won't de-escalate or the issue is safety-relevant
-     (physical altercation, threats), pull in the event lead
+     (physical altercation, threats), pull in the venue manager
      immediately rather than continuing to handle it alone.
-  6. Any safety-relevant issue also goes to the venue manager right
-     away, in parallel with pulling in the event lead — don't wait for
-     one before notifying the other.
+  6. Any safety-relevant issue goes to the venue manager right away —
+     don't wait to see if it resolves before notifying them.
   7. Log the complaint details in the form regardless of outcome: what
      happened, who was involved, how it was resolved. Even minor,
      fully-resolved issues get logged — this is what surfaces repeat
@@ -48,7 +48,7 @@ sop_body: |
      the details are still fresh.
 tools:
   - The spectator complaint form
-  - Two-way radio (pulling in the event lead or venue manager)
+  - Two-way radio (pulling in the venue manager)
   - In-person conversation (de-escalation, away from the match)
 tracking_method: form
 tracking_artifact:

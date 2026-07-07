@@ -32,6 +32,14 @@ fields:
     label: 911 / emergency services called?
     type: boolean
     required: true
+  - id: suspected_concussion
+    label: Suspected concussion?
+    type: boolean
+    required: true
+  - id: removed_from_play
+    label: If suspected concussion, athlete removed from play immediately (no same-day return)?
+    type: boolean
+    required: false
   - id: emergency_services_call_time
     label: Time emergency services were called (if applicable)
     type: text

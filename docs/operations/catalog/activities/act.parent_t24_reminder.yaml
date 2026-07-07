@@ -20,7 +20,7 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If the broadcast job fails, on-call platform engineer escalates to
-  role.director per the standard handoff ladder.
+  role.director per the Coach → Venue Manager → Director handoff ladder.
 sop_body: |
   1. At 24 hours before kickoff, the scheduled job pulls each
      registered family's confirmed roster entry along with the

@@ -1,0 +1,62 @@
+id: act.staff_check_in_out
+name: Staff check-in / check-out
+description: |
+  Each staff member signs once at the end of their shift, confirming
+  both their actual check-in (start) time and check-out (end) time
+  plus any notes. The signed record closes the labor record and feeds
+  the payroll integration — coaches and venue managers are paid
+  hourly off this same record, same as every other on-site role.
+trigger: As each staff member finishes their last task
+phase: end_of_day
+sport_tags: []
+venue_tags: []
+format_tags: []
+audience_tags: []
+raci:
+  accountable: role.venue_manager
+  responsible: [role.venue_manager]
+  consulted: []
+  informed: [role.front_of_house, role.facilities, role.event_lead, role.director]
+automation_status: hybrid
+platform_features:
+  - feat.signature_capture
+  - feat.payroll_integration
+  - feat.activity_tracking_engine
+escalation_path: |
+  If venue_manager unreachable, role.event_lead witnesses the check-out;
+  any escalation needed goes to role.director per the Coach → Venue Manager
+  → Director handoff ladder.
+sop_body: |
+  1. When a staff member finishes their last task for the day (final
+     equipment stored, facility close walkthrough done, concession
+     settlement reconciled — whatever their role's closing task is),
+     they come to the check-out station before leaving the venue.
+  2. Confirm their name against today's staffing plan and capture both
+     times: the actual check-in (start) time and the actual check-out
+     (end) time — not the scheduled times, the real ones. For hourly
+     staff (coaches, venue managers, and every other on-site role),
+     this pair of times is what payroll runs on, so get both right,
+     not just the end time.
+  3. Ask if there's anything to note for payroll or the office: worked
+     past the scheduled end time, left early with venue manager
+     sign-off, covered an extra task outside their normal role.
+  4. The staff member signs to confirm both times and any notes are
+     accurate.
+  5. Front of house checks the signature against the staffing plan and
+     signs to close that person's labor record for the day.
+  6. Repeat for each staff member as they finish, in any order — this
+     isn't a single end-of-day batch, it's per-person as people wrap up.
+  7. Once every staffed slot for the day has a signed check-in/check-out
+     record, the record is complete and ready to feed the payroll
+     integration.
+  8. If the venue manager isn't available to witness a check-out, the
+     event lead witnesses it and escalates per the escalation path.
+tools:
+  - The check-in/check-out station (in-person sign-out)
+  - Today's staffing plan
+  - The activity completion signature capture (/admin/activity-completions/[id])
+tracking_method: signature
+tracking_artifact:
+  template_id: sig.staff_check_in_out
+  required_role: role.front_of_house
+expected_completion: phase_end

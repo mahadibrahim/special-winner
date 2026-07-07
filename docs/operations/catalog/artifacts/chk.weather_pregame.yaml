@@ -5,13 +5,15 @@ items:
   - id: dashboard_checked
     label: Weather-alert dashboard checked for live conditions
   - id: lightning_radar_checked
-    label: Lightning radar checked (strikes within 10 miles)
+    label: Lightning radar checked (strikes within 10 nautical miles)
   - id: precip_radar_checked
-    label: Precipitation radar checked against the event window
+    label: Precipitation radar checked against the event window (field playability and lightning, not a rain-percentage threshold)
   - id: field_walked
     label: Field/court surface walked or confirmed by facilities for standing water or unsafe footing
-  - id: heat_index_checked
-    label: Current temperature/heat index checked against the venue's advisory cutoff
+  - id: wbgt_checked
+    label: WBGT reading taken (not air temperature/heat index) and checked against the 85.8°F modify / 89.8°F postpone-or-cancel thresholds
+  - id: monitor_designated
+    label: Designated weather monitor (not the coach or referee) assigned for ongoing 30-minute WBGT rechecks once above 70°F
   - id: readings_logged
     label: Readings logged for the record even when conditions are clear
   - id: escalate_if_risk

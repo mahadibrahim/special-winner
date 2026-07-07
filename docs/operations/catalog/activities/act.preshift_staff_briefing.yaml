@@ -1,10 +1,11 @@
 id: act.preshift_staff_briefing
-name: Pre-shift staff briefing
+name: Pre-shift staff check (optional)
 description: |
-  Gather all on-shift staff (event leads, facilities, front of house,
-  photographer) for a 5-10 minute huddle: today's schedule, special
-  notes, weather, VIP guests, safety reminders. Each attendee signs in.
-trigger: ~60 minutes before first kickoff
+  A lightweight, optional check-in with on-shift staff before first
+  kickoff — a quick radio or in-person round when there's something
+  worth flagging, not a mandatory meeting everyone has to gather for.
+  The venue manager decides whether to run it at all.
+trigger: ~60 minutes before first kickoff, at the venue manager's discretion
 phase: day_setup
 sport_tags: []
 venue_tags: []
@@ -12,43 +13,39 @@ format_tags: []
 audience_tags: []
 raci:
   accountable: role.venue_manager
-  responsible: [role.venue_manager, role.event_lead]
+  responsible: [role.venue_manager]
   consulted: []
-  informed: [role.facilities, role.front_of_house, role.photographer]
+  informed: [role.event_lead, role.facilities, role.front_of_house, role.photographer]
 automation_status: manual
 platform_features:
-  - feat.signature_capture
+  - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, role.event_lead delivers the briefing and
-  escalates to role.director per the standard handoff ladder.
+  This activity is optional and has no hard failure mode. If the venue
+  manager wants it run and can't do it themselves, role.event_lead
+  covers it per the Coach → Venue Manager → Director handoff ladder.
 sop_body: |
-  1. About 60 minutes before first kickoff, once the facility unlock and
-     first-aid kit check are done, gather every on-shift staff member in
-     one spot — event leads, facilities, front of house, photographer.
-  2. Keep it to 5-10 minutes. Cover today's schedule (match count, key
-     times), anything special about today (VIP guests, a rescheduled
-     match, a tournament format quirk), the weather outlook if outdoor,
-     and any safety reminders (first-aid kit locations, incident
-     escalation path).
-  3. Call out any staffing changes from the schedule confirm — who's
-     covering for a standby swap, who's new to the venue today.
-  4. Ask if anyone has a conflict or needs to leave early, and confirm
-     coverage for that window now rather than discovering it mid-shift.
-  5. Pass around the sign-in sheet — every attendee signs to confirm
-     they were briefed.
-  6. Front of house checks the sign-in sheet against today's staffing
-     plan and signs to confirm the full roster attended and the sheet is
-     complete.
-  7. File the signed sheet with today's event records.
-  8. If the venue manager can't deliver the briefing, the event lead
-     runs it and escalates per the escalation path.
+  1. This check is optional. Run it when there's something worth
+     flagging — a schedule surprise, VIP guests, a weather watch, a
+     finding from the opening walkthrough, a staffing swap from the
+     schedule confirm. Skip it entirely on a routine day with nothing
+     new to share.
+  2. If you're running it, keep it to a quick radio or in-person round
+     with on-shift staff — event leads, facilities, front of house,
+     photographer — not a scheduled meeting everyone has to gather in
+     one spot for.
+  3. Cover only what's actually changed or worth flagging; don't
+     restate the full day's schedule if nothing about it is unusual.
+  4. There's no sign-in sheet — this isn't a tracked briefing everyone
+     attests to. Log whether you ran it and what you flagged, if
+     anything, on the pre-shift staff check form.
+  5. If the venue manager decides to run it and can't do so themselves,
+     the event lead covers it.
 tools:
-  - Today's staffing plan and match schedule
-  - Printed sign-in sheet
-  - Opening walkthrough findings (reference for safety reminders)
-tracking_method: signature
+  - Today's staffing plan and match schedule (reference, if running the check)
+  - Opening walkthrough findings (reference, if running the check)
+  - Two-way radio (quick round instead of a gather-everyone meeting)
+tracking_method: form
 tracking_artifact:
-  template_id: sig.staff_briefing_signin
-  required_role: role.front_of_house
+  template_id: frm.preshift_staff_check
 expected_completion: T-60min

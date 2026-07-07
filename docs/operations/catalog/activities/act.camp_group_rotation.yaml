@@ -21,10 +21,10 @@ platform_features:
   - feat.counter_service
   - feat.activity_tracking_engine
 escalation_path: |
-  If headcount does not match the group roster, all play stops
-  immediately and the coach escalates to role.event_lead and
-  role.venue_manager; the search for the missing child takes priority
-  over every other activity on site.
+  If headcount does not match the group roster, all play stops immediately
+  and the coach escalates directly to role.venue_manager per the Coach →
+  Venue Manager → Director handoff ladder; the search for the missing child
+  takes priority over every other activity on site.
 sop_body: |
   1. Two minutes before the scheduled transition, wind down the current
      activity and gather the group (transitions are listed on the camp

@@ -22,8 +22,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If digest job fails, on-call platform engineer escalates to
-  role.director; venue_manager sends a manual end-of-day summary in
-  the meantime.
+  role.director; venue_manager sends a manual end-of-day summary in the
+  meantime.
 sop_body: |
   1. After the last activity of the day is recorded — final scores
      posted, incidents finalized, end-of-day reconciliation done — the

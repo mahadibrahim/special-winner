@@ -21,9 +21,9 @@ platform_features:
   - feat.counter_service
   - feat.activity_tracking_engine
 escalation_path: |
-  If the entry app fails, ref keeps a paper tally and event_lead
-  enters the running score in batch; escalate to role.venue_manager
-  if the issue persists across matches.
+  If the entry app fails, ref keeps a paper tally and event_lead enters the
+  running score in batch; escalate to role.venue_manager if the issue
+  persists across matches.
 sop_body: |
   1. Throughout the match, keep your own live tally of the score as
      goals happen — who scored, which side, roughly what minute. This

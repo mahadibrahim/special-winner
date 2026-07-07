@@ -3,7 +3,10 @@ name: Opening walkthrough
 description: |
   Walk the entire facility — playing surfaces, restrooms, locker rooms,
   bleachers, parking — and document any safety, cleanliness, or
-  damage findings before staff and customers arrive.
+  damage findings before staff and customers arrive. Runs immediately
+  after facility unlock, so it inherits that activity's timing: about
+  2 hours before first kickoff for an outdoor/rented venue, or at the
+  facility's standard opening time for an owned venue on set hours.
 trigger: Immediately after facility unlock
 phase: day_setup
 sport_tags: []
@@ -20,9 +23,9 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the
-  standard handoff ladder; facilities walks the building until
-  coverage resumes.
+  If venue_manager unreachable, escalate to role.director per the Coach →
+  Venue Manager → Director handoff ladder; facilities walks the building
+  until coverage resumes.
 sop_body: |
   1. Immediately after unlock, walk the entire facility in a fixed route:
      playing surfaces, restrooms, locker rooms, bleachers/spectator
@@ -42,8 +45,9 @@ sop_body: |
   7. Route anything unsafe to facilities for correction before players
      and spectators arrive; anything that can't be resolved before the
      event escalates per the escalation path.
-  8. Submit the completed form before the pre-shift staff briefing so
-     findings can be shared with the team.
+  8. Submit the completed form promptly so findings are on record and
+     available to share with the team — including at the pre-shift
+     staff check, if the venue manager decides to run one.
 tools:
   - The fixed walkthrough route
   - The opening walkthrough findings form

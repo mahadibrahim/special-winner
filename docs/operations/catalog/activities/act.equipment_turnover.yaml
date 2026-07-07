@@ -20,15 +20,17 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If facilities unreachable, escalate to role.venue_manager per the
-  standard handoff ladder.
+  If facilities unreachable, escalate to role.venue_manager per the Coach →
+  Venue Manager → Director handoff ladder.
 sop_body: |
   1. At the final whistle, move immediately to the just-finished surface
      — the next match's crew is on the clock behind you.
   2. Collect match-specific equipment: balls, pinnies, corner flags, and
      anything not staying with the field.
   3. Re-secure goals/nets if they were repositioned during the match;
-     reset any that came loose.
+     reset any that came loose using the same anchoring standard as
+     field/court setup (auger/peg anchors, or sandbags/counterweights
+     indoors) — never leave a goal unanchored between matches.
   4. Reset the scoreboard to 0-0 and update team names/colors for the
      next match.
   5. Sanitize shared-touch equipment (balls, pinnies) as needed between
@@ -36,7 +38,7 @@ sop_body: |
   6. Count balls and pinnies back against the pre-match count and note
      anything missing.
   7. Confirm the surface is ready for the next match crew to take over
-     within the 15-minute turnover window.
+     within the 10-minute turnover window.
   8. Flag anything damaged during the match to the field damage report
      process rather than trying to fix it yourself.
 tools:
@@ -46,4 +48,4 @@ tools:
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_turnover
-expected_completion: T+15min
+expected_completion: T+10min

@@ -1,0 +1,8 @@
+id: sig.staff_check_in_out
+kind: signature
+status: stub
+required_role: role.front_of_house
+prompt: >-
+  I confirm this staff member's actual check-in (start) time and
+  check-out (end) time, and any shift notes, are accurate, and I'm
+  closing their labor record for today.

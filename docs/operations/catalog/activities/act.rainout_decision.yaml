@@ -27,29 +27,43 @@ escalation_path: |
 sop_body: |
   1. When weather or field conditions within 2 hours of kickoff raise
      real doubt — active lightning, sustained heavy rain producing
-     standing water or unsafe footing, or a heat index at or above the
-     venue's cutoff — check current conditions on a weather app or the
-     National Weather Service (a built-in weather-alert dashboard is
-     planned) and the field condition status.
+     standing water or unsafe footing, or WBGT (Wet Bulb Globe
+     Temperature) at or above the 89.8°F postpone-or-cancel threshold —
+     check current conditions on weather.gov (National Weather Service;
+     a built-in weather-alert dashboard is planned) and the field
+     condition status. WBGT, not heat index or a fixed air-temperature
+     number, is the standard (NATA / Korey Stringer Institute; see the
+     safety & policy standards reference).
   2. Consult the director before making the call. This is a consequential
      decision; if the director can't be reached in time, the decision
      defaults to them per the escalation path.
-  3. For lightning specifically, use the standard flash-to-bang rule:
-     suspend play if thunder follows lightning within 30 seconds, and
-     don't resume until 30 minutes have passed with no further lightning.
-  4. Decide one of three outcomes: play as scheduled, delay the start
+  3. For lightning, use the 30-30 rule: stop play at the first thunder or
+     lightning. Evacuate to safe shelter once a storm is within 5
+     nautical miles (~6 miles) — a substantial enclosed building (wiring
+     and plumbing) or a fully enclosed hard-top metal vehicle; dugouts,
+     tents, gazebos, and park/picnic shelters are NOT safe shelter. Don't
+     resume until 30 minutes have passed with no further thunder or
+     lightning — the 30-minute clock restarts on every strike or
+     thunderclap. A designated weather monitor (not the coach or
+     referee — they can't monitor while working) watches conditions
+     throughout.
+  4. Rain alone doesn't stop play — the deciding factors are field
+     playability (standing water, unstable footing) and lightning, not a
+     rain-percentage forecast.
+  5. Decide one of three outcomes: play as scheduled, delay the start
      (name a re-check time), or cancel.
-  5. Record the decision, the specific conditions that drove it, and your
+  6. Record the decision, the specific conditions that drove it, and your
      name as authorizing signer in the rainout decision form.
-  6. Submit the form. This triggers the platform's cancellation broadcast
+  7. Submit the form. This triggers the platform's cancellation broadcast
      to parents, coaches, refs, captains, and the venue team
      automatically — don't message people separately ahead of the form.
-  7. If the outcome is cancel, remember the refund/reschedule call
+  8. If the outcome is cancel, remember the refund/reschedule call
      (rainout refund decision, rainout reschedule) belongs to the
      director within the next 24 hours — your job ends at the call and
      the record.
 tools:
-  - Weather app or National Weather Service radar (lightning, precipitation, heat index)
+  - weather.gov / National Weather Service radar (lightning, precipitation, WBGT/heat risk)
+  - WBGT meter (heat-stress reading, not a plain thermometer)
   - Phone (consulting the director before the call)
   - The rainout decision form
 tracking_method: form

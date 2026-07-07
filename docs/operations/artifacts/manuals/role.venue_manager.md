@@ -10,8 +10,8 @@ end-to-end execution of an event-day at one location.
 - Trigger: 48h before event window
 - Expected completion: T-48h
 - Tracking: checklist
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. 48 hours before the event window, pull the day's staffing plan and
    list every shift slot that needs to be covered — venue manager,
@@ -38,16 +38,22 @@ standard handoff ladder.
 - Trigger: 72h before event window for outdoor venues (scheduled review)
 - Expected completion: T-72h
 - Tracking: checklist
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. 72 hours before the event window, pull up every outdoor match on the
-   day's schedule and check the forecast for temperature, precipitation
-   chance, wind, and lightning risk on a weather app or the National
-   Weather Service (a built-in weather-alert dashboard is planned).
-2. Flag a heat advisory if the forecast heat index reaches 95°F or
-   higher during the event window, and flag a precipitation risk if the
-   chance of rain is 60% or higher during that window.
+   day's schedule and check the forecast for temperature, humidity,
+   precipitation, wind, and lightning risk on weather.gov (National
+   Weather Service) — a built-in weather-alert dashboard is planned.
+2. Flag a heat risk if the forecast projects Wet Bulb Globe Temperature
+   (WBGT) at or above 85.8°F during the event window. WBGT — not the
+   heat index or a fixed air-temperature cutoff — is the standard
+   (NATA / Korey Stringer Institute; see the safety & policy standards
+   reference). Flag a field-condition risk if the forecast shows
+   sustained rain likely to leave the surface unsafe (standing water,
+   unstable footing) rather than keying off a rain-percentage
+   threshold — rain alone doesn't stop play; unsafe field conditions
+   and lightning do.
 3. If the surface is accessible, walk it and note current field
    condition (standing water from recent rain, firmness) as a baseline.
 4. If nothing is flagged, complete the checklist — no further action is
@@ -63,14 +69,16 @@ standard handoff ladder.
 
 ### Facility unlock (`act.facility_unlock`) — Accountable | Responsible
 
-- Trigger: ~2h before first kickoff
+- Trigger: ~2h before first kickoff (outdoor/rented venues); at the facility's standard opening time for owned venues on set hours
 - Expected completion: T-2h
 - Tracking: checklist
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder.
 
-1. Arrive at least 2 hours before first kickoff — before any other
-   staff.
+1. For an outdoor or rented venue, arrive at least 2 hours before
+   first kickoff — before any other staff. For an owned facility
+   that runs on set daily hours, arrive at the facility's standard
+   opening time instead; this activity isn't tied to kickoff there.
 2. Disarm the alarm with the current code; if the code fails, use the
    backup entry procedure and log the discrepancy.
 3. Unlock the exterior doors staff and families will need today (main
@@ -93,8 +101,9 @@ standard handoff ladder.
 - Trigger: ~60 minutes before first kickoff
 - Expected completion: T-60min
 - Tracking: checklist
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder; no event begins without a verified kit.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder; no event begins without a
+verified kit.
 
 1. Open every first-aid kit on premises — one per field/court plus any
    building kit.
@@ -119,9 +128,9 @@ standard handoff ladder; no event begins without a verified kit.
 - Trigger: Immediately after facility unlock
 - Expected completion: T-2h
 - Tracking: form
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder; facilities walks the building until
-coverage resumes.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder; facilities walks the building
+until coverage resumes.
 
 1. Immediately after unlock, walk the entire facility in a fixed route:
    playing surfaces, restrooms, locker rooms, bleachers/spectator
@@ -141,37 +150,35 @@ coverage resumes.
 7. Route anything unsafe to facilities for correction before players
    and spectators arrive; anything that can't be resolved before the
    event escalates per the escalation path.
-8. Submit the completed form before the pre-shift staff briefing so
-   findings can be shared with the team.
+8. Submit the completed form promptly so findings are on record and
+   available to share with the team — including at the pre-shift
+   staff check, if the venue manager decides to run one.
 
-### Pre-shift staff briefing (`act.preshift_staff_briefing`) — Accountable | Responsible
+### Pre-shift staff check (optional) (`act.preshift_staff_briefing`) — Accountable | Responsible
 
-- Trigger: ~60 minutes before first kickoff
+- Trigger: ~60 minutes before first kickoff, at the venue manager's discretion
 - Expected completion: T-60min
-- Tracking: signature
-- Escalation: If venue_manager unreachable, role.event_lead delivers the briefing and
-escalates to role.director per the standard handoff ladder.
+- Tracking: form
+- Escalation: This activity is optional and has no hard failure mode. If the venue
+manager wants it run and can't do it themselves, role.event_lead
+covers it per the Coach → Venue Manager → Director handoff ladder.
 
-1. About 60 minutes before first kickoff, once the facility unlock and
-   first-aid kit check are done, gather every on-shift staff member in
-   one spot — event leads, facilities, front of house, photographer.
-2. Keep it to 5-10 minutes. Cover today's schedule (match count, key
-   times), anything special about today (VIP guests, a rescheduled
-   match, a tournament format quirk), the weather outlook if outdoor,
-   and any safety reminders (first-aid kit locations, incident
-   escalation path).
-3. Call out any staffing changes from the schedule confirm — who's
-   covering for a standby swap, who's new to the venue today.
-4. Ask if anyone has a conflict or needs to leave early, and confirm
-   coverage for that window now rather than discovering it mid-shift.
-5. Pass around the sign-in sheet — every attendee signs to confirm
-   they were briefed.
-6. Front of house checks the sign-in sheet against today's staffing
-   plan and signs to confirm the full roster attended and the sheet is
-   complete.
-7. File the signed sheet with today's event records.
-8. If the venue manager can't deliver the briefing, the event lead
-   runs it and escalates per the escalation path.
+1. This check is optional. Run it when there's something worth
+   flagging — a schedule surprise, VIP guests, a weather watch, a
+   finding from the opening walkthrough, a staffing swap from the
+   schedule confirm. Skip it entirely on a routine day with nothing
+   new to share.
+2. If you're running it, keep it to a quick radio or in-person round
+   with on-shift staff — event leads, facilities, front of house,
+   photographer — not a scheduled meeting everyone has to gather in
+   one spot for.
+3. Cover only what's actually changed or worth flagging; don't
+   restate the full day's schedule if nothing about it is unusual.
+4. There's no sign-in sheet — this isn't a tracked briefing everyone
+   attests to. Log whether you ran it and what you flagged, if
+   anything, on the pre-shift staff check form.
+5. If the venue manager decides to run it and can't do so themselves,
+   the event lead covers it.
 
 ## pre_game
 
@@ -181,7 +188,8 @@ escalates to role.director per the standard handoff ladder.
 - Expected completion: T-30min
 - Tracking: photo_upload
 - Escalation: If venue_manager unreachable, role.facilities captures the photo and
-escalates to role.director per the standard handoff ladder.
+escalates to role.director per the Coach → Venue Manager → Director
+handoff ladder.
 
 1. About 30 minutes before the first match on each surface, walk to
    that surface with a phone or camera.
@@ -209,24 +217,37 @@ unilateral authority to call the event.
 
 1. When weather or field conditions within 2 hours of kickoff raise
    real doubt — active lightning, sustained heavy rain producing
-   standing water or unsafe footing, or a heat index at or above the
-   venue's cutoff — check current conditions on a weather app or the
-   National Weather Service (a built-in weather-alert dashboard is
-   planned) and the field condition status.
+   standing water or unsafe footing, or WBGT (Wet Bulb Globe
+   Temperature) at or above the 89.8°F postpone-or-cancel threshold —
+   check current conditions on weather.gov (National Weather Service;
+   a built-in weather-alert dashboard is planned) and the field
+   condition status. WBGT, not heat index or a fixed air-temperature
+   number, is the standard (NATA / Korey Stringer Institute; see the
+   safety & policy standards reference).
 2. Consult the director before making the call. This is a consequential
    decision; if the director can't be reached in time, the decision
    defaults to them per the escalation path.
-3. For lightning specifically, use the standard flash-to-bang rule:
-   suspend play if thunder follows lightning within 30 seconds, and
-   don't resume until 30 minutes have passed with no further lightning.
-4. Decide one of three outcomes: play as scheduled, delay the start
+3. For lightning, use the 30-30 rule: stop play at the first thunder or
+   lightning. Evacuate to safe shelter once a storm is within 5
+   nautical miles (~6 miles) — a substantial enclosed building (wiring
+   and plumbing) or a fully enclosed hard-top metal vehicle; dugouts,
+   tents, gazebos, and park/picnic shelters are NOT safe shelter. Don't
+   resume until 30 minutes have passed with no further thunder or
+   lightning — the 30-minute clock restarts on every strike or
+   thunderclap. A designated weather monitor (not the coach or
+   referee — they can't monitor while working) watches conditions
+   throughout.
+4. Rain alone doesn't stop play — the deciding factors are field
+   playability (standing water, unstable footing) and lightning, not a
+   rain-percentage forecast.
+5. Decide one of three outcomes: play as scheduled, delay the start
    (name a re-check time), or cancel.
-5. Record the decision, the specific conditions that drove it, and your
+6. Record the decision, the specific conditions that drove it, and your
    name as authorizing signer in the rainout decision form.
-6. Submit the form. This triggers the platform's cancellation broadcast
+7. Submit the form. This triggers the platform's cancellation broadcast
    to parents, coaches, refs, captains, and the venue team
    automatically — don't message people separately ahead of the form.
-7. If the outcome is cancel, remember the refund/reschedule call
+8. If the outcome is cancel, remember the refund/reschedule call
    (rainout refund decision, rainout reschedule) belongs to the
    director within the next 24 hours — your job ends at the call and
    the record.
@@ -236,25 +257,31 @@ unilateral authority to call the event.
 - Trigger: ~90 minutes before kickoff (outdoor venues only)
 - Expected completion: T-90min
 - Tracking: checklist
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder.
 
-1. About 90 minutes before kickoff at any outdoor venue, re-check a
-   weather app or the National Weather Service for live conditions
-   (a built-in weather-alert dashboard is planned) — this replaces
-   the 72h pre-check with real-time data.
-2. Check the lightning radar for detected strikes within 10 miles of
-   the venue.
+1. About 90 minutes before kickoff at any outdoor venue, re-check
+   weather.gov (National Weather Service) for live conditions (a
+   built-in weather-alert dashboard is planned) — this replaces the
+   72h pre-check with real-time data.
+2. Check the lightning radar for detected strikes within 10 nautical
+   miles of the venue; the 5-nautical-mile evacuation trigger and the
+   rest of the lightning protocol live on the rainout decision.
 3. Check current precipitation on radar and confirm whether it's
-   arriving before, during, or after the event window.
+   arriving before, during, or after the event window — rain alone
+   doesn't stop play; unsafe field conditions and lightning do.
 4. Walk the surface (or have facilities confirm) for standing water,
    saturated turf, or other unsafe footing from overnight or same-day
    rain.
-5. Check current temperature and heat index against the venue's
-   heat-advisory cutoff.
+5. Take a WBGT (Wet Bulb Globe Temperature) reading — not air
+   temperature or heat index — 3-4 feet off the ground, in the sun.
+   Once WBGT is above 70°F, re-take it every 30 minutes for the
+   duration of the event; assign that recurring reading to a
+   designated weather monitor who is not the coach or referee (they
+   can't monitor conditions while working the match).
 6. If any reading crosses a risk threshold — active lightning, heavy
-   rain producing standing water, a heat advisory — move straight to
-   the rainout decision rather than waiting out the clock.
+   rain producing standing water, WBGT at or above 85.8°F — move
+   straight to the rainout decision rather than waiting out the clock.
 7. If conditions are clear, complete the checklist and log the readings
    for the record; that's the data trail if conditions change later and
    the call gets challenged.
@@ -267,8 +294,8 @@ standard handoff ladder.
 - Expected completion: trigger+5min
 - Tracking: form
 - Escalation: Any life-threatening incident escalates immediately to 911 and
-role.director; venue_manager remains accountable for documentation
-but role.event_lead may capture the initial form.
+role.director; venue_manager remains accountable for documentation but
+role.event_lead may capture the initial form.
 
 1. The moment an incident is reported to you — injury, altercation,
    medical event, or property damage — get to the scene. If you
@@ -279,30 +306,47 @@ but role.event_lead may capture the initial form.
    directly to the director; don't wait to finish a form first.
    Never leave an injured or distressed child unattended while you
    sort out logistics.
-3. Get first-hand information from whoever responded: who was
+3. If the incident is or could be a concussion — any sign after a hit
+   to the head or body: confusion, headache, dizziness, memory gaps,
+   loss of consciousness — remove the athlete from play immediately.
+   A coach, referee, or official makes this call on the spot; the
+   athlete doesn't get to self-diagnose back into the game. For any
+   athlete under 19, this is an Ohio legal requirement, not just good
+   practice (ORC 3707.511; see the safety & policy standards
+   reference): no return to play the same day, and no return to any
+   Aspire activity without written clearance from a physician or an
+   Ohio-authorized licensed health-care provider. Coaches and refs
+   are required to hold concussion-recognition training (CDC HEADS UP
+   or NFHS) current within the past three years as a condition of the
+   role.
+4. Get first-hand information from whoever responded: who was
    involved, what immediate care was given, whether 911 was called
    and when, and the exact time.
-4. Open the incident response form and capture what you have within
+5. Open the incident response form and capture what you have within
    about 5 minutes of the incident — this is the in-the-moment
    record, not the full report. It doesn't need to be complete, it
    needs to be fast and accurate: what happened, who responded, what
    care was given, whether 911 was called.
-5. If a parent is on-site, notify them directly and in person before
+6. If a parent is on-site, notify them directly and in person before
    they hear about it secondhand. Stick to what happened and what was
    done — don't speculate about diagnosis or fault.
-6. Handle this discreetly — this record names a minor. Don't discuss
+7. Handle this discreetly — this record names a minor. Don't discuss
    specifics in a group chat, in front of other families, or with
    anyone who doesn't need to know; the incident form is the record,
-   not a text thread.
-7. Submit the form as soon as the immediate situation is stable. This
+   not a text thread. If what you're looking at is a suspected abuse
+   concern rather than an accident or medical event, this form isn't
+   the right channel — covered adults must report suspected child
+   abuse to law enforcement within 24 hours; see code of conduct
+   enforcement for the mandatory-reporting framing.
+8. Submit the form as soon as the immediate situation is stable. This
    starts the clock on the incident report finalization, which
    happens once the affected match is over.
-8. If you can't capture this yourself, the event lead may capture
+9. If you can't capture this yourself, the event lead may capture
    the initial form from the same first-hand accounts — you remain
    accountable for it either way.
-9. This form is the fast first pass, not the final record used for
-   disputes or insurance — every incident captured here still needs
-   the full finalized report before it's closed.
+10. This form is the fast first pass, not the final record used for
+    disputes or insurance — every incident captured here still needs
+    the full finalized report before it's closed.
 
 ## post_game
 
@@ -322,7 +366,13 @@ finalizes; nothing closes until the report is signed off.
    memories are fresh; don't rely on a single account.
 3. Record post-event status: how the affected person is doing now
    (returned to play, sent home, went to urgent care/ER, refused
-   further care), not just what happened in the moment.
+   further care), not just what happened in the moment. For a
+   suspected concussion, "returned to play" is never a valid status
+   for the same day — record that the athlete was removed and, for
+   an athlete under 19, that the file is open until a written
+   medical clearance (physician or Ohio-authorized health-care
+   provider) is received; don't close this out on a verbal
+   "they're fine."
 4. Attach any relevant photos (of the scene, of visible injury if
    appropriate and consented to, of property damage) to support the
    record.
@@ -353,9 +403,9 @@ finalizes; nothing closes until the report is signed off.
 - Trigger: After the last match concludes and spectators have cleared
 - Expected completion: phase_end
 - Tracking: checklist
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder; closure cannot be completed without a
-walkthrough sign-off.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder; closure cannot be completed
+without a walkthrough sign-off.
 
 1. After the last match concludes and spectators have cleared, walk the
    same fixed route as the opening walkthrough: playing surfaces,
@@ -380,9 +430,9 @@ walkthrough sign-off.
 - Trigger: After the close walkthrough is signed off
 - Expected completion: phase_end
 - Tracking: checklist
-- Escalation: If venue_manager unreachable, escalate to role.director per the
-standard handoff ladder; alarm code rotation policy is enforced
-centrally.
+- Escalation: If venue_manager unreachable, escalate to role.director per the Coach →
+Venue Manager → Director handoff ladder; alarm code rotation policy is
+enforced centrally.
 
 1. Confirm the close walkthrough is signed off before starting —
    lock-up never happens first.
@@ -402,33 +452,38 @@ centrally.
 9. Log the lock-and-alarm completion. Alarm code rotation follows the
    centrally-enforced policy — never share or write down the code.
 
-### Staff clock-out (`act.staff_clock_out`) — Accountable | Responsible
+### Staff check-in / check-out (`act.staff_check_in_out`) — Accountable | Responsible
 
 - Trigger: As each staff member finishes their last task
 - Expected completion: phase_end
 - Tracking: signature
-- Escalation: If venue_manager unreachable, role.event_lead witnesses the
-clock-out and escalates to role.director per the standard handoff
-ladder.
+- Escalation: If venue_manager unreachable, role.event_lead witnesses the check-out;
+any escalation needed goes to role.director per the Coach → Venue Manager
+→ Director handoff ladder.
 
 1. When a staff member finishes their last task for the day (final
-   equipment stored, facility close walkthrough done, cash reconciled
-   — whatever their role's closing task is), they come to the
-   clock-out station before leaving the venue.
-2. Confirm their name against today's staffing plan and capture the
-   actual end time — not the scheduled end time, the real one.
+   equipment stored, facility close walkthrough done, concession
+   settlement reconciled — whatever their role's closing task is),
+   they come to the check-out station before leaving the venue.
+2. Confirm their name against today's staffing plan and capture both
+   times: the actual check-in (start) time and the actual check-out
+   (end) time — not the scheduled times, the real ones. For hourly
+   staff (coaches, venue managers, and every other on-site role),
+   this pair of times is what payroll runs on, so get both right,
+   not just the end time.
 3. Ask if there's anything to note for payroll or the office: worked
    past the scheduled end time, left early with venue manager
    sign-off, covered an extra task outside their normal role.
-4. The staff member signs to confirm the end time and notes are
+4. The staff member signs to confirm both times and any notes are
    accurate.
 5. Front of house checks the signature against the staffing plan and
    signs to close that person's labor record for the day.
 6. Repeat for each staff member as they finish, in any order — this
    isn't a single end-of-day batch, it's per-person as people wrap up.
-7. Once every staffed slot for the day has a signed clock-out, the
-   record is complete and ready to feed the payroll integration.
-8. If the venue manager isn't available to witness a clock-out, the
+7. Once every staffed slot for the day has a signed check-in/check-out
+   record, the record is complete and ready to feed the payroll
+   integration.
+8. If the venue manager isn't available to witness a check-out, the
    event lead witnesses it and escalates per the escalation path.
 
 ### Staff debrief (`act.staff_debrief`) — Accountable | Responsible
@@ -436,8 +491,9 @@ ladder.
 - Trigger: After facility close walkthrough is signed off
 - Expected completion: phase_end
 - Tracking: form
-- Escalation: If venue_manager unreachable, role.event_lead runs the debrief and
-escalates to role.director per the standard handoff ladder.
+- Escalation: If venue_manager unreachable, role.event_lead runs the debrief; any
+unresolved item escalates to role.director per the Coach → Venue Manager
+→ Director handoff ladder.
 
 1. Once the facility close walkthrough is signed off, gather whoever's
    still on shift for a 5-10 minute huddle — don't hold people who've
@@ -457,7 +513,8 @@ escalates to role.director per the standard handoff ladder.
    so vague notes ("things were fine") aren't useful to future you.
 7. Submit the form before leaving the venue.
 8. If the venue manager isn't available, the event lead runs the
-   debrief and escalates per the escalation path.
+   debrief; anything unresolved escalates to the director per the
+   escalation path.
 
 ## post_day
 
@@ -467,8 +524,8 @@ escalates to role.director per the standard handoff ladder.
 - Expected completion: T+48h
 - Tracking: form
 - Escalation: If venue_manager unreachable, role.event_lead conducts follow-up
-outreach and escalates to role.director per the standard handoff
-ladder.
+outreach; any escalation needed goes to role.director per the Coach →
+Venue Manager → Director handoff ladder.
 
 1. Within 24-48 hours of the finalized incident report, follow up
    directly with the affected family (or staff member, if it's a
@@ -476,7 +533,12 @@ ladder.
    text.
 2. Ask about recovery status and, for a player, whether or when they
    expect to return to play — record what they tell you, not what
-   you assume.
+   you assume. For a suspected concussion, don't record or accept a
+   "cleared to return" status based on the family's word alone —
+   confirm written medical clearance (physician or Ohio-authorized
+   health-care provider) is on file before any return-to-play status
+   is recorded; this is a legal requirement for athletes under 19
+   (ORC 3707.511), not a courtesy check.
 3. If the incident involves any injury claim, confirm whether the
    family has been in contact with insurance and capture the contact
    status (not yet, in progress, resolved).
@@ -487,12 +549,18 @@ ladder.
    policy referral (feeds the weekly safety review), a facility
    referral (feeds the field damage report if one hasn't already been
    filed), or a direct follow-up from the director.
-6. Record the outreach, what you learned, and any recommended
+6. If the injury ends the athlete's season, flag it to the director:
+   the director proactively offers the family a free coupon for
+   another Aspire league as a goodwill gesture — this is a director
+   offer, not something you extend yourself on this call, but note
+   in the follow-up that the family qualifies so the director follows
+   through.
+7. Record the outreach, what you learned, and any recommended
    additional action on the incident follow-up form, and submit it.
-7. Handle this discreetly like every other step in the incident chain
+8. Handle this discreetly like every other step in the incident chain
    — it still names a minor; keep the conversation and the record
    between you, the family, and anyone else who needs to know.
-8. If you're unreachable within the window, the event lead conducts
-   the outreach and escalates to the director per the standard
-   handoff ladder — the 24-48h window doesn't stretch just because
-   you're unavailable.
+9. If you're unreachable within the window, the event lead conducts
+   the outreach; any escalation needed goes to the director per the
+   Coach → Venue Manager → Director handoff ladder — the 24-48h
+   window doesn't stretch just because you're unavailable.

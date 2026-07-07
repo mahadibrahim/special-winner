@@ -22,8 +22,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If venue_manager unreachable, role.event_lead conducts follow-up
-  outreach and escalates to role.director per the standard handoff
-  ladder.
+  outreach; any escalation needed goes to role.director per the Coach →
+  Venue Manager → Director handoff ladder.
 sop_body: |
   1. Within 24-48 hours of the finalized incident report, follow up
      directly with the affected family (or staff member, if it's a
@@ -31,7 +31,12 @@ sop_body: |
      text.
   2. Ask about recovery status and, for a player, whether or when they
      expect to return to play — record what they tell you, not what
-     you assume.
+     you assume. For a suspected concussion, don't record or accept a
+     "cleared to return" status based on the family's word alone —
+     confirm written medical clearance (physician or Ohio-authorized
+     health-care provider) is on file before any return-to-play status
+     is recorded; this is a legal requirement for athletes under 19
+     (ORC 3707.511), not a courtesy check.
   3. If the incident involves any injury claim, confirm whether the
      family has been in contact with insurance and capture the contact
      status (not yet, in progress, resolved).
@@ -42,15 +47,21 @@ sop_body: |
      policy referral (feeds the weekly safety review), a facility
      referral (feeds the field damage report if one hasn't already been
      filed), or a direct follow-up from the director.
-  6. Record the outreach, what you learned, and any recommended
+  6. If the injury ends the athlete's season, flag it to the director:
+     the director proactively offers the family a free coupon for
+     another Aspire league as a goodwill gesture — this is a director
+     offer, not something you extend yourself on this call, but note
+     in the follow-up that the family qualifies so the director follows
+     through.
+  7. Record the outreach, what you learned, and any recommended
      additional action on the incident follow-up form, and submit it.
-  7. Handle this discreetly like every other step in the incident chain
+  8. Handle this discreetly like every other step in the incident chain
      — it still names a minor; keep the conversation and the record
      between you, the family, and anyone else who needs to know.
-  8. If you're unreachable within the window, the event lead conducts
-     the outreach and escalates to the director per the standard
-     handoff ladder — the 24-48h window doesn't stretch just because
-     you're unavailable.
+  9. If you're unreachable within the window, the event lead conducts
+     the outreach; any escalation needed goes to the director per the
+     Coach → Venue Manager → Director handoff ladder — the 24-48h
+     window doesn't stretch just because you're unavailable.
 tools:
   - Phone (follow-up call or in-person check-in with the affected family/staff member)
   - The incident follow-up form

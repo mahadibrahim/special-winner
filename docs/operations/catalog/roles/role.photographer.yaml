@@ -4,5 +4,6 @@ tier: field_side
 kind: worker
 description: |
   Field-side contractor responsible for media capture per assignment, feeding
-  the media tagging and publishing pipeline.
+  the media tagging and publishing pipeline. Brings and uses their own camera
+  equipment — Aspire doesn't own, issue, or track photographer gear.
 manual_target: contractor_handbook
