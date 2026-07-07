@@ -25,9 +25,38 @@ escalation_path: |
   ref's verbal confirmation and escalates to role.venue_manager for
   any contested score.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At the final whistle, open the match from My Matches — the same
+     match that showed up at check-in — and go to its match report.
+  2. Enter the final score for both teams in the Home score and Away
+     score fields. Double-check the number against your own running
+     tally (and your assistant's, if you have one) from the live score
+     update before typing it in.
+  3. Log every incident from the match — yellow cards, red cards,
+     injuries, anything else notable — in the incidents list. If you
+     already separately logged an ejection, list it here too; the match
+     report is the complete record on its own, not a supplement to
+     another log.
+  4. Add anything else worth noting in the match notes field — a
+     weather delay, a contested call, an early stoppage, anything that
+     isn't captured by the score or the incident list.
+  5. Review the score and incident list once more before submitting.
+     There's no separate signature step — tapping Submit report is your
+     attestation that this is the official, final result.
+  6. Submit the report and confirm you see the saved confirmation
+     before you leave the field or court. Don't walk away assuming it
+     went through.
+  7. Once submitted, the match is marked completed and this is the
+     signed record the score post to standings activity picks up —
+     treated as authoritative for any later dispute. Get it right the
+     first time rather than planning to fix it afterward.
+  8. If you're unable to submit yourself (injury, emergency, phone
+     failure), the event lead captures your verbal confirmation of the
+     score and incidents and files a co-attestation on your behalf per
+     the escalation path.
+  9. If a coach or team disputes the score on the spot, note the
+     dispute in the match notes before submitting and flag it to the
+     venue manager — don't hold up submission trying to resolve the
+     dispute yourself.
 tracking_method: signature
 tracking_artifact:
   template_id: sig.ref_score_attestation

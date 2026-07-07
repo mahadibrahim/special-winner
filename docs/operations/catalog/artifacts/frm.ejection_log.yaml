@@ -2,7 +2,46 @@ id: frm.ejection_log
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: ejected_who
+    label: Who was ejected (player number/name, or "Coach")
     type: text
+    required: true
+  - id: ejected_side
+    label: Team side
+    type: enum
+    options:
+      - Home
+      - Away
+    required: true
+  - id: ejection_minute
+    label: Minute of the match
+    type: number
+    required: false
+  - id: reason
+    label: Reason for the ejection
+    type: long_text
+    required: true
+  - id: carries_suspension
+    label: Carries a suspension under league rules?
+    type: boolean
+    required: true
+  - id: suspension_notes
+    label: Suspension details (matches missed, rule cited)
+    type: long_text
+    required: false
+  - id: logged_on_match_report
+    label: Logged as an incident (red card) on the match report?
+    type: boolean
+    required: true
+  - id: event_lead_notified
+    label: Event lead notified in person (required for a coach ejection)?
+    type: boolean
+    required: false
+  - id: filed_by
+    label: Filed by (ref, or event lead if capturing a verbal account)
+    type: text
+    required: true
+  - id: escalated_to_director
+    label: Escalated to director (multi-match suspension)?
+    type: boolean
     required: false

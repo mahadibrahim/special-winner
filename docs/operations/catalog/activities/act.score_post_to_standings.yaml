@@ -24,9 +24,38 @@ escalation_path: |
   event_lead manually records the score on the printed standings sheet
   until automation recovers.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Once the ref submits the final match report (final score
+     attestation) — final score plus any incidents — the game's status
+     flips to completed and the score is written to the match record.
+  2. The standings engine picks this up the moment anyone looks: every
+     standings view (public league standings, the coach's standings
+     table, the parent/player dashboard standings) recomputes rankings
+     live from every completed match's score for the season, so there's
+     no separate publish delay or batch job to wait on for the raw
+     table to reflect a match that just finished.
+  3. Ranking uses the sport's rules (win/draw/loss points) and works
+     through the tiebreaker order — head-to-head, goal differential,
+     fewest goals conceded, total wins, goals scored — whenever two
+     teams are level, before falling back to alphabetical.
+  4. The system event this activity tracks is what marks the match done
+     for standings purposes. The event lead can check that a standings
+     view shows the new result whenever there's a reason to confirm it
+     fired — a parent asking "did that count yet?" is the normal
+     trigger to check.
+  5. No human action is needed on a normal post. Verification: spot-check
+     that the standings page reflects the match if there's a reason to
+     doubt it — a parent dispute, a reported discrepancy.
+  6. If a dispute over the final score comes in, don't try to manually
+     override the displayed table. Corrections happen by amending the
+     match record through the same channel that handles a contested
+     score (final score attestation's escalation path), and the
+     standings recompute automatically once that correction is saved.
+  7. If posting fails outright — the match record doesn't reflect
+     completed status even though the ref signed off — the on-call
+     platform engineer is paged per the escalation path.
+  8. While automation is down, the event lead manually records the score
+     on the printed standings sheet so anyone asking in person gets an
+     accurate answer, and reconciles it once the platform recovers.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.score_posted

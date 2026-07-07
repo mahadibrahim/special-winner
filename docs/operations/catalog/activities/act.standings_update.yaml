@@ -24,9 +24,37 @@ escalation_path: |
   event_lead posts a manual standings update to team channels until
   automation recovers.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At T+24h after the day's final score posts — giving the dispute
+     window from the score post to standings escalation time to close —
+     the platform re-derives the full season standings across every
+     completed match, not just today's games, so the table reflects the
+     whole season through today.
+  2. This pass also applies any league-specific points adjustments on
+     file — forfeits, admin deductions, sportsmanship penalties — that
+     the director has recorded separately from the raw scores, so the
+     public table isn't just goals-for/against math.
+  3. The refreshed table — including any adjustments and the tiebreaker
+     results — is what publishes as the day's official standings update.
+     This is the version treated as authoritative for any parent, coach,
+     or team captain question about seeding or playoff positioning,
+     superseding the live/raw view during the day.
+  4. The system event this activity tracks marks the update as done.
+     The director or event lead can check that the public standings page
+     reflects today's matches if anyone asks whether the results are in
+     yet.
+  5. No human action is needed on a normal run. Verification: spot-check
+     that the public standings page shows today's matches folded in and
+     any pending points adjustment applied before telling a parent or
+     coach the table is final.
+  6. If a score dispute from earlier in the day hasn't been resolved by
+     T+24h, this run holds on the disputed match's result and the event
+     lead flags it to the director rather than letting the publish go
+     out with a contested score baked in.
+  7. If the publish job fails, the on-call platform engineer escalates
+     per the escalation path.
+  8. While automation is down, the event lead posts a manual standings
+     update to team channels using the same season-to-date math, and
+     reconciles it against the platform's table once the job recovers.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.standings_updated

@@ -1,4 +1,11 @@
 id: evt.standings_updated
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Fires once per day, at T+24h after the day's last final score posts —
+  the batch pass that re-derives full-season standings across every
+  completed match, applies any recorded points adjustments (forfeits,
+  sportsmanship penalties), and publishes the version treated as the
+  day's official, public standings table. Used to confirm the public
+  table reflects a given day's results and adjustments before telling a
+  parent or coach the standings are final.
