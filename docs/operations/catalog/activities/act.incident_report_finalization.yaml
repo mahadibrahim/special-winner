@@ -32,7 +32,13 @@ sop_body: |
      memories are fresh; don't rely on a single account.
   3. Record post-event status: how the affected person is doing now
      (returned to play, sent home, went to urgent care/ER, refused
-     further care), not just what happened in the moment.
+     further care), not just what happened in the moment. For a
+     suspected concussion, "returned to play" is never a valid status
+     for the same day — record that the athlete was removed and, for
+     an athlete under 19, that the file is open until a written
+     medical clearance (physician or Ohio-authorized health-care
+     provider) is received; don't close this out on a verbal
+     "they're fine."
   4. Attach any relevant photos (of the scene, of visible injury if
      appropriate and consented to, of property damage) to support the
      record.

@@ -24,6 +24,14 @@ fields:
     label: Photos attached?
     type: boolean
     required: true
+  - id: concussion_clearance_status
+    label: If a suspected concussion, written medical clearance status
+    type: enum
+    options:
+      - Not applicable
+      - Pending
+      - Received
+    required: false
   - id: insurance_relevant
     label: Insurance/liability relevant?
     type: boolean
