@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { timeToRow, blockRows, columnsForSpaces } from "@/lib/venue/calendar-layout";
+import {
+  timeToRow,
+  blockRows,
+  columnsForSpaces,
+  clampRowsToWindow,
+} from "@/lib/venue/calendar-layout";
 
 // All tests use "America/New_York" explicitly (EDT = UTC-4 in June 2026).
 // UTC instants are chosen so their wall-clock time in New_York is unambiguous.
@@ -27,5 +32,31 @@ describe("calendar-layout", () => {
   it("assigns space columns starting at 2 (col 1 is the gutter)", () => {
     expect(columnsForSpaces([{ id: "a", name: "Field 1" }, { id: "b", name: "Court A" }]))
       .toEqual([{ id: "a", name: "Field 1", index: 2 }, { id: "b", name: "Court A", index: 3 }]);
+  });
+
+  describe("clampRowsToWindow", () => {
+    // A pickup session created just after midnight ET spans well before an
+    // 8am-start business-hours grid (e.g. rows -14 to -10 for a 2-hour
+    // session starting at 00:41). Unclamped, ScheduleCalendar would render
+    // this at a large negative `top` offset, escaping the grid container.
+    it("clamps a block that starts and ends before the grid window", () => {
+      expect(clampRowsToWindow(-14, -10, 26)).toEqual({ rowStart: 1, rowEnd: 2 });
+    });
+
+    it("clamps a block that starts and ends after the grid window", () => {
+      expect(clampRowsToWindow(40, 44, 26)).toEqual({ rowStart: 26, rowEnd: 27 });
+    });
+
+    it("clamps only the overflowing edge when a block straddles the window start", () => {
+      expect(clampRowsToWindow(-3, 4, 26)).toEqual({ rowStart: 1, rowEnd: 4 });
+    });
+
+    it("clamps only the overflowing edge when a block straddles the window end", () => {
+      expect(clampRowsToWindow(24, 30, 26)).toEqual({ rowStart: 24, rowEnd: 27 });
+    });
+
+    it("leaves an in-window block untouched", () => {
+      expect(clampRowsToWindow(3, 5, 26)).toEqual({ rowStart: 3, rowEnd: 5 });
+    });
   });
 });
