@@ -477,6 +477,13 @@
       "when": 1783448853731,
       "tag": "0067_talented_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1783452474799,
+      "tag": "0068_shallow_trauma",
+      "breakpoints": true
     }
   ]
 }

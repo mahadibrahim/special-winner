@@ -41,6 +41,7 @@ export const refundStatusEnum = pgEnum("refund_status", [
   "approved",
   "processed",
   "denied",
+  "credited",
 ]);
 
 export const genderEnum = pgEnum("gender", ["male", "female", "other", "prefer_not_to_say"]);
