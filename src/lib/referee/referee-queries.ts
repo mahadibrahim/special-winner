@@ -1,7 +1,14 @@
-import { and, eq, lt, ne, asc, sql, desc } from "drizzle-orm";
+import { and, eq, lt, ne, asc, sql, desc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import { games, gameOfficials, gameIncidents, teams } from "@/lib/db/schema/teams";
+import { suspensions, type Suspension } from "@/lib/db/schema/suspensions";
+
+// Suspension statuses that mean "this person currently can't play/coach" —
+// excludes 'served' (already completed) and 'appealed' (under review, not
+// an active bar). Director-driven escalation to 'season'/'permanent' still
+// counts as active for banner purposes.
+const ACTIVE_SUSPENSION_STATUSES = ["active", "season", "permanent"] as const;
 
 export type RefereeAssignment = {
   gameId: string;
@@ -74,6 +81,17 @@ export type RefereeMatchDetail = {
     minute: number | null;
     description: string | null;
   }>;
+  activeSuspensions: ActiveSuspensionFlag[];
+};
+
+export type ActiveSuspensionFlag = {
+  id: string;
+  personName: string;
+  teamId: string;
+  status: Suspension["status"];
+  gamesMissed: number;
+  gamesServed: number;
+  escalatedToDirector: boolean;
 };
 
 /**
@@ -92,6 +110,8 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
       homeScore: games.homeScore,
       awayScore: games.awayScore,
       refereeNotes: games.refereeNotes,
+      homeTeamId: games.homeTeamId,
+      awayTeamId: games.awayTeamId,
       homeTeamName: home.name,
       awayTeamName: away.name,
     })
@@ -115,5 +135,34 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
     .from(gameIncidents)
     .where(eq(gameIncidents.gameId, gameId))
     .orderBy(asc(gameIncidents.minute));
-  return { ...row, incidents };
+
+  // Team-level flag for either roster in this game — empty for a TBD-team
+  // game (homeTeamId/awayTeamId null, e.g. an unfilled fixture slot).
+  const teamIds = [row.homeTeamId, row.awayTeamId].filter(
+    (id): id is string => id != null,
+  );
+  const activeSuspensions =
+    teamIds.length > 0
+      ? await db
+          .select({
+            id: suspensions.id,
+            personName: suspensions.personName,
+            teamId: suspensions.teamId,
+            status: suspensions.status,
+            gamesMissed: suspensions.gamesMissed,
+            gamesServed: suspensions.gamesServed,
+            escalatedToDirector: suspensions.escalatedToDirector,
+          })
+          .from(suspensions)
+          .where(
+            and(
+              inArray(suspensions.teamId, teamIds),
+              inArray(suspensions.status, ACTIVE_SUSPENSION_STATUSES),
+            ),
+          )
+          .orderBy(asc(suspensions.createdAt))
+      : [];
+
+  const { homeTeamId, awayTeamId, ...rest } = row;
+  return { ...rest, incidents, activeSuspensions };
 }

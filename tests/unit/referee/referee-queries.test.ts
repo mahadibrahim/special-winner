@@ -1,32 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { gameIncidents } from "@/lib/db/schema/teams";
+import { suspensions } from "@/lib/db/schema/suspensions";
 
 let assignmentRows: any[] = [];
 let owedRows: any[] = [];
 let detailRows: any[] = [];
 let incidentRows: any[] = [];
+let suspensionRows: any[] = [];
 
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
-    // getRefereeAssignments / getRefereeMatchDetail: select().from().innerJoin()...where()(.limit/.orderBy)
     select: () => ({
-      from: () => ({
-        innerJoin: () => ({
-          leftJoin: () => ({
+      from: (table: unknown) => {
+        // getRefereeMatchDetail's incidents query: select().from(gameIncidents).where().orderBy()
+        if (table === gameIncidents) {
+          return { where: (..._a: any[]) => ({ orderBy: async () => incidentRows }) };
+        }
+        // getRefereeMatchDetail's activeSuspensions query: select().from(suspensions).where().orderBy()
+        if (table === suspensions) {
+          return { where: (..._a: any[]) => ({ orderBy: async () => suspensionRows }) };
+        }
+        // getRefereeAssignments / getReportsOwed / getRefereeMatchDetail main row:
+        // select().from(gameOfficials).innerJoin(games)[.leftJoin(home).leftJoin(away)].where()(.limit/.orderBy)
+        return {
+          innerJoin: () => ({
             leftJoin: () => ({
-              where: (..._a: any[]) => ({
-                orderBy: async () => assignmentRows,
-                limit: async () => detailRows,
+              leftJoin: () => ({
+                where: (..._a: any[]) => ({
+                  orderBy: async () => assignmentRows,
+                  limit: async () => detailRows,
+                }),
               }),
             }),
+            where: async () => owedRows,
           }),
-          // getReportsOwed: select(count).from(gameOfficials).innerJoin(games).where()
-          where: async () => owedRows,
-        }),
-        // getRefereeMatchDetail second query: select().from(gameIncidents).where().orderBy()
-        where: (..._a: any[]) => ({
-          orderBy: async () => incidentRows,
-        }),
-      }),
+        };
+      },
     }),
   }),
 }));
@@ -34,7 +43,13 @@ vi.mock("@/lib/db", () => ({
 import { getRefereeAssignments, getReportsOwed, getRefereeMatchDetail } from "@/lib/referee/referee-queries";
 
 describe("referee-queries", () => {
-  beforeEach(() => { assignmentRows = []; owedRows = []; detailRows = []; incidentRows = []; });
+  beforeEach(() => {
+    assignmentRows = [];
+    owedRows = [];
+    detailRows = [];
+    incidentRows = [];
+    suspensionRows = [];
+  });
 
   it("getRefereeAssignments returns the ref's matches with a reported flag", async () => {
     assignmentRows = [
@@ -66,6 +81,8 @@ describe("referee-queries", () => {
         homeScore: null,
         awayScore: null,
         refereeNotes: null,
+        homeTeamId: "team-home",
+        awayTeamId: "team-away",
         homeTeamName: "Red",
         awayTeamName: "Blue",
       },
@@ -77,5 +94,63 @@ describe("referee-queries", () => {
     expect(result).not.toBeNull();
     expect(result!.gameId).toBe("g1");
     expect(result!.incidents).toEqual(incidentRows);
+  });
+
+  it("getRefereeMatchDetail does not leak homeTeamId/awayTeamId onto the returned shape", async () => {
+    detailRows = [
+      {
+        gameId: "g1",
+        scheduledAt: new Date("2026-07-01T18:00:00Z"),
+        status: "scheduled",
+        homeScore: null,
+        awayScore: null,
+        refereeNotes: null,
+        homeTeamId: "team-home",
+        awayTeamId: "team-away",
+        homeTeamName: "Red",
+        awayTeamName: "Blue",
+      },
+    ];
+    incidentRows = [];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result).not.toBeNull();
+    expect(result).not.toHaveProperty("homeTeamId");
+    expect(result).not.toHaveProperty("awayTeamId");
+  });
+
+  it("getRefereeMatchDetail surfaces an activeSuspensions flag for the home team", async () => {
+    detailRows = [
+      { gameId: "g1", scheduledAt: new Date(), status: "scheduled", homeScore: null, awayScore: null, refereeNotes: null, homeTeamId: "team-home", awayTeamId: "team-away", homeTeamName: "Red", awayTeamName: "Blue" },
+    ];
+    incidentRows = [];
+    suspensionRows = [
+      { id: "s1", personName: "Jamie", teamId: "team-home", status: "active", gamesMissed: 1, gamesServed: 0, escalatedToDirector: false },
+    ];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result!.activeSuspensions).toEqual(suspensionRows);
+  });
+
+  it("getRefereeMatchDetail surfaces an activeSuspensions flag for the away team", async () => {
+    detailRows = [
+      { gameId: "g1", scheduledAt: new Date(), status: "scheduled", homeScore: null, awayScore: null, refereeNotes: null, homeTeamId: "team-home", awayTeamId: "team-away", homeTeamName: "Red", awayTeamName: "Blue" },
+    ];
+    incidentRows = [];
+    suspensionRows = [
+      { id: "s2", personName: "Alex", teamId: "team-away", status: "season", gamesMissed: 5, gamesServed: 1, escalatedToDirector: true },
+    ];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result!.activeSuspensions).toEqual(suspensionRows);
+  });
+
+  it("getRefereeMatchDetail returns empty activeSuspensions for a TBD-team game (no query issued)", async () => {
+    detailRows = [
+      { gameId: "g1", scheduledAt: new Date(), status: "scheduled", homeScore: null, awayScore: null, refereeNotes: null, homeTeamId: null, awayTeamId: null, homeTeamName: null, awayTeamName: null },
+    ];
+    incidentRows = [];
+    // Deliberately non-empty — proves the query is skipped (teamIds.length === 0)
+    // rather than merely filtered to nothing.
+    suspensionRows = [{ id: "should-not-appear", personName: "x", teamId: "unrelated", status: "active", gamesMissed: 1, gamesServed: 0, escalatedToDirector: false }];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result!.activeSuspensions).toEqual([]);
   });
 });
