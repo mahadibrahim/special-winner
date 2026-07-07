@@ -1100,3 +1100,117 @@ describe("renderTrainingDeck — 'How time works on your day' timeline slide (ro
     expect(html).not.toContain("<h2>How time works on your day</h2>");
   });
 });
+
+describe("renderTrainingDeck — 'Using the system' product tour", () => {
+  function slideBodies(html: string): string[] {
+    return html.split('<section class="slide"');
+  }
+
+  it("renders a divider + one slide per tour step for a role with a tour, embedding provided tourScreenshots and falling back to a relative path otherwise", () => {
+    const tourScreenshots = new Map([["dashboard", "data:image/png;base64,AAAA"]]);
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach, {
+      tourScreenshots,
+    });
+    const slides = slideBodies(html);
+
+    const dividerSlide = slides.find(
+      (s) => s.includes('data-kind="divider"') && s.includes(">Using the system<"),
+    );
+    expect(dividerSlide).toBeDefined();
+    expect(dividerSlide).toContain(">Product tour<");
+
+    const firstStepSlide = slides.find((s) =>
+      s.includes("Using the system — step 1 of"),
+    );
+    expect(firstStepSlide).toBeDefined();
+    // Embedded data URI screenshot for the step whose slug was provided...
+    expect(firstStepSlide).toContain('src="data:image/png;base64,AAAA"');
+    expect(firstStepSlide).toContain('class="screenshot-frame screenshot-frame--tour"');
+    // ...and the plain "how to" caption text, not SOP jargon.
+    expect(firstStepSlide).toMatch(/tour-caption/);
+
+    // A later step with no matching tourScreenshots entry gracefully
+    // degrades to the relative-path + onerror fallback, same shape as the
+    // per-activity screenshot slot.
+    const laterStepSlide = slides.find((s) =>
+      s.includes("Using the system — step 2 of"),
+    );
+    expect(laterStepSlide).toBeDefined();
+    expect(laterStepSlide).toContain("../../../../training/screenshots/coach/tour/");
+    expect(laterStepSlide).toContain("onerror=");
+  });
+
+  it("gracefully omits the chapter entirely for a role with no tour and no no-surface note", () => {
+    // role.parent has no PRODUCT_TOUR entry and no PRODUCT_TOUR_NO_SURFACE_NOTE
+    // entry — mirrors the zero-matched-activities graceful-omit pattern used
+    // by the toolkit/timeline slides above, but for a role that simply isn't
+    // one of the "drives the product" roles this chapter targets. Checked
+    // against actual slide bodies (not a raw whole-document substring check)
+    // since DECK_CSS's own source comments are free to mention this
+    // chapter's name without that counting as a rendered chapter.
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.parent);
+    const slides = slideBodies(html).filter((s) => s.trimStart().startsWith("data-index="));
+    const usingSystemSlide = slides.find((s) => s.includes(">Using the system<"));
+    expect(usingSystemSlide).toBeUndefined();
+  });
+
+  it("renders a short honest no-surface note instead of a tour for a role with no product surface (facilities)", async () => {
+    const catalogDir = path.resolve(__dirname, "../../../../docs/operations/catalog");
+    const catalog = await loadCatalog(catalogDir);
+    const html = renderTrainingDeck(catalog, "role.facilities");
+    const slides = slideBodies(html);
+
+    const usingSystemSlide = slides.find((s) => s.includes(">Using the system<"));
+    expect(usingSystemSlide).toBeDefined();
+    expect(usingSystemSlide).toContain("no separate app screen");
+    // The honest-note variant is a single plain slide, not a divider + steps.
+    expect(usingSystemSlide).not.toContain('data-kind="divider"');
+    expect(usingSystemSlide).not.toContain("tour-step-kicker");
+  });
+
+  it("never renders a dotted catalog id in any tour step's caption or divider items, across every real worker deck", async () => {
+    const catalogDir = path.resolve(__dirname, "../../../../docs/operations/catalog");
+    const catalog = await loadCatalog(catalogDir);
+    const decks = generateAllTrainingDecks(catalog);
+    const dottedIdRe = /\b(?:act|chk|frm|sig|evt|counter|role|feat)\.[a-z0-9_]+\b/;
+
+    let sawAtLeastOneTourChapter = false;
+    for (const [roleId, html] of Object.entries(decks)) {
+      // slides[0] is the pre-first-<section> head (incl. <style>), never a
+      // real slide — the DECK_CSS source itself has a code comment
+      // mentioning "Using the system", so without this filter that
+      // non-slide fragment gets swept in too.
+      const slides = slideBodies(html).filter((s) => s.trimStart().startsWith('data-index='));
+      const tourSlides = slides.filter(
+        (s) => s.includes("tour-step-kicker") || s.includes(">Using the system<"),
+      );
+      if (tourSlides.length === 0) continue;
+      sawAtLeastOneTourChapter = true;
+      for (const slide of tourSlides) {
+        const visibleText = slide.replace(/<[^>]+>/g, " ");
+        expect(
+          visibleText,
+          `deck for ${roleId} leaked a dotted catalog id in its product-tour chapter`,
+        ).not.toMatch(dottedIdRe);
+      }
+    }
+    expect(sawAtLeastOneTourChapter).toBe(true);
+  });
+
+  it("aliases role.event_lead's tour onto role.venue_manager's real-catalog entry (same command-center/check-in/walk-up steps)", async () => {
+    const catalogDir = path.resolve(__dirname, "../../../../docs/operations/catalog");
+    const catalog = await loadCatalog(catalogDir);
+    const venueHtml = renderTrainingDeck(catalog, "role.venue_manager");
+    const eventLeadHtml = renderTrainingDeck(catalog, "role.event_lead");
+
+    const dividerItems = (html: string) => {
+      const slides = slideBodies(html);
+      const divider = slides.find(
+        (s) => s.includes('data-kind="divider"') && s.includes(">Using the system<"),
+      );
+      return divider?.match(/<li>[^<]+<\/li>/g);
+    };
+
+    expect(dividerItems(venueHtml)).toEqual(dividerItems(eventLeadHtml));
+  });
+});
