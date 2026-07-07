@@ -113,3 +113,6 @@ export * from "./suspensions";
 
 // In-app time tracking + geolocation (product-backlog build #5)
 export * from "./time-tracking";
+
+// Manual Gusto payroll CSV export audit trail (product-backlog build #6)
+export * from "./payroll";
