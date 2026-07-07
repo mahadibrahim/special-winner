@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Loader2, Search, ShieldCheck, ShieldAlert, ShieldOff, Clock } from "lucide-react"
+import { toast } from "sonner"
+import { Loader2, Search, ShieldCheck, ShieldAlert, ShieldOff, Clock, Ban } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { EmptyState } from "@/components/ui/empty-state"
 
@@ -11,6 +13,10 @@ type ConsentStatus =
   | { status: "active"; signedAt: string; expiresAt: string | null; signedByName?: string }
   | { status: "expired"; signedAt: string; expiresAt: string }
   | { status: "revoked"; signedAt: string; revokedAt: string }
+
+type DoNotPublishStatus =
+  | { active: true; reason: string | null }
+  | { active: false }
 
 interface FamilyMemberCompliance {
   id: string
@@ -26,6 +32,7 @@ interface FamilyMemberCompliance {
     mediaPromotional: ConsentStatus
     mediaPublic: ConsentStatus
   }
+  doNotPublish: DoNotPublishStatus
 }
 
 export function ComplianceList() {
@@ -33,6 +40,7 @@ export function ComplianceList() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -56,6 +64,68 @@ export function ComplianceList() {
       cancelled = true
     }
   }, [search])
+
+  /**
+   * Per-individual media opt-out toggle (product-backlog build #3). A
+   * simple set/clear against the Task 3 endpoint — not a workflow. Setting
+   * prompts for an optional reason (the takedown/opt-out record); clearing
+   * asks for confirmation since it removes the "do not feature" signal
+   * photographers rely on. Optimistic update, rolled back with a toast on
+   * failure — matches the ErrorBanner-for-page-state /
+   * toast-for-transient-action split used elsewhere in this codebase.
+   */
+  async function toggleDoNotPublish(member: FamilyMemberCompliance) {
+    const willActivate = !member.doNotPublish.active
+    if (!willActivate) {
+      const confirmed = window.confirm(
+        `Clear the "do not publish" flag for ${member.firstName} ${member.lastName}? Their face-tagged media will be eligible to publish again.`,
+      )
+      if (!confirmed) return
+    }
+    const reason = willActivate
+      ? window.prompt(
+          `Reason for opting out ${member.firstName} ${member.lastName} from published media (optional):`,
+        ) ?? undefined
+      : undefined
+
+    const previous = items
+    setTogglingId(member.id)
+    setItems((prev) =>
+      prev.map((m) =>
+        m.id === member.id
+          ? {
+              ...m,
+              doNotPublish: willActivate
+                ? { active: true, reason: reason?.trim() || null }
+                : { active: false },
+            }
+          : m,
+      ),
+    )
+
+    try {
+      const res = await fetch(`/api/admin/compliance/family-members/${member.id}/do-not-publish`, {
+        method: willActivate ? "PUT" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: willActivate ? JSON.stringify({ reason: reason?.trim() || undefined }) : undefined,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update")
+      setItems((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, doNotPublish: data.doNotPublish } : m)),
+      )
+      toast.success(
+        willActivate
+          ? `${member.firstName} ${member.lastName} opted out of published media`
+          : `Cleared opt-out for ${member.firstName} ${member.lastName}`,
+      )
+    } catch (err) {
+      setItems(previous)
+      toast.error(err instanceof Error ? err.message : "Failed to update opt-out status")
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -100,6 +170,7 @@ export function ComplianceList() {
                 <th className="text-left px-3 py-3 font-medium">Internal</th>
                 <th className="text-left px-3 py-3 font-medium">Promotional</th>
                 <th className="text-left px-3 py-3 font-medium">Public</th>
+                <th className="text-left px-3 py-3 font-medium">Media opt-out</th>
               </tr>
             </thead>
             <tbody>
@@ -133,6 +204,38 @@ export function ComplianceList() {
                   </td>
                   <td className="px-3 py-3">
                     <Cell status={m.consents.mediaPublic} />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-col gap-1">
+                      {m.doNotPublish.active ? (
+                        <div className="inline-flex items-center gap-1.5 text-rose-700">
+                          <Ban className="w-4 h-4" />
+                          <span className="text-xs">Opted out</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-ink-faint">Publishable</span>
+                      )}
+                      {m.doNotPublish.active && m.doNotPublish.reason && (
+                        <span className="text-xs text-ink-muted italic max-w-[16rem] truncate" title={m.doNotPublish.reason}>
+                          {m.doNotPublish.reason}
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant={m.doNotPublish.active ? "outline" : "destructive"}
+                        size="sm"
+                        disabled={togglingId === m.id}
+                        onClick={() => toggleDoNotPublish(m)}
+                      >
+                        {togglingId === m.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : m.doNotPublish.active ? (
+                          "Clear opt-out"
+                        ) : (
+                          "Do not publish"
+                        )}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
