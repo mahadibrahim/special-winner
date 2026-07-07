@@ -328,10 +328,10 @@ export function TeamsList({ seasons, coaches }: TeamsListProps) {
                     Manage Roster &rarr;
                   </a>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(team)}>
+                    <Button variant="ghost" size="icon" aria-label={`Edit ${team.name}`} onClick={() => openEditDialog(team)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(team)}>
+                    <Button variant="ghost" size="icon" aria-label={`Delete ${team.name}`} onClick={() => handleDelete(team)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>

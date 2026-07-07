@@ -3,7 +3,6 @@ export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
-import { Toaster } from 'sonner';
 import { FieldCalendar } from '@/components/soccerone/FieldCalendar';
 import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
 import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
@@ -66,7 +65,6 @@ const fmt = (cents: number) => {
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="rent-main">
 

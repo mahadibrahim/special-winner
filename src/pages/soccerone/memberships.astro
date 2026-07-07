@@ -4,7 +4,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { MembershipTiersLive } from '@/components/soccerone/MembershipTiersLive';
-import { Toaster } from 'sonner';
 
 // Server-side fetch from the same host so the middleware resolves to the
 // SoccerOne org for the public-tiers endpoint.
@@ -53,7 +52,6 @@ const bookingWindow = (t: any, fallback: number): number =>
   </Fragment>
 
   <SoccerOneHeader />
-  <Toaster client:idle richColors position="bottom-right" />
 
   <main class="mem-main">
 
