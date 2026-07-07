@@ -26,6 +26,12 @@ import type { test as PlaywrightTest } from "@playwright/test";
 export interface TourPage {
   screenshot(options: { path: string }): Promise<unknown>;
   waitForTimeout(timeout: number): Promise<void>;
+  /** Optional — present on a real Playwright `Page`, absent on the plain
+   * fake used in tour.test.ts. Duck-typed (checked with `typeof === "function"`
+   * at the call site) so the unit-test fake stays a valid `TourPage` without
+   * implementing browser-only APIs. */
+  addStyleTag?(options: { content: string }): Promise<unknown>;
+  evaluate?<T>(pageFunction: () => T): Promise<T>;
 }
 
 export interface StepOptions {
@@ -87,6 +93,43 @@ export interface TourOptions {
   rootDir?: string;
 }
 
+/**
+ * Hides the Astro dev toolbar (the dark rounded pill Astro's dev server
+ * injects at the bottom of every page, as `<astro-dev-toolbar>`) before a
+ * screenshot is taken. It's a dev-only overlay — real customers never see
+ * it — but it renders on top of the app in every captured screenshot, so
+ * training-deck images must have it stripped out.
+ *
+ * Two layers of belt-and-suspenders: a stylesheet `display: none` (survives
+ * even if the element re-mounts) plus an outright DOM removal (covers any
+ * shadow-DOM internals that ignore page-level CSS). Both are best-effort —
+ * `.catch(() => {})` — since a screenshot must never fail just because the
+ * toolbar happened to be mid-animation or the page navigated away between
+ * calls.
+ *
+ * Duck-typed against `TourPage`'s optional `addStyleTag`/`evaluate`: the
+ * plain fake object in tour.test.ts doesn't implement either, so this is a
+ * no-op there, and a real Playwright `Page` (which has both) gets the full
+ * treatment.
+ */
+async function hideDevToolbar(page: TourPage): Promise<void> {
+  if (typeof page.addStyleTag === "function") {
+    await page
+      .addStyleTag({
+        content:
+          "astro-dev-toolbar { display: none !important; visibility: hidden !important; }",
+      })
+      .catch(() => {});
+  }
+  if (typeof page.evaluate === "function") {
+    await page
+      .evaluate(() => {
+        document.querySelector("astro-dev-toolbar")?.remove();
+      })
+      .catch(() => {});
+  }
+}
+
 function slugifyCaption(caption: string): string {
   return caption
     .toLowerCase()
@@ -124,6 +167,7 @@ export class Tour {
   ): Promise<void> {
     await fn();
     await page.waitForTimeout(stepOptions.pauseMs ?? 400);
+    await hideDevToolbar(page);
 
     const index = this.nextIndex++;
     const filename = `${String(index).padStart(2, "0")}-${slugifyCaption(caption)}.png`;
