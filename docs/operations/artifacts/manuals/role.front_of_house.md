@@ -11,25 +11,23 @@ event-day.
 - Expected completion: T-60min
 - Tracking: form
 - Escalation: If front_of_house unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+Coach → Venue Manager → Director handoff ladder.
 
 1. Do this right after concession setup finishes and before the stand
    opens for its first sale — counting after sales have started
    makes the numbers useless for reconciliation.
-2. Count drinks by type and size, working from the front cooler back
-   to the stockroom so nothing gets double-counted.
-3. Count snacks and packaged goods by SKU.
-4. Count hot-food pars — the prepped starting quantity for items made
-   in batches (hot dogs, pretzels), not raw ingredient stock.
-5. Count paper goods and consumables that affect per-unit cost
+2. Count bottled/canned drinks by type and size, working from the
+   display case back to the stockroom so nothing gets double-counted.
+3. Count packaged snacks and other shelf-stable goods by SKU.
+4. Count paper goods and consumables that affect per-unit cost
    tracking: cups, napkins, condiment packets.
-6. Enter every count into the inventory form by item — don't batch
+5. Enter every count into the inventory form by item — don't batch
    categories together, since end-of-day reconciliation matches this
    count line-by-line against the closing count.
-7. Note anything already damaged, short-dated, or missing from the
+6. Note anything already damaged, short-dated, or missing from the
    expected opening stock before the first sale, and flag it to the
    venue manager if it looks like a shrink or delivery problem.
-8. Submit the form. This is what the cash and concession reconcile
+7. Submit the form. This is what the concession settlement reconcile
    compares against at the end of the day.
 
 ### Concession setup (`act.concession_setup`) — Accountable | Responsible
@@ -38,30 +36,27 @@ standard handoff ladder.
 - Expected completion: T-90min
 - Tracking: checklist
 - Escalation: If front_of_house unreachable, escalate to role.venue_manager per the
-standard handoff ladder.
+Coach → Venue Manager → Director handoff ladder.
 
-1. About 90 minutes before first kickoff, power on all concession
-   equipment — fountain machine, warmers, grill/hot-food equipment,
-   registers — and give it time to reach operating temperature before
-   you need it.
-2. Restock the front cooler and display cases from the back cooler so
-   the stand looks fully stocked when families arrive.
-3. Set up the POS terminal: confirm it's connected, logged in under
-   today's shift, and the opening cash bank (the fixed starting
-   drawer amount) is in the drawer and matches the expected amount.
-4. Calibrate fountain syrup-to-water ratios and taste-test each flavor
-   before opening — a flat or over-syrupy fountain is the most common
-   concession complaint.
-5. Confirm hand-wash stations are stocked with soap and paper towels,
-   and sanitizer stations/wipes are stocked at the register and food
-   prep area.
-6. Check food safety basics: cold items are cold, hot items are hot,
-   and any date-sensitive stock (dairy, prepped items) is within
-   date.
-7. Do a final walk of the stand for anything blocking service — boxes
+1. About 90 minutes before first kickoff, power on the register/POS
+   terminal — the only equipment this stand runs.
+2. Set up the POS terminal: confirm it's connected, logged in under
+   today's shift, and configured for card payment only. There's no
+   cash drawer or opening bank to count — the stand doesn't accept
+   cash.
+3. Restock shelf-stable snacks and drinks (chips, candy, bottled or
+   canned drinks, and similar shelf-stable items) from back stock so
+   the stand looks fully stocked when families arrive. Aspire
+   concessions don't sell hot food or fountain drinks, so there's no
+   food-safety setup (no cold/hot holding, no hand-wash station) to
+   run.
+4. Confirm signage at the register clearly states card-only, no cash
+   accepted, so families aren't surprised when they reach the front
+   of the line.
+5. Do a final walk of the stand for anything blocking service — boxes
    in the walkway, signage not yet up, menu board not updated for
    today's pricing.
-8. Once the stand is fully ready, mark the checklist complete — this
+6. Once the stand is fully ready, mark the checklist complete — this
    clears the way for the concession inventory count.
 
 ## pre_game
@@ -71,8 +66,8 @@ standard handoff ladder.
 - Trigger: Throughout the drop-in/clinic intake window
 - Expected completion: T-15min
 - Tracking: counter_increment
-- Escalation: If front_of_house unreachable, escalate to role.event_lead per the
-standard handoff ladder.
+- Escalation: If front_of_house unreachable, escalate directly to role.venue_manager
+per the Coach → Venue Manager → Director handoff ladder.
 
 1. Throughout the drop-in/clinic intake window, greet each walk-on
    parent or adult player at the front-of-house station — the coach
@@ -84,9 +79,9 @@ standard handoff ladder.
    before the player joins the session.
 4. Select the correct session/program the walk-on is joining so
    they're added to the right roster, not just "today's activity."
-5. Capture payment before the player joins play — record the payment
-   status and method; if paying at the desk in person, mark it paid
-   once the payment is actually taken.
+5. Capture payment before the player joins play — card only, no
+   cash accepted. Run the card at the desk and mark it paid once the
+   payment actually clears.
 6. Get the liability waiver signed. In person, that's the paper
    waiver at the desk; note it as signed once collected — never let a
    player join on a verbal "I'll sign later."
@@ -106,8 +101,9 @@ standard handoff ladder.
 - Trigger: Spectator complaint or sideline issue raised during a match
 - Expected completion: trigger+5min
 - Tracking: form
-- Escalation: If issue exceeds front_of_house scope, escalate to role.event_lead;
-any safety-relevant escalation goes to role.venue_manager.
+- Escalation: If an issue exceeds front_of_house scope, or is safety-relevant, escalate
+immediately to role.venue_manager per the Coach → Venue Manager →
+Director handoff ladder.
 
 1. When a spectator complaint or sideline issue is raised — a seating
    conflict, a lost parent, a behavior concern — respond in person
@@ -121,11 +117,10 @@ any safety-relevant escalation goes to role.venue_manager.
    the sideline, a dispute between parents), speak with the person
    directly, calmly, and away from the match.
 5. If the person won't de-escalate or the issue is safety-relevant
-   (physical altercation, threats), pull in the event lead
+   (physical altercation, threats), pull in the venue manager
    immediately rather than continuing to handle it alone.
-6. Any safety-relevant issue also goes to the venue manager right
-   away, in parallel with pulling in the event lead — don't wait for
-   one before notifying the other.
+6. Any safety-relevant issue goes to the venue manager right away —
+   don't wait to see if it resolves before notifying them.
 7. Log the complaint details in the form regardless of outcome: what
    happened, who was involved, how it was resolved. Even minor,
    fully-resolved issues get logged — this is what surfaces repeat
@@ -135,45 +130,42 @@ any safety-relevant escalation goes to role.venue_manager.
 
 ## end_of_day
 
-### Cash and concession reconcile (`act.cash_concession_reconcile`) — Accountable | Responsible
+### Concession settlement reconcile (card-only) (`act.cash_concession_reconcile`) — Accountable | Responsible
 
-- Trigger: After concession close, before deposit
+- Trigger: After concession close
 - Expected completion: phase_end
 - Tracking: form
 - Escalation: If front_of_house unreachable, role.venue_manager performs the
-reconciliation; any cash variance over threshold escalates to
+reconciliation; any variance over threshold escalates to
 role.director.
 
-1. Close the concession stand to new sales before starting the count —
-   don't count a drawer that's still taking cash.
-2. Count the drawer cash by denomination with a second person present
-   as witness; the witness watches the count, they don't just take
-   your word for the total.
-3. Subtract the opening bank (the fixed starting cash noted at
-   concession setup) from the counted total to get cash sales.
-4. Run the POS Z-report for the day and record card sales and total
-   POS-recorded sales separately from the cash count.
-5. Count closing concession inventory against the opening inventory
+1. Close the concession stand to new sales before starting the
+   reconcile.
+2. Run the POS Z-report for the day and record total card sales — the
+   stand is card-only, so this is the full day's revenue; there's no
+   cash drawer or bank to count.
+3. Count closing concession inventory against the opening inventory
    count to compute units sold by item.
-6. Multiply units sold by price to get expected revenue, then compare
-   expected revenue to (cash sales + card sales) and record the
-   variance, over or short.
-7. If the variance is inside the normal tolerance, both you and the
-   witness sign the reconciliation form and prepare the deposit.
-8. If the variance is outside tolerance, recount before assuming
-   shrink or a counting error — then record the variance as-is and
-   escalate to the venue manager; anything still unexplained after
-   recount escalates to the director.
-9. File the signed, witnessed form with today's records before making
-   the deposit.
+4. Multiply units sold by price to get expected revenue, then compare
+   expected revenue to POS card sales and record the variance, over
+   or short.
+5. If the variance is inside the normal tolerance, sign the
+   reconciliation form — no witness or deposit step is needed since
+   there's no cash to secure.
+6. If the variance is outside tolerance, recount inventory before
+   assuming shrink or a counting error — then record the variance
+   as-is and escalate to the venue manager; anything still
+   unexplained after recount escalates to the director.
+7. File the signed form with today's records.
 
 ### Lost and found inventory (`act.lost_and_found_inventory`) — Accountable | Responsible
 
 - Trigger: At end of day after the venue clears
 - Expected completion: phase_end
 - Tracking: form
-- Escalation: If front_of_house unreachable, role.event_lead inventories and
-escalates to role.venue_manager per the standard handoff ladder.
+- Escalation: If front_of_house unreachable, role.venue_manager runs the inventory or
+assigns coverage, per the Coach → Venue Manager → Director handoff
+ladder.
 
 1. After the venue clears at end of day, do one final sweep of common
    areas — bleachers, sidelines, locker rooms, restrooms, concession
@@ -194,5 +186,6 @@ escalates to role.venue_manager per the standard handoff ladder.
 7. Submit the inventory form — this is what the office uses to match
    items to inquiries and to know what's still eligible for the
    holding-window disposal.
-8. If front of house isn't available to run this at close, the event
-   lead does the inventory and escalates per the escalation path.
+8. If front of house isn't available to run this at close, the venue
+   manager runs the inventory or assigns coverage per the escalation
+   path.

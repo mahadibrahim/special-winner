@@ -10,50 +10,63 @@ oversight, owns the catalog, and serves as the final escalation tier.
 - Trigger: T+24h after a recorded rainout
 - Expected completion: T+24h
 - Tracking: form
-- Escalation: If director unreachable, role.venue_manager may default to "credit
-only" until director sign-off; refund disbursements still require
-director authorization.
+- Escalation: If director unreachable, role.venue_manager may default to
+"credit only" until director sign-off; a cash refund always requires
+director authorization, no exceptions.
 
 1. Within 24 hours of a recorded rainout, pull the rainout decision
    record and the full list of registrations affected — every family
    registered for the cancelled or shortened match(es) at that
    venue/date.
-2. Decide the outcome using three tiers, ordered by how much of the
-   session actually happened. If the match never started, default to
+2. Decide the outcome using three tiers, in this order, and never
+   skip ahead: reschedule, then credit, then (company-caused
+   cancellations only) cash refund. There is no cash refund for a
+   weather/lightning/field-condition cancellation, regardless of the
+   family's plans — that's the rule, not a case-by-case judgment
+   call.
+3. Reschedule first. If the match never started, default to
    reschedule where a make-up date is realistic within the season
    window — a family that showed up shouldn't lose the game outright
-   if the calendar can absorb it. If a make-up date isn't realistic
-   (end of season, no venue or ref availability), the call moves to
-   refund or credit.
-3. Between refund and credit: refund returns money to the original
-   payment method now; credit holds the value toward a future season
-   or program and doesn't move cash today. Default to credit when the
-   family is already registered for, or likely to register for, a
-   future season; default to refund when they aren't. This is a
-   policy call, not a formula — document the reasoning either way.
-4. Decide full vs. partial. A cancellation before kickoff is normally
-   a full refund or credit of that game's value; a match stopped
-   partway through (weather mid-game) is prorated at your discretion,
-   with the proration basis documented in the rationale.
-5. Record the decision — outcome, rationale, affected registration
+   if the calendar can absorb it.
+4. If a make-up date isn't realistic (end of season, no venue or ref
+   availability), the call moves to account credit — the default
+   outcome for a weather cancellation that can't be rescheduled.
+   Credit holds the value toward a future season or program; it
+   doesn't move cash today. For a multi-session program (camp,
+   clinic, multi-week program) where the cancellation affects a
+   registration that already received some sessions, use a
+   tiered-credit-by-sessions-delivered model: credit 75% of session
+   value if no sessions were delivered yet, 50% after one session,
+   25% after two (SMC Soccer / peer tournament-operator norm; see
+   the safety & policy standards reference).
+5. A cash refund is reserved for company-caused cancellations — an
+   Aspire operational failure, not weather — and always requires your
+   explicit sign-off as director. Weather cancellations never reach
+   this tier.
+6. Decide full vs. partial. A cancellation before kickoff is normally
+   a full credit (or, for a company-caused case, a full refund) of
+   that game's value; a match stopped partway through is prorated at
+   your discretion, with the proration basis documented in the
+   rationale.
+7. Record the decision — outcome, rationale, affected registration
    count, full vs. partial — and your name as authorizing signer on
    the rainout refund decision form.
-6. For a refund outcome, action it through each affected
-   registration's admin refund action (amount, reason, whether to
-   also cancel the registration) individually — the form documents
-   the policy call, but the money moves per registration, not as one
-   batch transaction.
-7. For a credit outcome, there's no automated credit ledger yet —
+8. For a credit outcome, there's no automated credit ledger yet —
    record the credit amount and reason on the form and hand off to
    the office to track it manually against that family's account
    until a dedicated credit ledger ships. Don't let a credit promise
    go untracked between the decision and its application.
-8. Submit the form. Family and team-captain notice of the outcome
-   goes out through the platform per the standard notification
-   policy — don't message families individually ahead of the form.
-9. If you're unreachable, the venue manager may default to "credit
-   only" until you sign off per the escalation path — actual refund
-   disbursement still waits for your authorization.
+9. For the rare cash-refund outcome, action it through each affected
+   registration's admin refund action (amount, reason, whether to
+   also cancel the registration) individually — the form documents
+   the policy call, but the money moves per registration, not as one
+   batch transaction.
+10. Submit the form. Family and team-captain notice of the outcome
+    goes out through the platform per the standard notification
+    policy — don't message families individually ahead of the form.
+11. If you're unreachable, the venue manager may default to "credit
+    only" until you sign off per the escalation path — a cash refund
+    always waits for your authorization.
 
 ### Rainout reschedule (`act.rainout_reschedule`) — Accountable | Responsible
 
@@ -98,9 +111,9 @@ candidates; director sign-off still required before publish.
 - Trigger: Weekly cadence after the weekly metrics rollup lands
 - Expected completion: T+72h
 - Tracking: form
-- Escalation: If director unreachable in a given week, role.venue_manager drafts
-the review and director signs off retroactively; no review goes
-unsigned past two weeks.
+- Escalation: If director unreachable in a given week, role.venue_manager drafts the
+review and director signs off retroactively; no review goes unsigned past
+two weeks.
 
 1. After the weekly metrics rollup lands, pull the week's finalized
    incident reports, incident follow-ups, and field damage reports

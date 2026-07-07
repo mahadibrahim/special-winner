@@ -27,7 +27,7 @@
       "act.ref_stipend_log",
       "act.score_post_to_standings",
       "act.score_reporting_final",
-      "act.staff_clock_out",
+      "act.staff_check_in_out",
       "act.staff_payroll_event",
       "act.staff_schedule_confirm",
       "act.standings_update",
@@ -89,7 +89,7 @@
     "referenced_by": [
       "act.ref_payroll_event",
       "act.ref_stipend_log",
-      "act.staff_clock_out",
+      "act.staff_check_in_out",
       "act.staff_payroll_event"
     ]
   },
@@ -103,7 +103,7 @@
       "act.photographer_check_in",
       "act.ref_check_in",
       "act.score_reporting_final",
-      "act.staff_clock_out"
+      "act.staff_check_in_out"
     ]
   },
   {
