@@ -59,7 +59,11 @@ test("a signed-in customer can book a field through to Stripe Checkout", async (
     .then(() => "navigated" as const)
     .catch(() => "timeout" as const);
   const stripeMissing = page
+    // .first(): the island fires BOTH toast.error and the ErrorBanner for
+    // 5xx, so this text matches twice now that BaseLayout mounts a Toaster —
+    // a bare (strict) locator rejects instantly on the double match.
     .getByText(/Stripe not configured/i)
+    .first()
     .waitFor({ state: "visible", timeout: 20_000 })
     .then(() => "no-stripe" as const)
     .catch(() => "no-banner" as const);
