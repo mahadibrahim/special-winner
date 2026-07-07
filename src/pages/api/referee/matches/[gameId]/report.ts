@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { games, gameIncidents } from "@/lib/db/schema/teams";
 import { requireAssignedOfficial } from "@/lib/referee/require-assigned-official";
@@ -68,8 +68,17 @@ export const POST: APIRoute = async (context) => {
         updatedAt: new Date(),
       })
       .where(eq(games.id, gameId));
-    // Replace the game's incidents (single-ref MVP: all incidents are this ref's).
-    await tx.delete(gameIncidents).where(eq(gameIncidents.gameId, gameId));
+    // Replace the game's incidents (single-ref MVP: all incidents are this
+    // ref's) — EXCEPT ejections. Ejections carry a suspension trail (FK
+    // restrict from suspensions.gameIncidentId) and are created only via the
+    // additive POST .../ejections endpoint; a routine score-correction
+    // resubmit here must never erase one. Defensive guard: INCIDENT_TYPES
+    // above already rejects a bulk-array entry with type 'ejection' before
+    // we get here, so this delete is belt-and-suspenders against a future
+    // change to that allowlist.
+    await tx
+      .delete(gameIncidents)
+      .where(and(eq(gameIncidents.gameId, gameId), ne(gameIncidents.type, "ejection")));
     if (incidents.length > 0) {
       await tx.insert(gameIncidents).values(
         incidents.map((inc) => ({
