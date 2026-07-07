@@ -2,19 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { getDb } from "@/lib/db";
-import {
-  registrations,
-  payments,
-  familyMembers,
-  seasons,
-  programs,
-  sports,
-  locations,
-  organizations,
-  users,
-} from "@/lib/db/schema";
+import { registrations, payments } from "@/lib/db/schema";
 import * as emailModule from "@/lib/email/send";
 import { handleChargeRefunded } from "@/lib/stripe/handle-charge-refunded";
+import { seedPaidRegistration } from "../../utils/registration-context";
 
 /**
  * Build a fake Stripe Charge object for testing charge.refunded handling.
@@ -33,119 +24,6 @@ function makeChargeRefunded(opts: {
     amount_refunded: opts.amountRefunded,
     refunded: opts.amountRefunded >= opts.amount,
   } as unknown as Stripe.Charge;
-}
-
-/**
- * Seed the minimum row graph needed to exercise handleChargeRefunded.
- * Creates org → user → sport → location → program → season → familyMember
- * → registration (paid) → payment (with stripePaymentIntentId).
- * Returns registrationId and paymentIntentId for assertions.
- */
-async function seedPaidRegistration(
-  amountPaidCents: number,
-): Promise<{ registrationId: string; paymentIntentId: string; userId: string }> {
-  const db = getDb();
-  const suffix = Math.random().toString(36).slice(2, 10);
-  const paymentIntentId = `pi_test_${suffix}`;
-
-  const [org] = await db
-    .insert(organizations)
-    .values({
-      name: `Org ${suffix}`,
-      slug: `org-${suffix}`,
-      organizationType: "headquarters",
-    })
-    .returning();
-
-  const [user] = await db
-    .insert(users)
-    .values({
-      email: `parent-${suffix}@test.example`,
-      passwordHash: "x",
-      firstName: "Pat",
-      lastName: "Parent",
-    })
-    .returning();
-
-  const [sport] = await db
-    .insert(sports)
-    .values({
-      name: `Sport ${suffix}`,
-      slug: `sport-${suffix}`,
-      organizationId: org.id,
-    })
-    .returning();
-
-  const [location] = await db
-    .insert(locations)
-    .values({
-      name: `Loc ${suffix}`,
-      slug: `loc-${suffix}`,
-      organizationId: org.id,
-    })
-    .returning();
-
-  const [program] = await db
-    .insert(programs)
-    .values({
-      name: `Prog ${suffix}`,
-      slug: `prog-${suffix}`,
-      sportId: sport.id,
-      locationId: location.id,
-      programType: "league",
-    })
-    .returning();
-
-  const [season] = await db
-    .insert(seasons)
-    .values({
-      name: `Season ${suffix}`,
-      slug: `season-${suffix}`,
-      programId: program.id,
-      startDate: "2026-09-01",
-      endDate: "2026-12-01",
-      priceCents: amountPaidCents,
-      status: "open",
-    })
-    .returning();
-
-  const [member] = await db
-    .insert(familyMembers)
-    .values({
-      parentUserId: user.id,
-      firstName: "Kid",
-      lastName: "Player",
-      birthDate: "2015-01-01",
-    })
-    .returning();
-
-  const [registration] = await db
-    .insert(registrations)
-    .values({
-      seasonId: season.id,
-      familyMemberId: member.id,
-      registeredByUserId: user.id,
-      status: "confirmed",
-      paymentStatus: "paid",
-      amountPaidCents,
-      amountDueCents: 0,
-      registrationType: "full",
-      waiverSigned: true,
-      waiverSignedAt: new Date(),
-      waiverSignedBy: "Pat Parent",
-    })
-    .returning();
-
-  await db.insert(payments).values({
-    registrationId: registration.id,
-    userId: user.id,
-    amountCents: amountPaidCents,
-    paymentType: "full",
-    status: "succeeded",
-    stripePaymentIntentId: paymentIntentId,
-  });
-
-  return { registrationId: registration.id, paymentIntentId, userId: user.id };
 }
 
 describe("handleChargeRefunded", () => {
