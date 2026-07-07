@@ -1,0 +1,32 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { IncidentReportForm } from "../../../components/staff/incident-report-form";
+import { getIncidentFormOptions } from "../../../lib/incidents/incident-form-data";
+
+export const prerender = false;
+
+// Middleware guarantees the caller holds location_admin/coach/super_admin
+// for /staff/** and that an organization is resolved (requireOrganizationContext
+// mirrors this at the API layer for the POST endpoint).
+const user = Astro.locals.user!;
+const organizationId = Astro.locals.organization?.id ?? null;
+
+const userRoleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
+const isSuperAdmin = userRoleNames.includes("super_admin");
+const isLocationScoped = userRoleNames.includes("location_admin") && !isSuperAdmin;
+
+const options = organizationId
+  ? await getIncidentFormOptions({ organizationId, userId: user.id, isLocationScoped })
+  : { venues: [], games: [] };
+---
+
+<BaseLayout title="Report an incident — Aspire Sports" navigation={false} footer={false}>
+  <div class="max-w-2xl mx-auto px-4 py-8">
+    <h1 class="font-display text-3xl text-ink mb-2">Report an incident</h1>
+    <p class="text-ink-2 mb-6 leading-relaxed">
+      Fast, in-the-moment capture — what happened, who responded, what care was given. This
+      isn't the full report; it starts the clock on the finalized record.
+    </p>
+    <IncidentReportForm client:load venues={options.venues} games={options.games} />
+  </div>
+</BaseLayout>
