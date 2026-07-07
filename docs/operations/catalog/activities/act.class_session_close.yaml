@@ -22,9 +22,9 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If a player has no parent/guardian at pickup, the coach stays with the
-  player and escalates directly to role.venue_manager per the Coach →
-  Venue Manager → Director handoff ladder. The coach never leaves
-  before the last player has been picked up.
+  player and escalates directly to role.venue_manager per the Coach → Venue
+  Manager → Director handoff ladder. The coach never leaves before the last
+  player has been picked up.
 sop_body: |
   1. End the session on time and on a positive note (cooldown, review,
      at-home challenge per the session structure).

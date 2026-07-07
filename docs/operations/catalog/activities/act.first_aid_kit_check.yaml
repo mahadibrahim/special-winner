@@ -20,8 +20,9 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the Coach → Venue Manager →
-  Director handoff ladder; no event begins without a verified kit.
+  If venue_manager unreachable, escalate to role.director per the Coach →
+  Venue Manager → Director handoff ladder; no event begins without a
+  verified kit.
 sop_body: |
   1. Open every first-aid kit on premises — one per field/court plus any
      building kit.

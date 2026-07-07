@@ -20,9 +20,9 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If director unreachable, role.venue_manager may default to "credit
-  only" until director sign-off; refund disbursements still require
-  director authorization.
+  If director unreachable, role.venue_manager may default to "credit only"
+  until director sign-off; refund disbursements still require director
+  authorization.
 sop_body: |
   1. Within 24 hours of a recorded rainout, pull the rainout decision
      record and the full list of registrations affected — every family

@@ -21,8 +21,8 @@ platform_features:
   - feat.counter_service
   - feat.activity_tracking_engine
 escalation_path: |
-  If photographer unreachable, role.event_lead pings role.director;
-  publish authority can be re-assigned for that batch only.
+  If photographer unreachable, role.event_lead pings role.director; publish
+  authority can be re-assigned for that batch only.
 sop_body: |
   1. Confirm tagging is complete for the session — it should show
      "ready" in the tagging queue, meaning every asset worth keeping

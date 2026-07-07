@@ -20,8 +20,8 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If front_of_house unreachable, escalate to role.venue_manager per the Coach → Venue Manager →
-  Director handoff ladder.
+  If front_of_house unreachable, escalate to role.venue_manager per the
+  Coach → Venue Manager → Director handoff ladder.
 sop_body: |
   1. Do this right after concession setup finishes and before the stand
      opens for its first sale — counting after sales have started

@@ -22,8 +22,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   Any life-threatening incident escalates immediately to 911 and
-  role.director; venue_manager remains accountable for documentation
-  but role.event_lead may capture the initial form.
+  role.director; venue_manager remains accountable for documentation but
+  role.event_lead may capture the initial form.
 sop_body: |
   1. The moment an incident is reported to you — injury, altercation,
      medical event, or property damage — get to the scene. If you

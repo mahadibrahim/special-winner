@@ -20,8 +20,8 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If front_of_house unreachable, escalate to role.venue_manager per the Coach → Venue Manager →
-  Director handoff ladder.
+  If front_of_house unreachable, escalate to role.venue_manager per the
+  Coach → Venue Manager → Director handoff ladder.
 sop_body: |
   1. About 90 minutes before first kickoff, power on all concession
      equipment — fountain machine, warmers, grill/hot-food equipment,

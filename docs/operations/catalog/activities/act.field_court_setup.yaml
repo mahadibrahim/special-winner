@@ -20,8 +20,8 @@ platform_features:
   - feat.photo_upload_capture
   - feat.activity_tracking_engine
 escalation_path: |
-  If facilities unreachable, escalate to role.venue_manager per the Coach → Venue Manager →
-  Director handoff ladder.
+  If facilities unreachable, escalate to role.venue_manager per the Coach →
+  Venue Manager → Director handoff ladder.
 sop_body: |
   1. About 30 minutes before each kickoff, place goals/nets in their
      marked positions and secure them (anchored or weighted per the

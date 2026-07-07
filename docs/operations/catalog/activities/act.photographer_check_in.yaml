@@ -20,8 +20,8 @@ platform_features:
   - feat.signature_capture
   - feat.activity_tracking_engine
 escalation_path: |
-  If photographer no-show, event_lead escalates to role.venue_manager;
-  pull from standby pool or accept reduced media coverage.
+  If photographer no-show, event_lead escalates to role.venue_manager; pull
+  from standby pool or accept reduced media coverage.
 sop_body: |
   1. About 30 minutes before your first assigned match, go to the event
      lead's station to sign in — this starts your pay clock for the

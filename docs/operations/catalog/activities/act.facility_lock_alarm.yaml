@@ -20,9 +20,9 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the Coach → Venue Manager →
-  Director handoff ladder; alarm code rotation policy is enforced
-  centrally.
+  If venue_manager unreachable, escalate to role.director per the Coach →
+  Venue Manager → Director handoff ladder; alarm code rotation policy is
+  enforced centrally.
 sop_body: |
   1. Confirm the close walkthrough is signed off before starting —
      lock-up never happens first.

@@ -21,9 +21,9 @@ platform_features:
   - feat.signature_capture
   - feat.activity_tracking_engine
 escalation_path: |
-  If event_lead unreachable, escalate to role.venue_manager per the Coach → Venue Manager →
-  Director handoff ladder; backup ref pulled from standby pool if
-  scheduled ref no-shows.
+  If event_lead unreachable, escalate to role.venue_manager per the Coach →
+  Venue Manager → Director handoff ladder; backup ref pulled from standby
+  pool if scheduled ref no-shows.
 sop_body: |
   1. About 30 minutes before their assigned kickoff, the ref reports to
      the event lead's check-in station — the same match shows up in the

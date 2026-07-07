@@ -22,8 +22,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If ref unable to sign, event_lead captures a co-attestation with the
-  ref's verbal confirmation and escalates to role.venue_manager for
-  any contested score.
+  ref's verbal confirmation and escalates to role.venue_manager for any
+  contested score.
 sop_body: |
   1. At the final whistle, open the match from My Matches — the same
      match that showed up at check-in — and go to its match report.

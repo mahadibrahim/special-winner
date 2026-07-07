@@ -21,8 +21,8 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If venue_manager unreachable, role.event_lead runs the debrief; any
-  unresolved item escalates to role.director per the Coach → Venue
-  Manager → Director handoff ladder.
+  unresolved item escalates to role.director per the Coach → Venue Manager
+  → Director handoff ladder.
 sop_body: |
   1. Once the facility close walkthrough is signed off, gather whoever's
      still on shift for a 5-10 minute huddle — don't hold people who've

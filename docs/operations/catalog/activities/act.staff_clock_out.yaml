@@ -21,9 +21,9 @@ platform_features:
   - feat.payroll_integration
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, role.event_lead witnesses the
-  check-out; any escalation needed goes to role.director per the Coach
-  → Venue Manager → Director handoff ladder.
+  If venue_manager unreachable, role.event_lead witnesses the check-out;
+  any escalation needed goes to role.director per the Coach → Venue Manager
+  → Director handoff ladder.
 sop_body: |
   1. When a staff member finishes their last task for the day (final
      equipment stored, facility close walkthrough done, cash reconciled

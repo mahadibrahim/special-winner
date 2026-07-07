@@ -20,9 +20,9 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If an issue exceeds front_of_house scope, or is safety-relevant,
-  escalate immediately to role.venue_manager per the Coach → Venue
-  Manager → Director handoff ladder.
+  If an issue exceeds front_of_house scope, or is safety-relevant, escalate
+  immediately to role.venue_manager per the Coach → Venue Manager →
+  Director handoff ladder.
 sop_body: |
   1. When a spectator complaint or sideline issue is raised — a seating
      conflict, a lost parent, a behavior concern — respond in person

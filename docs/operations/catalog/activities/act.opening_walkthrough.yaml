@@ -20,9 +20,9 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the Coach → Venue Manager →
-  Director handoff ladder; facilities walks the building until
-  coverage resumes.
+  If venue_manager unreachable, escalate to role.director per the Coach →
+  Venue Manager → Director handoff ladder; facilities walks the building
+  until coverage resumes.
 sop_body: |
   1. Immediately after unlock, walk the entire facility in a fixed route:
      playing surfaces, restrooms, locker rooms, bleachers/spectator

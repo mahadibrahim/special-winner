@@ -21,9 +21,9 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If director unreachable in a given week, role.venue_manager drafts
-  the review and director signs off retroactively; no review goes
-  unsigned past two weeks.
+  If director unreachable in a given week, role.venue_manager drafts the
+  review and director signs off retroactively; no review goes unsigned past
+  two weeks.
 sop_body: |
   1. After the weekly metrics rollup lands, pull the week's finalized
      incident reports, incident follow-ups, and field damage reports

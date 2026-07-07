@@ -21,8 +21,8 @@ platform_features:
   - feat.checklist_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If venue_manager unreachable, escalate to role.director per the
-  Coach → Venue Manager → Director handoff ladder.
+  If venue_manager unreachable, escalate to role.director per the Coach →
+  Venue Manager → Director handoff ladder.
 sop_body: |
   1. About 90 minutes before kickoff at any outdoor venue, re-check
      weather.gov (National Weather Service) for live conditions (a

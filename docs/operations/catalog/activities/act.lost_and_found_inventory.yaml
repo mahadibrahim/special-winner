@@ -21,9 +21,9 @@ platform_features:
   - feat.form_renderer
   - feat.activity_tracking_engine
 escalation_path: |
-  If front_of_house unreachable, role.venue_manager runs the inventory
-  or assigns coverage, per the Coach → Venue Manager → Director
-  handoff ladder.
+  If front_of_house unreachable, role.venue_manager runs the inventory or
+  assigns coverage, per the Coach → Venue Manager → Director handoff
+  ladder.
 sop_body: |
   1. After the venue clears at end of day, do one final sweep of common
      areas — bleachers, sidelines, locker rooms, restrooms, concession
