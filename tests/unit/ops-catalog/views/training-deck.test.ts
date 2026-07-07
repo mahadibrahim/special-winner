@@ -302,6 +302,90 @@ describe("renderTrainingDeck — your tools + help slides", () => {
   });
 });
 
+describe("renderTrainingDeck — brand design pass", () => {
+  it("embeds the editorial cream token set with the corrected single-accent primary value", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    // Exact oklch values copied from src/styles/globals.css :root. --primary
+    // matches the semantic --primary token (--primary-orange), not the
+    // brighter --primary-orange-bright some earlier drafts used.
+    expect(html).toContain("--cream: oklch(0.972 0.008 80);");
+    expect(html).toContain("--cream-2: oklch(0.955 0.012 78);");
+    expect(html).toContain("--cream-3: oklch(0.935 0.018 76);");
+    expect(html).toContain("--ink: oklch(0.18 0.008 260);");
+    expect(html).toContain("--ink-2: oklch(0.26 0.012 260);");
+    expect(html).toContain("--ink-muted: oklch(0.42 0.01 260);");
+    expect(html).toContain("--navy: oklch(0.24 0.06 260);");
+    expect(html).toContain("--navy-deep: oklch(0.18 0.07 262);");
+    expect(html).toContain("--primary: oklch(0.58 0.19 35);");
+    expect(html).toContain("--ochre: oklch(0.75 0.12 75);");
+    expect(html).toContain("--sage: oklch(0.52 0.08 155);");
+    expect(html).toContain("--paper: oklch(0.99 0.003 80);");
+  });
+
+  it("never uses a pure black or white literal", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    expect(html).not.toMatch(/#(?:fff(?:fff)?|000(?:000)?)\b/i);
+  });
+
+  it("embeds all 11 brand font weights/styles as base64 data-URI @font-face rules, no CDN link", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const faceCount = (html.match(/@font-face/g) ?? []).length;
+    expect(faceCount).toBe(11);
+    expect(html).toContain('src: url(data:font/woff2;base64,');
+    expect(html).toContain('format("woff2")');
+    expect(html).not.toContain("fonts.googleapis.com");
+    expect(html).not.toContain("fonts.gstatic.com");
+    // Newsreader normal + italic, both present.
+    expect(html).toMatch(/font-family: "Newsreader";\s*font-style: normal;\s*font-weight: 400;/);
+    expect(html).toMatch(/font-family: "Newsreader";\s*font-style: italic;\s*font-weight: 600;/);
+    expect(html).toMatch(/font-family: "IBM Plex Sans";\s*font-style: normal;\s*font-weight: 500;/);
+    expect(html).toMatch(/font-family: "IBM Plex Mono";\s*font-style: normal;\s*font-weight: 400;/);
+  });
+
+  it("produces identical font-face bytes across renders (deterministic embedding)", () => {
+    const first = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    const second = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const extractFaces = (html: string) => html.slice(html.indexOf("@font-face"), html.indexOf(":root"));
+    expect(extractFaces(first)).toBe(extractFaces(second));
+  });
+
+  it("renders a touchline footer on every slide with a deterministic NN / total counter and position tick", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const sectionCount = (html.match(/<section class="slide"/g) ?? []).length;
+    const footerCount = (html.match(/<footer class="touchline">/g) ?? []).length;
+    expect(footerCount).toBe(sectionCount);
+    expect(html).toContain(`01 / ${sectionCount}`);
+    expect(html).toContain(`${String(sectionCount).padStart(2, "0")} / ${sectionCount}`);
+    expect(html).toMatch(/<span class="touchline-tick" style="left: [\d.]+%"><\/span>/);
+  });
+
+  it("renders a right-aligned mono time-rail chip on activity slides carrying the extracted 'When' value", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
+    // field_setup's fixture trigger ("60 minutes before first kickoff") is
+    // humanized unchanged (no T+/- or Nh shorthand to expand) and now lives
+    // only in the time-rail chip, not in a separate "When:" meta line.
+    expect(html).toContain('<p class="time-rail">60 minutes before first kickoff</p>');
+    expect(html).not.toContain("<strong>When:</strong>");
+  });
+
+  it("gives the poster slide a print-CSS override back to the cream/ink palette", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const printBlockStart = html.indexOf("@media print");
+    expect(printBlockStart).toBeGreaterThan(-1);
+    const printBlock = html.slice(printBlockStart);
+    expect(printBlock).toContain('[data-kind="poster"] {');
+    expect(printBlock).toContain("background: var(--cream) !important;");
+    expect(printBlock).toContain("color: var(--ink) !important;");
+  });
+
+  it("restricts the primary red-orange accent to the poster quote mark, focus states, links, and the touchline tick", () => {
+    const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
+    const primaryUsages = [...html.matchAll(/color:\s*var\(--primary\)|background:\s*var\(--primary\)|outline:\s*2px solid var\(--primary\)/g)];
+    // a { color }, focus-visible outline, .poster-quote color, .touchline-tick background.
+    expect(primaryUsages.length).toBe(4);
+  });
+});
+
 describe("generateAllTrainingDecks", () => {
   it("returns one deck per worker role and excludes customer/system roles", () => {
     const all = generateAllTrainingDecks(buildInlineCatalog());
@@ -410,11 +494,13 @@ describe("renderTrainingDeck — role purpose slide", () => {
     return html.split('<section class="slide"');
   }
 
-  it("renders the role purpose slide immediately after the title slide, with the exact reviewed statement, for the coach role", () => {
+  it("renders the role purpose slide as a locker-room poster immediately after the title slide, with the exact reviewed statement, for the coach role", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.coach);
     const slides = slideBodies(html);
     // slides[0] is pre-slide shell markup, slides[1] the title slide, slides[2] the purpose slide.
-    expect(slides[2]).toContain("<h2>Why this role matters</h2>");
+    expect(slides[2]).toContain('data-kind="poster"');
+    expect(slides[2]).toContain('<p class="poster-role-label">Coach</p>');
+    expect(slides[2]).toContain('<span class="poster-quote" aria-hidden="true">&#8220;</span>');
     expect(slides[2]).toContain(
       "You develop people. Every practice is a chance to help a child get better at the game and more confident in themselves — development over winning, always.",
     );
@@ -423,7 +509,8 @@ describe("renderTrainingDeck — role purpose slide", () => {
   it("renders the exact reviewed statement for the venue manager role", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
     const slides = slideBodies(html);
-    expect(slides[2]).toContain("<h2>Why this role matters</h2>");
+    expect(slides[2]).toContain('data-kind="poster"');
+    expect(slides[2]).toContain('<p class="poster-role-label">Venue Manager</p>');
     // escapeHtml turns the statement's apostrophe into &#39; — same convention
     // already used elsewhere in this file (see "You&#39;re part of this").
     expect(slides[2]).toContain(
@@ -433,7 +520,10 @@ describe("renderTrainingDeck — role purpose slide", () => {
 
   it("skips the purpose slide gracefully for a role with no ROLE_PURPOSE entry, without breaking the rest of the deck", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.parent);
-    expect(html).not.toContain("Why this role matters");
+    // DECK_CSS itself references `[data-kind="poster"]` as a selector (present
+    // in every deck regardless of content), so assert on the actual <section>
+    // attribute usage, not the bare substring.
+    expect(html).not.toMatch(/<section class="slide" data-index="\d+" data-kind="poster"/);
     // Philosophy section (always present) becomes the very next slide instead.
     const slides = slideBodies(html);
     expect(slides[2]).toContain("<h2>What we believe</h2>");
@@ -466,10 +556,18 @@ describe("renderTrainingDeck — company philosophy section", () => {
     const coachSlides = slideBodies(coachHtml);
     const venueSlides = slideBodies(venueHtml);
     // Both roles have a purpose slide, so the philosophy section lands at the
-    // same slide indices (3, 4, 5) for both.
-    expect(coachSlides[3]).toBe(venueSlides[3]);
-    expect(coachSlides[4]).toBe(venueSlides[4]);
-    expect(coachSlides[5]).toBe(venueSlides[5]);
+    // same slide indices (3, 4, 5) for both. Each slide's touchline footer
+    // (see renderTouchlineFooter) is deliberately position-dependent — its
+    // "NN / total" counter and tick offset are baked from (index, total
+    // slide count), which can legitimately differ between two role decks
+    // with a different number of matched activities. Strip the footer
+    // before comparing so this assertion is about the philosophy content
+    // itself, not a coincidence of the two fixture roles currently having
+    // equal slide counts.
+    const withoutFooter = (slide: string) => slide.slice(0, slide.indexOf('<footer class="touchline"'));
+    expect(withoutFooter(coachSlides[3])).toBe(withoutFooter(venueSlides[3]));
+    expect(withoutFooter(coachSlides[4])).toBe(withoutFooter(venueSlides[4]));
+    expect(withoutFooter(coachSlides[5])).toBe(withoutFooter(venueSlides[5]));
   });
 });
 
