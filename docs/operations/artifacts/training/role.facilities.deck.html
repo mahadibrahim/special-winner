@@ -309,6 +309,37 @@
     border-radius: 6px;
   }
   .screenshot-frame.screenshot-missing { display: none; }
+  /* Product-tour slides — the screenshot IS the slide (a visual how-to,
+     not an activity procedure with an inline screenshot alongside a meta
+     panel), so it gets a much larger, framed treatment:
+     centered, a real drop shadow, capped height so a tall screen capture
+     never pushes the caption below the fold. */
+  .screenshot-frame--tour {
+    margin: 1.5rem auto 0;
+    max-width: 900px;
+  }
+  .screenshot-frame--tour img {
+    display: block;
+    width: 100%;
+    max-height: 56vh;
+    object-fit: contain;
+    object-position: top center;
+    border-radius: 8px;
+    box-shadow: 0 12px 32px oklch(0.2 0.02 260 / 0.14);
+  }
+  .tour-step-kicker { margin-bottom: 0.5rem; }
+  .tour-caption {
+    margin: 1.5rem auto 0;
+    max-width: 68ch;
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+    text-align: center;
+  }
+  .tour-empty-note {
+    margin-top: 1.5rem;
+    text-align: center;
+  }
   .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
   .phase-overview li::marker { color: var(--ochre); }
   .empty-note { color: var(--ink-muted); font-style: italic; }
@@ -806,8 +837,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">01 / 36</span>
-      <span class="touchline-tick" style="left: 2.778%"></span>
+      <span class="touchline-counter">01 / 37</span>
+      <span class="touchline-tick" style="left: 2.703%"></span>
     </footer></section>
 <section class="slide" data-index="1" data-kind="poster"><p class="poster-role-label">Facilities</p>
     <div class="poster-layout">
@@ -819,8 +850,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">02 / 36</span>
-      <span class="touchline-tick" style="left: 5.556%"></span>
+      <span class="touchline-counter">02 / 37</span>
+      <span class="touchline-tick" style="left: 5.405%"></span>
     </footer></section>
 <section class="slide" data-index="2"><h2>Your job</h2>
     <p>You keep the field, court, and equipment ready all day. You check equipment ahead of time, stage gear, set up parking and signage, prep the field or court and check lines before each match, then turn the field over and reset it between matches, log any field damage, and store equipment and handle trash at the end of the day.</p>
@@ -831,8 +862,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">03 / 36</span>
-      <span class="touchline-tick" style="left: 8.333%"></span>
+      <span class="touchline-counter">03 / 37</span>
+      <span class="touchline-tick" style="left: 8.108%"></span>
     </footer></section>
 <section class="slide" data-index="3"><h2>Your toolkit</h2>
     <p class="slide-kicker">Everything your activities call for, in one place.</p>
@@ -848,8 +879,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">04 / 36</span>
-      <span class="touchline-tick" style="left: 11.111%"></span>
+      <span class="touchline-counter">04 / 37</span>
+      <span class="touchline-tick" style="left: 10.811%"></span>
     </footer></section>
 <section class="slide" data-index="4"><h2>How time works on your day</h2>
     <div class="frame-layout">
@@ -868,8 +899,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">05 / 36</span>
-      <span class="touchline-tick" style="left: 13.889%"></span>
+      <span class="touchline-counter">05 / 37</span>
+      <span class="touchline-tick" style="left: 13.514%"></span>
     </footer></section>
 <section class="slide" data-index="5"><h2>What we believe</h2>
     <p>These four beliefs shape every practice plan, every sideline conversation, and every call we make about a kid.</p>
@@ -883,8 +914,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">06 / 36</span>
-      <span class="touchline-tick" style="left: 16.667%"></span>
+      <span class="touchline-counter">06 / 37</span>
+      <span class="touchline-tick" style="left: 16.216%"></span>
     </footer></section>
 <section class="slide" data-index="6"><h2>What we believe (continued)</h2>
     <div class="belief">
@@ -897,8 +928,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">07 / 36</span>
-      <span class="touchline-tick" style="left: 19.444%"></span>
+      <span class="touchline-counter">07 / 37</span>
+      <span class="touchline-tick" style="left: 18.919%"></span>
     </footer></section>
 <section class="slide" data-index="7"><h2>How that shows up day to day</h2>
     <p>We coach to two goals at once: compete to win, and grow every player's character and competence. When those two pull in different directions, character comes first.</p>
@@ -906,8 +937,8 @@ turnover, reset, and close-down.</p>
     <p><strong>Whatever your role, this is what families should feel from us.</strong></p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">08 / 36</span>
-      <span class="touchline-tick" style="left: 22.222%"></span>
+      <span class="touchline-counter">08 / 37</span>
+      <span class="touchline-tick" style="left: 21.622%"></span>
     </footer></section>
 <section class="slide" data-index="8"><h2>Your day at a glance</h2>
     <div class="frame-layout">
@@ -926,8 +957,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">09 / 36</span>
-      <span class="touchline-tick" style="left: 25.000%"></span>
+      <span class="touchline-counter">09 / 37</span>
+      <span class="touchline-tick" style="left: 24.324%"></span>
     </footer></section>
 <section class="slide" data-index="9" data-kind="divider"><span class="divider-mark" aria-hidden="true">01</span>
     <div class="divider-textblock">
@@ -937,8 +968,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">10 / 36</span>
-      <span class="touchline-tick" style="left: 27.778%"></span>
+      <span class="touchline-counter">10 / 37</span>
+      <span class="touchline-tick" style="left: 27.027%"></span>
     </footer></section>
 <section class="slide" data-index="10"><h2>Equipment inventory check</h2>
     <div class="frame-layout">
@@ -957,8 +988,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">11 / 36</span>
-      <span class="touchline-tick" style="left: 30.556%"></span>
+      <span class="touchline-counter">11 / 37</span>
+      <span class="touchline-tick" style="left: 29.730%"></span>
     </footer></section>
 <section class="slide" data-index="11" data-kind="divider"><span class="divider-mark" aria-hidden="true">02</span>
     <div class="divider-textblock">
@@ -968,8 +999,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">12 / 36</span>
-      <span class="touchline-tick" style="left: 33.333%"></span>
+      <span class="touchline-counter">12 / 37</span>
+      <span class="touchline-tick" style="left: 32.432%"></span>
     </footer></section>
 <section class="slide" data-index="12"><h2>Equipment staging</h2>
     <div class="frame-layout">
@@ -988,8 +1019,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">13 / 36</span>
-      <span class="touchline-tick" style="left: 36.111%"></span>
+      <span class="touchline-counter">13 / 37</span>
+      <span class="touchline-tick" style="left: 35.135%"></span>
     </footer></section>
 <section class="slide" data-index="13"><h2>Parking setup</h2>
     <div class="frame-layout">
@@ -1008,8 +1039,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">14 / 36</span>
-      <span class="touchline-tick" style="left: 38.889%"></span>
+      <span class="touchline-counter">14 / 37</span>
+      <span class="touchline-tick" style="left: 37.838%"></span>
     </footer></section>
 <section class="slide" data-index="14"><h2>Signage setup</h2>
     <div class="frame-layout">
@@ -1028,8 +1059,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">15 / 36</span>
-      <span class="touchline-tick" style="left: 41.667%"></span>
+      <span class="touchline-counter">15 / 37</span>
+      <span class="touchline-tick" style="left: 40.541%"></span>
     </footer></section>
 <section class="slide" data-index="15" data-kind="divider"><span class="divider-mark" aria-hidden="true">03</span>
     <div class="divider-textblock">
@@ -1039,8 +1070,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">16 / 36</span>
-      <span class="touchline-tick" style="left: 44.444%"></span>
+      <span class="touchline-counter">16 / 37</span>
+      <span class="touchline-tick" style="left: 43.243%"></span>
     </footer></section>
 <section class="slide" data-index="16"><h2>Field/court setup (per match)</h2>
     <div class="frame-layout">
@@ -1059,8 +1090,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">17 / 36</span>
-      <span class="touchline-tick" style="left: 47.222%"></span>
+      <span class="touchline-counter">17 / 37</span>
+      <span class="touchline-tick" style="left: 45.946%"></span>
     </footer></section>
 <section class="slide" data-index="17"><h2>Flag football field line check</h2>
     <div class="frame-layout">
@@ -1079,8 +1110,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">18 / 36</span>
-      <span class="touchline-tick" style="left: 50.000%"></span>
+      <span class="touchline-counter">18 / 37</span>
+      <span class="touchline-tick" style="left: 48.649%"></span>
     </footer></section>
 <section class="slide" data-index="18" data-kind="divider"><span class="divider-mark" aria-hidden="true">04</span>
     <div class="divider-textblock">
@@ -1090,8 +1121,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">19 / 36</span>
-      <span class="touchline-tick" style="left: 52.778%"></span>
+      <span class="touchline-counter">19 / 37</span>
+      <span class="touchline-tick" style="left: 51.351%"></span>
     </footer></section>
 <section class="slide" data-index="19"><h2>Equipment turnover (between matches)</h2>
     <div class="frame-layout">
@@ -1110,8 +1141,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">20 / 36</span>
-      <span class="touchline-tick" style="left: 55.556%"></span>
+      <span class="touchline-counter">20 / 37</span>
+      <span class="touchline-tick" style="left: 54.054%"></span>
     </footer></section>
 <section class="slide" data-index="20"><h2>Field damage report</h2>
     <div class="frame-layout">
@@ -1130,8 +1161,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, Venue Manager logs the damage and escalates to Director for repair authorization.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">21 / 36</span>
-      <span class="touchline-tick" style="left: 58.333%"></span>
+      <span class="touchline-counter">21 / 37</span>
+      <span class="touchline-tick" style="left: 56.757%"></span>
     </footer></section>
 <section class="slide" data-index="21"><h2>Field reset between matches</h2>
     <div class="frame-layout">
@@ -1150,8 +1181,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">22 / 36</span>
-      <span class="touchline-tick" style="left: 61.111%"></span>
+      <span class="touchline-counter">22 / 37</span>
+      <span class="touchline-tick" style="left: 59.459%"></span>
     </footer></section>
 <section class="slide" data-index="22" data-kind="divider"><span class="divider-mark" aria-hidden="true">05</span>
     <div class="divider-textblock">
@@ -1161,8 +1192,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">23 / 36</span>
-      <span class="touchline-tick" style="left: 63.889%"></span>
+      <span class="touchline-counter">23 / 37</span>
+      <span class="touchline-tick" style="left: 62.162%"></span>
     </footer></section>
 <section class="slide" data-index="23"><h2>Equipment storage</h2>
     <div class="frame-layout">
@@ -1181,8 +1212,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">24 / 36</span>
-      <span class="touchline-tick" style="left: 66.667%"></span>
+      <span class="touchline-counter">24 / 37</span>
+      <span class="touchline-tick" style="left: 64.865%"></span>
     </footer></section>
 <section class="slide" data-index="24"><h2>Trash disposal</h2>
     <div class="frame-layout">
@@ -1201,8 +1232,8 @@ turnover, reset, and close-down.</p>
     <div class="escalation-footnote"><strong>If something goes wrong:</strong> If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">25 / 36</span>
-      <span class="touchline-tick" style="left: 69.444%"></span>
+      <span class="touchline-counter">25 / 37</span>
+      <span class="touchline-tick" style="left: 67.568%"></span>
     </footer></section>
 <section class="slide" data-index="25" data-kind="divider"><div class="divider-textblock">
       <p class="slide-kicker">Appendix</p>
@@ -1211,8 +1242,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">26 / 36</span>
-      <span class="touchline-tick" style="left: 72.222%"></span>
+      <span class="touchline-counter">26 / 37</span>
+      <span class="touchline-tick" style="left: 70.270%"></span>
     </footer></section>
 <section class="slide" data-index="26"><div class="clipboard-card">
       <h2>Equipment inventory</h2>
@@ -1220,8 +1251,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">27 / 36</span>
-      <span class="touchline-tick" style="left: 75.000%"></span>
+      <span class="touchline-counter">27 / 37</span>
+      <span class="touchline-tick" style="left: 72.973%"></span>
     </footer></section>
 <section class="slide" data-index="27"><div class="clipboard-card">
       <h2>Equipment staging</h2>
@@ -1229,8 +1260,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">28 / 36</span>
-      <span class="touchline-tick" style="left: 77.778%"></span>
+      <span class="touchline-counter">28 / 37</span>
+      <span class="touchline-tick" style="left: 75.676%"></span>
     </footer></section>
 <section class="slide" data-index="28"><div class="clipboard-card">
       <h2>Equipment storage</h2>
@@ -1238,8 +1269,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">29 / 36</span>
-      <span class="touchline-tick" style="left: 80.556%"></span>
+      <span class="touchline-counter">29 / 37</span>
+      <span class="touchline-tick" style="left: 78.378%"></span>
     </footer></section>
 <section class="slide" data-index="29"><div class="clipboard-card">
       <h2>Equipment turnover</h2>
@@ -1247,8 +1278,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">30 / 36</span>
-      <span class="touchline-tick" style="left: 83.333%"></span>
+      <span class="touchline-counter">30 / 37</span>
+      <span class="touchline-tick" style="left: 81.081%"></span>
     </footer></section>
 <section class="slide" data-index="30"><div class="clipboard-card">
       <h2>Field reset</h2>
@@ -1256,8 +1287,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">31 / 36</span>
-      <span class="touchline-tick" style="left: 86.111%"></span>
+      <span class="touchline-counter">31 / 37</span>
+      <span class="touchline-tick" style="left: 83.784%"></span>
     </footer></section>
 <section class="slide" data-index="31"><div class="clipboard-card">
       <h2>Parking setup</h2>
@@ -1265,8 +1296,8 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">32 / 36</span>
-      <span class="touchline-tick" style="left: 88.889%"></span>
+      <span class="touchline-counter">32 / 37</span>
+      <span class="touchline-tick" style="left: 86.486%"></span>
     </footer></section>
 <section class="slide" data-index="32"><div class="clipboard-card">
       <h2>Trash disposal</h2>
@@ -1274,25 +1305,32 @@ turnover, reset, and close-down.</p>
     </div><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">33 / 36</span>
-      <span class="touchline-tick" style="left: 91.667%"></span>
+      <span class="touchline-counter">33 / 37</span>
+      <span class="touchline-tick" style="left: 89.189%"></span>
     </footer></section>
 <section class="slide" data-index="33"><h2>Safety &amp; escalation</h2>
     <ul class="escalation-list"><li>If Facilities unreachable, Venue Manager logs the damage and escalates to Director for repair authorization.</li><li>If Facilities unreachable, escalate to Venue Manager per the standard handoff ladder.</li></ul>
     <p><strong>You may need to escalate to:</strong> Director, Facilities, Venue Manager</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">34 / 36</span>
-      <span class="touchline-tick" style="left: 94.444%"></span>
+      <span class="touchline-counter">34 / 37</span>
+      <span class="touchline-tick" style="left: 91.892%"></span>
     </footer></section>
 <section class="slide" data-index="34"><h2>Your tools</h2>
       <p class="empty-note">No dedicated portal pages yet for this role — coordinate through your venue manager or director until one ships.</p><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">35 / 36</span>
-      <span class="touchline-tick" style="left: 97.222%"></span>
+      <span class="touchline-counter">35 / 37</span>
+      <span class="touchline-tick" style="left: 94.595%"></span>
     </footer></section>
-<section class="slide" data-index="35"><h2>Where to get help</h2>
+<section class="slide" data-index="35"><h2>Using the system</h2>
+          <p class="empty-note tour-empty-note">You work off the checklists in this deck — there&#39;s no separate app screen for your day-of setup, field prep, and teardown work.</p><footer class="touchline">
+      <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
+      <span class="touchline-counter">36 / 37</span>
+      <span class="touchline-tick" style="left: 97.297%"></span>
+    </footer></section>
+<section class="slide" data-index="36"><h2>Where to get help</h2>
     <ol>
       <li>Check this deck's Safety &amp; escalation slide for your activity's specific chain.</li>
       <li>Escalate per that chain first — most issues have a named next step.</li>
@@ -1300,7 +1338,7 @@ turnover, reset, and close-down.</p>
     </ol><footer class="touchline">
       <span class="touchline-logo touchline-logo--dark" role="img" aria-label="Aspire Sports"></span>
       <span class="touchline-logo touchline-logo--light" role="img" aria-label="Aspire Sports"></span>
-      <span class="touchline-counter">36 / 36</span>
+      <span class="touchline-counter">37 / 37</span>
       <span class="touchline-tick" style="left: 100.000%"></span>
     </footer></section>
 <div class="nav-controls">

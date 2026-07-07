@@ -309,6 +309,37 @@
     border-radius: 6px;
   }
   .screenshot-frame.screenshot-missing { display: none; }
+  /* Product-tour slides — the screenshot IS the slide (a visual how-to,
+     not an activity procedure with an inline screenshot alongside a meta
+     panel), so it gets a much larger, framed treatment:
+     centered, a real drop shadow, capped height so a tall screen capture
+     never pushes the caption below the fold. */
+  .screenshot-frame--tour {
+    margin: 1.5rem auto 0;
+    max-width: 900px;
+  }
+  .screenshot-frame--tour img {
+    display: block;
+    width: 100%;
+    max-height: 56vh;
+    object-fit: contain;
+    object-position: top center;
+    border-radius: 8px;
+    box-shadow: 0 12px 32px oklch(0.2 0.02 260 / 0.14);
+  }
+  .tour-step-kicker { margin-bottom: 0.5rem; }
+  .tour-caption {
+    margin: 1.5rem auto 0;
+    max-width: 68ch;
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+    text-align: center;
+  }
+  .tour-empty-note {
+    margin-top: 1.5rem;
+    text-align: center;
+  }
   .checklist li, .phase-overview li, .escalation-list li, .walkthrough-list li { margin-bottom: 0.4rem; }
   .phase-overview li::marker { color: var(--ochre); }
   .empty-note { color: var(--ink-muted); font-style: italic; }
