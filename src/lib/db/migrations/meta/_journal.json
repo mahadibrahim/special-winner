@@ -505,6 +505,13 @@
       "when": 1783463015471,
       "tag": "0071_shiny_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1783464931307,
+      "tag": "0072_shallow_shard",
+      "breakpoints": true
     }
   ]
 }
