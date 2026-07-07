@@ -2,7 +2,27 @@ id: frm.staff_debrief
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: attendees
+    label: Who was in the debrief
+    type: text
+    required: true
+  - id: what_worked
+    label: What worked today
+    type: long_text
+    required: false
+  - id: what_broke
+    label: What broke or ran rough
+    type: long_text
+    required: false
+  - id: office_followups
+    label: Anything to flag for the office (repairs, reorders, personnel)
+    type: long_text
+    required: false
+  - id: incident_mentioned
+    label: Was an incident or safety issue mentioned?
+    type: boolean
+    required: true
+  - id: incident_detail
+    label: If yes, brief note (full report is a separate activity)
     type: text
     required: false

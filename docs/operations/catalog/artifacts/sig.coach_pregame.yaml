@@ -2,4 +2,6 @@ id: sig.coach_pregame
 kind: signature
 status: stub
 required_role: role.coach
-prompt: (placeholder — full prompt pending operator authorship)
+prompt: >-
+  I confirm I attended today's pregame briefing and understand the
+  rules of the day, conduct expectations, and today's ref crew.

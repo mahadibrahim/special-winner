@@ -2,7 +2,59 @@ id: frm.cash_reconcile
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: counted_by
+    label: Counted by
+    type: text
+    required: true
+  - id: witnessed_by
+    label: Witnessed by (second person present for the count)
+    type: text
+    required: true
+  - id: opening_bank
+    label: Opening bank (fixed starting cash)
+    type: number
+    required: true
+  - id: drawer_cash_counted
+    label: Drawer cash counted (total)
+    type: number
+    required: true
+  - id: cash_sales
+    label: Cash sales (drawer count minus opening bank)
+    type: number
+    required: true
+  - id: pos_card_sales
+    label: Card sales per POS Z-report
+    type: number
+    required: true
+  - id: pos_total_sales
+    label: Total sales per POS Z-report
+    type: number
+    required: true
+  - id: units_sold_by_item
+    label: Units sold by item (closing inventory vs. opening count)
+    type: long_text
+    required: true
+  - id: expected_revenue
+    label: Expected revenue (units sold x price)
+    type: number
+    required: true
+  - id: variance
+    label: Variance (expected revenue vs. cash + card sales), over or short
+    type: number
+    required: true
+  - id: variance_within_tolerance
+    label: Variance within normal tolerance?
+    type: boolean
+    required: true
+  - id: recount_performed
+    label: Recount performed (if outside tolerance)?
+    type: boolean
+    required: false
+  - id: variance_explanation
+    label: Explanation if outside tolerance after recount
+    type: long_text
+    required: false
+  - id: escalated_to
+    label: Escalated to (venue manager / director) if applicable
     type: text
     required: false

@@ -2,7 +2,27 @@ id: frm.lost_and_found_inventory
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: item_description
+    label: Item description (specific — color, brand, size)
+    type: text
+    required: true
+  - id: area_found
+    label: Area found (field/court, bleachers, restroom, parking lot, etc.)
+    type: text
+    required: true
+  - id: contact_info
+    label: Contact info visible on the item (name/phone/team), if any
     type: text
     required: false
+  - id: matched_to_report
+    label: Matched to an inquiry already reported today?
+    type: boolean
+    required: false
+  - id: outreach_made
+    label: Outreach made to the owner using available contact info?
+    type: boolean
+    required: false
+  - id: stored_location
+    label: Stored in lost-and-found holding area
+    type: boolean
+    required: true

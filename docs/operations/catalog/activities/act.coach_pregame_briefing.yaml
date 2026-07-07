@@ -24,9 +24,26 @@ escalation_path: |
   If event_lead unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. This runs for youth-league matches only, alongside team check-in,
+     about 15 minutes before kickoff — adult leagues are self-managed
+     and skip it entirely.
+  2. Gather both teams' coaches together, not one at a time, so both
+     hear the same information.
+  3. Cover rules of the day: any format quirks (small-sided rules,
+     quarter/half length for the age group), and anything from the
+     coach pregame dispatch packet worth repeating out loud.
+  4. Cover special situations: weather watch status if outdoor, any
+     field/court condition notes, rescheduled or shortened matches.
+  5. Restate conduct expectations — sideline coaching by parents,
+     unsporting conduct, and that the code of conduct enforcement
+     activity is what handles violations, not an on-field argument.
+  6. Introduce the ref crew for the match if the coaches haven't already
+     met them at this venue.
+  7. Ask if either coach has a conflict to flag before kickoff (a
+     player who needs to leave early, an injury from warmups).
+  8. Each coach signs to acknowledge the briefing.
+  9. If the event lead can't run the briefing, escalate to the venue
+     manager per the escalation path rather than skipping it.
 tracking_method: signature
 tracking_artifact:
   template_id: sig.coach_pregame

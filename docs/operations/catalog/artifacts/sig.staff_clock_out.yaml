@@ -2,4 +2,6 @@ id: sig.staff_clock_out
 kind: signature
 status: stub
 required_role: role.front_of_house
-prompt: (placeholder — full prompt pending operator authorship)
+prompt: >-
+  I confirm this staff member's end time and any shift notes are
+  accurate, and I'm closing their labor record for today.

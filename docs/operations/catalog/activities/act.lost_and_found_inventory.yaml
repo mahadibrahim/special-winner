@@ -24,9 +24,27 @@ escalation_path: |
   If front_of_house unreachable, role.event_lead inventories and
   escalates to role.venue_manager per the standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. After the venue clears at end of day, do one final sweep of common
+     areas — bleachers, sidelines, locker rooms, restrooms, concession
+     seating — for anything left behind, in addition to whatever's
+     already in the lost-and-found bin.
+  2. For each item, log a description specific enough to identify it
+     (color, brand, size) — "water bottle" isn't enough on a day with
+     six lost water bottles.
+  3. Log where it was found (field/court, bleachers, restroom, parking
+     lot) so a family calling in has a starting point.
+  4. If a name, phone number, or team is visible on the item itself,
+     log that contact info directly against the entry.
+  5. If someone already reported the item missing today and you can
+     match it, note the match and reach out with the contact info you
+     have rather than waiting for them to call the office.
+  6. Store the physical items together in the lost-and-found holding
+     area, not scattered across storage.
+  7. Submit the inventory form — this is what the office uses to match
+     items to inquiries and to know what's still eligible for the
+     holding-window disposal.
+  8. If front of house isn't available to run this at close, the event
+     lead does the inventory and escalates per the escalation path.
 tracking_method: form
 tracking_artifact:
   template_id: frm.lost_and_found_inventory

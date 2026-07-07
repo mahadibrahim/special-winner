@@ -1,4 +1,10 @@
 id: evt.coach_pregame_dispatch
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Fires when a coach's pregame briefing packet (roster, field
+  assignment, match time, opponent, ref crew, league notes) is sent.
+  Recorded per coach per match so the event lead can spot-check receipt
+  before the in-person pregame briefing and so a re-send can be
+  triggered if the ref assignment or field assignment changed after
+  the original dispatch.

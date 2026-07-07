@@ -23,9 +23,33 @@ escalation_path: |
   role.director; event_lead manually relays packets via direct message
   until automation recovers.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At 24 hours before kickoff, the scheduled job assembles each
+     coach's packet from the finalized data: their team's roster, the
+     field/court assignment, match time, opponent, assigned ref crew,
+     and any league-specific notes (format quirks, rule changes) for
+     that match.
+  2. The packet sends through the coach's preferred channel, with email
+     as the guaranteed fallback.
+  3. The send is recorded as the tracked system event with the coach
+     and match it was sent for.
+  4. No human action is needed on a normal send. Verification: the
+     event lead should spot-check that today's coaches actually
+     received their packets ahead of the in-person pregame briefing —
+     the briefing references the packet, so a missed dispatch surfaces
+     fast if a coach shows up not knowing their ref crew or field.
+  5. This depends on the ref assignment confirm and field assignment
+     publish both having completed — a dispatch that goes out before
+     either is finalized will carry incomplete or wrong info; check
+     those two activities first if a packet looks wrong.
+  6. If the job fails, the on-call platform engineer is paged per the
+     escalation path.
+  7. While automation is down, the event lead manually relays each
+     coach's packet by direct message using the same source data
+     (roster, assignments, ref crew) pulled from the admin tools.
+  8. Once the job recovers, confirm coaches who got a manual relay
+     aren't also getting a stale automated packet, and that any
+     last-minute change (a swapped ref, a moved field) is reflected in
+     whichever version actually reached the coach.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.coach_pregame_dispatch

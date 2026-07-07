@@ -23,9 +23,24 @@ escalation_path: |
   If front_of_house unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Do this right after concession setup finishes and before the stand
+     opens for its first sale — counting after sales have started
+     makes the numbers useless for reconciliation.
+  2. Count drinks by type and size, working from the front cooler back
+     to the stockroom so nothing gets double-counted.
+  3. Count snacks and packaged goods by SKU.
+  4. Count hot-food pars — the prepped starting quantity for items made
+     in batches (hot dogs, pretzels), not raw ingredient stock.
+  5. Count paper goods and consumables that affect per-unit cost
+     tracking: cups, napkins, condiment packets.
+  6. Enter every count into the inventory form by item — don't batch
+     categories together, since end-of-day reconciliation matches this
+     count line-by-line against the closing count.
+  7. Note anything already damaged, short-dated, or missing from the
+     expected opening stock before the first sale, and flag it to the
+     venue manager if it looks like a shrink or delivery problem.
+  8. Submit the form. This is what the cash and concession reconcile
+     compares against at the end of the day.
 tracking_method: form
 tracking_artifact:
   template_id: frm.concession_inventory

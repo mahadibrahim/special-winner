@@ -1,4 +1,9 @@
 id: evt.field_assignment_published
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Fires when per-match field/court/pitch assignments publish to
+  coaches, refs, and parents after the venue manager finalizes the
+  grid. Records the grid version published, so a later re-publish
+  (grid revision) can be traced and downstream sends (T-24h reminder,
+  coach pregame dispatch) can confirm they read the current version.

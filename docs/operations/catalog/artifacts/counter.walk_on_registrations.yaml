@@ -1,4 +1,10 @@
 id: counter.walk_on_registrations
 kind: counter
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Increments once per completed walk-on registration at
+  /admin/venue/walk-up (or the equivalent front-of-house intake flow) —
+  player/registrant info captured, payment recorded, waiver signed, and
+  the player added to the session roster. Used at end-of-day
+  reconciliation to tie walk-on counts to concession/session revenue
+  and to today's attendance numbers.

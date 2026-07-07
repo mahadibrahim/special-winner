@@ -2,5 +2,17 @@ id: chk.concession_setup
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: equipment_powered_on
+    label: Fountain machine, warmers, and hot-food equipment powered on and at operating temp
+  - id: stand_restocked
+    label: Front cooler / display cases restocked from the back cooler
+  - id: pos_ready
+    label: POS terminal connected, logged in, and opening cash bank confirmed
+  - id: fountain_calibrated
+    label: Fountain syrup ratios calibrated and taste-tested per flavor
+  - id: handwash_sanitizer_stocked
+    label: Hand-wash and sanitizer stations stocked
+  - id: food_safety_checked
+    label: Cold items cold, hot items hot, date-sensitive stock within date
+  - id: walkway_clear
+    label: Stand walkway clear, signage up, menu board updated for today's pricing

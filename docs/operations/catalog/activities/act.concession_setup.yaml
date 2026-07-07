@@ -23,9 +23,29 @@ escalation_path: |
   If front_of_house unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 90 minutes before first kickoff, power on all concession
+     equipment — fountain machine, warmers, grill/hot-food equipment,
+     registers — and give it time to reach operating temperature before
+     you need it.
+  2. Restock the front cooler and display cases from the back cooler so
+     the stand looks fully stocked when families arrive.
+  3. Set up the POS terminal: confirm it's connected, logged in under
+     today's shift, and the opening cash bank (the fixed starting
+     drawer amount) is in the drawer and matches the expected amount.
+  4. Calibrate fountain syrup-to-water ratios and taste-test each flavor
+     before opening — a flat or over-syrupy fountain is the most common
+     concession complaint.
+  5. Confirm hand-wash stations are stocked with soap and paper towels,
+     and sanitizer stations/wipes are stocked at the register and food
+     prep area.
+  6. Check food safety basics: cold items are cold, hot items are hot,
+     and any date-sensitive stock (dairy, prepped items) is within
+     date.
+  7. Do a final walk of the stand for anything blocking service — boxes
+     in the walkway, signage not yet up, menu board not updated for
+     today's pricing.
+  8. Once the stand is fully ready, mark the checklist complete — this
+     clears the way for the concession inventory count.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.concession_setup

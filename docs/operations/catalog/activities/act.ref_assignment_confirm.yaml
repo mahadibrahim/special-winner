@@ -23,9 +23,25 @@ escalation_path: |
   If event_lead unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Once the assignor publishes the match schedule (around 48 hours
+     before kickoff), pull the full match list for today's event window
+     and check which matches have a referee crew assigned.
+  2. For each assigned crew, check whether they've acknowledged the
+     assignment through the assignor tool or contractor channel.
+  3. Follow up directly with any ref who hasn't acknowledged — a quick
+     message asking for a yes/no is enough at this stage.
+  4. For any match still unassigned or any ref who declines, pull a
+     replacement from the standby ref pool and confirm they can cover
+     the match time and location.
+  5. Watch for a ref double-booked across two matches that overlap in
+     time, and reassign one of them before the day arrives.
+  6. Confirm the crew size matches what the match format needs (center
+     ref only vs. center plus assistants) for tournament or higher-level
+     matches.
+  7. Once every match on today's schedule shows a confirmed, acknowledged
+     ref crew, mark the checklist complete.
+  8. If a match still has no confirmed ref by T-24h, escalate per the
+     escalation path — don't let it ride into game day unresolved.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.ref_assignment_confirm

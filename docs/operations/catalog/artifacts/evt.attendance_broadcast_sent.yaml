@@ -1,4 +1,9 @@
 id: evt.attendance_broadcast_sent
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Fires when the T-72h attendance confirmation broadcast goes out to a
+  registered roster. Records the send timestamp, the channel(s) used
+  per recipient, and the roster size at send time so the event lead can
+  verify the job actually ran and later reconcile confirm/release
+  responses against it.

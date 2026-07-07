@@ -2,5 +2,17 @@ id: chk.ref_assignment_confirm
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: match_list_pulled
+    label: Full match list for the event window pulled
+  - id: assigned_crews_checked
+    label: Every match checked for an assigned referee crew
+  - id: acknowledgments_followed_up
+    label: Unacknowledged assignments followed up directly with the ref
+  - id: standby_backfilled
+    label: Unassigned matches / declines backfilled from the standby ref pool
+  - id: no_double_booking
+    label: No ref double-booked across overlapping match times
+  - id: crew_size_confirmed
+    label: Crew size (center only vs. center + assistants) matches the match format
+  - id: all_matches_confirmed
+    label: Every match on the schedule has a confirmed, acknowledged crew

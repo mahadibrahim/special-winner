@@ -25,9 +25,26 @@ escalation_path: |
   If event_lead unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 15 minutes before kickoff, have both teams' coaches (youth
+     leagues) or captains (adult leagues) come to the check-in station —
+     this is the same check-in station families see when they arrive.
+  2. Pull the team's roster on the check-in panel and confirm which
+     players are physically present for today's match.
+  3. Spot-check jerseys/uniforms match team colors so there's no
+     confusion once play starts.
+  4. If a guest player is being used (roster-eligible fill-in for a
+     short-handed team), confirm their guest-player paperwork is on
+     file before counting them as checked in.
+  5. Flag any player who isn't on the roster at all — they can't play
+     under this team's check-in; direct them to registration if they
+     believe it's an error.
+  6. Confirm both teams have enough checked-in players to meet the
+     format's minimum to start (per the sport's roster rules).
+  7. Submit the check-in form once both teams are confirmed — this both
+     gates kickoff and records today's attendance.
+  8. If either team can't field a legal minimum by kickoff, notify the
+     ref and follow the format's forfeit/delay rule rather than
+     starting short.
 tracking_method: form
 tracking_artifact:
   template_id: frm.team_check_in
