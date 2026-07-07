@@ -164,3 +164,5 @@ export type TimeEntry = typeof timeEntries.$inferSelect;
 export type NewTimeEntry = typeof timeEntries.$inferInsert;
 export type StaffLocationConsent = typeof staffLocationConsents.$inferSelect;
 export type NewStaffLocationConsent = typeof staffLocationConsents.$inferInsert;
+export type LaborRole = (typeof laborRoleEnum.enumValues)[number];
+export type LaborFlagReason = (typeof laborFlagReasonEnum.enumValues)[number];
