@@ -24,9 +24,23 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. 48 hours before the event window, walk the storage area with the
+     equipment manifest in hand.
+  2. Count balls by sport and size against the manifest (age-appropriate
+     sizes per program).
+  3. Count cones, pinnies/scrimmage vests, and portable goals or nets
+     against the manifest.
+  4. Count jerseys if venue-supplied, plus scoreboards, whistles, and
+     clipboards.
+  5. Check first-aid restock supply (bandages, tape, ice packs) against
+     par for the upcoming event — separate from the field kits checked
+     day-of.
+  6. Note any shortage or damaged item found during the count.
+  7. Order or arrange a borrow from another venue for anything short,
+     with enough lead time to arrive before the event; flag to the venue
+     manager if a shortage can't be resolved in time.
+  8. Log the completed count so equipment storage has a clean baseline to
+     compare against after the event.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_inventory

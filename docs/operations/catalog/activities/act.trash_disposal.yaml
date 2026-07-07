@@ -23,9 +23,19 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. After the last match concludes at an owned venue, pull all interior
+     trash bags — restrooms, concessions, locker rooms, office.
+  2. Pull all sideline and spectator-area trash bags and any recycling.
+  3. Walk bags to the dumpster/disposal area; don't leave bagged trash
+     staged inside overnight.
+  4. Replace liners in every bin you emptied.
+  5. Break down and dispose of any cardboard or bulk packaging from the
+     day (concession deliveries, equipment boxes).
+  6. Confirm the dumpster/disposal area lid or gate is closed and locked
+     after use.
+  7. Note any overflow issue (dumpster full, missed pickup) and flag it
+     to the venue manager so the hauler can be contacted before the next
+     event.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.trash_disposal

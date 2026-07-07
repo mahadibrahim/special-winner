@@ -23,9 +23,23 @@ escalation_path: |
   If venue_manager unreachable, escalate to role.director per the
   standard handoff ladder; no event begins without a verified kit.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Open every first-aid kit on premises — one per field/court plus any
+     building kit.
+  2. Check contents against the kit manifest: bandages, gauze, tape,
+     antiseptic wipes, gloves, cold packs, CPR mask.
+  3. Restock any missing or expired item from bulk supply before moving
+     to the next kit.
+  4. Locate the AED and confirm it's in its wall mount or designated
+     spot.
+  5. Check the AED's battery indicator and confirm the pads are within
+     their expiration date; swap in fresh pads from backup stock if
+     they've expired.
+  6. Confirm each kit's location is known to today's coaches and event
+     leads — a kit at the field/court is one of the items on their own
+     session-open check.
+  7. Log the check complete. No event begins without a verified kit — if
+     any kit or the AED can't be verified, escalate immediately per the
+     escalation path and hold the start of play at that surface.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.first_aid

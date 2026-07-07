@@ -2,5 +2,17 @@ id: chk.parking_setup
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: traffic_flow_marked
+    label: Cones/ropes placed to mark traffic flow
+  - id: signage_placed
+    label: Directional and reserved-row signage placed
+  - id: entry_staffed
+    label: Entry point staffed if attended parking
+  - id: overflow_route_clear
+    label: Overflow route walked and confirmed clear
+  - id: accessible_spaces_confirmed
+    label: Accessible parking spaces clear, marked, and closest to the accessible entrance
+  - id: lighting_checked
+    label: Lot lighting checked if the event runs into evening
+  - id: hazards_flagged
+    label: Any surface hazard flagged to the venue manager

@@ -2,7 +2,38 @@ id: frm.opening_walkthrough_findings
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: area
+    label: Area
+    type: enum
+    options:
+      - Playing surface
+      - Restrooms
+      - Locker rooms
+      - Bleachers/spectator areas
+      - Parking lot
+      - Other
+    required: true
+  - id: finding
+    label: What did you find?
+    type: long_text
+    required: true
+  - id: location_detail
+    label: Specific location within the area
+    type: text
+    required: false
+  - id: severity
+    label: Severity
+    type: enum
+    options:
+      - Informational
+      - Needs attention before event
+      - Safety hazard — hold event
+    required: true
+  - id: resolved_before_event
+    label: Resolved before first kickoff?
+    type: boolean
+    required: true
+  - id: escalated_to
+    label: Escalated to (if anyone)
     type: text
     required: false

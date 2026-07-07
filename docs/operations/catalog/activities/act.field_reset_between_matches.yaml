@@ -23,9 +23,20 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At the final whistle, do a rapid trash pickup along the sidelines
+     and benches before the next teams arrive.
+  2. Sweep the playing surface for debris, displaced equipment, and any
+     personal items (route items to lost and found).
+  3. Check field markings/lines and re-line or touch up any that shifted
+     or faded during the match.
+  4. Replace any displaced markers — corner flags, cone lines, boundary
+     markers — to their correct position.
+  5. Confirm benches and team areas are clear and ready for the next
+     teams.
+  6. Confirm the surface meets the same safety standard as the pregame
+     field/court setup — no new hazards introduced during play.
+  7. Complete within the 15-minute turnover window so the next match
+     isn't delayed.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.field_reset

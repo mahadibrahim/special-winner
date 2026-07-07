@@ -2,5 +2,17 @@ id: chk.trash_disposal
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: interior_bags_pulled
+    label: Interior trash bags pulled (restrooms, concessions, locker rooms, office)
+  - id: sideline_bags_pulled
+    label: Sideline and spectator-area trash and recycling pulled
+  - id: bags_taken_to_dumpster
+    label: Bags walked to the dumpster/disposal area
+  - id: liners_replaced
+    label: Liners replaced in every emptied bin
+  - id: cardboard_broken_down
+    label: Cardboard and bulk packaging broken down and disposed
+  - id: disposal_area_secured
+    label: Dumpster/disposal area closed and locked after use
+  - id: overflow_flagged
+    label: Any overflow or missed-pickup issue flagged to the venue manager

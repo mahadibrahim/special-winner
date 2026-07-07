@@ -2,5 +2,17 @@ id: chk.equipment_turnover
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: equipment_collected
+    label: Match-specific equipment (balls, pinnies, corner flags) collected from the finished match
+  - id: goals_resecured
+    label: Goals/nets re-secured if repositioned during the match
+  - id: scoreboard_reset
+    label: Scoreboard reset to 0-0 with the next match's team names/colors
+  - id: equipment_sanitized
+    label: Shared-touch equipment sanitized per venue routine
+  - id: counts_verified
+    label: Balls and pinnies counted back against the pre-match count
+  - id: surface_ready
+    label: Surface confirmed ready for the next match crew
+  - id: damage_flagged
+    label: Any damage found routed to the field damage report

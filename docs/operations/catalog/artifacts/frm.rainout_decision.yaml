@@ -2,7 +2,35 @@ id: frm.rainout_decision
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: outcome
+    label: Decision
+    type: enum
+    options:
+      - Play as scheduled
+      - Delay start
+      - Cancel
+    required: true
+  - id: conditions_observed
+    label: Conditions observed (weather, field, lightning)
+    type: long_text
+    required: true
+  - id: lightning_present
+    label: Was lightning a factor?
+    type: boolean
+    required: true
+  - id: reassessment_time
+    label: If delayed, next re-check time
     type: text
     required: false
+  - id: director_consulted
+    label: Director consulted?
+    type: boolean
+    required: true
+  - id: authorizing_signer
+    label: Authorizing signer
+    type: text
+    required: true
+  - id: affected_matches
+    label: Matches/fields affected by this decision
+    type: long_text
+    required: true

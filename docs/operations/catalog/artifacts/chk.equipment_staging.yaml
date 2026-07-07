@@ -2,5 +2,19 @@ id: chk.equipment_staging
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: match_equipment_list_pulled
+    label: Day's equipment list pulled by match/surface
+  - id: balls_cones_pinnies_staged
+    label: Balls (correct size/sport), cones, and pinnies staged at each surface
+  - id: scoreboards_staged
+    label: Scoreboards staged, powered, and reset to 0-0
+  - id: first_aid_kits_staged
+    label: First-aid kit staged at each field/court
+  - id: water_staged
+    label: Water coolers/jugs staged per group
+  - id: match_specific_gear_staged
+    label: Portable goals, nets, and corner flags staged near each surface
+  - id: crew_access_confirmed
+    label: Each match crew confirmed able to grab-and-go without returning to storage
+  - id: shortages_flagged
+    label: Any missing item pulled from backup stock or flagged to the venue manager

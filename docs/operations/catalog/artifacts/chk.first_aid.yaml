@@ -2,5 +2,19 @@ id: chk.first_aid
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: kits_opened
+    label: Every first-aid kit on premises opened and inspected
+  - id: contents_verified
+    label: >-
+      Contents verified against the kit manifest (bandages, gauze, tape,
+      antiseptic wipes, gloves, cold packs, CPR mask)
+  - id: restocked
+    label: Missing or expired items restocked from bulk supply
+  - id: aed_located
+    label: AED located in its wall mount / designated spot
+  - id: aed_battery_ok
+    label: AED battery indicator checked and OK
+  - id: aed_pads_current
+    label: AED pads within their expiration date
+  - id: kit_locations_known
+    label: Kit locations confirmed known to today's coaches and event leads

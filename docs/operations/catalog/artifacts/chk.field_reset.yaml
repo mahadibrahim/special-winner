@@ -2,5 +2,17 @@ id: chk.field_reset
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: sideline_trash_cleared
+    label: Sidelines and benches cleared of trash
+  - id: surface_swept
+    label: Playing surface swept for debris and personal items
+  - id: lines_checked
+    label: Field markings/lines checked and touched up if needed
+  - id: markers_replaced
+    label: Displaced markers (corner flags, boundary markers) replaced
+  - id: bench_areas_clear
+    label: Bench and team areas confirmed clear and ready
+  - id: safety_recheck
+    label: Surface confirmed free of new hazards from the prior match
+  - id: within_window
+    label: Reset completed within the 15-minute turnover window

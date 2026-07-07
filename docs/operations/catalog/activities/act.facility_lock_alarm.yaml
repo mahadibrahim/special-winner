@@ -24,9 +24,23 @@ escalation_path: |
   standard handoff ladder; alarm code rotation policy is enforced
   centrally.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Confirm the close walkthrough is signed off before starting —
+     lock-up never happens first.
+  2. Power down field/court lighting, scoreboards, and any powered
+     equipment not needed overnight.
+  3. Set HVAC to its overnight/unoccupied setting.
+  4. Walk back through and lock all interior doors: locker rooms,
+     storage/equipment room, concessions, office.
+  5. Confirm interior lights are off except any required security
+     lighting.
+  6. Lock all exterior doors, confirming each is fully secured (not just
+     latched).
+  7. Set the alarm with the current code and wait for the confirmation
+     tone or light before you leave — don't assume it armed.
+  8. Confirm the perimeter is secure (gates latched, no propped doors) on
+     your way to your vehicle.
+  9. Log the lock-and-alarm completion. Alarm code rotation follows the
+     centrally-enforced policy — never share or write down the code.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.facility_lock_alarm

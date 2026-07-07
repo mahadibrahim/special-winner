@@ -23,9 +23,22 @@ escalation_path: |
   If facilities unreachable, escalate to role.venue_manager per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 60 minutes before first kickoff at managed-parking venues,
+     place cones and ropes to mark the traffic flow into and out of the
+     lot.
+  2. Place directional and reserved-row signage (staff, accessible, VIP
+     if applicable) in their assigned spots.
+  3. If the venue attends the entry point, staff it with an
+     attendant/greeter per the day's staffing plan.
+  4. Walk the overflow route and confirm it's clear of obstructions and
+     clearly marked.
+  5. Confirm accessible parking spaces are clear, correctly marked, and
+     closest to the accessible entrance.
+  6. Check lot lighting is functioning if the event runs into evening.
+  7. Note any surface hazard (potholes, debris) in the lot and flag it to
+     the venue manager.
+  8. Confirm setup is complete before the first families are expected to
+     arrive.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.parking_setup
