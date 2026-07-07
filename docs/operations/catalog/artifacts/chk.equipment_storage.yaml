@@ -6,6 +6,8 @@ items:
     label: All equipment collected from staging areas across every surface
   - id: returned_to_labeled_storage
     label: Each item returned to its labeled storage location
+  - id: unused_goals_locked
+    label: Any goal not staying set up overnight locked in storage or chained to a fixed structure, net removed
   - id: balls_pinnies_counted
     label: Balls and pinnies counted on return against the morning's staging count
   - id: damage_missing_noted

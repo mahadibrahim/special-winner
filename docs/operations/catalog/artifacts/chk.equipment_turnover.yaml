@@ -5,7 +5,7 @@ items:
   - id: equipment_collected
     label: Match-specific equipment (balls, pinnies, corner flags) collected from the finished match
   - id: goals_resecured
-    label: Goals/nets re-secured if repositioned during the match
+    label: Goals/nets re-secured (auger/peg anchors, or sandbags/counterweights indoors) if repositioned during the match
   - id: scoreboard_reset
     label: Scoreboard reset to 0-0 with the next match's team names/colors
   - id: equipment_sanitized

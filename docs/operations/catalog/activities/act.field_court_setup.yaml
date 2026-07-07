@@ -24,9 +24,17 @@ escalation_path: |
   Venue Manager → Director handoff ladder.
 sop_body: |
   1. About 30 minutes before each kickoff, place goals/nets in their
-     marked positions and secure them (anchored or weighted per the
-     venue's safety standard — an unsecured goal is a serious tip-over
-     hazard).
+     marked positions and anchor or counterweight them — every movable
+     goal is anchored at all times, not just during play (CPSC / ASTM
+     F2056; see the safety & policy standards reference). Auger/screw
+     anchors: minimum two per goal, one each side. Peg/stake anchors:
+     two to four per goal, ~10-inch stakes driven at an angle. Indoor
+     or artificial turf, where anchors can't penetrate: sandbags or
+     counterweights sized to the goal's total weight (goals typically
+     run 150-500 lb). Never use net pegs to anchor the goal itself. An
+     unsecured goal is a serious tip-over hazard — movable goals are
+     built to the ASTM F2056 200 lb tip-over-resistance standard, but
+     that standard assumes the goal is anchored as designed.
   2. Place corner flags and any required field markings for the sport.
   3. Place team benches on the correct sidelines per the match
      assignment.
@@ -35,13 +43,22 @@ sop_body: |
   5. Place any match-specific equipment the sport calls for.
   6. Confirm the surface is otherwise clear of the prior match's
      equipment and debris.
-  7. Photograph the fully configured surface before handing it off, and
+  7. Any goal not being used for today's matches stays locked in
+     storage or chained to a fixed structure with its net removed — an
+     unattended, unanchored goal is the highest-risk configuration on
+     site. Players, including kids at camps and clinics, never move or
+     hang on a goal; that's a facilities/coach task only.
+  8. Photograph the fully configured surface before handing it off, and
      upload it to the match record.
-  8. If anything can't be resolved in the 30-minute window, notify the
-     venue manager and event lead immediately — a match doesn't start on
-     an unsafe or incomplete surface.
+  9. Facilities' anchoring is the first check, not the only one: the
+     referee independently re-checks every goal's anchoring before
+     every game at ref check-in — that check isn't skippable even when
+     facilities already confirmed it.
+  10. If anything can't be resolved in the 30-minute window, notify the
+      venue manager and event lead immediately — a match doesn't start
+      on an unsafe or incomplete surface.
 tools:
-  - Goals/nets with anchors or weights
+  - Goals/nets with auger/peg anchors or sandbags/counterweights sized to the goal's weight
   - Corner flags and team benches
   - Camera or phone (photo upload of the configured surface)
 tracking_method: photo_upload
