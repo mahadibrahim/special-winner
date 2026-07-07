@@ -1,4 +1,8 @@
 id: evt.t24h_reminder_sent
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Fires when the T-24h parent reminder send completes for an event.
+  Records the send timestamp, recipient count, and channel(s) used, and
+  is checked against the field assignment publish event to confirm the
+  reminder went out with finalized (not stale) field/court info.

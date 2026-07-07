@@ -2,7 +2,31 @@ id: frm.concession_inventory
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: counted_by
+    label: Counted by
     type: text
+    required: true
+  - id: drinks_count
+    label: Drinks count (by type/size)
+    type: long_text
+    required: true
+  - id: snacks_count
+    label: Snacks / packaged goods count (by SKU)
+    type: long_text
+    required: true
+  - id: hot_food_pars
+    label: Hot-food pars (prepped starting quantity)
+    type: long_text
+    required: true
+  - id: paper_goods_count
+    label: Paper goods / consumables count
+    type: long_text
+    required: false
+  - id: damaged_or_short
+    label: Damaged, short-dated, or missing items noted
+    type: long_text
+    required: false
+  - id: flagged_to_venue_manager
+    label: Flagged to venue manager as a possible shrink/delivery issue?
+    type: boolean
     required: false

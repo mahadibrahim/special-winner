@@ -2,4 +2,7 @@ id: sig.staff_briefing_signin
 kind: signature
 status: stub
 required_role: role.front_of_house
-prompt: (placeholder — full prompt pending operator authorship)
+prompt: >-
+  I confirm the full on-shift roster attended today's pre-shift briefing
+  (schedule, special notes, weather, safety reminders) and that every
+  attendee's signature is on file on the sign-in sheet.

@@ -23,9 +23,29 @@ escalation_path: |
   If issue exceeds front_of_house scope, escalate to role.event_lead;
   any safety-relevant escalation goes to role.venue_manager.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. When a spectator complaint or sideline issue is raised — a seating
+     conflict, a lost parent, a behavior concern — respond in person
+     rather than trying to resolve it by shouting across the sideline.
+  2. Get the reporting spectator's account first, without interrupting
+     the match in progress unless the issue is safety-relevant.
+  3. For seat conflicts or general confusion (wrong bleacher section,
+     can't find their kid's field), resolve on the spot — this doesn't
+     need the form unless it escalates.
+  4. For behavior issues (a heated spectator, unsporting conduct from
+     the sideline, a dispute between parents), speak with the person
+     directly, calmly, and away from the match.
+  5. If the person won't de-escalate or the issue is safety-relevant
+     (physical altercation, threats), pull in the event lead
+     immediately rather than continuing to handle it alone.
+  6. Any safety-relevant issue also goes to the venue manager right
+     away, in parallel with pulling in the event lead — don't wait for
+     one before notifying the other.
+  7. Log the complaint details in the form regardless of outcome: what
+     happened, who was involved, how it was resolved. Even minor,
+     fully-resolved issues get logged — this is what surfaces repeat
+     problem patterns over time.
+  8. Submit the form within about 5 minutes of the issue arising, while
+     the details are still fresh.
 tracking_method: form
 tracking_artifact:
   template_id: frm.spectator_complaint

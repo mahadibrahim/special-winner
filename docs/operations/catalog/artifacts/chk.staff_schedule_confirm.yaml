@@ -2,5 +2,17 @@ id: chk.staff_schedule_confirm
 kind: checklist
 status: stub
 items:
-  - id: pending_authorship
-    label: (placeholder — full checklist items pending operator authorship)
+  - id: plan_pulled
+    label: Day's staffing plan pulled — every shift slot listed
+  - id: acknowledgments_checked
+    label: Platform acknowledgment status checked for each assigned person
+  - id: unacknowledged_followed_up
+    label: Every unacknowledged slot followed up directly
+  - id: standby_backfilled
+    label: No-responses/declines backfilled from the standby pool
+  - id: no_double_booking
+    label: No double-booked people or shift gaps in the event window
+  - id: contractor_slots_confirmed
+    label: Contractor slots (ref, photographer) confirmed with the assignor/contractor pool
+  - id: all_slots_confirmed
+    label: Every slot on the plan shows a confirmed name

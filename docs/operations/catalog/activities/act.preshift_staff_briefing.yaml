@@ -23,9 +23,26 @@ escalation_path: |
   If venue_manager unreachable, role.event_lead delivers the briefing and
   escalates to role.director per the standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 60 minutes before first kickoff, once the facility unlock and
+     first-aid kit check are done, gather every on-shift staff member in
+     one spot — event leads, facilities, front of house, photographer.
+  2. Keep it to 5-10 minutes. Cover today's schedule (match count, key
+     times), anything special about today (VIP guests, a rescheduled
+     match, a tournament format quirk), the weather outlook if outdoor,
+     and any safety reminders (first-aid kit locations, incident
+     escalation path).
+  3. Call out any staffing changes from the schedule confirm — who's
+     covering for a standby swap, who's new to the venue today.
+  4. Ask if anyone has a conflict or needs to leave early, and confirm
+     coverage for that window now rather than discovering it mid-shift.
+  5. Pass around the sign-in sheet — every attendee signs to confirm
+     they were briefed.
+  6. Front of house checks the sign-in sheet against today's staffing
+     plan and signs to confirm the full roster attended and the sheet is
+     complete.
+  7. File the signed sheet with today's event records.
+  8. If the venue manager can't deliver the briefing, the event lead
+     runs it and escalates per the escalation path.
 tracking_method: signature
 tracking_artifact:
   template_id: sig.staff_briefing_signin

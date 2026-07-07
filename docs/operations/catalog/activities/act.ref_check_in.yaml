@@ -25,9 +25,26 @@ escalation_path: |
   standard handoff ladder; backup ref pulled from standby pool if
   scheduled ref no-shows.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 30 minutes before their assigned kickoff, the ref reports to
+     the event lead's check-in station — the same match shows up in the
+     ref's My Matches list on their phone.
+  2. Confirm the ref's identity against today's confirmed assignment
+     from the ref assignment confirm.
+  3. Check the ref is in proper uniform (kit, badge/credential if
+     required) and has their equipment — whistle, cards, watch.
+  4. Confirm the ref knows their match: teams, field/court, kickoff
+     time, and any special notes from the pregame weather or facility
+     check.
+  5. The ref signs in on the spot. This is what starts the stipend
+     clock, so don't let a ref skip it and go straight to the field.
+  6. Note the actual check-in time — if it's inside the 30-minute
+     window but tight, give the ref a heads-up on time remaining before
+     kickoff.
+  7. If the scheduled ref doesn't show by check-in time, pull the backup
+     from the standby pool immediately and check them in instead —
+     don't wait past the window hoping the original ref appears.
+  8. If the event lead is unavailable to run check-in, escalate to the
+     venue manager per the escalation path.
 tracking_method: signature
 tracking_artifact:
   template_id: sig.ref_check_in

@@ -23,9 +23,25 @@ escalation_path: |
   If venue_manager unreachable, role.event_lead runs the debrief and
   escalates to role.director per the standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Once the facility close walkthrough is signed off, gather whoever's
+     still on shift for a 5-10 minute huddle — don't hold people who've
+     already clocked out waiting for this.
+  2. Ask what worked today: anything that ran smoother than expected,
+     any process worth repeating.
+  3. Ask what broke or ran rough: equipment failures, staffing gaps,
+     confused parents, anything that slowed the day down.
+  4. Ask if anything needs to go to the office: a facility repair
+     request, a supply reorder, a schedule conflict for next time, a
+     personnel note.
+  5. Capture incident or safety mentions even briefly — the full
+     incident report is a separate activity, but the debrief should
+     flag that one happened so it isn't lost.
+  6. Write the notes into the debrief form in plain language — this
+     feeds directly into tonight's daily digest and the weekly review,
+     so vague notes ("things were fine") aren't useful to future you.
+  7. Submit the form before leaving the venue.
+  8. If the venue manager isn't available, the event lead runs the
+     debrief and escalates per the escalation path.
 tracking_method: form
 tracking_artifact:
   template_id: frm.staff_debrief

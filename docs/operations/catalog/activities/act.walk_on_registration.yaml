@@ -23,9 +23,30 @@ escalation_path: |
   If front_of_house unreachable, escalate to role.event_lead per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Throughout the drop-in/clinic intake window, greet each walk-on
+     parent or adult player at the front-of-house station — the coach
+     running the session isn't the one who registers walk-ons.
+  2. Open walk-up registration and collect the player/adult info: name,
+     date of birth (youth) or the adult registrant's own info, and an
+     emergency contact and phone number.
+  3. Note any medical or allergy information the coach should know
+     before the player joins the session.
+  4. Select the correct session/program the walk-on is joining so
+     they're added to the right roster, not just "today's activity."
+  5. Capture payment before the player joins play — record the payment
+     status and method; if paying at the desk in person, mark it paid
+     once the payment is actually taken.
+  6. Get the liability waiver signed. In person, that's the paper
+     waiver at the desk; note it as signed once collected — never let a
+     player join on a verbal "I'll sign later."
+  7. Add the player to the session roster so the coach's headcount and
+     ratio check reflects them before they join.
+  8. Once registration, payment, and waiver are all complete, the
+     walk-on counter increments automatically — confirm the player is
+     on the roster the coach sees before sending them to the field.
+  9. If intake volume would push a session over its coach ratio cap,
+     tell the coach to close intake for that session and hold
+     additional walk-ons for the next available slot.
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.walk_on_registrations

@@ -2,4 +2,6 @@ id: sig.ref_check_in
 kind: signature
 status: stub
 required_role: role.ref
-prompt: (placeholder — full prompt pending operator authorship)
+prompt: >-
+  I confirm I've arrived for my assigned match, I'm in proper uniform
+  with my equipment, and I'm checking in at the time shown.

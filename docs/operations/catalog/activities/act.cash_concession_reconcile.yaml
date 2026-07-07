@@ -24,9 +24,28 @@ escalation_path: |
   reconciliation; any cash variance over threshold escalates to
   role.director.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Close the concession stand to new sales before starting the count —
+     don't count a drawer that's still taking cash.
+  2. Count the drawer cash by denomination with a second person present
+     as witness; the witness watches the count, they don't just take
+     your word for the total.
+  3. Subtract the opening bank (the fixed starting cash noted at
+     concession setup) from the counted total to get cash sales.
+  4. Run the POS Z-report for the day and record card sales and total
+     POS-recorded sales separately from the cash count.
+  5. Count closing concession inventory against the opening inventory
+     count to compute units sold by item.
+  6. Multiply units sold by price to get expected revenue, then compare
+     expected revenue to (cash sales + card sales) and record the
+     variance, over or short.
+  7. If the variance is inside the normal tolerance, both you and the
+     witness sign the reconciliation form and prepare the deposit.
+  8. If the variance is outside tolerance, recount before assuming
+     shrink or a counting error — then record the variance as-is and
+     escalate to the venue manager; anything still unexplained after
+     recount escalates to the director.
+  9. File the signed, witnessed form with today's records before making
+     the deposit.
 tracking_method: form
 tracking_artifact:
   template_id: frm.cash_reconcile

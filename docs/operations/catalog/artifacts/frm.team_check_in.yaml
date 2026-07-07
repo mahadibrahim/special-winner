@@ -2,7 +2,31 @@ id: frm.team_check_in
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: team_name
+    label: Team
+    type: text
+    required: true
+  - id: players_present
+    label: Players confirmed present (roster names)
+    type: long_text
+    required: true
+  - id: jerseys_confirmed
+    label: Jerseys/uniforms confirmed matching team colors
+    type: boolean
+    required: true
+  - id: guest_player_used
+    label: Guest player used this match?
+    type: boolean
+    required: true
+  - id: guest_player_paperwork_on_file
+    label: If yes, guest-player paperwork confirmed on file
+    type: boolean
+    required: false
+  - id: meets_minimum_to_start
+    label: Team meets the format's minimum players to start
+    type: boolean
+    required: true
+  - id: notes
+    label: Notes (e.g. late arrivals, forfeit risk)
     type: text
     required: false

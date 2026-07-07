@@ -23,9 +23,34 @@ escalation_path: |
   event_lead posts assignments manually in the team channels until
   automation recovers.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Once the venue manager finalizes the field/court grid for the
+     event window (around 24 hours out), the platform picks up the
+     grid and publishes each match's field, court, or pitch assignment
+     to that match's coaches, refs, and registered parents.
+  2. The publish fires as soon as the grid is finalized rather than
+     waiting for a fixed clock time — a late grid finalization means a
+     late publish, and downstream sends (T-24h parent reminder, coach
+     pregame dispatch) both depend on this having gone out first.
+  3. The event is recorded as the tracked system event with the grid
+     version it published from.
+  4. No human action is needed on a normal publish. Verification: the
+     venue manager should confirm the publish fired shortly after
+     finalizing the grid — if the T-24h reminder or coach dispatch look
+     like they're carrying stale assignments, check whether this
+     activity actually ran first.
+  5. If the venue manager revises the grid after this has already
+     published (a field becomes unavailable, a swap is needed), the
+     platform re-publishes and the new version supersedes the old one —
+     confirm the re-publish actually went out rather than assuming it
+     did.
+  6. If the publish job fails, the on-call platform engineer is paged
+     per the escalation path.
+  7. While automation is down, the event lead posts assignments manually
+     in the team channels using the venue manager's finalized grid as
+     the source of truth.
+  8. Once the job recovers, verify it doesn't re-publish an assignment
+     that already changed since the outage started, and reconcile the
+     manually-posted version against whatever the platform now shows.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.field_assignment_published

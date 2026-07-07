@@ -22,9 +22,34 @@ escalation_path: |
   If the broadcast job fails, on-call platform engineer escalates to
   role.director per the standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At 24 hours before kickoff, the scheduled job pulls each
+     registered family's confirmed roster entry along with the
+     finalized field/court assignment, arrival time, and any weather or
+     logistics notes on file.
+  2. It sends the reminder through each family's preferred channel per
+     the standard notification policy, with email as the guaranteed
+     fallback.
+  3. The send is recorded as the tracked system event, timestamped, with
+     the recipient count.
+  4. No human action is needed on a normal send. Verification: the
+     venue manager or director can check the event landed on schedule
+     from the daily operations view; a missing event by shortly after
+     T-24h means the job didn't run, not that it's delayed.
+  5. This activity depends on the field assignment publish having
+     already run — if field assignments aren't finalized yet, the
+     reminder either delays or goes out without assignment info,
+     neither of which is acceptable; check that dependency first when
+     troubleshooting a bad send.
+  6. If the job fails outright, the on-call platform engineer is paged
+     per the escalation path and investigates.
+  7. While automation is down, there is no efficient manual substitute
+     at scale — the director should weigh whether to have front of
+     house or the event lead send a manual heads-up to at least the
+     day's confirmed roster, prioritizing accuracy over speed.
+  8. Once the job recovers, confirm no family got a stale (pre-fix)
+     version of the message with wrong field/time info re-sent
+     alongside a corrected one — a wrong assignment reaching a parent is
+     worse than a late one.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.t24h_reminder_sent

@@ -23,9 +23,32 @@ escalation_path: |
   role.director per the standard handoff ladder; event_lead manually
   confirms rosters via direct message until automation recovers.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At 72 hours before kickoff, the scheduled job pulls the registered
+     roster for the event and sends each parent/player a confirmation
+     prompt through their preferred channel (email, Telegram, or SMS
+     per the standard notification policy).
+  2. The platform records the send as the tracked system event and
+     starts collecting responses (confirm / release spot) as they come
+     in.
+  3. The event lead doesn't need to do anything for a normal send — the
+     platform aggregates responses and surfaces the running roster
+     count.
+  4. Verification: the event lead should see the broadcast-sent event
+     land on schedule (check the activity's tracking record); if it's
+     not there by shortly after T-72h, don't assume it's just running
+     late — the job either ran or it didn't.
+  5. If the job fails to fire, the on-call platform engineer is paged
+     automatically per the escalation path and investigates the
+     scheduler/notification pipeline.
+  6. While automation is down, the event lead manually confirms rosters
+     by messaging registered families directly — this is a stopgap,
+     not a replacement, since it doesn't scale past a small roster.
+  7. Once the job recovers, confirm it didn't double-send to families
+     who already got the manual message, and reconcile any responses
+     collected manually into the platform's roster record.
+  8. Escalate to the director if the outage isn't resolved before the
+     72h-to-24h window closes, since the T-24h reminder depends on an
+     accurate confirmed roster.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.attendance_broadcast_sent

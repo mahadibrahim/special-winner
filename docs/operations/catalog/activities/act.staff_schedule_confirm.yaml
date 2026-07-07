@@ -23,9 +23,25 @@ escalation_path: |
   If venue_manager unreachable, escalate to role.director per the
   standard handoff ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. 48 hours before the event window, pull the day's staffing plan and
+     list every shift slot that needs to be covered — venue manager,
+     event leads, facilities, front of house, and photographer.
+  2. Check the acknowledgment status the platform has already collected
+     for each assigned person (the schedule invite went out automatically
+     when the plan was published).
+  3. For any slot still unacknowledged, contact the assigned person
+     directly and get a yes/no before moving on to the next slot.
+  4. For any no-response or decline, pull a replacement from that role's
+     standby pool and confirm their availability for the full shift.
+  5. Watch for double-booked people or shift times that don't cover the
+     full event window, and fix the gap before confirming the slot.
+  6. Confirm contractor slots (ref, photographer) separately — they come
+     from the assignor/contractor pool, not the staff schedule, and need
+     their own acknowledgment check.
+  7. Once every slot on the plan shows a confirmed name, mark the
+     checklist complete.
+  8. If any role still can't be filled by T-24h, escalate per the
+     escalation path rather than running the event short-staffed.
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.staff_schedule_confirm

@@ -2,7 +2,38 @@ id: frm.spectator_complaint
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: issue_type
+    label: Type of issue
+    type: enum
+    options:
+      - Seating conflict
+      - Lost parent / lost spectator
+      - Sideline behavior / unsporting conduct
+      - Dispute between spectators
+      - Safety-relevant
+      - Other
+    required: true
+  - id: match_or_area
+    label: Match / area involved
+    type: text
+    required: true
+  - id: people_involved
+    label: People involved
+    type: text
+    required: false
+  - id: description
+    label: What happened
+    type: long_text
+    required: true
+  - id: resolution
+    label: How it was resolved
+    type: long_text
+    required: true
+  - id: escalated
+    label: Escalated beyond front of house?
+    type: boolean
+    required: true
+  - id: escalated_to
+    label: Escalated to (event lead / venue manager)
     type: text
     required: false
