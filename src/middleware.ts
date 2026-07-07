@@ -58,6 +58,14 @@ export const ROUTE_RULES: RouteRule[] = [
   { kind: "role", pattern: /^\/coach(\/|$)/, roles: ["coach", "admin", "super_admin", "location_admin"] },
   // Referee portal — referees AND super admins may access.
   { kind: "role", pattern: /^\/referee(\/|$)/, roles: ["referee", "super_admin"] },
+  // Staff portal (in-app incident reporting, product-backlog build #1) —
+  // venue managers, coaches (role.event_lead has no dedicated app role and
+  // maps to coach), and super admins may access.
+  {
+    kind: "role",
+    pattern: /^\/staff(\/|$)/,
+    roles: ["location_admin", "coach", "super_admin"],
+  },
   // Authenticated-only areas.
   { kind: "authed", pattern: /^\/dashboard(\/|$)/ },
   { kind: "authed", pattern: /^\/portal(\/|$)/ },
