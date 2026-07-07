@@ -107,3 +107,6 @@ export * from "./account-credits";
 
 // Media individual opt-out / do-not-publish (product-backlog build #3)
 export * from "./media-do-not-publish";
+
+// Ejection / suspension tracker (product-backlog build #4)
+export * from "./suspensions";
