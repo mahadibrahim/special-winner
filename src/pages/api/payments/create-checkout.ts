@@ -13,6 +13,10 @@ const checkoutSchema = z.object({
   registrationId: z.string().uuid("Invalid registration ID"),
   discountCode: z.string().optional(),
   paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+  /** Apply the user's account credit balance to this checkout. The server
+   *  computes min(balance, amountDue) — no amount is ever accepted from
+   *  the client. */
+  applyAccountCredit: z.boolean().optional(),
 });
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
@@ -42,7 +46,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       );
     }
 
-    const { registrationId, discountCode, paymentMethodCategory } = validation.data;
+    const { registrationId, discountCode, paymentMethodCategory, applyAccountCredit } =
+      validation.data;
     registrationIdForLog = registrationId;
     discountCodeForLog = discountCode;
     const db = getDb();
@@ -67,6 +72,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       discountCode,
       extraMetadata,
       paymentMethodCategory,
+      applyAccountCredit,
     });
 
     const posthog = getPostHogServer();
@@ -83,6 +89,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           success: true,
           message: "Registration complete - no payment required after discount",
           discountApplied: true,
+          creditAppliedCents: result.creditAppliedCents,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
@@ -104,6 +111,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         clientSecret: result.clientSecret,
         sessionId: result.sessionId,
         surchargeCents: result.surchargeCents,
+        creditAppliedCents: result.creditAppliedCents,
         publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
