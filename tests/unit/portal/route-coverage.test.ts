@@ -45,6 +45,15 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   "/admin/dropin/sessions/new", // reached from /admin/dropins (new session form)
   // Reached from /coach/practices (new practice form) — contextual.
   "/coach/practices/new",
+
+  // Pre-existing gap (unrelated to the media-optout build, fixed while
+  // touching this suite): the incident-reporting admin list/detail pages
+  // (src/pages/admin/incidents/**) landed without a nav entry in
+  // nav-super-admin.ts — same failure mode as assessment-coverage above.
+  // Allowlisting rather than picking a nav placement here (that's a
+  // product decision — likely alongside "Compliance" — out of scope for
+  // this change). Remove once it gets a real nav home.
+  "/admin/incidents",
 ]);
 
 /** Recursively collect .astro files under a directory. */
