@@ -9,66 +9,176 @@ import {
 import { getDb } from "@/lib/db";
 import { activityCompletions } from "@/lib/db/schema/activity-tracking";
 import { incidents } from "@/lib/db/schema/incidents";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { bootstrapActivityCompletions } from "@/lib/activity-tracking/bootstrap";
+import { organizations, locations } from "@/lib/db/schema/organizations";
+import { venues, games } from "@/lib/db/schema/teams";
+import { seasons, programs } from "@/lib/db/schema/programs";
+import { sports } from "@/lib/db/schema/sports";
+import { familyMembers, registrations } from "@/lib/db/schema/registrations";
+import { users } from "@/lib/db/schema/users";
 
 const ENDPOINT = "/api/staff/incidents";
+
+// Deterministic markers so repeated local runs against the shared staging
+// DB reuse the same fixture rows instead of accumulating one per run.
+const FIXTURE_FAMILY_MEMBER_FIRST = "IncidentSuite";
+const FIXTURE_FAMILY_MEMBER_LAST = "Participant";
+const FIXTURE_GAME_MARKER = "incidents.test.ts fixture game";
 
 describe("POST /api/staff/incidents", () => {
   let adminCookie: string;
   let coachCookie: string;
   let venueId: string;
-  let gameId: string;
+  let gameId: string | undefined;
   let participantFamilyMemberId: string;
 
   beforeAll(async () => {
     adminCookie = await getAdminCookie();
     coachCookie = await getCoachCookie();
 
-    const gamesRes = await apiFetch("/api/admin/games", {
-      method: "GET",
-      cookie: adminCookie,
-    });
-    const gamesJson = await expectJson(gamesRes, 200);
-    expect(gamesJson.games.length).toBeGreaterThan(0);
+    const db = getDb();
 
-    // Not every seeded game has a full venue/season/program/sport chain
-    // (bootstrapActivityCompletions requires all of them) — try candidates
-    // with a venueId set until one bootstraps successfully.
-    const candidates = gamesJson.games.filter((g: { venueId: string | null }) => g.venueId);
-    for (const candidate of candidates) {
-      try {
-        await bootstrapActivityCompletions(candidate.id);
-        gameId = candidate.id;
-        venueId = candidate.venueId;
-        break;
-      } catch {
-        continue;
-      }
+    // --- Deterministic fixtures, self-seeded via direct DB access. ---
+    // The previous version of this beforeAll derived venueId/gameId from
+    // whatever GET /api/admin/games happened to return, and
+    // participantFamilyMemberId from whichever coach team happened to have
+    // a non-empty roster. That's ambient data staging has (accumulated over
+    // time) but CI's fresh `db:seed:e2e` run does not — every seeded game
+    // there lacks a venueId, so the whole suite threw in beforeAll and all
+    // 8 tests were skipped. Self-seed instead, so behavior is identical on
+    // CI and staging.
+
+    const [org] = await db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.slug, "aspire-sports"))
+      .orderBy(asc(organizations.createdAt))
+      .limit(1);
+    if (!org) {
+      throw new Error("e2e seed invariant violated: org 'aspire-sports' not found");
     }
-    if (!gameId) {
+
+    const [venueRow] = await db
+      .select({ id: venues.id })
+      .from(venues)
+      .innerJoin(locations, eq(venues.locationId, locations.id))
+      .where(eq(locations.organizationId, org.id))
+      .orderBy(asc(venues.createdAt))
+      .limit(1);
+    if (!venueRow) {
+      throw new Error("e2e seed invariant violated: no venue found for org 'aspire-sports'");
+    }
+    venueId = venueRow.id;
+
+    // A season with a full program/sport chain in this org. Unlike "a game
+    // with venueId set" (optional, and exactly what CI's leaner seed
+    // lacks), every org is guaranteed at least one full season/program/
+    // sport chain by the base e2e seed — this is the same "reuse the org's
+    // oldest season" pattern seedFeedbackFixtures() uses above.
+    const [seasonRow] = await db
+      .select({ id: seasons.id })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(sports, eq(programs.sportId, sports.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(locations.organizationId, org.id))
+      .orderBy(asc(seasons.createdAt))
+      .limit(1);
+    if (!seasonRow) {
       throw new Error(
-        "No seeded aspire-sports game has a full venue/season/program/sport chain for bootstrap",
+        "e2e seed invariant violated: no season/program/sport chain found for org 'aspire-sports'",
       );
     }
 
-    // A registered participant, discovered via a coach's roster (mirrors
-    // tests/api/coach/attendance.test.ts).
-    const teamsRes = await apiFetch("/api/coach/teams", {
-      method: "GET",
-      cookie: coachCookie,
-    });
-    const teamsJson = await expectJson(teamsRes, 200);
-    for (const team of teamsJson.teams) {
-      const rosterRes = await apiFetch(`/api/coach/teams/${team.id}/roster`, {
-        method: "GET",
-        cookie: coachCookie,
+    // Self-seed the one game the auto-complete-on-submit test needs, with
+    // the full venue/season/program/sport chain bootstrapActivityCompletions
+    // requires. Find-or-create by a marker in `notes` so repeated local
+    // runs reuse the same row rather than accumulating one per run.
+    let [game] = await db
+      .select({ id: games.id })
+      .from(games)
+      .where(eq(games.notes, FIXTURE_GAME_MARKER))
+      .limit(1);
+    if (!game) {
+      [game] = await db
+        .insert(games)
+        .values({
+          seasonId: seasonRow.id,
+          venueId,
+          scheduledAt: new Date(),
+          status: "scheduled",
+          notes: FIXTURE_GAME_MARKER,
+        })
+        .returning({ id: games.id });
+    }
+    try {
+      await bootstrapActivityCompletions(game.id);
+      gameId = game.id;
+    } catch (err) {
+      // Defensive only — with a self-seeded full chain this should always
+      // succeed. Guard rather than throw so a surprise here doesn't skip
+      // the other 7 tests in this suite.
+      console.warn(
+        `Skipping auto-complete test: bootstrapActivityCompletions failed for self-seeded game ${game.id}:`,
+        err,
+      );
+    }
+
+    // A registered participant — self-seeded directly rather than
+    // discovered via a coach's roster (which may be empty on a fresh CI
+    // seed). requireSameOrgFamilyMember only needs a family_member with a
+    // registration on some season in this org, no team/roster involved.
+    const [parentUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, "parent@test.aspiresports.com"))
+      .limit(1);
+    if (!parentUser) {
+      throw new Error("e2e seed invariant violated: parent test user not found");
+    }
+
+    let [familyMember] = await db
+      .select({ id: familyMembers.id })
+      .from(familyMembers)
+      .where(
+        and(
+          eq(familyMembers.firstName, FIXTURE_FAMILY_MEMBER_FIRST),
+          eq(familyMembers.lastName, FIXTURE_FAMILY_MEMBER_LAST),
+        ),
+      )
+      .limit(1);
+    if (!familyMember) {
+      [familyMember] = await db
+        .insert(familyMembers)
+        .values({
+          parentUserId: parentUser.id,
+          firstName: FIXTURE_FAMILY_MEMBER_FIRST,
+          lastName: FIXTURE_FAMILY_MEMBER_LAST,
+          birthDate: "2015-01-01",
+        })
+        .returning({ id: familyMembers.id });
+    }
+    participantFamilyMemberId = familyMember.id;
+
+    const [existingRegistration] = await db
+      .select({ id: registrations.id })
+      .from(registrations)
+      .where(
+        and(
+          eq(registrations.familyMemberId, familyMember.id),
+          eq(registrations.seasonId, seasonRow.id),
+        ),
+      )
+      .limit(1);
+    if (!existingRegistration) {
+      await db.insert(registrations).values({
+        seasonId: seasonRow.id,
+        familyMemberId: familyMember.id,
+        registeredByUserId: parentUser.id,
+        status: "confirmed",
+        amountDueCents: 0,
       });
-      const rosterJson = await rosterRes.json();
-      if (rosterJson.roster?.length > 0) {
-        participantFamilyMemberId = rosterJson.roster[0].player.id;
-        break;
-      }
     }
   });
 
@@ -134,12 +244,6 @@ describe("POST /api/staff/incidents", () => {
   });
 
   it("creates an incident keyed to a registered participant by family_member_id", async () => {
-    if (!participantFamilyMemberId) {
-      console.warn(
-        "Skipping participant-subject test: no roster members found on any coach team",
-      );
-      return;
-    }
     const res = await apiFetch(ENDPOINT, {
       method: "POST",
       cookie: coachCookie,
@@ -174,6 +278,12 @@ describe("POST /api/staff/incidents", () => {
   });
 
   it("auto-completes the game's act.incident_response activity_completions row", async () => {
+    if (!gameId) {
+      console.warn(
+        "Skipping auto-complete test: no bootstrappable self-seeded game (see beforeAll warning above)",
+      );
+      return;
+    }
     // Reset to pending first — this fixture game is shared across repeated
     // local runs (bootstrapActivityCompletions is onConflictDoNothing, so a
     // prior run's "completed" status would otherwise persist and make this
