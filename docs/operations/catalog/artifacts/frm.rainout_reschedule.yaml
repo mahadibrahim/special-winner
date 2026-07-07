@@ -2,7 +2,31 @@ id: frm.rainout_reschedule
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: makeup_date
+    label: Make-up date
+    type: date
+    required: true
+  - id: makeup_venue_or_field
+    label: Make-up venue/field
     type: text
+    required: true
+  - id: venue_availability_confirmed
+    label: Venue/field availability confirmed?
+    type: boolean
+    required: true
+  - id: ref_availability_confirmed
+    label: Ref crew availability confirmed?
+    type: boolean
+    required: true
+  - id: league_calendar_conflicts_checked
+    label: League calendar conflicts checked?
+    type: boolean
+    required: true
+  - id: conditions
+    label: Conditions on the reschedule (e.g. pending ref confirmation)
+    type: long_text
     required: false
+  - id: authorizing_director
+    label: Authorizing director
+    type: text
+    required: true

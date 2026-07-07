@@ -23,9 +23,30 @@ escalation_path: |
   If photographer no-show, event_lead escalates to role.venue_manager;
   pull from standby pool or accept reduced media coverage.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. About 30 minutes before your first assigned match, go to the event
+     lead's station to sign in — this starts your pay clock for the
+     session, so don't skip it even if you're already shooting
+     warmups.
+  2. Confirm your assignment against the event lead's schedule — venue,
+     match(es), and session type (game, team posed, practice, event) —
+     and flag any mismatch before signing.
+  3. Confirm your gear: camera body, charged batteries plus a backup,
+     memory cards with enough free space for the day, and any lens or
+     flash the shot list calls for.
+  4. Review the shot list or session notes with the event lead —
+     required shots (team photos, action shots, specific players if
+     requested), any restricted subjects, and the day's intended
+     media-auth scope if it's already set (internal, promotional, or
+     public), so you know what you're shooting for.
+  5. Sign the check-in. The event lead countersigns to confirm your
+     arrival and gear are in order.
+  6. Once signed, your session moves from confirmed to checked-in in the
+     platform — this is what the event lead and venue manager see
+     reflected on the day's operations view.
+  7. If you're a no-show, or running late enough that you'll miss the
+     window, the event lead escalates to the venue manager immediately
+     per the escalation path — don't wait until your scheduled start to
+     raise it.
 tracking_method: signature
 tracking_artifact:
   template_id: sig.photographer_check_in

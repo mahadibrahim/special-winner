@@ -25,9 +25,33 @@ escalation_path: |
   role.director; manual report from raw activity log delivered until
   automation recovers.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At the configured weekly roll-up time, the platform aggregates the
+     prior week's operational metrics across every venue: activity
+     completion rates, incident counts, attendance and walk-on volume,
+     and weather cancellations.
+  2. This is the input the director's weekly safety review and the
+     broader operating review draw from — it's meant to land before
+     that review, not be generated on demand during it.
+  3. The rollup is delivered to the director and venue managers and
+     recorded as the tracked system event, timestamped, with the
+     metrics it covered.
+  4. No human action is needed on a normal run. Verification: the
+     director can check the event landed before starting the weekly
+     safety review; if the rollup is missing when that review is due,
+     treat it as a signal the job didn't run rather than assuming it's
+     just late.
+  5. Because this rolls up completion rates by activity, a low
+     completion number for a given activity across venues is worth a
+     second look — it may mean the activity's SOP or tracking method
+     needs revisiting, not just that people didn't do it.
+  6. If the rollup job fails, the on-call platform engineer escalates
+     per the escalation path.
+  7. While automation is down, the director or venue manager pulls the
+     same metrics manually from the raw activity log so the weekly
+     safety review isn't delayed waiting on the platform.
+  8. Once the job recovers, reconcile the manual figures against the
+     platform's rollup for that week rather than discarding the manual
+     version outright — it's a check on both.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.weekly_metrics_run

@@ -24,9 +24,46 @@ escalation_path: |
   only" until director sign-off; refund disbursements still require
   director authorization.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Within 24 hours of a recorded rainout, pull the rainout decision
+     record and the full list of registrations affected — every family
+     registered for the cancelled or shortened match(es) at that
+     venue/date.
+  2. Decide the outcome using three tiers, ordered by how much of the
+     session actually happened. If the match never started, default to
+     reschedule where a make-up date is realistic within the season
+     window — a family that showed up shouldn't lose the game outright
+     if the calendar can absorb it. If a make-up date isn't realistic
+     (end of season, no venue or ref availability), the call moves to
+     refund or credit.
+  3. Between refund and credit: refund returns money to the original
+     payment method now; credit holds the value toward a future season
+     or program and doesn't move cash today. Default to credit when the
+     family is already registered for, or likely to register for, a
+     future season; default to refund when they aren't. This is a
+     policy call, not a formula — document the reasoning either way.
+  4. Decide full vs. partial. A cancellation before kickoff is normally
+     a full refund or credit of that game's value; a match stopped
+     partway through (weather mid-game) is prorated at your discretion,
+     with the proration basis documented in the rationale.
+  5. Record the decision — outcome, rationale, affected registration
+     count, full vs. partial — and your name as authorizing signer on
+     the rainout refund decision form.
+  6. For a refund outcome, action it through each affected
+     registration's admin refund action (amount, reason, whether to
+     also cancel the registration) individually — the form documents
+     the policy call, but the money moves per registration, not as one
+     batch transaction.
+  7. For a credit outcome, there's no automated credit ledger yet —
+     record the credit amount and reason on the form and hand off to
+     the office to track it manually against that family's account
+     until a dedicated credit ledger ships. Don't let a credit promise
+     go untracked between the decision and its application.
+  8. Submit the form. Family and team-captain notice of the outcome
+     goes out through the platform per the standard notification
+     policy — don't message families individually ahead of the form.
+  9. If you're unreachable, the venue manager may default to "credit
+     only" until you sign off per the escalation path — actual refund
+     disbursement still waits for your authorization.
 tracking_method: form
 tracking_artifact:
   template_id: frm.rainout_refund

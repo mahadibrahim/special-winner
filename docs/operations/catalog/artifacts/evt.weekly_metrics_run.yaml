@@ -1,4 +1,9 @@
 id: evt.weekly_metrics_run
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Fires when the weekly cross-venue metrics rollup completes at the
+  configured roll-up time. Records the run timestamp and the metrics it
+  covered (completion rates by activity, incident counts, attendance,
+  walk-on volume, weather cancellations), and is the input the weekly
+  safety review depends on landing before that review starts.

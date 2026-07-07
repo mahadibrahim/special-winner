@@ -25,9 +25,37 @@ escalation_path: |
   role.director; venue_manager sends a manual end-of-day summary in
   the meantime.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. After the last activity of the day is recorded — final scores
+     posted, incidents finalized, end-of-day reconciliation done — the
+     platform compiles the day's operational summary for that venue:
+     scores posted, incidents logged, attendance/walk-on counts, and
+     any items still open (unresolved incidents, unsigned forms,
+     pending escalations).
+  2. The digest sends to the venue manager, director, and event leads
+     through the same channel-fallback delivery the platform uses for
+     other automated sends (preferred channel, with email as the
+     guaranteed fallback) — no one needs to go looking for it.
+  3. The send is recorded as the tracked system event, timestamped,
+     with the recipient list and a summary of what it contained.
+  4. No human action is needed on a normal send. Verification: the
+     venue manager or director can check the event landed from the
+     daily operations view, or their inbox, shortly after the expected
+     end-of-day time (21:00); a missing digest by then means the job
+     didn't run, not that it's delayed.
+  5. This digest depends on the day's individual activities (score
+     posting, incident finalization, end-of-day reconciliation)
+     actually being recorded — a thin or missing digest is often a sign
+     one of those upstream activities didn't complete, not that the
+     digest itself is broken; check those first when troubleshooting.
+  6. If the job fails outright, the on-call platform engineer is paged
+     per the escalation path and investigates.
+  7. While automation is down, the venue manager sends a manual
+     end-of-day summary covering the same categories (scores,
+     incidents, attendance, open items) to the same recipients, so
+     leadership isn't flying blind overnight.
+  8. Once the job recovers, confirm the next digest doesn't double-cover
+     a day that was already manually summarized — note in the manual
+     summary which day it covered so no one double-counts.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.daily_digest_sent

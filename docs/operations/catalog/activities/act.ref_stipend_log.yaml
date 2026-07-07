@@ -24,9 +24,33 @@ escalation_path: |
   If event_lead unreachable, role.venue_manager logs the stipend and
   escalates to role.director for sign-off.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. After a ref's last match of the day, pull their check-in
+     record(s) — one per match — to confirm which matches they
+     actually worked today.
+  2. Apply the standard per-match stipend rate for each match worked,
+     then add any on-file add-ons (travel, doubleheader bonus,
+     last-minute fill-in premium — whatever your org's pay schedule
+     defines) on top of the base.
+  3. Total the day's stipend across every match the ref worked and
+     record the breakdown (base rate x number of matches, plus each
+     add-on line) rather than just the final total — the ref and the
+     office both need to see how the number was built.
+  4. Walk the ref through the total before they leave and get their
+     acknowledgment that it matches what they expect for today's work —
+     resolve any discrepancy on the spot rather than after they've
+     left.
+  5. Record the stipend log — matches worked, base rate, add-ons,
+     total, and the ref's acknowledgment — on the ref stipend log form.
+  6. Submit the form. This hands the day's stipend record to the
+     platform's payroll integration for the ref payroll event, which
+     processes it for payout — you're not disbursing money yourself
+     here, just logging what's owed and getting it acknowledged.
+  7. If a ref disputes the total and it isn't resolved on the spot, log
+     the dispute and the ref's stated expectation on the form rather
+     than logging a number they haven't agreed to, and flag it to the
+     venue manager.
+  8. If you're unreachable, the venue manager logs the stipend and
+     escalates to the director for sign-off.
 tracking_method: form
 tracking_artifact:
   template_id: frm.ref_stipend_log

@@ -24,9 +24,37 @@ escalation_path: |
   If venue_manager unreachable, role.event_lead drafts and role.director
   finalizes; nothing closes until the report is signed off.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Once the affected match is over and the situation is stable, pull
+     up the in-the-moment incident response form as your starting point
+     — this report builds on it, it doesn't replace it.
+  2. Identify every witness — players, coaches, refs, spectators who
+     saw what happened — and get a brief statement from each while
+     memories are fresh; don't rely on a single account.
+  3. Record post-event status: how the affected person is doing now
+     (returned to play, sent home, went to urgent care/ER, refused
+     further care), not just what happened in the moment.
+  4. Attach any relevant photos (of the scene, of visible injury if
+     appropriate and consented to, of property damage) to support the
+     record.
+  5. Complete every section of the full incident report form —
+     witnesses, statements, photos, post-event status, and anything
+     from the in-the-moment response you need to correct or add detail
+     to.
+  6. Handle the report discreetly throughout — it names a minor. Store
+     it only in the platform record; don't forward statements or photos
+     over text or email, and don't discuss specifics with anyone
+     outside the people who need to know to do their job.
+  7. Consult the director before finalizing anything serious enough to
+     carry insurance or legal exposure (a trip to the ER, a serious
+     altercation, anything with a clear liability question) — this is
+     the record the office and insurer treat as authoritative, so get
+     it right rather than fast on anything consequential.
+  8. Submit the finalized report. Nothing about this incident closes
+     until this report is signed off — the incident follow-up activity
+     depends on it being complete.
+  9. If you're unreachable, the event lead drafts the report from the
+     same witness statements and evidence, and the director finalizes
+     it before it's considered closed.
 tracking_method: form
 tracking_artifact:
   template_id: frm.incident_report_full

@@ -2,7 +2,41 @@ id: frm.rainout_refund
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: outcome
+    label: Outcome
+    type: enum
+    options:
+      - Reschedule (no refund/credit)
+      - Full refund
+      - Partial refund
+      - Full credit
+      - Partial credit
+    required: true
+  - id: affected_registrations_count
+    label: Registrations affected
+    type: number
+    required: true
+  - id: rationale
+    label: Rationale for the outcome chosen
+    type: long_text
+    required: true
+  - id: proration_basis
+    label: Proration basis (if partial)
+    type: long_text
+    required: false
+  - id: refund_actioned
+    label: Refunds actioned per registration (if refund outcome)?
+    type: boolean
+    required: false
+  - id: credit_terms
+    label: Credit amount and terms handed to office (if credit outcome)
+    type: long_text
+    required: false
+  - id: authorizing_director
+    label: Authorizing director
     type: text
+    required: true
+  - id: escalated
+    label: Escalated per handoff ladder (director unreachable)?
+    type: boolean
     required: false

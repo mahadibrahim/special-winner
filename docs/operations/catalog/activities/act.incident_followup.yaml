@@ -25,9 +25,32 @@ escalation_path: |
   outreach and escalates to role.director per the standard handoff
   ladder.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Within 24-48 hours of the finalized incident report, follow up
+     directly with the affected family (or staff member, if it's a
+     staff incident) — a phone call or in-person check-in, not just a
+     text.
+  2. Ask about recovery status and, for a player, whether or when they
+     expect to return to play — record what they tell you, not what
+     you assume.
+  3. If the incident involves any injury claim, confirm whether the
+     family has been in contact with insurance and capture the contact
+     status (not yet, in progress, resolved).
+  4. Note whether the family has any outstanding question or concern
+     from the incident that the office should address — don't let this
+     follow-up be a formality if they still have something unresolved.
+  5. Decide whether any additional action is needed from the office: a
+     policy referral (feeds the weekly safety review), a facility
+     referral (feeds the field damage report if one hasn't already been
+     filed), or a direct follow-up from the director.
+  6. Record the outreach, what you learned, and any recommended
+     additional action on the incident follow-up form, and submit it.
+  7. Handle this discreetly like every other step in the incident chain
+     — it still names a minor; keep the conversation and the record
+     between you, the family, and anyone else who needs to know.
+  8. If you're unreachable within the window, the event lead conducts
+     the outreach and escalates to the director per the standard
+     handoff ladder — the 24-48h window doesn't stretch just because
+     you're unavailable.
 tracking_method: form
 tracking_artifact:
   template_id: frm.incident_followup

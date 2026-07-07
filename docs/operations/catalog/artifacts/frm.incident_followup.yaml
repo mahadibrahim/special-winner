@@ -2,7 +2,60 @@ id: frm.incident_followup
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: linked_incident_id
+    label: Linked incident report
     type: text
+    required: true
+  - id: outreach_method
+    label: Outreach method
+    type: enum
+    options:
+      - Phone call
+      - In person
+      - Video call
+      - Other
+    required: true
+  - id: outreach_completed_at
+    label: Outreach completed on
+    type: date
+    required: true
+  - id: recovery_status
+    label: Recovery status
+    type: long_text
+    required: true
+  - id: return_to_play_status
+    label: Return-to-play status
+    type: enum
+    options:
+      - Returned
+      - Not yet cleared
+      - Not applicable
+      - Unknown
+    required: true
+  - id: insurance_contact_status
+    label: Insurance contact status
+    type: enum
+    options:
+      - Not applicable
+      - Not yet contacted
+      - In progress
+      - Resolved
+    required: true
+  - id: outstanding_concerns
+    label: Outstanding concerns from the family
+    type: long_text
     required: false
+  - id: recommended_action
+    label: Recommended additional action
+    type: enum
+    options:
+      - None
+      - Policy referral to weekly safety review
+      - Facility referral to field damage report
+      - Director follow-up
+      - Other
+    required: true
+  - id: followed_up_by
+    label: Followed up by
+    type: text
+    required: true

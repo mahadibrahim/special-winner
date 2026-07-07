@@ -24,9 +24,33 @@ escalation_path: |
   If payroll handoff fails, on-call platform engineer escalates to
   role.director; ref stipend manually disbursed as fallback.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. At T+24h after the day's ref stipend log is signed off, the
+     platform compiles that day's stipend records — every ref, every
+     match, the acknowledged total — into the payroll export for the
+     pay period.
+  2. There's no live payroll API connection today (the external ack
+     listener is still on the roadmap) — the export is a data handoff,
+     not an automatic disbursement. Whoever runs payroll for the org
+     (typically the director or an outsourced payroll admin) pulls
+     this export and enters it into the org's actual payroll provider
+     as a 1099 contractor stipend batch.
+  3. Once the payroll provider confirms the stipend batch was paid,
+     that confirmation is recorded back in the platform against this
+     event — today that's a manual entry, not an automatic webhook.
+  4. This closes the pay record for the period once recorded. No
+     further human action is needed on a normal cycle beyond that
+     manual confirmation step.
+  5. Verification: the director or event lead can check that every
+     ref who worked that day shows a closed pay record within a day or
+     two of the stipend log being signed off; a stipend log sitting
+     unrecorded past that window means the export step didn't happen.
+  6. If the handoff fails or is missed, the on-call platform engineer
+     escalates per the escalation path; in the meantime, the ref
+     stipend is manually disbursed as a fallback so a ref's pay isn't
+     held up by a platform gap.
+  7. Whoever disburses manually should still log it in the platform
+     once done, so the record doesn't permanently show unpaid once the
+     ref has actually been paid.
 tracking_method: external_acknowledgment
 tracking_artifact:
   external_system: payroll
