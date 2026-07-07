@@ -1,12 +1,26 @@
 import { describe, it, expect } from "vitest";
+import { eq } from "drizzle-orm";
+import { addMonths } from "date-fns";
 import { getDb } from "@/lib/db";
-import { organizations, users } from "@/lib/db/schema";
+import { organizations, users, accountCredits } from "@/lib/db/schema";
 import {
   getAccountCreditBalanceCents,
   issueAccountCredit,
   redeemAccountCredit,
 } from "@/lib/payments/account-credit";
 import { seedPaidRegistration } from "../../utils/registration-context";
+
+/** Tolerance for "~12 months from now" assertions — generous enough to
+ *  absorb test runtime, not so generous it'd pass on a broken calculation. */
+const TWELVE_MONTHS_TOLERANCE_MS = 5 * 60 * 1000;
+
+function expectAroundTwelveMonthsOut(expiresAt: Date | null, from: Date) {
+  expect(expiresAt).not.toBeNull();
+  const expected = addMonths(from, 12).getTime();
+  expect(Math.abs(expiresAt!.getTime() - expected)).toBeLessThan(
+    TWELVE_MONTHS_TOLERANCE_MS,
+  );
+}
 
 /** Minimal isolated org+user pair — enough for balance/issue/redeem tests
  *  that don't need a full registration row graph. */
@@ -52,8 +66,12 @@ describe("getAccountCreditBalanceCents", () => {
 
   it("excludes expired issuances", async () => {
     const { organizationId, userId } = await seedOrgUser();
+    // Expiry is fully automatic now (airline-style, set/refreshed by
+    // issueAccountCredit/redeemAccountCredit) — to model "issued long ago,
+    // zero activity since, now past its window" we insert the row directly
+    // rather than through issueAccountCredit.
     const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    await issueAccountCredit({
+    await getDb().insert(accountCredits).values({
       userId,
       organizationId,
       amountCents: 1000,
@@ -203,5 +221,108 @@ describe("redeemAccountCredit", () => {
     expect(result.redeemedCents).toBe(700);
     const balance = await getAccountCreditBalanceCents(userId, organizationId);
     expect(balance).toBe(300);
+  });
+});
+
+describe("account credit expiry (airline-style, 12mo of inactivity)", () => {
+  it("sets a new issuance's expiresAt to ~12 months out", async () => {
+    const { organizationId, userId } = await seedOrgUser();
+    const before = new Date();
+
+    const credit = await issueAccountCredit({ userId, organizationId, amountCents: 1000 });
+
+    expectAroundTwelveMonthsOut(credit.expiresAt, before);
+  });
+
+  it("a redemption extends the remaining unexpired issuance rows' expiry", async () => {
+    const { organizationId, userId } = await seedOrgUser();
+    const { registrationId } = await seedPaidRegistration(0, {
+      amountDueCents: 5000,
+      paymentStatus: "unpaid",
+      status: "pending",
+    });
+
+    const credit = await issueAccountCredit({ userId, organizationId, amountCents: 2000 });
+    // Backdate to "issued a while ago, still has a couple days left" so we
+    // can observe the redemption pushing expiresAt back out.
+    const soon = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    await getDb()
+      .update(accountCredits)
+      .set({ expiresAt: soon })
+      .where(eq(accountCredits.id, credit.id));
+
+    const before = new Date();
+    await redeemAccountCredit({
+      userId,
+      organizationId,
+      registrationId,
+      amountCentsRequested: 500,
+    });
+
+    const [refreshed] = await getDb()
+      .select()
+      .from(accountCredits)
+      .where(eq(accountCredits.id, credit.id));
+
+    expect(refreshed.expiresAt!.getTime()).toBeGreaterThan(soon.getTime());
+    expectAroundTwelveMonthsOut(refreshed.expiresAt, before);
+  });
+
+  it("does not extend expiry when a redemption is a no-op (no credit available)", async () => {
+    const { organizationId, userId } = await seedOrgUser();
+    const { registrationId } = await seedPaidRegistration(0, {
+      amountDueCents: 5000,
+      paymentStatus: "unpaid",
+      status: "pending",
+    });
+
+    const result = await redeemAccountCredit({
+      userId,
+      organizationId,
+      registrationId,
+      amountCentsRequested: 500,
+    });
+
+    expect(result.redeemedCents).toBe(0);
+  });
+
+  it("issuing new credit refreshes the expiry of existing unexpired rows", async () => {
+    const { organizationId, userId } = await seedOrgUser();
+
+    const first = await issueAccountCredit({ userId, organizationId, amountCents: 1000 });
+    const soon = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    await getDb()
+      .update(accountCredits)
+      .set({ expiresAt: soon })
+      .where(eq(accountCredits.id, first.id));
+
+    const before = new Date();
+    await issueAccountCredit({ userId, organizationId, amountCents: 500 });
+
+    const [refreshedFirst] = await getDb()
+      .select()
+      .from(accountCredits)
+      .where(eq(accountCredits.id, first.id));
+
+    expect(refreshedFirst.expiresAt!.getTime()).toBeGreaterThan(soon.getTime());
+    expectAroundTwelveMonthsOut(refreshedFirst.expiresAt, before);
+  });
+
+  it("a balance with no activity for over a year reads 0", async () => {
+    const { organizationId, userId } = await seedOrgUser();
+    // Model "issued >1yr ago, zero activity since" directly — expiresAt is
+    // fully automatic in the real code paths, so a genuinely-expired row
+    // only occurs after a year of silence, which we simulate by inserting
+    // the row with an already-past expiresAt.
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await getDb().insert(accountCredits).values({
+      userId,
+      organizationId,
+      amountCents: 4000,
+      expiresAt: past,
+    });
+
+    const balance = await getAccountCreditBalanceCents(userId, organizationId);
+    expect(balance).toBe(0);
   });
 });

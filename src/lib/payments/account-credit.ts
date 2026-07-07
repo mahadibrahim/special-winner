@@ -4,15 +4,24 @@ import {
   accountCreditRedemptions,
   type AccountCredit,
 } from "@/lib/db/schema";
-import { and, asc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { addMonths } from "date-fns";
+
+/** Airline-style expiry window: any account activity (a new issuance or a
+ *  redemption) resets every unexpired issuance row for that (user, org) to
+ *  `now + EXPIRY_MONTHS`. Only a full window with zero activity lets a
+ *  balance actually expire. */
+const EXPIRY_MONTHS = 12;
 
 /**
  * Account-credit balance is always computed on read from the ledger — never
  * cached — matching the discountCodes/discountUsages pattern:
  *   balance = SUM(unexpired issued) - SUM(redeemed against unexpired)
  *
- * v1 scope: nothing ever sets expiresAt, so the "unexpired" filter is a
- * no-op today but is already correct for when an expiry policy ships.
+ * Every issuance row now carries an expiresAt (see issueAccountCredit /
+ * redeemAccountCredit below, which set/refresh it on every activity event),
+ * so the isNull(...) branch here is defensive only (e.g. rows written
+ * before the expiry policy shipped).
  */
 export async function getAccountCreditBalanceCents(
   userId: string,
@@ -64,12 +73,17 @@ export interface IssueAccountCreditInput {
   reason?: string;
   sourceRegistrationId?: string;
   issuedByUserId?: string;
-  expiresAt?: Date;
 }
 
 /**
- * Insert a new credit issuance row. Throws on a non-positive amount — an
- * issuance is meaningless (or actively wrong) at zero/negative cents.
+ * Insert a new credit issuance row and refresh the airline-style expiry
+ * clock: the new row gets `expiresAt = now + 12mo`, and — in the same
+ * transaction — every other unexpired issuance row for this (user, org)
+ * is extended to the same `now + 12mo`. Any account activity (issuing more
+ * credit counts) resets the whole balance's clock, not just the new row's.
+ *
+ * Throws on a non-positive amount — an issuance is meaningless (or actively
+ * wrong) at zero/negative cents.
  */
 export async function issueAccountCredit(
   input: IssueAccountCreditInput,
@@ -79,20 +93,39 @@ export async function issueAccountCredit(
   }
 
   const db = getDb();
-  const [row] = await db
-    .insert(accountCredits)
-    .values({
-      userId: input.userId,
-      organizationId: input.organizationId,
-      amountCents: input.amountCents,
-      reason: input.reason,
-      sourceRegistrationId: input.sourceRegistrationId,
-      issuedByUserId: input.issuedByUserId,
-      expiresAt: input.expiresAt,
-    })
-    .returning();
+  const now = new Date();
+  const expiresAt = addMonths(now, EXPIRY_MONTHS);
 
-  return row;
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(accountCredits)
+      .values({
+        userId: input.userId,
+        organizationId: input.organizationId,
+        amountCents: input.amountCents,
+        reason: input.reason,
+        sourceRegistrationId: input.sourceRegistrationId,
+        issuedByUserId: input.issuedByUserId,
+        expiresAt,
+      })
+      .returning();
+
+    // Refresh every OTHER unexpired issuance row for this user+org to the
+    // same expiry — new activity resets the whole balance's clock.
+    await tx
+      .update(accountCredits)
+      .set({ expiresAt, updatedAt: now })
+      .where(
+        and(
+          eq(accountCredits.userId, input.userId),
+          eq(accountCredits.organizationId, input.organizationId),
+          ne(accountCredits.id, row.id),
+          or(isNull(accountCredits.expiresAt), gt(accountCredits.expiresAt, now)),
+        ),
+      );
+
+    return row;
+  });
 }
 
 export interface RedeemAccountCreditInput {
@@ -117,6 +150,10 @@ export interface RedeemAccountCreditResult {
  * the over-apply guard (mirrors the client-never-supplies-an-amount design:
  * even if a caller passes a too-large amountCentsRequested, the ledger can't
  * go negative).
+ *
+ * Airline-style expiry: a successful redemption is account activity, so
+ * every remaining unexpired issuance row for this (user, org) is extended
+ * to `now + 12mo` after allocation.
  */
 export async function redeemAccountCredit(
   input: RedeemAccountCreditInput,
@@ -193,6 +230,23 @@ export async function redeemAccountCredit(
 
       remaining -= take;
       redeemedCents += take;
+    }
+
+    // A successful redemption is activity — refresh the expiry clock on
+    // every remaining unexpired issuance row for this user+org (including
+    // rows this redemption didn't touch, and rows it partially drew from).
+    if (redeemedCents > 0) {
+      const refreshedExpiresAt = addMonths(now, EXPIRY_MONTHS);
+      await tx
+        .update(accountCredits)
+        .set({ expiresAt: refreshedExpiresAt, updatedAt: now })
+        .where(
+          and(
+            eq(accountCredits.userId, userId),
+            eq(accountCredits.organizationId, organizationId),
+            or(isNull(accountCredits.expiresAt), gt(accountCredits.expiresAt, now)),
+          ),
+        );
     }
 
     return { redeemedCents };
