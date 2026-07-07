@@ -177,9 +177,44 @@ standard handoff ladder.
 threatened violence escalate immediately to role.director and law
 enforcement as appropriate.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. When a conduct issue is observed or reported during a match — a
+   coach yelling from the sideline, a parent shouting at players or
+   officials, someone ignoring the sideline boundary — respond in
+   person and calmly. The goal is to de-escalate and get the match
+   back to normal, not to make a scene.
+2. Start with the lightest effective step: a direct, private word with
+   the person restating the expectation, not shouted across the
+   field. Most sideline issues resolve here, especially for someone
+   who just got heated in the moment.
+3. If the behavior continues after that first word, or it's serious
+   enough to skip straight past a warning (targeting a player, abusive
+   language at an official), issue a clear, specific warning: name the
+   behavior, state what happens if it continues, and note who
+   witnessed it.
+4. If the person doesn't comply with a warning, or the issue warrants
+   it immediately, remove them — a parent goes to the parking lot or
+   away from the team area; a coach who won't stop steps away from
+   their team for the rest of the match (the assistant coach or team
+   captain takes over).
+5. This is enforcement, not a referee ejection — you're not sending
+   anyone from play under the sport's rules, and this isn't logged as
+   an ejection. If what you're looking at is serious enough to be a
+   formal ejection of a rostered player or coach, that's the ref's
+   call, not yours.
+6. Log the incident in the form regardless of how it resolved: who was
+   involved, what happened, what action you took, and who witnessed
+   it. Even a fully-resolved verbal reminder gets logged — this is
+   what lets the office see a pattern if the same person shows up
+   again.
+7. Submit the form within about 5 minutes of the issue, while the
+   details are fresh, and let the coach know afterward if a parent
+   from their team was involved. Keep it factual and non-punitive in
+   tone — the coach still owns that family relationship day to day.
+8. For anything involving a threat of violence or a safety concern,
+   skip straight to removal and escalate immediately to the venue
+   manager and, for a genuine safety threat, the director and law
+   enforcement as appropriate. Don't try to talk someone down who's
+   already crossed into a safety issue.
 
 ### Incident response (in-the-moment) (`act.incident_response`) — Responsible
 
