@@ -81,6 +81,23 @@ describe("Tour", () => {
     expect(stat.isFile()).toBe(true);
   });
 
+  it("copies to deckRole's directory instead of the tour's own role when set", async () => {
+    const page = fakePage();
+    const tour = createTour({ workflow: "venue-manager", role: "event_lead", rootDir });
+    await tour.step(page, "Walk-up registration form", async () => {}, {
+      deckSlug: "walk_on_registration",
+      deckRole: "front_of_house",
+    });
+
+    const stat = await fs.stat(
+      path.join(rootDir, "screenshots", "front_of_house", "walk_on_registration.png"),
+    );
+    expect(stat.isFile()).toBe(true);
+    await expect(
+      fs.stat(path.join(rootDir, "screenshots", "event_lead", "walk_on_registration.png")),
+    ).rejects.toThrow();
+  });
+
   it("does not create a deck-slot directory when no step sets deckSlug", async () => {
     const page = fakePage();
     const tour = createTour({ workflow: "coach-core", role: "coach", rootDir });
