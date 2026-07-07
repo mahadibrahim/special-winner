@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { blockRows, columnsForSpaces } from "@/lib/venue/calendar-layout"
+import { blockRows, clampRowsToWindow, columnsForSpaces } from "@/lib/venue/calendar-layout"
 import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
 import { ActivityBlock } from "./ActivityBlock"
 import { WeekGrid } from "./WeekGrid"
@@ -304,11 +304,23 @@ export function ScheduleCalendar({
 
                   {/* Activity blocks */}
                   {spaceSessions.map((session) => {
-                    const { rowStart, rowEnd } = blockRows(
+                    // Clamp to the rendered grid window — a session outside
+                    // business hours (e.g. a pickup game started just after
+                    // midnight) would otherwise get a negative/overflowing
+                    // `top` offset and visually escape the calendar
+                    // container, overlapping page chrome above it and
+                    // eating clicks meant for the block. See
+                    // clampRowsToWindow's doc comment for the full story.
+                    const rawRows = blockRows(
                       session.startsAt,
                       session.endsAt,
                       DAY_START_HOUR,
                       timeZone,
+                    )
+                    const { rowStart, rowEnd } = clampRowsToWindow(
+                      rawRows.rowStart,
+                      rawRows.rowEnd,
+                      TOTAL_ROWS,
                     )
                     return (
                       <div
