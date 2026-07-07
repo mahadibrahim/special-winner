@@ -104,3 +104,6 @@ export * from "./incidents";
 
 // Account-credit ledger (refunds-as-credit; product-backlog build #2)
 export * from "./account-credits";
+
+// Media individual opt-out / do-not-publish (product-backlog build #3)
+export * from "./media-do-not-publish";
