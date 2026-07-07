@@ -45,6 +45,10 @@ sop_body: |
      don't wait past the window hoping the original ref appears.
   8. If the event lead is unavailable to run check-in, escalate to the
      venue manager per the escalation path.
+tools:
+  - The event lead's check-in station
+  - The ref's My Matches list (/referee)
+  - The activity completion signature capture (/admin/activity-completions/[id])
 tracking_method: signature
 tracking_artifact:
   template_id: sig.ref_check_in

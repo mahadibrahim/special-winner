@@ -52,6 +52,10 @@ sop_body: |
      make-up date reaching a parent is worse than a delayed one.
   8. If you're unreachable, the venue manager may propose candidate
      dates, but the reschedule doesn't publish until you sign off.
+tools:
+  - Venue/field availability (/admin/venues, /admin/seasons)
+  - The ref assignment calendar (reference)
+  - The rainout reschedule form
 tracking_method: form
 tracking_artifact:
   template_id: frm.rainout_reschedule

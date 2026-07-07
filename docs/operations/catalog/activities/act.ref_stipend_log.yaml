@@ -51,6 +51,10 @@ sop_body: |
      venue manager.
   8. If you're unreachable, the venue manager logs the stipend and
      escalates to the director for sign-off.
+tools:
+  - Ref check-in records (one per match worked)
+  - The ref stipend log form
+  - The org's pay schedule (rate and add-on reference)
 tracking_method: form
 tracking_artifact:
   template_id: frm.ref_stipend_log

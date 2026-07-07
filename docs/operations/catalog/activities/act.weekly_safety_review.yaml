@@ -57,6 +57,10 @@ sop_body: |
   9. If you're unavailable in a given week, the venue manager drafts
      the review and you sign off retroactively — no review goes
      unsigned past two weeks per the escalation path.
+tools:
+  - The week's finalized incident reports (reference)
+  - The week's field damage reports (reference)
+  - The weekly safety review form
 tracking_method: form
 tracking_artifact:
   template_id: frm.weekly_safety_review

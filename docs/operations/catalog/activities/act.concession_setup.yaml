@@ -46,6 +46,10 @@ sop_body: |
      today's pricing.
   8. Once the stand is fully ready, mark the checklist complete — this
      clears the way for the concession inventory count.
+tools:
+  - POS terminal and cash drawer
+  - Fountain machine (syrup-ratio calibration)
+  - Hand-wash and sanitizer station supplies
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.concession_setup

@@ -63,6 +63,10 @@ sop_body: |
      manager and, for a genuine safety threat, the director and law
      enforcement as appropriate. Don't try to talk someone down who's
      already crossed into a safety issue.
+tools:
+  - The code of conduct enforcement form
+  - Two-way radio or phone (calling in the venue manager or director)
+  - In-person conversation (the lightest-effective-step de-escalation)
 tracking_method: form
 tracking_artifact:
   template_id: frm.code_of_conduct_event

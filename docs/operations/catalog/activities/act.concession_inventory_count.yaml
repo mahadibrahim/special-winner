@@ -41,6 +41,10 @@ sop_body: |
      venue manager if it looks like a shrink or delivery problem.
   8. Submit the form. This is what the cash and concession reconcile
      compares against at the end of the day.
+tools:
+  - The concession inventory form
+  - Stockroom and cooler shelving (item-by-item count)
+  - Price/SKU list
 tracking_method: form
 tracking_artifact:
   template_id: frm.concession_inventory

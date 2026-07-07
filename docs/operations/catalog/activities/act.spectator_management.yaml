@@ -46,6 +46,10 @@ sop_body: |
      problem patterns over time.
   8. Submit the form within about 5 minutes of the issue arising, while
      the details are still fresh.
+tools:
+  - The spectator complaint form
+  - Two-way radio (pulling in the event lead or venue manager)
+  - In-person conversation (de-escalation, away from the match)
 tracking_method: form
 tracking_artifact:
   template_id: frm.spectator_complaint

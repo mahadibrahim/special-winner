@@ -46,6 +46,10 @@ sop_body: |
      recount escalates to the director.
   9. File the signed, witnessed form with today's records before making
      the deposit.
+tools:
+  - Cash drawer and denomination tray
+  - The POS Z-report
+  - The cash and concession reconciliation form
 tracking_method: form
 tracking_artifact:
   template_id: frm.cash_reconcile

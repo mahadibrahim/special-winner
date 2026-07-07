@@ -42,6 +42,10 @@ sop_body: |
      ref crew, mark the checklist complete.
   8. If a match still has no confirmed ref by T-24h, escalate per the
      escalation path — don't let it ride into game day unresolved.
+tools:
+  - The assignor tool or contractor channel (acknowledgment status)
+  - The standby ref pool roster
+  - The day's match list/schedule
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.ref_assignment_confirm

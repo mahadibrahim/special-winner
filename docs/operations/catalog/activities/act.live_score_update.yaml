@@ -57,6 +57,10 @@ sop_body: |
      platform's score and standings pipeline treats as the record of the
      match's scoring — there's no separate live feed to reconcile it
      against today.
+tools:
+  - Personal tally (paper or mental count of goals as they happen)
+  - The venue's manual scoreboard, if one is running
+  - The match report (/referee/matches/[gameId]) — final entry point for the score
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.live_scores
