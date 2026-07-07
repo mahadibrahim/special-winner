@@ -44,12 +44,18 @@ export async function requireMediaStaffAccess(context: APIContext): Promise<
 export async function loadAssignedSession(
   userId: string,
   sessionId: string
-): Promise<{ id: string; status: string; assignedUserId: string | null } | null> {
+): Promise<{
+  id: string;
+  status: string;
+  assignedUserId: string | null;
+  organizationId: string;
+} | null> {
   const [row] = await getDb()
     .select({
       id: shootSessions.id,
       status: shootSessions.status,
       assignedUserId: shootSessions.assignedUserId,
+      organizationId: shootSessions.organizationId,
     })
     .from(shootSessions)
     .where(
