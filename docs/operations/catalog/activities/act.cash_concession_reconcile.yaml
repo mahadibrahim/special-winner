@@ -1,10 +1,12 @@
 id: act.cash_concession_reconcile
-name: Cash and concession reconcile
+name: Concession settlement reconcile (card-only)
 description: |
-  Count drawer cash, run the POS Z-report, count closing concession
-  inventory, and capture variance. The form ties cash, card receipts,
-  and stock movement back to expected revenue per opening counts.
-trigger: After concession close, before deposit
+  Run the POS Z-report, count closing concession inventory, and capture
+  any variance. Aspire concessions are cashless — card settlement only
+  — so this ties POS card receipts and stock movement back to expected
+  revenue per the opening count. There is no drawer, no bank, and no
+  deposit step.
+trigger: After concession close
 phase: end_of_day
 sport_tags: []
 venue_tags: [concessions]
@@ -21,35 +23,30 @@ platform_features:
   - feat.activity_tracking_engine
 escalation_path: |
   If front_of_house unreachable, role.venue_manager performs the
-  reconciliation; any cash variance over threshold escalates to
+  reconciliation; any variance over threshold escalates to
   role.director.
 sop_body: |
-  1. Close the concession stand to new sales before starting the count —
-     don't count a drawer that's still taking cash.
-  2. Count the drawer cash by denomination with a second person present
-     as witness; the witness watches the count, they don't just take
-     your word for the total.
-  3. Subtract the opening bank (the fixed starting cash noted at
-     concession setup) from the counted total to get cash sales.
-  4. Run the POS Z-report for the day and record card sales and total
-     POS-recorded sales separately from the cash count.
-  5. Count closing concession inventory against the opening inventory
+  1. Close the concession stand to new sales before starting the
+     reconcile.
+  2. Run the POS Z-report for the day and record total card sales — the
+     stand is card-only, so this is the full day's revenue; there's no
+     cash drawer or bank to count.
+  3. Count closing concession inventory against the opening inventory
      count to compute units sold by item.
-  6. Multiply units sold by price to get expected revenue, then compare
-     expected revenue to (cash sales + card sales) and record the
-     variance, over or short.
-  7. If the variance is inside the normal tolerance, both you and the
-     witness sign the reconciliation form and prepare the deposit.
-  8. If the variance is outside tolerance, recount before assuming
-     shrink or a counting error — then record the variance as-is and
-     escalate to the venue manager; anything still unexplained after
-     recount escalates to the director.
-  9. File the signed, witnessed form with today's records before making
-     the deposit.
+  4. Multiply units sold by price to get expected revenue, then compare
+     expected revenue to POS card sales and record the variance, over
+     or short.
+  5. If the variance is inside the normal tolerance, sign the
+     reconciliation form — no witness or deposit step is needed since
+     there's no cash to secure.
+  6. If the variance is outside tolerance, recount inventory before
+     assuming shrink or a counting error — then record the variance
+     as-is and escalate to the venue manager; anything still
+     unexplained after recount escalates to the director.
+  7. File the signed form with today's records.
 tools:
-  - Cash drawer and denomination tray
   - The POS Z-report
-  - The cash and concession reconciliation form
+  - The concession settlement reconciliation form
 tracking_method: form
 tracking_artifact:
   template_id: frm.cash_reconcile

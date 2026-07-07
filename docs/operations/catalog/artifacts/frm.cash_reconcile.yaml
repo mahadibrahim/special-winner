@@ -2,32 +2,12 @@ id: frm.cash_reconcile
 kind: form
 status: stub
 fields:
-  - id: counted_by
-    label: Counted by
+  - id: reconciled_by
+    label: Reconciled by
     type: text
-    required: true
-  - id: witnessed_by
-    label: Witnessed by (second person present for the count)
-    type: text
-    required: true
-  - id: opening_bank
-    label: Opening bank (fixed starting cash)
-    type: number
-    required: true
-  - id: drawer_cash_counted
-    label: Drawer cash counted (total)
-    type: number
-    required: true
-  - id: cash_sales
-    label: Cash sales (drawer count minus opening bank)
-    type: number
     required: true
   - id: pos_card_sales
-    label: Card sales per POS Z-report
-    type: number
-    required: true
-  - id: pos_total_sales
-    label: Total sales per POS Z-report
+    label: Card sales per POS Z-report (all sales — concessions are card-only)
     type: number
     required: true
   - id: units_sold_by_item
@@ -39,7 +19,7 @@ fields:
     type: number
     required: true
   - id: variance
-    label: Variance (expected revenue vs. cash + card sales), over or short
+    label: Variance (expected revenue vs. POS card sales), over or short
     type: number
     required: true
   - id: variance_within_tolerance
@@ -47,7 +27,7 @@ fields:
     type: boolean
     required: true
   - id: recount_performed
-    label: Recount performed (if outside tolerance)?
+    label: Inventory recount performed (if outside tolerance)?
     type: boolean
     required: false
   - id: variance_explanation

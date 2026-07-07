@@ -33,9 +33,9 @@ sop_body: |
      before the player joins the session.
   4. Select the correct session/program the walk-on is joining so
      they're added to the right roster, not just "today's activity."
-  5. Capture payment before the player joins play — record the payment
-     status and method; if paying at the desk in person, mark it paid
-     once the payment is actually taken.
+  5. Capture payment before the player joins play — card only, no
+     cash accepted. Run the card at the desk and mark it paid once the
+     payment actually clears.
   6. Get the liability waiver signed. In person, that's the paper
      waiver at the desk; note it as signed once collected — never let a
      player join on a verbal "I'll sign later."
@@ -50,7 +50,7 @@ sop_body: |
 tools:
   - The walk-up registration station (/admin/venue/walk-up)
   - Paper liability waiver
-  - Payment terminal or cash drawer
+  - Card-only payment terminal (no cash accepted)
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.walk_on_registrations
