@@ -94,6 +94,7 @@ export const PATCH: APIRoute = async (context) => {
       getDb(),
       id,
       intendedScope as "internal" | "promotional" | "public",
+      orgContext.organizationId,
     );
     if (!check.canPublish) {
       console.warn(
