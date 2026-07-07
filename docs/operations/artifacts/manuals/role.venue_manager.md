@@ -267,9 +267,39 @@ standard handoff ladder.
 role.director; venue_manager remains accountable for documentation
 but role.event_lead may capture the initial form.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. The moment an incident is reported to you — injury, altercation,
+   medical event, or property damage — get to the scene. If you
+   didn't witness it yourself, find whoever did (coach, ref, event
+   lead) before writing anything down.
+2. Scene safety and care come before documentation. If it's
+   life-threatening, call 911 immediately — this also escalates
+   directly to the director; don't wait to finish a form first.
+   Never leave an injured or distressed child unattended while you
+   sort out logistics.
+3. Get first-hand information from whoever responded: who was
+   involved, what immediate care was given, whether 911 was called
+   and when, and the exact time.
+4. Open the incident response form and capture what you have within
+   about 5 minutes of the incident — this is the in-the-moment
+   record, not the full report. It doesn't need to be complete, it
+   needs to be fast and accurate: what happened, who responded, what
+   care was given, whether 911 was called.
+5. If a parent is on-site, notify them directly and in person before
+   they hear about it secondhand. Stick to what happened and what was
+   done — don't speculate about diagnosis or fault.
+6. Handle this discreetly — this record names a minor. Don't discuss
+   specifics in a group chat, in front of other families, or with
+   anyone who doesn't need to know; the incident form is the record,
+   not a text thread.
+7. Submit the form as soon as the immediate situation is stable. This
+   starts the clock on the incident report finalization, which
+   happens once the affected match is over.
+8. If you can't capture this yourself, the event lead may capture
+   the initial form from the same first-hand accounts — you remain
+   accountable for it either way.
+9. This form is the fast first pass, not the final record used for
+   disputes or insurance — every incident captured here still needs
+   the full finalized report before it's closed.
 
 ## post_game
 
@@ -281,9 +311,37 @@ follow-up PR.
 - Escalation: If venue_manager unreachable, role.event_lead drafts and role.director
 finalizes; nothing closes until the report is signed off.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. Once the affected match is over and the situation is stable, pull
+   up the in-the-moment incident response form as your starting point
+   — this report builds on it, it doesn't replace it.
+2. Identify every witness — players, coaches, refs, spectators who
+   saw what happened — and get a brief statement from each while
+   memories are fresh; don't rely on a single account.
+3. Record post-event status: how the affected person is doing now
+   (returned to play, sent home, went to urgent care/ER, refused
+   further care), not just what happened in the moment.
+4. Attach any relevant photos (of the scene, of visible injury if
+   appropriate and consented to, of property damage) to support the
+   record.
+5. Complete every section of the full incident report form —
+   witnesses, statements, photos, post-event status, and anything
+   from the in-the-moment response you need to correct or add detail
+   to.
+6. Handle the report discreetly throughout — it names a minor. Store
+   it only in the platform record; don't forward statements or photos
+   over text or email, and don't discuss specifics with anyone
+   outside the people who need to know to do their job.
+7. Consult the director before finalizing anything serious enough to
+   carry insurance or legal exposure (a trip to the ER, a serious
+   altercation, anything with a clear liability question) — this is
+   the record the office and insurer treat as authoritative, so get
+   it right rather than fast on anything consequential.
+8. Submit the finalized report. Nothing about this incident closes
+   until this report is signed off — the incident follow-up activity
+   depends on it being complete.
+9. If you're unreachable, the event lead drafts the report from the
+   same witness statements and evidence, and the director finalizes
+   it before it's considered closed.
 
 ## end_of_day
 
@@ -409,6 +467,29 @@ escalates to role.director per the standard handoff ladder.
 outreach and escalates to role.director per the standard handoff
 ladder.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. Within 24-48 hours of the finalized incident report, follow up
+   directly with the affected family (or staff member, if it's a
+   staff incident) — a phone call or in-person check-in, not just a
+   text.
+2. Ask about recovery status and, for a player, whether or when they
+   expect to return to play — record what they tell you, not what
+   you assume.
+3. If the incident involves any injury claim, confirm whether the
+   family has been in contact with insurance and capture the contact
+   status (not yet, in progress, resolved).
+4. Note whether the family has any outstanding question or concern
+   from the incident that the office should address — don't let this
+   follow-up be a formality if they still have something unresolved.
+5. Decide whether any additional action is needed from the office: a
+   policy referral (feeds the weekly safety review), a facility
+   referral (feeds the field damage report if one hasn't already been
+   filed), or a direct follow-up from the director.
+6. Record the outreach, what you learned, and any recommended
+   additional action on the incident follow-up form, and submit it.
+7. Handle this discreetly like every other step in the incident chain
+   — it still names a minor; keep the conversation and the record
+   between you, the family, and anyone else who needs to know.
+8. If you're unreachable within the window, the event lead conducts
+   the outreach and escalates to the director per the standard
+   handoff ladder — the 24-48h window doesn't stretch just because
+   you're unavailable.

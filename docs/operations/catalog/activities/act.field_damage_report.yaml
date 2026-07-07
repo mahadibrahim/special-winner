@@ -23,9 +23,39 @@ escalation_path: |
   If facilities unreachable, role.venue_manager logs the damage and
   escalates to role.director for repair authorization.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. When you notice or are told about damage to a playing surface or
+     facility — turf burns, goal damage, broken equipment, vandalism —
+     go assess it in person before filing anything; don't file off a
+     secondhand description alone if you can get eyes on it in a
+     reasonable time.
+  2. Pull the most recent field condition photo (pregame) for that
+     surface if one's on file — it's your baseline for showing what's
+     new versus pre-existing wear.
+  3. Take dated photos of the damage from a distance (showing location
+     and context) and up close (showing the specific damage), and note
+     whether the surface or area is safe to keep using or needs to come
+     out of rotation right away.
+  4. If the damage makes the surface unsafe for continued play, flag
+     the venue manager immediately to pull it from the day's schedule —
+     don't wait for the report to be filed before raising that.
+  5. Note when and how the damage likely occurred if it's evident
+     (during a specific match, overnight, weather-related, vandalism) —
+     this matters for any charge-back decision.
+  6. Estimate repair urgency (can wait for routine maintenance vs. needs
+     prompt repair) and, if you can, a rough sense of scope (spot repair
+     vs. bigger job) — you're not pricing it, just giving the office
+     enough to prioritize.
+  7. Complete the field damage report form with the photos, baseline
+     comparison, cause if known, and urgency, and submit it.
+  8. Consult the venue manager on anything ambiguous (is this normal
+     wear or real damage, does this need to come out of rotation)
+     before finalizing, and escalate to the director for repair
+     authorization on anything beyond routine maintenance or any damage
+     that might be charged back to a team or renter — don't authorize a
+     chargeback call yourself.
+  9. If you're unreachable, the venue manager logs the damage and
+     escalates to the director for repair authorization per the
+     escalation path.
 tracking_method: form
 tracking_artifact:
   template_id: frm.field_damage_report

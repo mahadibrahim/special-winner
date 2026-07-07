@@ -25,9 +25,39 @@ escalation_path: |
   role.director; venue_manager remains accountable for documentation
   but role.event_lead may capture the initial form.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. The moment an incident is reported to you — injury, altercation,
+     medical event, or property damage — get to the scene. If you
+     didn't witness it yourself, find whoever did (coach, ref, event
+     lead) before writing anything down.
+  2. Scene safety and care come before documentation. If it's
+     life-threatening, call 911 immediately — this also escalates
+     directly to the director; don't wait to finish a form first.
+     Never leave an injured or distressed child unattended while you
+     sort out logistics.
+  3. Get first-hand information from whoever responded: who was
+     involved, what immediate care was given, whether 911 was called
+     and when, and the exact time.
+  4. Open the incident response form and capture what you have within
+     about 5 minutes of the incident — this is the in-the-moment
+     record, not the full report. It doesn't need to be complete, it
+     needs to be fast and accurate: what happened, who responded, what
+     care was given, whether 911 was called.
+  5. If a parent is on-site, notify them directly and in person before
+     they hear about it secondhand. Stick to what happened and what was
+     done — don't speculate about diagnosis or fault.
+  6. Handle this discreetly — this record names a minor. Don't discuss
+     specifics in a group chat, in front of other families, or with
+     anyone who doesn't need to know; the incident form is the record,
+     not a text thread.
+  7. Submit the form as soon as the immediate situation is stable. This
+     starts the clock on the incident report finalization, which
+     happens once the affected match is over.
+  8. If you can't capture this yourself, the event lead may capture
+     the initial form from the same first-hand accounts — you remain
+     accountable for it either way.
+  9. This form is the fast first pass, not the final record used for
+     disputes or insurance — every incident captured here still needs
+     the full finalized report before it's closed.
 tracking_method: form
 tracking_artifact:
   template_id: frm.incident_response

@@ -103,9 +103,30 @@ standard handoff ladder.
 - Escalation: If photographer no-show, event_lead escalates to role.venue_manager;
 pull from standby pool or accept reduced media coverage.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. About 30 minutes before your first assigned match, go to the event
+   lead's station to sign in — this starts your pay clock for the
+   session, so don't skip it even if you're already shooting
+   warmups.
+2. Confirm your assignment against the event lead's schedule — venue,
+   match(es), and session type (game, team posed, practice, event) —
+   and flag any mismatch before signing.
+3. Confirm your gear: camera body, charged batteries plus a backup,
+   memory cards with enough free space for the day, and any lens or
+   flash the shot list calls for.
+4. Review the shot list or session notes with the event lead —
+   required shots (team photos, action shots, specific players if
+   requested), any restricted subjects, and the day's intended
+   media-auth scope if it's already set (internal, promotional, or
+   public), so you know what you're shooting for.
+5. Sign the check-in. The event lead countersigns to confirm your
+   arrival and gear are in order.
+6. Once signed, your session moves from confirmed to checked-in in the
+   platform — this is what the event lead and venue manager see
+   reflected on the day's operations view.
+7. If you're a no-show, or running late enough that you'll miss the
+   window, the event lead escalates to the venue manager immediately
+   per the escalation path — don't wait until your scheduled start to
+   raise it.
 
 ### Referee check-in (`act.ref_check_in`) — Accountable | Responsible
 
@@ -225,9 +246,39 @@ enforcement as appropriate.
 role.director; venue_manager remains accountable for documentation
 but role.event_lead may capture the initial form.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. The moment an incident is reported to you — injury, altercation,
+   medical event, or property damage — get to the scene. If you
+   didn't witness it yourself, find whoever did (coach, ref, event
+   lead) before writing anything down.
+2. Scene safety and care come before documentation. If it's
+   life-threatening, call 911 immediately — this also escalates
+   directly to the director; don't wait to finish a form first.
+   Never leave an injured or distressed child unattended while you
+   sort out logistics.
+3. Get first-hand information from whoever responded: who was
+   involved, what immediate care was given, whether 911 was called
+   and when, and the exact time.
+4. Open the incident response form and capture what you have within
+   about 5 minutes of the incident — this is the in-the-moment
+   record, not the full report. It doesn't need to be complete, it
+   needs to be fast and accurate: what happened, who responded, what
+   care was given, whether 911 was called.
+5. If a parent is on-site, notify them directly and in person before
+   they hear about it secondhand. Stick to what happened and what was
+   done — don't speculate about diagnosis or fault.
+6. Handle this discreetly — this record names a minor. Don't discuss
+   specifics in a group chat, in front of other families, or with
+   anyone who doesn't need to know; the incident form is the record,
+   not a text thread.
+7. Submit the form as soon as the immediate situation is stable. This
+   starts the clock on the incident report finalization, which
+   happens once the affected match is over.
+8. If you can't capture this yourself, the event lead may capture
+   the initial form from the same first-hand accounts — you remain
+   accountable for it either way.
+9. This form is the fast first pass, not the final record used for
+   disputes or insurance — every incident captured here still needs
+   the full finalized report before it's closed.
 
 ## post_game
 
@@ -239,9 +290,33 @@ follow-up PR.
 - Escalation: If event_lead unreachable, role.venue_manager logs the stipend and
 escalates to role.director for sign-off.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. After a ref's last match of the day, pull their check-in
+   record(s) — one per match — to confirm which matches they
+   actually worked today.
+2. Apply the standard per-match stipend rate for each match worked,
+   then add any on-file add-ons (travel, doubleheader bonus,
+   last-minute fill-in premium — whatever your org's pay schedule
+   defines) on top of the base.
+3. Total the day's stipend across every match the ref worked and
+   record the breakdown (base rate x number of matches, plus each
+   add-on line) rather than just the final total — the ref and the
+   office both need to see how the number was built.
+4. Walk the ref through the total before they leave and get their
+   acknowledgment that it matches what they expect for today's work —
+   resolve any discrepancy on the spot rather than after they've
+   left.
+5. Record the stipend log — matches worked, base rate, add-ons,
+   total, and the ref's acknowledgment — on the ref stipend log form.
+6. Submit the form. This hands the day's stipend record to the
+   platform's payroll integration for the ref payroll event, which
+   processes it for payout — you're not disbursing money yourself
+   here, just logging what's owed and getting it acknowledged.
+7. If a ref disputes the total and it isn't resolved on the spot, log
+   the dispute and the ref's stated expectation on the form rather
+   than logging a number they haven't agreed to, and flag it to the
+   venue manager.
+8. If you're unreachable, the venue manager logs the stipend and
+   escalates to the director for sign-off.
 
 ## end_of_day
 

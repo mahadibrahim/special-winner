@@ -2,7 +2,45 @@ id: frm.incident_response
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: incident_type
+    label: Type of incident
+    type: enum
+    options:
+      - Injury
+      - Altercation
+      - Medical event
+      - Property damage
+      - Other
+    required: true
+  - id: time_observed
+    label: Time observed
+    type: text
+    required: true
+  - id: people_involved
+    label: People involved
+    type: long_text
+    required: true
+  - id: first_responder
+    label: First responder (who attended first)
+    type: text
+    required: true
+  - id: immediate_care_given
+    label: Immediate care given
+    type: long_text
+    required: true
+  - id: emergency_services_called
+    label: 911 / emergency services called?
+    type: boolean
+    required: true
+  - id: emergency_services_call_time
+    label: Time emergency services were called (if applicable)
     type: text
     required: false
+  - id: parent_notified_onsite
+    label: Parent notified on-site?
+    type: boolean
+    required: true
+  - id: captured_by
+    label: Captured by
+    type: text
+    required: true

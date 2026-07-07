@@ -1,4 +1,11 @@
 id: evt.daily_digest_sent
 kind: system_event
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Fires when the end-of-day operational digest completes for a venue
+  after the day's last recorded activity. Records the send timestamp,
+  recipient list (venue manager, director, event leads), and a summary
+  of what it contained (scores, incidents, attendance/walk-ons, open
+  items), and is checked against the expected end-of-day time (21:00)
+  to confirm the digest went out on schedule rather than being silently
+  skipped.

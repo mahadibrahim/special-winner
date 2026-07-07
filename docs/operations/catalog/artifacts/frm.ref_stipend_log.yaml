@@ -2,7 +2,35 @@ id: frm.ref_stipend_log
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: ref_name
+    label: Referee name
     type: text
+    required: true
+  - id: matches_worked
+    label: Matches worked today
+    type: number
+    required: true
+  - id: base_rate_per_match
+    label: Base rate per match
+    type: number
+    required: true
+  - id: add_ons
+    label: Add-ons (travel, doubleheader bonus, fill-in premium, etc.)
+    type: long_text
     required: false
+  - id: total_stipend
+    label: Total stipend
+    type: number
+    required: true
+  - id: ref_acknowledged
+    label: Referee acknowledged total?
+    type: boolean
+    required: true
+  - id: dispute_noted
+    label: Dispute noted (if not resolved on the spot)
+    type: long_text
+    required: false
+  - id: logged_by
+    label: Logged by
+    type: text
+    required: true

@@ -25,9 +25,38 @@ escalation_path: |
   the review and director signs off retroactively; no review goes
   unsigned past two weeks.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. After the weekly metrics rollup lands, pull the week's finalized
+     incident reports, incident follow-ups, and field damage reports
+     across every venue — this review works from the finalized record,
+     not the in-the-moment incident response forms.
+  2. Read every incident from the week, not just the serious ones — a
+     pattern across several minor incidents (same field, same age
+     group, same time of day) is exactly what this review exists to
+     catch before it becomes a serious one.
+  3. Note any near-miss or close call reported outside the formal
+     incident process (a coach or venue manager flagging something in a
+     debrief or in person) — near-misses count for this review even
+     without their own form.
+  4. Cross-reference the week's field damage reports for any pattern
+     suggesting a facility issue rather than normal wear (recurring
+     turf failure at the same spot, equipment failing at the same
+     venue).
+  5. For each theme identified, decide whether it needs a policy
+     change, a facility repair or investment, additional training, or
+     no action beyond documentation — record the decision and rationale,
+     not just the observation.
+  6. Consult the venue_manager on any decision affecting their venue's
+     operations before finalizing — they're the one who executes most
+     facility and procedural changes day to day.
+  7. Record the week's themes, decisions, and any facility or policy
+     changes on the weekly safety review form, and submit it.
+  8. Any decision requiring facility investment or a policy change gets
+     flagged explicitly for follow-through — don't let a documented
+     decision sit undone; the next week's review should show it closed
+     out or explain why not.
+  9. If you're unavailable in a given week, the venue manager drafts
+     the review and you sign off retroactively — no review goes
+     unsigned past two weeks per the escalation path.
 tracking_method: form
 tracking_artifact:
   template_id: frm.weekly_safety_review

@@ -24,9 +24,39 @@ escalation_path: |
   If photographer unreachable, role.event_lead pings role.director;
   publish authority can be re-assigned for that batch only.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Confirm tagging is complete for the session — it should show
+     "ready" in the tagging queue, meaning every asset worth keeping
+     has been tagged to the right players or teams.
+  2. Confirm the session's intended media-auth scope (internal,
+     promotional, or public) is set correctly for how these photos are
+     meant to be used — this determines whose consent the platform
+     checks before allowing publish.
+  3. Publishing a session (flipping it from ready to published) is an
+     org-admin action in the admin media console — request that
+     publish from whoever holds that access for your org (typically
+     the director or office) rather than trying to do it yourself if
+     you don't have admin login.
+  4. When publish is attempted, the platform automatically checks every
+     tagged family member against their media-authorization consent for
+     the session's intended scope. If any tagged participant is missing
+     consent for that scope, publish either hard-blocks with the list
+     of missing names (if the org has consent enforcement turned on) or
+     proceeds with a logged warning — either way, treat a soft-warn as
+     unfinished business, not "handled," and follow up on the missing
+     consent.
+  5. If publish is blocked for missing consent, resolve the actual gap
+     — confirm with the family, or drop that specific photo from the
+     publish batch — rather than working around it by re-tagging around
+     the flagged family members or loosening the intended scope to
+     dodge the check.
+  6. Once publish succeeds, each newly published asset increments the
+     day's photos-published counter; no manual count is needed.
+  7. Spot-check that published photos are visible where families expect
+     to see them before considering the batch done.
+  8. If you're unreachable to coordinate the publish request, the
+     event lead pings the director, and publish authority for that
+     batch can be reassigned per the escalation path — the consent
+     check still applies regardless of who executes the publish.
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.photos_published

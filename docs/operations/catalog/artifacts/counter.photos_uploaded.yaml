@@ -1,4 +1,9 @@
 id: counter.photos_uploaded
 kind: counter
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Increments once per media asset (photo or video) that completes
+  upload from a photographer's shoot session, moving the session from
+  checked_in/uploading toward uploaded status. Used as the day's
+  raw-volume figure for media reporting and to confirm a photographer's
+  handoff is complete before the tagging queue picks up the session.

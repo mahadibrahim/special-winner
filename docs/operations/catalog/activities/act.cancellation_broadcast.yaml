@@ -24,9 +24,37 @@ escalation_path: |
   role.director; venue_manager and event_lead manually notify
   affected parties via existing channels.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. The moment the rainout decision form is submitted with a cancel or
+     delay outcome, the platform composes the cancellation/delay notice
+     and fans it out to every affected parent, coach, ref, team
+     captain, and the venue team.
+  2. Delivery goes out across the org's configured channels for that
+     audience — push, SMS, email, and Telegram for team groups — using
+     the same multi-channel broadcast composition the platform uses
+     elsewhere, not a single channel that might get missed.
+  3. The message includes the decision (play, delay, or cancel), the
+     reason on file from the rainout decision form, and a re-check time
+     if the outcome was delay rather than outright cancel.
+  4. The send is recorded as the tracked system event, timestamped,
+     with recipient count and channel breakdown.
+  5. No human action is needed on a normal send — this is why the
+     venue manager doesn't message people separately ahead of
+     submitting the rainout decision form; doing so ahead of the
+     broadcast risks a second, possibly inconsistent, message reaching
+     the same family.
+  6. Verification: the venue manager or event lead can check the event
+     landed within a few minutes of the rainout decision being
+     submitted, from the daily operations view; a missing event well
+     past that means the job didn't fire.
+  7. If the broadcast job fails, the on-call platform engineer escalates
+     per the escalation path; the venue manager and event lead manually
+     notify affected parties via existing channels (team group chats,
+     phone tree) in the meantime — speed matters more here than for
+     other manual fallbacks, since people may already be traveling to a
+     game that isn't happening.
+  8. Once the platform recovers, confirm no family received a stale
+     pre-decision message alongside the automated one, and that anyone
+     manually notified isn't double-messaged in a confusing way.
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.cancellation_broadcast_sent

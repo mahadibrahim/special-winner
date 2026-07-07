@@ -2,4 +2,6 @@ id: sig.photographer_check_in
 kind: signature
 status: stub
 required_role: role.photographer
-prompt: (placeholder — full prompt pending operator authorship)
+prompt: >-
+  I confirm my arrival, gear, and shot-list assignment for today's
+  session(s), witnessed by the event lead.

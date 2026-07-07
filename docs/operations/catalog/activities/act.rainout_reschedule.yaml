@@ -23,9 +23,35 @@ escalation_path: |
   If director unreachable, role.venue_manager may propose reschedule
   candidates; director sign-off still required before publish.
 sop_body: |
-  Procedure to be authored by the operating team. This activity is defined
-  in the catalog; full step-by-step SOP content will be added in a
-  follow-up PR.
+  1. Confirm reschedule is the chosen outcome from the rainout refund
+     decision (or noted directly on the original rainout decision)
+     before starting — this activity only runs when reschedule, not
+     refund or credit, was picked.
+  2. Identify make-up date candidates: check venue/field availability
+     for open slots before the season ends, cross-check the ref
+     assignment calendar for crew availability, and check the league
+     schedule for conflicts (playoffs, tournament dates, other teams'
+     existing games).
+  3. Consult venue_manager on facility feasibility and event_lead on
+     staffing/ref feasibility for each candidate date before committing
+     — this is a three-way constraint (venue, refs, calendar), not just
+     an open calendar slot.
+  4. Prefer the earliest feasible date so a cancelled match doesn't
+     compound into a scheduling backlog; if no single date works for
+     both teams, consider splitting into separate make-up dates rather
+     than delaying indefinitely.
+  5. Record the chosen date(s), venue/field, and any conditions (e.g.,
+     "conditional on ref availability") on the rainout reschedule form.
+  6. Submit the form. This feeds the platform's rescheduling workflow,
+     which updates the affected teams' schedules and triggers the
+     standard notification to coaches, refs, captains, and parents —
+     don't announce the date separately ahead of the form.
+  7. If a chosen date conflicts with something noticed after the fact
+     (a ref crew falls through, a field becomes unavailable), amend the
+     reschedule promptly rather than letting stale info stand — a wrong
+     make-up date reaching a parent is worse than a delayed one.
+  8. If you're unreachable, the venue manager may propose candidate
+     dates, but the reschedule doesn't publish until you sign off.
 tracking_method: form
 tracking_artifact:
   template_id: frm.rainout_reschedule

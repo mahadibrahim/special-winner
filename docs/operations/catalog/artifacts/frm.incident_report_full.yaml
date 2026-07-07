@@ -2,7 +2,41 @@ id: frm.incident_report_full
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: linked_incident_response_id
+    label: Linked incident response record
     type: text
+    required: true
+  - id: witness_statements
+    label: Witness statements
+    type: long_text
+    required: true
+  - id: post_event_status
+    label: Post-event status
+    type: enum
+    options:
+      - Returned to play
+      - Sent home
+      - Urgent care / ER
+      - Refused further care
+      - Other
+    required: true
+  - id: photos_attached
+    label: Photos attached?
+    type: boolean
+    required: true
+  - id: insurance_relevant
+    label: Insurance/liability relevant?
+    type: boolean
+    required: true
+  - id: director_consulted
+    label: Director consulted (if insurance/liability relevant)?
+    type: boolean
     required: false
+  - id: summary
+    label: Full summary
+    type: long_text
+    required: true
+  - id: finalized_by
+    label: Finalized by
+    type: text
+    required: true

@@ -2,7 +2,61 @@ id: frm.field_damage_report
 kind: form
 status: stub
 fields:
-  - id: pending_authorship
-    label: (placeholder — full field schema pending operator authorship)
+  - id: surface_or_facility
+    label: Surface / facility
     type: text
+    required: true
+  - id: damage_type
+    label: Type of damage
+    type: enum
+    options:
+      - Turf / grass damage
+      - Goal / net damage
+      - Broken equipment
+      - Vandalism
+      - Other
+    required: true
+  - id: observed_at
+    label: Observed on
+    type: date
+    required: true
+  - id: baseline_photo_on_file
+    label: Baseline field condition photo on file?
+    type: boolean
     required: false
+  - id: damage_photos_attached
+    label: Damage photos attached?
+    type: boolean
+    required: true
+  - id: safe_to_continue_use
+    label: Safe to continue using this surface/area?
+    type: boolean
+    required: true
+  - id: likely_cause
+    label: Likely cause / when it occurred
+    type: long_text
+    required: false
+  - id: repair_urgency
+    label: Repair urgency
+    type: enum
+    options:
+      - Routine maintenance
+      - Prompt repair needed
+      - Surface taken out of rotation
+    required: true
+  - id: chargeback_candidate
+    label: Possible chargeback (team/renter caused)?
+    type: boolean
+    required: true
+  - id: venue_manager_consulted
+    label: Venue manager consulted?
+    type: boolean
+    required: true
+  - id: director_escalated
+    label: Escalated to director for repair authorization?
+    type: boolean
+    required: false
+  - id: reported_by
+    label: Reported by
+    type: text
+    required: true

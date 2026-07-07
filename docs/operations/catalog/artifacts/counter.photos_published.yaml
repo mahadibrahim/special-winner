@@ -1,4 +1,10 @@
 id: counter.photos_published
 kind: counter
 status: stub
-description: (placeholder — full description pending implementation)
+description: |
+  Increments once per media asset whose parent shoot session is
+  transitioned to published status in the admin media console, after
+  the platform's consent check confirms (or logs an override of)
+  media-authorization coverage for the session's intended scope. Used
+  as the day's published-volume figure and to confirm families have
+  curated, tagged photos available to view.
