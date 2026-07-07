@@ -210,9 +210,23 @@ function renderProcedureHtml(sopBody: string): string {
   if (isStubProcedure(sopBody)) {
     return `<p class="procedure-fallback">${escapeHtml(PROCEDURE_FALLBACK_TEXT)}</p>`;
   }
-  const bullets = sopBodyToBullets(sopBody);
-  const stepsHtml = bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
-  return `<ol class="steps">${stepsHtml}</ol>`;
+  const steps = parseProcedureSteps(sopBody);
+  if (steps.length > 0) {
+    const stepsHtml = steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+    return `<ol class="steps">${stepsHtml}</ol>`;
+  }
+  // No numbered steps detected — freeform procedure text (not currently used
+  // by any real catalog activity, but the schema doesn't require numbering,
+  // so this path must render something sane rather than an empty <ol>).
+  // Preserve intentional paragraph breaks (blank lines between paragraphs)
+  // rather than collapsing everything into one block or, worse, splitting on
+  // every line break the way the old renderer did for numbered steps.
+  const paragraphs = sopBody
+    .trim()
+    .split(/\n{2,}/)
+    .map((p) => normalizeWhitespace(p))
+    .filter((p) => p.length > 0);
+  return paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -816,12 +830,49 @@ function renderPhaseOverviewSlide(phase: Activity["phase"], entries: MatchedActi
   `.trim();
 }
 
-function sopBodyToBullets(sopBody: string): string[] {
-  return sopBody
+// ---------------------------------------------------------------------------
+// Procedure step parsing. sop_body is authored as a numbered list in a YAML
+// block scalar, but long steps wrap across multiple source lines for
+// readability (see docs/operations/catalog/activities/act.weather_pre_check.yaml
+// for the canonical example: 6 numbered steps whose sentences wrap across 16
+// physical lines). A continuation line belongs to the PREVIOUS step, not a
+// new one — so splitting naively on "\n" (the old behavior) turned every
+// physical line into its own renumbered <li>, mangling a 6-step procedure
+// into 16 fragments. Parse by finding step-start boundaries ("^<n>. ") and
+// folding every line up to the next boundary into that step.
+// ---------------------------------------------------------------------------
+
+const STEP_START_RE = /^\d+\.\s+/;
+
+function parseProcedureSteps(sopBody: string): string[] {
+  const lines = sopBody
+    .replace(/\r\n/g, "\n")
     .trim()
     .split("\n")
-    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+    .map((line) => line.trim())
     .filter((line) => line.length > 0);
+
+  const steps: string[] = [];
+  let current: string[] | null = null;
+  let sawStepMarker = false;
+
+  for (const line of lines) {
+    if (STEP_START_RE.test(line)) {
+      sawStepMarker = true;
+      if (current !== null) steps.push(current.join(" "));
+      current = [line.replace(STEP_START_RE, "")];
+    } else if (current !== null) {
+      // Continuation of the step currently being accumulated.
+      current.push(line);
+    }
+    // else: text appears before any numbered step marker — not part of a
+    // numbered procedure; handled by the freeform fallback in
+    // renderProcedureHtml, which re-reads the raw sopBody rather than this
+    // partial state.
+  }
+  if (current !== null) steps.push(current.join(" "));
+
+  return sawStepMarker ? steps : [];
 }
 
 const CHECKLIST_NOTE_TEXT = "There's a checklist for this — see the checklist slides.";
@@ -861,12 +912,38 @@ function renderActivitySlide(
   `.trim();
 }
 
+// ---------------------------------------------------------------------------
+// Checklist title resolution. ArtifactTemplate (see
+// src/lib/ops-catalog/types/artifact-template.ts) has no name/title field on
+// ChecklistTemplateSchema or FormTemplateSchema today — only
+// SignatureTemplateSchema/SystemEventTemplateSchema/CounterTemplateSchema
+// carry free-text ("prompt"/"description"), and none carry a display name.
+// Adding one would mean a schema change (small) PLUS authoring real names
+// into all ~36 checklist/form template YAML files (content work, not a
+// mechanical rename) — deferred rather than done here; this derives a
+// human title from the id instead: strip the "chk."/"frm."/etc. prefix,
+// replace underscores with spaces, and capitalize the first letter only
+// (sentence case, matching the deck's other headings).
+// ---------------------------------------------------------------------------
+
+function deriveArtifactTitle(templateId: string): string {
+  const slug = templateId.replace(/^[a-z]+\./, "");
+  const words = slug.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+// Checklist tracking_artifact.template_id extraction, shared by
+// collectChecklistTemplateIds below.
+function checklistTemplateIdFor(activity: Activity): string | undefined {
+  if (activity.tracking_method !== "checklist") return undefined;
+  const ta = activity.tracking_artifact as Record<string, unknown>;
+  return typeof ta.template_id === "string" ? ta.template_id : undefined;
+}
+
 function collectChecklistTemplateIds(matched: MatchedActivity[]): string[] {
   const ids = new Set<string>();
   for (const { activity } of matched) {
-    if (activity.tracking_method !== "checklist") continue;
-    const ta = activity.tracking_artifact as Record<string, unknown>;
-    const templateId = typeof ta.template_id === "string" ? ta.template_id : undefined;
+    const templateId = checklistTemplateIdFor(activity);
     if (templateId) ids.add(templateId);
   }
   return [...ids].sort();
@@ -878,7 +955,7 @@ function renderChecklistSlide(catalog: Catalog, templateId: string): string | nu
   const items = template.items.map((item) => `<li>${escapeHtml(item.label)}</li>`).join("");
   return `
     <div class="clipboard-card">
-      <h2>Checklist: ${escapeHtml(templateId)}</h2>
+      <h2>${escapeHtml(deriveArtifactTitle(templateId))}</h2>
       <ul class="checklist checklist--ticks">${items}</ul>
     </div>
   `.trim();

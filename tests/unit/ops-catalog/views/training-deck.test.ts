@@ -217,14 +217,81 @@ describe("renderTrainingDeck — real catalog regression guard", () => {
       );
     }
   });
+
+  // Categorical id-leak guard (round 2, item 2): strip every tag from every
+  // generated deck's HTML and assert no dotted catalog id — of ANY artifact
+  // kind, not just act.* — ever appears in the visible text. This is
+  // deliberately broader than the single "Checklist: chk.foo" bug that
+  // prompted it, so a future regression on a different artifact kind (or a
+  // new deck section) trips the same guard.
+  it("never leaks a dotted catalog id (act./chk./frm./sig./evt./counter./role./feat.) in visible text on any deck", async () => {
+    const catalogDir = path.resolve(__dirname, "../../../../docs/operations/catalog");
+    const catalog = await loadCatalog(catalogDir);
+    const decks = generateAllTrainingDecks(catalog);
+
+    const dottedIdRe = /\b(?:act|chk|frm|sig|evt|counter|role|feat)\.[a-z0-9_]+\b/g;
+
+    expect(Object.keys(decks).length).toBeGreaterThan(0);
+    for (const [roleId, html] of Object.entries(decks)) {
+      const visibleText = html
+        .replace(/<style[\s\S]*?<\/style>/g, " ")
+        .replace(/<script[\s\S]*?<\/script>/g, " ")
+        .replace(/<[^>]+>/g, " ");
+      const matches = visibleText.match(dottedIdRe);
+      expect(matches, `deck for ${roleId} leaked catalog id(s): ${JSON.stringify(matches)}`).toBeNull();
+    }
+  });
+});
+
+describe("renderTrainingDeck — procedure step parsing (real catalog fixture)", () => {
+  // TDD fixture: act.weather_pre_check's real sop_body
+  // (docs/operations/catalog/activities/act.weather_pre_check.yaml) is a
+  // 6-step numbered procedure whose sentences wrap across 16 physical YAML
+  // lines. The old line-splitting renderer turned every physical line into
+  // its own renumbered <li>, mangling this into 16 fragments (e.g. step 1's
+  // "...on the" / "day's schedule..." split across two <li>s). Assert the
+  // real, true step count and that no fragment ends mid-sentence.
+  it("renders exactly the 6 real steps of act.weather_pre_check as whole sentences, not one <li> per wrapped source line", async () => {
+    const catalogDir = path.resolve(__dirname, "../../../../docs/operations/catalog");
+    const catalog = await loadCatalog(catalogDir);
+    const html = renderTrainingDeck(catalog, "role.venue_manager");
+
+    const slideStart = html.indexOf("<h2>Pre-day weather pre-check</h2>");
+    expect(slideStart).toBeGreaterThan(-1);
+    const nextSlideStart = html.indexOf("<section", slideStart + 1);
+    const slide = html.slice(slideStart, nextSlideStart);
+
+    const stepMatches = [...slide.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
+    expect(stepMatches).toHaveLength(6);
+
+    // Full first step, reassembled from its 3 wrapped source lines — proves
+    // continuation lines are folded into the step, not split into their own
+    // list items.
+    expect(stepMatches[0]).toBe(
+      "72 hours before the event window, pull up every outdoor match on the day&#39;s schedule and check the forecast for temperature, precipitation chance, wind, and lightning risk on the weather-alert dashboard.",
+    );
+    // Last step, reassembled from its 2 wrapped source lines.
+    expect(stepMatches[5]).toBe(
+      "Re-run the T-24h recheck if step 5 applied, and carry any still-open risk forward into the pregame weather check.",
+    );
+
+    // No step should end on an obvious mid-sentence fragment boundary (the
+    // old bug's signature — lines like "...on the" or "...and the").
+    for (const step of stepMatches) {
+      expect(step.trim()).not.toMatch(/\b(the|and|a|to|of|on)$/i);
+    }
+  });
 });
 
 describe("renderTrainingDeck — checklist slides", () => {
   it("renders a checklist slide for each distinct checklist template the role's matched activities reference", () => {
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
-    // Field setup (day_setup) is tracking_method "checklist" -> chk.field_setup.
-    expect(html).toContain("Checklist: chk.field_setup");
+    // Field setup (day_setup) is tracking_method "checklist" -> chk.field_setup,
+    // whose derived human title is "Field setup" — the raw id never reaches
+    // trainee-facing text (see the "id-leak" regression guard above).
+    expect(html).toMatch(/<div class="clipboard-card">\s*<h2>Field setup<\/h2>/);
     expect(html).toContain("Cones placed");
+    expect(html).not.toContain("chk.field_setup");
   });
 
   it("does not render a checklist slide for activities tracked another way", () => {
@@ -232,7 +299,7 @@ describe("renderTrainingDeck — checklist slides", () => {
     // manager's only checklist reference is field_setup, so there is exactly
     // one checklist slide, not one per matched activity.
     const html = renderTrainingDeck(buildInlineCatalog(), fixtureIds.roles.venueManager);
-    const occurrences = html.split("Checklist: chk.field_setup").length - 1;
+    const occurrences = html.split('<div class="clipboard-card">').length - 1;
     expect(occurrences).toBe(1);
   });
 });
