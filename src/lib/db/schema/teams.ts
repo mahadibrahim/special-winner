@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   integer,
+  decimal,
   pgEnum,
   index,
   uniqueIndex,
@@ -89,6 +90,14 @@ export const venues = pgTable(
     rentalHourlyRateCents: integer("rental_hourly_rate_cents"),
     rentalOpenMinute: integer("rental_open_minute"),
     rentalCloseMinute: integer("rental_close_minute"),
+    // Geofence anchor for in-app time tracking (product-backlog build #5).
+    // Null coordinates mean the venue has no geofence configured — the
+    // geofence helper treats that as "never flag" rather than failing.
+    // radiusM overrides the DEFAULT_GEOFENCE_RADIUS_M (150m) constant when
+    // set; null falls back to the constant.
+    latitude: decimal("latitude", { precision: 10, scale: 6 }),
+    longitude: decimal("longitude", { precision: 10, scale: 6 }),
+    radiusM: integer("radius_m"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

@@ -1,0 +1,9 @@
+id: evt.referee_check_in_recorded
+kind: system_event
+status: stub
+description: |
+  Fires when the assigned referee clocks in to their match via the in-app
+  time tracking flow (POST /api/referee/matches/[gameId]/check-in —
+  decision-dependent, not yet built), replacing the prior manual signature
+  capture. Records the check-in timestamp and coordinates, and starts the
+  stipend clock the same way the signature used to.

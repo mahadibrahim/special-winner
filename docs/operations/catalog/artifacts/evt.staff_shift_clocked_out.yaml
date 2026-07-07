@@ -1,0 +1,11 @@
+id: evt.staff_shift_clocked_out
+kind: system_event
+status: stub
+description: |
+  Fires when a coach or venue manager clocks out of their hourly shift via
+  the in-app time tracking flow (POST /api/staff/shifts/clock-out —
+  decision-dependent, not yet built). Records the clock-out timestamp and
+  coordinates, and closes that staff member's check-in/out activity
+  completion row for every game at the venue scheduled that day, since
+  activity_completions.game_id is NOT NULL and one shift can span several
+  games.

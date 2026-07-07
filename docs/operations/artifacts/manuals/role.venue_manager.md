@@ -456,7 +456,7 @@ enforced centrally.
 
 - Trigger: As each staff member finishes their last task
 - Expected completion: phase_end
-- Tracking: signature
+- Tracking: system_event
 - Escalation: If venue_manager unreachable, role.event_lead witnesses the check-out;
 any escalation needed goes to role.director per the Coach → Venue Manager
 → Director handoff ladder.
