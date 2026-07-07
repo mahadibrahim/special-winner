@@ -55,8 +55,15 @@ tools:
   - The check-in/check-out station (in-person sign-out)
   - Today's staffing plan
   - The activity completion signature capture (/admin/activity-completions/[id])
-tracking_method: signature
+# Tracking flipped from signature to system_event (product-backlog build #5,
+# in-app time tracking): the in-app clock-out at POST
+# /api/staff/shifts/clock-out (decision-dependent, Task 9 — not yet built)
+# fires evt.staff_shift_clocked_out, which closes this activity for every
+# game at the venue scheduled that day via
+# closeStaffShiftActivitiesForVenueToday. The front-of-house signature
+# witness step in the SOP above becomes the in-app clock-out tap once that
+# flow ships.
+tracking_method: system_event
 tracking_artifact:
-  template_id: sig.staff_check_in_out
-  required_role: role.front_of_house
+  event_type: evt.staff_shift_clocked_out
 expected_completion: phase_end

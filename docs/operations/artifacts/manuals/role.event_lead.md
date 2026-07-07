@@ -102,7 +102,7 @@ from standby pool or accept reduced media coverage.
 
 - Trigger: ~30 minutes before each kickoff
 - Expected completion: T-30min
-- Tracking: signature
+- Tracking: system_event
 - Escalation: If event_lead unreachable, escalate to role.venue_manager per the Coach →
 Venue Manager → Director handoff ladder; backup ref pulled from standby
 pool if scheduled ref no-shows.
