@@ -1,0 +1,37 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { AdminLayout } from "../../../components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { SuspensionsList } from "../../../components/admin/suspensions/suspensions-list";
+
+export const prerender = false;
+
+// Middleware guarantees user is an admin for /admin routes. Not in
+// SUPER_ADMIN_ONLY_PREFIXES (src/middleware.ts) — location_admin sees
+// suspensions for their own teams, scoped server-side by
+// GET /api/admin/suspensions (mirrors /admin/incidents).
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+---
+
+<BaseLayout title="Suspensions — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/suspensions"
+    user={{
+      firstName: Astro.locals.user!.firstName,
+      lastName: Astro.locals.user!.lastName,
+      email: Astro.locals.user!.email,
+    }}
+  >
+    <div class="mx-auto max-w-5xl p-6">
+      <h1 class="mb-2 text-2xl font-semibold">Suspensions</h1>
+      <p class="mb-6 text-sm text-ink-2">
+        Ejections logged by referees that carry a suspension. Multiple ejections by the same
+        person are surfaced via the prior-ejection count — escalating to a season or permanent
+        suspension is a director decision, not automatic.
+      </p>
+      <SuspensionsList client:load />
+    </div>
+  </AdminLayout>
+</BaseLayout>
