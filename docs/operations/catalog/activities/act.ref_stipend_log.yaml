@@ -3,7 +3,10 @@ name: Ref stipend log
 description: |
   Event lead logs the stipend owed for each match the ref worked
   (rate plus any add-ons), captures the ref's acknowledgment, and
-  hands off to the platform's payroll integration for payout.
+  hands off to the platform's payroll integration for payout. A
+  match's stipend locks only once that match's in-app closeout (final
+  score attestation, cards/incidents) is submitted — arrival/check-in
+  alone doesn't lock pay.
 trigger: After ref's last match of the day
 phase: post_game
 sport_tags: []
@@ -27,30 +30,40 @@ sop_body: |
   1. After a ref's last match of the day, pull their check-in
      record(s) — one per match — to confirm which matches they
      actually worked today.
-  2. Apply the standard per-match stipend rate for each match worked,
-     then add any on-file add-ons (travel, doubleheader bonus,
+  2. For each match, confirm the in-app closeout is submitted — the
+     final score attestation with cards/incidents logged — before
+     locking that match's stipend line. Check-in alone never locks
+     pay; a match with no closeout submitted stays open, not paid,
+     until the closeout lands.
+  3. Apply the standard per-match stipend rate for each closed-out
+     match, then add any on-file add-ons (travel, doubleheader bonus,
      last-minute fill-in premium — whatever your org's pay schedule
      defines) on top of the base.
-  3. Total the day's stipend across every match the ref worked and
-     record the breakdown (base rate x number of matches, plus each
-     add-on line) rather than just the final total — the ref and the
-     office both need to see how the number was built.
-  4. Walk the ref through the total before they leave and get their
+  4. Total the day's stipend across every closed-out match and record
+     the breakdown (base rate x number of matches, plus each add-on
+     line) rather than just the final total — the ref and the office
+     both need to see how the number was built. A match still awaiting
+     closeout isn't in this total yet.
+  5. Walk the ref through the total before they leave and get their
      acknowledgment that it matches what they expect for today's work —
      resolve any discrepancy on the spot rather than after they've
      left.
-  5. Record the stipend log — matches worked, base rate, add-ons,
+  6. Record the stipend log — matches worked, base rate, add-ons,
      total, and the ref's acknowledgment — on the ref stipend log form.
-  6. Submit the form. This hands the day's stipend record to the
+  7. Submit the form. This hands the day's stipend record to the
      platform's payroll integration for the ref payroll event, which
      processes it for payout — you're not disbursing money yourself
      here, just logging what's owed and getting it acknowledged.
-  7. If a ref disputes the total and it isn't resolved on the spot, log
+  8. If a match's closeout lands after the ref has already left (a late
+     score attestation), log that match's stipend as a separate,
+     late-add line once the closeout is submitted — don't hold up the
+     rest of the day's stipend log waiting on it.
+  9. If a ref disputes the total and it isn't resolved on the spot, log
      the dispute and the ref's stated expectation on the form rather
      than logging a number they haven't agreed to, and flag it to the
      venue manager.
-  8. If you're unreachable, the venue manager logs the stipend and
-     escalates to the director for sign-off.
+  10. If you're unreachable, the venue manager logs the stipend and
+      escalates to the director for sign-off.
 tools:
   - Ref check-in records (one per match worked)
   - The ref stipend log form

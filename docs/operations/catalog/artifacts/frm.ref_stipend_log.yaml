@@ -10,6 +10,10 @@ fields:
     label: Matches worked today
     type: number
     required: true
+  - id: matches_closed_out
+    label: Matches with in-app closeout (score attestation, cards/incidents) submitted — stipend locks only for these
+    type: number
+    required: true
   - id: base_rate_per_match
     label: Base rate per match
     type: number

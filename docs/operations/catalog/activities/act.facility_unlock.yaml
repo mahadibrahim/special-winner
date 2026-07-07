@@ -2,9 +2,11 @@ id: act.facility_unlock
 name: Facility unlock
 description: |
   Disarm alarm, unlock exterior and interior doors, turn on lights and
-  HVAC, and confirm facility is ready for staff arrival ahead of the
-  event window.
-trigger: ~2h before first kickoff
+  HVAC, and confirm facility is ready for staff arrival. The 2-hour
+  pre-kickoff lead applies to outdoor and rented venues only; an owned
+  facility that runs on set daily hours opens at its standard time
+  instead, not tied to kickoff.
+trigger: ~2h before first kickoff (outdoor/rented venues); at the facility's standard opening time for owned venues on set hours
 phase: day_setup
 sport_tags: []
 venue_tags: []
@@ -23,8 +25,10 @@ escalation_path: |
   If venue_manager unreachable, escalate to role.director per the Coach →
   Venue Manager → Director handoff ladder.
 sop_body: |
-  1. Arrive at least 2 hours before first kickoff — before any other
-     staff.
+  1. For an outdoor or rented venue, arrive at least 2 hours before
+     first kickoff — before any other staff. For an owned facility
+     that runs on set daily hours, arrive at the facility's standard
+     opening time instead; this activity isn't tied to kickoff there.
   2. Disarm the alarm with the current code; if the code fails, use the
      backup entry procedure and log the discrepancy.
   3. Unlock the exterior doors staff and families will need today (main

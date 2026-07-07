@@ -45,6 +45,14 @@ fields:
     label: Outstanding concerns from the family
     type: long_text
     required: false
+  - id: season_ending
+    label: Injury ends the athlete's season?
+    type: boolean
+    required: false
+  - id: goodwill_coupon_flagged
+    label: Flagged to director for goodwill coupon (free entry to another Aspire league)?
+    type: boolean
+    required: false
   - id: recommended_action
     label: Recommended additional action
     type: enum

@@ -1,10 +1,11 @@
 id: act.ref_payroll_event
 name: Ref payroll event (1099 stipend)
 description: |
-  Platform hands the day's referee stipend log to the payroll system
-  and listens for the contractor stipend payout receipt so each ref's
-  pay record is closed for the period.
-trigger: T+24h after the ref stipend log is signed off
+  Platform hands the pay period's referee stipend logs to Gusto (the
+  org's payroll provider) as a weekly manual export, and listens for
+  the contractor stipend payout receipt so each ref's pay record is
+  closed for the period.
+trigger: Weekly, after each day's ref stipend logs for the period are signed off
 phase: post_day
 sport_tags: []
 venue_tags: []
@@ -24,26 +25,26 @@ escalation_path: |
   If payroll handoff fails, on-call platform engineer escalates to
   role.director; ref stipend manually disbursed as fallback.
 sop_body: |
-  1. At T+24h after the day's ref stipend log is signed off, the
-     platform compiles that day's stipend records — every ref, every
-     match, the acknowledged total — into the payroll export for the
-     pay period.
+  1. On the weekly payroll cadence, the platform compiles every signed-
+     off ref stipend log for the pay period — every ref, every match
+     that reached in-app closeout, the acknowledged total — into the
+     payroll export.
   2. There's no live payroll API connection today (the external ack
      listener is still on the roadmap) — the export is a data handoff,
      not an automatic disbursement. Whoever runs payroll for the org
-     (typically the director or an outsourced payroll admin) pulls
-     this export and enters it into the org's actual payroll provider
-     as a 1099 contractor stipend batch.
-  3. Once the payroll provider confirms the stipend batch was paid,
-     that confirmation is recorded back in the platform against this
-     event — today that's a manual entry, not an automatic webhook.
+     (typically the director or an outsourced payroll admin) pulls this
+     export and enters it into Gusto as a 1099 contractor stipend batch
+     for the week.
+  3. Once Gusto confirms the stipend batch was paid, that confirmation
+     is recorded back in the platform against this event — today
+     that's a manual entry, not an automatic webhook.
   4. This closes the pay record for the period once recorded. No
      further human action is needed on a normal cycle beyond that
      manual confirmation step.
-  5. Verification: the director or event lead can check that every
-     ref who worked that day shows a closed pay record within a day or
-     two of the stipend log being signed off; a stipend log sitting
-     unrecorded past that window means the export step didn't happen.
+  5. Verification: the director can check that every ref who worked
+     that week shows a closed pay record within a day or two of the
+     weekly export; stipend logs sitting unrecorded past that window
+     means the export step didn't happen.
   6. If the handoff fails or is missed, the on-call platform engineer
      escalates per the escalation path; in the meantime, the ref
      stipend is manually disbursed as a fallback so a ref's pay isn't
@@ -52,11 +53,11 @@ sop_body: |
      once done, so the record doesn't permanently show unpaid once the
      ref has actually been paid.
 tools:
-  - The payroll export handoff — you pull it into the org's payroll provider
+  - The weekly payroll export handoff — you pull it into Gusto
   - The external acknowledgment readback on the activity completion page (/admin/activity-completions/[id]) — manual confirmation until a live payroll webhook exists
-  - The org's actual 1099 payroll provider
+  - Gusto (the org's 1099 payroll provider)
 tracking_method: external_acknowledgment
 tracking_artifact:
   external_system: payroll
   record_kind: contractor_stipend_receipt
-expected_completion: T+24h
+expected_completion: trigger+24h

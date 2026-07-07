@@ -35,7 +35,7 @@ sop_body: |
      teams.
   6. Confirm the surface meets the same safety standard as the pregame
      field/court setup — no new hazards introduced during play.
-  7. Complete within the 15-minute turnover window so the next match
+  7. Complete within the 10-minute turnover window so the next match
      isn't delayed.
 tools:
   - Trash bags and a pickup bucket for rapid sideline sweep
@@ -44,4 +44,4 @@ tools:
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.field_reset
-expected_completion: T+15min
+expected_completion: T+10min

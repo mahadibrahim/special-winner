@@ -1,8 +1,16 @@
-id: sig.staff_briefing_signin
-kind: signature
+id: frm.preshift_staff_check
+kind: form
 status: stub
-required_role: role.front_of_house
-prompt: >-
-  I confirm the full on-shift roster attended today's pre-shift briefing
-  (schedule, special notes, weather, safety reminders) and that every
-  attendee's signature is on file on the sign-in sheet.
+fields:
+  - id: check_run
+    label: Check run today (vs. skipped as routine)?
+    type: boolean
+    required: true
+  - id: items_flagged
+    label: Items flagged (schedule surprise, VIP guest, weather watch, walkthrough finding, staffing swap)
+    type: long_text
+    required: false
+  - id: checked_by
+    label: Checked by
+    type: text
+    required: true

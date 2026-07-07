@@ -1,10 +1,12 @@
 id: act.staff_payroll_event
 name: Staff payroll event (W-2 payout)
 description: |
-  Platform hands the day's W-2 staff hours and any tips/bonuses to the
-  payroll system and listens for the payout receipt acknowledgment so
-  the labor record is closed.
-trigger: T+24h after staff clock-out signatures are recorded
+  Platform hands the pay period's W-2 staff hours (coaches and venue
+  managers are paid hourly; other on-site staff follow the same hourly
+  model) and any tips/bonuses to Gusto as a weekly manual export, and
+  listens for the payout receipt acknowledgment so the labor record is
+  closed.
+trigger: Weekly, after each day's staff check-in/check-out records for the period are recorded
 phase: post_day
 sport_tags: []
 venue_tags: []
@@ -24,22 +26,23 @@ escalation_path: |
   If payroll handoff fails, on-call platform engineer escalates to
   role.director; manual payroll batch entered as fallback.
 sop_body: |
-  1. At T+24h after staff clock-out signatures are recorded for the
-     day, the platform compiles the day's W-2 staff hours (and any
-     tips or bonuses noted at clock-out) into the payroll export for
-     the pay period.
+  1. On the weekly payroll cadence, the platform compiles every day's
+     recorded staff check-in/check-out hours for the pay period (and
+     any tips or bonuses noted at check-out) into the payroll export.
+     Coaches and venue managers are paid hourly off these same
+     check-in/check-out records, same as other on-site staff.
   2. As with the ref stipend handoff, there's no live payroll API
      connection today — this export is a data handoff the office (the
-     director or a payroll admin) pulls into the org's actual W-2
-     payroll provider, not an automatic disbursement.
-  3. Once payroll confirms the payout ran, that confirmation is
-     recorded back against this event — currently a manual entry,
-     since the automatic ack listener isn't built yet.
+     director or a payroll admin) pulls into Gusto as a weekly hourly
+     payroll batch, not an automatic disbursement.
+  3. Once Gusto confirms the payout ran, that confirmation is recorded
+     back against this event — currently a manual entry, since the
+     automatic ack listener isn't built yet.
   4. This closes the labor record for the pay period once recorded; no
      further action is needed on a normal cycle beyond the manual
      confirmation.
   5. Verification: the director or venue manager can check that every
-     staff member who clocked out that day shows a closed pay record
+     staff member who checked out that week shows a closed pay record
      within a day or two; hours sitting unrecorded past that window
      mean the export step didn't happen.
   6. If the handoff fails or is missed, the on-call platform engineer
@@ -48,11 +51,11 @@ sop_body: |
   7. Whoever enters the manual batch should still record it in the
      platform once done, so the labor record reflects reality.
 tools:
-  - The payroll export handoff — you pull it into the org's payroll provider
+  - The weekly payroll export handoff — you pull it into Gusto
   - The external acknowledgment readback on the activity completion page (/admin/activity-completions/[id]) — manual confirmation until a live payroll webhook exists
-  - The org's actual W-2 payroll provider
+  - Gusto (the org's W-2 payroll provider)
 tracking_method: external_acknowledgment
 tracking_artifact:
   external_system: payroll
   record_kind: w2_payout_receipt
-expected_completion: T+24h
+expected_completion: trigger+24h

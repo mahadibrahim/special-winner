@@ -38,7 +38,7 @@ sop_body: |
   6. Count balls and pinnies back against the pre-match count and note
      anything missing.
   7. Confirm the surface is ready for the next match crew to take over
-     within the 15-minute turnover window.
+     within the 10-minute turnover window.
   8. Flag anything damaged during the match to the field damage report
      process rather than trying to fix it yourself.
 tools:
@@ -48,4 +48,4 @@ tools:
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_turnover
-expected_completion: T+15min
+expected_completion: T+10min
