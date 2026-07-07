@@ -13,9 +13,25 @@ end-to-end execution of an event-day at one location.
 - Escalation: If venue_manager unreachable, escalate to role.director per the
 standard handoff ladder.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. 48 hours before the event window, pull the day's staffing plan and
+   list every shift slot that needs to be covered — venue manager,
+   event leads, facilities, front of house, and photographer.
+2. Check the acknowledgment status the platform has already collected
+   for each assigned person (the schedule invite went out automatically
+   when the plan was published).
+3. For any slot still unacknowledged, contact the assigned person
+   directly and get a yes/no before moving on to the next slot.
+4. For any no-response or decline, pull a replacement from that role's
+   standby pool and confirm their availability for the full shift.
+5. Watch for double-booked people or shift times that don't cover the
+   full event window, and fix the gap before confirming the slot.
+6. Confirm contractor slots (ref, photographer) separately — they come
+   from the assignor/contractor pool, not the staff schedule, and need
+   their own acknowledgment check.
+7. Once every slot on the plan shows a confirmed name, mark the
+   checklist complete.
+8. If any role still can't be filled by T-24h, escalate per the
+   escalation path rather than running the event short-staffed.
 
 ### Pre-day weather pre-check (`act.weather_pre_check`) — Accountable | Responsible
 
@@ -135,9 +151,26 @@ coverage resumes.
 - Escalation: If venue_manager unreachable, role.event_lead delivers the briefing and
 escalates to role.director per the standard handoff ladder.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. About 60 minutes before first kickoff, once the facility unlock and
+   first-aid kit check are done, gather every on-shift staff member in
+   one spot — event leads, facilities, front of house, photographer.
+2. Keep it to 5-10 minutes. Cover today's schedule (match count, key
+   times), anything special about today (VIP guests, a rescheduled
+   match, a tournament format quirk), the weather outlook if outdoor,
+   and any safety reminders (first-aid kit locations, incident
+   escalation path).
+3. Call out any staffing changes from the schedule confirm — who's
+   covering for a standby swap, who's new to the venue today.
+4. Ask if anyone has a conflict or needs to leave early, and confirm
+   coverage for that window now rather than discovering it mid-shift.
+5. Pass around the sign-in sheet — every attendee signs to confirm
+   they were briefed.
+6. Front of house checks the sign-in sheet against today's staffing
+   plan and signs to confirm the full roster attended and the sheet is
+   complete.
+7. File the signed sheet with today's event records.
+8. If the venue manager can't deliver the briefing, the event lead
+   runs it and escalates per the escalation path.
 
 ## pre_game
 
@@ -317,9 +350,25 @@ centrally.
 clock-out and escalates to role.director per the standard handoff
 ladder.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. When a staff member finishes their last task for the day (final
+   equipment stored, facility close walkthrough done, cash reconciled
+   — whatever their role's closing task is), they come to the
+   clock-out station before leaving the venue.
+2. Confirm their name against today's staffing plan and capture the
+   actual end time — not the scheduled end time, the real one.
+3. Ask if there's anything to note for payroll or the office: worked
+   past the scheduled end time, left early with venue manager
+   sign-off, covered an extra task outside their normal role.
+4. The staff member signs to confirm the end time and notes are
+   accurate.
+5. Front of house checks the signature against the staffing plan and
+   signs to close that person's labor record for the day.
+6. Repeat for each staff member as they finish, in any order — this
+   isn't a single end-of-day batch, it's per-person as people wrap up.
+7. Once every staffed slot for the day has a signed clock-out, the
+   record is complete and ready to feed the payroll integration.
+8. If the venue manager isn't available to witness a clock-out, the
+   event lead witnesses it and escalates per the escalation path.
 
 ### Staff debrief (`act.staff_debrief`) — Accountable | Responsible
 
@@ -329,9 +378,25 @@ follow-up PR.
 - Escalation: If venue_manager unreachable, role.event_lead runs the debrief and
 escalates to role.director per the standard handoff ladder.
 
-Procedure to be authored by the operating team. This activity is defined
-in the catalog; full step-by-step SOP content will be added in a
-follow-up PR.
+1. Once the facility close walkthrough is signed off, gather whoever's
+   still on shift for a 5-10 minute huddle — don't hold people who've
+   already clocked out waiting for this.
+2. Ask what worked today: anything that ran smoother than expected,
+   any process worth repeating.
+3. Ask what broke or ran rough: equipment failures, staffing gaps,
+   confused parents, anything that slowed the day down.
+4. Ask if anything needs to go to the office: a facility repair
+   request, a supply reorder, a schedule conflict for next time, a
+   personnel note.
+5. Capture incident or safety mentions even briefly — the full
+   incident report is a separate activity, but the debrief should
+   flag that one happened so it isn't lost.
+6. Write the notes into the debrief form in plain language — this
+   feeds directly into tonight's daily digest and the weekly review,
+   so vague notes ("things were fine") aren't useful to future you.
+7. Submit the form before leaving the venue.
+8. If the venue manager isn't available, the event lead runs the
+   debrief and escalates per the escalation path.
 
 ## post_day
 
