@@ -80,13 +80,23 @@ const SPOKEN_LINES: Record<string, string> = {
   "My matches — the referee's assignment list":
     "This is My Matches — every game you're assigned to referee. Check-in starts right here.",
   "Open the training fixture match": "Tap into a match to open live scoring.",
-  "Enter the final score, log an incident, and submit the report":
-    "Enter the final score, log any incidents, and submit — that's the whole match report in three steps.",
+  "Enter the final score": "Start with the final score for each side.",
+  "Log an ejection as a red-card incident":
+    "If there was an ejection, log it as an incident — red card is the closest match to an ejection in today's incident types, so note the player, minute, and what happened.",
+  "Submit the match report": "Submit the report — that's the whole match record, ejections included, filed in one step.",
   // venue-manager
   "Venue command center — today's overview":
     "Welcome to the venue command center — your run-of-show for everything happening today.",
   "Open an activity's roster panel": "Tap any scheduled activity to open its roster panel.",
   "Player/team check-in station": "This is the check-in station, where players and teams check in as they arrive.",
+  "Walk-up registration form":
+    "If a family walks up without registering ahead of time, this is where you sign them up on the spot — waiver, payment, and roster in one form.",
+  "Games — cross-season list": "Over on Games, you'll find every scheduled match across every season.",
+  "Referee assignment and stipend log for a match":
+    "Open a match's Refs panel to see who's assigned, their fee, and whether they've been paid — this is also where payroll hand-off gets logged.",
+  "Media shoots list": "Media Shoots lists every photo and video assignment for the day.",
+  "Photographer check-in status for a shoot":
+    "Open a shoot to see its check-in status — that's the signature that starts the photographer's pay clock once they sign in on site.",
   "End-of-day reports": "Once the day wraps up, End-of-Day Reports gives you the full summary.",
 };
 

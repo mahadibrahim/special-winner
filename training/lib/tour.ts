@@ -36,6 +36,17 @@ export interface StepOptions {
    * hiring / curriculum-sequencing features aren't modeled in the ops
    * catalog) and should leave this unset. */
   deckSlug?: string;
+  /** Overrides the Tour's own `role` (see TourOptions.role) for JUST this
+   * step's deck-slot copy destination — training/screenshots/<deckRole>/<deckSlug>.png
+   * instead of training/screenshots/<role>/<deckSlug>.png. A walkthrough's
+   * on-screen actor (and hence its `role`) often isn't the same as the
+   * activity's own accountable/responsible role: e.g. an admin-session
+   * walkthrough visiting a screen that documents a front_of_house-owned
+   * activity (act.walk_on_registration) needs the screenshot to land in
+   * role.front_of_house's deck, not whatever role the rest of the file's
+   * steps feed. Only meaningful together with `deckSlug` — ignored
+   * otherwise. */
+  deckRole?: string;
   /** Pause after the action completes, in ms. Default 400 — long enough to
    * read the resulting screen in the recorded video. */
   pauseMs?: number;
@@ -84,8 +95,8 @@ export class Tour {
     return path.join(this.root(), "output", this.opts.workflow);
   }
 
-  private deckScreenshotDir(): string {
-    return path.join(this.root(), "screenshots", this.opts.role);
+  private deckScreenshotDir(role: string): string {
+    return path.join(this.root(), "screenshots", role);
   }
 
   /** Runs `fn`, pauses briefly, saves a named screenshot, and records a
@@ -107,7 +118,7 @@ export class Tour {
     await page.screenshot({ path: screenshotPath });
 
     if (stepOptions.deckSlug) {
-      const deckDir = this.deckScreenshotDir();
+      const deckDir = this.deckScreenshotDir(stepOptions.deckRole ?? this.opts.role);
       await fs.mkdir(deckDir, { recursive: true });
       await fs.copyFile(screenshotPath, path.join(deckDir, `${stepOptions.deckSlug}.png`));
     }

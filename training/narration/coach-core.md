@@ -10,4 +10,4 @@ Source video: `training/output/coach-core/video.webm`
 6. [00:15] Marking someone present is just a tap. We're not saving this demo change, but that's all it takes on game day.
 7. [00:16] Now let's check Assessments — this shows every player due for a skill evaluation across your teams.
 8. [00:21] Tap a player's name to open their assessment detail and history.
-9. [00:21] From here you'd record a new assessment. We'll leave this one unsaved for the demo — you'll fill in real skill levels during an actual session.
+9. [00:22] From here you'd record a new assessment. We'll leave this one unsaved for the demo — you'll fill in real skill levels during an actual session.
