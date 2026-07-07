@@ -79,7 +79,7 @@ tools:
   - Phone (call 911 for a life-threatening incident)
   - The incident response form
   - First-aid kit at the field/court
-tracking_method: form
+tracking_method: system_event
 tracking_artifact:
-  template_id: frm.incident_response
+  event_type: evt.incident_response_filed
 expected_completion: trigger+5min
