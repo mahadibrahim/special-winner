@@ -36,6 +36,7 @@ import {
   BarChart3,
   Smile,
   Star,
+  DollarSign,
   type LucideIcon,
 } from "lucide-react";
 
@@ -134,6 +135,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
       { name: "Registration trends", href: "/admin/reports/registrations", icon: BarChart3 },
       { name: "NPS", href: "/admin/reports/nps", icon: Smile },
       { name: "Referee ratings", href: "/admin/reports/referee-ratings", icon: Star },
+      { name: "Payroll export", href: "/admin/reports/payroll", icon: DollarSign },
     ],
   },
 ];
