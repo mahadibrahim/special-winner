@@ -38,6 +38,10 @@ sop_body: |
      to storage.
   8. Note anything missing from the staging pass, pull from backup stock,
      or flag it to the venue manager.
+tools:
+  - The day's match/surface schedule
+  - Portable scoreboards
+  - Water coolers or jugs
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_staging

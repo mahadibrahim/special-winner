@@ -48,6 +48,10 @@ sop_body: |
   8. Once the issue is resolved and the upload completes, confirm the
      counter reflects today's full session before considering handoff
      done.
+tools:
+  - The media app — My Jobs (/media/jobs)
+  - Camera memory cards (SD cards), retained until upload is confirmed
+  - The tagging queue (/media/queue) — receives the handed-off session
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.photos_uploaded

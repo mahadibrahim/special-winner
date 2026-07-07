@@ -51,6 +51,10 @@ sop_body: |
   8. Once the job recovers, verify it doesn't re-publish an assignment
      that already changed since the outage started, and reconcile the
      manually-posted version against whatever the platform now shows.
+tools:
+  - The automated field/court assignment publish job — you verify it fired
+  - The activity tracking dashboard (/admin/game-day/today)
+  - Team channel posts (manual fallback using the venue manager's finalized grid)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.field_assignment_published

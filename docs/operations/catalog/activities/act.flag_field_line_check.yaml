@@ -38,6 +38,10 @@ sop_body: |
   8. If field conditions (mud, standing water) are obscuring lines faster
      than they can be maintained, flag it to the venue manager — this may
      factor into a rainout call.
+tools:
+  - Field-marking paint or chalk
+  - Measuring wheel or tape (yard-line spacing)
+  - Camera or phone (photo upload of the field lines)
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: flag_lines

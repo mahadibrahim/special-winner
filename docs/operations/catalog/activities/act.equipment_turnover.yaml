@@ -39,6 +39,10 @@ sop_body: |
      within the 15-minute turnover window.
   8. Flag anything damaged during the match to the field damage report
      process rather than trying to fix it yourself.
+tools:
+  - Portable scoreboard (reset between matches)
+  - Sanitizing wipes or spray for shared-touch equipment
+  - Pre-match ball/pinnie count sheet
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_turnover

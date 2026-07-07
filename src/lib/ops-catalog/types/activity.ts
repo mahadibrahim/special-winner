@@ -117,6 +117,7 @@ export const ActivitySchema = z
     platform_features: z.array(FeatureId).default([]),
     escalation_path: NonEmptyString,
     sop_body: NonEmptyString,
+    tools: z.array(NonEmptyString).optional(),
     tracking_method: TrackingMethodEnum,
     // Validated cross-field below in superRefine.
     tracking_artifact: z.record(z.string(), z.unknown()),

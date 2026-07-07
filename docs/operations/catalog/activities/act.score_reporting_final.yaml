@@ -57,6 +57,10 @@ sop_body: |
      dispute in the match notes before submitting and flag it to the
      venue manager — don't hold up submission trying to resolve the
      dispute yourself.
+tools:
+  - My Matches (/referee) — opens the match report
+  - The match report's score fields and incidents list
+  - Personal running tally (cross-check before submitting)
 tracking_method: signature
 tracking_artifact:
   template_id: sig.ref_score_attestation

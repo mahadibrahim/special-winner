@@ -38,6 +38,9 @@ sop_body: |
      waiting for the field damage process.
   7. Don't skip this even on a clear day — it's the baseline any later
      damage claim gets measured against.
+tools:
+  - Camera or phone with location/timestamp on
+  - The day's surface list (which fields/courts host a match today)
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: field_condition_pregame

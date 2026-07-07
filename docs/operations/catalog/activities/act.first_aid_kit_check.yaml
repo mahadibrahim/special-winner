@@ -40,6 +40,10 @@ sop_body: |
   7. Log the check complete. No event begins without a verified kit — if
      any kit or the AED can't be verified, escalate immediately per the
      escalation path and hold the start of play at that surface.
+tools:
+  - First-aid kit manifest
+  - Bulk restock supply (bandages, gauze, tape, cold packs, CPR mask)
+  - AED (battery indicator and pad expiration check)
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.first_aid

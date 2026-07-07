@@ -41,6 +41,10 @@ sop_body: |
      before staff arrive.
   8. Mark the checklist complete once the building is ready for staff —
      this clears the way for the opening walkthrough.
+tools:
+  - Alarm keypad and the current code (plus the backup entry procedure)
+  - Building key ring
+  - Lighting and HVAC panel
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.facility_unlock

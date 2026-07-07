@@ -40,6 +40,10 @@ sop_body: |
   8. If anything can't be resolved in the 30-minute window, notify the
      venue manager and event lead immediately — a match doesn't start on
      an unsafe or incomplete surface.
+tools:
+  - Goals/nets with anchors or weights
+  - Corner flags and team benches
+  - Camera or phone (photo upload of the configured surface)
 tracking_method: photo_upload
 tracking_artifact:
   media_kind: field_setup

@@ -39,6 +39,10 @@ sop_body: |
      the venue manager.
   8. Confirm setup is complete before the first families are expected to
      arrive.
+tools:
+  - Cones, ropes, and directional signage
+  - Reserved-row and accessible-parking markers
+  - Two-way radio (coordinating with the entry attendant)
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.parking_setup

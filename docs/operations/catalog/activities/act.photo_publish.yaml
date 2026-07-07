@@ -57,6 +57,10 @@ sop_body: |
      event lead pings the director, and publish authority for that
      batch can be reassigned per the escalation path — the consent
      check still applies regardless of who executes the publish.
+tools:
+  - The tagging queue (/media/queue) — confirm the session shows "ready"
+  - The admin Tag Queue (/admin/media/tag-queue) — org-admin publish action
+  - The media-authorization consent check (automatic, platform-run)
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.photos_published

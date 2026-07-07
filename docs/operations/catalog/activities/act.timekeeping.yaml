@@ -58,6 +58,10 @@ sop_body: |
      whistle — the gap between your actual final whistle and when the
      report lands is exactly the kind of drift timekeeping exists to
      keep small.
+tools:
+  - Your own watch or stopwatch (there's no in-app clock)
+  - Check-in and final-report submission timestamps (system proxy for elapsed time)
+  - The match report's notes field (documenting stoppages or delays)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.timekeeping_clock

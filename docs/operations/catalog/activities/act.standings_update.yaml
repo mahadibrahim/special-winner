@@ -55,6 +55,10 @@ sop_body: |
   8. While automation is down, the event lead posts a manual standings
      update to team channels using the same season-to-date math, and
      reconciles it against the platform's table once the job recovers.
+tools:
+  - The public league standings page
+  - The activity tracking dashboard (/admin/game-day/today)
+  - Team channel posts (manual fallback with season-to-date math)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.standings_updated

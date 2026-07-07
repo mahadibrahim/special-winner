@@ -64,6 +64,10 @@ sop_body: |
   9. If you're unreachable, the venue manager may default to "credit
      only" until you sign off per the escalation path — actual refund
      disbursement still waits for your authorization.
+tools:
+  - The rainout decision record (reference for the affected list)
+  - The admin refund action per registration (/admin/refund-requests, /admin/refunds)
+  - The rainout refund decision form
 tracking_method: form
 tracking_artifact:
   template_id: frm.rainout_refund

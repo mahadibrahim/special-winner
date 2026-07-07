@@ -55,6 +55,10 @@ sop_body: |
   9. If you're unreachable, the event lead drafts the report from the
      same witness statements and evidence, and the director finalizes
      it before it's considered closed.
+tools:
+  - The in-the-moment incident response form (starting point)
+  - Camera or phone (scene/injury/damage photos, with consent)
+  - The full incident report form
 tracking_method: form
 tracking_artifact:
   template_id: frm.incident_report_full

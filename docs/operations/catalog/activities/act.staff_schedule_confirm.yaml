@@ -42,6 +42,10 @@ sop_body: |
      checklist complete.
   8. If any role still can't be filled by T-24h, escalate per the
      escalation path rather than running the event short-staffed.
+tools:
+  - The day's staffing plan
+  - Phone (direct contact for unacknowledged slots)
+  - The standby pool roster
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.staff_schedule_confirm

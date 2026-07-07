@@ -272,7 +272,7 @@ describe("renderTrainingDeck — procedure step parsing (real catalog fixture)",
     // continuation lines are folded into the step, not split into their own
     // list items.
     expect(stepMatches[0]).toBe(
-      "72 hours before the event window, pull up every outdoor match on the day&#39;s schedule and check the forecast for temperature, precipitation chance, wind, and lightning risk on the weather-alert dashboard.",
+      "72 hours before the event window, pull up every outdoor match on the day&#39;s schedule and check the forecast for temperature, precipitation chance, wind, and lightning risk on a weather app or the National Weather Service (a built-in weather-alert dashboard is planned).",
     );
     // Last step, reassembled from its 2 wrapped source lines.
     expect(stepMatches[5]).toBe(

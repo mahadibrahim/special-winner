@@ -43,6 +43,10 @@ sop_body: |
   7. File the signed sheet with today's event records.
   8. If the venue manager can't deliver the briefing, the event lead
      runs it and escalates per the escalation path.
+tools:
+  - Today's staffing plan and match schedule
+  - Printed sign-in sheet
+  - Opening walkthrough findings (reference for safety reminders)
 tracking_method: signature
 tracking_artifact:
   template_id: sig.staff_briefing_signin

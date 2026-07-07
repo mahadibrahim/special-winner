@@ -45,6 +45,10 @@ sop_body: |
   8. If either team can't field a legal minimum by kickoff, notify the
      ref and follow the format's forfeit/delay rule rather than
      starting short.
+tools:
+  - The team roster check-in station (/admin/venue/rosters)
+  - The team check-in form
+  - Guest-player paperwork on file (reference)
 tracking_method: form
 tracking_artifact:
   template_id: frm.team_check_in

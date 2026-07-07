@@ -47,6 +47,10 @@ sop_body: |
      window, the event lead escalates to the venue manager immediately
      per the escalation path — don't wait until your scheduled start to
      raise it.
+tools:
+  - The event lead's check-in station (in-person sign-in)
+  - Camera body, charged batteries, and memory cards
+  - The activity completion signature capture (/admin/activity-completions/[id])
 tracking_method: signature
 tracking_artifact:
   template_id: sig.photographer_check_in

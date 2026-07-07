@@ -41,6 +41,10 @@ sop_body: |
      and hazards.
   7. Sign off the walkthrough — facility lock and alarm cannot start
      without this sign-off.
+tools:
+  - The fixed walkthrough route (same route as the opening walkthrough)
+  - Flashlight (checking dim locker rooms and storage)
+  - Lost-and-found bin
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.facility_close_walkthrough

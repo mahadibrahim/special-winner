@@ -45,6 +45,10 @@ sop_body: |
      holding-window disposal.
   8. If front of house isn't available to run this at close, the event
      lead does the inventory and escalates per the escalation path.
+tools:
+  - Lost-and-found holding area/bin
+  - The lost and found inventory form
+  - Today's reported-missing list (matching contact info)
 tracking_method: form
 tracking_artifact:
   template_id: frm.lost_and_found_inventory

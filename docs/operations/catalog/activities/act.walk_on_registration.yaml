@@ -47,6 +47,10 @@ sop_body: |
   9. If intake volume would push a session over its coach ratio cap,
      tell the coach to close intake for that session and hold
      additional walk-ons for the next available slot.
+tools:
+  - The walk-up registration station (/admin/venue/walk-up)
+  - Paper liability waiver
+  - Payment terminal or cash drawer
 tracking_method: counter_increment
 tracking_artifact:
   counter: counter.walk_on_registrations

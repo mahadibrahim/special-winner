@@ -41,6 +41,10 @@ sop_body: |
      manager if a shortage can't be resolved in time.
   8. Log the completed count so equipment storage has a clean baseline to
      compare against after the event.
+tools:
+  - The equipment manifest (printed or clipboard checklist)
+  - Storage area shelving and labels
+  - First-aid restock supply log
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.equipment_inventory

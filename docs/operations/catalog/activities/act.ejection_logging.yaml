@@ -58,6 +58,10 @@ sop_body: |
      escalated to the director in addition to being logged — don't
      count on the office catching it from the incident description
      alone.
+tools:
+  - The match report (/referee/matches/[gameId]) — logged as an incident
+  - The incident description field (records suspension implications)
+  - Verbal handoff to the event lead (fallback if you can't file yourself)
 tracking_method: form
 tracking_artifact:
   template_id: frm.ejection_log

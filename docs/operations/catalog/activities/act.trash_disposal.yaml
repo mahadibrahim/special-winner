@@ -36,6 +36,10 @@ sop_body: |
   7. Note any overflow issue (dumpster full, missed pickup) and flag it
      to the venue manager so the hauler can be contacted before the next
      event.
+tools:
+  - Trash bags and replacement liners
+  - Dumpster/disposal area key or access code
+  - Recycling bins
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.trash_disposal

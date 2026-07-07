@@ -43,7 +43,8 @@ standard handoff ladder.
 
 1. 72 hours before the event window, pull up every outdoor match on the
    day's schedule and check the forecast for temperature, precipitation
-   chance, wind, and lightning risk on the weather-alert dashboard.
+   chance, wind, and lightning risk on a weather app or the National
+   Weather Service (a built-in weather-alert dashboard is planned).
 2. Flag a heat advisory if the forecast heat index reaches 95°F or
    higher during the event window, and flag a precipitation risk if the
    chance of rain is 60% or higher during that window.
@@ -209,8 +210,9 @@ unilateral authority to call the event.
 1. When weather or field conditions within 2 hours of kickoff raise
    real doubt — active lightning, sustained heavy rain producing
    standing water or unsafe footing, or a heat index at or above the
-   venue's cutoff — pull the current weather-alert dashboard reading
-   and the field condition status.
+   venue's cutoff — check current conditions on a weather app or the
+   National Weather Service (a built-in weather-alert dashboard is
+   planned) and the field condition status.
 2. Consult the director before making the call. This is a consequential
    decision; if the director can't be reached in time, the decision
    defaults to them per the escalation path.
@@ -237,9 +239,10 @@ unilateral authority to call the event.
 - Escalation: If venue_manager unreachable, escalate to role.director per the
 standard handoff ladder.
 
-1. About 90 minutes before kickoff at any outdoor venue, re-check the
-   weather-alert dashboard for live conditions — this replaces the 72h
-   pre-check with real-time data.
+1. About 90 minutes before kickoff at any outdoor venue, re-check a
+   weather app or the National Weather Service for live conditions
+   (a built-in weather-alert dashboard is planned) — this replaces
+   the 72h pre-check with real-time data.
 2. Check the lightning radar for detected strikes within 10 miles of
    the venue.
 3. Check current precipitation on radar and confirm whether it's

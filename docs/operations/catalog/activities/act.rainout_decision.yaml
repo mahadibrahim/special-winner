@@ -28,8 +28,9 @@ sop_body: |
   1. When weather or field conditions within 2 hours of kickoff raise
      real doubt — active lightning, sustained heavy rain producing
      standing water or unsafe footing, or a heat index at or above the
-     venue's cutoff — pull the current weather-alert dashboard reading
-     and the field condition status.
+     venue's cutoff — check current conditions on a weather app or the
+     National Weather Service (a built-in weather-alert dashboard is
+     planned) and the field condition status.
   2. Consult the director before making the call. This is a consequential
      decision; if the director can't be reached in time, the decision
      defaults to them per the escalation path.
@@ -47,6 +48,10 @@ sop_body: |
      (rainout refund decision, rainout reschedule) belongs to the
      director within the next 24 hours — your job ends at the call and
      the record.
+tools:
+  - Weather app or National Weather Service radar (lightning, precipitation, heat index)
+  - Phone (consulting the director before the call)
+  - The rainout decision form
 tracking_method: form
 tracking_artifact:
   template_id: frm.rainout_decision

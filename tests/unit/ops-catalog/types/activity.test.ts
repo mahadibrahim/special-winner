@@ -101,4 +101,30 @@ describe("ActivitySchema", () => {
     const result = ActivitySchema.safeParse(ok);
     expect(result.success).toBe(true);
   });
+
+  it("accepts an activity with no tools field (optional)", () => {
+    const result = ActivitySchema.safeParse(validActivity);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts an activity with a tools list", () => {
+    const ok = {
+      ...validActivity,
+      tools: ["Weather app or NWS radar", "The rainout decision form (/admin/venue)"],
+    };
+    const result = ActivitySchema.safeParse(ok);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects tools with a non-string entry", () => {
+    const bad = { ...validActivity, tools: ["Weather app", 42] };
+    const result = ActivitySchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects tools with an empty string entry", () => {
+    const bad = { ...validActivity, tools: [""] };
+    const result = ActivitySchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
 });

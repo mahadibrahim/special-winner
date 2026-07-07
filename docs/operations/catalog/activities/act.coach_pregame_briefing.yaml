@@ -44,6 +44,10 @@ sop_body: |
   8. Each coach signs to acknowledge the briefing.
   9. If the event lead can't run the briefing, escalate to the venue
      manager per the escalation path rather than skipping it.
+tools:
+  - The coach pregame briefing dispatch packet (reference for rules-of-the-day)
+  - Printed sign-in sheet (coach acknowledgment)
+  - Today's weather/facility check notes (special-situations reference)
 tracking_method: signature
 tracking_artifact:
   template_id: sig.coach_pregame

@@ -52,6 +52,10 @@ sop_body: |
   8. Once the job recovers, reconcile the manual figures against the
      platform's rollup for that week rather than discarding the manual
      version outright — it's a check on both.
+tools:
+  - The automated weekly metrics rollup job — you verify it fired
+  - The activity tracking dashboard (/admin/game-day/today)
+  - The raw activity log (manual pull while automation is down)
 tracking_method: system_event
 tracking_artifact:
   event_type: evt.weekly_metrics_run

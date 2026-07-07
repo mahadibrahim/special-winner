@@ -41,6 +41,10 @@ sop_body: |
      For drop-in/clinic sessions, re-check as walk-ons join during the
      intake window.
   6. If over-ratio, hold the start and escalate per the escalation path.
+tools:
+  - The attendance roster (/coach/attendance)
+  - First-aid kit (on-site)
+  - Age-appropriate balls, cones, and pinnies
 tracking_method: checklist
 tracking_artifact:
   template_id: chk.class_session_open
