@@ -11,6 +11,7 @@ import type Stripe from "stripe";
 import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { issueAccountCredit } from "@/lib/payments/account-credit";
 
 export type AdminRefundResult =
   | {
@@ -40,6 +41,14 @@ export interface AdminRefundInput {
   childName: string;
   programName: string;
   seasonName: string;
+  /**
+   * Issue an account credit instead of a Stripe refund. Sibling branch to
+   * the Stripe-refund path below — no Stripe call is made at all, so this
+   * works even when the original payment intent is gone/unrefundable.
+   * Owner policy: refunds default to credit; cash is the director-approved
+   * exception (asCredit omitted/false).
+   */
+  asCredit?: boolean;
 }
 
 /**
@@ -65,6 +74,7 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
     childName,
     programName,
     seasonName,
+    asCredit,
   } = input;
 
   if (refundAmountCents < 0) {
@@ -78,6 +88,68 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
       status: 400,
       error: `Refund ${refundAmountCents}¢ exceeds paid ${previousAmountPaid}¢`,
     };
+  }
+
+  // Credit sibling branch — no Stripe call at all. Issues an account credit
+  // for the refund amount and marks the registration `refundStatus:
+  // "credited"`. Money never moves, so there is no webhook to await: finalize
+  // synchronously and send the customer email here, same as the zero-amount/
+  // no-payment-intent synchronous path below.
+  if (asCredit) {
+    if (refundAmountCents > 0) {
+      await issueAccountCredit({
+        userId: registration.registeredByUserId,
+        organizationId,
+        amountCents: refundAmountCents,
+        reason: reason || `Refund credit for registration ${registration.id}`,
+        sourceRegistrationId: registration.id,
+        issuedByUserId: adminUserId,
+      });
+    }
+
+    const isFull = refundAmountCents > 0 && refundAmountCents === previousAmountPaid;
+    const isPartial = refundAmountCents > 0 && refundAmountCents < previousAmountPaid;
+
+    const [updated] = await getDb()
+      .update(registrations)
+      .set({
+        refundStatus: "credited",
+        status: isFull ? "refunded" : registration.status,
+        paymentStatus: isFull
+          ? "refunded"
+          : isPartial
+            ? "partial_refund"
+            : registration.paymentStatus,
+        amountPaidCents: previousAmountPaid - refundAmountCents,
+        refundAmountCents,
+        updatedAt: new Date(),
+      })
+      .where(eq(registrations.id, registration.id))
+      .returning();
+
+    const [parentUser] = await getDb()
+      .select()
+      .from(users)
+      .where(eq(users.id, registration.registeredByUserId));
+    if (parentUser) {
+      sendRefundNotificationEmail({
+        userId: parentUser.id,
+        organizationId,
+        registrationId: registration.id,
+        parentEmail: parentUser.email,
+        parentName: parentUser.firstName || parentUser.email.split("@")[0],
+        childName,
+        programName,
+        seasonName,
+        refundAmountCents,
+        refundStatus: "credited",
+        brand: normalizeBrand(registration.brand),
+      }).catch((err) =>
+        console.error("[admin-refund] credit-path refund email failed:", err),
+      );
+    }
+
+    return { ok: true, registration: updated, stripeRefundId: null, isPartial };
   }
 
   // Look up payment record for the Stripe payment intent.
