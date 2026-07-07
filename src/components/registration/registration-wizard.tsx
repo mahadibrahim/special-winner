@@ -257,6 +257,11 @@ export default function RegistrationWizard({
     "bank" | "card"
   >("bank")
   const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
+
+  // ── Account credit state (authed only — guests have no balance) ─────────
+  const [creditBalanceCents, setCreditBalanceCents] = useState(0)
+  const [applyAccountCredit, setApplyAccountCredit] = useState(true)
+  const [appliedCreditCents, setAppliedCreditCents] = useState(0)
   // CheckoutPaymentType is "deposit" | "balance" | "full". The wizard only
   // sets "deposit" or "full" — balance pay UI ships in Phase 2 (separate
   // dashboard surface). Type is widened for forward-compat with the analytics
@@ -270,6 +275,29 @@ export default function RegistrationWizard({
   useEffect(() => {
     fetchData()
   }, [seasonId])
+
+  // Fetch the signed-in user's account credit balance so the payment step
+  // can offer to apply it. Guests never have a balance (no signed-in user
+  // to hold one) — the fetch and the toggle both just don't happen.
+  useEffect(() => {
+    if (isGuest) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/account-credit/balance")
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && typeof data.balanceCents === "number") {
+          setCreditBalanceCents(data.balanceCents)
+        }
+      } catch {
+        // non-fatal — checkout proceeds without the credit toggle
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isGuest])
 
   // Check for cancelled-payment resumable registration
   useEffect(() => {
@@ -669,6 +697,7 @@ export default function RegistrationWizard({
     setPaymentPublishableKey(null)
     setPaymentValueCents(0)
     setAppliedSurchargeCents(0)
+    setAppliedCreditCents(0)
   }
 
   const handleResumePayment = async () => {
@@ -683,6 +712,7 @@ export default function RegistrationWizard({
           registrationId: resumableRegistrationId,
           paymentMethodCategory: selectedPaymentCategory,
           teamToken: teamToken ?? undefined,
+          applyAccountCredit,
         }),
       })
       const data = await res.json()
@@ -699,10 +729,13 @@ export default function RegistrationWizard({
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
+        const creditCents = data.creditAppliedCents ?? 0
+        const baseAfterCredit = Math.max(0, baseAfterDiscount - creditCents)
         const surchargeCents = data.surchargeCents ?? 0
-        const finalValueCents = baseAfterDiscount + surchargeCents
+        const finalValueCents = baseAfterCredit + surchargeCents
 
         setAppliedSurchargeCents(surchargeCents)
+        setAppliedCreditCents(creditCents)
         setPaymentValueCents(finalValueCents)
         setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
         setPaymentPublishableKey(data.publishableKey)
@@ -898,6 +931,7 @@ export default function RegistrationWizard({
             discountCode: discountCode || undefined,
             paymentMethodCategory: category,
             teamToken: teamToken ?? undefined,
+            applyAccountCredit,
           }),
         })
 
@@ -923,10 +957,13 @@ export default function RegistrationWizard({
           const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
             : valueCents
+          const creditCents = checkoutData.creditAppliedCents ?? 0
+          const baseAfterCredit = Math.max(0, baseAfterDiscount - creditCents)
           const surchargeCents = checkoutData.surchargeCents ?? 0
-          const finalValueCents = baseAfterDiscount + surchargeCents
+          const finalValueCents = baseAfterCredit + surchargeCents
 
           setAppliedSurchargeCents(surchargeCents)
+          setAppliedCreditCents(creditCents)
           setPaymentValueCents(finalValueCents)
           setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
           setPaymentPublishableKey(checkoutData.publishableKey)
@@ -1360,6 +1397,10 @@ export default function RegistrationWizard({
             }}
             onApplyDiscount={handleApplyDiscount}
             onRemoveDiscount={handleRemoveDiscount}
+            creditBalanceCents={creditBalanceCents}
+            applyAccountCredit={applyAccountCredit}
+            onApplyAccountCreditChange={setApplyAccountCredit}
+            appliedCreditCents={appliedCreditCents}
             clientSecret={paymentClientSecret}
             publishableKey={paymentPublishableKey}
             seasonItem={

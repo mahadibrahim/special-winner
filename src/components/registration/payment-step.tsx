@@ -4,6 +4,7 @@ import { Tag, CheckCircle2, AlertCircle, Loader2, X, Landmark, CreditCard } from
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { OrderSummary } from "./order-summary"
 import { EmbeddedPayment } from "./embedded-payment"
@@ -60,6 +61,15 @@ export interface PaymentStepProps {
   onApplyDiscount: () => void
   onRemoveDiscount: () => void
 
+  // Account-credit state. creditBalanceCents is 0 for guest checkout (no
+  // signed-in user to hold a balance) or when the user simply has no
+  // credit — either way the toggle just doesn't render.
+  creditBalanceCents: number
+  applyAccountCredit: boolean
+  onApplyAccountCreditChange: (v: boolean) => void
+  /** Server-confirmed credit applied to the active session, in cents. */
+  appliedCreditCents: number
+
   // Embedded-payment props — when clientSecret is set, renders the
   // payment form below the order summary. When null, the method picker
   // shows instead.
@@ -96,6 +106,10 @@ export function PaymentStep({
   onDiscountCodeInputChange,
   onApplyDiscount,
   onRemoveDiscount,
+  creditBalanceCents,
+  applyAccountCredit,
+  onApplyAccountCreditChange,
+  appliedCreditCents,
   clientSecret,
   publishableKey,
   seasonItem,
@@ -120,9 +134,20 @@ export function PaymentStep({
   const discountedBaseCents = appliedDiscount
     ? Math.max(0, baseAmountCents - appliedDiscount.discountAmountCents)
     : baseAmountCents
-  const previewCardSurcharge = computeSurchargeCents(discountedBaseCents, "card")
-  const previewBankTotal = discountedBaseCents
-  const previewCardTotal = discountedBaseCents + previewCardSurcharge
+  // Credit is applied after the discount, before surcharge — matches the
+  // server (createCheckoutForRegistration applies credit right before
+  // creating the Stripe session, so the surcharge Stripe actually computes
+  // is on the post-credit amount).
+  const previewCreditAppliedCents = applyAccountCredit
+    ? Math.min(creditBalanceCents, discountedBaseCents)
+    : 0
+  const amountAfterCreditCents = Math.max(
+    0,
+    discountedBaseCents - previewCreditAppliedCents,
+  )
+  const previewCardSurcharge = computeSurchargeCents(amountAfterCreditCents, "card")
+  const previewBankTotal = amountAfterCreditCents
+  const previewCardTotal = amountAfterCreditCents + previewCardSurcharge
 
   // Display surcharge: post-commit, use the server-confirmed value so we can't
   // get out of sync with what Stripe actually charged.
@@ -131,6 +156,13 @@ export function PaymentStep({
     : paymentMethodCategory === "card"
       ? previewCardSurcharge
       : 0
+
+  // Display credit applied: post-commit, use the server-confirmed value
+  // (returned by the checkout endpoint) so it can't drift from what was
+  // actually redeemed.
+  const displayCreditAppliedCents = sessionLocked
+    ? appliedCreditCents
+    : previewCreditAppliedCents
 
   return (
     <div className="space-y-6">
@@ -253,6 +285,27 @@ export function PaymentStep({
         )}
       </div>
 
+      {/* Account credit — hidden entirely for guest checkout / no balance,
+          since creditBalanceCents is 0 in both cases. */}
+      {creditBalanceCents > 0 && (
+        <label
+          className={`flex items-center justify-between p-3 rounded-lg border border-border bg-paper ${
+            sessionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Checkbox
+              checked={applyAccountCredit}
+              onCheckedChange={(v) => onApplyAccountCreditChange(v === true)}
+              disabled={sessionLocked}
+            />
+            <span className="text-sm text-ink">
+              Apply my ${(creditBalanceCents / 100).toFixed(2)} account credit
+            </span>
+          </span>
+        </label>
+      )}
+
       {/* Order Summary */}
       <OrderSummary
         seasonName={seasonName}
@@ -265,6 +318,7 @@ export function PaymentStep({
         appliedDiscount={appliedDiscount}
         surchargeCents={displaySurchargeCents}
         paymentMethodCategory={paymentMethodCategory}
+        creditAppliedCents={displayCreditAppliedCents}
       />
 
       {/* Payment method — selecting one creates the session and reveals the
