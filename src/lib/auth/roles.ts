@@ -403,6 +403,63 @@ export async function requireCoachPortalAccess(context: APIContext): Promise<
 }
 
 /**
+ * Staff-portal access for the in-app incident reporting surface (`/staff/**`
+ * pages + `/api/staff/**` endpoints). Admits the three roles that can be
+ * "on the ground" at a venue and responsible for filing an incident report:
+ * super_admin, location_admin (venue manager), and coach — `role.event_lead`
+ * from the ops catalog has no dedicated app role, so it maps to `coach`
+ * (see the incident-reporting plan's key decisions). Mirrors
+ * `requireCoachPortalAccess`'s shape (auth + resolved organizationId) but
+ * without the coach-specific team-assignment fallback logic, since none of
+ * the three admitted roles require it here.
+ */
+export async function requireStaffAccess(context: APIContext): Promise<
+  | { authorized: false; response: Response }
+  | {
+      authorized: true;
+      user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>;
+      roles: UserRole[];
+      organizationId: string;
+    }
+> {
+  const { user } = await validateSession(context);
+
+  if (!user) {
+    return {
+      authorized: false,
+      response: new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
+    };
+  }
+
+  const userRolesList = await getUserRoles(user.id);
+  const hasStaffRole = userRolesList.some(
+    (r) => r.name === "super_admin" || r.name === "location_admin" || r.name === "coach",
+  );
+
+  if (!hasStaffRole) {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: staff access required" }),
+        { status: 403 },
+      ),
+    };
+  }
+
+  const orgContext = await requireOrganizationContext(context);
+  if (!orgContext.hasOrganization) {
+    return { authorized: false, response: orgContext.response };
+  }
+
+  return {
+    authorized: true,
+    user,
+    roles: userRolesList,
+    organizationId: orgContext.organizationId,
+  };
+}
+
+/**
  * Get the organization ID from context or fallback to first org for super_admins
  * Returns the organization ID that should be used for filtering queries
  */

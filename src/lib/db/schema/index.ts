@@ -98,3 +98,6 @@ export * from "./feedback";
 
 // Operational pings (principal WhatsApp/email business-event alerts)
 export * from "./ops-pings";
+
+// In-app incident reporting (fast same-day capture; product-backlog build #1)
+export * from "./incidents";

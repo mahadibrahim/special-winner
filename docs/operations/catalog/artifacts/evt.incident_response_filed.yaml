@@ -1,0 +1,11 @@
+id: evt.incident_response_filed
+kind: system_event
+status: stub
+description: |
+  Fires when a staff member (venue manager or event lead, acting through
+  the coach app role) submits the fast in-app incident report form for a
+  game. Closes the act.incident_response activity_completions row for
+  that game so the game-day dashboard reflects that the in-the-moment
+  capture happened. Does not imply the incident is fully resolved — the
+  post-game finalization (act.incident_report_finalization) is a separate,
+  not-yet-built follow-on.

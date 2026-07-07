@@ -292,7 +292,7 @@ Venue Manager → Director handoff ladder.
 
 - Trigger: Incident observed or reported during the match
 - Expected completion: trigger+5min
-- Tracking: form
+- Tracking: system_event
 - Escalation: Any life-threatening incident escalates immediately to 911 and
 role.director; venue_manager remains accountable for documentation but
 role.event_lead may capture the initial form.
