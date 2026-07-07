@@ -24,9 +24,10 @@ escalation_path: |
   If venue_manager unreachable, escalate to role.director per the
   standard handoff ladder.
 sop_body: |
-  1. About 90 minutes before kickoff at any outdoor venue, re-check the
-     weather-alert dashboard for live conditions — this replaces the 72h
-     pre-check with real-time data.
+  1. About 90 minutes before kickoff at any outdoor venue, re-check a
+     weather app or the National Weather Service for live conditions
+     (a built-in weather-alert dashboard is planned) — this replaces
+     the 72h pre-check with real-time data.
   2. Check the lightning radar for detected strikes within 10 miles of
      the venue.
   3. Check current precipitation on radar and confirm whether it's

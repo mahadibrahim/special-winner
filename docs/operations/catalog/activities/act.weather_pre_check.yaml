@@ -26,7 +26,8 @@ escalation_path: |
 sop_body: |
   1. 72 hours before the event window, pull up every outdoor match on the
      day's schedule and check the forecast for temperature, precipitation
-     chance, wind, and lightning risk on the weather-alert dashboard.
+     chance, wind, and lightning risk on a weather app or the National
+     Weather Service (a built-in weather-alert dashboard is planned).
   2. Flag a heat advisory if the forecast heat index reaches 95°F or
      higher during the event window, and flag a precipitation risk if the
      chance of rain is 60% or higher during that window.
