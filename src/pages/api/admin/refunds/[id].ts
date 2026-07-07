@@ -18,6 +18,10 @@ import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 const refundActionSchema = z.object({
   action: z.enum(["approve", "deny"]),
   reason: z.string().optional(),
+  /** Issue as account credit instead of a Stripe refund. Customer-request
+   *  approve dialog defaults to credit (owner policy) — the client sends
+   *  this explicitly either way. */
+  asCredit: z.boolean().optional(),
 });
 
 // POST - Approve or deny a refund request
@@ -54,7 +58,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    const { action, reason } = validation.data;
+    const { action, reason, asCredit } = validation.data;
 
     // Get registration with related data - filter by organization
     const [registration] = await getDb()
@@ -103,6 +107,7 @@ export const POST: APIRoute = async (context) => {
         childName,
         programName: registration.program.name,
         seasonName: registration.season.name,
+        asCredit,
       });
 
       if (!result.ok) {
@@ -123,6 +128,7 @@ export const POST: APIRoute = async (context) => {
           refund: {
             amountCents: refundAmountCents,
             stripeRefundId: result.stripeRefundId,
+            isCredit: Boolean(asCredit),
           },
         }),
         {
