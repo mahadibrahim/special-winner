@@ -1,0 +1,31 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { ShiftClock } from "../../../components/staff/shift-clock";
+import { getShiftVenueOptions } from "../../../lib/time-tracking/shift-form-data";
+
+export const prerender = false;
+
+// Middleware guarantees the caller holds location_admin/coach/super_admin
+// for /staff/** and that an organization is resolved.
+const user = Astro.locals.user!;
+const organizationId = Astro.locals.organization?.id ?? null;
+
+const userRoleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
+const isSuperAdmin = userRoleNames.includes("super_admin");
+const isLocationScoped = userRoleNames.includes("location_admin") && !isSuperAdmin;
+
+const venues = organizationId
+  ? await getShiftVenueOptions({ organizationId, userId: user.id, isLocationScoped })
+  : [];
+---
+
+<BaseLayout title="Clock in/out — Aspire Sports" navigation={false} footer={false}>
+  <div class="max-w-md mx-auto px-4 py-8">
+    <h1 class="font-display text-3xl text-ink mb-2">Clock in / out</h1>
+    <p class="text-ink-2 mb-6 leading-relaxed">
+      Location is captured at the moment you tap — it's a condition of employment, not
+      continuous tracking.
+    </p>
+    <ShiftClock client:load venues={venues} />
+  </div>
+</BaseLayout>
