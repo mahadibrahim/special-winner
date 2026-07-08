@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { gameIncidents } from "@/lib/db/schema/teams";
 import { suspensions } from "@/lib/db/schema/suspensions";
+import { timeEntries } from "@/lib/db/schema/time-tracking";
 
 let assignmentRows: any[] = [];
 let owedRows: any[] = [];
 let detailRows: any[] = [];
 let incidentRows: any[] = [];
 let suspensionRows: any[] = [];
+let checkInRows: any[] = [];
 
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
@@ -19,6 +21,14 @@ vi.mock("@/lib/db", () => ({
         // getRefereeMatchDetail's activeSuspensions query: select().from(suspensions).where().orderBy()
         if (table === suspensions) {
           return { where: (..._a: any[]) => ({ orderBy: async () => suspensionRows }) };
+        }
+        // getRefereeMatchDetail's checkIn query: select().from(timeEntries).where().orderBy().limit()
+        if (table === timeEntries) {
+          return {
+            where: (..._a: any[]) => ({
+              orderBy: () => ({ limit: async () => checkInRows }),
+            }),
+          };
         }
         // getRefereeAssignments / getReportsOwed / getRefereeMatchDetail main row:
         // select().from(gameOfficials).innerJoin(games)[.leftJoin(home).leftJoin(away)].where()(.limit/.orderBy)
@@ -49,6 +59,7 @@ describe("referee-queries", () => {
     detailRows = [];
     incidentRows = [];
     suspensionRows = [];
+    checkInRows = [];
   });
 
   it("getRefereeAssignments returns the ref's matches with a reported flag", async () => {
@@ -152,5 +163,33 @@ describe("referee-queries", () => {
     suspensionRows = [{ id: "should-not-appear", personName: "x", teamId: "unrelated", status: "active", gamesMissed: 1, gamesServed: 0, escalatedToDirector: false }];
     const result = await getRefereeMatchDetail("u1", "g1");
     expect(result!.activeSuspensions).toEqual([]);
+  });
+
+  it("getRefereeMatchDetail returns checkIn: null when the ref hasn't checked in yet", async () => {
+    detailRows = [
+      { gameId: "g1", scheduledAt: new Date(), status: "scheduled", homeScore: null, awayScore: null, refereeNotes: null, homeTeamId: "team-home", awayTeamId: "team-away", homeTeamName: "Red", awayTeamName: "Blue" },
+    ];
+    incidentRows = [];
+    checkInRows = [];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result!.checkIn).toBeNull();
+  });
+
+  it("getRefereeMatchDetail surfaces the ref's checkIn status (Task 13)", async () => {
+    detailRows = [
+      { gameId: "g1", scheduledAt: new Date(), status: "scheduled", homeScore: null, awayScore: null, refereeNotes: null, homeTeamId: "team-home", awayTeamId: "team-away", homeTeamName: "Red", awayTeamName: "Blue" },
+    ];
+    incidentRows = [];
+    const clockInAt = new Date("2026-07-01T17:30:00Z");
+    checkInRows = [
+      { id: "te1", clockInAt, clockOutAt: null, flaggedOutOfRange: true },
+    ];
+    const result = await getRefereeMatchDetail("u1", "g1");
+    expect(result!.checkIn).toEqual({
+      id: "te1",
+      clockInAt: clockInAt.toISOString(),
+      clockOutAt: null,
+      flaggedOutOfRange: true,
+    });
   });
 });
