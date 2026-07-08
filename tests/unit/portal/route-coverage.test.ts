@@ -63,6 +63,16 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   // is a product decision out of scope for this change. Remove once it
   // gets a real nav home.
   "/admin/suspensions",
+
+  // Same failure mode again, now for build #5 (in-app time tracking):
+  // src/pages/admin/labor (the flagged-clock-in review surface the
+  // accuracy-aware anti-gaming geofence design relies on) landed without a
+  // nav entry. Deliberately not super-admin-only — location_admin reviews
+  // their own venues' time entries. Nav placement (likely alongside
+  // incidents/suspensions, perhaps a future "Compliance"/"Labor" group) is
+  // a product decision out of scope for this change. Remove once it gets a
+  // real nav home.
+  "/admin/labor",
 ]);
 
 /** Recursively collect .astro files under a directory. */
