@@ -28,6 +28,7 @@ import { requireSameOrgVenue } from "@/lib/auth/require-resource-ownership";
 export const prerender = false;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
@@ -49,6 +50,12 @@ export const GET: APIRoute = async (context) => {
   if (to && !DATE_RE.test(to)) return json({ error: "to must be YYYY-MM-DD" }, 400);
 
   if (venueIdParam) {
+    // Guard against a malformed venueId reaching the DB as a raw uuid
+    // comparison — postgres throws (500) on invalid uuid syntax rather
+    // than returning no rows.
+    if (!UUID_RE.test(venueIdParam)) {
+      return json({ error: "venueId must be a valid UUID" }, 400);
+    }
     const venueCheck = await requireSameOrgVenue(auth.organizationId, venueIdParam);
     if (!venueCheck.ok) return json({ error: "Venue not found" }, 404);
   }

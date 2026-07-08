@@ -17,7 +17,8 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { staffLocationConsents } from "@/lib/db/schema/time-tracking";
 
-export const CURRENT_LOCATION_CONSENT_VERSION = "2026-07-07-employment-condition-v1";
+// Must fit staff_location_consents.notice_version (varchar(32)).
+export const CURRENT_LOCATION_CONSENT_VERSION = "2026-07-07-employment-v1";
 
 export const LOCATION_CONSENT_NOTICE_TITLE =
   "Location capture is a condition of employment";
