@@ -4,6 +4,7 @@ import { RefereeLayout } from '@/components/referee/referee-layout';
 import { MatchReport } from '@/components/referee/match-report';
 import { EjectionForm } from '@/components/referee/ejection-form';
 import { ActiveSuspensionBanner } from '@/components/referee/active-suspension-banner';
+import { RefereeCheckIn } from '@/components/referee/referee-check-in';
 import { getRefereeMatchDetail } from '@/lib/referee/referee-queries';
 
 export const prerender = false;
@@ -41,6 +42,7 @@ const data = {
         homeTeamName={detail.homeTeamName}
         awayTeamName={detail.awayTeamName}
       />
+      <RefereeCheckIn client:load gameId={detail.gameId} initialCheckIn={detail.checkIn} />
       <EjectionForm client:load gameId={detail.gameId} homeTeamName={detail.homeTeamName} awayTeamName={detail.awayTeamName} />
       <MatchReport client:load data={data} />
     </div>

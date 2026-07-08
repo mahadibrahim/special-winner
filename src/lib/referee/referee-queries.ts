@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import { games, gameOfficials, gameIncidents, teams } from "@/lib/db/schema/teams";
 import { suspensions, type Suspension } from "@/lib/db/schema/suspensions";
+import { timeEntries } from "@/lib/db/schema/time-tracking";
 
 // Suspension statuses that mean "this person currently can't play/coach" —
 // excludes 'served' (already completed) and 'appealed' (under review, not
@@ -84,6 +85,15 @@ export type RefereeMatchDetail = {
     description: string | null;
   }>;
   activeSuspensions: ActiveSuspensionFlag[];
+  /** This referee's check-in for this match, if any (Task 13 — drives the check-in/out controls). */
+  checkIn: RefereeCheckInStatus | null;
+};
+
+export type RefereeCheckInStatus = {
+  id: string;
+  clockInAt: string;
+  clockOutAt: string | null;
+  flaggedOutOfRange: boolean;
 };
 
 export type ActiveSuspensionFlag = {
@@ -172,5 +182,26 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
           .orderBy(asc(suspensions.createdAt))
       : [];
 
-  return { ...row, incidents, activeSuspensions };
+  const [checkInRow] = await db
+    .select({
+      id: timeEntries.id,
+      clockInAt: timeEntries.clockInAt,
+      clockOutAt: timeEntries.clockOutAt,
+      flaggedOutOfRange: timeEntries.flaggedOutOfRange,
+    })
+    .from(timeEntries)
+    .where(and(eq(timeEntries.gameId, gameId), eq(timeEntries.userId, userId)))
+    .orderBy(desc(timeEntries.createdAt))
+    .limit(1);
+
+  const checkIn: RefereeCheckInStatus | null = checkInRow
+    ? {
+        id: checkInRow.id,
+        clockInAt: checkInRow.clockInAt.toISOString(),
+        clockOutAt: checkInRow.clockOutAt ? checkInRow.clockOutAt.toISOString() : null,
+        flaggedOutOfRange: checkInRow.flaggedOutOfRange,
+      }
+    : null;
+
+  return { ...row, incidents, activeSuspensions, checkIn };
 }
