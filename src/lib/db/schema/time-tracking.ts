@@ -31,9 +31,17 @@ export const laborRoleEnum = pgEnum("labor_role", [
   "referee",
 ]);
 
+// `imprecise_location` added for the accuracy-aware anti-gaming geofence
+// (owner decision #2, 2026-07-07 update — supersedes the flag-not-block
+// provisional default): a clock-in whose browser fix carries an accuracy
+// worse than MAX_TRUSTED_ACCURACY_M is blocked before it ever reaches this
+// enum on a stored row (see src/lib/time-tracking/geofence.ts), but the
+// value is still needed here because it's part of the same reason space as
+// missing_location/out_of_range for any future admin manual back-entry.
 export const laborFlagReasonEnum = pgEnum("labor_flag_reason", [
   "missing_location",
   "out_of_range",
+  "imprecise_location",
 ]);
 
 export const timeEntries = pgTable(
@@ -56,12 +64,23 @@ export const timeEntries = pgTable(
     clockInAt: timestamp("clock_in_at", { withTimezone: true }).notNull(),
     clockInLat: decimal("clock_in_lat", { precision: 10, scale: 6 }),
     clockInLng: decimal("clock_in_lng", { precision: 10, scale: 6 }),
+    // Browser Geolocation `coords.accuracy` (meters, 1-sigma) at clock-in.
+    // Required input to the accuracy-aware geofence decision
+    // (computeGeofenceDecision) — a fix worse than MAX_TRUSTED_ACCURACY_M
+    // never reaches an insert (blocked 422), so on a stored row this is
+    // always <= that cap. Nullable only because the column predates
+    // enforcement being universal (defensive; every insert path sets it).
+    clockInAccuracyM: integer("clock_in_accuracy_m"),
     clockOutAt: timestamp("clock_out_at", { withTimezone: true }),
     clockOutLat: decimal("clock_out_lat", { precision: 10, scale: 6 }),
     clockOutLng: decimal("clock_out_lng", { precision: 10, scale: 6 }),
+    // Clock-out captures accuracy too, for audit — but clock-out is never
+    // geofence-blocked (owner decision only gates clock-IN; a completed
+    // shift's clock-out shouldn't get stuck for a bad fix).
+    clockOutAccuracyM: integer("clock_out_accuracy_m"),
     // Distance (meters) between clock-in coordinates and the venue's
-    // coordinates, rounded. Null when the venue has no coordinates or the
-    // client didn't supply a location (missing_location flag path).
+    // coordinates, rounded. Null when the venue has no coordinates
+    // configured (nothing to compare against).
     clockInDistanceM: integer("clock_in_distance_m"),
     flaggedOutOfRange: boolean("flagged_out_of_range").notNull().default(false),
     flagReason: laborFlagReasonEnum("flag_reason"),

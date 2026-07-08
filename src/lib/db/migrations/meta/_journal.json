@@ -512,6 +512,13 @@
       "when": 1783464931307,
       "tag": "0072_shallow_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1783474325449,
+      "tag": "0073_charming_karen_page",
+      "breakpoints": true
     }
   ]
 }
