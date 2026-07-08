@@ -1,0 +1,47 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { AdminLayout } from "../../../components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { TimeEntriesList } from "../../../components/admin/labor/time-entries-list";
+import { getShiftVenueOptions } from "../../../lib/time-tracking/shift-form-data";
+
+export const prerender = false;
+
+// Middleware guarantees user is an admin for /admin routes. Not
+// super-admin-only — venue managers review their own venues' time entries,
+// scoped server-side by GET /api/admin/labor/time-entries.
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const user = Astro.locals.user!;
+const organizationId = Astro.locals.organization?.id ?? null;
+
+const userRoleNames = (Astro.locals.userRoles ?? []).map((r) => r.name);
+const isSuperAdmin = userRoleNames.includes("super_admin");
+const isLocationScoped = userRoleNames.includes("location_admin") && !isSuperAdmin;
+
+const venues = organizationId
+  ? await getShiftVenueOptions({ organizationId, userId: user.id, isLocationScoped })
+  : [];
+---
+
+<BaseLayout title="Time entries — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/labor"
+    user={{
+      firstName: Astro.locals.user!.firstName,
+      lastName: Astro.locals.user!.lastName,
+      email: Astro.locals.user!.email,
+    }}
+  >
+    <div class="mx-auto max-w-5xl p-6">
+      <h1 class="mb-2 text-2xl font-semibold">Time entries</h1>
+      <p class="mb-6 text-sm text-ink-2">
+        Clock-ins/outs from the staff app and per-match referee check-ins. Flagged rows are
+        location fixes outside the venue's expected radius (still recorded, never blocked) —
+        review before payroll export.
+      </p>
+      <TimeEntriesList client:load venues={venues} />
+    </div>
+  </AdminLayout>
+</BaseLayout>

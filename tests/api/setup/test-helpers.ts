@@ -63,6 +63,7 @@ let _coachCookie: string | null = null;
 let _parentCookie: string | null = null;
 let _mediaStaffCookie: string | null = null;
 let _mediaEditorCookie: string | null = null;
+let _refereeCookie: string | null = null;
 
 /**
  * Returns a cached admin auth cookie. Signs in on first call.
@@ -130,6 +131,28 @@ export async function getMediaEditorCookie(): Promise<string> {
 }
 
 /**
+ * Returns a cached referee auth cookie for the seeded training referee
+ * account (TRAINING_USERS.referee in src/lib/db/seeds/seed-e2e-tests.ts).
+ * Signs in on first call.
+ *
+ * Note: this account is assigned to the shared "training-referee-gameday"
+ * fixture match, not a per-test-run game — fine for tests that just need
+ * *a* referee session (e.g. exercising the /referee portal generally), but
+ * tests that need control over the match/venue (e.g. geofence-coordinate
+ * scenarios) should self-seed a fresh referee + gameOfficials assignment
+ * instead, same as tests/api/referee/report-preserves-ejections.test.ts.
+ */
+export async function getRefereeCookie(): Promise<string> {
+  if (!_refereeCookie) {
+    _refereeCookie = await getAuthCookie(
+      "training+referee@test.aspiresports.com",
+      "TestReferee123!"
+    );
+  }
+  return _refereeCookie;
+}
+
+/**
  * Resets all cached cookies. Call in afterAll if needed.
  */
 export function resetCookies(): void {
@@ -138,6 +161,7 @@ export function resetCookies(): void {
   _parentCookie = null;
   _mediaStaffCookie = null;
   _mediaEditorCookie = null;
+  _refereeCookie = null;
 }
 
 /**
