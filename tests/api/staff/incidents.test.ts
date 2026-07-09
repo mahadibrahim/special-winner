@@ -321,19 +321,26 @@ describe("POST /api/staff/incidents", () => {
     });
     await expectJson(res, 201);
 
-    // markCompleteBySystemEvent is fired-and-forgotten by the route; give
-    // the event loop a tick to let the update land before asserting.
-    await new Promise((r) => setTimeout(r, 300));
-
-    const [after] = await getDb()
-      .select()
-      .from(activityCompletions)
-      .where(
-        and(
-          eq(activityCompletions.gameId, gameId),
-          eq(activityCompletions.activityId, "act.incident_response"),
-        ),
-      );
+    // markCompleteBySystemEvent is fired-and-forgotten by the route, so poll
+    // for the completion instead of sleeping a fixed interval. On a loaded CI
+    // runner the async update can land in >300ms, which made this test flaky
+    // ("expected 'pending' to be 'completed'"). Poll up to 5s, breaking as
+    // soon as it completes.
+    let after;
+    const deadline = Date.now() + 5000;
+    for (;;) {
+      [after] = await getDb()
+        .select()
+        .from(activityCompletions)
+        .where(
+          and(
+            eq(activityCompletions.gameId, gameId),
+            eq(activityCompletions.activityId, "act.incident_response"),
+          ),
+        );
+      if (after?.status === "completed" || Date.now() > deadline) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
     expect(after.status).toBe("completed");
     expect(after.completedAt).not.toBeNull();
   });
