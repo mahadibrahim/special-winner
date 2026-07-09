@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SmsConsentDisclosure } from "@/components/sms/sms-consent-disclosure";
 import { normalizePhone, formatPhone } from "@/lib/phone";
 
 /**
@@ -210,6 +211,7 @@ export function WhoStep({
                     Enter a 10-digit US number.
                   </div>
                 )}
+                <SmsConsentDisclosure className="mt-1.5" />
               </div>
             )}
             {missing.birthDate && (
