@@ -17,12 +17,12 @@
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { games, gameIncidents } from "@/lib/db/schema/teams";
+import { games } from "@/lib/db/schema/teams";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
-import { suspensions } from "@/lib/db/schema/suspensions";
 import { requireAssignedOfficial } from "@/lib/referee/require-assigned-official";
 import { ejectionSchema } from "@/lib/suspensions/ejection-schema";
+import { createEjection } from "@/lib/referee/create-ejection";
 
 export const prerender = false;
 
@@ -72,42 +72,15 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "Cannot record a suspension for a TBD team" }, 400);
   }
 
-  const result = await db.transaction(async (tx) => {
-    const [incident] = await tx
-      .insert(gameIncidents)
-      .values({
-        gameId,
-        reportedByUserId: user.id,
-        type: "ejection",
-        side: input.side,
-        player: input.player,
-        minute: input.minute ?? null,
-        description: input.reason,
-      })
-      .returning();
-
-    let suspension = null;
-    if (input.carriesSuspension && teamId) {
-      const [row] = await tx
-        .insert(suspensions)
-        .values({
-          organizationId: gameRow.organizationId,
-          teamId,
-          personName: input.player,
-          gameIncidentId: incident.id,
-          reason: input.reason,
-          gamesMissed: input.gamesMissed ?? 1,
-          notes: input.suspensionNotes ?? null,
-          escalatedToDirector: input.escalatedToDirector,
-          setByUserId: user.id,
-          status: "active",
-        })
-        .returning();
-      suspension = row;
-    }
-
-    return { incident, suspension };
-  });
+  const result = await db.transaction(async (tx) =>
+    createEjection(tx, {
+      gameId,
+      reportedByUserId: user.id,
+      organizationId: gameRow.organizationId,
+      teamId,
+      input,
+    }),
+  );
 
   return json(result, 201);
 };
