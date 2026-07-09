@@ -8,11 +8,11 @@ import { createZernioSmsClientFromEnv } from "./zernio-sms";
  * SMS sending helper with built-in opt-in enforcement.
  *
  * All outbound SMS must go through this helper. It:
- *  1. Checks that Twilio is configured
+ *  1. Checks that the active SMS provider (Twilio or Zernio; see getSmsProvider) is configured
  *  2. Verifies the target phone has `phone_opt_ins.status = 'opted_in'` for the given org
  *     (unless `bypassOptInCheck` is explicitly set for first-contact messages)
  *  3. Splits long messages at semantic boundaries if needed
- *  4. Returns the Twilio message SID for tracking and reconciliation
+ *  4. Returns the provider's message id (Twilio SID / Zernio id) for tracking and reconciliation
  */
 
 export interface SendSmsInput {
