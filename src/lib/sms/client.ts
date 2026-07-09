@@ -1,4 +1,5 @@
 import twilio from "twilio";
+import { isZernioSmsConfigured } from "./zernio-sms";
 
 /**
  * Twilio client singleton.
@@ -10,12 +11,35 @@ import twilio from "twilio";
 
 let _client: twilio.Twilio | null = null;
 
-export function isSmsConfigured(): boolean {
+export type SmsProvider = "twilio" | "zernio";
+
+interface SmsEnv {
+  SMS_PROVIDER?: string;
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+  TWILIO_PHONE_NUMBER?: string;
+  TWILIO_MESSAGING_SERVICE_SID?: string;
+  ZERNIO_API_KEY?: string;
+  ZERNIO_SMS_FROM?: string;
+}
+
+/** Active outbound SMS vendor. Unset (or any non-"zernio" value) ⇒ twilio. */
+export function getSmsProvider(
+  env: SmsEnv = import.meta.env as unknown as SmsEnv,
+): SmsProvider {
+  return env.SMS_PROVIDER === "zernio" ? "zernio" : "twilio";
+}
+
+export function isSmsConfigured(
+  env: SmsEnv = import.meta.env as unknown as SmsEnv,
+): boolean {
+  if (getSmsProvider(env) === "zernio") {
+    return isZernioSmsConfigured(env);
+  }
   return Boolean(
-    import.meta.env.TWILIO_ACCOUNT_SID &&
-      import.meta.env.TWILIO_AUTH_TOKEN &&
-      (import.meta.env.TWILIO_PHONE_NUMBER ||
-        import.meta.env.TWILIO_MESSAGING_SERVICE_SID),
+    env.TWILIO_ACCOUNT_SID &&
+      env.TWILIO_AUTH_TOKEN &&
+      (env.TWILIO_PHONE_NUMBER || env.TWILIO_MESSAGING_SERVICE_SID),
   );
 }
 
