@@ -233,6 +233,10 @@ export const gameOfficials = pgTable(
     paymentStatus: officialPaymentStatusEnum("payment_status")
       .default("unpaid")
       .notNull(),
+    // Escalating close-out SMS reminder stage: 0 = none sent, 1 = T+2h
+    // reminder sent, 2 = morning reminder sent (then we stop texting and
+    // let the admin dialog flag it). See referee-closeout-reminders cron.
+    closeoutRemindersSent: integer("closeout_reminders_sent").default(0).notNull(),
     notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

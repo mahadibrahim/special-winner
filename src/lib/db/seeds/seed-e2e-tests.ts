@@ -867,6 +867,78 @@ async function seedTrainingFixtures(
   console.log(`   ✓ Training curriculum sequence: "${sequenceSet.name}" (1 entry)`);
 }
 
+/**
+ * Referee close-out fixture — Task 5 (tests/e2e/referee-closeout.spec.ts).
+ *
+ * The one-guided close-out screen at /referee/matches/[gameId] needs a game
+ * that the referee test account is assigned to but has NOT yet closed out.
+ * seedTrainingFixtures() already assigns the training referee to a match, but
+ * that fixture is shared with the referee-gameday walkthrough and gets reset
+ * to a home-team-set "scheduled" state each run; this gives the close-out spec
+ * its own dedicated TBD-vs-TBD game so the two never fight over one row.
+ *
+ * Find-or-create by a deterministic marker in `notes` (games has no natural
+ * unique key), and DON'T reset status on re-seed: once a run closes it out the
+ * game stays 'completed', and the spec is written to tolerate that (edit mode
+ * pre-answers None). Null teams are fine — close-out never reads rosters, and a
+ * TBD team simply blocks recording a suspension (irrelevant here since the spec
+ * marks every section None). Must run AFTER seedTrainingFixtures so the referee
+ * user exists.
+ */
+async function seedRefereeCloseoutFixture(db: Database, orgId: string) {
+  const [referee] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TRAINING_USERS.referee.email))
+    .limit(1);
+  if (!referee) throw new Error("e2e seed: training referee missing for close-out fixture");
+
+  // Reuse the org's oldest season (multi-tenant hazard: findFirst/limit(1)
+  // needs an explicit orderBy on shared CI databases — see CLAUDE.md).
+  const [season] = await db
+    .select({ id: seasons.id })
+    .from(seasons)
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(eq(locations.organizationId, orgId))
+    .orderBy(asc(seasons.createdAt))
+    .limit(1);
+  if (!season) throw new Error("e2e seed: no season found to attach close-out fixture game to");
+
+  const CLOSEOUT_GAME_MARKER = "e2e-closeout-referee-game";
+  let [game] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.notes, CLOSEOUT_GAME_MARKER))
+    .limit(1);
+  if (!game) {
+    [game] = await db
+      .insert(games)
+      .values({
+        seasonId: season.id,
+        scheduledAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2h ago — "to report"
+        status: "scheduled",
+        notes: CLOSEOUT_GAME_MARKER,
+      })
+      .returning({ id: games.id });
+  }
+
+  // gameOfficials has a real unique index on (gameId, userId) — upsert on that.
+  const [existingOfficial] = await db
+    .select({ id: gameOfficials.id })
+    .from(gameOfficials)
+    .where(and(eq(gameOfficials.gameId, game.id), eq(gameOfficials.userId, referee.id)))
+    .limit(1);
+  if (!existingOfficial) {
+    await db.insert(gameOfficials).values({
+      gameId: game.id,
+      userId: referee.id,
+      position: "referee",
+    });
+  }
+  console.log(`   ✓ Referee close-out fixture match assigned (game ${game.id})`);
+}
+
 async function seedE2ETests() {
   assertNotProduction();
   console.log("🧪 Seeding E2E test data...\n");
@@ -3010,6 +3082,11 @@ async function seedE2ETests() {
   // Stage 16 — Training walkthrough fixtures (Phase 2).
   console.log("\n16. Setting up training walkthrough fixtures...");
   await seedTrainingFixtures(db, org.id, season.id, team.id);
+
+  // Stage 17 — Referee close-out fixture (Task 5). Must follow stage 16 so the
+  // training referee user it assigns already exists.
+  console.log("\n17. Setting up referee close-out fixture...");
+  await seedRefereeCloseoutFixture(db, org.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

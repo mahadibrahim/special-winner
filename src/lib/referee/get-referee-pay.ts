@@ -10,6 +10,9 @@ export type RefereePayRow = {
   awayTeamName: string | null;
   feeCents: number;
   paymentStatus: string;
+  /** True until the game is closed out (games.status = 'completed'); a
+   *  locked fee is not yet payable and is excluded from totalUnpaidCents. */
+  locked: boolean;
 };
 
 /** The ref's assignments with pay + a computed total unpaid (in cents). */
@@ -17,7 +20,7 @@ export async function getRefereePay(userId: string): Promise<{ rows: RefereePayR
   const db = getDb();
   const home = alias(teams, "home_team");
   const away = alias(teams, "away_team");
-  const rows = await db
+  const rawRows = await db
     .select({
       gameId: games.id,
       scheduledAt: games.scheduledAt,
@@ -25,6 +28,7 @@ export async function getRefereePay(userId: string): Promise<{ rows: RefereePayR
       awayTeamName: away.name,
       feeCents: gameOfficials.feeCents,
       paymentStatus: gameOfficials.paymentStatus,
+      status: games.status,
     })
     .from(gameOfficials)
     .innerJoin(games, eq(games.id, gameOfficials.gameId))
@@ -32,8 +36,12 @@ export async function getRefereePay(userId: string): Promise<{ rows: RefereePayR
     .leftJoin(away, eq(away.id, games.awayTeamId))
     .where(eq(gameOfficials.userId, userId))
     .orderBy(desc(games.scheduledAt));
-  const totalUnpaidCents = rows
-    .filter((r) => r.paymentStatus === "unpaid")
+  const totalUnpaidCents = rawRows
+    .filter((r) => r.paymentStatus === "unpaid" && r.status === "completed")
     .reduce((sum, r) => sum + r.feeCents, 0);
+  const rows: RefereePayRow[] = rawRows.map(({ status, ...r }) => ({
+    ...r,
+    locked: status !== "completed",
+  }));
   return { rows, totalUnpaidCents };
 }

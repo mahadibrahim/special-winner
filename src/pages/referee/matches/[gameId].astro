@@ -1,8 +1,7 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { RefereeLayout } from '@/components/referee/referee-layout';
-import { MatchReport } from '@/components/referee/match-report';
-import { EjectionForm } from '@/components/referee/ejection-form';
+import { MatchCloseout } from '@/components/referee/match-closeout';
 import { ActiveSuspensionBanner } from '@/components/referee/active-suspension-banner';
 import { RefereeCheckIn } from '@/components/referee/referee-check-in';
 import { getRefereeMatchDetail } from '@/lib/referee/referee-queries';
@@ -15,18 +14,22 @@ const detail = await getRefereeMatchDetail(user.id, gameId);
 if (!detail) {
   return new Response('Not found', { status: 404 });
 }
-const data = {
+
+const closeout = {
   gameId: detail.gameId,
   homeTeamName: detail.homeTeamName,
   awayTeamName: detail.awayTeamName,
   homeScore: detail.homeScore,
   awayScore: detail.awayScore,
   refereeNotes: detail.refereeNotes,
-  incidents: detail.incidents,
+  completed: detail.status === 'completed',
+  cards: detail.incidents.filter((i) => i.type === 'yellow_card' || i.type === 'red_card'),
+  injuries: detail.incidents.filter((i) => i.type === 'injury'),
+  recordedEjections: detail.ejections,
 };
 ---
 
-<BaseLayout title="Match Report — Referee — Aspire Sports" navigation={false} footer={false}>
+<BaseLayout title="Close out match — Referee — Aspire Sports" navigation={false} footer={false}>
   <RefereeLayout
     client:load
     currentPath="/referee"
@@ -43,8 +46,7 @@ const data = {
         awayTeamName={detail.awayTeamName}
       />
       <RefereeCheckIn client:load gameId={detail.gameId} initialCheckIn={detail.checkIn} />
-      <EjectionForm client:load gameId={detail.gameId} homeTeamName={detail.homeTeamName} awayTeamName={detail.awayTeamName} />
-      <MatchReport client:load data={data} />
+      <MatchCloseout client:load data={closeout} />
     </div>
   </RefereeLayout>
 </BaseLayout>

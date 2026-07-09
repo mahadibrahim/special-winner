@@ -52,14 +52,20 @@ interface Referee {
 interface GameOfficialsDialogProps {
   gameId: string | null
   gameLabel: string
+  gameStatus?: string
   onClose: () => void
 }
 
 export function GameOfficialsDialog({
   gameId,
   gameLabel,
+  gameStatus,
   onClose,
 }: GameOfficialsDialogProps) {
+  // Payable ⇔ games.status === "completed" — the server is the
+  // authoritative enforcement (see officials/[officialId].ts PATCH);
+  // this only disables the control so admins aren't surprised by a 400.
+  const notClosedOut = gameStatus !== "completed"
   const [officials, setOfficials] = useState<Official[]>([])
   const [referees, setReferees] = useState<Referee[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -221,14 +227,20 @@ export function GameOfficialsDialog({
                     >
                       {o.paymentStatus === "paid" ? "Paid" : "Unpaid"}
                     </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => handleTogglePaid(o)}
-                    >
-                      {o.paymentStatus === "paid" ? "Mark unpaid" : "Mark paid"}
-                    </Button>
+                    {notClosedOut && o.paymentStatus !== "paid" ? (
+                      <span className="text-xs text-amber-600 whitespace-nowrap">
+                        Not closed out — can&apos;t pay yet
+                      </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => handleTogglePaid(o)}
+                      >
+                        {o.paymentStatus === "paid" ? "Mark unpaid" : "Mark paid"}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

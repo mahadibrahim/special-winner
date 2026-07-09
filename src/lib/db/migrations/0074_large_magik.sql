@@ -1,0 +1,1 @@
+ALTER TABLE "game_officials" ADD COLUMN IF NOT EXISTS "closeout_reminders_sent" integer DEFAULT 0 NOT NULL;
