@@ -84,6 +84,14 @@ export type RefereeMatchDetail = {
     minute: number | null;
     description: string | null;
   }>;
+  /** Already-recorded ejections (type='ejection'), shown read-only in close-out. */
+  ejections: Array<{
+    id: string;
+    side: string;
+    player: string | null;
+    minute: number | null;
+    reason: string | null;
+  }>;
   activeSuspensions: ActiveSuspensionFlag[];
   /** This referee's check-in for this match, if any (Task 13 — drives the check-in/out controls). */
   checkIn: RefereeCheckInStatus | null;
@@ -155,6 +163,20 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
     .where(and(eq(gameIncidents.gameId, gameId), ne(gameIncidents.type, "ejection")))
     .orderBy(asc(gameIncidents.minute));
 
+  // Already-recorded ejections, surfaced read-only for the close-out screen.
+  // The only place type='ejection' rows appear from this function.
+  const ejections = await db
+    .select({
+      id: gameIncidents.id,
+      side: gameIncidents.side,
+      player: gameIncidents.player,
+      minute: gameIncidents.minute,
+      reason: gameIncidents.description,
+    })
+    .from(gameIncidents)
+    .where(and(eq(gameIncidents.gameId, gameId), eq(gameIncidents.type, "ejection")))
+    .orderBy(asc(gameIncidents.minute));
+
   // Team-level flag for either roster in this game — empty for a TBD-team
   // game (homeTeamId/awayTeamId null, e.g. an unfilled fixture slot).
   const teamIds = [row.homeTeamId, row.awayTeamId].filter(
@@ -203,5 +225,5 @@ export async function getRefereeMatchDetail(userId: string, gameId: string): Pro
       }
     : null;
 
-  return { ...row, incidents, activeSuspensions, checkIn };
+  return { ...row, incidents, ejections, activeSuspensions, checkIn };
 }
