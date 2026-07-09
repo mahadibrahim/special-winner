@@ -1,4 +1,4 @@
-import { and, eq, lt, ne } from "drizzle-orm";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import { games, gameOfficials, teams } from "@/lib/db/schema/teams";
@@ -87,7 +87,12 @@ export interface CloseoutOwed {
   awayTeamName: string | null;
 }
 
-/** Assigned officials on past, not-completed games who still owe close-out. */
+/**
+ * Assigned officials on past, played-but-unreported games who still owe
+ * close-out. Targets games still in "scheduled" or "in_progress" status
+ * (i.e. played but never closed out), excluding "completed" (already
+ * closed out) as well as "cancelled" and "postponed" (never played).
+ */
 export async function findOfficialsOwingCloseout(now: Date): Promise<CloseoutOwed[]> {
   const db = getDb();
   const home = alias(teams, "home_team");
@@ -114,5 +119,11 @@ export async function findOfficialsOwingCloseout(now: Date): Promise<CloseoutOwe
     .innerJoin(users, eq(users.id, gameOfficials.userId))
     .leftJoin(home, eq(home.id, games.homeTeamId))
     .leftJoin(away, eq(away.id, games.awayTeamId))
-    .where(and(lt(games.scheduledAt, now), ne(games.status, "completed"), lt(gameOfficials.closeoutRemindersSent, 2)));
+    .where(
+      and(
+        lt(games.scheduledAt, now),
+        inArray(games.status, ["scheduled", "in_progress"]),
+        lt(gameOfficials.closeoutRemindersSent, 2),
+      ),
+    );
 }
