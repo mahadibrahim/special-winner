@@ -1,8 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   TEST_USERS,
   signIn,
   waitForPageLoad,
+  waitForHydration,
 } from "../utils/test-helpers";
 
 test.describe("Coach Dashboard", () => {
@@ -101,37 +102,77 @@ test.describe("Coach Dashboard", () => {
   });
 
   test.describe("Attendance Tracking", () => {
-    test("can access attendance page", async ({ page }) => {
-      await page.goto("/coach/attendance");
+    // The real attendance UI lives at /coach/attendance/[teamId] — there is no
+    // bare /coach/attendance index (navigating there 404s). Coaches reach it
+    // from My Teams, where CoachTeams renders a native <a> "Attendance" link per
+    // team. The seeded coach heads "E2E Test Team" (exact — a distinct
+    // "E2E Test Team 2" also exists, with no roster) which has one rostered
+    // player, Tommy Test (#7).
+    const TEAM_NAME = "E2E Test Team";
+
+    /**
+     * Navigate from My Teams to the seeded team's attendance page.
+     * The team-card links are native anchors (server-rendered, actionable
+     * before hydration); the attendance page's status controls are React-driven,
+     * so we wait for its hydration beacon before interacting.
+     */
+    async function openTeamAttendance(page: Page) {
+      await page.goto("/coach/teams");
       await waitForPageLoad(page);
 
-      await expect(page).toHaveURL(/\/coach\/attendance/);
+      // Exact-text filter so we don't match the sibling "E2E Test Team 2" card.
+      const teamCard = page
+        .locator("div.grid > div")
+        .filter({ has: page.getByText(TEAM_NAME, { exact: true }) });
+      await expect(teamCard).toHaveCount(1, { timeout: 15000 });
+
+      await teamCard.getByRole("link", { name: /attendance/i }).click();
+      await expect(page).toHaveURL(/\/coach\/attendance\/[0-9a-f-]{36}/i);
+      await waitForHydration(page);
+      // Hydration only means the component mounted — the roster arrives via an
+      // async /api/coach/attendance fetch, and the first hit after server boot
+      // pays route-compile + cold-query cost. Wait for the marking row so every
+      // test starts from a fully-rendered table.
+      await expect(markingRow(page)).toBeVisible({ timeout: 30000 });
+    }
+
+    // The page renders two tables that both list Tommy: the mark-attendance
+    // table (with status buttons) and a history/stats table. Scope to the
+    // marking row structurally — it is the one that contains the status buttons.
+    function markingRow(page: Page) {
+      return page.getByRole("row").filter({ has: page.getByRole("button", { name: "Present" }) });
+    }
+
+    test("navigates from My Teams to a team's attendance page", async ({ page }) => {
+      await openTeamAttendance(page);
+
+      // The tracker rendered its real roster — not a 404 or empty state.
+      await expect(markingRow(page).getByText("Tommy Test")).toBeVisible();
     });
 
-    test("shows attendance form or list", async ({ page }) => {
-      await page.goto("/coach/attendance");
-      await waitForPageLoad(page);
+    test("shows the roster with per-player status controls", async ({ page }) => {
+      await openTeamAttendance(page);
 
-      // Should show attendance interface
-      await expect(page.locator("body")).toBeVisible();
-    });
+      const playerRow = markingRow(page);
+      await expect(playerRow).toBeVisible({ timeout: 15000 });
 
-    test("can mark attendance for a practice", async ({ page }) => {
-      await page.goto("/coach/attendance");
-      await waitForPageLoad(page);
-
-      // Look for attendance checkboxes or buttons
-      const attendanceCheckbox = page.locator(
-        'input[type="checkbox"], button[data-attendance]'
-      );
-
-      if ((await attendanceCheckbox.count()) > 0) {
-        // Toggle first attendance item
-        await attendanceCheckbox.first().click();
-
-        // Should update (may show save button or auto-save)
-        await expect(page.locator("body")).toBeVisible();
+      // Four status controls per player, each labeled by its title attribute.
+      for (const status of ["Present", "Absent", "Late", "Excused"]) {
+        await expect(playerRow.getByRole("button", { name: status })).toBeVisible();
       }
+    });
+
+    test("can set a player's attendance status", async ({ page }) => {
+      await openTeamAttendance(page);
+
+      const playerRow = markingRow(page);
+      await expect(playerRow).toBeVisible({ timeout: 15000 });
+      const absentButton = playerRow.getByRole("button", { name: "Absent" });
+
+      // Selecting a status updates local state only — the DB write happens on
+      // Save, which we deliberately never click, keeping this test read-only.
+      await absentButton.click();
+      await expect(absentButton).toHaveClass(/bg-red-100/);
     });
   });
 
