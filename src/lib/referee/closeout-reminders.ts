@@ -1,4 +1,4 @@
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/lib/db";
 import { games, gameOfficials, teams } from "@/lib/db/schema/teams";
@@ -92,6 +92,12 @@ export interface CloseoutOwed {
  * close-out. Targets games still in "scheduled" or "in_progress" status
  * (i.e. played but never closed out), excluding "completed" (already
  * closed out) as well as "cancelled" and "postponed" (never played).
+ *
+ * Bounded to games scheduled within the last 3 days: the escalation only
+ * spans ~2 days (T+2h -> next morning), so anything older is stale and
+ * should never trigger a fresh reminder blast (e.g. the first cron run
+ * after deploy, when every existing row defaults closeout_reminders_sent
+ * to 0). Older un-closed games fall to the admin flag instead.
  */
 export async function findOfficialsOwingCloseout(now: Date): Promise<CloseoutOwed[]> {
   const db = getDb();
@@ -121,6 +127,7 @@ export async function findOfficialsOwingCloseout(now: Date): Promise<CloseoutOwe
     .leftJoin(away, eq(away.id, games.awayTeamId))
     .where(
       and(
+        gte(games.scheduledAt, new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)),
         lt(games.scheduledAt, now),
         inArray(games.status, ["scheduled", "in_progress"]),
         lt(gameOfficials.closeoutRemindersSent, 2),

@@ -941,7 +941,6 @@ async function seedRefereeCloseoutFixture(db: Database, orgId: string) {
 
 async function seedE2ETests() {
   assertNotProduction();
-  assertNotProduction();
   console.log("🧪 Seeding E2E test data...\n");
   const db = getDb();
 
