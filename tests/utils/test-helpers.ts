@@ -34,6 +34,15 @@ export const TEST_USERS = {
     firstName: "Test",
     lastName: "Player",
   },
+  // Dedicated referee account (seeded as TRAINING_USERS.referee in
+  // seed-e2e-tests.ts). Assigned to the e2e-closeout-referee-game fixture so
+  // the referee close-out spec has an assigned, un-closed match to drive.
+  referee: {
+    email: "training+referee@test.aspiresports.com",
+    password: "TestReferee123!",
+    firstName: "Training",
+    lastName: "Referee",
+  },
   both: {
     email: "both@test.aspiresports.com",
     password: "TestBoth123!",
