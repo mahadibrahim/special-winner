@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { SmsConsentDisclosure } from "@/components/sms/sms-consent-disclosure"
 
 export type GuestRegistrationMode = "child" | "adult"
 
@@ -174,6 +175,7 @@ export function GuestInfoStep({
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
               />
+              <SmsConsentDisclosure className="mt-1.5" />
             </div>
           </div>
 
@@ -287,6 +289,7 @@ export function GuestInfoStep({
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
               />
+              <SmsConsentDisclosure className="mt-1.5" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">

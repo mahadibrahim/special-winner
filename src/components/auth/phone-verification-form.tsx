@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Phone, Check, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SmsConsentDisclosure } from "@/components/sms/sms-consent-disclosure"
 
 /**
  * PhoneVerificationForm — reusable two-step OTP flow.
@@ -133,9 +134,10 @@ export function PhoneVerificationForm({
               />
             </div>
             <p className="mt-1.5 text-xs text-ink-faint">
-              We'll text you a 6-digit code. Standard message rates apply.
+              We'll text you a 6-digit code to verify this number.
             </p>
           </div>
+          <SmsConsentDisclosure />
           <Button
             onClick={handleSendCode}
             disabled={loading || !phone.trim()}
