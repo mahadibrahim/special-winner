@@ -23,4 +23,16 @@ describe("decideReminderAction", () => {
   it("stops after stage 2", () => {
     expect(decideReminderAction({ now: at("2026-07-11T13:00:00Z"), scheduledAt: at("2026-07-09T17:00:00Z"), status: "scheduled", stage: 2 })).toBe("none");
   });
+  it("sends the first reminder exactly at kickoff + 2h (boundary)", () => {
+    expect(decideReminderAction({ now: at("2026-07-09T19:00:00Z"), scheduledAt: at("2026-07-09T17:00:00Z"), status: "scheduled", stage: 0 })).toBe("send_first");
+  });
+  it("sends the second reminder exactly at the 8am ET threshold (boundary, summer/EDT)", () => {
+    // kickoff 2026-07-09T17:00Z (+2h = 19:00Z); next 8am ET (UTC-4 in July) = 2026-07-10T12:00:00Z
+    expect(decideReminderAction({ now: at("2026-07-10T12:00:00Z"), scheduledAt: at("2026-07-09T17:00:00Z"), status: "scheduled", stage: 1 })).toBe("send_second");
+  });
+  it("uses 8am EST (UTC-5) for a winter kickoff, not the EDT offset", () => {
+    // kickoff 2026-01-09T17:00Z (+2h = 19:00Z, still Jan 9 ET); next 8am ET (UTC-5 in Jan) = 2026-01-10T13:00:00Z
+    expect(decideReminderAction({ now: at("2026-01-10T12:59:59Z"), scheduledAt: at("2026-01-09T17:00:00Z"), status: "scheduled", stage: 1 })).toBe("none");
+    expect(decideReminderAction({ now: at("2026-01-10T13:00:00Z"), scheduledAt: at("2026-01-09T17:00:00Z"), status: "scheduled", stage: 1 })).toBe("send_second");
+  });
 });
