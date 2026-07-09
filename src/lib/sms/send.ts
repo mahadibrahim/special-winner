@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
-import { getTwilioClient, getSmsFrom, isSmsConfigured } from "./client";
+import { getTwilioClient, getSmsFrom, isSmsConfigured, getSmsProvider } from "./client";
+import { createZernioSmsClientFromEnv } from "./zernio-sms";
 
 /**
  * SMS sending helper with built-in opt-in enforcement.
@@ -33,12 +34,40 @@ export type SendSmsResult =
         | "not_configured"
         | "not_opted_in"
         | "opted_out"
-        | "twilio_error"
+        | "provider_error"
         | "invalid_phone";
       error?: string;
     };
 
 const MAX_SMS_LENGTH = 1600; // Twilio will split long SMS automatically, but cap to protect against accidental massive sends
+
+interface DispatchEnv {
+  SMS_PROVIDER?: string;
+  ZERNIO_API_KEY?: string;
+  ZERNIO_SMS_FROM?: string;
+}
+
+/**
+ * Route an already-gated, already-normalized message to the active SMS vendor
+ * and return the provider's message id. Throws on transport failure — the
+ * caller (sendSms) maps that to reason "provider_error".
+ */
+export async function dispatchToProvider(
+  input: { to: string; text: string },
+  env: DispatchEnv = import.meta.env as unknown as DispatchEnv,
+  fetchImpl?: typeof fetch,
+): Promise<{ messageId: string }> {
+  if (getSmsProvider(env) === "zernio") {
+    const client = createZernioSmsClientFromEnv(env, fetchImpl);
+    const res = await client.send({ to: input.to, text: input.text });
+    return { messageId: res.id };
+  }
+
+  const client = getTwilioClient();
+  const sender = getSmsFrom();
+  const message = await client.messages.create({ ...sender, to: input.to, body: input.text });
+  return { messageId: message.sid };
+}
 
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   if (!isSmsConfigured()) {
@@ -78,21 +107,13 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
       : input.body;
 
   try {
-    const client = getTwilioClient();
-    const sender = getSmsFrom();
-
-    const message = await client.messages.create({
-      ...sender,
-      to: input.to,
-      body,
-    });
-
-    return { ok: true, messageId: message.sid };
+    const { messageId } = await dispatchToProvider({ to: input.to, text: body });
+    return { ok: true, messageId };
   } catch (error) {
-    console.error("Twilio send error:", error);
+    console.error("SMS send error:", error);
     return {
       ok: false,
-      reason: "twilio_error",
+      reason: "provider_error",
       error: error instanceof Error ? error.message : String(error),
     };
   }
