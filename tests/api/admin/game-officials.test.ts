@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { games } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import {
   getAdminCookie,
@@ -109,18 +110,26 @@ describe("game officials endpoints", () => {
     expect(reassigned.official.id).toBe(official.id);
     expect(reassigned.official.feeCents).toBe(5000);
 
-    // Mark paid
-    const patch = await apiFetch(
-      `/api/admin/games/${game.id}/officials/${official.id}`,
-      {
-        method: "PATCH",
-        cookie: adminCookie,
-        body: JSON.stringify({ paymentStatus: "paid" }),
-      },
-    );
-    expect(patch.status).toBe(200);
-    const patched = await patch.json();
-    expect(patched.official.paymentStatus).toBe("paid");
+    // Marking paid is gated on the game being closed out (Task 7) —
+    // flip status just for this assertion, then restore it so we don't
+    // leave a shared, seeded game mutated for other tests.
+    const originalStatus = game.status;
+    await db.update(games).set({ status: "completed" }).where(eq(games.id, game.id));
+    try {
+      const patch = await apiFetch(
+        `/api/admin/games/${game.id}/officials/${official.id}`,
+        {
+          method: "PATCH",
+          cookie: adminCookie,
+          body: JSON.stringify({ paymentStatus: "paid" }),
+        },
+      );
+      expect(patch.status).toBe(200);
+      const patched = await patch.json();
+      expect(patched.official.paymentStatus).toBe("paid");
+    } finally {
+      await db.update(games).set({ status: originalStatus }).where(eq(games.id, game.id));
+    }
 
     // List includes it
     const list = await apiFetch(`/api/admin/games/${game.id}/officials`, {

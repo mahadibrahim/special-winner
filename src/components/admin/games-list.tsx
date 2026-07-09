@@ -627,6 +627,7 @@ export function GamesList({ seasons, teams, venues }: GamesListProps) {
             ? `${officialsGame.homeTeam?.name ?? "TBD"} vs ${officialsGame.awayTeam?.name ?? "TBD"}`
             : ""
         }
+        gameStatus={officialsGame?.status}
         onClose={() => setOfficialsGame(null)}
       />
     </div>

@@ -53,7 +53,7 @@ export function RefereePay({ rows, totalUnpaidCents }: { rows: RefereePayRowView
               <TableCell className="text-muted-foreground">{new Date(r.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</TableCell>
               <TableCell>{usd(r.feeCents)}</TableCell>
               <TableCell>
-                {r.locked ? (
+                {r.locked && r.paymentStatus !== "paid" ? (
                   <a href={`/referee/matches/${r.gameId}`} className="text-sm font-medium text-amber-600 hover:underline">
                     🔒 Close out to unlock
                   </a>

@@ -9,7 +9,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { gameOfficials } from "@/lib/db/schema/teams";
+import { games, gameOfficials } from "@/lib/db/schema/teams";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { requireSameOrgGame } from "@/lib/auth/require-resource-ownership";
 
@@ -66,6 +66,18 @@ export const PATCH: APIRoute = async (context) => {
   }
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0].message }, 400);
+  }
+
+  if (parsed.data.paymentStatus === "paid") {
+    const [g] = await getDb()
+      .select({ status: games.status })
+      .from(games)
+      .where(eq(games.id, authz.gameId))
+      .limit(1);
+    if (!g) return json({ error: "Game not found" }, 404);
+    if (g.status !== "completed") {
+      return json({ error: "Cannot mark paid until the game is closed out" }, 400);
+    }
   }
 
   const [row] = await getDb()
