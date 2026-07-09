@@ -1,3 +1,11 @@
+import { and, eq, lt, ne } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { getDb } from "@/lib/db";
+import { games, gameOfficials, teams } from "@/lib/db/schema/teams";
+import { seasons, programs } from "@/lib/db/schema/programs";
+import { locations } from "@/lib/db/schema/organizations";
+import { users } from "@/lib/db/schema/users";
+
 export type ReminderAction = "none" | "send_first" | "send_second";
 
 const HOURS_2 = 2 * 60 * 60 * 1000;
@@ -63,4 +71,48 @@ export function decideReminderAction(args: {
     return now.getTime() >= morning.getTime() ? "send_second" : "none";
   }
   return "none"; // stage >= 2: stop
+}
+
+export interface CloseoutOwed {
+  officialId: string;
+  userId: string;
+  phone: string | null;
+  phoneVerified: boolean;
+  organizationId: string;
+  gameId: string;
+  scheduledAt: Date;
+  status: string;
+  stage: number;
+  homeTeamName: string | null;
+  awayTeamName: string | null;
+}
+
+/** Assigned officials on past, not-completed games who still owe close-out. */
+export async function findOfficialsOwingCloseout(now: Date): Promise<CloseoutOwed[]> {
+  const db = getDb();
+  const home = alias(teams, "home_team");
+  const away = alias(teams, "away_team");
+  return db
+    .select({
+      officialId: gameOfficials.id,
+      userId: gameOfficials.userId,
+      phone: users.phone,
+      phoneVerified: users.phoneVerified,
+      organizationId: locations.organizationId,
+      gameId: games.id,
+      scheduledAt: games.scheduledAt,
+      status: games.status,
+      stage: gameOfficials.closeoutRemindersSent,
+      homeTeamName: home.name,
+      awayTeamName: away.name,
+    })
+    .from(gameOfficials)
+    .innerJoin(games, eq(games.id, gameOfficials.gameId))
+    .innerJoin(seasons, eq(games.seasonId, seasons.id))
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .innerJoin(users, eq(users.id, gameOfficials.userId))
+    .leftJoin(home, eq(home.id, games.homeTeamId))
+    .leftJoin(away, eq(away.id, games.awayTeamId))
+    .where(and(lt(games.scheduledAt, now), ne(games.status, "completed"), lt(gameOfficials.closeoutRemindersSent, 2)));
 }
