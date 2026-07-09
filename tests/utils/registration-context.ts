@@ -12,6 +12,7 @@
  * collide and never leak into each other's balance/refund assertions.
  */
 import { getDb } from "@/lib/db";
+import { assertTestDatabase } from "./assert-test-database";
 import {
   registrations,
   payments,
@@ -55,6 +56,9 @@ export async function seedPaidRegistration(
   amountPaidCents: number,
   overrides: SeedPaidRegistrationOverrides = {},
 ): Promise<SeedPaidRegistrationResult> {
+  // Defense-in-depth: never let these raw fixture INSERTs hit prod. This is
+  // the helper whose `Loc ${suffix}` locations leaked into prod on 2026-07-08.
+  assertTestDatabase();
   const db = getDb();
   const suffix = Math.random().toString(36).slice(2, 10);
   const paymentIntentId = `pi_test_${suffix}`;

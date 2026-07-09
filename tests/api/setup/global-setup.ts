@@ -1,9 +1,15 @@
 import "dotenv/config";
 import { beforeAll } from "vitest";
+import { assertTestDatabase } from "../../utils/assert-test-database";
 
 const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:4321";
 
 beforeAll(async () => {
+  // Refuse to run the API suite against a prod database. The fixture helpers
+  // do raw INSERTs against process.env.DATABASE_URL; a prod override here is
+  // how test data ("Loc g00dqku7") leaked into prod on 2026-07-08.
+  assertTestDatabase();
+
   try {
     const res = await fetch(`${BASE_URL}/api/auth/session`, {
       signal: AbortSignal.timeout(5000),

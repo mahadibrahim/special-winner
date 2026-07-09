@@ -69,7 +69,10 @@ try {
 }
 
 if (!location) {
-  return Astro.redirect("/programs");
+  // Unknown/removed location slug → 404, NOT a 302 to /programs. A redirect
+  // is a "temporary" signal that keeps dead URLs indexed; junk test-data
+  // location pages ("loc-g00dqku7") lingered in Google because of this.
+  return Astro.rewrite("/404");
 }
 
 const displayLocationName = location.name;
