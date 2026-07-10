@@ -62,7 +62,7 @@ import {
 import { toast } from "sonner"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { programTypeLabel } from "@/lib/programs/program-type-labels"
-import { AlertTriangle, ArrowDown, ArrowUp, Check, Plus, X } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Plus, X } from "lucide-react"
 
 interface GuardrailBlock {
   activityName: string
@@ -166,6 +166,64 @@ interface AttachResult {
   truncatedBySeasonEnd: boolean
 }
 
+// --- Delivery visibility (Task 10) ---
+// Shape mirrors GET .../blueprint/[seasonId]/delivery exactly (see that
+// endpoint's docstring) — nothing re-derived client-side.
+type DeliveryStatus = "delivered" | "adapted" | "scheduled" | "cancelled" | "none"
+
+interface DeliveryGroup {
+  teamId: string
+  groupLabel: string
+  status: DeliveryStatus
+  sessionId: string | null
+}
+
+interface DeliverySlot {
+  entryId: string
+  order: number
+  templateTitle: string
+  groups: DeliveryGroup[]
+  deliveredCount: number
+  totalGroups: number
+}
+
+interface DeliveryResponse {
+  noun: string
+  slots: DeliverySlot[]
+  hasDistributed: boolean
+}
+
+const DELIVERY_MARKER: Record<
+  DeliveryStatus,
+  { symbol: string; className: string; describe: (groupLabel: string) => string }
+> = {
+  delivered: {
+    symbol: "✓",
+    className: "text-sage",
+    describe: (g) => `${g} — delivered as planned`,
+  },
+  adapted: {
+    symbol: "✎",
+    className: "text-ochre",
+    describe: (g) => `${g} — adapted from the plan`,
+  },
+  scheduled: {
+    symbol: "○",
+    className: "text-ink-faint",
+    describe: (g) => `${g} — scheduled, hasn't run yet`,
+  },
+  none: {
+    symbol: "○",
+    className: "text-ink-faint/50",
+    describe: (g) => `${g} — not distributed yet`,
+  },
+  cancelled: {
+    symbol: "–",
+    className: "text-ink-faint",
+    describe: (g) => `${g} — cancelled`,
+  },
+}
+
 /** "team" -> "teams", "class" -> "classes", "camp group" -> "camp groups",
  * "group" -> "groups" -- every noun `groupNoun()` can return, pluralized
  * sensibly. Singular count (1) returns the noun unchanged. */
@@ -240,6 +298,15 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
   const [distributing, setDistributing] = useState(false)
   const [distributeResult, setDistributeResult] = useState<AttachResult | null>(null)
 
+  // Delivery visibility (Task 10). Toggled by the director, not loaded
+  // eagerly — the strip is read-only coverage info, not core to composing
+  // the arc, so it's fetched lazily on first toggle-on and refreshed after
+  // every successful distribution while visible.
+  const [showDelivery, setShowDelivery] = useState(false)
+  const [delivery, setDelivery] = useState<DeliveryResponse | null>(null)
+  const [deliveryLoading, setDeliveryLoading] = useState(false)
+  const [deliveryError, setDeliveryError] = useState<string | null>(null)
+
   // Tracks whether we've ever loaded data, so the name-prefill only fires
   // once (on first load) rather than clobbering an in-progress edit every
   // time a silent post-mutation refresh comes back.
@@ -293,6 +360,31 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
     fetchBootstrap()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seasonId])
+
+  const loadDelivery = useCallback(async () => {
+    setDeliveryLoading(true)
+    setDeliveryError(null)
+    try {
+      const res = await fetch(`/api/admin/blueprint/${seasonId}/delivery`)
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setDeliveryError(body.error || "Couldn't load delivery")
+        return
+      }
+      setDelivery(body as DeliveryResponse)
+    } catch {
+      setDeliveryError(CONNECTION_ERROR_MESSAGE)
+    } finally {
+      setDeliveryLoading(false)
+    }
+  }, [seasonId])
+
+  // Fetch on first toggle-on (and whenever the toggle is re-opened) —
+  // cheap, read-only, and keeps the strip honest if sessions were
+  // completed/adapted since the last time it was shown.
+  useEffect(() => {
+    if (showDelivery) loadDelivery()
+  }, [showDelivery, loadDelivery])
 
   async function linkSequence(sequenceId: string) {
     setCreatingSequence(true)
@@ -526,13 +618,24 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
         toast.success(`Distributed ${totalCreated} session${totalCreated === 1 ? "" : "s"}`)
       }
       await refreshBootstrap()
+      if (showDelivery) await loadDelivery()
     } catch {
       // Fetch itself rejected -- nothing was written, state preserved.
       toast.error(CONNECTION_ERROR_MESSAGE)
     } finally {
       setDistributing(false)
     }
-  }, [data?.sequence, seasonId, weekday, distStartDate, timeOfDay, count, refreshBootstrap])
+  }, [
+    data?.sequence,
+    seasonId,
+    weekday,
+    distStartDate,
+    timeOfDay,
+    count,
+    refreshBootstrap,
+    showDelivery,
+    loadDelivery,
+  ])
 
   // teamId -> groupLabel, resolved from the last preview -- the attach
   // POST's results only carry teamId (see attach.ts), never a raw uuid is
@@ -628,15 +731,28 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
             <h1 className="text-2xl font-bold text-ink">{data.season.name}</h1>
             <Badge variant="outline">{programTypeLabel(data.program.programType)}</Badge>
           </div>
-          <Button
-            onClick={openDistribute}
-            disabled={!!distributeDisabledReason}
-            title={distributeDisabledReason ?? undefined}
-            className="min-h-11"
-            data-testid="distribute-button"
-          >
-            Distribute
-          </Button>
+          <div className="flex items-center gap-2">
+            {data.sequence && (
+              <Button
+                variant="outline"
+                onClick={() => setShowDelivery((v) => !v)}
+                className="min-h-11 gap-2"
+                data-testid="delivery-toggle"
+              >
+                <ListChecks className="w-4 h-4" />
+                {showDelivery ? "Hide delivery" : "Delivery"}
+              </Button>
+            )}
+            <Button
+              onClick={openDistribute}
+              disabled={!!distributeDisabledReason}
+              title={distributeDisabledReason ?? undefined}
+              className="min-h-11"
+              data-testid="distribute-button"
+            >
+              Distribute
+            </Button>
+          </div>
         </div>
         <p className="text-sm text-ink-muted">
           {data.program.name} · {data.program.sportName} · {formatDate(data.season.startDate)} –{" "}
@@ -734,6 +850,15 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
             <h2 className="text-sm font-medium text-ink">
               {data.sequence.name} — {unit.toLowerCase()} arc
             </h2>
+            {showDelivery && deliveryError && <ErrorBanner message={deliveryError} />}
+            {showDelivery && deliveryLoading && (
+              <p className="text-xs text-ink-muted">Loading delivery…</p>
+            )}
+            {showDelivery && !deliveryLoading && delivery && !delivery.hasDistributed && (
+              <p className="text-xs text-ink-muted" data-testid="delivery-empty-state">
+                Distribute to see delivery.
+              </p>
+            )}
             <div className="space-y-3" data-testid="blueprint-arc">
               {Array.from({ length: arcLength }).map((_, i) => {
                 const slot = orderedSlots[i]
@@ -901,6 +1026,15 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
                         onSelect={(templateId) => replaceSlot(i, templateId)}
                       />
                     </div>
+
+                    {showDelivery && delivery?.hasDistributed && (
+                      <DeliveryStrip
+                        deliverySlot={delivery.slots.find((s) => s.entryId === slot.entryId) ?? null}
+                        unit={unit}
+                        order={i + 1}
+                        noun={data.noun}
+                      />
+                    )}
                   </div>
                 )
               })}
@@ -1329,6 +1463,57 @@ function DistributeResultsView({
           Season ends before this arc completes — later sessions weren&apos;t generated.
         </p>
       )}
+    </div>
+  )
+}
+
+// Per-slot delivery coverage strip (Task 10). Read-only — framed as
+// curriculum coverage, not coach surveillance (spec: "Week 3 delivered to
+// 2 of 3 classes", not a scorecard). `deliverySlot` is null when this slot
+// (sequence entry) has no matching delivery data yet — e.g. it was added
+// to the arc after the last distribution and has never itself gone out;
+// rendered as a quiet "not yet distributed" note rather than fabricating
+// per-group markers with nothing to back them.
+function DeliveryStrip({
+  deliverySlot,
+  unit,
+  order,
+  noun,
+}: {
+  deliverySlot: DeliverySlot | null
+  unit: string
+  order: number
+  noun: string
+}) {
+  if (!deliverySlot || deliverySlot.totalGroups === 0) {
+    return (
+      <p className="text-xs text-ink-muted pt-1" data-testid="delivery-strip-empty">
+        {unit} {order} hasn&apos;t been distributed yet.
+      </p>
+    )
+  }
+  return (
+    <div className="pt-1 space-y-1" data-testid="delivery-strip">
+      <p className="text-xs text-ink-muted">
+        {unit} {order} delivered to {deliverySlot.deliveredCount} of {deliverySlot.totalGroups}{" "}
+        {pluralizeNoun(noun, deliverySlot.totalGroups)}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {deliverySlot.groups.map((g) => {
+          const marker = DELIVERY_MARKER[g.status]
+          return (
+            <span
+              key={g.teamId}
+              title={marker.describe(g.groupLabel)}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded-full border border-border text-xs font-medium ${marker.className}`}
+              data-testid="delivery-marker"
+              data-status={g.status}
+            >
+              {marker.symbol}
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
 }
