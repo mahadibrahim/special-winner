@@ -56,17 +56,32 @@
  *
  * Groups with no coach are excluded entirely (mirrors attach.ts /
  * attach-preview.ts — "coached" is the unit distribution acts on).
- * `hasDistributed` is false only when this season's linked sequence has
- * never actually produced a single prescribed session — the workspace uses
- * it to show an honest "Distribute to see delivery" empty state instead of
- * an empty strip.
+ * `hasDistributed` is false only when this season has never actually
+ * produced a single prescribed session (from ANY sequence, ever) — the
+ * workspace uses it to show an honest "Distribute to see delivery" empty
+ * state instead of an empty strip.
+ *
+ * --- Review fix I5: delivery must survive a sequence swap ---
+ * The `sequence_attachments` lookup below is keyed by seasonId ALONE, not
+ * by the season's CURRENTLY linked sequence (`seasons.curriculumSequenceId`
+ * — nullable, and can be re-pointed at a different sequence, or cleared
+ * entirely, at any time; see the bootstrap endpoint's "sequence discovery"
+ * docstring). Gating on the current link meant re-linking a season to a
+ * different sequence for its next arc silently hid every session already
+ * generated and possibly already delivered from the PREVIOUS one — real,
+ * unedited history disappearing from view for no reason connected to the
+ * sessions themselves. `attachmentNote` flags when the season's
+ * distribution history includes a sequence other than the one currently
+ * linked, so the workspace can say "an earlier plan produced some of
+ * this" without implying the rows are wrong.
  */
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { eq, and, asc, inArray } from "drizzle-orm";
+import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import {
   seasons,
   programs,
+  curriculumSequences,
   curriculumSequenceEntries,
   teams,
   sessionPlans,
@@ -102,7 +117,13 @@ interface DeliveryRow {
 
 function emptyResponse(noun: string) {
   return new Response(
-    JSON.stringify({ noun, rows: [] as DeliveryRow[], hasDistributed: false, arcDrift: false }),
+    JSON.stringify({
+      noun,
+      rows: [] as DeliveryRow[],
+      hasDistributed: false,
+      arcDrift: false,
+      attachmentNote: null as string | null,
+    }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
 }
@@ -138,12 +159,10 @@ export const GET: APIRoute = async (context) => {
     if (!row) return ownershipDeniedResponse();
 
     const noun = groupNoun(row.programType);
-
-    if (!row.curriculumSequenceId) {
-      return emptyResponse(noun);
-    }
-
-    const sequenceId = row.curriculumSequenceId;
+    // The CURRENTLY linked sequence, if any -- may be null (never linked,
+    // or detached) even when this season has real distributed history; see
+    // the seasonId-alone lookup below (review I5).
+    const currentSequenceId = row.curriculumSequenceId;
 
     const seasonTeams = await db
       .select({ id: teams.id, name: teams.name, coachUserId: teams.coachUserId })
@@ -152,21 +171,61 @@ export const GET: APIRoute = async (context) => {
       .orderBy(asc(teams.createdAt));
     const teamsWithCoach = seasonTeams.filter((t) => t.coachUserId !== null);
 
-    // Every attachment (distribution run) that has ever pushed THIS
-    // sequence onto THIS season — may be more than one over time.
+    // Every attachment (distribution run) that has EVER pushed ANY sequence
+    // onto THIS season — keyed by seasonId ALONE (review I5), not the
+    // CURRENTLY linked sequence. A season's curriculumSequenceId can be
+    // detached or re-linked to a different sequence after distribution
+    // (see the bootstrap endpoint's "sequence discovery" docstring); rows
+    // stay session-keyed regardless (unchanged from before this fix), but
+    // gating this lookup on the current link made every already-generated,
+    // already-run session vanish from delivery the instant an admin swapped
+    // sequences, even though nothing about those sessions themselves
+    // changed.
     const attachmentRows = await db
-      .select({ id: sequenceAttachments.id })
+      .select({ id: sequenceAttachments.id, sequenceId: sequenceAttachments.sequenceId })
       .from(sequenceAttachments)
-      .where(
-        and(
-          eq(sequenceAttachments.sequenceId, sequenceId),
-          eq(sequenceAttachments.seasonId, seasonId),
-        ),
-      );
+      .where(eq(sequenceAttachments.seasonId, seasonId));
     const attachmentIds = attachmentRows.map((a) => a.id);
 
     if (teamsWithCoach.length === 0 || attachmentIds.length === 0) {
       return emptyResponse(noun);
+    }
+
+    // attachmentNote: when any of the season's distribution history came
+    // from a sequence OTHER than the one currently linked (including "no
+    // sequence currently linked at all"), surface which one — the rows
+    // below are still an honest record of what was actually distributed,
+    // but the director should know a since-swapped plan produced them.
+    let attachmentNote: string | null = null;
+    const otherSequenceIds = [
+      ...new Set(
+        attachmentRows
+          .map((a) => a.sequenceId)
+          .filter((id) => id !== currentSequenceId),
+      ),
+    ];
+    if (otherSequenceIds.length > 0) {
+      const [mostRecentOther] = await db
+        .select({ sequenceId: sequenceAttachments.sequenceId })
+        .from(sequenceAttachments)
+        .where(
+          and(
+            eq(sequenceAttachments.seasonId, seasonId),
+            inArray(sequenceAttachments.sequenceId, otherSequenceIds),
+          ),
+        )
+        .orderBy(desc(sequenceAttachments.distributedAt))
+        .limit(1);
+      if (mostRecentOther) {
+        const [seqRow] = await db
+          .select({ name: curriculumSequences.name })
+          .from(curriculumSequences)
+          .where(eq(curriculumSequences.id, mostRecentOther.sequenceId))
+          .limit(1);
+        if (seqRow) {
+          attachmentNote = `An earlier plan (${seqRow.name}) was distributed to this season`;
+        }
+      }
     }
 
     // Every prescribed session for these teams from any distribution run of
@@ -195,7 +254,12 @@ export const GET: APIRoute = async (context) => {
           inArray(sessionPlans.sequenceAttachmentId, attachmentIds),
         ),
       )
-      .orderBy(asc(sessionPlans.scheduledDate));
+      // Secondary tie-break on id (M-fix): scheduledDate alone isn't a
+      // stable sort key when two of a team's sessions land at the exact
+      // same instant (possible across distribution runs from different
+      // sequences) — without a tie-break, "this team's Nth prescribed
+      // session" could non-deterministically flip order between requests.
+      .orderBy(asc(sessionPlans.scheduledDate), asc(sessionPlans.id));
 
     if (sessionRows.length === 0) {
       return emptyResponse(noun);
@@ -265,11 +329,18 @@ export const GET: APIRoute = async (context) => {
     // happened), but they no longer line up with the CURRENT arc's slot
     // order, so the workspace should say so rather than implying "arc slot 3
     // == row 3 here."
-    const entryRows = await db
-      .select({ templateId: curriculumSequenceEntries.templateId })
-      .from(curriculumSequenceEntries)
-      .where(eq(curriculumSequenceEntries.sequenceId, sequenceId))
-      .orderBy(asc(curriculumSequenceEntries.position));
+    // No current sequence linked at all (detached, or never linked) means
+    // there's no "current arc" to compare against — every distributed
+    // session trivially drifts from an empty arc, which is the honest
+    // answer (see attachmentNote above for which sequence actually
+    // produced them).
+    const entryRows = currentSequenceId
+      ? await db
+          .select({ templateId: curriculumSequenceEntries.templateId })
+          .from(curriculumSequenceEntries)
+          .where(eq(curriculumSequenceEntries.sequenceId, currentSequenceId))
+          .orderBy(asc(curriculumSequenceEntries.position))
+      : [];
     const currentTemplateSequence = entryRows.map((e) => e.templateId);
 
     let arcDrift = false;
@@ -284,7 +355,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     return new Response(
-      JSON.stringify({ noun, rows, hasDistributed: true, arcDrift }),
+      JSON.stringify({ noun, rows, hasDistributed: true, arcDrift, attachmentNote }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error) {

@@ -4,6 +4,7 @@ import { curriculumSequences, curriculumSequenceEntries } from "./curriculum-seq
 import { practiceTemplates } from "./practice-planning";
 import { seasons } from "./programs";
 import { users } from "./users";
+import { organizations } from "./organizations";
 
 // One row per distribution event: an admin/director pushes a
 // curriculum sequence onto a season's groups. Anchors lineage for
@@ -49,6 +50,19 @@ export const sequenceAttachments = pgTable(
 // provenance (best-effort "which specific entry-write prompted this"),
 // not the identity the row is looked up by; all lookups/writes go
 // through (sequenceId, templateId).
+// --- Tenancy: organizationId (Task 12/I2 review fix) ---
+// A dismissal is keyed by (sequenceId, templateId) alone, which is fine for
+// an ORG-OWNED sequence (only one org can ever see it) but leaks across
+// tenants for a GLOBAL sequence (organizationId IS NULL on
+// curriculum_sequences): every org that can see/attach the same global
+// sequence shared the SAME dismissal row, so Org A dismissing a warning
+// silently acknowledged it for Org B too. organizationId records which org
+// actually clicked Acknowledge; the dismissals.ts write path and the
+// blueprint bootstrap's read path both scope by it now. Nullable because a
+// dismissal is still meaningfully keyed by (sequenceId, templateId) even if
+// this column is unset — but in practice every write populates it (see
+// migration 0081's comment: the table carries zero rows as of that
+// migration, so there is no legacy NULL-organizationId row to reconcile).
 export const blueprintWarningDismissals = pgTable(
   "blueprint_warning_dismissals",
   {
@@ -63,6 +77,9 @@ export const blueprintWarningDismissals = pgTable(
     templateId: uuid("template_id")
       .notNull()
       .references(() => practiceTemplates.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     dismissedBy: uuid("dismissed_by")
       .notNull()
       .references(() => users.id),
@@ -75,6 +92,7 @@ export const blueprintWarningDismissals = pgTable(
       table.sequenceId,
       table.templateId,
     ),
+    index("blueprint_warning_dismissals_org_idx").on(table.organizationId),
   ],
 );
 
@@ -111,6 +129,10 @@ export const blueprintWarningDismissalsRelations = relations(
     template: one(practiceTemplates, {
       fields: [blueprintWarningDismissals.templateId],
       references: [practiceTemplates.id],
+    }),
+    organization: one(organizations, {
+      fields: [blueprintWarningDismissals.organizationId],
+      references: [organizations.id],
     }),
     dismissedByUser: one(users, {
       fields: [blueprintWarningDismissals.dismissedBy],

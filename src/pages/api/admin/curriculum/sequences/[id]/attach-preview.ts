@@ -20,6 +20,7 @@ import {
 import { loadSequenceForOrg } from "@/lib/curriculum/sequence-ownership";
 import {
   generatePracticeDates,
+  utcInstantToZonedDateString,
   type TemplateForBuild,
 } from "@/lib/curriculum/sequence-instantiation";
 import { evaluateAttachSafety } from "@/lib/curriculum/distribution-safety";
@@ -46,11 +47,14 @@ const previewQuerySchema = z.object({
  *
  * One group (coached team) per row: the generated dates, which of those
  * dates already have *some* session for that team (`conflicts` — any
- * existing session_plans row that day, not necessarily from this sequence),
- * and how many sessions this sequence has already distributed to that team
- * for this season (`alreadyDistributed` — session_plans rows carrying a
- * sequenceAttachmentId from a prior sequence_attachments row for this
- * sequence+season).
+ * existing session_plans row that falls on the SAME CALENDAR DAY, in the
+ * org's own timezone, as a candidate date — not necessarily the same time
+ * of day, and not necessarily from this sequence; review I3: comparing
+ * full ISO instants missed a same-day-different-time double-booking
+ * entirely), and how many sessions this sequence has already distributed
+ * to that team for this season (`alreadyDistributed` — session_plans rows
+ * carrying a sequenceAttachmentId from a prior sequence_attachments row
+ * for this sequence+season).
  */
 export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
@@ -154,7 +158,18 @@ export const GET: APIRoute = async (context) => {
       season.endDate, // date column → "YYYY-MM-DD" string
     );
     const dateIsoList = dates.map((d) => d.toISOString());
-    const dateIsoSet = new Set(dateIsoList);
+    // Calendar-day lookup, in the org's own timezone (review I3): maps each
+    // candidate date's zone-local day to its ISO instant, so an existing
+    // session on the SAME DAY but a different time still resolves to a
+    // conflict against that candidate date. Weekly cadence means each
+    // candidate date normally lands on a distinct day, so this is
+    // effectively 1:1; a pathological same-day collision would just keep
+    // the last candidate for that day, which is fine — `conflicts` only
+    // needs to flag that day at all.
+    const candidateIsoByDay = new Map<string, string>();
+    for (let i = 0; i < dates.length; i++) {
+      candidateIsoByDay.set(utcInstantToZonedDateString(dates[i], timezone), dateIsoList[i]);
+    }
 
     const seasonTeams = await db
       .select({ id: teams.id, name: teams.name, coachUserId: teams.coachUserId })
@@ -173,10 +188,11 @@ export const GET: APIRoute = async (context) => {
       : [];
     const conflictsByTeam = new Map<string, Set<string>>();
     for (const row of existingSessions) {
-      const iso = row.scheduledDate.toISOString();
-      if (!dateIsoSet.has(iso)) continue;
+      const day = utcInstantToZonedDateString(row.scheduledDate, timezone);
+      const candidateIso = candidateIsoByDay.get(day);
+      if (!candidateIso) continue;
       if (!conflictsByTeam.has(row.teamId)) conflictsByTeam.set(row.teamId, new Set());
-      conflictsByTeam.get(row.teamId)!.add(iso);
+      conflictsByTeam.get(row.teamId)!.add(candidateIso);
     }
 
     // Already distributed: sessions carrying a sequenceAttachmentId from a

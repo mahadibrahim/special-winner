@@ -116,7 +116,21 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
       (s: any) => s.slug === "development",
     );
     developmentStageId = developmentStage?.id ?? null;
-    if (!developmentStageId) return; // runtime skip: no development_stages seeded
+    // Test hygiene: this used to be a silent `return` (a bare return inside
+    // beforeAll masks every downstream test as a false "pass" with zero
+    // assertions run, not a visible skip) — development_stages is seeded
+    // reference data every other suite in this file already depends on
+    // unconditionally, so a missing "development" stage here means the
+    // environment itself is broken, not an expected/legitimate skip.
+    if (!developmentStageId) {
+      // Fails loudly (not a silent skip): every other suite in this file
+      // depends on this same seeded stage unconditionally, so its absence
+      // means the environment itself is broken. expect() throws before
+      // `return` ever runs; the `if` shape is kept only so TypeScript can
+      // narrow `developmentStageId` to non-null for the rest of this scope.
+      expect(developmentStageId, "expected a seeded 'development' development_stages row").toBeTruthy();
+      return;
+    }
 
     const db = getDb();
 
@@ -334,7 +348,11 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
 
   describe("POST attach — planned sessions, lineage, per-run attachment row", () => {
     it("(a) generates planned sessions carrying sequenceAttachmentId, and a matching attachment row", async () => {
-      if (!safeSequenceId) return; // runtime skip: no development_stages seeded
+      // Test hygiene: safeSequenceId is created earlier in THIS suite's own
+      // beforeAll (not conditionally-seeded reference data) — if it's
+      // missing, the suite's own setup silently failed and this test
+      // should fail loudly, not pass with zero assertions run.
+      expect(safeSequenceId, "safeSequenceId should have been created in beforeAll").toBeTruthy();
 
       const res = await apiFetch(`${SEQUENCES_ENDPOINT}/${safeSequenceId}/attach`, {
         method: "POST",
@@ -523,8 +541,86 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
       // fixture wiring for a test-only row.
     });
 
+    it("(c3) flags a same-day, different-time existing session as a conflict (review I3: day-level, not exact-instant)", async () => {
+      if (!safeSequenceId) return; // runtime skip: no development_stages seeded
+
+      const daySeasonJson = await expectJson(
+        await apiFetch("/api/admin/seasons", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            programId,
+            name: "Distribution Day-Level Conflict Season",
+            slug: testSlug("dist-day-conflict-season"),
+            startDate: "2026-09-01",
+            endDate: "2026-12-15",
+            priceCents: 15000,
+            status: "draft",
+            minAge: 12,
+            maxAge: 14,
+          }),
+        }),
+        201,
+      );
+      const daySeasonId = daySeasonJson.season.id;
+      const dayTeamJson = await expectJson(
+        await apiFetch("/api/admin/teams", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            seasonId: daySeasonId,
+            name: testSlug("dist-day-conflict-team"),
+            coachUserId,
+          }),
+        }),
+        201,
+      );
+      const dayTeamId = dayTeamJson.team.id;
+
+      // Same calendar day as DATE_1 (2026-11-07), but a DIFFERENT wall
+      // time (20:00 UTC / 3pm EST vs. DATE_1's 14:00 UTC / 9am EST) --
+      // still Nov 7 in both UTC and the org's own zone, so this isn't a
+      // tz-boundary edge case, just an ordinary same-day double-booking.
+      // Comparing full ISO instants (the pre-fix behavior) would miss this
+      // entirely; day-level comparison must not.
+      const SAME_DAY_DIFFERENT_TIME = "2026-11-07T20:00:00.000Z";
+      await expectJson(
+        await apiFetch("/api/coach/sessions", {
+          method: "POST",
+          cookie: coachCookie,
+          body: JSON.stringify({
+            teamId: dayTeamId,
+            title: "Same-day different-time session",
+            scheduledDate: SAME_DAY_DIFFERENT_TIME,
+            durationMinutes: 60,
+          }),
+        }),
+        201,
+      );
+
+      const previewUrl =
+        `${SEQUENCES_ENDPOINT}/${safeSequenceId}/attach-preview` +
+        `?seasonId=${daySeasonId}&weekday=${recurrence.weekday}` +
+        `&startDate=${recurrence.startDate}&timeOfDay=${recurrence.timeOfDay}` +
+        `&count=${recurrence.count}`;
+
+      const preview = await expectJson(
+        await apiFetch(previewUrl, { method: "GET", cookie: adminCookie }),
+        200,
+      );
+      const group = preview.groups.find((g: any) => g.teamId === dayTeamId);
+      expect(group).toBeDefined();
+      // The candidate date itself (DATE_1, exact instant 14:00 UTC) is
+      // flagged as a conflict even though the existing session sits at a
+      // different instant (20:00 UTC) on the same calendar day.
+      expect(group.conflicts).toContain(DATE_1);
+    });
+
     it("(c2) surfaces a non-blocking WARN for a stage-skewed (but safety-clean) template", async () => {
-      if (!developmentStageId) return; // runtime skip: no development_stages seeded
+      // Test hygiene: same reasoning as the beforeAll guard above — by this
+      // point developmentStageId is either resolved or the suite already
+      // failed loudly there; a bare `return` here would silently no-op.
+      expect(developmentStageId, "developmentStageId should have been resolved in beforeAll").toBeTruthy();
 
       // "Traffic Lights" (soccer/activities.ts) is tagged
       // appropriateStages: ["fundamentals"] (ages 6-8) and carries no

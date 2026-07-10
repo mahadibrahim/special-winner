@@ -24,16 +24,36 @@
  * global) resolve to 404 via ownershipDeniedResponse(), same as every
  * other admin endpoint in this codebase.
  *
- * Idempotent: a second dismissal for the same (sequenceId, templateId)
- * pair is a 200 no-op (returns the existing row's dismissed:true) rather
- * than a duplicate insert or an error — re-clicking Acknowledge, or two
- * directors dismissing the same warning, should never fail.
+ * --- Cross-tenant leak fix (review I2) ---
+ * A dismissal keyed ONLY by (sequenceId, templateId), with no org
+ * dimension, meant that for a GLOBAL sequence (organizationId null,
+ * visible/attachable by every org) Org A dismissing a warning silently
+ * acknowledged it for every other org that can see the same sequence too.
+ * Every write now stamps `organizationId: auth.organizationId`
+ * (migration 0081), and the idempotency lookup below is scoped to it as
+ * well — otherwise Org A's "already dismissed?" check would still match
+ * Org B's row on a shared global sequence and skip the insert entirely.
+ *
+ * --- Membership check (review I2) ---
+ * (sequenceId, templateId) must be a CURRENT entry of the sequence — this
+ * closes a "pre-emptive dismissal" hole where a director could dismiss a
+ * warning for a template that isn't (yet, or ever) actually in the arc,
+ * banking a dismissal that would silently apply the moment it's added
+ * later. 404s (via ownershipDeniedResponse(), same "not yours/not found"
+ * convention as everywhere else) when the pair isn't a live entry.
+ *
+ * Idempotent: a second dismissal for the same (sequenceId, templateId,
+ * organizationId) triple is a 200 no-op (returns the existing row's
+ * dismissed:true) rather than a duplicate insert or an error —
+ * re-clicking Acknowledge, or two directors in the SAME org dismissing the
+ * same warning, should never fail.
  */
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { blueprintWarningDismissals } from "@/lib/db/schema/blueprint";
+import { curriculumSequenceEntries } from "@/lib/db/schema/curriculum-sequences";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { ownershipDeniedResponse } from "@/lib/auth/require-resource-ownership";
 import { loadSequenceForOrg } from "@/lib/curriculum/sequence-ownership";
@@ -68,12 +88,31 @@ export const POST: APIRoute = async (context) => {
 
     const db = getDb();
 
-    // Idempotent: a prior dismissal for this (sequence, template) pair is a
-    // no-op success, not a duplicate insert. No orderBy needed on the
-    // .limit(1) — this is a lookup on the same pair the unique-in-practice
-    // (sequence_id, template_id) index targets, so at most one row is
-    // expected; if a drifted DB somehow carries more, "any existing row"
-    // is an equally valid answer to "has this been dismissed".
+    // Membership check (review I2): (sequenceId, templateId) must be a
+    // CURRENT entry of the sequence, not just any template the org can see
+    // — closes the pre-emptive-dismissal hole (see module docstring).
+    const [entryRow] = await db
+      .select({ id: curriculumSequenceEntries.id })
+      .from(curriculumSequenceEntries)
+      .where(
+        and(
+          eq(curriculumSequenceEntries.sequenceId, sequenceId),
+          eq(curriculumSequenceEntries.templateId, templateId),
+        ),
+      )
+      .limit(1);
+    if (!entryRow) return ownershipDeniedResponse();
+
+    // Idempotent: a prior dismissal for this (sequence, template, org)
+    // triple is a no-op success, not a duplicate insert. Scoped to
+    // organizationId (review I2) — without it, Org A's lookup would match
+    // Org B's dismissal row on a shared GLOBAL sequence and wrongly treat
+    // Org A's warning as already-acknowledged. No orderBy needed on the
+    // .limit(1) — this is a lookup on the same triple the unique-in-
+    // practice (sequence_id, template_id, organization_id) shape targets,
+    // so at most one row is expected; if a drifted DB somehow carries
+    // more, "any existing row" is an equally valid answer to "has this
+    // been dismissed".
     const [existing] = await db
       .select()
       .from(blueprintWarningDismissals)
@@ -81,6 +120,7 @@ export const POST: APIRoute = async (context) => {
         and(
           eq(blueprintWarningDismissals.sequenceId, sequenceId),
           eq(blueprintWarningDismissals.templateId, templateId),
+          eq(blueprintWarningDismissals.organizationId, auth.organizationId),
         ),
       )
       .limit(1);
@@ -95,6 +135,7 @@ export const POST: APIRoute = async (context) => {
     await db.insert(blueprintWarningDismissals).values({
       sequenceId,
       templateId,
+      organizationId: auth.organizationId,
       dismissedBy: auth.user.id,
       reason: reason ?? null,
     });

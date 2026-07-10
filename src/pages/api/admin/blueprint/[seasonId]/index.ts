@@ -170,7 +170,8 @@ export const GET: APIRoute = async (context) => {
 
     // ---- Sequence discovery ----
     let sequence: { id: string; name: string; stageSlug: string } | null = null;
-    let candidateSequences: { id: string; name: string; stage: string }[] = [];
+    let candidateSequences: { id: string; name: string; stage: string; stageLabel: string }[] =
+      [];
 
     if (row.curriculumSequenceId) {
       const [seqRow] = await db
@@ -211,7 +212,14 @@ export const GET: APIRoute = async (context) => {
           ),
         )
         .orderBy(asc(curriculumSequences.name));
-      candidateSequences = candidateRows;
+      // M-fix: the candidate picker showed the raw stage SLUG ("skill-
+      // building") instead of a display name — resolve it the same way the
+      // template rail and slot guardrails already do (stageDisplayName,
+      // below), so the client never has to raw-render a slug.
+      candidateSequences = candidateRows.map((c) => ({
+        ...c,
+        stageLabel: stageDisplayName(c.stage),
+      }));
     }
 
     // ---- Slots (sequence entries) with live guardrails ----
@@ -306,6 +314,10 @@ export const GET: APIRoute = async (context) => {
       // sequence can reference the same template; they correctly share
       // one dismissed state.
       const templateIds = [...new Set(entryRows.map((e) => e.templateId))];
+      // Scoped to the CALLER's org (review I2): a dismissal recorded by a
+      // different org against a shared GLOBAL sequence must not surface
+      // here — an org only ever sees its own acknowledgements. See
+      // blueprint.ts's schema docstring and migration 0081.
       const dismissalRows = await db
         .select({
           templateId: blueprintWarningDismissals.templateId,
@@ -318,6 +330,7 @@ export const GET: APIRoute = async (context) => {
           and(
             eq(blueprintWarningDismissals.sequenceId, sequence.id),
             inArray(blueprintWarningDismissals.templateId, templateIds),
+            eq(blueprintWarningDismissals.organizationId, auth.organizationId),
           ),
         );
       const dismissalByTemplateId = new Map(
@@ -361,6 +374,9 @@ export const GET: APIRoute = async (context) => {
       title: t.title,
       durationMinutes: t.durationMinutes,
       stageSlug: t.stageSlug,
+      // M-fix: the rail's stage badge rendered this raw slug directly;
+      // stageLabel is the display name so the client never has to.
+      stageLabel: stageDisplayName(t.stageSlug),
       focusSkillNames: skillNames(t.focusSkillIds),
     }));
 

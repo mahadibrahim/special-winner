@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { skills, skillDomains } from "@/lib/db/schema";
+import { skills, skillDomains, seasons } from "@/lib/db/schema";
 import { apiFetch, expectJson, getAdminCookie, testSlug, resetCookies } from "../setup/test-helpers";
 
 const SEQUENCES_ENDPOINT = "/api/admin/curriculum/sequences";
@@ -261,5 +261,251 @@ describe("Blueprint guardrails — BLOCK tier on sequence-entry write", () => {
     });
     expect(res.status).toBeGreaterThanOrEqual(200);
     expect(res.status).toBeLessThan(300);
+  });
+});
+
+/**
+ * I1 — season PUT band edits must not bypass the distribution safety
+ * lattice. seasons.ts's PUT handler only ever validated the NEW payload in
+ * isolation; it never re-ran the BLOCK-tier guardrail against a season
+ * that already has a linked/distributed sequence. So narrowing a season's
+ * age band (minAge/maxAge/ageGroupId) AFTER a heading-content sequence was
+ * linked/distributed to it could silently make previously-safe content
+ * unsafe — the attach endpoint's re-check never re-fires because nothing
+ * calls it again on a season edit. This suite links (not full-distributes;
+ * linking alone already satisfies "the season has a linked sequence") a
+ * heading-flagged sequence to a safe (12-14) season, then exercises the
+ * PUT re-check: narrowing to U8 must 422 with rule text and write nothing;
+ * widening (still >= the rule's floor) must succeed normally.
+ */
+describe("Blueprint guardrails — season PUT re-check on band-relevant edits (I1)", () => {
+  let adminCookie: string;
+  let orgASportId: string;
+  let programId: string;
+  let developmentStageId: string | null = null;
+  let headingSkillId: string | null = null;
+  let createdHeadingSkill = false;
+
+  let blockedTemplateId: string | null = null;
+  let sequenceId: string | null = null;
+  let seasonId: string | null = null;
+  let seasonSlug: string;
+
+  beforeAll(async () => {
+    adminCookie = await getAdminCookie();
+
+    const programsJson = await expectJson(
+      await apiFetch("/api/admin/programs", { method: "GET", cookie: adminCookie }),
+      200,
+    );
+    programId = programsJson.programs[0].id;
+    orgASportId = programsJson.programs[0].sport.id;
+
+    // "development" stage (ages 11-12) — old enough that entries.ts's
+    // write-time proxy check lets the heading-skill entry save (same
+    // fixture shape as blueprint-attach.test.ts). The season itself starts
+    // at 12-14 (also safe) so the ONLY thing under test is the PUT
+    // re-check firing when the season's own band is edited afterward.
+    const tplListRes = await apiFetch("/api/admin/curriculum/templates", {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const tplListJson = await expectJson(tplListRes, 200);
+    const developmentStage = (tplListJson.stages ?? []).find(
+      (s: any) => s.slug === "development",
+    );
+    developmentStageId = developmentStage?.id ?? null;
+    if (!developmentStageId) return; // runtime skip: no development_stages seeded
+
+    const db = getDb();
+    const [existing] = await db
+      .select({ id: skills.id })
+      .from(skills)
+      .where(eq(skills.slug, "heading-defensive"))
+      .orderBy(asc(skills.id))
+      .limit(1);
+    if (existing) {
+      headingSkillId = existing.id;
+    } else {
+      const [anyDomain] = await db
+        .select({ id: skillDomains.id })
+        .from(skillDomains)
+        .orderBy(asc(skillDomains.id))
+        .limit(1);
+      expect(anyDomain, "expected at least one seeded skill_domains row").toBeTruthy();
+      const [inserted] = await db
+        .insert(skills)
+        .values({
+          sportId: orgASportId,
+          domainId: anyDomain.id,
+          stageId: developmentStageId,
+          name: "Heading - Defensive",
+          slug: "heading-defensive",
+          active: true,
+        })
+        .returning({ id: skills.id });
+      headingSkillId = inserted.id;
+      createdHeadingSkill = true;
+    }
+
+    const blockedTplRes = await apiFetch("/api/admin/curriculum/templates", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        sportId: orgASportId,
+        stageId: developmentStageId,
+        name: testSlug("season-put-blocked-tpl"),
+        totalDurationMinutes: 45,
+        structure: [{ name: "Heading practice", type: "technical", durationMinutes: 20 }],
+        focusSkillIds: [headingSkillId],
+      }),
+    });
+    blockedTemplateId = (await expectJson(blockedTplRes, 201)).template.id;
+
+    const seqRes = await apiFetch("/api/admin/curriculum/sequences", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        sportId: orgASportId,
+        developmentStageId,
+        programType: "league",
+        name: testSlug("season-put-sequence"),
+      }),
+    });
+    sequenceId = (await expectJson(seqRes, 201)).sequence.id;
+
+    await expectJson(
+      await apiFetch(`/api/admin/curriculum/sequences/${sequenceId}/entries`, {
+        method: "PUT",
+        cookie: adminCookie,
+        body: JSON.stringify({ entries: [{ templateId: blockedTemplateId }] }),
+      }),
+      200,
+    );
+
+    // Season starts safe: 12-14, above the heading rule's floor of 11.
+    seasonSlug = testSlug("season-put-band-season");
+    const seasonJson = await expectJson(
+      await apiFetch("/api/admin/seasons", {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          programId,
+          name: "Season PUT Band Re-check Season",
+          slug: seasonSlug,
+          startDate: "2026-09-01",
+          endDate: "2026-12-15",
+          priceCents: 15000,
+          status: "draft",
+          minAge: 12,
+          maxAge: 14,
+        }),
+      }),
+      201,
+    );
+    seasonId = seasonJson.season.id;
+
+    // Link the sequence to the season (the same "composing" pointer the
+    // distribution engine reads/writes) WITHOUT running a full
+    // distribution — linking alone already satisfies "the season has a
+    // linked sequence" per the fix's trigger condition.
+    await expectJson(
+      await apiFetch(`/api/admin/blueprint/${seasonId}`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ sequenceId }),
+      }),
+      200,
+    );
+  });
+
+  afterAll(async () => {
+    if (sequenceId) {
+      await apiFetch(`/api/admin/curriculum/sequences/${sequenceId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    }
+    if (blockedTemplateId) {
+      await apiFetch(`/api/admin/curriculum/templates/${blockedTemplateId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    }
+    if (createdHeadingSkill && headingSkillId) {
+      await getDb().delete(skills).where(eq(skills.id, headingSkillId));
+    }
+    resetCookies();
+  });
+
+  const putSeasonBody = (overrides: Record<string, unknown>) => ({
+    id: seasonId,
+    programId,
+    name: "Season PUT Band Re-check Season",
+    slug: seasonSlug,
+    startDate: "2026-09-01",
+    endDate: "2026-12-15",
+    priceCents: 15000,
+    status: "draft",
+    ...overrides,
+  });
+
+  it("422s narrowing a linked season to U8 (below the heading rule's floor), writes nothing", async (ctx) => {
+    if (!seasonId || !sequenceId) {
+      ctx.skip();
+      return;
+    }
+    const res = await apiFetch("/api/admin/seasons", {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify(putSeasonBody({ minAge: 6, maxAge: 8 })),
+    });
+    const json = await expectJson(res, 422);
+    expect(Array.isArray(json.blocks)).toBe(true);
+    expect(json.blocks.length).toBeGreaterThan(0);
+    expect(json.blocks[0].rule).toBe("No heading in training for players 10 and under");
+
+    // No write: the season's band on disk is unchanged.
+    const [row] = await getDb()
+      .select({ minAge: seasons.minAge, maxAge: seasons.maxAge })
+      .from(seasons)
+      .where(eq(seasons.id, seasonId));
+    expect(row.minAge).toBe(12);
+    expect(row.maxAge).toBe(14);
+  });
+
+  it("200s widening the band (still clears the heading rule's floor)", async (ctx) => {
+    if (!seasonId || !sequenceId) {
+      ctx.skip();
+      return;
+    }
+    const res = await apiFetch("/api/admin/seasons", {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify(putSeasonBody({ minAge: 11, maxAge: 20 })),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.season.minAge).toBe(11);
+    expect(json.season.maxAge).toBe(20);
+  });
+
+  it("200s a band-unchanged edit even though this season has blocked content linked", async (ctx) => {
+    if (!seasonId || !sequenceId) {
+      ctx.skip();
+      return;
+    }
+    // Same band as the previous test left it (11-20) -- an edit that
+    // doesn't touch minAge/maxAge/ageGroupId skips the re-check entirely
+    // (bandFieldsChanged is false), so it succeeds regardless of what's
+    // linked.
+    const res = await apiFetch("/api/admin/seasons", {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify(
+        putSeasonBody({ minAge: 11, maxAge: 20, name: "Season PUT Band Re-check Season (renamed)" }),
+      ),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.season.name).toBe("Season PUT Band Re-check Season (renamed)");
   });
 });

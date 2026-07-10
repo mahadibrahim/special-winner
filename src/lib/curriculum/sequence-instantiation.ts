@@ -74,6 +74,27 @@ export function zonedDateTimeToUtc(
   return new Date(naiveUtc - finalOffset);
 }
 
+/**
+ * Inverse of `zonedDateTimeToUtc`'s date half: the zone-local calendar date
+ * ("YYYY-MM-DD") a UTC instant falls on. Used by the attach-preview
+ * conflict check (review I3) to compare two session instants "same day in
+ * this org's timezone" rather than "the exact same instant" — a same-day,
+ * different-time existing session is still a real scheduling conflict for
+ * a group, not just an exact double-booking. Same Intl-`formatToParts`
+ * approach as `tzOffsetMs` above, no tz library.
+ */
+export function utcInstantToZonedDateString(instant: Date, timeZone: string): string {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts: Record<string, string> = {};
+  for (const p of dtf.formatToParts(instant)) parts[p.type] = p.value;
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 export function generatePracticeDates(
   recurrence: RecurrenceInput,
   /** "YYYY-MM-DD" — no practices are generated after this local date (inclusive allowed). */

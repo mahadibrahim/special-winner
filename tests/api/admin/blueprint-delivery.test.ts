@@ -428,6 +428,91 @@ describe("Blueprint delivery — GET /api/admin/blueprint/[seasonId]/delivery", 
     expect(row2.groups[0].status).toBe("adapted");
   });
 
+  it("(h) surviving a sequence swap: prescribed sessions from a detached sequence stay visible with an attachmentNote (review I5)", async (ctx) => {
+    if (!sequenceId || !developmentStageId) {
+      ctx.skip();
+      return;
+    }
+
+    // Detach the original sequence from the season -- curriculumSequenceId
+    // clears, but detach.ts's own docstring is explicit that already-
+    // generated session_plans rows (and their sequence_attachments
+    // lineage) are intentionally left alone.
+    await expectJson(
+      await apiFetch(`${SEQUENCES_ENDPOINT}/${sequenceId}/detach`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ seasonId }),
+      }),
+      200,
+    );
+
+    // Link a DIFFERENT sequence to the season for its next arc.
+    const swapTplRes = await apiFetch("/api/admin/curriculum/templates", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        sportId: orgASportId,
+        stageId: developmentStageId,
+        name: testSlug("delivery-swap-tpl"),
+        totalDurationMinutes: 20,
+        structure: [{ name: "Fresh plan", type: "technical", durationMinutes: 20 }],
+      }),
+    });
+    const swapTemplateId = (await expectJson(swapTplRes, 201)).template.id;
+
+    const swapSeqRes = await apiFetch(SEQUENCES_ENDPOINT, {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        sportId: orgASportId,
+        developmentStageId,
+        programType: "league",
+        name: testSlug("delivery-swap-sequence"),
+      }),
+    });
+    const swapSequenceId = (await expectJson(swapSeqRes, 201)).sequence.id;
+
+    await expectJson(
+      await apiFetch(`/api/admin/blueprint/${seasonId}`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ sequenceId: swapSequenceId }),
+      }),
+      200,
+    );
+
+    const json = await expectJson(
+      await apiFetch(`/api/admin/blueprint/${seasonId}/delivery`, {
+        method: "GET",
+        cookie: adminCookie,
+      }),
+      200,
+    );
+
+    // The two prescribed sessions from the ORIGINAL (now-detached, then
+    // swapped-away-from) sequence are still visible and read exactly as
+    // before -- the swap doesn't touch session_plans rows at all.
+    expect(json.hasDistributed).toBe(true);
+    expect(json.rows).toHaveLength(2);
+    const [row1, row2] = [...json.rows].sort((a: any, b: any) => a.order - b.order);
+    expect(row1.groups[0].status).toBe("delivered");
+    expect(row2.groups[0].status).toBe("adapted");
+    // A different sequence than the one currently linked produced this
+    // history -- the workspace should say so.
+    expect(typeof json.attachmentNote).toBe("string");
+    expect(json.attachmentNote).toContain("earlier plan");
+
+    await apiFetch(`${SEQUENCES_ENDPOINT}/${swapSequenceId}`, {
+      method: "DELETE",
+      cookie: adminCookie,
+    });
+    await apiFetch(`/api/admin/curriculum/templates/${swapTemplateId}`, {
+      method: "DELETE",
+      cookie: adminCookie,
+    });
+  });
+
   it("(d) 403s a parent-role caller", async (ctx) => {
     if (!sequenceId) {
       ctx.skip();

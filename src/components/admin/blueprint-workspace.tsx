@@ -95,6 +95,7 @@ interface RailTemplate {
   title: string
   durationMinutes: number
   stageSlug: string
+  stageLabel: string
   focusSkillNames: string[]
 }
 
@@ -102,6 +103,7 @@ interface CandidateSequence {
   id: string
   name: string
   stage: string
+  stageLabel: string
 }
 
 interface Bootstrap {
@@ -197,6 +199,12 @@ interface DeliveryResponse {
   rows: DeliveryRow[]
   hasDistributed: boolean
   arcDrift: boolean
+  // Review I5: set when some of this season's distributed history came
+  // from a sequence other than the one currently linked (including "no
+  // sequence currently linked") — e.g. the arc was swapped after
+  // distribution. Rows themselves are unaffected; this is just an honest
+  // heads-up, shown as an info line in the strip.
+  attachmentNote: string | null
 }
 
 const DELIVERY_MARKER: Record<
@@ -781,7 +789,7 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
               evaluated until it does, and content requiring an age floor is blocked by
               default until it&apos;s confirmed safe.{" "}
               <a
-                href={`/admin/seasons/${seasonId}/edit`}
+                href={`/admin/seasons/${seasonId}`}
                 className="underline hover:no-underline"
               >
                 Set the season&apos;s age range
@@ -813,7 +821,7 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
                 <option value="">Choose an existing sequence…</option>
                 {data.candidateSequences.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} ({c.stage})
+                    {c.name} ({c.stageLabel})
                   </option>
                 ))}
               </select>
@@ -1080,7 +1088,7 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
                           variant={inBand ? "secondary" : "destructive"}
                           className="text-[10px]"
                         >
-                          {t.stageSlug}
+                          {t.stageLabel}
                         </Badge>
                       </div>
                     </button>
@@ -1490,6 +1498,14 @@ function DeliveryStrip({
   }
   return (
     <div className="space-y-2 rounded-lg border border-border p-3" data-testid="delivery-strip">
+      {delivery.attachmentNote && (
+        <p
+          className="text-xs text-ink-muted rounded-md border border-border bg-paper px-2 py-1.5"
+          data-testid="delivery-attachment-note"
+        >
+          {delivery.attachmentNote}
+        </p>
+      )}
       {delivery.arcDrift && (
         <p
           className="text-xs text-ochre rounded-md border border-ochre/40 bg-ochre/10 px-2 py-1.5"

@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { seasons, programs, sports, locations, ageGroups, teams, venues, seasonInterest } from "@/lib/db/schema";
-import { eq, and, asc, sql } from "drizzle-orm";
+import { seasons, programs, sports, locations, ageGroups, teams, venues, seasonInterest, curriculumSequenceEntries, practiceTemplates } from "@/lib/db/schema";
+import { sequenceAttachments } from "@/lib/db/schema/blueprint";
+import { eq, and, asc, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import {
@@ -12,6 +13,8 @@ import {
 } from "@/lib/auth/require-resource-ownership";
 import { bulkCreateTeams, cloneSeasonTeams } from "@/lib/seasons/scaffold";
 import { TIME_OF_DAY_PATTERN } from "@/lib/time/time-of-day";
+import { evaluateAttachSafetyForBand } from "@/lib/curriculum/distribution-safety";
+import type { TemplateForBuild } from "@/lib/curriculum/sequence-instantiation";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -362,6 +365,117 @@ export const PUT: APIRoute = async (context) => {
     if (validData.venueId) {
       const venueCheck = await requireSameOrgVenue(auth.organizationId, validData.venueId);
       if (!venueCheck.ok) return ownershipDeniedResponse();
+    }
+
+    // Season band edits must not bypass the distribution safety lattice
+    // (Program Blueprint review I1). A season's minAge/maxAge/ageGroupId
+    // feed straight into resolveEffectiveSeasonBand — the same band the
+    // attach POST re-checks at distribution time. Narrowing that band on a
+    // season that ALREADY has a linked/distributed sequence can silently
+    // make previously-safe content unsafe (e.g. a heading-content template
+    // distributed to a 12-14 season, then the season is edited down to
+    // U8) without ever going back through attach.ts's gate. Only runs the
+    // re-check when a band-relevant field actually changed AND the season
+    // has real linked content (seasons.curriculumSequenceId, or any
+    // sequence_attachments row ever distributed to it) — band-widening and
+    // unrelated edits (name, dates, price, etc.) skip this entirely and the
+    // evaluation naturally passes anyway once it does run.
+    const [currentSeasonBandRow] = await getDb()
+      .select({
+        minAge: seasons.minAge,
+        maxAge: seasons.maxAge,
+        ageGroupId: seasons.ageGroupId,
+        curriculumSequenceId: seasons.curriculumSequenceId,
+      })
+      .from(seasons)
+      .where(eq(seasons.id, id))
+      .limit(1);
+
+    const nextMinAge = validData.minAge ?? null;
+    const nextMaxAge = validData.maxAge ?? null;
+    const nextAgeGroupId = validData.ageGroupId ?? null;
+    const bandFieldsChanged =
+      !!currentSeasonBandRow &&
+      (currentSeasonBandRow.minAge !== nextMinAge ||
+        currentSeasonBandRow.maxAge !== nextMaxAge ||
+        currentSeasonBandRow.ageGroupId !== nextAgeGroupId);
+
+    if (currentSeasonBandRow && bandFieldsChanged) {
+      let sequenceIdToCheck = currentSeasonBandRow.curriculumSequenceId;
+      if (!sequenceIdToCheck) {
+        // No live "composing" pointer, but a season can still carry
+        // historical prescribed sessions from a sequence that was later
+        // detached — those sessions are real and already generated, so a
+        // band narrowing must be checked against whatever sequence
+        // actually produced them too.
+        const [attachmentRow] = await getDb()
+          .select({ sequenceId: sequenceAttachments.sequenceId })
+          .from(sequenceAttachments)
+          .where(eq(sequenceAttachments.seasonId, id))
+          .orderBy(asc(sequenceAttachments.distributedAt))
+          .limit(1);
+        sequenceIdToCheck = attachmentRow?.sequenceId ?? null;
+      }
+
+      if (sequenceIdToCheck) {
+        let newAgeGroupMinAge: number | null = null;
+        let newAgeGroupMaxAge: number | null = null;
+        if (nextAgeGroupId) {
+          const [ag] = await getDb()
+            .select({ minAge: ageGroups.minAge, maxAge: ageGroups.maxAge })
+            .from(ageGroups)
+            .where(
+              and(
+                eq(ageGroups.id, nextAgeGroupId),
+                eq(ageGroups.organizationId, auth.organizationId),
+              ),
+            )
+            .limit(1);
+          if (!ag) return ownershipDeniedResponse();
+          newAgeGroupMinAge = ag.minAge;
+          newAgeGroupMaxAge = ag.maxAge;
+        }
+        // Same fallback rule as resolveEffectiveSeasonBand: the season's own
+        // field wins, falling back to the (new) age group's when null.
+        const newBand = {
+          minAge: nextMinAge ?? newAgeGroupMinAge,
+          maxAge: nextMaxAge ?? newAgeGroupMaxAge,
+        };
+
+        const entryRows = await getDb()
+          .select({ templateId: curriculumSequenceEntries.templateId })
+          .from(curriculumSequenceEntries)
+          .where(eq(curriculumSequenceEntries.sequenceId, sequenceIdToCheck));
+
+        if (entryRows.length > 0) {
+          const templateRows = await getDb()
+            .select({
+              id: practiceTemplates.id,
+              name: practiceTemplates.name,
+              totalDurationMinutes: practiceTemplates.totalDurationMinutes,
+              structure: practiceTemplates.structure,
+              equipmentNeeded: practiceTemplates.equipmentNeeded,
+              focusSkillIds: practiceTemplates.focusSkillIds,
+            })
+            .from(practiceTemplates)
+            .where(inArray(practiceTemplates.id, entryRows.map((e) => e.templateId)));
+          const templatesById = new Map<string, TemplateForBuild>(
+            templateRows.map((t) => [t.id, t]),
+          );
+
+          const safety = await evaluateAttachSafetyForBand(newBand, entryRows, templatesById);
+          if (safety.blocks.length > 0) {
+            return new Response(
+              JSON.stringify({
+                error:
+                  "This age range change would violate a safety rule for content already planned or distributed to this season",
+                blocks: safety.blocks,
+              }),
+              { status: 422, headers: { "Content-Type": "application/json" } },
+            );
+          }
+        }
+      }
     }
 
     const [updatedSeason] = await getDb()

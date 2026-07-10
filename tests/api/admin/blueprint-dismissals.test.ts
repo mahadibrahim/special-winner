@@ -21,6 +21,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { developmentStages } from "@/lib/db/schema";
 import { blueprintWarningDismissals } from "@/lib/db/schema/blueprint";
+import { E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 import {
   apiFetch,
   expectJson,
@@ -184,6 +185,46 @@ describe("Blueprint warn-tier dismissals — POST /api/admin/blueprint/dismissal
     expect(res.status).toBe(404);
   });
 
+  // Review I2: (sequenceId, templateId) must be a CURRENT entry of the
+  // sequence — otherwise a director could dismiss a warning for a
+  // template that was never (and may never be) added to this arc, banking
+  // an acknowledgement that would silently apply the moment it's added
+  // later. A real, org-owned template that's simply never been PUT into
+  // this sequence's entries must 404, same as any other not-yours/not-
+  // found resource in this codebase.
+  it("404s when templateId isn't a current entry of the sequence (closes the pre-emptive-dismissal hole)", async (ctx) => {
+    if (!sequenceId || !stageId) {
+      ctx.skip();
+      return;
+    }
+    const nonMemberTplRes = await apiFetch("/api/admin/curriculum/templates", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        sportId: orgASportId,
+        stageId,
+        name: testSlug("dismissals-non-member-tpl"),
+        totalDurationMinutes: 30,
+        structure: [{ name: "Cooldown", type: "cooldown", durationMinutes: 10 }],
+      }),
+    });
+    const nonMemberTemplateId = (await expectJson(nonMemberTplRes, 201)).template.id;
+
+    try {
+      const res = await apiFetch(DISMISSALS_ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ sequenceId, templateId: nonMemberTemplateId }),
+      });
+      expect(res.status).toBe(404);
+    } finally {
+      await apiFetch(`/api/admin/curriculum/templates/${nonMemberTemplateId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    }
+  });
+
   it("200s and records the dismissal, surfaced in bootstrap with who/when metadata", async (ctx) => {
     if (!sequenceId || !templateId || !seasonId) {
       ctx.skip();
@@ -211,6 +252,32 @@ describe("Blueprint warn-tier dismissals — POST /api/admin/blueprint/dismissal
     expect(slot.guardrails.dismissedBy.length).toBeGreaterThan(0);
     expect(typeof slot.guardrails.dismissedAt).toBe("string");
     expect(Number.isNaN(new Date(slot.guardrails.dismissedAt).getTime())).toBe(false);
+  });
+
+  // Review I2: closes the cross-tenant leak where a dismissal keyed only
+  // by (sequenceId, templateId) was visible to every org that can see a
+  // shared GLOBAL sequence. There's no second-org fixture pattern in this
+  // suite family for sequences/templates specifically (the org-fixtures
+  // test endpoint only exposes season/program/venue ids, not curriculum
+  // rows — see blueprint-bootstrap.test.ts's cross-org test), so this
+  // asserts the fix directly against the DB: the row the previous test
+  // just created must carry the caller's own organization id.
+  it("records the caller's organization id on the dismissal row (review I2)", async (ctx) => {
+    if (!sequenceId || !templateId) {
+      ctx.skip();
+      return;
+    }
+    const [row] = await getDb()
+      .select()
+      .from(blueprintWarningDismissals)
+      .where(
+        and(
+          eq(blueprintWarningDismissals.sequenceId, sequenceId),
+          eq(blueprintWarningDismissals.templateId, templateId),
+        ),
+      );
+    expect(row).toBeTruthy();
+    expect(row.organizationId).toBe(E2E_ORG_ID);
   });
 
   it("is idempotent — a second POST for the same pair does not duplicate the row", async (ctx) => {

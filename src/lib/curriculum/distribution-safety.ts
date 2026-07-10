@@ -95,8 +95,28 @@ export async function evaluateAttachSafety(
   entryRows: { templateId: string }[],
   templatesById: Map<string, TemplateForBuild>,
 ): Promise<AttachSafetyResult> {
-  const db = getDb();
   const band = await resolveEffectiveSeasonBand(seasonId);
+  return evaluateAttachSafetyForBand(band, entryRows, templatesById);
+}
+
+/**
+ * Same evaluation as `evaluateAttachSafety`, but against a CALLER-SUPPLIED
+ * band instead of one resolved from the season's row as it currently sits
+ * in the DB. Exists for the season PUT endpoint (seasons.ts): when an edit
+ * changes minAge/maxAge/ageGroupId on a season that already has a linked
+ * sequence or distributed sessions, the re-check must run against the NEW
+ * proposed band BEFORE it's written — `resolveEffectiveSeasonBand` can only
+ * ever see the band that's currently persisted, so it can't be reused
+ * as-is for a pre-write check. `evaluateAttachSafety` above is unchanged
+ * (still the one attach.ts/attach-preview.ts call) and just delegates here
+ * after resolving the real band the normal way.
+ */
+export async function evaluateAttachSafetyForBand(
+  band: EffectiveSeasonBand,
+  entryRows: { templateId: string }[],
+  templatesById: Map<string, TemplateForBuild>,
+): Promise<AttachSafetyResult> {
+  const db = getDb();
 
   const uniqueTemplateIds = [...new Set(entryRows.map((e) => e.templateId))];
 
