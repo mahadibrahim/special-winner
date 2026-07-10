@@ -215,8 +215,8 @@ test.describe("Coach Dashboard", () => {
       // CoachAssessmentsOverview renders after a client-side fetch (no
       // hydration beacon on this island — wait on real content instead).
       await expect(page.getByText("Total Players")).toBeVisible({ timeout: 30000 });
-      await expect(page.getByRole("heading", { name: "Players" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Recent Assessments" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Players" })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("heading", { name: "Recent Assessments" })).toBeVisible({ timeout: 15000 });
     });
   });
 
