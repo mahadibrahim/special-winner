@@ -57,8 +57,18 @@ function BackToDashboard() {
   )
 }
 
+type ChildProfileTab = "overview" | "progress" | "schedule" | "achievements"
+
+const VALID_TABS: ChildProfileTab[] = ["overview", "progress", "schedule", "achievements"]
+
 export default function ChildProfile({ childId }: ChildProfileProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "progress" | "schedule" | "achievements">("overview")
+  const [activeTab, setActiveTab] = useState<ChildProfileTab>(() => {
+    if (typeof window !== "undefined") {
+      const t = new URLSearchParams(window.location.search).get("tab")
+      if (t && (VALID_TABS as string[]).includes(t)) return t as ChildProfileTab
+    }
+    return "overview"
+  })
   const [child, setChild] = useState<ChildProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
