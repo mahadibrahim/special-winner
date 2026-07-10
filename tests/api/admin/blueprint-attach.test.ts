@@ -542,7 +542,10 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
     });
 
     it("(c3) flags a same-day, different-time existing session as a conflict (review I3: day-level, not exact-instant)", async () => {
-      if (!safeSequenceId) return; // runtime skip: no development_stages seeded
+      if (!safeSequenceId) {
+        // Hard failure, not a silent skip — beforeAll should have created it.
+        throw new Error("fixture sequence missing — beforeAll should have created it");
+      }
 
       const daySeasonJson = await expectJson(
         await apiFetch("/api/admin/seasons", {
@@ -903,7 +906,10 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
 
   describe("Fix A — anchors on the first team WITH fresh work, not the oldest team", () => {
     it("(i) re-POST after adding a coached team anchors the new attachment on the new team's sessions, never a zero-session row", async () => {
-      if (!safeSequenceId) return; // runtime skip: no development_stages seeded
+      if (!safeSequenceId) {
+        // Hard failure, not a silent skip — beforeAll should have created it.
+        throw new Error("fixture sequence missing — beforeAll should have created it");
+      }
 
       // Fresh season + team A (created first via the API, so it is the
       // OLDEST team by createdAt) -- fully distribute it so its `fresh`
