@@ -20,6 +20,7 @@ const createSessionSchema = z.object({
   title: z.string().min(1).max(255),
   scheduledDate: z.string().datetime(),
   durationMinutes: z.number().int().min(15).max(180),
+  status: z.enum(["draft", "planned"]).default("draft"),
   segments: z
     .array(
       z.object({
@@ -349,7 +350,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         title: data.title,
         scheduledDate: new Date(data.scheduledDate),
         durationMinutes: data.durationMinutes,
-        status: "draft",
+        status: data.status,
         segments: data.segments || null,
         focusSkillIds: data.focusSkillIds || null,
         objectives: data.objectives || null,
