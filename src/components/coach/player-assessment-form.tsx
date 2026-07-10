@@ -523,7 +523,9 @@ export default function PlayerAssessmentForm({
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-xs text-ink-muted mb-2">Additional Notes</label>
+                  <label className="block text-xs text-ink-muted mb-2">
+                    Additional Notes (visible to parents)
+                  </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -531,6 +533,9 @@ export default function PlayerAssessmentForm({
                     rows={3}
                     className="w-full px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
                   />
+                  <p className="text-xs text-ink-faint mt-1">
+                    Families see this on their development page — keep it warm and specific.
+                  </p>
                 </div>
 
                 {/* Submit */}

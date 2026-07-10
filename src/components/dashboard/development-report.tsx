@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import DomainProgressCard, { DomainProgressGrid } from "./domain-progress-card"
 import DomainRadar, { type RadarAxis } from "@/components/development/domain-radar"
+import RecentGlows from "./recent-glows"
 import {
   TrendingUp,
   TrendingDown,
@@ -16,8 +16,7 @@ import {
   Loader2,
   AlertCircle,
   ChevronRight,
-  Download,
-  Share2,
+  Sparkles,
   BarChart3,
   Clock,
   User,
@@ -34,6 +33,7 @@ interface DomainProgress {
     id: string
     name: string
     slug: string
+    displayName: string
     description: string | null
   }
   averageLevel: number
@@ -58,8 +58,11 @@ interface RecentAssessment {
   id: string
   skillName: string
   domainName: string
+  domainDisplayName: string
   level: number
   notes: string | null
+  strengths: string[]
+  areasForImprovement: string[]
   coachName: string
   assessedAt: string
   context: string | null
@@ -171,7 +174,8 @@ export default function DevelopmentReport({
 
   const { overallProgress, domainProgress, recentAssessments, snapshots } = data
   const TrendIcon = overallProgress.trend > 0 ? TrendingUp : overallProgress.trend < 0 ? TrendingDown : Minus
-  const trendColor = overallProgress.trend > 0 ? "text-emerald-400" : overallProgress.trend < 0 ? "text-red-400" : "text-ink-muted"
+  const trendColor = overallProgress.trend > 0 ? "text-emerald-400" : overallProgress.trend < 0 ? "text-amber-500" : "text-ink-muted"
+  const trendLabel = overallProgress.trend < 0 ? "finding form" : undefined
 
   const radarAxes: RadarAxis[] = (snapshots ?? []).map((s) => ({
     label: s.domain,
@@ -190,7 +194,11 @@ export default function DevelopmentReport({
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-ink-muted">Overall Development</span>
             {hasAssessments && (
-              <div className={cn("flex items-center gap-1", trendColor)}>
+              <div
+                className={cn("flex items-center gap-1", trendColor)}
+                title={trendLabel}
+                aria-label={trendLabel}
+              >
                 <TrendIcon className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">
                   {overallProgress.trend > 0 ? `+${overallProgress.trend}` : overallProgress.trend}
@@ -225,7 +233,7 @@ export default function DevelopmentReport({
               key={domain.domain.id}
               className="p-3 rounded-lg bg-paper border border-border"
             >
-              <p className="text-xs text-ink-muted mb-1">{domain.domain.name}</p>
+              <p className="text-xs text-ink-muted mb-1">{domain.domain.displayName}</p>
               <p className="text-lg font-bold text-ink">
                 {domain.skillCount > 0 ? domain.averageLevel.toFixed(1) : "—"}
               </p>
@@ -255,7 +263,11 @@ export default function DevelopmentReport({
                 {overallProgress.averageLevel.toFixed(1)}
               </span>
               <span className="text-sm text-ink-muted">/ 5.0</span>
-              <div className={cn("flex items-center gap-0.5 ml-2", trendColor)}>
+              <div
+                className={cn("flex items-center gap-0.5 ml-2", trendColor)}
+                title={trendLabel}
+                aria-label={trendLabel}
+              >
                 <TrendIcon className="w-4 h-4" />
                 <span className="text-sm font-medium">
                   {overallProgress.trend > 0 ? `+${overallProgress.trend}` : overallProgress.trend}
@@ -304,6 +316,9 @@ export default function DevelopmentReport({
         </div>
       </div>
 
+      {/* Recent Glows — quick hit of positive framing above the domain cards. */}
+      <RecentGlows familyMemberId={familyMemberId} />
+
       {/* Domain Radar — at-a-glance shape of development across domains */}
       <section>
         <h2 className="text-lg font-semibold text-ink flex items-center gap-2 mb-4">
@@ -311,7 +326,7 @@ export default function DevelopmentReport({
           Domain Overview
         </h2>
         <div className="p-6 rounded-2xl bg-paper border border-border">
-          <DomainRadar axes={radarAxes} />
+          <DomainRadar axes={radarAxes} childName={data.familyMember.firstName} />
         </div>
       </section>
 
@@ -369,12 +384,34 @@ export default function DevelopmentReport({
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-medium text-ink">{assessment.skillName}</h4>
                       <Badge variant="outline" className="text-[10px] bg-paper">
-                        {assessment.domainName}
+                        {assessment.domainDisplayName}
                       </Badge>
                     </div>
                     <p className="text-sm text-ink-muted mb-2">
                       {LEVEL_LABELS[assessment.level]}
                     </p>
+
+                    {assessment.strengths.length > 0 && (
+                      <div className="space-y-1 mb-2">
+                        {assessment.strengths.map((s, i) => (
+                          <p key={i} className="text-sm text-emerald-600 flex items-start gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span>{s}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {assessment.areasForImprovement.length > 0 && (
+                      <div className="space-y-1 mb-2">
+                        {assessment.areasForImprovement.map((a, i) => (
+                          <p key={i} className="text-sm text-amber-600">
+                            <span className="font-medium">Working on:</span> {a}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
                     {assessment.notes && (
                       <p className="text-sm text-ink-muted line-clamp-2">{assessment.notes}</p>
                     )}
@@ -395,20 +432,6 @@ export default function DevelopmentReport({
             ))}
           </div>
         </section>
-      )}
-
-      {/* Actions */}
-      {hasAssessments && (
-        <div className="flex justify-center gap-3">
-          <Button variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export Report
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <Share2 className="w-4 h-4" />
-            Share Progress
-          </Button>
-        </div>
       )}
     </div>
   )

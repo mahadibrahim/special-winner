@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/schema";
 import { assessmentSnapshots } from "@/lib/db/schema/assessments";
 import { sports } from "@/lib/db/schema/sports";
+import { canAccessFamilyMember } from "@/lib/auth/family-access";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 // GET - Get development report for a family member
@@ -56,7 +57,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (familyMember.parentUserId !== user.id) {
+    const hasAccess = await canAccessFamilyMember(db, user.id, familyMemberId);
+    if (!hasAccess) {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
@@ -81,6 +83,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
         id: playerAssessments.id,
         level: playerAssessments.level,
         notes: playerAssessments.notes,
+        strengths: playerAssessments.strengths,
+        areasForImprovement: playerAssessments.areasForImprovement,
         assessedAt: playerAssessments.assessedAt,
         observationContext: playerAssessments.observationContext,
         skill: {
@@ -194,6 +198,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         domain: {
           id: domain.id,
           name: domain.name,
+          slug: domain.name,
           displayName: domain.displayName,
           description: domain.description,
         },
@@ -222,8 +227,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       id: a.id,
       skillName: a.skill.name,
       domainName: a.domain.name,
+      domainDisplayName: a.domain.displayName,
       level: a.level,
       notes: a.notes,
+      strengths: a.strengths ?? [],
+      areasForImprovement: a.areasForImprovement ?? [],
       coachName: `${a.coach.firstName} ${a.coach.lastName}`,
       assessedAt: a.assessedAt,
       context: a.observationContext,

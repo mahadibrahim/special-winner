@@ -14,6 +14,8 @@ export interface DomainRadarProps {
   max?: number
   /** SVG viewBox size in user units; scales to its container via CSS. */
   size?: number
+  /** First name of the athlete, used in the pre-three-domains empty state copy. */
+  childName?: string
   className?: string
 }
 
@@ -31,7 +33,7 @@ function pointsToPath(points: [number, number][]): string {
  * Pure SVG, no charting library. Geometry lives in
  * `src/lib/curriculum/radar-geometry.ts` (unit tested independently).
  */
-export default function DomainRadar({ axes, max = 5, size = 240, className }: DomainRadarProps) {
+export default function DomainRadar({ axes, max = 5, size = 240, childName, className }: DomainRadarProps) {
   // Sanitize all axis values early: non-finite → 0, out-of-range → clamp
   const sanitizedAxes = axes.map((a) => ({
     ...a,
@@ -44,8 +46,8 @@ export default function DomainRadar({ axes, max = 5, size = 240, className }: Do
   if (axes.length < MIN_AXES_WITH_DATA || axesWithData < MIN_AXES_WITH_DATA) {
     return (
       <EmptyState
-        title="No assessments yet"
-        description="Progress appears here after the first coach assessment."
+        title="Radar unlocks at three areas"
+        description={`The skills radar appears once ${childName || "your athlete"} has been assessed in at least three areas.`}
         icon={<Target className="w-10 h-10" />}
         className={className}
       />
@@ -173,6 +175,27 @@ export default function DomainRadar({ axes, max = 5, size = 240, className }: Do
           </li>
         ))}
       </ul>
+
+      {/* Legend — explains the solid/dashed polygons and the rings. */}
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3 text-xs text-ink-faint">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-0.5 bg-primary-orange" aria-hidden="true" />
+          Current
+        </span>
+        {hasPrevious && (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-3 h-0.5 border-t-2 border-dashed border-ink-faint"
+              aria-hidden="true"
+            />
+            Previous
+          </span>
+        )}
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full border border-ink-faint" aria-hidden="true" />
+          Rings = levels 1-5
+        </span>
+      </div>
     </div>
   )
 }

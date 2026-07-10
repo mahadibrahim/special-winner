@@ -7,6 +7,7 @@ import {
   familyMembers,
   rosters,
 } from "@/lib/db/schema";
+import { canAccessFamilyMember } from "@/lib/auth/family-access";
 import { eq, and, desc, sql, count } from "drizzle-orm";
 
 // Achievement definitions based on assessment levels and counts
@@ -169,7 +170,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .from(familyMembers)
       .where(eq(familyMembers.id, familyMemberId));
 
-    if (!familyMember || familyMember.parentUserId !== user.id) {
+    const hasAccess =
+      !!familyMember &&
+      (await canAccessFamilyMember(db, user.id, familyMemberId));
+    if (!hasAccess) {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },

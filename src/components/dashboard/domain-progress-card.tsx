@@ -30,6 +30,7 @@ interface DomainProgressData {
     id: string
     name: string
     slug: string
+    displayName: string
     description: string | null
   }
   averageLevel: number
@@ -108,7 +109,8 @@ function MiniSparkline({ data, colorClass }: { data: number[]; colorClass: strin
 
 function SkillRow({ skill, domainColor }: { skill: SkillProgress; domainColor: string }) {
   const TrendIcon = skill.trend > 0 ? TrendingUp : skill.trend < 0 ? TrendingDown : Minus
-  const trendColor = skill.trend > 0 ? "text-emerald-400" : skill.trend < 0 ? "text-red-400" : "text-ink-muted"
+  const trendColor = skill.trend > 0 ? "text-emerald-400" : skill.trend < 0 ? "text-amber-500" : "text-ink-muted"
+  const trendLabel = skill.trend < 0 ? "finding form" : undefined
 
   return (
     <div className="p-3 rounded-lg bg-paper border border-border hover:border-border transition-colors">
@@ -117,7 +119,11 @@ function SkillRow({ skill, domainColor }: { skill: SkillProgress; domainColor: s
           <div className="flex items-center gap-2 mb-1">
             <h5 className="text-sm font-medium text-ink truncate">{skill.skillName}</h5>
             {skill.trend !== 0 && (
-              <div className={cn("flex items-center gap-0.5", trendColor)}>
+              <div
+                className={cn("flex items-center gap-0.5", trendColor)}
+                title={trendLabel}
+                aria-label={trendLabel}
+              >
                 <TrendIcon className="w-3 h-3" />
                 <span className="text-[10px] font-medium">
                   {skill.trend > 0 ? `+${skill.trend}` : skill.trend}
@@ -164,7 +170,8 @@ export default function DomainProgressCard({
   const config = DOMAIN_CONFIG[data.domain.slug] || DOMAIN_CONFIG.technical
   const Icon = config.icon
   const TrendIcon = data.trend > 0 ? TrendingUp : data.trend < 0 ? TrendingDown : Minus
-  const trendColor = data.trend > 0 ? "text-emerald-400" : data.trend < 0 ? "text-red-400" : "text-ink-muted"
+  const trendColor = data.trend > 0 ? "text-emerald-400" : data.trend < 0 ? "text-amber-500" : "text-ink-muted"
+  const trendLabel = data.trend < 0 ? "finding form" : undefined
 
   const hasData = data.skillCount > 0
 
@@ -189,7 +196,7 @@ export default function DomainProgressCard({
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-ink">{data.domain.name}</h3>
+              <h3 className="font-semibold text-ink">{data.domain.displayName}</h3>
               {onToggle && (
                 <ChevronRight
                   className={cn(
@@ -207,7 +214,11 @@ export default function DomainProgressCard({
                     {data.averageLevel.toFixed(1)}
                   </span>
                   <span className="text-sm text-ink-muted">/ 5.0</span>
-                  <div className={cn("flex items-center gap-1", trendColor)}>
+                  <div
+                    className={cn("flex items-center gap-1", trendColor)}
+                    title={trendLabel}
+                    aria-label={trendLabel}
+                  >
                     <TrendIcon className="w-4 h-4" />
                     <span className="text-sm font-medium">
                       {data.trend > 0 ? `+${data.trend}` : data.trend === 0 ? "0" : data.trend}

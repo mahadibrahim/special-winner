@@ -33,6 +33,7 @@ import {
   Star,
   Lightbulb,
   TrendingUp,
+  Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -188,7 +189,12 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
       setSession(data.session)
 
       if (newStatus === "completed") {
-        setShowReflectionModal(true)
+        // Straight into Glows & Grows — that's the moment a coach is
+        // standing on the field with the roster in hand. The reflection
+        // modal is still reachable from the persistent "Add Reflection"
+        // button once they're back on this page.
+        window.location.href = `/coach/practices/${sessionId}/glows`
+        return
       }
     } catch (err) {
       console.error("Error updating status:", err)
@@ -337,6 +343,15 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
               >
                 <MessageSquare className="w-4 h-4" />
                 {reflection.postSessionReflection ? "Edit Reflection" : "Add Reflection"}
+              </Button>
+            )}
+
+            {session.status !== "draft" && session.status !== "cancelled" && (
+              <Button asChild variant="outline" className="gap-2">
+                <a href={`/coach/practices/${sessionId}/glows`}>
+                  <Sparkles className="w-4 h-4" />
+                  Glows & Grows
+                </a>
               </Button>
             )}
 
