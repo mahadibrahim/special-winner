@@ -17,6 +17,7 @@ import { users } from "./users";
 import { seasons } from "./programs";
 import { locations } from "./organizations";
 import { registrations, familyMembers } from "./registrations";
+import { sessionPlans } from "./practice-planning";
 
 // Enums
 export const rosterStatusEnum = pgEnum("roster_status", [
@@ -330,6 +331,9 @@ export const coachNotes = pgTable(
     title: varchar("title", { length: 255 }).notNull(),
     content: text("content").notNull(),
     visibleToParent: boolean("visible_to_parent").default(true).notNull(),
+    sessionPlanId: uuid("session_plan_id").references(() => sessionPlans.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -338,6 +342,7 @@ export const coachNotes = pgTable(
       table.familyMemberId,
       table.teamId,
     ),
+    index("coach_notes_session_plan_idx").on(table.sessionPlanId),
   ],
 );
 
