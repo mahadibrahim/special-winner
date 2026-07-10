@@ -276,6 +276,25 @@ export const sessionPlans = pgTable(
     objectives: jsonb("objectives").$type<string[]>(),
     equipmentNeeded: jsonb("equipment_needed").$type<string[]>(),
     preSessionNotes: text("pre_session_notes"),
+    // Program Blueprint (T9/T10 review fix): the EXACT practice_templates
+    // .structure array copied into `segments` at generation time
+    // (buildDraftSessionPlans, sequence-instantiation.ts) — the source of
+    // truth for adapted-detection (adapted.ts), immune to edits made to the
+    // live practice_templates row afterward. Nullable: sessions created
+    // before this column existed, or sessions never generated from a
+    // template, carry no snapshot. See delivery.ts for how a null snapshot
+    // on a completed session is handled (benefit-of-the-doubt "delivered",
+    // not a new status).
+    prescribedStructure: jsonb("prescribed_structure").$type<
+      {
+        name: string;
+        type: string;
+        durationMinutes: number;
+        description?: string;
+        activitySuggestions?: string[];
+        coachingScript?: string;
+      }[]
+    >(),
     // Post-session reflection
     postSessionReflection: text("post_session_reflection"),
     whatWorkedWell: text("what_worked_well"),

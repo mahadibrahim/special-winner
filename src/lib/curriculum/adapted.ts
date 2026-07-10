@@ -1,22 +1,37 @@
 /**
- * Adapted-state pure function (Program Blueprint T9). See "The coach seam"
+ * Adapted-state pure function (Program Blueprint T9; T9/T10 review fix
+ * revised the source of truth, mechanics unchanged). See "The coach seam"
  * in docs/superpowers/specs/2026-07-10-program-blueprint-design.md:
  *
  *   "Adapted state: computed, not coach-managed — a prescribed session
  *   whose segments differ from its template's structure counts as
  *   adapted. No new coach UI beyond the badge."
  *
- * No DB access — the callers (the delivery endpoint, today; distribution
- * safety later if ever needed) fetch the session's segments and the
- * template's current structure and pass them in, same pattern as
+ * --- Source of truth (read before touching this) ---
+ * The second argument is `session_plans.prescribedStructure` — the
+ * generation-time SNAPSHOT of the template's structure (copied verbatim by
+ * buildDraftSessionPlans, sequence-instantiation.ts), never the LIVE
+ * `practice_templates.structure` row. The original implementation compared
+ * against the live row, which meant editing a template after distribution
+ * retroactively flipped already-completed, unchanged sessions from
+ * "delivered" to "adapted" — a session that never changed shouldn't change
+ * status because someone edited an unrelated template later. Comparing
+ * against the immutable snapshot instead makes "adapted" mean what it's
+ * supposed to mean: THIS session's segments differ from what THIS session
+ * was actually generated to run.
+ *
+ * No DB access — callers (the delivery endpoint, today; distribution safety
+ * later if ever needed) fetch the session's segments and its own
+ * prescribedStructure snapshot and pass them in, same pattern as
  * sequence-instantiation.ts.
  *
  * --- Shape decision (read before touching the comparison) ---
  * `session_plans.segments` (practice-planning.ts) carries
  * `{ order, name, type, durationMinutes, activityId?, activityName?,
- * notes? }` per entry. `practice_templates.structure` (same file) carries
- * `{ name, type, durationMinutes, description?, activitySuggestions?,
- * coachingScript? }` per entry.
+ * notes? }` per entry. `session_plans.prescribedStructure` (same file,
+ * shape matches `practice_templates.structure` at the moment it was copied)
+ * carries `{ name, type, durationMinutes, description?,
+ * activitySuggestions?, coachingScript? }` per entry.
  *
  * Two things fall out of comparing those shapes honestly:
  *
@@ -65,23 +80,25 @@ export interface AdaptedSessionSegment {
   activityId?: string | null;
 }
 
-export interface AdaptedTemplateSegment {
+/** Shape of session_plans.prescribedStructure — the generation-time
+ * snapshot, not a live template read. See module docstring. */
+export interface AdaptedPrescribedSegment {
   name: string;
   durationMinutes: number;
 }
 
 export function isAdapted(
   sessionSegments: AdaptedSessionSegment[] | null | undefined,
-  templateStructure: AdaptedTemplateSegment[] | null | undefined,
+  prescribedStructure: AdaptedPrescribedSegment[] | null | undefined,
 ): boolean {
   const session = [...(sessionSegments ?? [])].sort((a, b) => a.order - b.order);
-  const template = templateStructure ?? [];
+  const prescribed = prescribedStructure ?? [];
 
-  if (session.length !== template.length) return true;
+  if (session.length !== prescribed.length) return true;
 
   for (let i = 0; i < session.length; i++) {
-    if (session[i].durationMinutes !== template[i].durationMinutes) return true;
-    if (session[i].activityId) return true; // template positions never carry one
+    if (session[i].durationMinutes !== prescribed[i].durationMinutes) return true;
+    if (session[i].activityId) return true; // prescribed positions never carry one
   }
 
   return false;

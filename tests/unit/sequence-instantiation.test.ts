@@ -168,6 +168,11 @@ describe("buildDraftSessionPlans", () => {
       { order: 2, name: "Main game", type: "technical", durationMinutes: 40 },
       { order: 3, name: "Cooldown", type: "cooldown", durationMinutes: 10 },
     ]);
+    // Program Blueprint (T9/T10 review fix): prescribedStructure is the
+    // template's structure copied VERBATIM (including fields segments strip,
+    // like `description`) — the generation-time snapshot delivery.ts compares
+    // completed sessions against, immune to later edits to the live template.
+    expect(first.prescribedStructure).toEqual(templateA.structure);
   });
 
   it("stops at the number of dates when fewer dates than entries (season-end truncation)", () => {
@@ -192,6 +197,7 @@ describe("buildDraftSessionPlans", () => {
     });
     expect(plans[0].segments).toEqual([]);
     expect(plans[0].durationMinutes).toBe(45);
+    expect(plans[0].prescribedStructure).toBeNull();
   });
 
   it("throws when an entry references a template not in the map", () => {

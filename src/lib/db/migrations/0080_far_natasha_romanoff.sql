@@ -1,0 +1,20 @@
+-- Idempotent (0023/0024/0059/0073/0075/0076/0077/0078/0079 convention).
+-- Program Blueprint T9/T10 review fix: snapshots the exact
+-- practice_templates.structure copied into a session's segments at
+-- generation time (buildDraftSessionPlans, sequence-instantiation.ts), so
+-- adapted-detection (adapted.ts) compares a completed session against ITS
+-- OWN generation-time record instead of the live, editable template row --
+-- previously, editing a template after distribution could retroactively
+-- flip an already-delivered session to "adapted" even though nothing about
+-- that session changed.
+--
+-- Backfill note: every prescribed session that existed before this
+-- migration (staging fixtures, any prod distributions run before this
+-- ships) gets NULL here -- there is no historical record of what the
+-- template looked like at THEIR generation time to backfill from. The
+-- delivery endpoint (src/pages/api/admin/blueprint/[seasonId]/delivery.ts)
+-- treats a NULL snapshot on a completed session as "delivered" (benefit of
+-- the doubt -- we can't prove it was adapted, so we don't guess), not a new
+-- status and not a skipped/unknown row. New distributions from this point
+-- forward always populate it.
+ALTER TABLE "session_plans" ADD COLUMN IF NOT EXISTS "prescribed_structure" jsonb;

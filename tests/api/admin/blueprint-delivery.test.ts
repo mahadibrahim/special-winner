@@ -1,14 +1,19 @@
 /**
- * Delivery visibility strip (Program Blueprint T10). See "Delivery
- * visibility" in docs/superpowers/specs/2026-07-10-program-blueprint-design.md
- * and the endpoint's own docstring
- * (src/pages/api/admin/blueprint/[seasonId]/delivery.ts) for the
- * slot->session mapping assumption this suite exercises.
+ * Delivery visibility strip (Program Blueprint T10; T9/T10 review fix). See
+ * "Delivery visibility" in
+ * docs/superpowers/specs/2026-07-10-program-blueprint-design.md and the
+ * endpoint's own docstring (src/pages/api/admin/blueprint/[seasonId]/delivery.ts)
+ * for the session-keyed row model and the two flaws it replaced (adapted
+ * detection reading the LIVE template row; slot<->session mapping keyed on
+ * the CURRENT entry order) that this suite exercises.
  *
  * Distributes a 2-entry sequence to one coached team, then walks it
- * through: both slots "scheduled" right after distribution -> complete
- * the first session unchanged ("delivered") -> edit the second session's
- * segments then complete it ("adapted"). Also covers tenancy (parent
+ * through: both rows "scheduled" right after distribution -> complete the
+ * first session unchanged ("delivered") -> edit the second session's
+ * segments then complete it ("adapted") -> (f) edit the FIRST session's
+ * template afterward and confirm the "delivered" row is immune (snapshot,
+ * not a live read) -> (g) reorder the arc's entries and confirm the rows
+ * are unaffected while `arcDrift` flips true. Also covers tenancy (parent
  * 403s, cross-org season 404s).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -213,11 +218,12 @@ describe("Blueprint delivery — GET /api/admin/blueprint/[seasonId]/delivery", 
       }),
       200,
     );
-    expect(json.slots).toEqual([]);
+    expect(json.rows).toEqual([]);
     expect(json.hasDistributed).toBe(false);
+    expect(json.arcDrift).toBe(false);
   });
 
-  it("(a) both slots read 'scheduled' immediately after distribution", async (ctx) => {
+  it("(a) both rows read 'scheduled' immediately after distribution", async (ctx) => {
     if (!sequenceId) {
       ctx.skip();
       return;
@@ -240,14 +246,15 @@ describe("Blueprint delivery — GET /api/admin/blueprint/[seasonId]/delivery", 
       200,
     );
     expect(json.hasDistributed).toBe(true);
-    expect(json.slots).toHaveLength(2);
-    const [slot1, slot2] = [...json.slots].sort((a: any, b: any) => a.order - b.order);
-    expect(slot1.groups).toHaveLength(1);
-    expect(slot1.groups[0].teamId).toBe(teamId);
-    expect(slot1.groups[0].status).toBe("scheduled");
-    expect(slot2.groups[0].status).toBe("scheduled");
-    expect(slot1.deliveredCount).toBe(0);
-    expect(slot1.totalGroups).toBe(1);
+    expect(json.arcDrift).toBe(false);
+    expect(json.rows).toHaveLength(2);
+    const [row1, row2] = [...json.rows].sort((a: any, b: any) => a.order - b.order);
+    expect(row1.groups).toHaveLength(1);
+    expect(row1.groups[0].teamId).toBe(teamId);
+    expect(row1.groups[0].status).toBe("scheduled");
+    expect(row2.groups[0].status).toBe("scheduled");
+    expect(row1.deliveredCount).toBe(0);
+    expect(row1.totalGroups).toBe(1);
   });
 
   it("(b) completing the first session unchanged reads 'delivered'", async (ctx) => {
@@ -285,9 +292,9 @@ describe("Blueprint delivery — GET /api/admin/blueprint/[seasonId]/delivery", 
       }),
       200,
     );
-    const slot1 = json.slots.find((s: any) => s.order === 1);
-    expect(slot1.groups[0].status).toBe("delivered");
-    expect(slot1.deliveredCount).toBe(1);
+    const row1 = json.rows.find((r: any) => r.order === 1);
+    expect(row1.groups[0].status).toBe("delivered");
+    expect(row1.deliveredCount).toBe(1);
   });
 
   it("(c) editing the second session's segments then completing it reads 'adapted'", async (ctx) => {
@@ -345,11 +352,80 @@ describe("Blueprint delivery — GET /api/admin/blueprint/[seasonId]/delivery", 
       }),
       200,
     );
-    const slot2 = json.slots.find((s: any) => s.order === 2);
-    expect(slot2.groups[0].status).toBe("adapted");
+    const row2 = json.rows.find((r: any) => r.order === 2);
+    expect(row2.groups[0].status).toBe("adapted");
     // Adapted still counts toward "delivered to N of M" -- it ran, just
     // not exactly as planned.
-    expect(slot2.deliveredCount).toBe(1);
+    expect(row2.deliveredCount).toBe(1);
+  });
+
+  it("(f) editing the template's structure afterward doesn't retroactively un-deliver a completed session (snapshot immunity)", async (ctx) => {
+    if (!sequenceId || !templateAId) {
+      ctx.skip();
+      return;
+    }
+
+    // Row 1's session (templateA, "Warmup" 20 min) was completed unchanged
+    // in test (b) and read "delivered". If adapted-detection compared
+    // against the LIVE template row (the T9/T10 review bug), editing the
+    // template's structure now would flip that historical row to "adapted"
+    // even though the session itself never changed.
+    await expectJson(
+      await apiFetch(`/api/admin/curriculum/templates/${templateAId}`, {
+        method: "PUT",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          structure: [{ name: "Warmup", type: "warmup", durationMinutes: 999 }],
+        }),
+      }),
+      200,
+    );
+
+    const json = await expectJson(
+      await apiFetch(`/api/admin/blueprint/${seasonId}/delivery`, {
+        method: "GET",
+        cookie: adminCookie,
+      }),
+      200,
+    );
+    const row1 = json.rows.find((r: any) => r.order === 1);
+    expect(row1.groups[0].status).toBe("delivered");
+    expect(row1.deliveredCount).toBe(1);
+  });
+
+  it("(g) reordering the arc's entries after distribution leaves delivery rows unchanged and sets arcDrift true", async (ctx) => {
+    if (!sequenceId || !templateAId || !templateBId) {
+      ctx.skip();
+      return;
+    }
+
+    // Swap the two entries' order -- templateB now comes first in the arc,
+    // even though the team's actual session history (row 1 = templateA,
+    // row 2 = templateB) can't and shouldn't change retroactively.
+    await expectJson(
+      await apiFetch(`${SEQUENCES_ENDPOINT}/${sequenceId}/entries`, {
+        method: "PUT",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          entries: [{ templateId: templateBId }, { templateId: templateAId }],
+        }),
+      }),
+      200,
+    );
+
+    const json = await expectJson(
+      await apiFetch(`/api/admin/blueprint/${seasonId}/delivery`, {
+        method: "GET",
+        cookie: adminCookie,
+      }),
+      200,
+    );
+    expect(json.arcDrift).toBe(true);
+    const [row1, row2] = [...json.rows].sort((a: any, b: any) => a.order - b.order);
+    // Unchanged from before the reorder -- rows are keyed on each team's own
+    // chronological session history, never the current entry order.
+    expect(row1.groups[0].status).toBe("delivered");
+    expect(row2.groups[0].status).toBe("adapted");
   });
 
   it("(d) 403s a parent-role caller", async (ctx) => {

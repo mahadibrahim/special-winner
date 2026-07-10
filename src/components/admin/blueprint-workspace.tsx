@@ -166,22 +166,27 @@ interface AttachResult {
   truncatedBySeasonEnd: boolean
 }
 
-// --- Delivery visibility (Task 10) ---
+// --- Delivery visibility (Task 10; T9/T10 review fix) ---
 // Shape mirrors GET .../blueprint/[seasonId]/delivery exactly (see that
-// endpoint's docstring) — nothing re-derived client-side.
-type DeliveryStatus = "delivered" | "adapted" | "scheduled" | "cancelled" | "none"
+// endpoint's docstring) — nothing re-derived client-side. Rows are keyed on
+// each team's OWN chronological session order, not the arc's current
+// sequence-entry order, so an admin reordering/replacing/removing arc
+// entries after distribution can never mislabel a historical delivery row
+// (see the endpoint's docstring for why that used to happen). `arcDrift`
+// tells the director when the current arc no longer lines up with what was
+// actually distributed, without implying the rows themselves are wrong.
+type DeliveryStatus = "delivered" | "adapted" | "scheduled" | "cancelled"
 
 interface DeliveryGroup {
   teamId: string
   groupLabel: string
   status: DeliveryStatus
-  sessionId: string | null
+  sessionId: string
+  sessionTitle: string
 }
 
-interface DeliverySlot {
-  entryId: string
+interface DeliveryRow {
   order: number
-  templateTitle: string
   groups: DeliveryGroup[]
   deliveredCount: number
   totalGroups: number
@@ -189,8 +194,9 @@ interface DeliverySlot {
 
 interface DeliveryResponse {
   noun: string
-  slots: DeliverySlot[]
+  rows: DeliveryRow[]
   hasDistributed: boolean
+  arcDrift: boolean
 }
 
 const DELIVERY_MARKER: Record<
@@ -211,11 +217,6 @@ const DELIVERY_MARKER: Record<
     symbol: "○",
     className: "text-ink-faint",
     describe: (g) => `${g} — scheduled, hasn't run yet`,
-  },
-  none: {
-    symbol: "○",
-    className: "text-ink-faint/50",
-    describe: (g) => `${g} — not distributed yet`,
   },
   cancelled: {
     symbol: "–",
@@ -859,6 +860,9 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
                 Distribute to see delivery.
               </p>
             )}
+            {showDelivery && !deliveryLoading && delivery?.hasDistributed && (
+              <DeliveryStrip delivery={delivery} unit={unit} noun={data.noun} />
+            )}
             <div className="space-y-3" data-testid="blueprint-arc">
               {Array.from({ length: arcLength }).map((_, i) => {
                 const slot = orderedSlots[i]
@@ -1026,15 +1030,6 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
                         onSelect={(templateId) => replaceSlot(i, templateId)}
                       />
                     </div>
-
-                    {showDelivery && delivery?.hasDistributed && (
-                      <DeliveryStrip
-                        deliverySlot={delivery.slots.find((s) => s.entryId === slot.entryId) ?? null}
-                        unit={unit}
-                        order={i + 1}
-                        noun={data.noun}
-                      />
-                    )}
                   </div>
                 )
               })}
@@ -1467,53 +1462,66 @@ function DistributeResultsView({
   )
 }
 
-// Per-slot delivery coverage strip (Task 10). Read-only — framed as
-// curriculum coverage, not coach surveillance (spec: "Week 3 delivered to
-// 2 of 3 classes", not a scorecard). `deliverySlot` is null when this slot
-// (sequence entry) has no matching delivery data yet — e.g. it was added
-// to the arc after the last distribution and has never itself gone out;
-// rendered as a quiet "not yet distributed" note rather than fabricating
-// per-group markers with nothing to back them.
+// Delivery coverage strip (Task 10; T9/T10 review fix). Read-only — framed
+// as curriculum coverage, not coach surveillance (spec: "Week 3 delivered to
+// 2 of 3 classes", not a scorecard). Renders as a STANDALONE list keyed on
+// each row's own chronological `order`, not nested per arc slot — the
+// review fix decoupled delivery entirely from the current arc's sequence
+// entries (see delivery.ts's docstring), so there is no longer a stable
+// "this row belongs under this slot" relationship to render against. A row
+// only lists the teams that have actually reached that chronological
+// position; `totalGroups` is scoped to those teams, not the season's full
+// coached roster (see the endpoint docstring for why).
 function DeliveryStrip({
-  deliverySlot,
+  delivery,
   unit,
-  order,
   noun,
 }: {
-  deliverySlot: DeliverySlot | null
+  delivery: DeliveryResponse
   unit: string
-  order: number
   noun: string
 }) {
-  if (!deliverySlot || deliverySlot.totalGroups === 0) {
+  if (delivery.rows.length === 0) {
     return (
-      <p className="text-xs text-ink-muted pt-1" data-testid="delivery-strip-empty">
-        {unit} {order} hasn&apos;t been distributed yet.
+      <p className="text-xs text-ink-muted" data-testid="delivery-strip-empty">
+        No sessions have been generated for this arc yet.
       </p>
     )
   }
   return (
-    <div className="pt-1 space-y-1" data-testid="delivery-strip">
-      <p className="text-xs text-ink-muted">
-        {unit} {order} delivered to {deliverySlot.deliveredCount} of {deliverySlot.totalGroups}{" "}
-        {pluralizeNoun(noun, deliverySlot.totalGroups)}
-      </p>
-      <div className="flex flex-wrap gap-1.5">
-        {deliverySlot.groups.map((g) => {
-          const marker = DELIVERY_MARKER[g.status]
-          return (
-            <span
-              key={g.teamId}
-              title={marker.describe(g.groupLabel)}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded-full border border-border text-xs font-medium ${marker.className}`}
-              data-testid="delivery-marker"
-              data-status={g.status}
-            >
-              {marker.symbol}
-            </span>
-          )
-        })}
-      </div>
+    <div className="space-y-2 rounded-lg border border-border p-3" data-testid="delivery-strip">
+      {delivery.arcDrift && (
+        <p
+          className="text-xs text-ochre rounded-md border border-ochre/40 bg-ochre/10 px-2 py-1.5"
+          data-testid="delivery-arc-drift-notice"
+        >
+          The plan changed since distribution — showing sessions in schedule order.
+        </p>
+      )}
+      {delivery.rows.map((r) => (
+        <div key={r.order} data-testid="delivery-row">
+          <p className="text-xs text-ink-muted">
+            {unit} {r.order} delivered to {r.deliveredCount} of {r.totalGroups}{" "}
+            {pluralizeNoun(noun, r.totalGroups)}
+          </p>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {r.groups.map((g) => {
+              const marker = DELIVERY_MARKER[g.status]
+              return (
+                <span
+                  key={g.teamId}
+                  title={marker.describe(g.groupLabel)}
+                  className={`inline-flex items-center justify-center w-6 h-6 rounded-full border border-border text-xs font-medium ${marker.className}`}
+                  data-testid="delivery-marker"
+                  data-status={g.status}
+                >
+                  {marker.symbol}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

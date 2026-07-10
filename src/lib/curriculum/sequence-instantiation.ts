@@ -171,6 +171,14 @@ export interface DraftSessionPlan {
   equipmentNeeded: string[] | null;
   preSessionNotes: string | null;
   sequenceAttachmentId: string | null;
+  // Program Blueprint (T9/T10 review fix): the exact template.structure
+  // this session was generated from, copied verbatim — not re-derived from
+  // `segments` above, which strips `activitySuggestions`/`coachingScript`
+  // and only carries what a session needs. This is what adapted-detection
+  // (adapted.ts) compares completed sessions against, so a later edit to
+  // the LIVE template row can never retroactively relabel history. Null
+  // only when the template itself has no structure at generation time.
+  prescribedStructure: TemplateSegment[] | null;
 }
 
 export function buildDraftSessionPlans(
@@ -210,6 +218,7 @@ export function buildDraftSessionPlans(
       equipmentNeeded: template.equipmentNeeded,
       preSessionNotes: entry.notes,
       sequenceAttachmentId: input.sequenceAttachmentId ?? null,
+      prescribedStructure: template.structure ?? null,
     });
   }
   return plans;

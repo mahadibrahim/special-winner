@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { isAdapted } from "@/lib/curriculum/adapted";
 
+// Below, every local `template` variable stands in for a session's
+// `prescribedStructure` — the generation-time snapshot, never a live
+// template read (see adapted.ts's module docstring, T9/T10 review fix).
+// The variable name is kept short for readability; the mechanics under
+// test are unchanged by the source-of-truth rename.
 describe("isAdapted", () => {
   it("returns false for a freshly-generated session identical to its template", () => {
     const template = [
