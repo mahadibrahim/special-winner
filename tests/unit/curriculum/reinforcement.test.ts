@@ -58,8 +58,8 @@ function assertGrowShape(grow: string, context: string) {
 const SPORTS_TO_TEST: { sport: string; todo?: boolean }[] = [
   { sport: "soccer" },
   { sport: "basketball" },
-  { sport: "hockey", todo: true },
-  { sport: "baseball", todo: true },
+  { sport: "hockey" },
+  { sport: "baseball" },
 ];
 
 describe("SKILL_REINFORCEMENT coverage", () => {
@@ -95,9 +95,6 @@ describe("SKILL_REINFORCEMENT coverage", () => {
       }
     },
   );
-
-  it.todo("hockey: every skill has a glow and a grow (Task 4)");
-  it.todo("baseball: every skill has a glow and a grow (Task 4)");
 
   it("no returned string (any authored skill or universal chip) leaks any curriculum skill slug", () => {
     const allSlugs = CURRICULUM_CONTENT.skills.map((s) => s.slug.toLowerCase());
@@ -152,18 +149,18 @@ describe("getSkillGlow / getSkillGrow", () => {
     expect(getSkillGrow("not-a-real-skill-slug")).toBeNull();
   });
 
-  it("returns null for hockey/baseball slugs (not authored until Task 4)", () => {
+  it("returns authored glows/grows for hockey/baseball slugs", () => {
     const hockeySkill = CURRICULUM_CONTENT.skills.find((s) => s.sport === "hockey");
     const baseballSkill = CURRICULUM_CONTENT.skills.find((s) => s.sport === "baseball");
     expect(hockeySkill).toBeDefined();
     expect(baseballSkill).toBeDefined();
     if (hockeySkill) {
-      expect(getSkillGlow(hockeySkill.slug)).toBeNull();
-      expect(getSkillGrow(hockeySkill.slug)).toBeNull();
+      expect(getSkillGlow(hockeySkill.slug)).not.toBeNull();
+      expect(getSkillGrow(hockeySkill.slug)).not.toBeNull();
     }
     if (baseballSkill) {
-      expect(getSkillGlow(baseballSkill.slug)).toBeNull();
-      expect(getSkillGrow(baseballSkill.slug)).toBeNull();
+      expect(getSkillGlow(baseballSkill.slug)).not.toBeNull();
+      expect(getSkillGrow(baseballSkill.slug)).not.toBeNull();
     }
   });
 });

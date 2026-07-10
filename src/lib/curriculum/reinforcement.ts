@@ -8,9 +8,7 @@
 // See docs/superpowers/specs/2026-07-09-glows-and-grows-design.md for the
 // product design this backs.
 //
-// Hockey and baseball skill coverage lands in a follow-up task; until then
-// getSkillGlow/getSkillGrow return null for those sports' slugs and
-// getSessionChips falls back to the universal glows.
+// Covers all four sports: soccer, basketball, hockey, and baseball.
 
 /**
  * ~8 sport-agnostic praise chips, always available regardless of which
@@ -21,7 +19,7 @@
 export const UNIVERSAL_GLOWS: string[] = [
   "Great effort today",
   "Kind teammate",
-  "Brave and tried new things",
+  "Brave today",
   "Great listening",
   "Never gave up",
   "Helped a teammate",
@@ -232,7 +230,7 @@ const SKILL_REINFORCEMENT: Record<string, SkillReinforcement> = {
   },
   coordination: {
     glow: "Moved with great control and balance",
-    grow: "Working on catching the ball with both hands",
+    grow: "Working on staying relaxed while they move",
   },
   "confidence-basketball": {
     glow: "Fearless taking on new challenges",
@@ -245,6 +243,110 @@ const SKILL_REINFORCEMENT: Record<string, SkillReinforcement> = {
   "team-communication": {
     glow: "Loud, positive communication",
     grow: "Working on calling out screens and switches",
+  },
+
+  // ---- Hockey ----
+  "skating-forward": {
+    glow: "Strong push and glide on every stride",
+    grow: "Working on keeping their head up while skating",
+  },
+  "skating-backward": {
+    glow: "Powerful C-cuts on every stride",
+    grow: "Working on staying low when skating backward",
+  },
+  "puck-control": {
+    glow: "Soft, sure hands on the puck",
+    grow: "Working on keeping their head up while handling the puck",
+  },
+  "passing-hockey": {
+    glow: "Crisp, accurate passes tape to tape",
+    grow: "Working on sweeping through the puck when passing",
+  },
+  "shooting-wrist": {
+    glow: "Quick release and picks their spot",
+    grow: "Working on shifting their weight into the shot",
+  },
+  "positioning-hockey": {
+    glow: "Always in great position for the play",
+    grow: "Working on staying in their own area",
+  },
+  "defensive-play": {
+    glow: "Tough, hard-working defender",
+    grow: "Working on staying between their player and the net",
+  },
+  "transition-breakout": {
+    glow: "Quick to get open after every turnover",
+    grow: "Working on moving to their spot right away",
+  },
+  "edge-work-balance": {
+    glow: "Sharp turns and rock-solid balance",
+    grow: "Working on staying low through every turn",
+  },
+  "speed-acceleration": {
+    glow: "Explosive first few strides",
+    grow: "Working on taking longer strides when speeding up",
+  },
+  "confidence-hockey": {
+    glow: "Fearless going after every puck",
+    grow: "Working on bouncing back quickly after a mistake",
+  },
+  "hockey-iq": {
+    glow: "Smart, heads-up decisions all game",
+    grow: "Working on spotting open teammates sooner",
+  },
+  competitiveness: {
+    glow: "Battles hard for every puck",
+    grow: "Working on competing hard for the whole game",
+  },
+
+  // ---- Baseball ----
+  "throwing-mechanics": {
+    glow: "Strong arm action with a full follow-through",
+    grow: "Working on rotating their hips before throwing",
+  },
+  "catching-baseball": {
+    glow: "Sure two-handed catches every time",
+    grow: "Working on bringing both hands to every catch",
+  },
+  "base-running": {
+    glow: "Runs hard and straight through first base",
+    grow: "Working on running through first base at full speed",
+  },
+  "hitting-off-tee": {
+    glow: "Level, powerful swing off the tee",
+    grow: "Working on keeping their swing level, not chopping",
+  },
+  "fielding-ground-balls": {
+    glow: "Gets low and fields with two hands",
+    grow: "Working on staying low and moving their feet to the ball",
+  },
+  "field-positioning-baseball": {
+    glow: "Always in the right spot on defense",
+    grow: "Working on returning to their spot after every play",
+  },
+  "situational-awareness-baseball": {
+    glow: "Always knows the outs and the play",
+    grow: "Working on keeping track of how many outs there are",
+  },
+  "speed-agility-baseball": {
+    glow: "Explosive first step and quick feet",
+    grow: "Working on reacting quickly off the first step",
+  },
+  "hand-eye-coordination-baseball": {
+    glow: "Tracks the ball all the way in",
+    grow: "Working on watching the ball all the way to their hands",
+  },
+  "confidence-baseball": {
+    glow: "Steps up to bat and field without fear",
+    grow: "Working on trying again right after a miss",
+  },
+  "focus-at-bat": {
+    glow: "Locked in and focused at the plate",
+    grow: "Working on letting go of the last pitch and resetting",
+  },
+  "resilience-baseball": {
+    glow: "Bounces right back after every mistake",
+    grow: "Working on getting back to ready after a mistake",
   },
 };
 
