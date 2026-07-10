@@ -24,6 +24,17 @@ import {
 } from "@/lib/curriculum/sequence-instantiation";
 import { evaluateAttachSafety } from "@/lib/curriculum/distribution-safety";
 
+/**
+ * Sentinel thrown INSIDE the anchoring transaction (see POST docstring)
+ * when the arbiter index (migration 0078) reports zero inserted rows for
+ * a team whose plan had fresh work — i.e. a concurrent request already
+ * distributed every one of this team's (template, date) pairs between our
+ * pre-check read and our insert. Never escapes the transaction as a 500:
+ * caught in the handler and turned into an honest 200 "another distribution
+ * just covered this" response with no attachment row left behind.
+ */
+class DistributionRaceLostError extends Error {}
+
 const attachSchema = z.object({
   seasonId: z.string().uuid(),
   weekday: z.number().int().min(0).max(6), // 0=Sunday … 6=Saturday
@@ -46,14 +57,27 @@ const attachSchema = z.object({
  * plan (every coached team's missing dates) is computed BEFORE any write:
  * if nothing is missing anywhere, we return without creating an attachment
  * row at all (no empty lineage rows from idempotent re-POSTs). Otherwise
- * the attachment row and the FIRST team's sessions are inserted in ONE
- * transaction — so a crash or failure between "attachment exists" and "at
- * least one session references it" is impossible, and there is no
- * insert-then-delete cleanup path to get wrong. Teams 2..n each get their
- * own transaction after that (per-group isolation: one team's insert
- * failure is reported in its `results` row and does not block the others
- * or roll back the attachment, which by then already has lineage from
- * team 1).
+ * the attachment row and the FIRST team WITH FRESH WORK's sessions are
+ * inserted in ONE transaction — "first with fresh work", not simply
+ * `teamPlans[0]` (oldest team by createdAt): an oldest team whose season
+ * slot is already fully distributed has nothing to insert, and anchoring
+ * on it would risk the transaction inserting zero rows for reasons that
+ * have nothing to do with a race. This guarantees the anchoring
+ * transaction always attempts at least one session insert, so a crash or
+ * failure between "attachment exists" and "at least one session
+ * references it" is impossible, and there is no insert-then-delete
+ * cleanup path to get wrong. If that insert's arbiter
+ * (onConflictDoNothing, migration 0078) still reports zero rows despite
+ * the anchor team having fresh work, a concurrent request beat us to
+ * every one of its (team, template, date) pairs — a sentinel
+ * (`DistributionRaceLostError`) is thrown INSIDE the transaction so the
+ * attachment row rolls back too, and the handler returns 200 with
+ * `raceLost: true` and zero writes rather than a phantom empty attachment
+ * row. The remaining plans (including any with no fresh work, which no-op
+ * harmlessly) each get their own transaction after that (per-group
+ * isolation: one team's insert failure is reported in its `results` row
+ * and does not block the others or roll back the attachment, which by
+ * then already has lineage from the anchor team).
  *
  * Idempotent by design: existing (team, template, scheduledDate) triples are
  * skipped, so re-running after adding a team generates only that team's
@@ -171,9 +195,10 @@ export const POST: APIRoute = async (context) => {
       season.endDate, // date column → "YYYY-MM-DD" string
     );
 
-    // Deterministic order so "the first team" (the one paired with the
-    // attachment insert in a single transaction, below) is stable across
-    // runs rather than whatever order Postgres happens to return.
+    // Deterministic order so "the anchor team" (the first with fresh work,
+    // paired with the attachment insert in a single transaction, below) is
+    // stable across runs rather than whatever order Postgres happens to
+    // return.
     const seasonTeams = await db
       .select({ id: teams.id, coachUserId: teams.coachUserId })
       .from(teams)
@@ -266,9 +291,17 @@ export const POST: APIRoute = async (context) => {
         });
       }
     } else {
-      const [firstPlan, ...restPlans] = teamPlans;
+      // Anchor on the FIRST team with fresh work, not teamPlans[0] (oldest
+      // by createdAt) -- an oldest team whose slot is already fully
+      // distributed has nothing to insert, and pairing the anchoring
+      // transaction with a no-op team would leave it with zero attempted
+      // writes for reasons unrelated to a race. totalFresh > 0 guarantees
+      // at least one plan qualifies.
+      const firstFreshIndex = teamPlans.findIndex((p) => p.fresh.length > 0);
+      const firstPlan = teamPlans[firstFreshIndex];
+      const restPlans = teamPlans.filter((_, i) => i !== firstFreshIndex);
 
-      // Attachment row + first team's sessions in ONE transaction: if the
+      // Attachment row + anchor team's sessions in ONE transaction: if the
       // insert fails, both roll back together, so an attachment row can
       // never exist without at least one attempted write against it.
       try {
@@ -282,39 +315,57 @@ export const POST: APIRoute = async (context) => {
             })
             .returning({ id: sequenceAttachments.id });
 
-          if (firstPlan.fresh.length > 0) {
-            const rows = firstPlan.fresh.map((d) => ({
-              ...d,
-              sequenceAttachmentId: attachment.id,
-            }));
-            const inserted = await tx
-              .insert(sessionPlans)
-              .values(rows)
-              .onConflictDoNothing(prescribedDedupeTarget)
-              .returning({ id: sessionPlans.id });
-            results.push({
-              teamId: firstPlan.team.id,
-              created: inserted.length,
-              skippedExisting: firstPlan.drafts.length - inserted.length,
-            });
-          } else {
-            results.push({
-              teamId: firstPlan.team.id,
-              created: 0,
-              skippedExisting: firstPlan.drafts.length,
-            });
+          const rows = firstPlan.fresh.map((d) => ({
+            ...d,
+            sequenceAttachmentId: attachment.id,
+          }));
+          const inserted = await tx
+            .insert(sessionPlans)
+            .values(rows)
+            .onConflictDoNothing(prescribedDedupeTarget)
+            .returning({ id: sessionPlans.id });
+
+          if (inserted.length === 0) {
+            // firstPlan.fresh.length > 0 by construction, so zero inserted
+            // rows here means a concurrent request already won every one
+            // of the anchor team's (template, date) pairs between our
+            // pre-check read and this insert. Throwing inside the tx rolls
+            // the attachment row back too -- no phantom empty attachment.
+            throw new DistributionRaceLostError();
           }
+
+          results.push({
+            teamId: firstPlan.team.id,
+            created: inserted.length,
+            skippedExisting: firstPlan.drafts.length - inserted.length,
+          });
           return attachment.id;
         });
       } catch (error) {
+        if (error instanceof DistributionRaceLostError) {
+          // Honest "another distribution just covered this" response:
+          // zero writes, no attachment row, nothing to report per team.
+          // Teams 2..n never ran in this path -- the winner owns those
+          // pairs too and their inserts would conflict-skip anyway.
+          return new Response(
+            JSON.stringify({
+              results: teamPlans.map((p) => ({ teamId: p.team.id, created: 0 })),
+              attachmentId: null,
+              raceLost: true,
+              teamsWithoutCoach,
+              truncatedBySeasonEnd,
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
         console.error(
           `Error generating sessions for team ${firstPlan.team.id}:`,
           error,
         );
-        // Team 1 shares a transaction with the attachment insert -- both
-        // rolled back together. There is no valid attachment row left to
-        // anchor teams 2..n, so the whole run fails rather than silently
-        // skipping the anchor.
+        // The anchor team shares a transaction with the attachment insert
+        // -- both rolled back together. There is no valid attachment row
+        // left to anchor the remaining teams, so the whole run fails
+        // rather than silently skipping the anchor.
         return new Response(
           JSON.stringify({ error: "Failed to attach sequence" }),
           { status: 500 },

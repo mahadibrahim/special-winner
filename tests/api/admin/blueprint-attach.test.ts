@@ -18,9 +18,15 @@
  * preview.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq, asc, and, sql } from "drizzle-orm";
+import { eq, asc, and, sql, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { skills, skillDomains, sequenceAttachments, sessionPlans } from "@/lib/db/schema";
+import {
+  skills,
+  skillDomains,
+  sequenceAttachments,
+  sessionPlans,
+  teams,
+} from "@/lib/db/schema";
 import { groupNoun } from "@/lib/programs/group-noun";
 import {
   apiFetch,
@@ -687,6 +693,172 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
         .from(sessionPlans)
         .where(eq(sessionPlans.teamId, safeTeamId));
       expect(after.length).toBe(before.length);
+    });
+  });
+
+  describe("Fix A — anchors on the first team WITH fresh work, not the oldest team", () => {
+    it("(i) re-POST after adding a coached team anchors the new attachment on the new team's sessions, never a zero-session row", async () => {
+      if (!safeSequenceId) return; // runtime skip: no development_stages seeded
+
+      // Fresh season + team A (created first via the API, so it is the
+      // OLDEST team by createdAt) -- fully distribute it so its `fresh`
+      // array is empty on the next POST. Pre-fix, `teamPlans[0]` (team A)
+      // would still be picked as the anchor even though it has nothing to
+      // insert.
+      const fixASeasonJson = await expectJson(
+        await apiFetch("/api/admin/seasons", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            programId,
+            name: "Distribution Fix-A Season",
+            slug: testSlug("dist-fixa-season"),
+            startDate: "2026-09-01",
+            endDate: "2026-12-15",
+            priceCents: 15000,
+            status: "draft",
+            minAge: 12,
+            maxAge: 14,
+          }),
+        }),
+        201,
+      );
+      const fixASeasonId = fixASeasonJson.season.id;
+
+      const teamAJson = await expectJson(
+        await apiFetch("/api/admin/teams", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            seasonId: fixASeasonId,
+            name: testSlug("dist-fixa-team-a"),
+            coachUserId,
+          }),
+        }),
+        201,
+      );
+      const teamAId = teamAJson.team.id;
+
+      const firstAttachRes = await apiFetch(
+        `${SEQUENCES_ENDPOINT}/${safeSequenceId}/attach`,
+        {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({ seasonId: fixASeasonId, ...recurrence }),
+        },
+      );
+      const firstAttachJson = await expectJson(firstAttachRes, 200);
+      expect(firstAttachJson.attachmentId).toBeTruthy();
+      const firstAttachmentId = firstAttachJson.attachmentId;
+      const teamAFirstResult = firstAttachJson.results.find(
+        (r: any) => r.teamId === teamAId,
+      );
+      expect(teamAFirstResult.created).toBe(2);
+
+      // Team B, inserted directly (copies the direct-insert pattern used
+      // in tests/api/admin/suspensions-tenant-isolation.test.ts) so it
+      // lands with a LATER createdAt than team A, guaranteeing team A is
+      // still `teamPlans[0]` on the next POST.
+      const db = getDb();
+      const [teamB] = await db
+        .insert(teams)
+        .values({
+          seasonId: fixASeasonId,
+          name: testSlug("dist-fixa-team-b"),
+          coachUserId,
+        })
+        .returning();
+      const teamBId = teamB.id;
+
+      // Re-POST: team A (oldest) has nothing fresh (already fully
+      // distributed); team B has everything fresh. The fix must anchor the
+      // new attachment row on team B, not skip/misfire on team A.
+      const secondAttachRes = await apiFetch(
+        `${SEQUENCES_ENDPOINT}/${safeSequenceId}/attach`,
+        {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({ seasonId: fixASeasonId, ...recurrence }),
+        },
+      );
+      const secondAttachJson = await expectJson(secondAttachRes, 200);
+      expect(secondAttachJson.attachmentId).toBeTruthy();
+      expect(secondAttachJson.attachmentId).not.toBe(firstAttachmentId);
+      expect(secondAttachJson.raceLost).toBeFalsy();
+
+      const teamAResult = secondAttachJson.results.find(
+        (r: any) => r.teamId === teamAId,
+      );
+      expect(teamAResult.created).toBe(0);
+      const teamBResult = secondAttachJson.results.find(
+        (r: any) => r.teamId === teamBId,
+      );
+      expect(teamBResult.created).toBe(2);
+
+      // Team B's sessions are anchored by the NEW attachment id, not the
+      // first (team A) attachment.
+      const teamBSessions = await db
+        .select()
+        .from(sessionPlans)
+        .where(eq(sessionPlans.teamId, teamBId));
+      expect(teamBSessions.length).toBeGreaterThanOrEqual(2);
+      for (const row of teamBSessions) {
+        expect(row.sequenceAttachmentId).toBe(secondAttachJson.attachmentId);
+      }
+
+      // No zero-session attachment row exists for this sequence: left-join
+      // attachments to sessions and assert none come back unmatched.
+      const orphanRows = await db
+        .select({ id: sequenceAttachments.id })
+        .from(sequenceAttachments)
+        .leftJoin(
+          sessionPlans,
+          eq(sessionPlans.sequenceAttachmentId, sequenceAttachments.id),
+        )
+        .where(
+          and(
+            eq(sequenceAttachments.sequenceId, safeSequenceId),
+            isNull(sessionPlans.id),
+          ),
+        );
+      expect(orphanRows).toHaveLength(0);
+    });
+  });
+
+  describe("Fix B — race-lost distributions never leave an empty attachment row", () => {
+    // Fix B's race path (a concurrent request winning every one of the
+    // anchor team's (template, date) pairs between the pre-check read and
+    // the insert) isn't deterministically triggerable over HTTP in this
+    // harness -- there is no hook to pause the request between the
+    // pre-check and the transaction's insert. Instead, assert the
+    // invariant the sentinel exists to protect, globally across every
+    // sequence this suite touched: no `sequence_attachments` row is ever
+    // left with zero referencing `session_plans` rows. This also
+    // regression-guards the now-removed insert-then-delete cleanup path
+    // and the Fix A anchor-selection change above.
+    it("(j) no sequence_attachments row for this suite's sequences exists without at least one referencing session", async () => {
+      const sequenceIds = [safeSequenceId, blockedSequenceId].filter(
+        (id): id is string => Boolean(id),
+      );
+      if (sequenceIds.length === 0) return; // runtime skip: no development_stages seeded
+
+      const orphanRows = await getDb()
+        .select({
+          id: sequenceAttachments.id,
+          sequenceId: sequenceAttachments.sequenceId,
+        })
+        .from(sequenceAttachments)
+        .leftJoin(
+          sessionPlans,
+          eq(sessionPlans.sequenceAttachmentId, sequenceAttachments.id),
+        )
+        .where(
+          and(
+            inArray(sequenceAttachments.sequenceId, sequenceIds),
+            isNull(sessionPlans.id),
+          ),
+        );
+      expect(orphanRows).toHaveLength(0);
     });
   });
 });
