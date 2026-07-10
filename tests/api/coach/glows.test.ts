@@ -417,15 +417,17 @@ describe("Coach Glows & Grows API", () => {
       ).not.toBeNull();
 
       const [existingBallControlSkill] = await db
-        .select({ id: skills.id })
+        .select({ id: skills.id, sportId: skills.sportId })
         .from(skills)
         .where(eq(skills.slug, BALL_CONTROL_SLUG))
         .orderBy(asc(skills.id))
         .limit(1);
 
       let ballControlSkillId: string;
+      let fixtureSportId: string;
       if (existingBallControlSkill) {
         ballControlSkillId = existingBallControlSkill.id;
+        fixtureSportId = existingBallControlSkill.sportId;
       } else {
         // Reuse FK reference values (sport/domain/stage) from any existing
         // seeded skill row rather than reconstructing reference data —
@@ -457,22 +459,16 @@ describe("Coach Glows & Grows API", () => {
           .returning({ id: skills.id });
         ballControlSkillId = insertedSkill.id;
         fixtureSkillId = ballControlSkillId;
+        fixtureSportId = referenceSkill.sportId;
       }
 
-      const [referenceActivity] = await db
-        .select({ sportId: activities.sportId })
-        .from(activities)
-        .orderBy(asc(activities.id))
-        .limit(1);
-      expect(
-        referenceActivity,
-        "expected at least one seeded activity row to copy FK reference values from"
-      ).toBeTruthy();
-
+      // The clean CI DB seeds skills but no curriculum activities, so the
+      // activity's sportId comes from the skill row rather than a
+      // (possibly nonexistent) reference activity.
       const [insertedActivity] = await db
         .insert(activities)
         .values({
-          sportId: referenceActivity.sportId,
+          sportId: fixtureSportId,
           name: "Grow Fixture Ball Control Drill",
           slug: `grow-fixture-${randomUUID()}`,
           durationMinutes: 10,
