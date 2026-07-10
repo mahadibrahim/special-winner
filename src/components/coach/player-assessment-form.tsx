@@ -16,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 interface Skill {
   id: string;
@@ -141,6 +142,7 @@ export default function PlayerAssessmentForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && selectedTeam?.sport?.id) {
@@ -170,31 +172,30 @@ export default function PlayerAssessmentForm({
     if (!selectedTeam?.sport?.id) return;
 
     setIsLoadingSkills(true);
+    setFetchError(null);
     try {
-      // Fetch domains
-      const domainsRes = await fetch("/api/coach/skills/domains");
-      if (domainsRes.ok) {
-        const data = await domainsRes.json();
-        setDomains(data.domains || []);
+      const [domainsRes, stagesRes, skillsRes] = await Promise.all([
+        fetch("/api/coach/skills/domains"),
+        fetch("/api/coach/skills/stages"),
+        fetch(`/api/coach/skills?sportId=${selectedTeam.sport.id}`),
+      ]);
+
+      if (!domainsRes.ok || !stagesRes.ok || !skillsRes.ok) {
+        throw new Error("Failed to load skills library");
       }
 
-      // Fetch stages
-      const stagesRes = await fetch("/api/coach/skills/stages");
-      if (stagesRes.ok) {
-        const data = await stagesRes.json();
-        setStages(data.stages || []);
-      }
+      const [domainsData, stagesData, skillsData] = await Promise.all([
+        domainsRes.json(),
+        stagesRes.json(),
+        skillsRes.json(),
+      ]);
 
-      // Fetch skills
-      const skillsRes = await fetch(
-        `/api/coach/skills?sportId=${selectedTeam.sport.id}`
-      );
-      if (skillsRes.ok) {
-        const data = await skillsRes.json();
-        setSkills(data.skills || []);
-      }
+      setDomains(domainsData.domains || []);
+      setStages(stagesData.stages || []);
+      setSkills(skillsData.skills || []);
     } catch (err) {
       console.error("Error fetching skills data:", err);
+      setFetchError("Could not load the skills library. Check your connection and try again.");
     } finally {
       setIsLoadingSkills(false);
     }
@@ -223,7 +224,7 @@ export default function PlayerAssessmentForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSkill || !selectedTeam) return;
+    if (!selectedSkill || !selectedTeam) return; // button is disabled in these states; belt-and-braces
 
     setIsSubmitting(true);
     setError(null);
@@ -534,6 +535,11 @@ export default function PlayerAssessmentForm({
 
                 {/* Submit */}
                 <div className="flex items-center justify-between pt-4 border-t border-border">
+                  {!selectedTeam && (
+                    <p className="text-sm text-amber-500">
+                      No team available — this player is not on any of your teams.
+                    </p>
+                  )}
                   {error && <p className="text-sm text-red-400">{error}</p>}
                   {success && (
                     <p className="text-sm text-green-400 flex items-center gap-2">
@@ -544,7 +550,7 @@ export default function PlayerAssessmentForm({
                   {!error && !success && <div />}
                   <Button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !selectedSkill || !selectedTeam}
                     className="bg-emerald-600 hover:bg-emerald-700 text-ink"
                   >
                     {isSubmitting ? (
@@ -638,6 +644,13 @@ export default function PlayerAssessmentForm({
                 {isLoadingSkills ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
+                  </div>
+                ) : fetchError ? (
+                  <div className="py-8 space-y-3 max-w-md mx-auto text-center">
+                    <ErrorBanner message={fetchError} className="text-left" />
+                    <Button type="button" variant="outline" onClick={fetchSkillsData}>
+                      Retry
+                    </Button>
                   </div>
                 ) : filteredSkills.length === 0 ? (
                   <div className="text-center py-12 text-ink-muted">
