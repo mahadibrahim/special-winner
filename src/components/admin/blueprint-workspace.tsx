@@ -987,7 +987,7 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
                 ? "Distribution results"
                 : preview
                   ? "Review before distributing"
-                  : `Distribute to ${data.noun}s`}
+                  : `Distribute to your ${pluralizeNoun(data.noun, 2)}`}
             </DialogTitle>
             <DialogDescription>
               {distributeResult
@@ -1254,7 +1254,7 @@ function DistributePreviewView({ preview, noun }: { preview: AttachPreview; noun
               {g.conflicts.length > 0 && (
                 <p className="text-xs text-amber-900 bg-amber-50 border border-amber-300 rounded-md px-2 py-1">
                   {g.conflicts.length === 1
-                    ? `Already has a session on ${formatDate(g.conflicts[0])} that day`
+                    ? `Already has a session on ${formatDate(g.conflicts[0])}`
                     : `Already has a session on ${g.conflicts.length} of these days`}
                 </p>
               )}
@@ -1296,7 +1296,9 @@ function DistributeResultsView({
         </p>
       )}
       <div className="space-y-2">
-        {result.results.map((r) => (
+        {/* Per-group rows add nothing when a concurrent distribution already
+            covered everything — the banner above tells the whole story. */}
+        {!result.raceLost && result.results.map((r) => (
           <div
             key={r.teamId}
             className="flex items-center justify-between gap-2 text-sm rounded-md border border-border px-3 py-2"
