@@ -83,6 +83,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
         id: playerAssessments.id,
         level: playerAssessments.level,
         notes: playerAssessments.notes,
+        strengths: playerAssessments.strengths,
+        areasForImprovement: playerAssessments.areasForImprovement,
         assessedAt: playerAssessments.assessedAt,
         observationContext: playerAssessments.observationContext,
         skill: {
@@ -196,6 +198,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         domain: {
           id: domain.id,
           name: domain.name,
+          slug: domain.name,
           displayName: domain.displayName,
           description: domain.description,
         },
@@ -224,8 +227,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       id: a.id,
       skillName: a.skill.name,
       domainName: a.domain.name,
+      domainDisplayName: a.domain.displayName,
       level: a.level,
       notes: a.notes,
+      strengths: a.strengths ?? [],
+      areasForImprovement: a.areasForImprovement ?? [],
       coachName: `${a.coach.firstName} ${a.coach.lastName}`,
       assessedAt: a.assessedAt,
       context: a.observationContext,
