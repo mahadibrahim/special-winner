@@ -10,10 +10,11 @@ import {
   curriculumSequenceEntries,
 } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, gte, lte, desc, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, inArray, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { computeSequenceProgress } from "@/lib/curriculum/sequence-instantiation";
 import { clampLimit } from "@/lib/http/clamp-limit";
+import { requireCoachPortalAccess } from "@/lib/auth";
 
 const createSessionSchema = z.object({
   teamId: z.string().uuid(),
@@ -289,20 +290,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
 };
 
 // POST - Create a new session plan
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const auth = await requireCoachPortalAccess(context);
+    if (!auth.authorized) return auth.response;
 
     const db = getDb();
 
     // Parse and validate request body
-    const body = await request.json();
+    const body = await context.request.json();
     const validation = createSessionSchema.safeParse(body);
 
     if (!validation.success) {
@@ -328,8 +324,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         and(
           eq(teams.id, data.teamId),
           or(
-            eq(teams.coachUserId, user.id),
-            eq(teams.assistantCoachUserId, user.id)
+            eq(teams.coachUserId, auth.user.id),
+            eq(teams.assistantCoachUserId, auth.user.id)
           )
         )
       );
@@ -344,8 +340,30 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    // If using a template, increment its usage count
+    // Template must be visible to this coach's org (own org or global seed).
     if (data.templateId) {
+      const [template] = await getDb()
+        .select({ id: practiceTemplates.id })
+        .from(practiceTemplates)
+        .where(
+          and(
+            eq(practiceTemplates.id, data.templateId),
+            or(
+              isNull(practiceTemplates.organizationId),
+              eq(practiceTemplates.organizationId, auth.organizationId)
+            )
+          )
+        )
+        .orderBy(asc(practiceTemplates.id))
+        .limit(1);
+
+      if (!template) {
+        return new Response(JSON.stringify({ error: "Template not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       await getDb()
         .update(practiceTemplates)
         .set({
@@ -361,7 +379,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       .values({
         teamId: data.teamId,
         templateId: data.templateId || null,
-        coachUserId: user.id,
+        coachUserId: auth.user.id,
         title: data.title,
         scheduledDate: new Date(data.scheduledDate),
         durationMinutes: data.durationMinutes,
