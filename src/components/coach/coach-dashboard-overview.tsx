@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { PrePracticeChecklist } from "./pre-practice-checklist"
 import { AssessmentNudgeCard } from "./assessment-nudge-card"
+import { GlowsNudgeCard } from "./glows-nudge-card"
 import { OnboardingChecklist } from "./onboarding-checklist"
 
 interface Team {
@@ -396,6 +397,11 @@ export default function CoachDashboardOverview() {
           {/* Assessment cadence nudge (Phase 4) — renders nothing when no
               players are due, so it is NOT wrapped in a spacing section. */}
           <AssessmentNudgeCard />
+
+          {/* Glows & Grows nudge (Plan 2 Task 7) — same fail-soft contract:
+              renders nothing while loading, on error, or when nothing is
+              pending. */}
+          <GlowsNudgeCard />
 
           {/* Pre-Practice Checklist */}
           <section className="dashboard-section">
