@@ -178,9 +178,19 @@ export const GET: APIRoute = async (context) => {
     // Already distributed: sessions carrying a sequenceAttachmentId from a
     // PRIOR sequence_attachments row for this sequence + season (a previous
     // successful distribution run, potentially more than one over time).
+    // Defensive read: the inner join means an attachment row with zero
+    // session_plans rows is never counted as "prior" — the crash-safe
+    // write path in attach.ts can no longer create one going forward, but
+    // a historical zero-session row (pre-fix, or from the old
+    // insert-then-delete cleanup racing a crash) has no "already
+    // distributed" meaning and must not surface as one.
     const priorAttachments = await db
-      .select({ id: sequenceAttachments.id })
+      .selectDistinct({ id: sequenceAttachments.id })
       .from(sequenceAttachments)
+      .innerJoin(
+        sessionPlans,
+        eq(sessionPlans.sequenceAttachmentId, sequenceAttachments.id),
+      )
       .where(
         and(
           eq(sequenceAttachments.sequenceId, sequence.id),

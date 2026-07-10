@@ -18,7 +18,7 @@
  * preview.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { skills, skillDomains, sequenceAttachments, sessionPlans } from "@/lib/db/schema";
 import { groupNoun } from "@/lib/programs/group-noun";
@@ -582,6 +582,111 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
         200,
       );
       expect(sessions.sessions).toHaveLength(0);
+    });
+
+    it("(f) blocks via the age-group fallback band when the season itself has null min/max", async () => {
+      if (!blockedSequenceId) return; // runtime skip
+
+      // Season with NO minAge/maxAge of its own but an ageGroupId (6-8) --
+      // exercises resolveEffectiveSeasonBand's fallback branch
+      // (distribution-safety.ts: seasonMinAge ?? ageGroupMinAge), not just
+      // the season's own fields like the (d)/(e) fixtures do.
+      const ageGroupJson = await expectJson(
+        await apiFetch("/api/admin/age-groups", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            name: testSlug("dist-fallback-ag"),
+            minAge: 6,
+            maxAge: 8,
+          }),
+        }),
+        201,
+      );
+      const ageGroupId = ageGroupJson.ageGroup.id;
+
+      const fallbackSeasonJson = await expectJson(
+        await apiFetch("/api/admin/seasons", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            programId,
+            ageGroupId,
+            name: "Distribution Fallback-Band Season",
+            slug: testSlug("dist-fallback-season"),
+            startDate: "2026-09-01",
+            endDate: "2026-12-15",
+            priceCents: 15000,
+            status: "draft",
+            // minAge/maxAge deliberately omitted -- the season must fall
+            // back to the age group's 6-8 band.
+          }),
+        }),
+        201,
+      );
+      const fallbackSeasonId = fallbackSeasonJson.season.id;
+
+      const res = await apiFetch(`${SEQUENCES_ENDPOINT}/${blockedSequenceId}/attach`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ seasonId: fallbackSeasonId, ...recurrence }),
+      });
+      const json = await expectJson(res, 422);
+      expect(Array.isArray(json.blocks)).toBe(true);
+      expect(json.blocks.length).toBeGreaterThan(0);
+      expect(json.blocks[0].rule).toBe("No heading in training for players 10 and under");
+
+      // Zero writes -- same fail-closed contract as the season's-own-band
+      // block above.
+      const attachmentRows = await getDb()
+        .select()
+        .from(sequenceAttachments)
+        .where(
+          and(
+            eq(sequenceAttachments.sequenceId, blockedSequenceId),
+            eq(sequenceAttachments.seasonId, fallbackSeasonId),
+          ),
+        );
+      expect(attachmentRows).toHaveLength(0);
+    });
+  });
+
+  describe("Prescribed-session dedupe (migration 0078)", () => {
+    it("(g) the partial unique index exists at the DB level", async () => {
+      const result = await getDb().execute(sql`
+        SELECT indexname FROM pg_indexes
+        WHERE tablename = 'session_plans'
+          AND indexname = 'session_plans_prescribed_dedupe_uniq'
+      `);
+      const rows =
+        (result as unknown as { rows?: Array<{ indexname: string }> }).rows ??
+        (result as unknown as Array<{ indexname: string }>);
+      expect(rows).toHaveLength(1);
+    });
+
+    it("(h) a re-POST after (a)/(b) still reports 0 created and adds no new sessions (race-artifact regression)", async () => {
+      if (!safeSequenceId) return;
+
+      const before = await getDb()
+        .select()
+        .from(sessionPlans)
+        .where(eq(sessionPlans.teamId, safeTeamId));
+
+      const res = await apiFetch(`${SEQUENCES_ENDPOINT}/${safeSequenceId}/attach`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ seasonId: safeSeasonId, ...recurrence }),
+      });
+      const json = await expectJson(res, 200);
+      const teamResult = json.results.find((r: any) => r.teamId === safeTeamId);
+      expect(teamResult.created).toBe(0);
+      expect(json.attachmentId).toBeNull();
+
+      const after = await getDb()
+        .select()
+        .from(sessionPlans)
+        .where(eq(sessionPlans.teamId, safeTeamId));
+      expect(after.length).toBe(before.length);
     });
   });
 });

@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { organizations } from "@/lib/db/schema/organizations";
 import { sequenceAttachments } from "@/lib/db/schema/blueprint";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import {
@@ -42,18 +42,27 @@ const attachSchema = z.object({
  * anything is written; any block 422s the whole request with zero writes.
  *
  * One `sequence_attachments` row anchors this distribution event (lineage
- * for the generated sessions' `sequenceAttachmentId`). It's inserted before
- * per-team generation so it exists as the FK target, but generation itself
- * is isolated per team — one team's insert failure is reported in its
- * `results` row and does not block the others. If the run nets zero new
- * sessions across every team (all failed, or a re-run found nothing new to
- * generate), the attachment row is deleted afterward — an attachment that
- * distributed nothing has no lineage value and would otherwise accumulate
- * on every idempotent re-POST.
+ * for the generated sessions' `sequenceAttachmentId`). The full generation
+ * plan (every coached team's missing dates) is computed BEFORE any write:
+ * if nothing is missing anywhere, we return without creating an attachment
+ * row at all (no empty lineage rows from idempotent re-POSTs). Otherwise
+ * the attachment row and the FIRST team's sessions are inserted in ONE
+ * transaction — so a crash or failure between "attachment exists" and "at
+ * least one session references it" is impossible, and there is no
+ * insert-then-delete cleanup path to get wrong. Teams 2..n each get their
+ * own transaction after that (per-group isolation: one team's insert
+ * failure is reported in its `results` row and does not block the others
+ * or roll back the attachment, which by then already has lineage from
+ * team 1).
  *
  * Idempotent by design: existing (team, template, scheduledDate) triples are
  * skipped, so re-running after adding a team generates only that team's
- * new sessions. Attaching does not mutate the sequence itself, so global
+ * new sessions. A partial unique index on session_plans (team, template,
+ * scheduledDate) WHERE sequence_attachment_id IS NOT NULL closes the
+ * concurrent-double-POST gap the pre-check read can't (see migration
+ * 0078) — `onConflictDoNothing` against that index means the reported
+ * `created` count always reflects rows actually written, even when two
+ * requests race. Attaching does not mutate the sequence itself, so global
  * (org-null) sequences are attachable by any org admin — mirrors how global
  * templates are usable by everyone.
  */
@@ -162,10 +171,14 @@ export const POST: APIRoute = async (context) => {
       season.endDate, // date column → "YYYY-MM-DD" string
     );
 
+    // Deterministic order so "the first team" (the one paired with the
+    // attachment insert in a single transaction, below) is stable across
+    // runs rather than whatever order Postgres happens to return.
     const seasonTeams = await db
       .select({ id: teams.id, coachUserId: teams.coachUserId })
       .from(teams)
-      .where(eq(teams.seasonId, data.seasonId));
+      .where(eq(teams.seasonId, data.seasonId))
+      .orderBy(asc(teams.createdAt));
     const teamsWithCoach = seasonTeams.filter((t) => t.coachUserId !== null);
     const teamsWithoutCoach = seasonTeams
       .filter((t) => t.coachUserId === null)
@@ -188,19 +201,50 @@ export const POST: APIRoute = async (context) => {
       ),
     );
 
-    // Anchor row for this distribution event, inserted before per-team
-    // generation so it exists as the sequenceAttachmentId FK target. Kept
-    // only if the run actually distributes something new (see cleanup
-    // below) -- an idempotent re-POST that generates nothing shouldn't
-    // accumulate an empty attachment row every time.
-    const [attachment] = await db
-      .insert(sequenceAttachments)
-      .values({
-        sequenceId: sequence.id,
-        seasonId: data.seasonId,
-        distributedBy: auth.user.id,
-      })
-      .returning({ id: sequenceAttachments.id });
+    // The partial unique index this ON CONFLICT targets (migration 0078):
+    // session_plans (team_id, template_id, scheduled_date) WHERE
+    // sequence_attachment_id IS NOT NULL. Every row this endpoint inserts
+    // carries a non-null sequenceAttachmentId, so it always matches the
+    // arbiter -- this is what makes a concurrent double-POST's second
+    // insert a no-op instead of a duplicate row.
+    const prescribedDedupeTarget = {
+      target: [
+        sessionPlans.teamId,
+        sessionPlans.templateId,
+        sessionPlans.scheduledDate,
+      ],
+      where: sql`sequence_attachment_id IS NOT NULL`,
+    };
+
+    // Compute the full generation plan for every coached team BEFORE any
+    // write. Nothing here needs the real attachment id yet -- only
+    // (team, template, date) matters for the existing-key pre-check -- so
+    // we can decide up front whether this run has anything to distribute
+    // at all, and skip creating an attachment row entirely if not.
+    const teamPlans = teamsWithCoach.map((team) => {
+      const drafts = buildDraftSessionPlans({
+        teamId: team.id,
+        coachUserId: team.coachUserId!,
+        entries: entryRows.map((e) => ({
+          position: e.position,
+          templateId: e.templateId,
+          objectives: e.objectives,
+          notes: e.notes,
+        })),
+        templatesById,
+        dates,
+        status: "planned",
+        sequenceAttachmentId: null,
+      });
+      const fresh = drafts.filter(
+        (d) =>
+          !existingKeys.has(
+            `${d.teamId}::${d.templateId}::${d.scheduledDate.getTime()}`,
+          ),
+      );
+      return { team, drafts, fresh };
+    });
+    const totalFresh = teamPlans.reduce((sum, p) => sum + p.fresh.length, 0);
 
     const results: {
       teamId: string;
@@ -208,57 +252,117 @@ export const POST: APIRoute = async (context) => {
       skippedExisting: number;
       error?: string;
     }[] = [];
-    for (const team of teamsWithCoach) {
-      try {
-        const drafts = buildDraftSessionPlans({
-          teamId: team.id,
-          coachUserId: team.coachUserId!,
-          entries: entryRows.map((e) => ({
-            position: e.position,
-            templateId: e.templateId,
-            objectives: e.objectives,
-            notes: e.notes,
-          })),
-          templatesById,
-          dates,
-          status: "planned",
-          sequenceAttachmentId: attachment.id,
-        });
-        const fresh = drafts.filter(
-          (d) =>
-            !existingKeys.has(
-              `${d.teamId}::${d.templateId}::${d.scheduledDate.getTime()}`,
-            ),
-        );
-        if (fresh.length > 0) {
-          // One insert statement per team keeps a team's failure isolated
-          // from the others (per-group transactional per the Distribution
-          // spec) without letting one team's rollback touch another's rows.
-          await db.transaction(async (tx) => {
-            await tx.insert(sessionPlans).values(fresh);
-          });
-        }
+    let attachmentId: string | null = null;
+
+    if (totalFresh === 0) {
+      // Nothing new anywhere -- an idempotent re-POST that generates
+      // nothing shouldn't accumulate an empty attachment row, so none is
+      // created (current behavior, kept).
+      for (const plan of teamPlans) {
         results.push({
-          teamId: team.id,
-          created: fresh.length,
-          skippedExisting: drafts.length - fresh.length,
-        });
-      } catch (error) {
-        console.error(`Error generating sessions for team ${team.id}:`, error);
-        results.push({
-          teamId: team.id,
+          teamId: plan.team.id,
           created: 0,
-          skippedExisting: 0,
-          error: "Failed to generate sessions for this group",
+          skippedExisting: plan.drafts.length,
         });
       }
-    }
+    } else {
+      const [firstPlan, ...restPlans] = teamPlans;
 
-    const totalCreated = results.reduce((sum, r) => sum + r.created, 0);
-    if (totalCreated === 0) {
-      await db
-        .delete(sequenceAttachments)
-        .where(eq(sequenceAttachments.id, attachment.id));
+      // Attachment row + first team's sessions in ONE transaction: if the
+      // insert fails, both roll back together, so an attachment row can
+      // never exist without at least one attempted write against it.
+      try {
+        attachmentId = await db.transaction(async (tx) => {
+          const [attachment] = await tx
+            .insert(sequenceAttachments)
+            .values({
+              sequenceId: sequence.id,
+              seasonId: data.seasonId,
+              distributedBy: auth.user.id,
+            })
+            .returning({ id: sequenceAttachments.id });
+
+          if (firstPlan.fresh.length > 0) {
+            const rows = firstPlan.fresh.map((d) => ({
+              ...d,
+              sequenceAttachmentId: attachment.id,
+            }));
+            const inserted = await tx
+              .insert(sessionPlans)
+              .values(rows)
+              .onConflictDoNothing(prescribedDedupeTarget)
+              .returning({ id: sessionPlans.id });
+            results.push({
+              teamId: firstPlan.team.id,
+              created: inserted.length,
+              skippedExisting: firstPlan.drafts.length - inserted.length,
+            });
+          } else {
+            results.push({
+              teamId: firstPlan.team.id,
+              created: 0,
+              skippedExisting: firstPlan.drafts.length,
+            });
+          }
+          return attachment.id;
+        });
+      } catch (error) {
+        console.error(
+          `Error generating sessions for team ${firstPlan.team.id}:`,
+          error,
+        );
+        // Team 1 shares a transaction with the attachment insert -- both
+        // rolled back together. There is no valid attachment row left to
+        // anchor teams 2..n, so the whole run fails rather than silently
+        // skipping the anchor.
+        return new Response(
+          JSON.stringify({ error: "Failed to attach sequence" }),
+          { status: 500 },
+        );
+      }
+
+      // Teams 2..n each in their own transaction -- per-group isolation:
+      // one team's failure is reported in its own `results` row and does
+      // not touch the others or the (already-committed) attachment row.
+      for (const plan of restPlans) {
+        try {
+          if (plan.fresh.length > 0) {
+            const rows = plan.fresh.map((d) => ({
+              ...d,
+              sequenceAttachmentId: attachmentId!,
+            }));
+            const inserted = await db.transaction(async (tx) =>
+              tx
+                .insert(sessionPlans)
+                .values(rows)
+                .onConflictDoNothing(prescribedDedupeTarget)
+                .returning({ id: sessionPlans.id }),
+            );
+            results.push({
+              teamId: plan.team.id,
+              created: inserted.length,
+              skippedExisting: plan.drafts.length - inserted.length,
+            });
+          } else {
+            results.push({
+              teamId: plan.team.id,
+              created: 0,
+              skippedExisting: plan.drafts.length,
+            });
+          }
+        } catch (error) {
+          console.error(
+            `Error generating sessions for team ${plan.team.id}:`,
+            error,
+          );
+          results.push({
+            teamId: plan.team.id,
+            created: 0,
+            skippedExisting: 0,
+            error: "Failed to generate sessions for this group",
+          });
+        }
+      }
     }
 
     await db
@@ -270,7 +374,7 @@ export const POST: APIRoute = async (context) => {
       JSON.stringify({
         attached: true,
         seasonId: data.seasonId,
-        attachmentId: totalCreated > 0 ? attachment.id : null,
+        attachmentId,
         results,
         teamsWithoutCoach,
         truncatedBySeasonEnd,

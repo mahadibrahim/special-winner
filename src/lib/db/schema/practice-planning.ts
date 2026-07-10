@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { users } from "./users";
 import { sports } from "./sports";
 import { teams } from "./teams";
@@ -298,6 +298,15 @@ export const sessionPlans = pgTable(
     index("session_plans_sequence_attachment_idx").on(
       table.sequenceAttachmentId,
     ),
+    // Prescribed-session dedupe (Program Blueprint T4 hardening): a
+    // distribution run and a concurrent double-POST of the same run can
+    // otherwise race two inserts for the identical (team, template, date)
+    // triple past the pre-check existingKeys read. Partial — scoped to
+    // sequenceAttachmentId IS NOT NULL so coach-created sessions (null
+    // attachment) may still legitimately repeat a template on a date.
+    uniqueIndex("session_plans_prescribed_dedupe_uniq")
+      .on(table.teamId, table.templateId, table.scheduledDate)
+      .where(sql`sequence_attachment_id IS NOT NULL`),
   ],
 );
 
