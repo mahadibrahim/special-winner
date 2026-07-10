@@ -97,6 +97,10 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
   const [flowRoster, setFlowRoster] = useState<RosterPlayer[]>([])
   const [entries, setEntries] = useState<Record<string, PlayerEntry>>({})
   const [currentIndex, setCurrentIndex] = useState(0)
+  // When true, the coach jumped into capture from the review screen to edit
+  // one player — the next Next/Skip should drop straight back into review
+  // instead of marching through the rest of the roster again.
+  const [returnToReview, setReturnToReview] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
   const [sharedCount, setSharedCount] = useState(0)
@@ -115,6 +119,15 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
     setFlowRoster(sorted)
     setEntries(nextEntries)
     setCurrentIndex(0)
+    setReturnToReview(false)
+    setMode("capture")
+  }
+
+  function editPlayer(familyMemberId: string) {
+    const idx = flowRoster.findIndex((p) => p.familyMemberId === familyMemberId)
+    if (idx === -1) return
+    setCurrentIndex(idx)
+    setReturnToReview(true)
     setMode("capture")
   }
 
@@ -179,6 +192,11 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
   }
 
   function advance() {
+    if (returnToReview) {
+      setReturnToReview(false)
+      setMode("review")
+      return
+    }
     if (currentIndex >= flowRoster.length - 1) {
       setMode("review")
     } else {
@@ -318,7 +336,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                     {growParsed?.chips.map((chip) => (
                       <span
                         key={chip}
-                        className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600"
+                        className="px-2.5 py-1 rounded-full text-xs font-medium bg-ochre/20 text-ochre"
                       >
                         {chip}
                       </span>
@@ -412,7 +430,9 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
 
           {entry.skipped ? (
             <div className="p-4 rounded-xl bg-cream-2 border border-border text-center space-y-3">
-              <p className="text-sm text-ink-muted">Marked absent — skipped</p>
+              <p className="text-sm text-ink-muted">
+                {player.attendanceStatus === "absent" ? "Marked absent — skipped" : "Skipped"}
+              </p>
               <Button
                 variant="outline"
                 className="min-h-11"
@@ -469,7 +489,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                           className={cn(
                             "min-h-11 px-4 py-2 rounded-full text-sm font-medium border transition-colors",
                             selected
-                              ? "bg-amber-500/20 text-amber-700 border-amber-500/40"
+                              ? "bg-ochre/20 text-ochre border-ochre/40"
                               : "bg-cream-2 text-ink-muted border-border hover:bg-cream-3"
                           )}
                         >
@@ -544,17 +564,23 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
             <ErrorBanner message="This session is no longer open for glows — it may have been cancelled or was never scheduled." />
           )}
 
+          <p className="text-xs text-ink-muted">Tap a player to edit</p>
+
           <div className="space-y-2">
             {rows.map(({ player, entry }) => (
-              <div
+              <button
                 key={player.familyMemberId}
-                className="p-3 rounded-xl bg-paper border border-border flex items-start justify-between gap-3"
+                type="button"
+                onClick={() => editPlayer(player.familyMemberId)}
+                className="w-full min-h-11 p-3 rounded-xl bg-paper border border-border flex items-start justify-between gap-3 text-left hover:bg-cream-2 transition-colors"
               >
                 <p className="font-medium text-ink shrink-0">
                   {player.firstName} {player.lastName}
                 </p>
                 {entry.skipped || (entry.glows.length === 0 && !entry.grow) ? (
-                  <span className="text-xs text-ink-muted">Skipped</span>
+                  <span className="text-xs text-ink-muted">
+                    {player.attendanceStatus === "absent" ? "Marked absent — skipped" : "Skipped"}
+                  </span>
                 ) : (
                   <div className="flex flex-wrap gap-1.5 justify-end">
                     {entry.glows.map((chip) => (
@@ -566,13 +592,13 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                       </span>
                     ))}
                     {entry.grow && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-ochre/20 text-ochre">
                         {entry.grow}
                       </span>
                     )}
                   </div>
                 )}
-              </div>
+              </button>
             ))}
           </div>
 
@@ -604,7 +630,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
       <div className="text-center py-12 space-y-4">
         <PartyPopper className="w-12 h-12 text-primary mx-auto" />
         <h1 className="text-2xl font-bold text-ink">
-          Shared with {sharedCount} {sharedCount === 1 ? "family" : "families"}
+          Shared with {sharedCount} {sharedCount === 1 ? "player's" : "players'"} families
         </h1>
         <p className="text-sm text-ink-muted">Parents can see it in their dashboard now.</p>
         <div className="flex flex-col gap-2 pt-4">
