@@ -79,7 +79,6 @@ for the player when assessing.)
 | `/coach/attendance/[teamId]` | Attendance per session |
 | `/coach/assessments`, `/coach/assess/[playerId]` | Player assessments (see §3) |
 | `/coach/messages` | Team messaging to families (see §5) |
-| `/coach/standings` | League standings |
 | `/coach/resources` | Coaching guides by sport, domain, and skill |
 
 ### Pre-season checklist (league)

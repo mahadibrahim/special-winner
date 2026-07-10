@@ -449,25 +449,26 @@ export default function CoachAssessmentsOverview() {
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Players List */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
               <Users className="w-5 h-5 text-ink-muted" />
               Players
             </h2>
 
-            <div className="flex items-center gap-2">
+            {/* Full-width stacked controls on phones; inline on ≥sm. */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
                 <Input
                   placeholder="Search players..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-48 h-8 text-sm bg-paper border-border"
+                  className="pl-9 w-full sm:w-48 h-9 text-sm bg-paper border-border"
                 />
               </div>
 
               <Select value={filterTeam} onValueChange={setFilterTeam}>
-                <SelectTrigger className="w-36 h-8 text-xs bg-paper border-border">
+                <SelectTrigger className="w-full sm:w-36 h-9 text-xs bg-paper border-border">
                   <SelectValue placeholder="All Teams" />
                 </SelectTrigger>
                 <SelectContent>
@@ -525,12 +526,9 @@ export default function CoachAssessmentsOverview() {
               ))}
 
               {recentAssessments.length > 10 && (
-                <Button
-                  variant="ghost"
-                  className="w-full text-sm text-ink-muted hover:text-ink"
-                >
-                  View all assessments
-                </Button>
+                <p className="text-xs text-ink-faint text-center pt-1">
+                  Showing the 10 most recent
+                </p>
               )}
             </div>
           )}

@@ -2533,7 +2533,6 @@ const PORTAL_PAGES: Record<string, PortalPage[]> = {
     { path: "/coach/assessments", description: "Assessments due across your teams" },
     { path: "/coach/assess/[playerId]", description: "Record a player assessment" },
     { path: "/coach/messages", description: "Team messaging to families" },
-    { path: "/coach/standings", description: "League standings" },
     { path: "/coach/resources", description: "Coaching guides by sport, domain, and skill" },
   ],
   "role.ref": [

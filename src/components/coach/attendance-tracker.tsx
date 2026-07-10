@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Users,
 } from "lucide-react"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -93,6 +94,7 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
   const [upcomingGames, setUpcomingGames] = useState<Game[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Form state
   const [eventDate, setEventDate] = useState(() => {
@@ -118,6 +120,7 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
 
   async function fetchAttendanceData() {
     setIsLoading(true)
+    setLoadError(null)
     try {
       const response = await fetch(`/api/coach/attendance?teamId=${teamId}`)
       if (!response.ok) throw new Error("Failed to fetch attendance data")
@@ -129,6 +132,7 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
       setUpcomingGames(data.upcomingGames)
     } catch (err) {
       console.error(err)
+      setLoadError("Could not load the roster and attendance records. Check your connection and try again.")
     } finally {
       setIsLoading(false)
     }
@@ -179,22 +183,22 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
   function getStatusIcon(status: AttendanceStatus) {
     switch (status) {
       case "present":
-        return <Check className="h-4 w-4 text-green-600" />
+        return <Check className="h-5 w-5 text-sage" />
       case "absent":
-        return <X className="h-4 w-4 text-red-600" />
+        return <X className="h-5 w-5 text-destructive" />
       case "late":
-        return <Clock className="h-4 w-4 text-yellow-600" />
+        return <Clock className="h-5 w-5 text-ochre" />
       case "excused":
-        return <AlertCircle className="h-4 w-4 text-blue-600" />
+        return <AlertCircle className="h-5 w-5 text-navy" />
     }
   }
 
   function getStatusBadge(status: AttendanceStatus) {
     const colors: Record<AttendanceStatus, string> = {
-      present: "bg-green-100 text-green-800",
-      absent: "bg-red-100 text-red-800",
-      late: "bg-yellow-100 text-yellow-800",
-      excused: "bg-blue-100 text-blue-800",
+      present: "bg-sage/15 text-sage",
+      absent: "bg-destructive/10 text-destructive",
+      late: "bg-ochre/20 text-ochre",
+      excused: "bg-navy/10 text-navy",
     }
     return colors[status]
   }
@@ -226,11 +230,25 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-3xl font-bold text-ink">Attendance Tracker</h1>
+        <div className="space-y-3 max-w-lg">
+          <ErrorBanner message={loadError} />
+          <Button variant="outline" onClick={fetchAttendanceData}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Attendance Tracker</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-3xl font-bold text-ink">Attendance Tracker</h1>
+        <p className="text-ink-muted mt-1">
           {team?.name} - Track player attendance for practices and games
         </p>
       </div>
@@ -328,9 +346,9 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
                         <TableCell>
                           {playerStats ? (
                             <div className="flex items-center gap-2">
-                              <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="w-20 h-2 bg-cream-3 rounded-full overflow-hidden">
                                 <div
-                                  className="h-full bg-green-500 rounded-full"
+                                  className="h-full bg-sage rounded-full"
                                   style={{ width: `${playerStats.rate}%` }}
                                 />
                               </div>
@@ -351,7 +369,7 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
                                   variant="ghost"
                                   size="sm"
                                   className={cn(
-                                    "h-8 w-8 p-0",
+                                    "h-11 w-11 p-0",
                                     currentStatus === status && getStatusBadge(status)
                                   )}
                                   onClick={() => updatePlayerAttendance(player.id, status)}
@@ -422,22 +440,22 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
                         {player.familyMember.firstName} {player.familyMember.lastName}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                        <Badge variant="outline" className="bg-sage/10 text-sage">
                           {playerStats.totalPresent}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-red-50 text-red-700">
+                        <Badge variant="outline" className="bg-destructive/5 text-destructive">
                           {playerStats.totalAbsent}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+                        <Badge variant="outline" className="bg-ochre/10 text-ochre">
                           {playerStats.totalLate}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                        <Badge variant="outline" className="bg-navy/5 text-navy">
                           {playerStats.totalExcused}
                         </Badge>
                       </TableCell>

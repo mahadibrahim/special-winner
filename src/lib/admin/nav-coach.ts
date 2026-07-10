@@ -5,7 +5,6 @@ import {
   ClipboardList,
   BookOpen,
   Calendar,
-  BarChart3,
   Inbox,
 } from "lucide-react";
 import type { NavGroup } from "./nav-super-admin";
@@ -34,7 +33,6 @@ export const COACH_NAV: NavGroup[] = [
     name: "Season",
     items: [
       { name: "Schedule", href: "/coach/schedule", icon: Calendar },
-      { name: "Standings", href: "/coach/standings", icon: BarChart3 },
     ],
   },
   {

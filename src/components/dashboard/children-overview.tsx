@@ -4,11 +4,9 @@ import { useEffect, useState } from "react"
 import {
   ChevronRight,
   Star,
-  TrendingUp,
   Award,
   MoreHorizontal,
-  Plus,
-  Sparkles
+  Plus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,12 +24,6 @@ interface Program {
   status: "active" | "upcoming" | "completed"
 }
 
-interface SkillAssessment {
-  skill: string
-  level: number // 1-5
-  trend: "up" | "stable" | "new"
-}
-
 interface Child {
   id: string
   firstName: string
@@ -40,7 +32,6 @@ interface Child {
   avatarUrl?: string
   programs: Program[]
   recentAchievement?: string
-  skillAssessments: SkillAssessment[]
   coachRating?: number // 1-5
   nextEvent?: {
     title: string
@@ -89,28 +80,7 @@ function statusForSeason(start: string, end: string): "upcoming" | "active" | "c
 
 // sportColors removed — avatars use flat design-system tokens
 
-function SkillBar({ level, trend }: { level: number; trend: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-cream-3 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-primary rounded-full transition-all duration-500"
-          style={{ width: `${(level / 5) * 100}%` }}
-        />
-      </div>
-      {trend === "up" && (
-        <TrendingUp className="w-3 h-3 text-sage" />
-      )}
-      {trend === "new" && (
-        <Sparkles className="w-3 h-3 text-ochre" />
-      )}
-    </div>
-  )
-}
-
 function ChildCard({ child }: { child: Child }) {
-  const [expanded, setExpanded] = useState(false)
-
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-paper border border-border hover:border-border transition-all">
       {/* Accent bar */}
@@ -185,53 +155,6 @@ function ChildCard({ child }: { child: Child }) {
             <span className="text-sm text-ink-2">{child.recentAchievement}</span>
           </div>
         )}
-
-        {/* Skills Preview */}
-        <div className="space-y-2">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center justify-between w-full text-left"
-          >
-            <span className="text-xs font-medium text-ink-muted uppercase tracking-wider">
-              Development Progress
-            </span>
-            <ChevronRight className={cn(
-              "w-4 h-4 text-ink-faint transition-transform",
-              expanded && "rotate-90"
-            )} />
-          </button>
-
-          <div className={cn(
-            "grid gap-3 overflow-hidden transition-all",
-            expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-          )}>
-            <div className="overflow-hidden">
-              {child.skillAssessments.map((assessment) => (
-                <div key={assessment.skill} className="flex items-center gap-3 py-2">
-                  <span className="text-sm text-ink-muted w-28 truncate">
-                    {assessment.skill}
-                  </span>
-                  <div className="flex-1">
-                    <SkillBar level={assessment.level} trend={assessment.trend} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {!expanded && (
-            <div className="flex gap-1">
-              {child.skillAssessments.slice(0, 4).map((_, i) => (
-                <div key={i} className="flex-1 h-1 bg-cream-3 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary/60 rounded-full"
-                    style={{ width: `${(child.skillAssessments[i].level / 5) * 100}%` }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
@@ -333,7 +256,6 @@ export default function ChildrenOverview() {
               team: r.season.name,
               status: statusForSeason(r.season.startDate, r.season.endDate),
             })),
-          skillAssessments: [],
         }))
         setChildren(kids)
       } catch (err) {

@@ -11,8 +11,6 @@ import {
   MapPin,
   Loader2,
   AlertCircle,
-  MessageSquare,
-  Plus,
   Target,
   BookOpen,
   Dumbbell,
@@ -115,7 +113,10 @@ function TeamCard({ team }: { team: Team }) {
               <h3 className="font-semibold text-ink group-hover:text-primary transition-colors">
                 {team.name}
               </h3>
-              <p className="text-sm text-ink-muted">{team.sport.name} • {team.division}</p>
+              <p className="text-sm text-ink-muted">
+                {team.sport.name}
+                {team.division ? ` • ${team.division}` : ""}
+              </p>
             </div>
           </div>
           {team.isHeadCoach ? (
@@ -208,14 +209,6 @@ function QuickActions() {
           <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
         </a>
         <a
-          href="/coach/standings"
-          className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
-        >
-          <Trophy className="w-5 h-5 text-ink-muted group-hover:text-amber-400 transition-colors" />
-          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">View Standings</span>
-          <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
-        </a>
-        <a
           href="/coach/practices"
           className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
         >
@@ -231,13 +224,6 @@ function QuickActions() {
           <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">Coach Resources</span>
           <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
         </a>
-        <button
-          className="w-full flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
-        >
-          <MessageSquare className="w-5 h-5 text-ink-muted group-hover:text-emerald-400 transition-colors" />
-          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">Add Player Note</span>
-          <Plus className="w-4 h-4 text-ink-faint ml-auto" />
-        </button>
       </div>
     </div>
   )
