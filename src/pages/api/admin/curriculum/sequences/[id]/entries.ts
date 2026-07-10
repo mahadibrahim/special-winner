@@ -13,8 +13,7 @@ import { ownershipDeniedResponse } from "@/lib/auth/require-resource-ownership";
 import { loadSequenceForOrg } from "@/lib/curriculum/sequence-ownership";
 import {
   evaluateGuardrails,
-  resolveSuggestionSkillSlugs,
-  resolveSkillInputsForSlugs,
+  buildGuardrailActivityInput,
 } from "@/lib/curriculum/guardrails";
 
 const entriesSchema = z.object({
@@ -137,37 +136,12 @@ export const PUT: APIRoute = async (context) => {
         const guardrailResult = evaluateGuardrails({
           seasonMinAge: stage.ageMin,
           seasonMaxAge: stage.ageMax,
-          activities: validTemplates.map((t) => {
-            const focusSkills = (t.focusSkillIds ?? [])
-              .map((sid) => skillsById.get(sid))
-              .filter((s): s is { id: string; slug: string; name: string } => !!s)
-              .map((s) => ({ slug: s.slug, name: s.name, introductionAge: null }));
-
-            // Free-text activitySuggestions can smuggle a safety-flagged
-            // activity past focusSkillIds -- resolve each segment's
-            // suggestions against the curriculum registry and evaluate
-            // those skills too (T2/T3 review finding #3).
-            const suggestionSlugs = resolveSuggestionSkillSlugs(
-              (t.structure ?? []).flatMap((seg) => seg.activitySuggestions ?? []),
-            );
-            const suggestionSkills = resolveSkillInputsForSlugs(suggestionSlugs);
-
-            const seenSlugs = new Set(focusSkills.map((s) => s.slug));
-            const mergedSkills = [
-              ...focusSkills,
-              ...suggestionSkills.filter((s) => !seenSlugs.has(s.slug)),
-            ];
-
-            return {
-              name: t.name,
-              // Templates carry no stage tagging of their own (that lives
-              // on `activities` rows, which templates don't reference by
-              // FK) -- warn tier doesn't apply here, only the safety block
-              // below.
-              appropriateStages: null,
-              skills: mergedSkills,
-            };
-          }),
+          activities: validTemplates.map((t) =>
+            buildGuardrailActivityInput(
+              { name: t.name, focusSkillIds: t.focusSkillIds, structure: t.structure },
+              skillsById,
+            ),
+          ),
         });
 
         if (guardrailResult.blocks.length > 0) {

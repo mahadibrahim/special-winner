@@ -270,7 +270,11 @@ export function SequenceEditor() {
         (sum: number, r: any) => sum + r.created,
         0,
       )
-      let message = `Attached — ${created} draft plan${created === 1 ? "" : "s"} generated`
+      // Generated sessions arrive "planned" (prescribed), not "draft" —
+      // T4 upgraded the distribution engine's session status. Full
+      // distribution-preview UI is a later task; this is a minimal wording
+      // fix so the toast doesn't lie about what was just created.
+      let message = `Attached — ${created} planned plan${created === 1 ? "" : "s"} generated`
       if (body.teamsWithoutCoach?.length) {
         message += `; ${body.teamsWithoutCoach.length} team(s) skipped (no coach assigned)`
       }

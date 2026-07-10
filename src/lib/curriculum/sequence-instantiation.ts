@@ -139,9 +139,18 @@ export interface BuildDraftsInput {
   /** From generatePracticeDates. Sorted entry k → dates[k]; extra entries
    * beyond dates.length are dropped (season-end truncation). */
   dates: Date[];
+  /** Defaults to "draft" — the original (Phase 3) manual-attach behavior.
+   * The distribution engine (Program Blueprint T4) passes "planned": once
+   * the safety re-check has cleared, generated sessions arrive prescribed,
+   * not silent drafts. */
+  status?: "draft" | "planned";
+  /** Lineage FK to sequence_attachments — set by the distribution engine so
+   * a generated session is distinguishable from "coach happened to pick the
+   * same template." Defaults to null (unset) for callers that don't pass one. */
+  sequenceAttachmentId?: string | null;
 }
 
-/** Shape matches session_plans insert columns exactly (status always "draft"). */
+/** Shape matches session_plans insert columns exactly. */
 export interface DraftSessionPlan {
   teamId: string;
   templateId: string;
@@ -149,7 +158,7 @@ export interface DraftSessionPlan {
   title: string;
   scheduledDate: Date;
   durationMinutes: number;
-  status: "draft";
+  status: "draft" | "planned";
   segments: {
     order: number;
     name: string;
@@ -161,6 +170,7 @@ export interface DraftSessionPlan {
   objectives: string[] | null;
   equipmentNeeded: string[] | null;
   preSessionNotes: string | null;
+  sequenceAttachmentId: string | null;
 }
 
 export function buildDraftSessionPlans(
@@ -187,7 +197,7 @@ export function buildDraftSessionPlans(
       title: `Week ${i + 1} of ${total} — ${template.name}`,
       scheduledDate: input.dates[i],
       durationMinutes: template.totalDurationMinutes,
-      status: "draft",
+      status: input.status ?? "draft",
       segments: (template.structure ?? []).map((s, idx) => ({
         order: idx + 1,
         name: s.name,
@@ -199,6 +209,7 @@ export function buildDraftSessionPlans(
       objectives: entry.objectives,
       equipmentNeeded: template.equipmentNeeded,
       preSessionNotes: entry.notes,
+      sequenceAttachmentId: input.sequenceAttachmentId ?? null,
     });
   }
   return plans;

@@ -8,6 +8,7 @@ import {
   teams,
 } from "@/lib/db/schema";
 import { organizations } from "@/lib/db/schema/organizations";
+import { sequenceAttachments } from "@/lib/db/schema/blueprint";
 import { eq, asc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
@@ -21,6 +22,7 @@ import {
   buildDraftSessionPlans,
   type TemplateForBuild,
 } from "@/lib/curriculum/sequence-instantiation";
+import { evaluateAttachSafety } from "@/lib/curriculum/distribution-safety";
 
 const attachSchema = z.object({
   seasonId: z.string().uuid(),
@@ -31,12 +33,27 @@ const attachSchema = z.object({
 });
 
 /**
- * POST - attach the sequence to a season and generate draft session_plans
- * for every coached team in it: entry N → Nth practice date.
+ * POST - re-checks safety, then attaches the sequence to a season and
+ * generates prescribed ("planned") session_plans for every coached team in
+ * it: entry N → Nth practice date. This is the LAST safety gate (see
+ * "Distribution" in docs/superpowers/specs/2026-07-10-program-blueprint-design.md)
+ * — templates can change after a sequence was composed, so the BLOCK tier
+ * is re-evaluated here against the season's REAL effective age band before
+ * anything is written; any block 422s the whole request with zero writes.
+ *
+ * One `sequence_attachments` row anchors this distribution event (lineage
+ * for the generated sessions' `sequenceAttachmentId`). It's inserted before
+ * per-team generation so it exists as the FK target, but generation itself
+ * is isolated per team — one team's insert failure is reported in its
+ * `results` row and does not block the others. If the run nets zero new
+ * sessions across every team (all failed, or a re-run found nothing new to
+ * generate), the attachment row is deleted afterward — an attachment that
+ * distributed nothing has no lineage value and would otherwise accumulate
+ * on every idempotent re-POST.
  *
  * Idempotent by design: existing (team, template, scheduledDate) triples are
  * skipped, so re-running after adding a team generates only that team's
- * drafts. Attaching does not mutate the sequence itself, so global
+ * new sessions. Attaching does not mutate the sequence itself, so global
  * (org-null) sequences are attachable by any org admin — mirrors how global
  * templates are usable by everyone.
  */
@@ -110,6 +127,22 @@ export const POST: APIRoute = async (context) => {
       templateRows.map((t) => [t.id, t]),
     );
 
+    // Safety re-check FIRST, before anything is written -- distribution is
+    // the last gate (see module docstring). Evaluated against the season's
+    // REAL effective age band, not the sequence's stage proxy used at
+    // entry-write time: templates can change after the sequence was
+    // composed, and this is the last chance to catch it.
+    const safety = await evaluateAttachSafety(data.seasonId, entryRows, templatesById);
+    if (safety.blocks.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: "One or more templates in this sequence contain safety-blocked skills for this season",
+          blocks: safety.blocks,
+        }),
+        { status: 422, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     // Practice times are org-local wall times; resolve via the org's zone.
     const [org] = await db
       .select({ timezone: organizations.timezone })
@@ -155,34 +188,77 @@ export const POST: APIRoute = async (context) => {
       ),
     );
 
-    const results: { teamId: string; created: number; skippedExisting: number }[] = [];
+    // Anchor row for this distribution event, inserted before per-team
+    // generation so it exists as the sequenceAttachmentId FK target. Kept
+    // only if the run actually distributes something new (see cleanup
+    // below) -- an idempotent re-POST that generates nothing shouldn't
+    // accumulate an empty attachment row every time.
+    const [attachment] = await db
+      .insert(sequenceAttachments)
+      .values({
+        sequenceId: sequence.id,
+        seasonId: data.seasonId,
+        distributedBy: auth.user.id,
+      })
+      .returning({ id: sequenceAttachments.id });
+
+    const results: {
+      teamId: string;
+      created: number;
+      skippedExisting: number;
+      error?: string;
+    }[] = [];
     for (const team of teamsWithCoach) {
-      const drafts = buildDraftSessionPlans({
-        teamId: team.id,
-        coachUserId: team.coachUserId!,
-        entries: entryRows.map((e) => ({
-          position: e.position,
-          templateId: e.templateId,
-          objectives: e.objectives,
-          notes: e.notes,
-        })),
-        templatesById,
-        dates,
-      });
-      const fresh = drafts.filter(
-        (d) =>
-          !existingKeys.has(
-            `${d.teamId}::${d.templateId}::${d.scheduledDate.getTime()}`,
-          ),
-      );
-      if (fresh.length > 0) {
-        await db.insert(sessionPlans).values(fresh);
+      try {
+        const drafts = buildDraftSessionPlans({
+          teamId: team.id,
+          coachUserId: team.coachUserId!,
+          entries: entryRows.map((e) => ({
+            position: e.position,
+            templateId: e.templateId,
+            objectives: e.objectives,
+            notes: e.notes,
+          })),
+          templatesById,
+          dates,
+          status: "planned",
+          sequenceAttachmentId: attachment.id,
+        });
+        const fresh = drafts.filter(
+          (d) =>
+            !existingKeys.has(
+              `${d.teamId}::${d.templateId}::${d.scheduledDate.getTime()}`,
+            ),
+        );
+        if (fresh.length > 0) {
+          // One insert statement per team keeps a team's failure isolated
+          // from the others (per-group transactional per the Distribution
+          // spec) without letting one team's rollback touch another's rows.
+          await db.transaction(async (tx) => {
+            await tx.insert(sessionPlans).values(fresh);
+          });
+        }
+        results.push({
+          teamId: team.id,
+          created: fresh.length,
+          skippedExisting: drafts.length - fresh.length,
+        });
+      } catch (error) {
+        console.error(`Error generating sessions for team ${team.id}:`, error);
+        results.push({
+          teamId: team.id,
+          created: 0,
+          skippedExisting: 0,
+          error: "Failed to generate sessions for this group",
+        });
       }
-      results.push({
-        teamId: team.id,
-        created: fresh.length,
-        skippedExisting: drafts.length - fresh.length,
-      });
+    }
+
+    const totalCreated = results.reduce((sum, r) => sum + r.created, 0);
+    if (totalCreated === 0) {
+      await db
+        .delete(sequenceAttachments)
+        .where(eq(sequenceAttachments.id, attachment.id));
     }
 
     await db
@@ -194,6 +270,7 @@ export const POST: APIRoute = async (context) => {
       JSON.stringify({
         attached: true,
         seasonId: data.seasonId,
+        attachmentId: totalCreated > 0 ? attachment.id : null,
         results,
         teamsWithoutCoach,
         truncatedBySeasonEnd,

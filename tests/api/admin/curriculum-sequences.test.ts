@@ -315,7 +315,8 @@ describe("attach / detach - draft generation", () => {
     const teamResult = json.results.find((r: any) => r.teamId === teamId);
     expect(teamResult.created).toBe(2); // sequence has 2 entries (Task 5 test)
 
-    // The coach sees them as ordinary drafts on their sessions endpoint.
+    // The coach sees them as prescribed ("planned") sessions on their
+    // sessions endpoint — T4 upgraded generated sessions from silent drafts.
     const sessions = await expectJson(
       await apiFetch(`/api/coach/sessions?teamId=${teamId}`, {
         method: "GET",
@@ -328,7 +329,7 @@ describe("attach / detach - draft generation", () => {
       (a: any, b: any) =>
         new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime(),
     );
-    expect(sorted[0].status).toBe("draft");
+    expect(sorted[0].status).toBe("planned");
     expect(sorted[0].title).toMatch(/^Week 1 of 2 — /);
     expect(new Date(sorted[0].scheduledDate).toISOString()).toBe(
       "2026-09-05T13:00:00.000Z", // 09:00 EDT

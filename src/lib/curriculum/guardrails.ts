@@ -213,6 +213,55 @@ export function resolveSuggestionSkillSlugs(
   return [...matchedSkillSlugs];
 }
 
+export interface GuardrailTemplateInput {
+  name: string;
+  focusSkillIds: string[] | null;
+  structure: { activitySuggestions?: string[] }[] | null;
+}
+
+/**
+ * Build a `GuardrailActivityInput` for one practice template: merges its
+ * structured `focusSkillIds` with skills resolved from free-text
+ * `activitySuggestions` (via `resolveSuggestionSkillSlugs` +
+ * `resolveSkillInputsForSlugs`), so a safety-flagged activity can't be
+ * smuggled past the block tier just by typing it into a segment instead of
+ * wiring it up as a focus skill (T2/T3 review finding #3).
+ *
+ * This is the single template -> activity-input resolution used by every
+ * guardrail call site (entries.ts at sequence-entry write time,
+ * templates/[id].ts on template edit, and the distribution engine's
+ * attach/attach-preview safety re-check) — do not re-derive this merge
+ * logic locally at a new call site.
+ *
+ * `skillsById` is caller-supplied (a DB lookup keyed by `focusSkillIds`
+ * values) since this module makes no DB calls itself.
+ */
+export function buildGuardrailActivityInput(
+  template: GuardrailTemplateInput,
+  skillsById: Map<string, { slug: string; name: string }>,
+): GuardrailActivityInput {
+  const focusSkills = (template.focusSkillIds ?? [])
+    .map((sid) => skillsById.get(sid))
+    .filter((s): s is { slug: string; name: string } => !!s)
+    .map((s) => ({ slug: s.slug, name: s.name, introductionAge: null }));
+
+  const suggestionSlugs = resolveSuggestionSkillSlugs(
+    (template.structure ?? []).flatMap((seg) => seg.activitySuggestions ?? []),
+  );
+  const suggestionSkills = resolveSkillInputsForSlugs(suggestionSlugs);
+
+  const seenSlugs = new Set(focusSkills.map((s) => s.slug));
+  const mergedSkills = [
+    ...focusSkills,
+    ...suggestionSkills.filter((s) => !seenSlugs.has(s.slug)),
+  ];
+
+  // Templates carry no stage tagging of their own (that lives on
+  // `activities` rows, which templates don't reference by FK) -- warn tier
+  // doesn't apply at the template level, only the safety block tier.
+  return { name: template.name, appropriateStages: null, skills: mergedSkills };
+}
+
 /**
  * Resolve skill slugs (e.g. from `resolveSuggestionSkillSlugs`) to
  * `GuardrailSkillInput` records using the registry's `name`/

@@ -17,8 +17,7 @@ import {
 } from "@/lib/auth/require-resource-ownership";
 import {
   evaluateGuardrails,
-  resolveSuggestionSkillSlugs,
-  resolveSkillInputsForSlugs,
+  buildGuardrailActivityInput,
 } from "@/lib/curriculum/guardrails";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
@@ -112,27 +111,17 @@ async function checkLinkedSequenceGuardrailBlocks(
         .from(skills)
         .where(inArray(skills.id, skillIds))
     : [];
-  const focusSkills = skillRows.map((s) => ({
-    slug: s.slug,
-    name: s.name,
-    introductionAge: null,
-  }));
+  const skillsById = new Map(skillRows.map((s) => [s.id, s]));
 
-  const suggestionSlugs = resolveSuggestionSkillSlugs(
-    (effectiveStructure ?? []).flatMap((seg) => seg.activitySuggestions ?? []),
+  const activityInput = buildGuardrailActivityInput(
+    { name: templateName, focusSkillIds: effectiveFocusSkillIds, structure: effectiveStructure },
+    skillsById,
   );
-  const suggestionSkills = resolveSkillInputsForSlugs(suggestionSlugs);
-
-  const seenSlugs = new Set(focusSkills.map((s) => s.slug));
-  const mergedSkills = [
-    ...focusSkills,
-    ...suggestionSkills.filter((s) => !seenSlugs.has(s.slug)),
-  ];
 
   const result = evaluateGuardrails({
     seasonMinAge: strictest.ageMin,
     seasonMaxAge: strictest.ageMax,
-    activities: [{ name: templateName, appropriateStages: null, skills: mergedSkills }],
+    activities: [activityInput],
   });
 
   return result.blocks;
