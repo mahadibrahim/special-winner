@@ -208,14 +208,6 @@ function QuickActions() {
           <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
         </a>
         <a
-          href="/coach/standings"
-          className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
-        >
-          <Trophy className="w-5 h-5 text-ink-muted group-hover:text-amber-400 transition-colors" />
-          <span className="text-sm text-ink-2 group-hover:text-ink transition-colors">View Standings</span>
-          <ChevronRight className="w-4 h-4 text-ink-faint ml-auto group-hover:translate-x-1 transition-all" />
-        </a>
-        <a
           href="/coach/practices"
           className="flex items-center gap-3 p-3 rounded-xl bg-cream-2 hover:bg-cream-3 transition-colors group"
         >
