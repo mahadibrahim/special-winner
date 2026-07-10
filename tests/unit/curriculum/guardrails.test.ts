@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   mapAgeBandToStages,
   evaluateGuardrails,
+  resolveSuggestionSkillSlugs,
+  resolveSkillInputsForSlugs,
   type GuardrailInput,
 } from "@/lib/curriculum/guardrails";
 
@@ -163,5 +165,126 @@ describe("evaluateGuardrails", () => {
     const reason = result.warns[0].reason;
     expect(reason).not.toContain("competitive-"); // no hyphenated slug fragments
     expect(reason).not.toContain("_");
+  });
+
+  // Fail-closed asymmetric-null age band cases (T2/T3 review finding #1).
+  describe("fail-closed null age band handling", () => {
+    it("blocks when minAge is null but maxAge is known (asymmetric null must not fail open)", () => {
+      const result = evaluateGuardrails({
+        seasonMinAge: null,
+        seasonMaxAge: 15,
+        activities: [
+          baseActivity({
+            skills: [
+              { slug: "heading-defensive", name: "Heading - Defensive", introductionAge: 11 },
+            ],
+          }),
+        ],
+      });
+      expect(result.evaluable).toBe(true);
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].reason.toLowerCase()).toContain("youngest age isn't set");
+      expect(result.blocks[0].rule).toBe("No heading in training for players 10 and under");
+      expect(result.blocks[0].source).toContain("US Soccer");
+    });
+
+    it("blocks a safety-ruled skill even when both bounds are null (evaluable stays false)", () => {
+      const result = evaluateGuardrails({
+        seasonMinAge: null,
+        seasonMaxAge: null,
+        activities: [
+          baseActivity({
+            skills: [
+              { slug: "heading-defensive", name: "Heading - Defensive", introductionAge: 11 },
+            ],
+          }),
+        ],
+      });
+      expect(result.evaluable).toBe(false);
+      expect(result.blocks).toHaveLength(1);
+      expect(result.warns).toEqual([]);
+    });
+
+    it("does NOT block when the floor is known and at/above the rule's minAge, even with a null ceiling", () => {
+      const result = evaluateGuardrails({
+        seasonMinAge: 12,
+        seasonMaxAge: null,
+        activities: [
+          baseActivity({
+            skills: [
+              { slug: "heading-defensive", name: "Heading - Defensive", introductionAge: 11 },
+            ],
+          }),
+        ],
+      });
+      expect(result.blocks).toEqual([]);
+    });
+
+    it("blocks when the floor is known and below the rule's minAge, with a null ceiling", () => {
+      const result = evaluateGuardrails({
+        seasonMinAge: 8,
+        seasonMaxAge: null,
+        activities: [
+          baseActivity({
+            skills: [
+              { slug: "heading-defensive", name: "Heading - Defensive", introductionAge: 11 },
+            ],
+          }),
+        ],
+      });
+      expect(result.blocks).toHaveLength(1);
+    });
+  });
+});
+
+describe("resolveSuggestionSkillSlugs", () => {
+  it("resolves a registry activity name (case-insensitive) to its developed skill slugs", () => {
+    const result = resolveSuggestionSkillSlugs(["Heading Progression"]);
+    expect(result).toContain("heading-defensive");
+  });
+
+  it("resolves case-insensitively and by slug too", () => {
+    expect(resolveSuggestionSkillSlugs(["heading progression"])).toContain("heading-defensive");
+    expect(resolveSuggestionSkillSlugs(["heading-progression"])).toContain("heading-defensive");
+  });
+
+  it("ignores unmatched/garbage strings", () => {
+    expect(resolveSuggestionSkillSlugs(["not a real activity", "asdf1234"])).toEqual([]);
+  });
+
+  it("returns [] for null/undefined/empty input", () => {
+    expect(resolveSuggestionSkillSlugs(null)).toEqual([]);
+    expect(resolveSuggestionSkillSlugs(undefined)).toEqual([]);
+    expect(resolveSuggestionSkillSlugs([])).toEqual([]);
+  });
+});
+
+describe("resolveSkillInputsForSlugs", () => {
+  it("resolves a known slug to a GuardrailSkillInput with registry name/introductionAge", () => {
+    const [input] = resolveSkillInputsForSlugs(["heading-defensive"]);
+    expect(input.slug).toBe("heading-defensive");
+    expect(input.name).toBeTruthy();
+  });
+
+  it("drops unknown slugs", () => {
+    expect(resolveSkillInputsForSlugs(["not-a-real-skill-slug"])).toEqual([]);
+  });
+
+  it("feeds evaluateGuardrails to block a safety skill discovered only via free-text suggestions", () => {
+    const slugs = resolveSuggestionSkillSlugs(["Heading Progression"]);
+    const skills = resolveSkillInputsForSlugs(slugs);
+    const result = evaluateGuardrails({
+      seasonMinAge: 8,
+      seasonMaxAge: 10,
+      activities: [
+        {
+          name: "Some Template",
+          appropriateStages: null,
+          skills,
+        },
+      ],
+    });
+    expect(result.blocks).toHaveLength(1);
+    expect(result.blocks[0].rule).toBe("No heading in training for players 10 and under");
   });
 });

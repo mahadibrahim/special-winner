@@ -16,6 +16,7 @@
 //     safety issue). Visible but dismissible; never blocks distribution.
 
 import { STAGES } from "./content/reference";
+import { CURRICULUM_CONTENT } from "./content";
 import { getSafetyRule } from "./safety-rules";
 
 /**
@@ -76,26 +77,50 @@ export interface GuardrailWarn {
 }
 
 export interface GuardrailResult {
-  /** false when the season has no age band set at all -- callers show a
-   * "can't evaluate guardrails" notice rather than guessing. */
+  /** false when the season has no age band set at all (both bounds null)
+   * -- callers show a "can't evaluate guardrails" notice for the warn tier
+   * rather than guessing a stage-overlap. This does NOT mean `blocks` is
+   * always empty in that case -- see the fail-closed contract below. */
   evaluable: boolean;
   blocks: GuardrailBlock[];
   warns: GuardrailWarn[];
 }
 
+/**
+ * Evaluate BLOCK (safety) and WARN (stage-fit) guardrails for a season's
+ * age band against a set of activities/skills.
+ *
+ * Fail-closed contract for the BLOCK tier: the youngest player in the group
+ * is what matters, and an unknown floor is treated as "could be younger
+ * than the rule allows" -- never as "assume it's fine":
+ *   - `seasonMinAge` known and below a skill's safety-rule `minAge` -> BLOCK.
+ *   - `seasonMinAge` is `null` (floor unknown) and a safety-ruled skill is
+ *     present -> BLOCK, regardless of whether `seasonMaxAge` is set. A
+ *     known ceiling says nothing about the youngest kid in the room.
+ *   - `seasonMinAge` known and at/above the rule's `minAge` -> no block.
+ * This fail-closed check runs even when `evaluable` is `false` (both bounds
+ * null) -- "we can't evaluate the warn tier" is not the same claim as "it's
+ * safe to run this drill." `evaluable` only gates the WARN tier, which has
+ * no meaningful null-band behavior (nothing to compare stage overlap
+ * against).
+ */
 export function evaluateGuardrails(input: GuardrailInput): GuardrailResult {
   const { seasonMinAge, seasonMaxAge, activities } = input;
 
-  if (seasonMinAge === null && seasonMaxAge === null) {
-    return { evaluable: false, blocks: [], warns: [] };
+  const evaluable = seasonMinAge !== null || seasonMaxAge !== null;
+
+  // One-sided bands (only one bound known) evaluate the WARN tier against
+  // that single age -- never invented, always caller-supplied. Only
+  // computed when there's a band at all; the WARN tier has nothing to do
+  // when both bounds are null.
+  let seasonStageSlugs: string[] = [];
+  let warnLabelMin = 0;
+  let warnLabelMax = 0;
+  if (evaluable) {
+    warnLabelMin = seasonMinAge ?? (seasonMaxAge as number);
+    warnLabelMax = seasonMaxAge ?? (seasonMinAge as number);
+    seasonStageSlugs = mapAgeBandToStages(warnLabelMin, warnLabelMax);
   }
-
-  // One-sided bands (only one bound known) evaluate against that single
-  // age -- never invented, always caller-supplied.
-  const effectiveMin = seasonMinAge ?? (seasonMaxAge as number);
-  const effectiveMax = seasonMaxAge ?? (seasonMinAge as number);
-
-  const seasonStageSlugs = mapAgeBandToStages(effectiveMin, effectiveMax);
 
   const blocks: GuardrailBlock[] = [];
   const warns: GuardrailWarn[] = [];
@@ -103,9 +128,21 @@ export function evaluateGuardrails(input: GuardrailInput): GuardrailResult {
   for (const activity of activities) {
     for (const skill of activity.skills) {
       const rule = getSafetyRule(skill.slug);
-      // A season "including any age below the rule age" blocks -- the
-      // youngest player in the group is what matters, not the average.
-      if (rule && effectiveMin < rule.minAge) {
+      if (!rule) continue;
+
+      if (seasonMinAge === null) {
+        // Floor unknown -- fail closed regardless of seasonMaxAge. A known
+        // ceiling of 15 says nothing about whether the youngest player is 8.
+        blocks.push({
+          activityName: activity.name,
+          skillName: skill.name,
+          reason: `This group's youngest age isn't set — ${skill.name} drills are blocked until an age range confirms all players are ${rule.minAge}+`,
+          rule: rule.rule,
+          source: rule.source,
+        });
+      } else if (seasonMinAge < rule.minAge) {
+        // A season "including any age below the rule age" blocks -- the
+        // youngest player in the group is what matters, not the average.
         blocks.push({
           activityName: activity.name,
           skillName: skill.name,
@@ -116,7 +153,7 @@ export function evaluateGuardrails(input: GuardrailInput): GuardrailResult {
       }
     }
 
-    if (activity.appropriateStages !== null) {
+    if (evaluable && activity.appropriateStages !== null) {
       const overlaps = activity.appropriateStages.some((slug) =>
         seasonStageSlugs.includes(slug),
       );
@@ -126,7 +163,7 @@ export function evaluateGuardrails(input: GuardrailInput): GuardrailResult {
           : "no listed stage";
         const seasonLabel = seasonStageSlugs.length
           ? joinLabels(seasonStageSlugs)
-          : `ages ${effectiveMin}–${effectiveMax}`;
+          : `ages ${warnLabelMin}–${warnLabelMax}`;
         warns.push({
           activityName: activity.name,
           reason: `This activity is written for ${activityLabel}; this group is ${seasonLabel}.`,
@@ -135,5 +172,70 @@ export function evaluateGuardrails(input: GuardrailInput): GuardrailResult {
     }
   }
 
-  return { evaluable: true, blocks, warns };
+  return { evaluable, blocks, warns };
+}
+
+/**
+ * Resolve free-text `activitySuggestions` strings (authored on practice
+ * templates) against the curriculum registry (`CURRICULUM_CONTENT`),
+ * matching each string case-insensitively by activity `slug` OR activity
+ * `name`. Returns the union of matched activities' `skillsDeveloped` skill
+ * slugs; unmatched/garbage strings contribute nothing.
+ *
+ * Why this exists: `focusSkillIds` is the structured, DB-validated way a
+ * template declares the skills it develops, and that's what the safety
+ * block tier evaluates. But templates also carry free-text
+ * `activitySuggestions` per segment -- a coach or admin can type "Heading
+ * Progression" there without ever touching `focusSkillIds`, silently
+ * smuggling a safety-ruled activity past the block tier. Resolving those
+ * strings against the registry closes that gap.
+ */
+export function resolveSuggestionSkillSlugs(
+  suggestions: string[] | null | undefined,
+): string[] {
+  if (!suggestions || suggestions.length === 0) return [];
+
+  const normalized = new Set(
+    suggestions.map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0),
+  );
+  if (normalized.size === 0) return [];
+
+  const matchedSkillSlugs = new Set<string>();
+  for (const activity of CURRICULUM_CONTENT.activities) {
+    const isMatch =
+      normalized.has(activity.slug.toLowerCase()) ||
+      normalized.has(activity.name.toLowerCase());
+    if (!isMatch) continue;
+    for (const skillSlug of activity.skillsDeveloped ?? []) {
+      matchedSkillSlugs.add(skillSlug);
+    }
+  }
+  return [...matchedSkillSlugs];
+}
+
+/**
+ * Resolve skill slugs (e.g. from `resolveSuggestionSkillSlugs`) to
+ * `GuardrailSkillInput` records using the registry's `name`/
+ * `introductionAge`. These skills may have no corresponding DB `skills`
+ * row at all -- they were matched from free-text against registry
+ * activities, not looked up by id -- so `evaluateGuardrails` is fed the
+ * registry's own name/introductionAge rather than a joined DB row.
+ * Unknown slugs are dropped (shouldn't happen given the slugs came from
+ * the registry itself, but never invented).
+ */
+export function resolveSkillInputsForSlugs(slugs: string[]): GuardrailSkillInput[] {
+  const seen = new Set<string>();
+  const result: GuardrailSkillInput[] = [];
+  for (const slug of slugs) {
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    const skill = CURRICULUM_CONTENT.skills.find((s) => s.slug === slug);
+    if (!skill) continue;
+    result.push({
+      slug: skill.slug,
+      name: skill.name,
+      introductionAge: skill.introductionAge ?? null,
+    });
+  }
+  return result;
 }

@@ -28,6 +28,7 @@ describe("Blueprint guardrails — BLOCK tier on sequence-entry write", () => {
   let createdHeadingSkill = false;
   let blockedTemplateId: string | null = null;
   let cleanTemplateId: string | null = null;
+  let unlinkedTemplateId: string | null = null;
   let sequenceId: string | null = null;
 
   beforeAll(async () => {
@@ -155,6 +156,12 @@ describe("Blueprint guardrails — BLOCK tier on sequence-entry write", () => {
         cookie: adminCookie,
       });
     }
+    if (unlinkedTemplateId) {
+      await apiFetch(`/api/admin/curriculum/templates/${unlinkedTemplateId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    }
     if (createdHeadingSkill && headingSkillId) {
       await getDb().delete(skills).where(eq(skills.id, headingSkillId));
     }
@@ -203,5 +210,56 @@ describe("Blueprint guardrails — BLOCK tier on sequence-entry write", () => {
     expect(res.status).toBeLessThan(300);
     const json = await res.json();
     expect(json.entries).toHaveLength(1);
+  });
+
+  // T2/T3 review finding #2: editing a template already used in a sequence
+  // must re-run the BLOCK-tier guardrail against that sequence's stage --
+  // not just at entry-write time. cleanTemplateId is now linked to
+  // sequenceId (fundamentals, ages 6-8) by the previous test.
+  it("blocks a template edit that adds a safety-blocked skill to a template already linked to a sequence (422, no write)", async () => {
+    if (!cleanTemplateId || !headingSkillId) return; // runtime skip
+
+    const res = await apiFetch(`/api/admin/curriculum/templates/${cleanTemplateId}`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({ focusSkillIds: [headingSkillId] }),
+    });
+    const json = await expectJson(res, 422);
+    expect(Array.isArray(json.blocks)).toBe(true);
+    expect(json.blocks.length).toBeGreaterThan(0);
+    expect(json.blocks[0].rule).toBe("No heading in training for players 10 and under");
+
+    // Verify no write happened.
+    const getRes = await apiFetch(`/api/admin/curriculum/templates/${cleanTemplateId}`, {
+      method: "GET",
+      cookie: adminCookie,
+    });
+    const getJson = await expectJson(getRes, 200);
+    expect(getJson.template.focusSkillIds ?? []).not.toContain(headingSkillId);
+  });
+
+  it("allows the same edit on a template with no linked sequences (2xx)", async () => {
+    if (!fundamentalsStageId || !headingSkillId) return; // runtime skip
+
+    const createRes = await apiFetch("/api/admin/curriculum/templates", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        sportId: orgASportId,
+        stageId: fundamentalsStageId,
+        name: testSlug("guardrail-unlinked-tpl"),
+        totalDurationMinutes: 45,
+        structure: [{ name: "Passing warmup", type: "technical", durationMinutes: 20 }],
+      }),
+    });
+    unlinkedTemplateId = (await expectJson(createRes, 201)).template.id;
+
+    const res = await apiFetch(`/api/admin/curriculum/templates/${unlinkedTemplateId}`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({ focusSkillIds: [headingSkillId] }),
+    });
+    expect(res.status).toBeGreaterThanOrEqual(200);
+    expect(res.status).toBeLessThan(300);
   });
 });

@@ -1,14 +1,25 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { practiceTemplates, developmentStages } from "@/lib/db/schema";
+import {
+  practiceTemplates,
+  developmentStages,
+  curriculumSequenceEntries,
+  curriculumSequences,
+  skills,
+} from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and, or, isNull, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgSport,
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
+import {
+  evaluateGuardrails,
+  resolveSuggestionSkillSlugs,
+  resolveSkillInputsForSlugs,
+} from "@/lib/curriculum/guardrails";
 
 /** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
 function getDbErrorCode(error: any): string | undefined {
@@ -41,6 +52,90 @@ async function loadTemplateForOrg(
     )
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * Re-check the BLOCK-tier age guardrail against every sequence that
+ * references this template (via curriculum_sequence_entries), using the
+ * STRICTEST (lowest-minAge) linked sequence's stage as the proxy season
+ * band -- the same proxy convention the sequence-entry write path
+ * (entries.ts) uses, since neither site knows the template's eventual
+ * season at write time. A template with no linked sequences floats free
+ * of this check; it's re-checked once it's actually attached to a
+ * sequence entry.
+ *
+ * This closes the "template edit bypasses the block tier" gap (T2/T3
+ * review finding #2): editing `focusSkillIds` or `structure` (whose
+ * segments carry free-text `activitySuggestions` -- finding #3) on a
+ * template already used in a sequence must be re-validated, not just
+ * checked once at entry-write time.
+ */
+async function checkLinkedSequenceGuardrailBlocks(
+  templateId: string,
+  templateName: string,
+  effectiveFocusSkillIds: string[] | null,
+  effectiveStructure: { activitySuggestions?: string[] }[] | null,
+) {
+  const db = getDb();
+
+  const linkedStages = await db
+    .selectDistinct({
+      stageId: developmentStages.id,
+      ageMin: developmentStages.ageMin,
+      ageMax: developmentStages.ageMax,
+    })
+    .from(curriculumSequenceEntries)
+    .innerJoin(
+      curriculumSequences,
+      eq(curriculumSequenceEntries.sequenceId, curriculumSequences.id),
+    )
+    .innerJoin(
+      developmentStages,
+      eq(curriculumSequences.developmentStageId, developmentStages.id),
+    )
+    .where(eq(curriculumSequenceEntries.templateId, templateId));
+
+  if (linkedStages.length === 0) return [];
+
+  // Strictest = lowest minAge -- the band most likely to trip a safety
+  // floor, so checking against it is the conservative choice across all
+  // linked sequences.
+  const strictest = linkedStages.reduce(
+    (min, s) => (s.ageMin < min.ageMin ? s : min),
+    linkedStages[0],
+  );
+
+  const skillIds = effectiveFocusSkillIds ?? [];
+  const skillRows = skillIds.length
+    ? await db
+        .select({ id: skills.id, slug: skills.slug, name: skills.name })
+        .from(skills)
+        .where(inArray(skills.id, skillIds))
+    : [];
+  const focusSkills = skillRows.map((s) => ({
+    slug: s.slug,
+    name: s.name,
+    introductionAge: null,
+  }));
+
+  const suggestionSlugs = resolveSuggestionSkillSlugs(
+    (effectiveStructure ?? []).flatMap((seg) => seg.activitySuggestions ?? []),
+  );
+  const suggestionSkills = resolveSkillInputsForSlugs(suggestionSlugs);
+
+  const seenSlugs = new Set(focusSkills.map((s) => s.slug));
+  const mergedSkills = [
+    ...focusSkills,
+    ...suggestionSkills.filter((s) => !seenSlugs.has(s.slug)),
+  ];
+
+  const result = evaluateGuardrails({
+    seasonMinAge: strictest.ageMin,
+    seasonMaxAge: strictest.ageMax,
+    activities: [{ name: templateName, appropriateStages: null, skills: mergedSkills }],
+  });
+
+  return result.blocks;
 }
 
 const templateSegmentSchema = z.object({
@@ -171,6 +266,52 @@ export const PUT: APIRoute = async (context) => {
         result.data.sportId,
       );
       if (!sportCheck.ok) return ownershipDeniedResponse();
+    }
+
+    // If this update touches focusSkillIds or structure (whose segments
+    // carry free-text activitySuggestions), re-check the BLOCK-tier
+    // guardrail against every sequence already using this template --
+    // otherwise an edit here bypasses the checks entries.ts performed at
+    // write time (T2/T3 review finding #2).
+    const touchesGuardrailFields =
+      "focusSkillIds" in result.data || "structure" in result.data;
+    if (touchesGuardrailFields) {
+      const [current] = await getDb()
+        .select({
+          name: practiceTemplates.name,
+          focusSkillIds: practiceTemplates.focusSkillIds,
+          structure: practiceTemplates.structure,
+        })
+        .from(practiceTemplates)
+        .where(eq(practiceTemplates.id, id))
+        .limit(1);
+
+      const effectiveFocusSkillIds =
+        "focusSkillIds" in result.data
+          ? (result.data.focusSkillIds ?? null)
+          : (current?.focusSkillIds ?? null);
+      const effectiveStructure =
+        "structure" in result.data
+          ? (result.data.structure ?? null)
+          : (current?.structure ?? null);
+      const effectiveName = result.data.name ?? current?.name ?? "This template";
+
+      const blocks = await checkLinkedSequenceGuardrailBlocks(
+        id,
+        effectiveName,
+        effectiveFocusSkillIds,
+        effectiveStructure,
+      );
+      if (blocks.length > 0) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "This change would introduce a safety-blocked skill for a sequence already using this template",
+            blocks,
+          }),
+          { status: 422, headers: { "Content-Type": "application/json" } },
+        );
+      }
     }
 
     const [updatedTemplate] = await getDb()

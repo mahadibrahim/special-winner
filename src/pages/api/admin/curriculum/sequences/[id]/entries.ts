@@ -11,7 +11,11 @@ import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { ownershipDeniedResponse } from "@/lib/auth/require-resource-ownership";
 import { loadSequenceForOrg } from "@/lib/curriculum/sequence-ownership";
-import { evaluateGuardrails } from "@/lib/curriculum/guardrails";
+import {
+  evaluateGuardrails,
+  resolveSuggestionSkillSlugs,
+  resolveSkillInputsForSlugs,
+} from "@/lib/curriculum/guardrails";
 
 const entriesSchema = z.object({
   entries: z
@@ -70,6 +74,7 @@ export const PUT: APIRoute = async (context) => {
       id: string;
       name: string;
       focusSkillIds: string[] | null;
+      structure: { activitySuggestions?: string[] }[] | null;
     }[] = [];
     if (postedIds.length > 0) {
       validTemplates = await getDb()
@@ -77,6 +82,7 @@ export const PUT: APIRoute = async (context) => {
           id: practiceTemplates.id,
           name: practiceTemplates.name,
           focusSkillIds: practiceTemplates.focusSkillIds,
+          structure: practiceTemplates.structure,
         })
         .from(practiceTemplates)
         .where(
@@ -131,18 +137,37 @@ export const PUT: APIRoute = async (context) => {
         const guardrailResult = evaluateGuardrails({
           seasonMinAge: stage.ageMin,
           seasonMaxAge: stage.ageMax,
-          activities: validTemplates.map((t) => ({
-            name: t.name,
-            // Templates carry no stage tagging of their own (that lives on
-            // `activities` rows, which templates don't reference by FK --
-            // only free-text `activitySuggestions`) -- warn tier doesn't
-            // apply here, only the safety block below.
-            appropriateStages: null,
-            skills: (t.focusSkillIds ?? [])
+          activities: validTemplates.map((t) => {
+            const focusSkills = (t.focusSkillIds ?? [])
               .map((sid) => skillsById.get(sid))
               .filter((s): s is { id: string; slug: string; name: string } => !!s)
-              .map((s) => ({ slug: s.slug, name: s.name, introductionAge: null })),
-          })),
+              .map((s) => ({ slug: s.slug, name: s.name, introductionAge: null }));
+
+            // Free-text activitySuggestions can smuggle a safety-flagged
+            // activity past focusSkillIds -- resolve each segment's
+            // suggestions against the curriculum registry and evaluate
+            // those skills too (T2/T3 review finding #3).
+            const suggestionSlugs = resolveSuggestionSkillSlugs(
+              (t.structure ?? []).flatMap((seg) => seg.activitySuggestions ?? []),
+            );
+            const suggestionSkills = resolveSkillInputsForSlugs(suggestionSlugs);
+
+            const seenSlugs = new Set(focusSkills.map((s) => s.slug));
+            const mergedSkills = [
+              ...focusSkills,
+              ...suggestionSkills.filter((s) => !seenSlugs.has(s.slug)),
+            ];
+
+            return {
+              name: t.name,
+              // Templates carry no stage tagging of their own (that lives
+              // on `activities` rows, which templates don't reference by
+              // FK) -- warn tier doesn't apply here, only the safety block
+              // below.
+              appropriateStages: null,
+              skills: mergedSkills,
+            };
+          }),
         });
 
         if (guardrailResult.blocks.length > 0) {
