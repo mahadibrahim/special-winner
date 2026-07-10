@@ -40,6 +40,10 @@ const previewQuerySchema = z.object({
  * nothing is written. See "Distribution" (Preview step) in
  * docs/superpowers/specs/2026-07-10-program-blueprint-design.md.
  *
+ * `safety.warns` (stage-skew, non-gating) is included alongside
+ * `safety.blocks` so the preview UI can show both — the POST endpoint only
+ * ever acts on `blocks`; warns never gate distribution.
+ *
  * One group (coached team) per row: the generated dates, which of those
  * dates already have *some* session for that team (`conflicts` — any
  * existing session_plans row that day, not necessarily from this sequence),
@@ -240,7 +244,7 @@ export const GET: APIRoute = async (context) => {
       JSON.stringify({
         groups,
         summary,
-        safety: { blocks: safety.blocks, bandKnown: safety.bandKnown },
+        safety: { blocks: safety.blocks, warns: safety.warns, bandKnown: safety.bandKnown },
         truncatedBySeasonEnd,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },

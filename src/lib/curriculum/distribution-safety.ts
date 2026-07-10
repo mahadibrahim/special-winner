@@ -25,7 +25,9 @@ import { skills } from "@/lib/db/schema/curriculum";
 import {
   evaluateGuardrails,
   buildGuardrailActivityInput,
+  buildWarnOnlyActivityInputs,
   type GuardrailBlock,
+  type GuardrailWarn,
 } from "./guardrails";
 import type { TemplateForBuild } from "./sequence-instantiation";
 
@@ -67,6 +69,11 @@ export async function resolveEffectiveSeasonBand(
 
 export interface AttachSafetyResult {
   blocks: GuardrailBlock[];
+  /** WARN-tier (stage skew) findings, same resolution the blueprint
+   * bootstrap uses (`buildWarnOnlyActivityInputs`) — non-gating, surfaced
+   * for the attach-preview UI only. The POST attach endpoint ignores this
+   * field; only `blocks` gates distribution. */
+  warns: GuardrailWarn[];
   /** false when the effective band is unknown (both bounds null) — callers
    * show a "can't evaluate" notice; this does NOT mean blocks is
    * necessarily empty (fail-closed still fires — see guardrails.ts). */
@@ -74,10 +81,14 @@ export interface AttachSafetyResult {
 }
 
 /**
- * Evaluate the BLOCK-tier guardrail for a sequence's entries against a
- * season's effective age band. One activity per distinct template
- * referenced by the entries (repeats collapse — the same template used
- * twice in a sequence only needs evaluating once).
+ * Evaluate the BLOCK-tier (and, for the preview UI, WARN-tier) guardrail
+ * for a sequence's entries against a season's effective age band. One
+ * BLOCK activity per distinct template referenced by the entries (repeats
+ * collapse — the same template used twice in a sequence only needs
+ * evaluating once); WARN inputs are resolved per distinct template too, via
+ * the same `buildWarnOnlyActivityInputs` the blueprint bootstrap uses, so
+ * distribution preview and the composition view never disagree on which
+ * stage-skew warnings exist for a given template.
  */
 export async function evaluateAttachSafety(
   seasonId: string,
@@ -102,9 +113,9 @@ export async function evaluateAttachSafety(
     : [];
   const skillsById = new Map(skillRows.map((s) => [s.id, s]));
 
-  const activities = uniqueTemplateIds.map((tid) => {
+  const activities = uniqueTemplateIds.flatMap((tid) => {
     const template = templatesById.get(tid);
-    return buildGuardrailActivityInput(
+    const blockInput = buildGuardrailActivityInput(
       {
         name: template?.name ?? "Unknown template",
         focusSkillIds: template?.focusSkillIds ?? null,
@@ -112,6 +123,8 @@ export async function evaluateAttachSafety(
       },
       skillsById,
     );
+    const warnInputs = buildWarnOnlyActivityInputs(template?.structure ?? null);
+    return [blockInput, ...warnInputs];
   });
 
   const result = evaluateGuardrails({
@@ -120,5 +133,5 @@ export async function evaluateAttachSafety(
     activities,
   });
 
-  return { blocks: result.blocks, bandKnown: result.evaluable };
+  return { blocks: result.blocks, warns: result.warns, bandKnown: result.evaluable };
 }

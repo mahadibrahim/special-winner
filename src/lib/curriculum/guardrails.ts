@@ -263,6 +263,44 @@ export function buildGuardrailActivityInput(
 }
 
 /**
+ * Warn-only activity inputs for a template's `activitySuggestions` — one
+ * `GuardrailActivityInput` per matched `CURRICULUM_CONTENT` activity,
+ * carrying its real `appropriateStages` with `skills: []` so it can never
+ * contribute a duplicate BLOCK (that's already covered by the paired
+ * `buildGuardrailActivityInput` input for the same template). Templates
+ * themselves carry no stage tagging (see `buildGuardrailActivityInput`'s
+ * docstring) — this is how the WARN tier still applies at the template
+ * level, by resolving each suggestion string against the registry's real
+ * activity stage tagging.
+ *
+ * Shared by the blueprint bootstrap (per-entry) and the distribution
+ * safety re-check (per-unique-template, in distribution-safety.ts) — do
+ * not re-derive this resolution at a new call site.
+ */
+export function buildWarnOnlyActivityInputs(
+  structure: { activitySuggestions?: string[] }[] | null,
+): GuardrailActivityInput[] {
+  const suggestions = (structure ?? []).flatMap((seg) => seg.activitySuggestions ?? []);
+  const normalized = new Set(
+    suggestions.map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0),
+  );
+  if (normalized.size === 0) return [];
+
+  const matched: GuardrailActivityInput[] = [];
+  for (const activity of CURRICULUM_CONTENT.activities) {
+    const isMatch =
+      normalized.has(activity.slug.toLowerCase()) || normalized.has(activity.name.toLowerCase());
+    if (!isMatch) continue;
+    matched.push({
+      name: activity.name,
+      appropriateStages: activity.appropriateStages ?? null,
+      skills: [],
+    });
+  }
+  return matched;
+}
+
+/**
  * Resolve skill slugs (e.g. from `resolveSuggestionSkillSlugs`) to
  * `GuardrailSkillInput` records using the registry's `name`/
  * `introductionAge`. These skills may have no corresponding DB `skills`

@@ -522,6 +522,115 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
       // deletion requires super-admin access and isn't worth the extra
       // fixture wiring for a test-only row.
     });
+
+    it("(c2) surfaces a non-blocking WARN for a stage-skewed (but safety-clean) template", async () => {
+      if (!developmentStageId) return; // runtime skip: no development_stages seeded
+
+      // "Traffic Lights" (soccer/activities.ts) is tagged
+      // appropriateStages: ["fundamentals"] (ages 6-8) and carries no
+      // safety-ruled skill -- attaching it to a 12-14 season (stages
+      // development + competitive, no overlap with fundamentals) should
+      // warn on stage fit without ever blocking.
+      const skewedTplRes = await apiFetch("/api/admin/curriculum/templates", {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          sportId: orgASportId,
+          stageId: developmentStageId,
+          name: testSlug("distribution-stage-skew-tpl"),
+          totalDurationMinutes: 30,
+          structure: [
+            {
+              name: "Traffic Lights drill",
+              type: "technical",
+              durationMinutes: 20,
+              activitySuggestions: ["Traffic Lights"],
+            },
+          ],
+        }),
+      });
+      const skewedTemplateId = (await expectJson(skewedTplRes, 201)).template.id;
+
+      const skewedSeqRes = await apiFetch(SEQUENCES_ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          sportId: orgASportId,
+          developmentStageId,
+          programType: "league",
+          name: testSlug("distribution-stage-skew-sequence"),
+        }),
+      });
+      const skewedSequenceId = (await expectJson(skewedSeqRes, 201)).sequence.id;
+      await expectJson(
+        await apiFetch(`${SEQUENCES_ENDPOINT}/${skewedSequenceId}/entries`, {
+          method: "PUT",
+          cookie: adminCookie,
+          body: JSON.stringify({ entries: [{ templateId: skewedTemplateId }] }),
+        }),
+        200,
+      );
+
+      const skewedSeasonJson = await expectJson(
+        await apiFetch("/api/admin/seasons", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            programId,
+            name: "Distribution Stage-Skew Season",
+            slug: testSlug("dist-skew-season"),
+            startDate: "2026-09-01",
+            endDate: "2026-12-15",
+            priceCents: 15000,
+            status: "draft",
+            minAge: 12,
+            maxAge: 14,
+          }),
+        }),
+        201,
+      );
+      const skewedSeasonId = skewedSeasonJson.season.id;
+      await expectJson(
+        await apiFetch("/api/admin/teams", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            seasonId: skewedSeasonId,
+            name: testSlug("dist-skew-team"),
+            coachUserId,
+          }),
+        }),
+        201,
+      );
+
+      const previewJson = await expectJson(
+        await apiFetch(
+          `${SEQUENCES_ENDPOINT}/${skewedSequenceId}/attach-preview` +
+            `?seasonId=${skewedSeasonId}&weekday=${recurrence.weekday}` +
+            `&startDate=${recurrence.startDate}&timeOfDay=${recurrence.timeOfDay}` +
+            `&count=1`,
+          { method: "GET", cookie: adminCookie },
+        ),
+        200,
+      );
+
+      expect(previewJson.safety.blocks).toHaveLength(0);
+      expect(previewJson.safety.warns.length).toBeGreaterThan(0);
+      expect(previewJson.safety.warns[0]).toEqual(
+        expect.objectContaining({ activityName: "Traffic Lights" }),
+      );
+
+      // Season/team left in place (same convention as (c) above); template
+      // + sequence are test-scoped and safe to delete.
+      await apiFetch(`${SEQUENCES_ENDPOINT}/${skewedSequenceId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+      await apiFetch(`/api/admin/curriculum/templates/${skewedTemplateId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+    });
   });
 
   describe("Safety re-check at the last gate", () => {

@@ -45,11 +45,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { EmptyState } from "@/components/ui/empty-state"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { programTypeLabel } from "@/lib/programs/program-type-labels"
@@ -114,6 +123,57 @@ interface Bootstrap {
   templates: RailTemplate[]
 }
 
+// --- Distribution (Task 8) ---
+// Shapes mirror GET/POST .../attach-preview and .../attach exactly (see
+// "Distribution" in docs/superpowers/specs/2026-07-10-program-blueprint-design.md
+// and the two endpoints' docstrings) — nothing is re-derived client-side,
+// this is a straight read of what the server already computed.
+interface PreviewGroup {
+  teamId: string
+  groupLabel: string
+  noun: string
+  dates: string[]
+  conflicts: string[]
+  alreadyDistributed: number
+  truncated: boolean
+}
+
+interface PreviewSafety {
+  blocks: GuardrailBlock[]
+  warns: GuardrailWarn[]
+  bandKnown: boolean
+}
+
+interface AttachPreview {
+  groups: PreviewGroup[]
+  summary: { groupCount: number; sessionCount: number; conflictCount: number }
+  safety: PreviewSafety
+  truncatedBySeasonEnd: boolean
+}
+
+interface AttachResultRow {
+  teamId: string
+  created: number
+  skippedExisting?: number
+  error?: string
+}
+
+interface AttachResult {
+  results: AttachResultRow[]
+  attachmentId: string | null
+  raceLost?: boolean
+  teamsWithoutCoach: string[]
+  truncatedBySeasonEnd: boolean
+}
+
+/** "team" -> "teams", "class" -> "classes", "camp group" -> "camp groups",
+ * "group" -> "groups" -- every noun `groupNoun()` can return, pluralized
+ * sensibly. Singular count (1) returns the noun unchanged. */
+function pluralizeNoun(noun: string, count: number): string {
+  if (count === 1) return noun
+  return noun.endsWith("class") ? `${noun}es` : `${noun}s`
+}
+
 const MIN_VISUAL_SLOTS = 4
 
 function arcUnitLabel(programType: string): string {
@@ -162,6 +222,23 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
   )
   const [dismissingTemplateId, setDismissingTemplateId] = useState<string | null>(null)
   const [expandedAcknowledged, setExpandedAcknowledged] = useState<Set<string>>(new Set())
+
+  // Distribution (Task 8). `distributeOpen` gates the settings/preview/
+  // confirm dialog; `preview` holds the last GET attach-preview result
+  // (null = still on the settings step); `distributeResult` holds the
+  // POST attach response once confirmed (null = still previewing).
+  // Settings fields are preserved across a failed preview/confirm so the
+  // director never has to re-type anything.
+  const [distributeOpen, setDistributeOpen] = useState(false)
+  const [weekday, setWeekday] = useState(0)
+  const [distStartDate, setDistStartDate] = useState("")
+  const [timeOfDay, setTimeOfDay] = useState("17:00")
+  const [count, setCount] = useState(1)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [preview, setPreview] = useState<AttachPreview | null>(null)
+  const [distributing, setDistributing] = useState(false)
+  const [distributeResult, setDistributeResult] = useState<AttachResult | null>(null)
 
   // Tracks whether we've ever loaded data, so the name-prefill only fires
   // once (on first load) rather than clobbering an in-progress edit every
@@ -368,6 +445,104 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
     [data?.sequence, refreshBootstrap],
   )
 
+  // Opens the Distribute pane and seeds the settings step's defaults:
+  // weekday from the season start date's own weekday, start date = season
+  // start, time = 5pm, count = filled slot count (spec defaults). Resets
+  // any stale preview/result from a previous open.
+  function openDistribute() {
+    if (!data) return
+    const parsed = new Date(`${data.season.startDate}T00:00:00Z`)
+    setWeekday(Number.isNaN(parsed.getTime()) ? 0 : parsed.getUTCDay())
+    setDistStartDate(data.season.startDate)
+    setTimeOfDay("17:00")
+    setCount(Math.max(data.slots.length, 1))
+    setPreview(null)
+    setPreviewError(null)
+    setDistributeResult(null)
+    setDistributeOpen(true)
+  }
+
+  // Step 1 -> preview: read-only GET, re-runs the same safety check the
+  // confirm POST will, so blocks/warns are visible before anything writes.
+  const runPreview = useCallback(async () => {
+    if (!data?.sequence) return
+    setPreviewLoading(true)
+    setPreviewError(null)
+    try {
+      const params = new URLSearchParams({
+        seasonId,
+        weekday: String(weekday),
+        startDate: distStartDate,
+        timeOfDay,
+        count: String(count),
+      })
+      const res = await fetch(
+        `/api/admin/curriculum/sequences/${data.sequence.id}/attach-preview?${params.toString()}`,
+      )
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPreviewError(body.error || "Couldn't preview this distribution")
+        return
+      }
+      setPreview(body as AttachPreview)
+    } catch {
+      // Fetch itself rejected -- settings are preserved, nothing written.
+      toast.error(CONNECTION_ERROR_MESSAGE)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [data?.sequence, seasonId, weekday, distStartDate, timeOfDay, count])
+
+  // Step 2 -> confirm: the actual POST. A 422 here (template changed
+  // between preview and confirm) merges the fresh blocks into the visible
+  // preview rather than bouncing back to the settings step.
+  const runDistribute = useCallback(async () => {
+    if (!data?.sequence) return
+    setDistributing(true)
+    try {
+      const res = await fetch(`/api/admin/curriculum/sequences/${data.sequence.id}/attach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seasonId, weekday, startDate: distStartDate, timeOfDay, count }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 422 && Array.isArray(body.blocks)) {
+          setPreview((prev) =>
+            prev ? { ...prev, safety: { ...prev.safety, blocks: body.blocks } } : prev,
+          )
+          toast.error(body.error || "Blocked — see the rules below")
+        } else {
+          toast.error(body.error || "Failed to distribute")
+        }
+        return
+      }
+      const result = body as AttachResult
+      setDistributeResult(result)
+      if (result.raceLost) {
+        toast("Another distribution just covered this — refresh to see it")
+      } else {
+        const totalCreated = result.results.reduce((sum, r) => sum + r.created, 0)
+        toast.success(`Distributed ${totalCreated} session${totalCreated === 1 ? "" : "s"}`)
+      }
+      await refreshBootstrap()
+    } catch {
+      // Fetch itself rejected -- nothing was written, state preserved.
+      toast.error(CONNECTION_ERROR_MESSAGE)
+    } finally {
+      setDistributing(false)
+    }
+  }, [data?.sequence, seasonId, weekday, distStartDate, timeOfDay, count, refreshBootstrap])
+
+  // teamId -> groupLabel, resolved from the last preview -- the attach
+  // POST's results only carry teamId (see attach.ts), never a raw uuid is
+  // shown, so results render with this label or a generic fallback.
+  const groupLabelById = useMemo(() => {
+    const m = new Map<string, string>()
+    preview?.groups.forEach((g) => m.set(g.teamId, g.groupLabel))
+    return m
+  }, [preview])
+
   const arcLength = useMemo(() => {
     if (!data) return MIN_VISUAL_SLOTS
     return Math.max(data.slots.length + 1, MIN_VISUAL_SLOTS)
@@ -427,6 +602,16 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
   const unit = arcUnitLabel(data.program.programType)
   const orderedSlots = [...data.slots].sort((a, b) => a.order - b.order)
 
+  // "Distribute" is enabled once ≥1 slot is filled and a sequence is
+  // linked (spec: "Distribution" — "'Distribute' is the arc's primary
+  // action once at least one slot is filled"). Disabled states carry an
+  // honest `title` explaining why, rather than silently doing nothing.
+  const distributeDisabledReason = !data.sequence
+    ? "Link a sequence and add at least one session before distributing"
+    : data.slots.length === 0
+      ? "Add at least one session to the arc before distributing"
+      : null
+
   const filteredTemplates = data.templates.filter((t) => {
     if (search.trim() && !t.title.toLowerCase().includes(search.trim().toLowerCase())) {
       return false
@@ -438,9 +623,20 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
     <div className="space-y-6" data-testid="blueprint-workspace">
       {/* Header */}
       <div className="p-4 rounded-xl bg-paper border border-border space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-bold text-ink">{data.season.name}</h1>
-          <Badge variant="outline">{programTypeLabel(data.program.programType)}</Badge>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold text-ink">{data.season.name}</h1>
+            <Badge variant="outline">{programTypeLabel(data.program.programType)}</Badge>
+          </div>
+          <Button
+            onClick={openDistribute}
+            disabled={!!distributeDisabledReason}
+            title={distributeDisabledReason ?? undefined}
+            className="min-h-11"
+            data-testid="distribute-button"
+          >
+            Distribute
+          </Button>
         </div>
         <p className="text-sm text-ink-muted">
           {data.program.name} · {data.program.sportName} · {formatDate(data.season.startDate)} –{" "}
@@ -772,6 +968,364 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Distribute pane (Task 8) — settings -> preview -> confirm. Mirrors
+          the shadcn Dialog convention used elsewhere in admin (e.g.
+          skill-editor.tsx): centered modal, `max-w-2xl bg-paper
+          border-border`, scrollable body, DialogFooter actions. */}
+      <Dialog
+        open={distributeOpen}
+        onOpenChange={(open) => {
+          if (!distributing) setDistributeOpen(open)
+        }}
+      >
+        <DialogContent className="max-w-2xl bg-paper border-border">
+          <DialogHeader>
+            <DialogTitle className="text-ink">
+              {distributeResult
+                ? "Distribution results"
+                : preview
+                  ? "Review before distributing"
+                  : `Distribute to ${data.noun}s`}
+            </DialogTitle>
+            <DialogDescription>
+              {distributeResult
+                ? `Sessions generated from ${data.sequence?.name ?? "this sequence"}.`
+                : `Generates sessions for every coached ${data.noun} in ${data.season.name}, from ${
+                    data.sequence?.name ?? "the linked sequence"
+                  }.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto">
+            {distributeResult ? (
+              <DistributeResultsView
+                result={distributeResult}
+                groupLabelById={groupLabelById}
+                noun={data.noun}
+              />
+            ) : preview ? (
+              <DistributePreviewView preview={preview} noun={data.noun} />
+            ) : (
+              <DistributeSettingsForm
+                weekday={weekday}
+                onWeekdayChange={setWeekday}
+                startDate={distStartDate}
+                onStartDateChange={setDistStartDate}
+                timeOfDay={timeOfDay}
+                onTimeOfDayChange={setTimeOfDay}
+                count={count}
+                onCountChange={setCount}
+                maxCount={Math.max(data.slots.length, 1)}
+              />
+            )}
+            {previewError && !distributeResult && <ErrorBanner message={previewError} />}
+          </div>
+
+          <DialogFooter>
+            {distributeResult ? (
+              <Button
+                onClick={() => setDistributeOpen(false)}
+                className="min-h-11"
+                data-testid="distribute-done"
+              >
+                Done
+              </Button>
+            ) : preview ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setPreview(null)}
+                  disabled={distributing}
+                  className="min-h-11"
+                >
+                  Edit settings
+                </Button>
+                <Button
+                  onClick={runDistribute}
+                  disabled={
+                    distributing ||
+                    preview.safety.blocks.length > 0 ||
+                    preview.summary.groupCount === 0
+                  }
+                  title={
+                    preview.safety.blocks.length > 0
+                      ? "Resolve the blocked rules above before distributing"
+                      : preview.summary.groupCount === 0
+                        ? "No coached groups to distribute to yet"
+                        : undefined
+                  }
+                  className="min-h-11"
+                  data-testid="distribute-confirm"
+                >
+                  {distributing
+                    ? "Distributing…"
+                    : `Distribute to ${preview.summary.groupCount} ${pluralizeNoun(
+                        data.noun,
+                        preview.summary.groupCount,
+                      )}`}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={runPreview}
+                disabled={previewLoading}
+                className="min-h-11"
+                data-testid="distribute-preview"
+              >
+                {previewLoading ? "Previewing…" : "Preview"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function DistributeSettingsForm({
+  weekday,
+  onWeekdayChange,
+  startDate,
+  onStartDateChange,
+  timeOfDay,
+  onTimeOfDayChange,
+  count,
+  onCountChange,
+  maxCount,
+}: {
+  weekday: number
+  onWeekdayChange: (v: number) => void
+  startDate: string
+  onStartDateChange: (v: string) => void
+  timeOfDay: string
+  onTimeOfDayChange: (v: string) => void
+  count: number
+  onCountChange: (v: number) => void
+  maxCount: number
+}) {
+  const weekdayLabels = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ]
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-1.5">
+        <Label htmlFor="distribute-weekday">Day of the week</Label>
+        <select
+          id="distribute-weekday"
+          className="w-full h-11 rounded-md border border-input bg-background px-3 text-sm"
+          value={weekday}
+          onChange={(e) => onWeekdayChange(Number(e.target.value))}
+        >
+          {weekdayLabels.map((label, i) => (
+            <option key={label} value={i}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="distribute-start-date">Start date</Label>
+        <Input
+          id="distribute-start-date"
+          type="date"
+          value={startDate}
+          onChange={(e) => onStartDateChange(e.target.value)}
+          className="h-11"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="distribute-time">Time</Label>
+        <Input
+          id="distribute-time"
+          type="time"
+          value={timeOfDay}
+          onChange={(e) => onTimeOfDayChange(e.target.value)}
+          className="h-11"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="distribute-count">Number of sessions</Label>
+        <Input
+          id="distribute-count"
+          type="number"
+          min={1}
+          max={maxCount}
+          value={count}
+          onChange={(e) => {
+            const next = Number(e.target.value)
+            if (Number.isNaN(next)) return
+            onCountChange(Math.min(Math.max(next, 1), maxCount))
+          }}
+          className="h-11"
+        />
+        <p className="text-xs text-ink-muted">Up to {maxCount} planned in the arc.</p>
+      </div>
+    </div>
+  )
+}
+
+function DistributePreviewView({ preview, noun }: { preview: AttachPreview; noun: string }) {
+  const { summary, safety, groups, truncatedBySeasonEnd } = preview
+  return (
+    <div className="space-y-4">
+      <p className="text-sm font-medium text-ink" data-testid="distribute-summary">
+        {summary.groupCount} {pluralizeNoun(noun, summary.groupCount)} · {summary.sessionCount}{" "}
+        session{summary.sessionCount === 1 ? "" : "s"} · {summary.conflictCount} conflict
+        {summary.conflictCount === 1 ? "" : "s"}
+      </p>
+
+      {!safety.bandKnown && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <AlertTriangle className="size-4 mt-0.5 shrink-0" aria-hidden="true" />
+          <p>
+            This season has no age band set — content that needs a confirmed age floor is
+            blocked until it does.
+          </p>
+        </div>
+      )}
+
+      {safety.blocks.length > 0 && (
+        <div className="space-y-1.5 rounded-md border border-destructive bg-destructive/5 p-3 text-sm text-destructive">
+          <p className="font-medium">Blocked — can&apos;t distribute yet:</p>
+          {safety.blocks.map((b, i) => (
+            <p key={i}>
+              {b.rule} — {b.source}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {safety.warns.length > 0 && (
+        <div className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-medium">Worth a look (won&apos;t block distributing):</p>
+          {safety.warns.map((w, i) => (
+            <p key={i}>{w.reason}</p>
+          ))}
+        </div>
+      )}
+
+      {truncatedBySeasonEnd && (
+        <p className="text-xs text-ink-muted">
+          The season ends before this arc completes — later sessions won&apos;t be generated.
+        </p>
+      )}
+
+      <div className="space-y-2">
+        {groups.length === 0 && (
+          <EmptyState
+            title="No coached groups yet"
+            description={`Assign a coach to at least one ${noun} in this season before distributing.`}
+          />
+        )}
+        {groups.map((g) => {
+          const fresh = Math.max(g.dates.length - g.alreadyDistributed, 0)
+          return (
+            <div
+              key={g.teamId}
+              className="rounded-lg border border-border p-3 space-y-1.5"
+              data-testid="distribute-group-row"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium text-ink truncate">{g.groupLabel}</p>
+                <Badge variant="secondary" className="shrink-0">
+                  {g.noun}
+                </Badge>
+              </div>
+              <p className="text-xs text-ink-muted">
+                {g.dates.length} session{g.dates.length === 1 ? "" : "s"}
+                {g.alreadyDistributed > 0 && fresh > 0 && (
+                  <>
+                    {" "}
+                    · {g.alreadyDistributed} already distributed, {fresh} new
+                  </>
+                )}
+                {g.alreadyDistributed > 0 && fresh === 0 && (
+                  <> · {g.alreadyDistributed} already distributed</>
+                )}
+              </p>
+              {g.conflicts.length > 0 && (
+                <p className="text-xs text-amber-900 bg-amber-50 border border-amber-300 rounded-md px-2 py-1">
+                  {g.conflicts.length === 1
+                    ? `Already has a session on ${formatDate(g.conflicts[0])} that day`
+                    : `Already has a session on ${g.conflicts.length} of these days`}
+                </p>
+              )}
+              {g.truncated && (
+                <p className="text-xs text-ink-muted">
+                  Season ends before this arc completes for this {noun}.
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function DistributeResultsView({
+  result,
+  groupLabelById,
+  noun,
+}: {
+  result: AttachResult
+  groupLabelById: Map<string, string>
+  noun: string
+}) {
+  const totalCreated = result.results.reduce((sum, r) => sum + r.created, 0)
+  const groupsTouched = result.results.filter((r) => r.created > 0).length
+  return (
+    <div className="space-y-3">
+      {result.raceLost && (
+        <div className="flex items-start gap-2 rounded-md border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
+          <p>Another distribution just covered this — refresh to see it.</p>
+        </div>
+      )}
+      {!result.raceLost && (
+        <p className="text-sm text-ink">
+          {totalCreated} session{totalCreated === 1 ? "" : "s"} created across {groupsTouched}{" "}
+          {pluralizeNoun(noun, groupsTouched)}.
+        </p>
+      )}
+      <div className="space-y-2">
+        {result.results.map((r) => (
+          <div
+            key={r.teamId}
+            className="flex items-center justify-between gap-2 text-sm rounded-md border border-border px-3 py-2"
+          >
+            <span className="text-ink truncate">
+              {groupLabelById.get(r.teamId) ?? `This ${noun}`}
+            </span>
+            {r.error ? (
+              <span className="text-destructive shrink-0">{r.error}</span>
+            ) : (
+              <span className="text-ink-muted shrink-0">
+                {r.created} created
+                {r.skippedExisting ? `, ${r.skippedExisting} already there` : ""}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      {result.teamsWithoutCoach.length > 0 && (
+        <p className="text-xs text-ink-muted">
+          {result.teamsWithoutCoach.length} {pluralizeNoun(noun, result.teamsWithoutCoach.length)}{" "}
+          without a coach yet — no sessions were created for{" "}
+          {result.teamsWithoutCoach.length === 1 ? "it" : "them"}.
+        </p>
+      )}
+      {result.truncatedBySeasonEnd && (
+        <p className="text-xs text-ink-muted">
+          Season ends before this arc completes — later sessions weren&apos;t generated.
+        </p>
       )}
     </div>
   )

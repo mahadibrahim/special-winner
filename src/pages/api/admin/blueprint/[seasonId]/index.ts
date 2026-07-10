@@ -86,50 +86,22 @@ import {
   mapAgeBandToStages,
   evaluateGuardrails,
   buildGuardrailActivityInput,
+  buildWarnOnlyActivityInputs,
   type GuardrailBlock,
   type GuardrailWarn,
-  type GuardrailActivityInput,
 } from "@/lib/curriculum/guardrails";
 import { STAGES } from "@/lib/curriculum/content/reference";
-import { CURRICULUM_CONTENT } from "@/lib/curriculum/content";
 import { groupNoun } from "@/lib/programs/group-noun";
 
 function stageDisplayName(slug: string): string {
   return STAGES.find((s) => s.slug === slug)?.name ?? slug;
 }
 
-/**
- * Warn-only activity inputs for one template's `activitySuggestions` — see
- * the "WARN tier" module docstring above for why this can't just reuse
- * `buildGuardrailActivityInput`. Matches suggestion strings against
- * `CURRICULUM_CONTENT.activities` case-insensitively by slug or name (same
- * rule as `resolveSuggestionSkillSlugs`), carrying each matched activity's
- * real `appropriateStages` with `skills: []` so it can never contribute a
- * duplicate BLOCK (that's already covered by the paired
- * `buildGuardrailActivityInput` input for this same template).
- */
-function buildWarnOnlyActivityInputs(
-  structure: { activitySuggestions?: string[] }[] | null,
-): GuardrailActivityInput[] {
-  const suggestions = (structure ?? []).flatMap((seg) => seg.activitySuggestions ?? []);
-  const normalized = new Set(
-    suggestions.map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0),
-  );
-  if (normalized.size === 0) return [];
-
-  const matched: GuardrailActivityInput[] = [];
-  for (const activity of CURRICULUM_CONTENT.activities) {
-    const isMatch =
-      normalized.has(activity.slug.toLowerCase()) || normalized.has(activity.name.toLowerCase());
-    if (!isMatch) continue;
-    matched.push({
-      name: activity.name,
-      appropriateStages: activity.appropriateStages ?? null,
-      skills: [],
-    });
-  }
-  return matched;
-}
+// buildWarnOnlyActivityInputs now lives in guardrails.ts (shared with
+// distribution-safety.ts's evaluateAttachSafety, which needs the same
+// per-template warn resolution for the attach-preview endpoint) — see the
+// "WARN tier" module docstring above for why this can't just reuse
+// `buildGuardrailActivityInput`.
 
 // GET - bootstrap the blueprint workspace for one season.
 export const GET: APIRoute = async (context) => {
