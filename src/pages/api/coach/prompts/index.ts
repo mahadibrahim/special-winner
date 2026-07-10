@@ -4,8 +4,14 @@ import { coachPrompts, coachPromptDismissals, coachingPrinciples } from "@/lib/d
 import { sports } from "@/lib/db/schema/sports";
 import { developmentStages, skills } from "@/lib/db/schema/curriculum";
 import { eq, and, or, asc, desc, isNull, notInArray } from "drizzle-orm";
-import { validateSession } from "@/lib/auth";
+import { validateSession, requireCoachPortalAccess } from "@/lib/auth";
 import { clampLimit } from "@/lib/http/clamp-limit";
+import { z } from "zod";
+
+const dismissPromptSchema = z.object({
+  promptId: z.string().uuid(),
+  dismissType: z.enum(["temporary", "permanent", "helpful"]).default("temporary"),
+});
 
 // GET - Get prompts by context
 export const GET: APIRoute = async (context) => {
@@ -102,24 +108,38 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Dismiss a prompt
 export const POST: APIRoute = async (context) => {
-  const { user } = await validateSession(context);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  const auth = await requireCoachPortalAccess(context);
+  if (!auth.authorized) return auth.response;
 
   try {
     const db = getDb();
 
     const body = await context.request.json();
-    const { promptId, dismissType = "temporary" } = body;
+    const validation = dismissPromptSchema.safeParse(body);
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: validation.error.flatten().fieldErrors }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const { promptId, dismissType } = validation.data;
 
-    if (!promptId) {
-      return new Response(JSON.stringify({ error: "promptId is required" }), { status: 400 });
+    const [prompt] = await db
+      .select({ id: coachPrompts.id })
+      .from(coachPrompts)
+      .where(eq(coachPrompts.id, promptId))
+      .orderBy(asc(coachPrompts.id))
+      .limit(1);
+
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "Prompt not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Record the dismissal
-    await getDb().insert(coachPromptDismissals).values({
-      coachUserId: user.id,
+    await db.insert(coachPromptDismissals).values({
+      coachUserId: auth.user.id,
       promptId,
       dismissType,
     });
