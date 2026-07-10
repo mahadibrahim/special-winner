@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/schema";
 import { assessmentSnapshots } from "@/lib/db/schema/assessments";
 import { sports } from "@/lib/db/schema/sports";
+import { canAccessFamilyMember } from "@/lib/auth/family-access";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 // GET - Get development report for a family member
@@ -56,7 +57,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    if (familyMember.parentUserId !== user.id) {
+    const hasAccess = await canAccessFamilyMember(db, user.id, familyMemberId);
+    if (!hasAccess) {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },

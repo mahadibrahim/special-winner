@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { canAccessFamilyMember } from "@/lib/auth/family-access";
 
 const updateFamilyMemberSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
@@ -44,9 +45,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
     const [member] = await getDb()
       .select()
       .from(familyMembers)
-      .where(and(eq(familyMembers.id, id), eq(familyMembers.parentUserId, user.id)));
+      .where(eq(familyMembers.id, id));
 
-    if (!member) {
+    if (!member || !(await canAccessFamilyMember(db, user.id, id))) {
       return new Response(JSON.stringify({ error: "Family member not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
