@@ -176,118 +176,55 @@ test.describe("Coach Dashboard", () => {
     });
   });
 
-  test.describe("Session Planning", () => {
-    test("can access sessions page", async ({ page }) => {
-      await page.goto("/coach/sessions");
+  test.describe("Practice Planning", () => {
+    // The practice tools live at /coach/practices (list) and
+    // /coach/practices/new (planner). The old spec navigated to
+    // /coach/sessions[/new] — routes that have never existed — and asserted
+    // only that <body> was visible, so it passed against a 404.
+    test("practices overview shows session stats and a New Session link", async ({ page }) => {
+      await page.goto("/coach/practices");
       await waitForPageLoad(page);
+      await waitForHydration(page);
 
-      await expect(page).toHaveURL(/\/coach\/sessions/);
+      // PracticesOverview stat cards render after its client-side fetch;
+      // generous timeout for shared-dev-server cold starts (see the
+      // Attendance block's comment above).
+      await expect(page.getByText("Today's Sessions")).toBeVisible({ timeout: 30000 });
+      await expect(page.locator('a[href="/coach/practices/new"]').first()).toBeVisible();
     });
 
-    test("can create new session plan", async ({ page }) => {
-      await page.goto("/coach/sessions");
+    test("practice planner form has the required title field", async ({ page }) => {
+      await page.goto("/coach/practices/new");
       await waitForPageLoad(page);
 
-      const createButton = page.getByRole("button", { name: /create|add|new|plan/i });
-
-      if (await createButton.isVisible()) {
-        await createButton.click();
-
-        // Should show session plan form
-        await expect(
-          page.locator('input[name="title"], label:has-text("Title")')
-        ).toBeVisible({ timeout: 5000 });
-      }
-    });
-
-    test("session plan form has required fields", async ({ page }) => {
-      await page.goto("/coach/sessions/new");
-      await waitForPageLoad(page);
-
-      // Check for form or any content if page exists
-      if (!page.url().includes("/signin")) {
-        const form = page.locator("form, [data-testid='session-form']");
-        const pageContent = page.locator("text=/session|plan|practice/i");
-        const notFound = page.locator("text=/not found|404/i");
-
-        // Just verify page loaded with some content
-        await expect(form.or(pageContent).or(notFound).first()).toBeVisible({ timeout: 15000 });
-      }
+      await expect(page.getByText("Session Title *")).toBeVisible({ timeout: 30000 });
     });
   });
 
   test.describe("Player Development", () => {
-    test("can access player development page", async ({ page }) => {
-      await page.goto("/coach/development");
+    // The old spec navigated to /coach/development, which has never existed.
+    // Player development lives at /coach/assessments.
+    test("assessments overview lists players with stats", async ({ page }) => {
+      await page.goto("/coach/assessments");
       await waitForPageLoad(page);
 
-      // May redirect or show development page
-      await expect(page.url()).toMatch(/\/coach/);
-    });
-
-    test("can view player skills assessment", async ({ page }) => {
-      await page.goto("/coach/development");
-      await waitForPageLoad(page);
-
-      // Look for skills or assessment section
-      const skillsSection = page.locator("text=/skill|assessment|development/i");
-      await expect(page.locator("body")).toBeVisible();
+      // CoachAssessmentsOverview renders after a client-side fetch (no
+      // hydration beacon on this island — wait on real content instead).
+      await expect(page.getByText("Total Players")).toBeVisible({ timeout: 30000 });
+      await expect(page.getByRole("heading", { name: "Players" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Recent Assessments" })).toBeVisible();
     });
   });
 
   test.describe("Resources", () => {
-    test("can access resources page", async ({ page }) => {
+    test("shows the curriculum library with sport guides and minibooks", async ({ page }) => {
       await page.goto("/coach/resources");
       await waitForPageLoad(page);
 
       await expect(page).toHaveURL(/\/coach\/resources/);
-    });
-
-    test("shows available coaching resources", async ({ page }) => {
-      await page.goto("/coach/resources");
-      await waitForPageLoad(page);
-
-      // Should show resources list
-      await expect(page.locator("body")).toBeVisible();
-    });
-  });
-
-  test.describe("Activities Library", () => {
-    test("can access activities page", async ({ page }) => {
-      await page.goto("/coach/activities");
-      await waitForPageLoad(page);
-
-      await expect(page).toHaveURL(/\/coach\/activities/);
-    });
-
-    test("can search activities", async ({ page }) => {
-      await page.goto("/coach/activities");
-      await waitForPageLoad(page);
-
-      const searchInput = page.locator(
-        'input[type="search"], input[placeholder*="Search"]'
-      );
-
-      if (await searchInput.isVisible()) {
-        await searchInput.fill("dribbling");
-        await page.keyboard.press("Enter");
-        await waitForPageLoad(page);
-      }
-    });
-
-    test("can filter activities by type", async ({ page }) => {
-      await page.goto("/coach/activities");
-      await waitForPageLoad(page);
-
-      const filterSelect = page.locator(
-        'select[name="type"], [data-testid="activity-filter"]'
-      );
-
-      if (await filterSelect.first().isVisible()) {
-        await filterSelect.first().click();
-        // Just verify filter exists
-        await expect(page.locator("body")).toBeVisible();
-      }
+      // Server-rendered curriculum sections — real content, not just <body>.
+      await expect(page.getByRole("heading", { name: "Sport Guides" })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("heading", { name: "Skill Minibooks" })).toBeVisible();
     });
   });
 });
