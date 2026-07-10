@@ -21,9 +21,18 @@ export function assertTestDatabase(opts?: {
   databaseUrl?: string;
   allowE2eSeed?: string;
 }): void {
-  const url = opts?.databaseUrl ?? process.env.DATABASE_URL ?? "";
+  // An explicitly passed key is authoritative even when its value is
+  // undefined — otherwise a caller saying "no override" silently inherits
+  // ALLOW_E2E_SEED from the shell (bws injects it for staging seeding),
+  // making the guard's own tests environment-dependent.
+  const url =
+    opts && "databaseUrl" in opts
+      ? (opts.databaseUrl ?? "")
+      : (process.env.DATABASE_URL ?? "");
   const explicitlyAllowed =
-    (opts?.allowE2eSeed ?? process.env.ALLOW_E2E_SEED) === "yes";
+    (opts && "allowE2eSeed" in opts
+      ? opts.allowE2eSeed
+      : process.env.ALLOW_E2E_SEED) === "yes";
   const looksLikeStaging = /staging/i.test(url);
   const isLocal = /(@|\/\/)(localhost|127\.0\.0\.1)([:/]|$)/.test(url);
 
