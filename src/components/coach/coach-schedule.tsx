@@ -48,8 +48,8 @@ interface Team {
 }
 
 type ScheduleItem =
-  | { kind: "game"; id: string; date: Date; teamId: string; teamName: string; game: Game }
-  | { kind: "session"; id: string; date: Date; teamId: string; teamName: string; session: SessionPlan }
+  | { kind: "game"; id: string; date: Date; endDate: Date; teamId: string; teamName: string; game: Game }
+  | { kind: "session"; id: string; date: Date; endDate: Date; teamId: string; teamName: string; session: SessionPlan }
 
 const gameStatusConfig: Record<GameStatus, { label: string; className: string }> = {
   scheduled: { label: "Scheduled", className: "bg-primary/10 text-primary border-primary/20" },
@@ -246,6 +246,9 @@ export default function CoachSchedule() {
             kind: "game",
             id: `game-${game.id}`,
             date: new Date(game.scheduledAt),
+            // Games carry no duration; keep them in Upcoming for a 2h window
+            // so a coach checking mid-game doesn't see an empty schedule.
+            endDate: new Date(new Date(game.scheduledAt).getTime() + 120 * 60 * 1000),
             teamId: team.id,
             teamName: team.name,
             game,
@@ -257,6 +260,9 @@ export default function CoachSchedule() {
         kind: "session",
         id: `session-${session.id}`,
         date: new Date(session.scheduledDate),
+        endDate: new Date(
+          new Date(session.scheduledDate).getTime() + session.durationMinutes * 60 * 1000
+        ),
         teamId: session.teamId,
         teamName: session.team.name,
         session,
@@ -279,10 +285,10 @@ export default function CoachSchedule() {
 
   const now = new Date()
   const upcoming = filteredItems
-    .filter((item) => item.date >= now)
+    .filter((item) => item.endDate >= now)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
   const past = filteredItems
-    .filter((item) => item.date < now)
+    .filter((item) => item.endDate < now)
     .sort((a, b) => b.date.getTime() - a.date.getTime())
 
   if (isLoading) {
