@@ -6,6 +6,7 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PrescribedBadge, type PrescribedInfo } from "./prescribed-badge"
 import {
   Select,
   SelectContent,
@@ -58,6 +59,9 @@ interface SessionPlan {
     name: string
   }
   createdAt: string
+  // Program Blueprint (Task 5/9): non-null when this session was
+  // distributed from a curriculum sequence.
+  prescribed?: PrescribedInfo | null
 }
 
 interface SequenceProgressItem {
@@ -415,6 +419,7 @@ function SessionCard({ session, highlight }: { session: SessionPlan; highlight?:
             <Badge variant="outline" className={cn("text-[10px] shrink-0", statusConfig.color)}>
               {statusConfig.label}
             </Badge>
+            <PrescribedBadge prescribed={session.prescribed} className="shrink-0" />
           </div>
 
           <div className="flex items-center gap-4 text-xs text-ink-muted">

@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import SessionTimeline, { type SessionSegment } from "./session-timeline"
+import { PrescribedBadge, type PrescribedInfo } from "./prescribed-badge"
 import {
   Calendar,
   Clock,
@@ -66,6 +67,9 @@ interface SessionPlan {
     id: string
     name: string
   }
+  // Program Blueprint (Task 5/9): non-null when this session was
+  // distributed from a curriculum sequence.
+  prescribed?: PrescribedInfo | null
 }
 
 interface SessionDetailProps {
@@ -290,6 +294,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
               <Badge variant="outline" className="bg-paper border-border">
                 {session.sport.name}
               </Badge>
+              <PrescribedBadge prescribed={session.prescribed} />
             </div>
 
             <h1 className="text-2xl font-bold text-ink mb-2">{session.title}</h1>

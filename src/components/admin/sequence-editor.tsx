@@ -270,7 +270,11 @@ export function SequenceEditor() {
         (sum: number, r: any) => sum + r.created,
         0,
       )
-      let message = `Attached — ${created} draft plan${created === 1 ? "" : "s"} generated`
+      // Generated sessions arrive "planned" (prescribed), not "draft" —
+      // T4 upgraded the distribution engine's session status. Full
+      // distribution-preview UI is a later task; this is a minimal wording
+      // fix so the toast doesn't lie about what was just created.
+      let message = `Attached — ${created} planned plan${created === 1 ? "" : "s"} generated`
       if (body.teamsWithoutCoach?.length) {
         message += `; ${body.teamsWithoutCoach.length} team(s) skipped (no coach assigned)`
       }
@@ -440,9 +444,9 @@ export function SequenceEditor() {
         <section className="p-4 rounded-xl bg-paper border border-border space-y-3">
           <h2 className="text-sm font-medium text-ink">Attach to a season</h2>
           <p className="text-xs text-ink-muted">
-            Generates one dated draft plan per entry for every coached team in the
+            Generates one dated planned session per entry for every coached team in the
             season (weekday + start date + weekly repeat). Coaches can edit or delete
-            the drafts freely. Re-attaching is safe — existing drafts are skipped.
+            the planned sessions freely. Re-attaching is safe — existing planned sessions are skipped.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Select value={attachSeasonId} onValueChange={setAttachSeasonId}>

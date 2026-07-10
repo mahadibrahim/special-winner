@@ -1,11 +1,20 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { curriculumSequenceEntries, practiceTemplates } from "@/lib/db/schema";
+import {
+  curriculumSequenceEntries,
+  practiceTemplates,
+  developmentStages,
+  skills,
+} from "@/lib/db/schema";
 import { eq, and, or, isNull, inArray, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { ownershipDeniedResponse } from "@/lib/auth/require-resource-ownership";
 import { loadSequenceForOrg } from "@/lib/curriculum/sequence-ownership";
+import {
+  evaluateGuardrails,
+  buildGuardrailActivityInput,
+} from "@/lib/curriculum/guardrails";
 
 const entriesSchema = z.object({
   entries: z
@@ -60,9 +69,20 @@ export const PUT: APIRoute = async (context) => {
     // Every posted template must be visible to this org (own or global)
     // AND belong to the sequence's sport.
     const postedIds = [...new Set(result.data.entries.map((e) => e.templateId))];
+    let validTemplates: {
+      id: string;
+      name: string;
+      focusSkillIds: string[] | null;
+      structure: { activitySuggestions?: string[] }[] | null;
+    }[] = [];
     if (postedIds.length > 0) {
-      const validTemplates = await getDb()
-        .select({ id: practiceTemplates.id })
+      validTemplates = await getDb()
+        .select({
+          id: practiceTemplates.id,
+          name: practiceTemplates.name,
+          focusSkillIds: practiceTemplates.focusSkillIds,
+          structure: practiceTemplates.structure,
+        })
         .from(practiceTemplates)
         .where(
           and(
@@ -84,6 +104,55 @@ export const PUT: APIRoute = async (context) => {
           }),
           { status: 400 },
         );
+      }
+    }
+
+    // BLOCK-tier age guardrail (safety-rules.ts only; warn-tier stage skew
+    // is evaluated by the blueprint UI/attach re-check, not here). The
+    // season isn't known yet at entry-write time -- sequences attach to
+    // seasons later -- so this uses the SEQUENCE's own stage as a proxy
+    // band. Attach re-checks against the real season band (Task 4).
+    if (validTemplates.length > 0) {
+      const [stage] = await getDb()
+        .select({ ageMin: developmentStages.ageMin, ageMax: developmentStages.ageMax })
+        .from(developmentStages)
+        .where(eq(developmentStages.id, sequence.developmentStageId))
+        .limit(1);
+
+      // No stage resolvable (shouldn't happen given the FK, but never crash
+      // the write over it) -- skip; attach re-checks with the real season band.
+      if (stage) {
+        const skillIds = [
+          ...new Set(validTemplates.flatMap((t) => t.focusSkillIds ?? [])),
+        ];
+        const skillRows = skillIds.length
+          ? await getDb()
+              .select({ id: skills.id, slug: skills.slug, name: skills.name })
+              .from(skills)
+              .where(inArray(skills.id, skillIds))
+          : [];
+        const skillsById = new Map(skillRows.map((s) => [s.id, s]));
+
+        const guardrailResult = evaluateGuardrails({
+          seasonMinAge: stage.ageMin,
+          seasonMaxAge: stage.ageMax,
+          activities: validTemplates.map((t) =>
+            buildGuardrailActivityInput(
+              { name: t.name, focusSkillIds: t.focusSkillIds, structure: t.structure },
+              skillsById,
+            ),
+          ),
+        });
+
+        if (guardrailResult.blocks.length > 0) {
+          return new Response(
+            JSON.stringify({
+              error: "One or more templates contain safety-blocked skills for this sequence's stage",
+              blocks: guardrailResult.blocks,
+            }),
+            { status: 422, headers: { "Content-Type": "application/json" } },
+          );
+        }
       }
     }
 

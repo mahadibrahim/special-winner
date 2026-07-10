@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { cn } from "@/lib/utils"
+import { PrescribedBadge, type PrescribedInfo } from "./prescribed-badge"
 
 // The coach schedule is a READ-ONLY calendar: practice sessions the coach
 // plans (GET /api/coach/sessions) merged chronologically with league games
@@ -40,6 +41,9 @@ interface SessionPlan {
   durationMinutes: number
   status: SessionStatus
   team: { id: string; name: string }
+  // Program Blueprint (Task 5/9): non-null when this session was
+  // distributed from a curriculum sequence.
+  prescribed?: PrescribedInfo | null
 }
 
 interface Team {
@@ -166,9 +170,12 @@ function SessionRow({ item }: { item: Extract<ScheduleItem, { kind: "session" }>
     >
       <div className="flex items-center justify-between mb-3">
         <DateLine date={item.date} />
-        <Badge variant="outline" className={cn("text-[10px]", status.className)}>
-          {status.label}
-        </Badge>
+        <div className="flex items-center gap-2 shrink-0">
+          <PrescribedBadge prescribed={session.prescribed} />
+          <Badge variant="outline" className={cn("text-[10px]", status.className)}>
+            {status.label}
+          </Badge>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

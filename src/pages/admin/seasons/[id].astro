@@ -39,6 +39,7 @@ const [row] = await getDb()
     startDate: seasons.startDate,
     endDate: seasons.endDate,
     maxParticipants: seasons.maxParticipants,
+    programId: programs.id,
     programName: programs.name,
     sportName: sports.name,
     locationName: locations.name,
@@ -296,11 +297,18 @@ function teamsPanel(): string {
       esc(summary) +
       "</p>" +
       '<p class="text-sm text-ink-muted italic">No teams yet.</p>' +
+      '<div class="flex gap-4">' +
       '<a href="/admin/teams?seasonId=' +
       esc(seasonId) +
       '" class="underline text-sm hover:no-underline">' +
       "Manage teams &rarr;</a>" +
-      "</div>"
+      '<a href="/admin/programs/' +
+      esc(row.programId) +
+      "/seasons/" +
+      esc(seasonId) +
+      '/blueprint" class="underline text-sm hover:no-underline">' +
+      "Compose season blueprint &rarr;</a>" +
+      "</div></div>"
     );
   }
 
@@ -340,6 +348,12 @@ function teamsPanel(): string {
     esc(seasonId) +
     '" class="underline text-sm hover:no-underline">' +
     "Manage teams &rarr;</a>" +
+    '<a href="/admin/programs/' +
+    esc(row.programId) +
+    "/seasons/" +
+    esc(seasonId) +
+    '/blueprint" class="underline text-sm hover:no-underline">' +
+    "Compose season blueprint &rarr;</a>" +
     '<a href="#gear" class="underline text-sm hover:no-underline">Jump to Gear binding &rarr;</a>' +
     "</div></div>"
   );

@@ -8,7 +8,9 @@ import {
   programs,
   curriculumSequences,
   curriculumSequenceEntries,
+  users,
 } from "@/lib/db/schema";
+import { sequenceAttachments } from "@/lib/db/schema/blueprint";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, or, gte, lte, desc, asc, inArray, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -148,7 +150,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Get sessions
-    const sessions = await getDb()
+    const rawSessions = await getDb()
       .select({
         id: sessionPlans.id,
         teamId: sessionPlans.teamId,
@@ -176,15 +178,44 @@ export const GET: APIRoute = async ({ url, locals }) => {
           id: sports.id,
           name: sports.name,
         },
+        // Program Blueprint (Task 5): prescribed-badge data, left-joined so
+        // coach-created sessions (sequenceAttachmentId null) still return a
+        // row -- see the `prescribed` shaping below.
+        sequenceAttachmentId: sessionPlans.sequenceAttachmentId,
+        distributorFirstName: users.firstName,
+        distributorEmail: users.email,
       })
       .from(sessionPlans)
       .innerJoin(teams, eq(sessionPlans.teamId, teams.id))
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
+      .leftJoin(
+        sequenceAttachments,
+        eq(sessionPlans.sequenceAttachmentId, sequenceAttachments.id),
+      )
+      .leftJoin(users, eq(sequenceAttachments.distributedBy, users.id))
       .where(and(...conditions))
       .orderBy(desc(sessionPlans.scheduledDate))
       .limit(limit);
+
+    const sessions = rawSessions.map(
+      ({
+        sequenceAttachmentId,
+        distributorFirstName,
+        distributorEmail,
+        ...session
+      }) => ({
+        ...session,
+        prescribed: sequenceAttachmentId
+          ? {
+              attachmentId: sequenceAttachmentId,
+              distributorFirstName:
+                distributorFirstName || distributorEmail?.split("@")[0] || null,
+            }
+          : null,
+      }),
+    );
 
     // Sequence progress for teams whose season carries an attached curriculum
     // sequence (Phase 3). Membership is derived by templateId match —

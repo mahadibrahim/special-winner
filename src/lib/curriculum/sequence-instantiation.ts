@@ -74,6 +74,27 @@ export function zonedDateTimeToUtc(
   return new Date(naiveUtc - finalOffset);
 }
 
+/**
+ * Inverse of `zonedDateTimeToUtc`'s date half: the zone-local calendar date
+ * ("YYYY-MM-DD") a UTC instant falls on. Used by the attach-preview
+ * conflict check (review I3) to compare two session instants "same day in
+ * this org's timezone" rather than "the exact same instant" — a same-day,
+ * different-time existing session is still a real scheduling conflict for
+ * a group, not just an exact double-booking. Same Intl-`formatToParts`
+ * approach as `tzOffsetMs` above, no tz library.
+ */
+export function utcInstantToZonedDateString(instant: Date, timeZone: string): string {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts: Record<string, string> = {};
+  for (const p of dtf.formatToParts(instant)) parts[p.type] = p.value;
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 export function generatePracticeDates(
   recurrence: RecurrenceInput,
   /** "YYYY-MM-DD" — no practices are generated after this local date (inclusive allowed). */
@@ -139,9 +160,18 @@ export interface BuildDraftsInput {
   /** From generatePracticeDates. Sorted entry k → dates[k]; extra entries
    * beyond dates.length are dropped (season-end truncation). */
   dates: Date[];
+  /** Defaults to "draft" — the original (Phase 3) manual-attach behavior.
+   * The distribution engine (Program Blueprint T4) passes "planned": once
+   * the safety re-check has cleared, generated sessions arrive prescribed,
+   * not silent drafts. */
+  status?: "draft" | "planned";
+  /** Lineage FK to sequence_attachments — set by the distribution engine so
+   * a generated session is distinguishable from "coach happened to pick the
+   * same template." Defaults to null (unset) for callers that don't pass one. */
+  sequenceAttachmentId?: string | null;
 }
 
-/** Shape matches session_plans insert columns exactly (status always "draft"). */
+/** Shape matches session_plans insert columns exactly. */
 export interface DraftSessionPlan {
   teamId: string;
   templateId: string;
@@ -149,7 +179,7 @@ export interface DraftSessionPlan {
   title: string;
   scheduledDate: Date;
   durationMinutes: number;
-  status: "draft";
+  status: "draft" | "planned";
   segments: {
     order: number;
     name: string;
@@ -161,6 +191,15 @@ export interface DraftSessionPlan {
   objectives: string[] | null;
   equipmentNeeded: string[] | null;
   preSessionNotes: string | null;
+  sequenceAttachmentId: string | null;
+  // Program Blueprint (T9/T10 review fix): the exact template.structure
+  // this session was generated from, copied verbatim — not re-derived from
+  // `segments` above, which strips `activitySuggestions`/`coachingScript`
+  // and only carries what a session needs. This is what adapted-detection
+  // (adapted.ts) compares completed sessions against, so a later edit to
+  // the LIVE template row can never retroactively relabel history. Null
+  // only when the template itself has no structure at generation time.
+  prescribedStructure: TemplateSegment[] | null;
 }
 
 export function buildDraftSessionPlans(
@@ -187,7 +226,7 @@ export function buildDraftSessionPlans(
       title: `Week ${i + 1} of ${total} — ${template.name}`,
       scheduledDate: input.dates[i],
       durationMinutes: template.totalDurationMinutes,
-      status: "draft",
+      status: input.status ?? "draft",
       segments: (template.structure ?? []).map((s, idx) => ({
         order: idx + 1,
         name: s.name,
@@ -199,6 +238,8 @@ export function buildDraftSessionPlans(
       objectives: entry.objectives,
       equipmentNeeded: template.equipmentNeeded,
       preSessionNotes: entry.notes,
+      sequenceAttachmentId: input.sequenceAttachmentId ?? null,
+      prescribedStructure: template.structure ?? null,
     });
   }
   return plans;
