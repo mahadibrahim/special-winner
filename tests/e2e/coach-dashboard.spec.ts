@@ -172,7 +172,7 @@ test.describe("Coach Dashboard", () => {
       // Selecting a status updates local state only — the DB write happens on
       // Save, which we deliberately never click, keeping this test read-only.
       await absentButton.click();
-      await expect(absentButton).toHaveClass(/bg-red-100/);
+      await expect(absentButton).toHaveClass(/bg-destructive\/10/);
     });
   });
 

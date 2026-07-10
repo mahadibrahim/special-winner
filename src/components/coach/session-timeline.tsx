@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Clock,
-  GripVertical,
   Trash2,
   Edit3,
   Check,
@@ -157,13 +156,6 @@ function SegmentRow({
 
         <div className="pl-8">
           <div className="flex items-start gap-4">
-            {/* Drag handle */}
-            {!readOnly && (
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab">
-                <GripVertical className="w-4 h-4 text-ink-muted" />
-              </div>
-            )}
-
             {/* Type icon */}
             <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", typeConfig.bg)}>
               <TypeIcon className={cn("w-5 h-5", typeConfig.color)} />
@@ -198,7 +190,7 @@ function SegmentRow({
 
             {/* Actions */}
             {!readOnly && (
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
