@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { PrePracticeChecklist } from "./pre-practice-checklist"
 import { AssessmentNudgeCard } from "./assessment-nudge-card"
 import { GlowsNudgeCard } from "./glows-nudge-card"
+import { ProgramPlanCard } from "./program-plan-card"
 import { OnboardingChecklist } from "./onboarding-checklist"
 
 interface Team {
@@ -388,6 +389,11 @@ export default function CoachDashboardOverview() {
               renders nothing while loading, on error, or when nothing is
               pending. */}
           <GlowsNudgeCard />
+
+          {/* Program Blueprint distribution nudge (Task 5) — same fail-soft
+              contract: renders nothing while loading, on error, or when no
+              recent distribution landed on the coach's own teams. */}
+          <ProgramPlanCard />
 
           {/* Pre-Practice Checklist */}
           <section className="dashboard-section">

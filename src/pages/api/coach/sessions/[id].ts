@@ -7,7 +7,9 @@ import {
   teams,
   seasons,
   programs,
+  users,
 } from "@/lib/db/schema";
+import { sequenceAttachments } from "@/lib/db/schema/blueprint";
 import { sports } from "@/lib/db/schema/sports";
 import { eq, and, or, sql, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -94,7 +96,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get full session details
-    const [session] = await getDb()
+    const [rawSession] = await getDb()
       .select({
         id: sessionPlans.id,
         teamId: sessionPlans.teamId,
@@ -124,20 +126,48 @@ export const GET: APIRoute = async ({ params, locals }) => {
           id: sports.id,
           name: sports.name,
         },
+        // Program Blueprint (Task 5): prescribed-badge data, left-joined so
+        // coach-created sessions (sequenceAttachmentId null) still return a
+        // row -- see the `prescribed` shaping below.
+        sequenceAttachmentId: sessionPlans.sequenceAttachmentId,
+        distributorFirstName: users.firstName,
+        distributorEmail: users.email,
       })
       .from(sessionPlans)
       .innerJoin(teams, eq(sessionPlans.teamId, teams.id))
       .innerJoin(seasons, eq(teams.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
+      .leftJoin(
+        sequenceAttachments,
+        eq(sessionPlans.sequenceAttachmentId, sequenceAttachments.id),
+      )
+      .leftJoin(users, eq(sequenceAttachments.distributedBy, users.id))
       .where(eq(sessionPlans.id, id));
 
-    if (!session) {
+    if (!rawSession) {
       return new Response(JSON.stringify({ error: "Session not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    const {
+      sequenceAttachmentId,
+      distributorFirstName,
+      distributorEmail,
+      ...sessionRest
+    } = rawSession;
+    const session = {
+      ...sessionRest,
+      prescribed: sequenceAttachmentId
+        ? {
+            attachmentId: sequenceAttachmentId,
+            distributorFirstName:
+              distributorFirstName || distributorEmail?.split("@")[0] || null,
+          }
+        : null,
+    };
 
     // Get activity usage records if any
     const activityUsages = await getDb()
