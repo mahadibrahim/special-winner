@@ -664,6 +664,28 @@ describe("locations + stripe-connect: org pin", () => {
 });
 
 // ============================================================================
+// 9d. User role assignment: recipient must be a member of the caller's org
+// ============================================================================
+
+describe("user role assignment: membership gate", () => {
+  it("assigning a role to a non-member user id → 404 (no outsider injection)", async () => {
+    // A valid v4 UUID that belongs to no user (so it's not a member of any
+    // org). requireUserInOrg rejects it before any role row is written, so the
+    // response must be 404 — never 201.
+    const res = await orgA("/api/admin/users", {
+      method: "POST",
+      cookie: adminACookie,
+      body: JSON.stringify({
+        userId: "11111111-1111-4111-8111-111111111111",
+        roleName: "coach",
+        scopeType: "organization",
+      }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+// ============================================================================
 // 10. Same-org operations: legitimate flows still work (regression smoke)
 // ============================================================================
 
