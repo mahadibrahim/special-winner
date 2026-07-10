@@ -34,6 +34,7 @@ import {
   Lightbulb,
   TrendingUp,
 } from "lucide-react"
+import { toast } from "sonner"
 
 interface SessionPlan {
   id: string
@@ -164,7 +165,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
       setIsEditing(false)
     } catch (err) {
       console.error("Error saving session:", err)
-      setError(err instanceof Error ? err.message : "Failed to save session")
+      toast.error(err instanceof Error ? err.message : "Failed to save session")
     } finally {
       setSaving(false)
     }
@@ -191,7 +192,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
       }
     } catch (err) {
       console.error("Error updating status:", err)
-      setError(err instanceof Error ? err.message : "Failed to update status")
+      toast.error(err instanceof Error ? err.message : "Failed to update status")
     } finally {
       setSaving(false)
     }
@@ -215,7 +216,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
       setShowReflectionModal(false)
     } catch (err) {
       console.error("Error saving reflection:", err)
-      setError(err instanceof Error ? err.message : "Failed to save reflection")
+      toast.error(err instanceof Error ? err.message : "Failed to save reflection")
     } finally {
       setSaving(false)
     }
@@ -233,7 +234,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
       window.location.href = "/coach/practices"
     } catch (err) {
       console.error("Error deleting session:", err)
-      setError(err instanceof Error ? err.message : "Failed to delete session")
+      toast.error(err instanceof Error ? err.message : "Failed to delete session")
     } finally {
       setSaving(false)
     }
@@ -266,8 +267,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
 
   const statusConfig = STATUS_CONFIG[session.status] || STATUS_CONFIG.draft
   const StatusIcon = statusConfig.icon
-  const isPast = new Date(session.scheduledDate) < new Date()
-  const canStart = session.status === "planned" && !isPast
+  const canStart = session.status === "planned"
   const canComplete = session.status === "in_progress" || session.status === "planned"
 
   return (

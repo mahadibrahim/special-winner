@@ -286,7 +286,7 @@ export default function SessionTimeline({
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-medium text-ink-muted">Session Timeline</h3>
           <Badge variant="outline" className="bg-paper border-border">
-            {segments.length} segments
+            {segments.length} {segments.length === 1 ? "segment" : "segments"}
           </Badge>
         </div>
         <div className="flex items-center gap-2 text-sm">

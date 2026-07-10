@@ -427,7 +427,7 @@ function SessionCard({ session, highlight }: { session: SessionPlan; highlight?:
               {formatTime(session.scheduledDate)} • {session.durationMinutes}min
             </span>
             {segmentCount > 0 && (
-              <span>{segmentCount} segments</span>
+              <span>{segmentCount} {segmentCount === 1 ? "segment" : "segments"}</span>
             )}
           </div>
         </div>
