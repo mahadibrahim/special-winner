@@ -181,7 +181,7 @@ test.describe("Coach Dashboard", () => {
     // /coach/practices/new (planner). The old spec navigated to
     // /coach/sessions[/new] — routes that have never existed — and asserted
     // only that <body> was visible, so it passed against a 404.
-    test("practices overview shows session stats and a New Session link", async ({ page }) => {
+    test("practices overview shows session stats and links to session details", async ({ page }) => {
       await page.goto("/coach/practices");
       await waitForPageLoad(page);
       await waitForHydration(page);
@@ -190,7 +190,11 @@ test.describe("Coach Dashboard", () => {
       // generous timeout for shared-dev-server cold starts (see the
       // Attendance block's comment above).
       await expect(page.getByText("Today's Sessions")).toBeVisible({ timeout: 30000 });
-      await expect(page.locator('a[href="/coach/practices/new"]').first()).toBeVisible();
+      // The "Create Session" CTA (a[href="/coach/practices/new"]) only renders
+      // in the empty state — the seeded coach already has upcoming sessions,
+      // so that link is never in the DOM here. Assert on a real session-detail
+      // link instead, which is always present once any session is listed.
+      await expect(page.locator('a[href^="/coach/practices/"]').first()).toBeVisible();
     });
 
     test("practice planner form has the required title field", async ({ page }) => {
