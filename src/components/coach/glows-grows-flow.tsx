@@ -630,7 +630,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
       <div className="text-center py-12 space-y-4">
         <PartyPopper className="w-12 h-12 text-primary mx-auto" />
         <h1 className="text-2xl font-bold text-ink">
-          Shared with {sharedCount} {sharedCount === 1 ? "player's" : "players'"} families
+          Shared with {sharedCount === 1 ? "1 player's family" : `${sharedCount} players' families`}
         </h1>
         <p className="text-sm text-ink-muted">Parents can see it in their dashboard now.</p>
         <div className="flex flex-col gap-2 pt-4">
