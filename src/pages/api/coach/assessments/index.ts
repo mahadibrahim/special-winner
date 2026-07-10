@@ -14,6 +14,7 @@ import {
 import { eq, and, desc, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachAccess, isPlayerOnCoachTeam, getCoachPlayerIds } from "@/lib/auth";
+import { clampLimit } from "@/lib/http/clamp-limit";
 import { recomputePlayerSnapshots } from "@/lib/curriculum/snapshots";
 
 const createAssessmentSchema = z.object({
@@ -42,7 +43,7 @@ export const GET: APIRoute = async (context) => {
     const skillId = context.url.searchParams.get("skillId");
     const teamId = context.url.searchParams.get("teamId");
     const domainId = context.url.searchParams.get("domainId");
-    const limit = parseInt(context.url.searchParams.get("limit") || "50");
+    const limit = clampLimit(context.url.searchParams.get("limit"), 50);
 
     // If teamId is specified, verify coach owns that team
     if (teamId && !auth.teamIds.includes(teamId)) {

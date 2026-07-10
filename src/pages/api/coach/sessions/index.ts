@@ -13,6 +13,7 @@ import { sports } from "@/lib/db/schema/sports";
 import { eq, and, or, gte, lte, desc, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { computeSequenceProgress } from "@/lib/curriculum/sequence-instantiation";
+import { clampLimit } from "@/lib/http/clamp-limit";
 
 const createSessionSchema = z.object({
   teamId: z.string().uuid(),
@@ -58,7 +59,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const status = url.searchParams.get("status");
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");
-    const limit = parseInt(url.searchParams.get("limit") || "20");
+    const limit = clampLimit(url.searchParams.get("limit"), 20);
 
     // Get coach's teams
     const coachTeams = await getDb()
@@ -124,11 +125,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     if (startDate) {
-      conditions.push(gte(sessionPlans.scheduledDate, new Date(startDate)));
+      const start = new Date(startDate);
+      if (Number.isNaN(start.getTime())) {
+        return new Response(JSON.stringify({ error: "Invalid startDate" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      conditions.push(gte(sessionPlans.scheduledDate, start));
     }
 
     if (endDate) {
-      conditions.push(lte(sessionPlans.scheduledDate, new Date(endDate)));
+      const end = new Date(endDate);
+      if (Number.isNaN(end.getTime())) {
+        return new Response(JSON.stringify({ error: "Invalid endDate" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      conditions.push(lte(sessionPlans.scheduledDate, end));
     }
 
     // Get sessions

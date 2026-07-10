@@ -17,6 +17,7 @@ import {
 import { assessmentSnapshots } from "@/lib/db/schema/assessments";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireCoachAccessToPlayer } from "@/lib/auth";
+import { clampLimit } from "@/lib/http/clamp-limit";
 
 // GET - Get all assessments for a specific player
 export const GET: APIRoute = async (context) => {
@@ -56,7 +57,7 @@ export const GET: APIRoute = async (context) => {
 
     // Query parameters for filtering
     const domainId = context.url.searchParams.get("domainId");
-    const limit = parseInt(context.url.searchParams.get("limit") || "100");
+    const limit = clampLimit(context.url.searchParams.get("limit"), 100);
 
     // Build conditions
     const conditions = [eq(playerAssessments.familyMemberId, playerId)];

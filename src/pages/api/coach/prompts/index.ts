@@ -5,6 +5,7 @@ import { sports } from "@/lib/db/schema/sports";
 import { developmentStages, skills } from "@/lib/db/schema/curriculum";
 import { eq, and, or, asc, desc, isNull, notInArray } from "drizzle-orm";
 import { validateSession } from "@/lib/auth";
+import { clampLimit } from "@/lib/http/clamp-limit";
 
 // GET - Get prompts by context
 export const GET: APIRoute = async (context) => {
@@ -20,7 +21,7 @@ export const GET: APIRoute = async (context) => {
     const triggerContext = url.searchParams.get("context"); // pre_practice, during_practice, post_practice, etc.
     const sportId = url.searchParams.get("sportId");
     const stageId = url.searchParams.get("stageId");
-    const limit = parseInt(url.searchParams.get("limit") || "5");
+    const limit = clampLimit(url.searchParams.get("limit"), 5, 25);
     const includeDismissed = url.searchParams.get("includeDismissed") === "true";
 
     // Build conditions

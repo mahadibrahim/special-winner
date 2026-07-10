@@ -5,6 +5,7 @@ import { sports } from "@/lib/db/schema/sports";
 import { developmentStages, skills } from "@/lib/db/schema/curriculum";
 import { eq, and, or, asc, desc, isNull, ilike, sql } from "drizzle-orm";
 import { validateSession } from "@/lib/auth";
+import { clampLimit } from "@/lib/http/clamp-limit";
 
 // GET - Get resources with filtering
 export const GET: APIRoute = async (context) => {
@@ -24,8 +25,8 @@ export const GET: APIRoute = async (context) => {
     const resourceType = url.searchParams.get("type");
     const search = url.searchParams.get("search");
     const featured = url.searchParams.get("featured") === "true";
-    const limit = parseInt(url.searchParams.get("limit") || "20");
-    const offset = parseInt(url.searchParams.get("offset") || "0");
+    const limit = clampLimit(url.searchParams.get("limit"), 20);
+    const offset = Math.max(parseInt(url.searchParams.get("offset") || "0", 10) || 0, 0);
 
     // Build conditions
     const conditions = [eq(coachResources.active, true)];
