@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { attendance, rosters, teams, familyMembers, registrations, games } from "@/lib/db/schema";
-import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachAccessToTeam } from "@/lib/auth";
 
@@ -76,9 +76,14 @@ export const GET: APIRoute = async (context) => {
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(eventDate);
       endOfDay.setHours(23, 59, 59, 999);
-      conditions.push(
-        sql`${attendance.eventDate} >= ${startOfDay} AND ${attendance.eventDate} <= ${endOfDay}`
-      );
+      // Use typed gte/lte (not a raw sql`` template with an interpolated
+      // Date) — postgres-js's own type inference for a bare Date param in
+      // an untyped `sql` fragment picks the wrong wire format under
+      // `prepare: false` and throws ERR_INVALID_ARG_TYPE at bind time.
+      // Column-typed operators route the value through the column's
+      // mapToDriverValue (Date -> ISO string) first, which is safe.
+      conditions.push(gte(attendance.eventDate, startOfDay));
+      conditions.push(lte(attendance.eventDate, endOfDay));
     }
 
     const attendanceRecords = await getDb()
@@ -221,7 +226,10 @@ export const POST: APIRoute = async (context) => {
           .where(
             and(
               eq(attendance.teamId, teamId),
-              sql`${attendance.eventDate} >= ${startOfDay} AND ${attendance.eventDate} <= ${endOfDay}`,
+              // See the gte/lte note in GET above — a raw sql`` template
+              // with an interpolated Date crashes under prepare:false.
+              gte(attendance.eventDate, startOfDay),
+              lte(attendance.eventDate, endOfDay),
               eq(attendance.eventType, eventType)
             )
           );
