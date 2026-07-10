@@ -92,7 +92,7 @@ function NoteCard({ note }: { note: CoachNote }) {
               {formatTimeAgo(note.createdAt)}
             </span>
           </div>
-          <p className="text-sm text-ink mt-1.5 leading-relaxed">{note.content}</p>
+          <p className="text-sm text-ink mt-1.5 leading-relaxed whitespace-pre-line">{note.content}</p>
           <p className="text-xs text-ink-muted mt-2">— {note.coachName}</p>
         </div>
       </div>
