@@ -123,7 +123,7 @@ test.describe("Glows & Grows", () => {
 
     // Success screen.
     await expect(
-      page.getByText(/player'?s? famil(y|ies)/i),
+      page.getByText(/player(?:'s|s') famil(?:y|ies)/i),
     ).toBeVisible({ timeout: 15000 });
 
     await page.close();
