@@ -363,34 +363,42 @@ export const POST: APIRoute = async (context) => {
           headers: { "Content-Type": "application/json" },
         });
       }
-
-      await getDb()
-        .update(practiceTemplates)
-        .set({
-          usageCount: sql`${practiceTemplates.usageCount} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(practiceTemplates.id, data.templateId));
     }
 
-    // Create the session plan
-    const [newSession] = await getDb()
-      .insert(sessionPlans)
-      .values({
-        teamId: data.teamId,
-        templateId: data.templateId || null,
-        coachUserId: auth.user.id,
-        title: data.title,
-        scheduledDate: new Date(data.scheduledDate),
-        durationMinutes: data.durationMinutes,
-        status: data.status,
-        segments: data.segments || null,
-        focusSkillIds: data.focusSkillIds || null,
-        objectives: data.objectives || null,
-        equipmentNeeded: data.equipmentNeeded || null,
-        preSessionNotes: data.preSessionNotes || null,
-      })
-      .returning();
+    // Create the session plan, and bump the template's usage count as part of
+    // the same transaction so a failed insert never leaves usageCount inflated
+    // with no corresponding session.
+    const newSession = await getDb().transaction(async (tx) => {
+      if (data.templateId) {
+        await tx
+          .update(practiceTemplates)
+          .set({
+            usageCount: sql`${practiceTemplates.usageCount} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(practiceTemplates.id, data.templateId));
+      }
+
+      const [inserted] = await tx
+        .insert(sessionPlans)
+        .values({
+          teamId: data.teamId,
+          templateId: data.templateId || null,
+          coachUserId: auth.user.id,
+          title: data.title,
+          scheduledDate: new Date(data.scheduledDate),
+          durationMinutes: data.durationMinutes,
+          status: data.status,
+          segments: data.segments || null,
+          focusSkillIds: data.focusSkillIds || null,
+          objectives: data.objectives || null,
+          equipmentNeeded: data.equipmentNeeded || null,
+          preSessionNotes: data.preSessionNotes || null,
+        })
+        .returning();
+
+      return inserted;
+    });
 
     return new Response(JSON.stringify({ session: newSession }), {
       status: 201,
