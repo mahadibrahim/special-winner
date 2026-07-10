@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { randomUUID } from "node:crypto";
 import {
   getCoachCookie,
   getParentCookie,
@@ -11,6 +12,7 @@ describe("Coach curriculum read scoping (D6)", () => {
   let coachCookie: string;
   let parentCookie: string;
   let sportId: string;
+  let playerId: string;
 
   beforeAll(async () => {
     coachCookie = await getCoachCookie();
@@ -23,6 +25,7 @@ describe("Coach curriculum read scoping (D6)", () => {
     const player = playersJson.players.find((p: any) => p.team?.sport?.id);
     expect(player).toBeDefined();
     sportId = player.team.sport.id;
+    playerId = player.id;
   });
 
   afterAll(() => resetCookies());
@@ -58,6 +61,20 @@ describe("Coach curriculum read scoping (D6)", () => {
     });
     const json = await expectJson(res, 200);
     expect(Array.isArray(json.skills)).toBe(true);
+    expect(json.skills.length).toBeGreaterThan(0);
+  });
+
+  it("rejects POST /api/coach/assessments with a random-UUID skillId (404, not 500/201)", async () => {
+    const res = await apiFetch("/api/coach/assessments", {
+      method: "POST",
+      cookie: coachCookie,
+      body: JSON.stringify({
+        familyMemberId: playerId,
+        skillId: randomUUID(),
+        level: 3,
+      }),
+    });
+    expect(res.status).toBe(404);
   });
 
   it("rejects an invalid startDate on GET /api/coach/sessions (400)", async () => {

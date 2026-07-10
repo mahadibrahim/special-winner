@@ -11,9 +11,14 @@ import {
   registrations,
   teams,
 } from "@/lib/db/schema";
-import { eq, and, desc, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, or, isNull, desc, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireCoachAccess, isPlayerOnCoachTeam, getCoachPlayerIds } from "@/lib/auth";
+import {
+  requireCoachAccess,
+  requireCoachPortalAccess,
+  isPlayerOnCoachTeam,
+  getCoachPlayerIds,
+} from "@/lib/auth";
 import { clampLimit } from "@/lib/http/clamp-limit";
 import { recomputePlayerSnapshots } from "@/lib/curriculum/snapshots";
 
@@ -156,8 +161,9 @@ export const GET: APIRoute = async (context) => {
 // POST - Create a new assessment
 export const POST: APIRoute = async (context) => {
   try {
-    // Verify coach access
-    const auth = await requireCoachAccess(context);
+    // Verify coach access (portal variant resolves organizationId, needed
+    // below to org-scope the skillId check)
+    const auth = await requireCoachPortalAccess(context);
     if (!auth.authorized) return auth.response;
 
     const db = getDb();
@@ -239,11 +245,18 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Verify the skill exists
+    // Verify the skill exists and belongs to this org (or is a global seed)
+    // — otherwise a coach could write an assessment against another org's
+    // skill by guessing/enumerating its id.
     const [skill] = await getDb()
       .select()
       .from(skills)
-      .where(eq(skills.id, skillId));
+      .where(
+        and(
+          eq(skills.id, skillId),
+          or(eq(skills.organizationId, auth.organizationId), isNull(skills.organizationId))
+        )
+      );
 
     if (!skill) {
       return new Response(JSON.stringify({ error: "Skill not found" }), {

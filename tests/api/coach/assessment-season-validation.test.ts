@@ -30,6 +30,7 @@ describe("POST /api/coach/assessments seasonId validation (D5)", () => {
       { method: "GET", cookie: coachCookie }
     );
     const skillsJson = await expectJson(skillsRes, 200);
+    expect(skillsJson.skills.length).toBeGreaterThan(0);
     if (skillsJson.skills?.length > 0) skillId = skillsJson.skills[0].id;
   });
 

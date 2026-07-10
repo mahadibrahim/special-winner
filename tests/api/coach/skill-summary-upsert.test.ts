@@ -38,6 +38,7 @@ describe("player_skill_summary uniqueness (D5)", () => {
       cookie: coachCookie,
     });
     const skillsJson = await expectJson(skillsRes, 200);
+    expect(skillsJson.skills.length).toBeGreaterThan(0);
     if (skillsJson.skills?.length > 0) {
       skillId = skillsJson.skills[0].id;
     }
