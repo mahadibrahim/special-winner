@@ -279,6 +279,7 @@ export default function PracticePlanner({ teamId, onSuccess }: PracticePlannerPr
           objectives: objectives.filter(Boolean),
           equipmentNeeded: equipmentNeeded.filter(Boolean),
           preSessionNotes: preSessionNotes || undefined,
+          status,
         }),
       })
 

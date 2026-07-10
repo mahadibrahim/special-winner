@@ -7,10 +7,17 @@ import {
   skillDomains,
   developmentStages,
   familyMembers,
+  rosters,
+  registrations,
+  teams,
+  seasons,
+  programs,
+  sports,
 } from "@/lib/db/schema";
 import { assessmentSnapshots } from "@/lib/db/schema/assessments";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireCoachAccessToPlayer } from "@/lib/auth";
+import { clampLimit } from "@/lib/http/clamp-limit";
 
 // GET - Get all assessments for a specific player
 export const GET: APIRoute = async (context) => {
@@ -50,7 +57,7 @@ export const GET: APIRoute = async (context) => {
 
     // Query parameters for filtering
     const domainId = context.url.searchParams.get("domainId");
-    const limit = parseInt(context.url.searchParams.get("limit") || "100");
+    const limit = clampLimit(context.url.searchParams.get("limit"), 100);
 
     // Build conditions
     const conditions = [eq(playerAssessments.familyMemberId, playerId)];
@@ -184,6 +191,32 @@ export const GET: APIRoute = async (context) => {
         row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
     }));
 
+    // Teams this player is rostered on that the caller coaches — gives the
+    // assessment form real team + sport context (D3: it previously received
+    // an empty list or "Current Team"/"Sport" placeholders from query params).
+    const teamRows = auth.teamIds.length
+      ? await getDb()
+          .select({
+            id: teams.id,
+            name: teams.name,
+            sport: { id: sports.id, name: sports.name },
+            season: { id: seasons.id, name: seasons.name },
+          })
+          .from(rosters)
+          .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
+          .innerJoin(teams, eq(rosters.teamId, teams.id))
+          .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(sports, eq(programs.sportId, sports.id))
+          .where(
+            and(
+              inArray(rosters.teamId, auth.teamIds),
+              eq(registrations.familyMemberId, playerId)
+            )
+          )
+      : [];
+    const playerTeams = Array.from(new Map(teamRows.map((t) => [t.id, t])).values());
+
     return new Response(
       JSON.stringify({
         player,
@@ -191,6 +224,7 @@ export const GET: APIRoute = async (context) => {
         summaries,
         domainAverages: Object.values(domainAverages),
         snapshots,
+        teams: playerTeams,
       }),
       {
         status: 200,

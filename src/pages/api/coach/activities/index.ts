@@ -1,39 +1,19 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { activities, developmentStages, teams } from "@/lib/db/schema";
+import { activities, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, arrayContains, ilike, desc, asc } from "drizzle-orm";
+import { eq, and, or, isNull, arrayContains, ilike, desc, asc } from "drizzle-orm";
+import { requireCoachPortalAccess } from "@/lib/auth";
+import { clampLimit } from "@/lib/http/clamp-limit";
 
 // GET - Get activities filtered by sport, stage, type, etc.
-export const GET: APIRoute = async ({ url, locals }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const auth = await requireCoachPortalAccess(context);
+    if (!auth.authorized) return auth.response;
 
     const db = getDb();
-
-    // Verify user is a coach
-    const coachTeams = await getDb()
-      .select({ id: teams.id })
-      .from(teams)
-      .where(
-        or(
-          eq(teams.coachUserId, user.id),
-          eq(teams.assistantCoachUserId, user.id)
-        )
-      );
-
-    if (coachTeams.length === 0) {
-      return new Response(JSON.stringify({ error: "Access denied - not a coach" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const url = context.url;
 
     // Query parameters
     const sportId = url.searchParams.get("sportId");
@@ -42,8 +22,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const difficulty = url.searchParams.get("difficulty");
     const search = url.searchParams.get("search");
     const featured = url.searchParams.get("featured");
-    const limit = parseInt(url.searchParams.get("limit") || "50");
-    const offset = parseInt(url.searchParams.get("offset") || "0");
+    const limit = clampLimit(url.searchParams.get("limit"), 50);
+    const offset = Math.max(parseInt(url.searchParams.get("offset") || "0", 10) || 0, 0);
     const sortBy = url.searchParams.get("sortBy") || "name"; // name, usageCount, averageRating
 
     // Build base query
@@ -80,7 +60,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .from(activities);
 
     // Build conditions array
-    const conditions = [eq(activities.active, true)];
+    const conditions = [
+      eq(activities.active, true),
+      or(
+        eq(activities.organizationId, auth.organizationId),
+        isNull(activities.organizationId)
+      )!,
+    ];
 
     if (sportId) {
       conditions.push(eq(activities.sportId, sportId));
@@ -138,7 +124,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         id: sports.id,
         name: sports.name,
       })
-      .from(sports);
+      .from(sports)
+      .where(eq(sports.organizationId, auth.organizationId));
 
     // Get stages for reference
     const stagesList = await getDb()

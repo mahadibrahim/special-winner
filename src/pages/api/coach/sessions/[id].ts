@@ -9,8 +9,9 @@ import {
   programs,
 } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, sql } from "drizzle-orm";
+import { eq, and, or, sql, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { requireCoachPortalAccess } from "@/lib/auth";
 
 const updateSessionSchema = z.object({
   title: z.string().min(1).max(255).optional(),
@@ -177,15 +178,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
 };
 
 // PUT - Update a session plan
-export const PUT: APIRoute = async ({ params, request, locals }) => {
+export const PUT: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const { params } = context;
+    const auth = await requireCoachPortalAccess(context);
+    if (!auth.authorized) return auth.response;
 
     const { id } = params;
     if (!id) {
@@ -198,7 +195,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     const db = getDb();
 
     // Verify access
-    const access = await verifyCoachAccess(user.id, id);
+    const access = await verifyCoachAccess(auth.user.id, id);
     if (!access) {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403,
@@ -207,7 +204,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     }
 
     // Parse and validate request body
-    const body = await request.json();
+    const body = await context.request.json();
     const validation = updateSessionSchema.safeParse(body);
 
     if (!validation.success) {
@@ -224,6 +221,36 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     }
 
     const data = validation.data;
+
+    // Segment activities must be org-or-global visible (same filter as the
+    // coach activities list).
+    const segmentActivityIds = [
+      ...new Set(
+        (data.segments ?? [])
+          .map((s) => s.activityId)
+          .filter((aid): aid is string => Boolean(aid))
+      ),
+    ];
+    if (segmentActivityIds.length > 0) {
+      const visibleActivities = await getDb()
+        .select({ id: activities.id })
+        .from(activities)
+        .where(
+          and(
+            inArray(activities.id, segmentActivityIds),
+            or(
+              isNull(activities.organizationId),
+              eq(activities.organizationId, auth.organizationId)
+            )
+          )
+        );
+      if (visibleActivities.length !== segmentActivityIds.length) {
+        return new Response(
+          JSON.stringify({ error: "One or more activities are not available to your organization" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     // Build update object
     const updateData: Record<string, any> = {
@@ -249,41 +276,56 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     if (data.whatToImprove !== undefined) updateData.whatToImprove = data.whatToImprove;
     if (data.playerObservations !== undefined) updateData.playerObservations = data.playerObservations;
 
-    // Update the session
-    const [updatedSession] = await getDb()
-      .update(sessionPlans)
-      .set(updateData)
-      .where(eq(sessionPlans.id, id))
-      .returning();
+    // Snapshot the previous usage set BEFORE mutating so usageCount is only
+    // incremented for activities newly added by this save (it previously
+    // re-incremented every activity on every save).
+    const previousUsage = data.segments
+      ? await getDb()
+          .select({ activityId: sessionActivityUsage.activityId })
+          .from(sessionActivityUsage)
+          .where(eq(sessionActivityUsage.sessionPlanId, id))
+      : [];
+    const previousActivityIds = new Set(previousUsage.map((u) => u.activityId));
 
-    // If activities changed, update activity usage counts
-    if (data.segments) {
-      // Clear old usage records
-      await getDb()
-        .delete(sessionActivityUsage)
-        .where(eq(sessionActivityUsage.sessionPlanId, id));
+    const updatedSession = await getDb().transaction(async (tx) => {
+      const [updated] = await tx
+        .update(sessionPlans)
+        .set(updateData)
+        .where(eq(sessionPlans.id, id))
+        .returning();
 
-      // Insert new usage records for activities
-      for (const segment of data.segments) {
-        if (segment.activityId) {
-          await getDb().insert(sessionActivityUsage).values({
-            sessionPlanId: id,
-            activityId: segment.activityId,
-            segmentOrder: segment.order,
-            durationMinutes: segment.durationMinutes,
-          });
+      if (data.segments) {
+        await tx
+          .delete(sessionActivityUsage)
+          .where(eq(sessionActivityUsage.sessionPlanId, id));
 
-          // Increment activity usage count
-          await getDb()
+        for (const segment of data.segments) {
+          if (segment.activityId) {
+            await tx.insert(sessionActivityUsage).values({
+              sessionPlanId: id,
+              activityId: segment.activityId,
+              segmentOrder: segment.order,
+              durationMinutes: segment.durationMinutes,
+            });
+          }
+        }
+
+        const newActivityIds = segmentActivityIds.filter(
+          (aid) => !previousActivityIds.has(aid)
+        );
+        if (newActivityIds.length > 0) {
+          await tx
             .update(activities)
             .set({
               usageCount: sql`${activities.usageCount} + 1`,
               updatedAt: new Date(),
             })
-            .where(eq(activities.id, segment.activityId));
+            .where(inArray(activities.id, newActivityIds));
         }
       }
-    }
+
+      return updated;
+    });
 
     return new Response(JSON.stringify({ session: updatedSession }), {
       status: 200,

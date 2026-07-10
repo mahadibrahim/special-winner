@@ -119,9 +119,17 @@ interface SnapshotDomain {
   previousAverageLevel: number | null
 }
 
+interface PlayerTeam {
+  id: string
+  name: string
+  sport: { id: string; name: string }
+  season?: { id: string; name: string } | null
+}
+
 interface PlayerAssessmentDetailProps {
   playerId: string
   teamId?: string
+  // sportId prop retained for URL compat; teams now come from the API
   sportId?: string
 }
 
@@ -221,7 +229,6 @@ function SkillSummaryCard({ summary }: { summary: SkillSummary }) {
 export default function PlayerAssessmentDetail({
   playerId,
   teamId,
-  sportId,
 }: PlayerAssessmentDetailProps) {
   useHydrationBeacon()
 
@@ -230,18 +237,12 @@ export default function PlayerAssessmentDetail({
   const [summaries, setSummaries] = useState<SkillSummary[]>([])
   const [domainAverages, setDomainAverages] = useState<DomainAverage[]>([])
   const [snapshots, setSnapshots] = useState<SnapshotDomain[]>([])
+  const [teams, setTeams] = useState<PlayerTeam[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Assessment modal
   const [assessmentModalOpen, setAssessmentModalOpen] = useState(false)
-
-  // Create a minimal team object for the assessment form
-  const teams = teamId && sportId ? [{
-    id: teamId,
-    name: "Current Team",
-    sport: { id: sportId, name: "Sport" }
-  }] : []
 
   // View mode
   const [viewMode, setViewMode] = useState<"overview" | "history">("overview")
@@ -266,6 +267,13 @@ export default function PlayerAssessmentDetail({
         setSummaries(data.summaries || [])
         setDomainAverages(data.domainAverages || [])
         setSnapshots(data.snapshots || [])
+
+        const fetchedTeams: PlayerTeam[] = data.teams || []
+        // ?teamId= is a preselect hint only: the form defaults to teams[0].
+        if (teamId) {
+          fetchedTeams.sort((a, b) => (a.id === teamId ? -1 : b.id === teamId ? 1 : 0))
+        }
+        setTeams(fetchedTeams)
       } catch (err) {
         console.error("Error fetching data:", err)
         setError(err instanceof Error ? err.message : "An error occurred")
@@ -287,6 +295,13 @@ export default function PlayerAssessmentDetail({
         setSummaries(data.summaries || [])
         setDomainAverages(data.domainAverages || [])
         setSnapshots(data.snapshots || [])
+
+        const fetchedTeams: PlayerTeam[] = data.teams || []
+        // ?teamId= is a preselect hint only: the form defaults to teams[0].
+        if (teamId) {
+          fetchedTeams.sort((a, b) => (a.id === teamId ? -1 : b.id === teamId ? 1 : 0))
+        }
+        setTeams(fetchedTeams)
       }
     } catch (err) {
       console.error("Error refreshing:", err)

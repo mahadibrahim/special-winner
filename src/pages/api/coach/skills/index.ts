@@ -1,20 +1,17 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { skills, skillDomains, developmentStages, sports } from "@/lib/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { skills, skillDomains, developmentStages } from "@/lib/db/schema";
+import { eq, and, or, isNull } from "drizzle-orm";
+import { requireCoachPortalAccess } from "@/lib/auth";
 
 // GET - Get skills by sport and optionally by stage/domain
-export const GET: APIRoute = async ({ url, locals }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const auth = await requireCoachPortalAccess(context);
+    if (!auth.authorized) return auth.response;
 
     const db = getDb();
+    const url = context.url;
 
     // Query parameters
     const sportId = url.searchParams.get("sportId");
@@ -33,6 +30,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const conditions = [
       eq(skills.sportId, sportId),
       eq(skills.active, true),
+      // Tenant scoping: this org's skills + global seeds (organizationId IS
+      // NULL) — mirrors the admin curriculum endpoints.
+      or(eq(skills.organizationId, auth.organizationId), isNull(skills.organizationId))!,
     ];
 
     if (stageId) {
@@ -95,20 +95,4 @@ export const GET: APIRoute = async ({ url, locals }) => {
       headers: { "Content-Type": "application/json" },
     });
   }
-};
-
-// GET all domains
-export const getDomains = async () => {
-  return await getDb()
-    .select()
-    .from(skillDomains)
-    .orderBy(skillDomains.sortOrder);
-};
-
-// GET all stages
-export const getStages = async () => {
-  return await getDb()
-    .select()
-    .from(developmentStages)
-    .orderBy(developmentStages.sortOrder);
 };

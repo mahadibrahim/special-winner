@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { attendance, rosters, teams, familyMembers, registrations, games } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachAccessToTeam } from "@/lib/auth";
 
@@ -182,21 +182,26 @@ export const POST: APIRoute = async (context) => {
       const auth = await requireCoachAccessToTeam(context, teamId);
       if (!auth.authorized) return auth.response;
 
+      // Whole-batch integrity: every rosterId must belong to this team.
+      const rosterIds = [...new Set(records.map((r) => r.rosterId))];
+      if (rosterIds.length > 0) {
+        const validRosters = await getDb()
+          .select({ id: rosters.id })
+          .from(rosters)
+          .where(and(eq(rosters.teamId, teamId), inArray(rosters.id, rosterIds)));
+        if (validRosters.length !== rosterIds.length) {
+          return new Response(
+            JSON.stringify({ error: "One or more rosterIds do not belong to this team" }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       // Delete existing attendance for this event
       const startOfDay = new Date(eventDate);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(eventDate);
       endOfDay.setHours(23, 59, 59, 999);
-
-      await getDb()
-        .delete(attendance)
-        .where(
-          and(
-            eq(attendance.teamId, teamId),
-            sql`${attendance.eventDate} >= ${startOfDay} AND ${attendance.eventDate} <= ${endOfDay}`,
-            eq(attendance.eventType, eventType)
-          )
-        );
 
       // Insert new records
       const newRecords = records.map((record) => ({
@@ -210,7 +215,20 @@ export const POST: APIRoute = async (context) => {
         recordedByUserId: auth.user.id,
       }));
 
-      await getDb().insert(attendance).values(newRecords);
+      await getDb().transaction(async (tx) => {
+        await tx
+          .delete(attendance)
+          .where(
+            and(
+              eq(attendance.teamId, teamId),
+              sql`${attendance.eventDate} >= ${startOfDay} AND ${attendance.eventDate} <= ${endOfDay}`,
+              eq(attendance.eventType, eventType)
+            )
+          );
+        if (newRecords.length > 0) {
+          await tx.insert(attendance).values(newRecords);
+        }
+      });
 
       return new Response(
         JSON.stringify({ success: true, count: records.length }),
@@ -232,6 +250,19 @@ export const POST: APIRoute = async (context) => {
       // Verify coach has access to this team
       const auth = await requireCoachAccessToTeam(context, result.data.teamId);
       if (!auth.authorized) return auth.response;
+
+      const [rosterEntry] = await getDb()
+        .select({ id: rosters.id })
+        .from(rosters)
+        .where(and(eq(rosters.id, result.data.rosterId), eq(rosters.teamId, result.data.teamId)))
+        .orderBy(asc(rosters.id))
+        .limit(1);
+      if (!rosterEntry) {
+        return new Response(
+          JSON.stringify({ error: "rosterId does not belong to this team" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
 
       const [newAttendance] = await getDb()
         .insert(attendance)
@@ -255,15 +286,24 @@ export const POST: APIRoute = async (context) => {
   }
 };
 
+const updateAttendanceSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(["present", "absent", "late", "excused"]),
+  notes: z.string().optional().nullable(),
+});
+
 // PUT - Update single attendance record
 export const PUT: APIRoute = async (context) => {
   try {
     const body = await context.request.json();
-    const { id, status, notes } = body;
-
-    if (!id) {
-      return new Response(JSON.stringify({ error: "Attendance ID is required" }), { status: 400 });
+    const validation = updateAttendanceSchema.safeParse(body);
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: validation.error.flatten().fieldErrors }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
+    const { id, status, notes } = validation.data;
 
     // First, get the attendance record to find its teamId
     const [existingRecord] = await getDb()

@@ -10,9 +10,11 @@ import {
   curriculumSequenceEntries,
 } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, gte, lte, desc, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, inArray, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { computeSequenceProgress } from "@/lib/curriculum/sequence-instantiation";
+import { clampLimit } from "@/lib/http/clamp-limit";
+import { requireCoachPortalAccess } from "@/lib/auth";
 
 const createSessionSchema = z.object({
   teamId: z.string().uuid(),
@@ -20,6 +22,7 @@ const createSessionSchema = z.object({
   title: z.string().min(1).max(255),
   scheduledDate: z.string().datetime(),
   durationMinutes: z.number().int().min(15).max(180),
+  status: z.enum(["draft", "planned"]).default("draft"),
   segments: z
     .array(
       z.object({
@@ -57,7 +60,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const status = url.searchParams.get("status");
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");
-    const limit = parseInt(url.searchParams.get("limit") || "20");
+    const limit = clampLimit(url.searchParams.get("limit"), 20);
 
     // Get coach's teams
     const coachTeams = await getDb()
@@ -123,11 +126,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     if (startDate) {
-      conditions.push(gte(sessionPlans.scheduledDate, new Date(startDate)));
+      const start = new Date(startDate);
+      if (Number.isNaN(start.getTime())) {
+        return new Response(JSON.stringify({ error: "Invalid startDate" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      conditions.push(gte(sessionPlans.scheduledDate, start));
     }
 
     if (endDate) {
-      conditions.push(lte(sessionPlans.scheduledDate, new Date(endDate)));
+      const end = new Date(endDate);
+      if (Number.isNaN(end.getTime())) {
+        return new Response(JSON.stringify({ error: "Invalid endDate" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      conditions.push(lte(sessionPlans.scheduledDate, end));
     }
 
     // Get sessions
@@ -273,20 +290,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
 };
 
 // POST - Create a new session plan
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const auth = await requireCoachPortalAccess(context);
+    if (!auth.authorized) return auth.response;
 
     const db = getDb();
 
     // Parse and validate request body
-    const body = await request.json();
+    const body = await context.request.json();
     const validation = createSessionSchema.safeParse(body);
 
     if (!validation.success) {
@@ -312,8 +324,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         and(
           eq(teams.id, data.teamId),
           or(
-            eq(teams.coachUserId, user.id),
-            eq(teams.assistantCoachUserId, user.id)
+            eq(teams.coachUserId, auth.user.id),
+            eq(teams.assistantCoachUserId, auth.user.id)
           )
         )
       );
@@ -328,35 +340,65 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    // If using a template, increment its usage count
+    // Template must be visible to this coach's org (own org or global seed).
     if (data.templateId) {
-      await getDb()
-        .update(practiceTemplates)
-        .set({
-          usageCount: sql`${practiceTemplates.usageCount} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(practiceTemplates.id, data.templateId));
+      const [template] = await getDb()
+        .select({ id: practiceTemplates.id })
+        .from(practiceTemplates)
+        .where(
+          and(
+            eq(practiceTemplates.id, data.templateId),
+            or(
+              isNull(practiceTemplates.organizationId),
+              eq(practiceTemplates.organizationId, auth.organizationId)
+            )
+          )
+        )
+        .orderBy(asc(practiceTemplates.id))
+        .limit(1);
+
+      if (!template) {
+        return new Response(JSON.stringify({ error: "Template not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
     }
 
-    // Create the session plan
-    const [newSession] = await getDb()
-      .insert(sessionPlans)
-      .values({
-        teamId: data.teamId,
-        templateId: data.templateId || null,
-        coachUserId: user.id,
-        title: data.title,
-        scheduledDate: new Date(data.scheduledDate),
-        durationMinutes: data.durationMinutes,
-        status: "draft",
-        segments: data.segments || null,
-        focusSkillIds: data.focusSkillIds || null,
-        objectives: data.objectives || null,
-        equipmentNeeded: data.equipmentNeeded || null,
-        preSessionNotes: data.preSessionNotes || null,
-      })
-      .returning();
+    // Create the session plan, and bump the template's usage count as part of
+    // the same transaction so a failed insert never leaves usageCount inflated
+    // with no corresponding session.
+    const newSession = await getDb().transaction(async (tx) => {
+      if (data.templateId) {
+        await tx
+          .update(practiceTemplates)
+          .set({
+            usageCount: sql`${practiceTemplates.usageCount} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(practiceTemplates.id, data.templateId));
+      }
+
+      const [inserted] = await tx
+        .insert(sessionPlans)
+        .values({
+          teamId: data.teamId,
+          templateId: data.templateId || null,
+          coachUserId: auth.user.id,
+          title: data.title,
+          scheduledDate: new Date(data.scheduledDate),
+          durationMinutes: data.durationMinutes,
+          status: data.status,
+          segments: data.segments || null,
+          focusSkillIds: data.focusSkillIds || null,
+          objectives: data.objectives || null,
+          equipmentNeeded: data.equipmentNeeded || null,
+          preSessionNotes: data.preSessionNotes || null,
+        })
+        .returning();
+
+      return inserted;
+    });
 
     return new Response(JSON.stringify({ session: newSession }), {
       status: 201,

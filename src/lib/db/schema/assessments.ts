@@ -119,23 +119,34 @@ export const assessmentSnapshots = pgTable(
 );
 
 // Player Skill Summary (current state per skill for quick lookups)
-export const playerSkillSummary = pgTable("player_skill_summary", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  familyMemberId: uuid("family_member_id")
-    .notNull()
-    .references(() => familyMembers.id, { onDelete: "cascade" }),
-  skillId: uuid("skill_id")
-    .notNull()
-    .references(() => skills.id, { onDelete: "cascade" }),
-  currentLevel: integer("current_level").notNull(), // Most recent assessment level
-  highestLevel: integer("highest_level").notNull(), // Best level achieved
-  assessmentCount: integer("assessment_count").default(1).notNull(),
-  trend: trendDirectionEnum("trend").default("new").notNull(),
-  firstAssessedAt: timestamp("first_assessed_at").notNull(),
-  lastAssessedAt: timestamp("last_assessed_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const playerSkillSummary = pgTable(
+  "player_skill_summary",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    familyMemberId: uuid("family_member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "cascade" }),
+    skillId: uuid("skill_id")
+      .notNull()
+      .references(() => skills.id, { onDelete: "cascade" }),
+    currentLevel: integer("current_level").notNull(), // Most recent assessment level
+    highestLevel: integer("highest_level").notNull(), // Best level achieved
+    assessmentCount: integer("assessment_count").default(1).notNull(),
+    trend: trendDirectionEnum("trend").default("new").notNull(),
+    firstAssessedAt: timestamp("first_assessed_at").notNull(),
+    lastAssessedAt: timestamp("last_assessed_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // Natural key for the assessment-write upsert (D5): one summary row per
+    // family member × skill. Migration 0075 dedupes pre-existing rows.
+    uniqueIndex("player_skill_summary_member_skill_uniq").on(
+      table.familyMemberId,
+      table.skillId,
+    ),
+  ],
+);
 
 // Player Achievements (unlocked based on assessments)
 export const playerAchievements = pgTable("player_achievements", {

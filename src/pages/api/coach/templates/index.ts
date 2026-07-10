@@ -1,39 +1,18 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { practiceTemplates, developmentStages, teams } from "@/lib/db/schema";
+import { practiceTemplates, developmentStages } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
-import { eq, and, or, asc, desc } from "drizzle-orm";
+import { eq, and, or, isNull, asc, desc } from "drizzle-orm";
+import { requireCoachPortalAccess } from "@/lib/auth";
 
 // GET - Get practice templates filtered by sport and stage
-export const GET: APIRoute = async ({ url, locals }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    const user = locals.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const auth = await requireCoachPortalAccess(context);
+    if (!auth.authorized) return auth.response;
 
     const db = getDb();
-
-    // Verify user is a coach
-    const coachTeams = await getDb()
-      .select({ id: teams.id })
-      .from(teams)
-      .where(
-        or(
-          eq(teams.coachUserId, user.id),
-          eq(teams.assistantCoachUserId, user.id)
-        )
-      );
-
-    if (coachTeams.length === 0) {
-      return new Response(JSON.stringify({ error: "Access denied - not a coach" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const url = context.url;
 
     // Query parameters
     const sportId = url.searchParams.get("sportId");
@@ -41,7 +20,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const defaultOnly = url.searchParams.get("defaultOnly") === "true";
 
     // Build conditions
-    const conditions = [eq(practiceTemplates.active, true)];
+    const conditions = [
+      eq(practiceTemplates.active, true),
+      or(
+        eq(practiceTemplates.organizationId, auth.organizationId),
+        isNull(practiceTemplates.organizationId)
+      )!,
+    ];
 
     if (sportId) {
       conditions.push(eq(practiceTemplates.sportId, sportId));
@@ -96,7 +81,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         id: sports.id,
         name: sports.name,
       })
-      .from(sports);
+      .from(sports)
+      .where(eq(sports.organizationId, auth.organizationId));
 
     // Get all stages for filtering UI
     const stagesList = await getDb()

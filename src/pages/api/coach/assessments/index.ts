@@ -9,10 +9,17 @@ import {
   familyMembers,
   rosters,
   registrations,
+  teams,
 } from "@/lib/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, desc, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireCoachAccess, isPlayerOnCoachTeam, getCoachPlayerIds } from "@/lib/auth";
+import {
+  requireCoachAccess,
+  requireCoachPortalAccess,
+  isPlayerOnCoachTeam,
+  getCoachPlayerIds,
+} from "@/lib/auth";
+import { clampLimit } from "@/lib/http/clamp-limit";
 import { recomputePlayerSnapshots } from "@/lib/curriculum/snapshots";
 
 const createAssessmentSchema = z.object({
@@ -41,7 +48,7 @@ export const GET: APIRoute = async (context) => {
     const skillId = context.url.searchParams.get("skillId");
     const teamId = context.url.searchParams.get("teamId");
     const domainId = context.url.searchParams.get("domainId");
-    const limit = parseInt(context.url.searchParams.get("limit") || "50");
+    const limit = clampLimit(context.url.searchParams.get("limit"), 50);
 
     // If teamId is specified, verify coach owns that team
     if (teamId && !auth.teamIds.includes(teamId)) {
@@ -154,8 +161,9 @@ export const GET: APIRoute = async (context) => {
 // POST - Create a new assessment
 export const POST: APIRoute = async (context) => {
   try {
-    // Verify coach access
-    const auth = await requireCoachAccess(context);
+    // Verify coach access (portal variant resolves organizationId, needed
+    // below to org-scope the skillId check)
+    const auth = await requireCoachPortalAccess(context);
     if (!auth.authorized) return auth.response;
 
     const db = getDb();
@@ -206,6 +214,24 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
+    // seasonId must be a season one of this coach's teams plays in — an
+    // arbitrary (even cross-org) season id would otherwise be written bare.
+    if (seasonId) {
+      const [seasonTeam] = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .where(and(inArray(teams.id, auth.teamIds), eq(teams.seasonId, seasonId)))
+        .orderBy(asc(teams.id))
+        .limit(1);
+
+      if (!seasonTeam) {
+        return new Response(
+          JSON.stringify({ error: "Invalid seasonId - not a season your teams play in" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Verify the player (family member) exists
     const [player] = await getDb()
       .select()
@@ -219,11 +245,18 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Verify the skill exists
+    // Verify the skill exists and belongs to this org (or is a global seed)
+    // — otherwise a coach could write an assessment against another org's
+    // skill by guessing/enumerating its id.
     const [skill] = await getDb()
       .select()
       .from(skills)
-      .where(eq(skills.id, skillId));
+      .where(
+        and(
+          eq(skills.id, skillId),
+          or(eq(skills.organizationId, auth.organizationId), isNull(skills.organizationId))
+        )
+      );
 
     if (!skill) {
       return new Response(JSON.stringify({ error: "Skill not found" }), {
@@ -232,92 +265,74 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Get previous assessment for this skill and player (if any)
-    const [previousAssessment] = await getDb()
-      .select({ level: playerAssessments.level })
-      .from(playerAssessments)
-      .where(
-        and(
-          eq(playerAssessments.familyMemberId, familyMemberId),
-          eq(playerAssessments.skillId, skillId)
+    // Assessment insert + snapshot recompute + summary upsert are ONE unit.
+    // If the snapshot recompute throws, everything rolls back and the coach
+    // gets a 500 they can retry — a failed write beats a silently stale radar.
+    const newAssessment = await db.transaction(async (tx) => {
+      const [previousAssessment] = await tx
+        .select({ level: playerAssessments.level })
+        .from(playerAssessments)
+        .where(
+          and(
+            eq(playerAssessments.familyMemberId, familyMemberId),
+            eq(playerAssessments.skillId, skillId)
+          )
         )
-      )
-      .orderBy(desc(playerAssessments.assessedAt))
-      .limit(1);
+        .orderBy(desc(playerAssessments.assessedAt), desc(playerAssessments.id))
+        .limit(1);
 
-    const previousLevel = previousAssessment?.level || null;
+      const previousLevel = previousAssessment?.level ?? null;
 
-    // Create the assessment
-    const [newAssessment] = await getDb()
-      .insert(playerAssessments)
-      .values({
-        familyMemberId,
-        skillId,
-        teamId: teamId || null,
-        seasonId: seasonId || null,
-        coachUserId: auth.user.id,
-        level,
-        previousLevel,
-        observationContext,
-        notes: notes || null,
-        strengths: strengths || null,
-        areasForImprovement: areasForImprovement || null,
-      })
-      .returning();
-
-    // Recompute assessment snapshots (Task 9, curriculum-recovery plan).
-    // This is derived reporting data for the domain radar chart — it must
-    // never fail the assessment write itself, so log-and-swallow.
-    try {
-      await recomputePlayerSnapshots(db, familyMemberId, seasonId ?? null);
-    } catch (error) {
-      console.error("Error recomputing assessment snapshots:", error);
-    }
-
-    // Update or create player skill summary
-    const [existingSummary] = await getDb()
-      .select()
-      .from(playerSkillSummary)
-      .where(
-        and(
-          eq(playerSkillSummary.familyMemberId, familyMemberId),
-          eq(playerSkillSummary.skillId, skillId)
-        )
-      );
-
-    if (existingSummary) {
-      // Update existing summary
-      const trend =
-        level > existingSummary.currentLevel
-          ? "improving"
-          : level < existingSummary.currentLevel
-          ? "declining"
-          : "stable";
-
-      await getDb()
-        .update(playerSkillSummary)
-        .set({
-          currentLevel: level,
-          highestLevel: Math.max(level, existingSummary.highestLevel),
-          assessmentCount: existingSummary.assessmentCount + 1,
-          trend: trend as "improving" | "stable" | "declining",
-          lastAssessedAt: new Date(),
-          updatedAt: new Date(),
+      const [created] = await tx
+        .insert(playerAssessments)
+        .values({
+          familyMemberId,
+          skillId,
+          teamId: teamId || null,
+          seasonId: seasonId || null,
+          coachUserId: auth.user.id,
+          level,
+          previousLevel,
+          observationContext,
+          notes: notes || null,
+          strengths: strengths || null,
+          areasForImprovement: areasForImprovement || null,
         })
-        .where(eq(playerSkillSummary.id, existingSummary.id));
-    } else {
-      // Create new summary
-      await getDb().insert(playerSkillSummary).values({
-        familyMemberId,
-        skillId,
-        currentLevel: level,
-        highestLevel: level,
-        assessmentCount: 1,
-        trend: "new",
-        firstAssessedAt: new Date(),
-        lastAssessedAt: new Date(),
-      });
-    }
+        .returning();
+
+      await recomputePlayerSnapshots(tx, familyMemberId, seasonId ?? null);
+
+      const now = new Date();
+      await tx
+        .insert(playerSkillSummary)
+        .values({
+          familyMemberId,
+          skillId,
+          currentLevel: level,
+          highestLevel: level,
+          assessmentCount: 1,
+          trend: "new",
+          firstAssessedAt: now,
+          lastAssessedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [playerSkillSummary.familyMemberId, playerSkillSummary.skillId],
+          set: {
+            currentLevel: level,
+            highestLevel: sql`GREATEST(${playerSkillSummary.highestLevel}, ${level})`,
+            assessmentCount: sql`${playerSkillSummary.assessmentCount} + 1`,
+            trend: sql`CASE
+              WHEN ${level} > ${playerSkillSummary.currentLevel} THEN 'improving'::trend_direction
+              WHEN ${level} < ${playerSkillSummary.currentLevel} THEN 'declining'::trend_direction
+              ELSE 'stable'::trend_direction
+            END`,
+            lastAssessedAt: now,
+            updatedAt: now,
+          },
+        });
+
+      return created;
+    });
 
     return new Response(JSON.stringify({ assessment: newAssessment }), {
       status: 201,

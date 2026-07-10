@@ -90,8 +90,17 @@ export function computeDomainAverages(rows: AssessmentRow[]): Map<string, Domain
  * assessments simply don't contribute to the radar chart until the
  * assessment is backfilled with a season.
  */
+/**
+ * Executor type: a plain Database or an open drizzle transaction. When a tx
+ * is passed, the internal `transaction()` call below opens a SAVEPOINT, so
+ * the caller's transaction still rolls everything back on error.
+ */
+export type SnapshotDb =
+  | Database
+  | Parameters<Parameters<Database["transaction"]>[0]>[0];
+
 export async function recomputePlayerSnapshots(
-  db: Database,
+  db: SnapshotDb,
   familyMemberId: string,
   seasonId: string | null,
 ): Promise<{ domainsWritten: number }> {
@@ -99,7 +108,7 @@ export async function recomputePlayerSnapshots(
     return { domainsWritten: 0 };
   }
 
-  return db.transaction(async (tx) => {
+  return (db as Database).transaction(async (tx) => {
     const rows = await tx
       .select({
         skillId: playerAssessments.skillId,

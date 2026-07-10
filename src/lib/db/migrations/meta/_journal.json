@@ -526,6 +526,13 @@
       "when": 1783598575737,
       "tag": "0074_large_magik",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1783645637878,
+      "tag": "0075_eminent_nomad",
+      "breakpoints": true
     }
   ]
 }
