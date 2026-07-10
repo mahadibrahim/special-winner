@@ -267,8 +267,10 @@ export function PrePracticeChecklist({
             </div>
           ) : null}
 
-          {/* Complete Button */}
-          {isComplete && (
+          {/* Complete Button — only when the parent actually wired a handler
+              (the coach dashboard renders this checklist bare, and a button
+              that does nothing is worse than no button). */}
+          {isComplete && onComplete && (
             <Button
               className="w-full bg-emerald-600 hover:bg-emerald-700"
               onClick={onComplete}

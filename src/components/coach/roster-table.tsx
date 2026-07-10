@@ -10,8 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  MessageSquare,
-  Plus,
   Loader2,
   User,
   Heart,
@@ -68,13 +66,11 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
 function PlayerCard({
   player,
   expanded,
-  onToggleExpand,
-  onAddNote
+  onToggleExpand
 }: {
   player: RosterPlayer
   expanded: boolean
   onToggleExpand: () => void
-  onAddNote: () => void
 }) {
   const status = statusConfig[player.status]
 
@@ -126,13 +122,6 @@ function PlayerCard({
 
           {/* Actions */}
           <div className="flex items-center gap-1">
-            <button
-              onClick={onAddNote}
-              className="p-2 rounded-lg hover:bg-cream-3 transition-colors"
-              title="Add note"
-            >
-              <MessageSquare className="w-4 h-4 text-ink-muted hover:text-primary" />
-            </button>
             <button
               onClick={onToggleExpand}
               className="p-2 rounded-lg hover:bg-cream-3 transition-colors"
@@ -265,12 +254,6 @@ export default function RosterTable({ teamId }: RosterTableProps) {
     }
     return true
   })
-
-  const handleAddNote = (_playerId: string) => {
-    toast.info("Player notes editor coming soon", {
-      description: "For now, use the parent dashboard's coach notes feature.",
-    })
-  }
 
   const handleExportRoster = () => {
     if (filteredRoster.length === 0) {
@@ -453,7 +436,6 @@ export default function RosterTable({ teamId }: RosterTableProps) {
               player={player}
               expanded={expandedId === player.id}
               onToggleExpand={() => setExpandedId(expandedId === player.id ? null : player.id)}
-              onAddNote={() => handleAddNote(player.player.id)}
             />
           ))}
         </div>
@@ -465,7 +447,6 @@ export default function RosterTable({ teamId }: RosterTableProps) {
               player={player}
               expanded={expandedId === player.id}
               onToggleExpand={() => setExpandedId(expandedId === player.id ? null : player.id)}
-              onAddNote={() => handleAddNote(player.player.id)}
             />
           ))}
         </div>

@@ -525,12 +525,9 @@ export default function CoachAssessmentsOverview() {
               ))}
 
               {recentAssessments.length > 10 && (
-                <Button
-                  variant="ghost"
-                  className="w-full text-sm text-ink-muted hover:text-ink"
-                >
-                  View all assessments
-                </Button>
+                <p className="text-xs text-ink-faint text-center pt-1">
+                  Showing the 10 most recent
+                </p>
               )}
             </div>
           )}
