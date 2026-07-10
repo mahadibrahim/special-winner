@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
+import GlowsGrowsFlow from '@/components/coach/glows-grows-flow';
+
+export const prerender = false;
+
+// Middleware guarantees user is authenticated for /coach routes.
+const user = Astro.locals.user!;
+
+// Get session ID from params
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/coach/practices');
+}
+---
+
+<BaseLayout title="Glows & Grows — Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/practices"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <GlowsGrowsFlow client:load sessionId={id} />
+  </CoachLayout>
+</BaseLayout>
