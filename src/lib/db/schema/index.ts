@@ -116,3 +116,6 @@ export * from "./time-tracking";
 
 // Manual Gusto payroll CSV export audit trail (product-backlog build #6)
 export * from "./payroll";
+
+// Program Blueprint (sequence distribution lineage + warning dismissals)
+export * from "./blueprint";

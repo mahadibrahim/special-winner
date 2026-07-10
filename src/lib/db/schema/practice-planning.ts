@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
@@ -16,6 +17,7 @@ import { sports } from "./sports";
 import { teams } from "./teams";
 import { developmentStages, skills } from "./curriculum";
 import { organizations } from "./organizations";
+import { sequenceAttachments } from "./blueprint";
 
 // Enums
 export const sessionStatusEnum = pgEnum("session_status", [
@@ -241,46 +243,63 @@ export const activities = pgTable(
 );
 
 // Session Plans (specific practice sessions)
-export const sessionPlans = pgTable("session_plans", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  teamId: uuid("team_id")
-    .notNull()
-    .references(() => teams.id, { onDelete: "cascade" }),
-  templateId: uuid("template_id").references(() => practiceTemplates.id, {
-    onDelete: "set null",
-  }),
-  coachUserId: uuid("coach_user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 255 }).notNull(),
-  scheduledDate: timestamp("scheduled_date").notNull(),
-  durationMinutes: integer("duration_minutes").notNull(),
-  status: sessionStatusEnum("status").default("draft").notNull(),
-  // Session structure with activities
-  segments: jsonb("segments").$type<
-    {
-      order: number;
-      name: string;
-      type: string;
-      durationMinutes: number;
-      activityId?: string;
-      activityName?: string;
-      notes?: string;
-    }[]
-  >(),
-  focusSkillIds: uuid("focus_skill_ids").array(),
-  objectives: jsonb("objectives").$type<string[]>(),
-  equipmentNeeded: jsonb("equipment_needed").$type<string[]>(),
-  preSessionNotes: text("pre_session_notes"),
-  // Post-session reflection
-  postSessionReflection: text("post_session_reflection"),
-  whatWorkedWell: text("what_worked_well"),
-  whatToImprove: text("what_to_improve"),
-  playerObservations: text("player_observations"),
-  completedAt: timestamp("completed_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const sessionPlans = pgTable(
+  "session_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    templateId: uuid("template_id").references(() => practiceTemplates.id, {
+      onDelete: "set null",
+    }),
+    coachUserId: uuid("coach_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    scheduledDate: timestamp("scheduled_date").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    status: sessionStatusEnum("status").default("draft").notNull(),
+    // Session structure with activities
+    segments: jsonb("segments").$type<
+      {
+        order: number;
+        name: string;
+        type: string;
+        durationMinutes: number;
+        activityId?: string;
+        activityName?: string;
+        notes?: string;
+      }[]
+    >(),
+    focusSkillIds: uuid("focus_skill_ids").array(),
+    objectives: jsonb("objectives").$type<string[]>(),
+    equipmentNeeded: jsonb("equipment_needed").$type<string[]>(),
+    preSessionNotes: text("pre_session_notes"),
+    // Post-session reflection
+    postSessionReflection: text("post_session_reflection"),
+    whatWorkedWell: text("what_worked_well"),
+    whatToImprove: text("what_to_improve"),
+    playerObservations: text("player_observations"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    // Program Blueprint: marks this session as prescribed (distributed
+    // from a curriculum sequence) and keys it to the distribution event.
+    // templateId alone can't distinguish "distributed" from "coach happened
+    // to pick the same template" — nullable, set null on attachment delete
+    // (the session itself survives; it just stops being "prescribed").
+    sequenceAttachmentId: uuid("sequence_attachment_id").references(
+      () => sequenceAttachments.id,
+      { onDelete: "set null" },
+    ),
+  },
+  (table) => [
+    index("session_plans_sequence_attachment_idx").on(
+      table.sequenceAttachmentId,
+    ),
+  ],
+);
 
 // Session Activity Usage (tracking which activities were used in sessions)
 export const sessionActivityUsage = pgTable("session_activity_usage", {
