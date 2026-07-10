@@ -9,9 +9,8 @@
  *     join table (`familyMemberParents.parentUserId`)
  *
  * Endpoints that previously checked only `parentUserId === user.id` locked
- * out co-parents and self-registered adults. Use `canAccessFamilyMember` (or
- * the `requireFamilyMemberAccess` convenience wrapper) instead of rolling a
- * bespoke ownership check.
+ * out co-parents and self-registered adults. Use `canAccessFamilyMember`
+ * instead of rolling a bespoke ownership check.
  */
 import type { getDb } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
@@ -54,26 +53,4 @@ export async function canAccessFamilyMember(
     );
 
   return !!link;
-}
-
-/**
- * Convenience wrapper for endpoints that just need a boolean gate plus the
- * standard "does the resource exist at all" signal, without hand-rolling the
- * two-step canAccessFamilyMember flow inline.
- *
- * Returns:
- *   - { ok: true }                  — access granted
- *   - { ok: false, reason: "denied" } — family member exists, caller isn't a guardian
- *
- * Callers still need their own "not found at all" check before this if they
- * want to distinguish 404 from 403 — this helper only answers "can they see
- * it", not "does it exist".
- */
-export async function requireFamilyMemberAccess(
-  db: Db,
-  userId: string,
-  familyMemberId: string,
-): Promise<{ ok: true } | { ok: false; reason: "denied" }> {
-  const allowed = await canAccessFamilyMember(db, userId, familyMemberId);
-  return allowed ? { ok: true } : { ok: false, reason: "denied" };
 }
