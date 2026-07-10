@@ -46,6 +46,7 @@ async function verifyCoachAccess(userId: string, sessionId: string) {
     .select({
       id: sessionPlans.id,
       teamId: sessionPlans.teamId,
+      status: sessionPlans.status,
       coachUserId: teams.coachUserId,
       assistantCoachUserId: teams.assistantCoachUserId,
     })
@@ -244,6 +245,17 @@ export const POST: APIRoute = async (context) => {
     const access = await verifyCoachAccess(auth.user.id, id);
     if (!access) return json({ error: "Access denied" }, 403);
 
+    // Sharing glows against a draft (not yet scheduled/confirmed) or
+    // cancelled session makes no sense — the capture flow's bootstrap
+    // (GET) stays open for those statuses so the read-only summary can
+    // still render, but writes are gated here.
+    if (access.status === "draft" || access.status === "cancelled") {
+      return json(
+        { error: "Glows can only be shared for planned, active, or completed sessions" },
+        400
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -275,7 +287,16 @@ export const POST: APIRoute = async (context) => {
 
     // Whole-batch validation BEFORE any write: a single bad entry rejects
     // the entire batch with zero rows written.
+    const seenFamilyMemberIds = new Set<string>();
     for (const entry of entries) {
+      if (seenFamilyMemberIds.has(entry.familyMemberId)) {
+        return json(
+          { error: "Duplicate familyMemberId in batch" },
+          400
+        );
+      }
+      seenFamilyMemberIds.add(entry.familyMemberId);
+
       if (!rosterFamilyMemberIds.has(entry.familyMemberId)) {
         return json(
           { error: "One or more familyMemberIds are not on this session's roster" },
@@ -317,6 +338,11 @@ export const POST: APIRoute = async (context) => {
         }
 
         if (entry.grow) {
+          // The note goes wherever a row is actually being written: onto
+          // the glow row when one exists (existing behavior), otherwise
+          // onto the grow row so grow-only entries don't silently drop
+          // the coach's note.
+          const growNote = noteIds.length === 0 && entry.note ? `\n${entry.note}` : "";
           const [growRow] = await tx
             .insert(coachNotes)
             .values({
@@ -325,7 +351,7 @@ export const POST: APIRoute = async (context) => {
               coachUserId: auth.user.id,
               category: "focus",
               title: entry.grow,
-              content: entry.grow,
+              content: entry.grow + growNote,
               visibleToParent: true,
               sessionPlanId: id,
             })
