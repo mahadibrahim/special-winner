@@ -71,6 +71,7 @@ import {
   practiceTemplates,
   developmentStages,
   skills,
+  users,
 } from "@/lib/db/schema";
 import { sports } from "@/lib/db/schema/sports";
 import { blueprintWarningDismissals } from "@/lib/db/schema/blueprint";
@@ -246,7 +247,13 @@ export const GET: APIRoute = async (context) => {
       entryId: string;
       order: number;
       template: { id: string; title: string; durationMinutes: number; focusSkillNames: string[] };
-      guardrails: { blocks: GuardrailBlock[]; warns: GuardrailWarn[]; dismissed: boolean };
+      guardrails: {
+        blocks: GuardrailBlock[];
+        warns: GuardrailWarn[];
+        dismissed: boolean;
+        dismissedBy: string | null;
+        dismissedAt: string | null;
+      };
     }[] = [];
 
     // ---- Template rail ----
@@ -319,13 +326,31 @@ export const GET: APIRoute = async (context) => {
     const skillNames = (ids: string[] | null): string[] =>
       (ids ?? []).map((id) => skillsById.get(id)?.name).filter((n): n is string => !!n);
 
-    if (entryRows.length > 0) {
-      const entryIds = entryRows.map((e) => e.id);
+    if (entryRows.length > 0 && sequence) {
+      // Keyed by (sequenceId, templateId) — not entry.id — so a dismissal
+      // survives the entries PUT's delete-reinsert-with-fresh-UUIDs
+      // behavior on reorder/re-add (Task 7; see blueprint.ts's schema
+      // docstring and migration 0079). Multiple entries in the same
+      // sequence can reference the same template; they correctly share
+      // one dismissed state.
+      const templateIds = [...new Set(entryRows.map((e) => e.templateId))];
       const dismissalRows = await db
-        .select({ sequenceEntryId: blueprintWarningDismissals.sequenceEntryId })
+        .select({
+          templateId: blueprintWarningDismissals.templateId,
+          dismissedAt: blueprintWarningDismissals.dismissedAt,
+          dismissedByFirstName: users.firstName,
+        })
         .from(blueprintWarningDismissals)
-        .where(inArray(blueprintWarningDismissals.sequenceEntryId, entryIds));
-      const dismissedEntryIds = new Set(dismissalRows.map((d) => d.sequenceEntryId));
+        .innerJoin(users, eq(blueprintWarningDismissals.dismissedBy, users.id))
+        .where(
+          and(
+            eq(blueprintWarningDismissals.sequenceId, sequence.id),
+            inArray(blueprintWarningDismissals.templateId, templateIds),
+          ),
+        );
+      const dismissalByTemplateId = new Map(
+        dismissalRows.map((d) => [d.templateId, d]),
+      );
 
       slots = entryRows.map((entry) => {
         const blockInput = buildGuardrailActivityInput(
@@ -338,6 +363,7 @@ export const GET: APIRoute = async (context) => {
           seasonMaxAge: band.maxAge,
           activities: [blockInput, ...warnInputs],
         });
+        const dismissal = dismissalByTemplateId.get(entry.templateId);
         return {
           entryId: entry.id,
           order: entry.position,
@@ -350,7 +376,9 @@ export const GET: APIRoute = async (context) => {
           guardrails: {
             blocks: result.blocks,
             warns: result.warns,
-            dismissed: dismissedEntryIds.has(entry.id),
+            dismissed: !!dismissal,
+            dismissedBy: dismissal?.dismissedByFirstName ?? null,
+            dismissedAt: dismissal ? dismissal.dismissedAt.toISOString() : null,
           },
         };
       });

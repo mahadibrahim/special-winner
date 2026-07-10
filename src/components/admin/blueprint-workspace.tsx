@@ -52,7 +52,8 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { toast } from "sonner"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
-import { AlertTriangle, ArrowDown, ArrowUp, Plus, X } from "lucide-react"
+import { programTypeLabel } from "@/lib/programs/program-type-labels"
+import { AlertTriangle, ArrowDown, ArrowUp, Check, Plus, X } from "lucide-react"
 
 interface GuardrailBlock {
   activityName: string
@@ -71,7 +72,13 @@ interface Slot {
   entryId: string
   order: number
   template: { id: string; title: string; durationMinutes: number; focusSkillNames: string[] }
-  guardrails: { blocks: GuardrailBlock[]; warns: GuardrailWarn[]; dismissed: boolean }
+  guardrails: {
+    blocks: GuardrailBlock[]
+    warns: GuardrailWarn[]
+    dismissed: boolean
+    dismissedBy: string | null
+    dismissedAt: string | null
+  }
 }
 
 interface RailTemplate {
@@ -119,6 +126,12 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
+// Shared copy for a fetch that rejected outright (network blip, offline,
+// DNS failure, etc.) rather than returning a non-2xx response — those two
+// failure modes are handled identically everywhere in this file: toast the
+// same reassuring message and leave state exactly as it was (T6 review fix).
+const CONNECTION_ERROR_MESSAGE = "Couldn't save — check your connection and try again"
+
 export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
   useHydrationBeacon()
 
@@ -135,6 +148,20 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
   // Template rail
   const [search, setSearch] = useState("")
   const [showAllStages, setShowAllStages] = useState(false)
+
+  // Warn-tier dismissals (Task 7). `optimisticallyDismissed` collapses a
+  // slot's badge to "Acknowledged" the instant Acknowledge is clicked,
+  // before the POST resolves — reverted if the request fails. Keyed by
+  // templateId (dismissals are (sequenceId, templateId)-keyed, not
+  // per-entry — see dismissals.ts). `dismissingTemplateId` disables the
+  // Acknowledge button mid-flight; `expandedAcknowledged` tracks which
+  // already-acknowledged slots the director has re-expanded to see the
+  // original reasons + who/when.
+  const [optimisticallyDismissed, setOptimisticallyDismissed] = useState<Set<string>>(
+    new Set(),
+  )
+  const [dismissingTemplateId, setDismissingTemplateId] = useState<string | null>(null)
+  const [expandedAcknowledged, setExpandedAcknowledged] = useState<Set<string>>(new Set())
 
   // Tracks whether we've ever loaded data, so the name-prefill only fires
   // once (on first load) rather than clobbering an in-progress edit every
@@ -205,6 +232,11 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
       }
       toast.success("Ready to compose")
       await refreshBootstrap()
+    } catch {
+      // Network/DNS failure — the fetch itself rejected rather than
+      // resolving with a non-2xx status. State is untouched either way
+      // (nothing was optimistically applied above).
+      toast.error(CONNECTION_ERROR_MESSAGE)
     } finally {
       setCreatingSequence(false)
     }
@@ -248,6 +280,8 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
         return
       }
       await linkSequence(body.sequence.id)
+    } catch {
+      toast.error(CONNECTION_ERROR_MESSAGE)
     } finally {
       setCreatingSequence(false)
     }
@@ -282,8 +316,53 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
           return
         }
         await refreshBootstrap()
+      } catch {
+        // Fetch itself rejected (network blip) — nothing was written,
+        // local state is preserved as-is.
+        toast.error(CONNECTION_ERROR_MESSAGE)
       } finally {
         setMutating(false)
+      }
+    },
+    [data?.sequence, refreshBootstrap],
+  )
+
+  // Dismiss a warn-tier slot (Task 7). Optimistically collapses the badge
+  // to "Acknowledged" before the POST resolves; reverts + toasts on
+  // failure. Keyed by templateId, not entryId — a dismissal applies to
+  // "this template's stage skew, for this sequence" regardless of which
+  // entry currently holds it (see dismissals.ts).
+  const dismissWarning = useCallback(
+    async (templateId: string) => {
+      if (!data?.sequence) return
+      setOptimisticallyDismissed((prev) => new Set(prev).add(templateId))
+      setDismissingTemplateId(templateId)
+      try {
+        const res = await fetch("/api/admin/blueprint/dismissals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sequenceId: data.sequence.id, templateId }),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setOptimisticallyDismissed((prev) => {
+            const next = new Set(prev)
+            next.delete(templateId)
+            return next
+          })
+          toast.error(body.error || "Failed to acknowledge this warning")
+          return
+        }
+        await refreshBootstrap()
+      } catch {
+        setOptimisticallyDismissed((prev) => {
+          const next = new Set(prev)
+          next.delete(templateId)
+          return next
+        })
+        toast.error(CONNECTION_ERROR_MESSAGE)
+      } finally {
+        setDismissingTemplateId(null)
       }
     },
     [data?.sequence, refreshBootstrap],
@@ -361,7 +440,7 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
       <div className="p-4 rounded-xl bg-paper border border-border space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold text-ink">{data.season.name}</h1>
-          <Badge variant="outline">{data.program.programType}</Badge>
+          <Badge variant="outline">{programTypeLabel(data.program.programType)}</Badge>
         </div>
         <p className="text-sm text-ink-muted">
           {data.program.name} · {data.program.sportName} · {formatDate(data.season.startDate)} –{" "}
@@ -551,34 +630,72 @@ export function BlueprintWorkspace({ seasonId }: { seasonId: string }) {
                       </div>
                     )}
 
-                    {hasWarns && (
-                      <div
-                        className={`rounded-md border p-2 text-xs space-y-1 ${
-                          slot.guardrails.dismissed
-                            ? "border-border text-ink-muted"
-                            : "border-amber-300 bg-amber-50 text-amber-900"
-                        }`}
-                      >
-                        {slot.guardrails.dismissed ? (
-                          <p>Stage-fit warning acknowledged.</p>
-                        ) : (
-                          <>
-                            {slot.guardrails.warns.map((w, wi) => (
-                              <p key={wi}>{w.reason}</p>
-                            ))}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled
-                              title="coming in the next step"
-                              className="min-h-11"
-                            >
-                              Acknowledge
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    )}
+                    {hasWarns &&
+                      (() => {
+                        const isDismissed =
+                          slot.guardrails.dismissed ||
+                          optimisticallyDismissed.has(slot.template.id)
+                        const isExpanded = expandedAcknowledged.has(slot.entryId)
+                        const isDismissing = dismissingTemplateId === slot.template.id
+                        return (
+                          <div
+                            className={`rounded-md border p-2 text-xs space-y-1 ${
+                              isDismissed
+                                ? "border-border text-ink-muted"
+                                : "border-amber-300 bg-amber-50 text-amber-900"
+                            }`}
+                          >
+                            {isDismissed ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedAcknowledged((prev) => {
+                                      const next = new Set(prev)
+                                      if (next.has(slot.entryId)) next.delete(slot.entryId)
+                                      else next.add(slot.entryId)
+                                      return next
+                                    })
+                                  }
+                                  className="flex items-center gap-1.5 min-h-11 -my-1"
+                                >
+                                  <Check className="size-3.5 shrink-0" aria-hidden="true" />
+                                  <span>Stage-fit warning acknowledged</span>
+                                </button>
+                                {isExpanded && (
+                                  <div className="space-y-1 pt-1">
+                                    {slot.guardrails.warns.map((w, wi) => (
+                                      <p key={wi}>{w.reason}</p>
+                                    ))}
+                                    {slot.guardrails.dismissedBy && (
+                                      <p>
+                                        Acknowledged by {slot.guardrails.dismissedBy}
+                                        {slot.guardrails.dismissedAt &&
+                                          ` on ${formatDate(slot.guardrails.dismissedAt)}`}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {slot.guardrails.warns.map((w, wi) => (
+                                  <p key={wi}>{w.reason}</p>
+                                ))}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isDismissing}
+                                  onClick={() => dismissWarning(slot.template.id)}
+                                  className="min-h-11"
+                                >
+                                  {isDismissing ? "Acknowledging…" : "Acknowledge"}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                     <div className="flex flex-wrap gap-2 pt-1">
                       <RailAssignSelect

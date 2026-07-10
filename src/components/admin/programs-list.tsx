@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
+import { programTypes } from "@/lib/programs/program-type-labels"
 
 interface Program {
   id: string
@@ -56,14 +57,6 @@ interface VenueOption {
   organizationName?: string
   organizationSlug?: string
 }
-
-const programTypes = [
-  { value: "league", label: "League" },
-  { value: "camp", label: "Camp" },
-  { value: "clinic", label: "Clinic" },
-  { value: "tournament", label: "Tournament" },
-  { value: "training", label: "Training" },
-]
 
 export function ProgramsList({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog()

@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { curriculumSequences, curriculumSequenceEntries } from "./curriculum-sequences";
+import { practiceTemplates } from "./practice-planning";
 import { seasons } from "./programs";
 import { users } from "./users";
 
@@ -34,22 +35,47 @@ export const sequenceAttachments = pgTable(
 );
 
 // Records a director consciously dismissing a stage-skew (warn-tier)
-// guardrail badge on a sequence entry. Never written for block-tier
-// safety violations — those cannot be dismissed.
+// guardrail badge. Never written for block-tier safety violations — those
+// cannot be dismissed.
+//
+// --- Keyed by (sequenceId, templateId), not sequenceEntryId (Task 7) ---
+// A sequence entry row is ephemeral: the entries PUT (entries.ts)
+// delete-reinserts ALL entries with fresh UUIDs on every save, so a
+// dismissal keyed to `sequence_entry_id` alone would silently vanish the
+// next time the director reorders or re-saves the arc — the exact bug
+// this redesign fixes. A dismissal is really an act on "this template's
+// stage skew, for this sequence" and must survive reorders/re-adds
+// permanently. `sequenceEntryId` is kept as nullable, optional
+// provenance (best-effort "which specific entry-write prompted this"),
+// not the identity the row is looked up by; all lookups/writes go
+// through (sequenceId, templateId).
 export const blueprintWarningDismissals = pgTable(
   "blueprint_warning_dismissals",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    sequenceEntryId: uuid("sequence_entry_id")
+    sequenceEntryId: uuid("sequence_entry_id").references(
+      () => curriculumSequenceEntries.id,
+      { onDelete: "cascade" },
+    ),
+    sequenceId: uuid("sequence_id")
       .notNull()
-      .references(() => curriculumSequenceEntries.id, { onDelete: "cascade" }),
+      .references(() => curriculumSequences.id, { onDelete: "cascade" }),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => practiceTemplates.id, { onDelete: "cascade" }),
     dismissedBy: uuid("dismissed_by")
       .notNull()
       .references(() => users.id),
     dismissedAt: timestamp("dismissed_at").defaultNow().notNull(),
     reason: text("reason"),
   },
-  (table) => [index("blueprint_warning_dismissals_entry_idx").on(table.sequenceEntryId)],
+  (table) => [
+    index("blueprint_warning_dismissals_entry_idx").on(table.sequenceEntryId),
+    index("blueprint_warning_dismissals_sequence_template_idx").on(
+      table.sequenceId,
+      table.templateId,
+    ),
+  ],
 );
 
 // Relations
@@ -77,6 +103,14 @@ export const blueprintWarningDismissalsRelations = relations(
     sequenceEntry: one(curriculumSequenceEntries, {
       fields: [blueprintWarningDismissals.sequenceEntryId],
       references: [curriculumSequenceEntries.id],
+    }),
+    sequence: one(curriculumSequences, {
+      fields: [blueprintWarningDismissals.sequenceId],
+      references: [curriculumSequences.id],
+    }),
+    template: one(practiceTemplates, {
+      fields: [blueprintWarningDismissals.templateId],
+      references: [practiceTemplates.id],
     }),
     dismissedByUser: one(users, {
       fields: [blueprintWarningDismissals.dismissedBy],
