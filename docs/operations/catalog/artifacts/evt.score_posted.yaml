@@ -4,7 +4,7 @@ status: stub
 description: |
   Fires when a match's final score (submitted via the referee's match
   report) sets the game to completed, making that result available to
-  every standings view (public league standings, /coach/standings,
-  dashboard standings) the next time each is loaded. Recorded per match;
-  used to confirm a specific match's result actually landed if a parent,
-  coach, or team captain asks whether it "counted yet."
+  every standings view (the public league standings pages, dashboard
+  standings) the next time each is loaded. Recorded per match; used to
+  confirm a specific match's result actually landed if a parent, coach,
+  or team captain asks whether it "counted yet."

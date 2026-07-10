@@ -28,11 +28,12 @@ sop_body: |
      attestation) — final score plus any incidents — the game's status
      flips to completed and the score is written to the match record.
   2. The standings engine picks this up the moment anyone looks: every
-     standings view (public league standings, the coach's standings
-     table, the parent/player dashboard standings) recomputes rankings
-     live from every completed match's score for the season, so there's
-     no separate publish delay or batch job to wait on for the raw
-     table to reflect a match that just finished.
+     standings view (the public league standings pages — the drop-league
+     page and each league's season page — and the parent/player
+     dashboard standings) recomputes rankings live from every completed
+     match's score for the season, so there's no separate publish delay
+     or batch job to wait on for the raw table to reflect a match that
+     just finished.
   3. Ranking uses the sport's rules (win/draw/loss points) and works
      through the tiebreaker order — head-to-head, goal differential,
      fewest goals conceded, total wins, goals scored — whenever two
@@ -57,8 +58,7 @@ sop_body: |
      on the printed standings sheet so anyone asking in person gets an
      accurate answer, and reconciles it once the platform recovers.
 tools:
-  - The public league standings page
-  - The coach standings page (/coach/standings)
+  - The public league standings pages (drop-league, each league's season page)
   - The parent/player dashboard standings view
 tracking_method: system_event
 tracking_artifact:
