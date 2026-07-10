@@ -23,6 +23,7 @@ import { getDb } from "@/lib/db";
 import {
   skills,
   skillDomains,
+  developmentStages,
   sequenceAttachments,
   sessionPlans,
   teams,
@@ -49,6 +50,7 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
   let programId: string;
   let expectedNoun: string;
   let developmentStageId: string | null = null;
+  let createdFixtureStageId: string | null = null;
   let headingSkillId: string | null = null;
   let createdHeadingSkill = false;
 
@@ -116,20 +118,24 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
       (s: any) => s.slug === "development",
     );
     developmentStageId = developmentStage?.id ?? null;
-    // Test hygiene: this used to be a silent `return` (a bare return inside
-    // beforeAll masks every downstream test as a false "pass" with zero
-    // assertions run, not a visible skip) — development_stages is seeded
-    // reference data every other suite in this file already depends on
-    // unconditionally, so a missing "development" stage here means the
-    // environment itself is broken, not an expected/legitimate skip.
+    // CI's throwaway DB seeds no curriculum reference data, so the
+    // "development" stage may genuinely be absent there (staging always has
+    // it). Create it as a suite-owned fixture when missing rather than
+    // skipping (silent) or failing (environment-dependent) — the mirror of
+    // how glows.test.ts self-creates its ball-control skill.
     if (!developmentStageId) {
-      // Fails loudly (not a silent skip): every other suite in this file
-      // depends on this same seeded stage unconditionally, so its absence
-      // means the environment itself is broken. expect() throws before
-      // `return` ever runs; the `if` shape is kept only so TypeScript can
-      // narrow `developmentStageId` to non-null for the rest of this scope.
-      expect(developmentStageId, "expected a seeded 'development' development_stages row").toBeTruthy();
-      return;
+      const [createdStage] = await getDb()
+        .insert(developmentStages)
+        .values({
+          name: "Development",
+          slug: "development",
+          ageMin: 11,
+          ageMax: 12,
+          sortOrder: 4,
+        })
+        .returning({ id: developmentStages.id });
+      developmentStageId = createdStage.id;
+      createdFixtureStageId = createdStage.id;
     }
 
     const db = getDb();
@@ -316,6 +322,8 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
   });
 
   afterAll(async () => {
+    // (fixture-stage cleanup happens at the END of this hook — rows created
+    // above reference it via FK, so it must be deleted last.)
     if (safeSequenceId) {
       await apiFetch(`${SEQUENCES_ENDPOINT}/${safeSequenceId}`, {
         method: "DELETE",
@@ -342,6 +350,12 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
     }
     if (createdHeadingSkill && headingSkillId) {
       await getDb().delete(skills).where(eq(skills.id, headingSkillId));
+    }
+    if (createdFixtureStageId) {
+      // Deleted last: templates/sequences/skills created above referenced it.
+      await getDb()
+        .delete(developmentStages)
+        .where(eq(developmentStages.id, createdFixtureStageId));
     }
     resetCookies();
   });
@@ -1051,7 +1065,11 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
       const sequenceIds = [safeSequenceId, blockedSequenceId].filter(
         (id): id is string => Boolean(id),
       );
-      if (sequenceIds.length === 0) return; // runtime skip: no development_stages seeded
+      if (sequenceIds.length === 0) {
+        // Hard failure — beforeAll now self-creates the stage fixture, so
+        // both sequences must exist in every environment.
+        throw new Error("fixture sequences missing — beforeAll should have created them");
+      }
 
       const orphanRows = await getDb()
         .select({
