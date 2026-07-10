@@ -31,6 +31,12 @@ describe("Coach Glows & Grows API", () => {
   // POST API itself refuses to create a session on a team you don't coach.
   let otherTeamId: string | undefined;
   let otherSessionId: string | undefined;
+  // Fixture for the grow-only test on a CI/clean DB, where no seeded
+  // activity resolves to a curated grow phrase (CI only has synthetic
+  // "e2e-*-skill" rows, not real curriculum slugs). Only set (and only
+  // torn down) when this run actually inserted them.
+  let fixtureSkillId: string | undefined;
+  let fixtureActivityId: string | undefined;
 
   beforeAll(async () => {
     coachCookie = await getCoachCookie();
@@ -73,6 +79,16 @@ describe("Coach Glows & Grows API", () => {
         method: "DELETE",
         cookie: coachCookie,
       });
+    }
+
+    // Grow-only CI fixture: the session delete above already cascades away
+    // its sessionActivityUsage row (onDelete: cascade on sessionPlanId), so
+    // only the activity/skill rows this run created remain to clean up.
+    if (fixtureActivityId) {
+      await getDb().delete(activities).where(eq(activities.id, fixtureActivityId));
+    }
+    if (fixtureSkillId) {
+      await getDb().delete(skills).where(eq(skills.id, fixtureSkillId));
     }
 
     // Cross-coach ownership fixture: not reachable through the coach's own
@@ -385,10 +401,92 @@ describe("Coach Glows & Grows API", () => {
         }
       }
     }
-    expect(
-      growActivityId,
-      "expected at least one seeded activity with a curated grow phrase"
-    ).not.toBeNull();
+    if (!growActivityId) {
+      // CI's throwaway DB only has synthetic "e2e-*-skill" rows (see
+      // seedCurriculumRadarFixture in seed-e2e-tests.ts) — none of their
+      // slugs are in the curated SKILL_REINFORCEMENT map, so no seeded
+      // activity will ever resolve to a grow phrase there. Build the
+      // minimal fixture ourselves using the real "ball-control" curriculum
+      // slug so this test is self-sufficient on a clean DB, instead of
+      // depending on staging's real curriculum content.
+      const BALL_CONTROL_SLUG = "ball-control";
+      const curatedGrowPhrase = getSkillGrow(BALL_CONTROL_SLUG);
+      expect(
+        curatedGrowPhrase,
+        `expected a curated grow phrase for "${BALL_CONTROL_SLUG}" in reinforcement.ts`
+      ).not.toBeNull();
+
+      const [existingBallControlSkill] = await db
+        .select({ id: skills.id })
+        .from(skills)
+        .where(eq(skills.slug, BALL_CONTROL_SLUG))
+        .orderBy(asc(skills.id))
+        .limit(1);
+
+      let ballControlSkillId: string;
+      if (existingBallControlSkill) {
+        ballControlSkillId = existingBallControlSkill.id;
+      } else {
+        // Reuse FK reference values (sport/domain/stage) from any existing
+        // seeded skill row rather than reconstructing reference data —
+        // e2e seed guarantees at least one skills row exists.
+        const [referenceSkill] = await db
+          .select({
+            sportId: skills.sportId,
+            domainId: skills.domainId,
+            stageId: skills.stageId,
+          })
+          .from(skills)
+          .orderBy(asc(skills.id))
+          .limit(1);
+        expect(
+          referenceSkill,
+          "expected at least one seeded skill row to copy FK reference values from"
+        ).toBeTruthy();
+
+        const [insertedSkill] = await db
+          .insert(skills)
+          .values({
+            sportId: referenceSkill.sportId,
+            domainId: referenceSkill.domainId,
+            stageId: referenceSkill.stageId,
+            name: "Ball Control",
+            slug: BALL_CONTROL_SLUG,
+            active: true,
+          })
+          .returning({ id: skills.id });
+        ballControlSkillId = insertedSkill.id;
+        fixtureSkillId = ballControlSkillId;
+      }
+
+      const [referenceActivity] = await db
+        .select({ sportId: activities.sportId })
+        .from(activities)
+        .orderBy(asc(activities.id))
+        .limit(1);
+      expect(
+        referenceActivity,
+        "expected at least one seeded activity row to copy FK reference values from"
+      ).toBeTruthy();
+
+      const [insertedActivity] = await db
+        .insert(activities)
+        .values({
+          sportId: referenceActivity.sportId,
+          name: "Grow Fixture Ball Control Drill",
+          slug: `grow-fixture-${randomUUID()}`,
+          durationMinutes: 10,
+          howToPlay:
+            "Fixture activity created for the grow-only glows test on a clean DB.",
+          skillsDeveloped: [ballControlSkillId],
+          active: true,
+        })
+        .returning({ id: activities.id });
+      fixtureActivityId = insertedActivity.id;
+
+      growActivityId = insertedActivity.id;
+      growPhrase = curatedGrowPhrase;
+    }
 
     // Dedicated session so wiring in an activity doesn't change the shared
     // sessionId's chip set for other tests in this file.
