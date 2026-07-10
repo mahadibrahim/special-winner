@@ -10,7 +10,7 @@ import {
   rosters,
   registrations,
 } from "@/lib/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachAccess, isPlayerOnCoachTeam, getCoachPlayerIds } from "@/lib/auth";
 import { recomputePlayerSnapshots } from "@/lib/curriculum/snapshots";
@@ -274,50 +274,37 @@ export const POST: APIRoute = async (context) => {
       console.error("Error recomputing assessment snapshots:", error);
     }
 
-    // Update or create player skill summary
-    const [existingSummary] = await getDb()
-      .select()
-      .from(playerSkillSummary)
-      .where(
-        and(
-          eq(playerSkillSummary.familyMemberId, familyMemberId),
-          eq(playerSkillSummary.skillId, skillId)
-        )
-      );
-
-    if (existingSummary) {
-      // Update existing summary
-      const trend =
-        level > existingSummary.currentLevel
-          ? "improving"
-          : level < existingSummary.currentLevel
-          ? "declining"
-          : "stable";
-
-      await getDb()
-        .update(playerSkillSummary)
-        .set({
-          currentLevel: level,
-          highestLevel: Math.max(level, existingSummary.highestLevel),
-          assessmentCount: existingSummary.assessmentCount + 1,
-          trend: trend as "improving" | "stable" | "declining",
-          lastAssessedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(playerSkillSummary.id, existingSummary.id));
-    } else {
-      // Create new summary
-      await getDb().insert(playerSkillSummary).values({
+    // Upsert the player skill summary (unique on family_member_id + skill_id,
+    // migration 0075). In DO UPDATE, table-qualified columns refer to the
+    // existing row, so trend/highest/count derive from prior state atomically.
+    const now = new Date();
+    await getDb()
+      .insert(playerSkillSummary)
+      .values({
         familyMemberId,
         skillId,
         currentLevel: level,
         highestLevel: level,
         assessmentCount: 1,
         trend: "new",
-        firstAssessedAt: new Date(),
-        lastAssessedAt: new Date(),
+        firstAssessedAt: now,
+        lastAssessedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [playerSkillSummary.familyMemberId, playerSkillSummary.skillId],
+        set: {
+          currentLevel: level,
+          highestLevel: sql`GREATEST(${playerSkillSummary.highestLevel}, ${level})`,
+          assessmentCount: sql`${playerSkillSummary.assessmentCount} + 1`,
+          trend: sql`CASE
+            WHEN ${level} > ${playerSkillSummary.currentLevel} THEN 'improving'::trend_direction
+            WHEN ${level} < ${playerSkillSummary.currentLevel} THEN 'declining'::trend_direction
+            ELSE 'stable'::trend_direction
+          END`,
+          lastAssessedAt: now,
+          updatedAt: now,
+        },
       });
-    }
 
     return new Response(JSON.stringify({ assessment: newAssessment }), {
       status: 201,
