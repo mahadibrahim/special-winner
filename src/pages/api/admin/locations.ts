@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema";
 import { and, eq, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireOrgWideAdminAccess } from "@/lib/auth";
 
 const externalStoreSchema = z.object({
   url: z.string().url(),
@@ -32,7 +32,7 @@ const locationSchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {
@@ -52,7 +52,7 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {
@@ -95,10 +95,10 @@ export const POST: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  // Org-scoped admin guard: requireOrgAdminAccess verifies the caller
+  // Org-scoped admin guard: requireOrgWideAdminAccess verifies the caller
   // administers THIS org, and the organizationId predicate below pins the
   // location to that org so an admin of another org can't edit it by posting its id.
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {
@@ -184,10 +184,10 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  // Org-scoped admin guard: requireOrgAdminAccess verifies the caller
+  // Org-scoped admin guard: requireOrgWideAdminAccess verifies the caller
   // administers THIS org, and the organizationId predicate below pins the
   // location to that org so an admin of another org can't delete it by id.
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {

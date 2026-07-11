@@ -24,6 +24,7 @@ export {
   requireOrganizationContext,
   isAdminForOrg,
   requireOrgAdminAccess,
+  requireOrgWideAdminAccess,
   type RoleName,
   type ScopeType,
   type UserRole,

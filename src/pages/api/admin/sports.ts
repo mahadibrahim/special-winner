@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { sports } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
-import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireOrgWideAdminAccess } from "@/lib/auth";
 import {
   requireSameOrgSport,
   ownershipDeniedResponse,
@@ -25,7 +25,7 @@ const sportSchema = z.object({
 
 // GET - List all sports
 export const GET: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {
@@ -47,7 +47,7 @@ export const GET: APIRoute = async (context) => {
 
 // POST - Create new sport
 export const POST: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {
@@ -84,7 +84,7 @@ export const POST: APIRoute = async (context) => {
 
 // PUT - Update sport
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {
@@ -137,7 +137,7 @@ export const PUT: APIRoute = async (context) => {
 
 // DELETE - Delete sport
 export const DELETE: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {

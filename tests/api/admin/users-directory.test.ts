@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getAdminCookie, apiFetch, expectJson } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { users, userRoles, familyMembers } from "@/lib/db/schema";
+import { roles } from "@/lib/db/schema";
+import { organizations, userOrganizationAccess, locations } from "@/lib/db/schema/organizations";
 import { eq, inArray } from "drizzle-orm";
 
 const ENDPOINT = "/api/admin/users";
@@ -157,5 +159,122 @@ describe("signup no longer auto-grants the parent role", () => {
       .from(userRoles)
       .where(eq(userRoles.userId, u.id));
     expect(grants.length).toBe(0);
+  });
+});
+
+describe("Users directory: tenant isolation for global-role holders", () => {
+  const isoSuffix = Math.random().toString(36).slice(2, 10);
+  const otherOrgParentEmail = `iso-otherorg-${isoSuffix}@test.example`;
+  const sameOrgParentEmail = `iso-sameorg-${isoSuffix}@test.example`;
+  let adminCookie: string;
+  let otherOrgParentId: string;
+  let sameOrgParentId: string;
+
+  beforeAll(async () => {
+    adminCookie = await getAdminCookie();
+    const db = getDb();
+
+    const [orgA] = await db.select({ id: organizations.id }).from(organizations)
+      .where(eq(organizations.slug, "aspire-sports")).limit(1);
+    const [orgB] = await db.select({ id: organizations.id }).from(organizations)
+      .where(eq(organizations.slug, "orgb")).limit(1);
+    const [parentRole] = await db.select({ id: roles.id }).from(roles)
+      .where(eq(roles.name, "parent")).limit(1);
+    if (!orgA || !orgB || !parentRole) {
+      throw new Error("org/role fixtures missing — run npm run db:seed:e2e");
+    }
+
+    // Fixture 1: a parent whose only org tie is Org B, but who carries the
+    // legacy GLOBAL-scoped parent role (the resolvePerson grant).
+    const [u1] = await db.insert(users)
+      .values({ email: otherOrgParentEmail, passwordHash: "x", firstName: "Iso", lastName: "OtherOrg" })
+      .returning();
+    otherOrgParentId = u1.id;
+    await db.insert(userRoles).values({ userId: u1.id, roleId: parentRole.id, scopeType: "global" });
+    await db.insert(userOrganizationAccess).values({
+      userId: u1.id, organizationId: orgB.id, role: "parent", acceptedAt: new Date(),
+    });
+
+    // Fixture 2: same shape but the access row is in Org A.
+    const [u2] = await db.insert(users)
+      .values({ email: sameOrgParentEmail, passwordHash: "x", firstName: "Iso", lastName: "SameOrg" })
+      .returning();
+    sameOrgParentId = u2.id;
+    await db.insert(userRoles).values({ userId: u2.id, roleId: parentRole.id, scopeType: "global" });
+    await db.insert(userOrganizationAccess).values({
+      userId: u2.id, organizationId: orgA.id, role: "parent", acceptedAt: new Date(),
+    });
+  });
+
+  afterAll(async () => {
+    // Deleting users cascades roles + access rows.
+    await getDb().delete(users).where(inArray(users.id, [otherOrgParentId, sameOrgParentId]));
+  });
+
+  it("a global-parent-role holder from another org is NOT in this org's directory", async () => {
+    const res = await apiFetch(`${ENDPOINT}?search=${encodeURIComponent(otherOrgParentEmail)}`, {
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    expect(json.users.find((u: any) => u.email === otherOrgParentEmail)).toBeUndefined();
+  });
+
+  it("a global-parent-role holder WITH an org access row IS in the directory", async () => {
+    const res = await apiFetch(`${ENDPOINT}?search=${encodeURIComponent(sameOrgParentEmail)}`, {
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    expect(json.users.find((u: any) => u.email === sameOrgParentEmail)).toBeDefined();
+  });
+
+  it("super_admins (global scope, no access row) remain visible", async () => {
+    const res = await apiFetch(`${ENDPOINT}?search=admin@test.aspiresports.com`, {
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    expect(json.users.find((u: any) => u.email === "admin@test.aspiresports.com")).toBeDefined();
+  });
+});
+
+describe("Users directory: location-scoped role enrichment", () => {
+  const enrichSuffix = Math.random().toString(36).slice(2, 10);
+  const email = `enrich-locadmin-${enrichSuffix}@test.example`;
+  let userId: string;
+  let locationName: string;
+
+  beforeAll(async () => {
+    const db = getDb();
+    const [orgA] = await db.select({ id: organizations.id }).from(organizations)
+      .where(eq(organizations.slug, "aspire-sports")).limit(1);
+    const [loc] = await db.select({ id: locations.id, name: locations.name }).from(locations)
+      .where(eq(locations.organizationId, orgA.id)).limit(1);
+    locationName = loc.name;
+    const [locAdminRole] = await db.select({ id: roles.id }).from(roles)
+      .where(eq(roles.name, "location_admin")).limit(1);
+
+    const [u] = await db.insert(users)
+      .values({ email, passwordHash: "x", firstName: "Enrich", lastName: "LocAdmin" })
+      .returning();
+    userId = u.id;
+    await db.insert(userRoles).values({
+      userId: u.id, roleId: locAdminRole.id, scopeType: "location", scopeId: loc.id,
+    });
+  });
+
+  afterAll(async () => {
+    await getDb().delete(users).where(eq(users.id, userId));
+  });
+
+  it("location-scoped roles carry the location name", async () => {
+    const adminCookie = await getAdminCookie();
+    const res = await apiFetch(`${ENDPOINT}?search=${encodeURIComponent(email)}`, {
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    const u = json.users.find((x: any) => x.email === email);
+    expect(u).toBeDefined();
+    const role = u.roles.find((r: any) => r.scopeType === "location");
+    expect(role).toBeDefined();
+    expect(role.locationName).toBe(locationName);
   });
 });

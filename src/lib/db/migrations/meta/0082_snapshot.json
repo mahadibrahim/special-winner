@@ -1,5 +1,5 @@
 {
-  "id": "8c3c31a4-fd55-4fb2-8717-1f3992695129",
+  "id": "86a7178c-b738-43f3-868e-289331eaadd1",
   "prevId": "d9b2afae-73ac-4b1c-b33a-a77410721481",
   "version": "7",
   "dialect": "postgresql",
@@ -13310,12 +13310,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "session_plan_id": {
-          "name": "session_plan_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "event_date": {
           "name": "event_date",
           "type": "timestamp with time zone",
@@ -13441,19 +13435,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "attendance_session_plan_id_session_plans_id_fk": {
-          "name": "attendance_session_plan_id_session_plans_id_fk",
-          "tableFrom": "attendance",
-          "tableTo": "session_plans",
-          "columnsFrom": [
-            "session_plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "attendance_recorded_by_user_id_users_id_fk": {
@@ -15509,12 +15490,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'draft'"
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
         },
         "segments": {
           "name": "segments",
@@ -21055,153 +21030,6 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "public.session_captures": {
-      "name": "session_captures",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "session_plan_id": {
-          "name": "session_plan_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "roster_id": {
-          "name": "roster_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "capture_kind",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "skill_id": {
-          "name": "skill_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_id": {
-          "name": "client_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "consumed_at": {
-          "name": "consumed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "session_captures_session_client_uniq": {
-          "name": "session_captures_session_client_uniq",
-          "columns": [
-            {
-              "expression": "session_plan_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "client_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "session_captures_session_idx": {
-          "name": "session_captures_session_idx",
-          "columns": [
-            {
-              "expression": "session_plan_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "session_captures_session_plan_id_session_plans_id_fk": {
-          "name": "session_captures_session_plan_id_session_plans_id_fk",
-          "tableFrom": "session_captures",
-          "tableTo": "session_plans",
-          "columnsFrom": [
-            "session_plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "session_captures_roster_id_rosters_id_fk": {
-          "name": "session_captures_roster_id_rosters_id_fk",
-          "tableFrom": "session_captures",
-          "tableTo": "rosters",
-          "columnsFrom": [
-            "roster_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "session_captures_skill_id_skills_id_fk": {
-          "name": "session_captures_skill_id_skills_id_fk",
-          "tableFrom": "session_captures",
-          "tableTo": "skills",
-          "columnsFrom": [
-            "skill_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -22243,14 +22071,6 @@
       "values": [
         "hours",
         "referee_fees"
-      ]
-    },
-    "public.capture_kind": {
-      "name": "capture_kind",
-      "schema": "public",
-      "values": [
-        "glow",
-        "observation"
       ]
     }
   },

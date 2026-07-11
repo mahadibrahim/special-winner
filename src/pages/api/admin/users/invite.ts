@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireSameOrgLocation } from "@/lib/auth/require-resource-ownership";
 import { hashPassword } from "@/lib/auth/password";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
@@ -23,13 +24,21 @@ const INVITABLE_ROLES = [
   "media_editor",
 ] as const;
 
-const inviteSchema = z.object({
-  firstName: z.string().trim().min(1).max(100),
-  lastName: z.string().trim().min(1).max(100),
-  email: z.string().email(),
-  phone: z.string().trim().max(30).optional(),
-  roleName: z.enum(INVITABLE_ROLES).optional(),
-});
+const inviteSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(100),
+    lastName: z.string().trim().min(1).max(100),
+    email: z.string().email(),
+    phone: z.string().trim().max(30).optional(),
+    roleName: z.enum(INVITABLE_ROLES).optional(),
+    // Only meaningful with roleName=location_admin: scope the admin role to
+    // this one location instead of the whole org.
+    locationId: z.string().uuid().optional(),
+  })
+  .refine((v) => !v.locationId || v.roleName === "location_admin", {
+    message: "locationId is only valid with roleName=location_admin",
+    path: ["locationId"],
+  });
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -75,6 +84,18 @@ export const POST: APIRoute = async (context) => {
     return json(409, { error: "A user with that email already exists" });
   }
 
+  // Validate the location BEFORE creating anything — a cross-org locationId
+  // must fail without leaving a role-less user behind.
+  if (parsed.data.locationId) {
+    const location = await requireSameOrgLocation(
+      auth.organizationId,
+      parsed.data.locationId,
+    );
+    if (!location.ok) {
+      return json(404, { error: "Location not found in this organization" });
+    }
+  }
+
   // Random unusable password — the invitee signs in via the emailed link
   // and can set a real password from their account settings.
   const passwordHash = await hashPassword(crypto.randomBytes(32).toString("base64url"));
@@ -105,11 +126,13 @@ export const POST: APIRoute = async (context) => {
       .where(eq(roles.name, parsed.data.roleName))
       .limit(1);
     if (role) {
+      // Scope determines meaning: with a locationId, location_admin is
+      // scoped to that single location; otherwise staff roles are org-wide.
       await db.insert(userRoles).values({
         userId: newUser.id,
         roleId: role.id,
-        scopeType: "organization",
-        scopeId: auth.organizationId,
+        scopeType: parsed.data.locationId ? "location" : "organization",
+        scopeId: parsed.data.locationId ?? auth.organizationId,
       });
     }
   }
