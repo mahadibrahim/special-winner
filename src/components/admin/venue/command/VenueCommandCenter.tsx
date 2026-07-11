@@ -33,6 +33,7 @@ import { useState, useCallback } from "react"
 import { Zap } from "lucide-react"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
+import { formatAgo } from "@/lib/venue/format-ago"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
 import { ErrorBanner } from "@/components/ui/error-banner"
@@ -63,10 +64,6 @@ function addDays(dateStr: string, delta: number): string {
 
 function addWeeks(dateStr: string, delta: number): string {
   return addDays(dateStr, delta * 7)
-}
-
-function secondsAgo(ts: number): number {
-  return Math.floor((Date.now() - ts) / 1000)
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -106,7 +103,7 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
   }, [])
 
   // ── Data ───────────────────────────────────────────────────────────────────
-  const { data, isLoading, isStale, lastUpdatedAt, error } = useVenueToday({
+  const { data, isLoading, isStale, lastUpdatedAt, nowTick, error } = useVenueToday({
     date,
     locationId,
   })
@@ -199,7 +196,7 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
   // ── Derived data ───────────────────────────────────────────────────────────
   const attentionGroups = data ? groupAttention(data.attention) : []
   const locationName    = data?.locationName ?? "Venue"
-  const staleSecs       = lastUpdatedAt !== null ? secondsAgo(lastUpdatedAt) : null
+  const staleSecs       = lastUpdatedAt !== null ? Math.floor((nowTick - lastUpdatedAt) / 1000) : null
 
   // ── Initial skeleton ───────────────────────────────────────────────────────
   if (isLoading && !data) {
@@ -238,24 +235,30 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
           </div>
           <h1 className="text-2xl font-semibold text-[#1c1a17] mt-0.5 mb-0 flex items-center gap-2 flex-wrap">
             Today
-            {/* Live pulse indicator */}
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 ml-1">
-              <span
-                className="w-2 h-2 rounded-full bg-emerald-600 animate-ping-sm"
-                style={{
-                  animation: "venue-pulse 2s infinite",
-                }}
-              />
-              LIVE
-              {staleSecs !== null && isStale && (
-                <span className="text-[#8a8175] font-normal">
-                  · updated {staleSecs}s ago
-                </span>
-              )}
-              {staleSecs !== null && !isStale && (
-                <span className="text-emerald-700">· updated {staleSecs}s ago</span>
-              )}
-            </span>
+            {isStale ? (
+              /* Stale indicator — honest freshness signal, no pulse animation */
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 ml-1">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                STALE
+                {staleSecs !== null && (
+                  <span className="text-amber-700">· updated {formatAgo(staleSecs)} ago</span>
+                )}
+              </span>
+            ) : (
+              /* Live pulse indicator */
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 ml-1">
+                <span
+                  className="w-2 h-2 rounded-full bg-emerald-600 animate-ping-sm"
+                  style={{
+                    animation: "venue-pulse 2s infinite",
+                  }}
+                />
+                LIVE
+                {staleSecs !== null && (
+                  <span className="text-emerald-700">· updated {formatAgo(staleSecs)} ago</span>
+                )}
+              </span>
+            )}
           </h1>
         </div>
 
@@ -276,13 +279,6 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
       {isStale && data && (
         <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium">
           Connection may be slow — showing last known data.
-        </div>
-      )}
-
-      {/* Hard fetch error while we have stale data */}
-      {error && data && (
-        <div className="mb-3">
-          <ErrorBanner message={`Refresh error: ${error.message}`} />
         </div>
       )}
 
