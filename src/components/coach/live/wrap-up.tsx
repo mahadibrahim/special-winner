@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { AttendanceStatus, LivePayload } from "@/lib/sessions/types";
@@ -31,6 +31,10 @@ export default function WrapUp({
   const [improve, setImprove] = useState("");
   const [finishing, setFinishing] = useState(false);
   const [finished, setFinished] = useState(readOnly);
+  // Once the glows POST has succeeded, a Finish retry (e.g. the completed
+  // PUT failed offline) must NOT re-fire it — the endpoint has no client-key
+  // idempotency, so a second POST would duplicate parent-visible coach_notes.
+  const promotionDoneRef = useRef(false);
 
   const rosterByRosterId = useMemo(
     () => new Map(payload.roster.map((r) => [r.rosterId, r])),
@@ -63,9 +67,11 @@ export default function WrapUp({
   const finish = async () => {
     setFinishing(true);
     try {
-      // 1. Promote decided glows through the existing endpoint.
+      // 1. Promote decided glows through the existing endpoint — exactly
+      // once. On a retry after a failed onFinish, skip straight to
+      // consume + complete so coach_notes are never duplicated.
       const promote = captures.filter((c) => decisions[c.clientId] === "promote");
-      if (promote.length > 0) {
+      if (!promotionDoneRef.current && promote.length > 0) {
         const mapped = promote
           .map((c) => {
             const player = rosterByRosterId.get(c.rosterId);
@@ -91,9 +97,15 @@ export default function WrapUp({
             continue;
           }
           for (const g of e.glows) {
+            // Chips past the schema's 3-glow cap are dropped silently by
+            // design — the first three (in capture order) win.
             if (!existing.glows.includes(g) && existing.glows.length < 3) existing.glows.push(g);
           }
-          if (e.note) existing.note = existing.note ? `${existing.note} · ${e.note}` : e.note;
+          if (e.note) {
+            // Merged notes must respect the endpoint's 280-char cap or the
+            // whole batch 400s.
+            existing.note = (existing.note ? `${existing.note} · ${e.note}` : e.note).slice(0, 280);
+          }
         }
         const entries = [...byPlayer.values()];
         if (entries.length > 0) {
@@ -104,8 +116,16 @@ export default function WrapUp({
           });
           if (!res.ok) throw new Error("glows failed");
         }
+        promotionDoneRef.current = true;
       }
       // 2. Consume every decided capture (promote/keep/discard all consume).
+      // Queued right after the successful promotion POST — before onFinish —
+      // so consumption is durably enqueued (sessionStorage-backed) even when
+      // the completed PUT then fails. Residual window: if the consume flush
+      // AND sessionStorage are both lost before ever reaching the server, a
+      // reload could re-offer already-promoted captures; server-side
+      // idempotency on the glows endpoint would be the durable close —
+      // deliberately out of scope here.
       const decided = captures.filter((c) => decisions[c.clientId]).map((c) => c.clientId);
       if (decided.length > 0) onConsume(decided);
       // 3. Complete + reflection.
@@ -139,6 +159,10 @@ export default function WrapUp({
               return (
                 <li key={r.rosterId}>
                   <button
+                    aria-pressed={status === "present"}
+                    aria-label={`${r.firstName} ${r.lastName}: ${status}. Tap to mark ${
+                      status === "present" ? "absent" : "present"
+                    }`}
                     onClick={() =>
                       onAttendance(r.rosterId, status === "present" ? "absent" : "present")
                     }
@@ -193,6 +217,7 @@ export default function WrapUp({
                       <button
                         key={d}
                         data-testid={`capture-${d}-${c.clientId}`}
+                        aria-pressed={decision === d}
                         onClick={() => setDecisions((prev) => ({ ...prev, [c.clientId]: d }))}
                         className={`min-h-11 rounded-full border border-border px-3 text-sm ${
                           decision === d ? "bg-primary text-white" : "bg-paper text-ink"
