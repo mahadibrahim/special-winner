@@ -317,6 +317,15 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
+            {(session.status === "planned" || session.status === "draft" || session.status === "in_progress") && (
+              <Button asChild className="min-h-11 gap-2">
+                <a data-testid="live-session-link" href={`/coach/practices/${sessionId}/live`}>
+                  <Play className="w-4 h-4" />
+                  {session.status === "in_progress" ? "Resume session" : "Set up session"}
+                </a>
+              </Button>
+            )}
+
             {canStart && (
               <Button
                 onClick={() => handleStatusChange("in_progress")}
