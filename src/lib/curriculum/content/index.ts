@@ -154,6 +154,25 @@ export function validateRegistry(content: CurriculumContent): string[] {
       promptContentSeen.add(contentText);
     }
     checkSportStage(prompt, `Coach prompt "${String(prompt.title ?? contentText)}"`);
+
+    // skill-linking (Directive 1): `skill` is a SKILL SLUG scoped to `sport`
+    // -- mirrors the activity.skillsDeveloped check above via the same
+    // skillSlugsBySport map. `skill` requires `sport` to also be present
+    // (skills are unique on (sportId, slug), so a bare slug can't resolve).
+    // Only coach_prompts documents this convention (see coach-guidance.ts's
+    // module header) -- resources/principles never set `skill`.
+    if (typeof prompt.skill === "string") {
+      const label = `Coach prompt "${String(prompt.title ?? contentText)}"`;
+      if (typeof prompt.sport !== "string") {
+        violations.push(
+          `${label} sets "skill" without "sport" (skill natural key requires sport)`,
+        );
+      } else if (!skillSlugsBySport.get(prompt.sport)?.has(prompt.skill)) {
+        violations.push(
+          `${label} references unknown skill "${prompt.skill}" for sport "${prompt.sport}"`,
+        );
+      }
+    }
   }
 
   const resourceTitleSeen = new Set<string>();

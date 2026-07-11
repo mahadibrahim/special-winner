@@ -324,8 +324,8 @@ async function readExistingRows(db: DB, orgId: string): Promise<ExistingRowsWith
     return row;
   };
 
-  const existingPrompts = promptRows.map((p) =>
-    withSportStage(
+  const existingPrompts = promptRows.map((p) => {
+    const row = withSportStage(
       {
         triggerContext: p.triggerContext,
         promptType: p.promptType,
@@ -340,8 +340,19 @@ async function readExistingRows(db: DB, orgId: string): Promise<ExistingRowsWith
       },
       p.sportId,
       p.stageId,
-    ),
-  );
+    );
+    // Skill-linking (Directive 1): resolve skillId back to a skill slug the
+    // same way ActivityContent.skillsDeveloped's reverse lookup works below
+    // -- reuses skillIdIndex (built above from this org's skillRows) rather
+    // than a fresh query. Only coach_prompts sets `skill` in content (see
+    // coach-guidance.ts's module header), so this is the only readback path
+    // that needs it.
+    if (p.skillId) {
+      const skillInfo = skillIdIndex.get(p.skillId);
+      if (skillInfo) row.skill = skillInfo.slug;
+    }
+    return row;
+  });
 
   const existingResources = resourceRows.map((r) =>
     withSportStage(
@@ -747,6 +758,7 @@ async function applyCoachGuidance(
   orgId: string,
   sportMap: SlugMap,
   stageMap: SlugMap,
+  skillIdMap: SlugMap,
   promptSkipKeys: Set<string>,
   resourceSkipKeys: Set<string>,
 ): Promise<void> {
@@ -777,14 +789,44 @@ async function applyCoachGuidance(
     return { sportId, stageId };
   };
 
+  // Skill resolution (Directive 1) -- mirrors applyActivities' skillsDeveloped
+  // resolution above: reuses the same skillIdMap (keyed `${sport}::${slug}`
+  // -> uuid) applySkills built earlier in main(), rather than re-querying.
+  // `skill` REQUIRES `sport` to also be set (skills are unique on
+  // (sportId, slug), so a bare slug can't resolve without knowing the
+  // sport) -- see coach-guidance.ts's module header for the documented
+  // convention. Only coach_prompts sets `skill` today, so this is only
+  // called from the prompts loop below.
+  const resolveSkill = (
+    row: Record<string, unknown>,
+    table: string,
+    key: string,
+  ): string | undefined => {
+    if (typeof row.skill !== "string") return undefined;
+    if (typeof row.sport !== "string") {
+      throw new Error(
+        `Cannot resolve skill "${row.skill}" for ${table} "${key}" -- "skill" requires "sport" to also be set`,
+      );
+    }
+    const skillId = skillIdMap.get(`${row.sport}::${row.skill}`);
+    if (!skillId) {
+      throw new Error(
+        `Cannot resolve skill "${row.skill}" for ${table} "${key}" (sport=${row.sport})`,
+      );
+    }
+    return skillId;
+  };
+
   for (const p of CURRICULUM_CONTENT.coachGuidance.prompts) {
     const key = keyForPrompt({ content: p.content });
     if (promptSkipKeys.has(key)) continue; // owned by a different org -- see foreign-org guard above main()
     const { sportId, stageId } = resolveSportStage(p, "coach_prompts", String(p.content));
+    const skillId = resolveSkill(p, "coach_prompts", String(p.content));
     const set = {
       organizationId: orgId,
       sportId,
       stageId,
+      skillId,
       triggerContext: p.triggerContext as never,
       promptType: p.promptType as never,
       title: p.title as string | undefined,
@@ -986,6 +1028,7 @@ async function main(): Promise<void> {
     org.id,
     sportMap,
     stageMap,
+    skillIdMap,
     promptOwnership.skipKeys,
     resourceOwnership.skipKeys,
   );
