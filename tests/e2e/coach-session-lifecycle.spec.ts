@@ -1,6 +1,32 @@
 import { test, expect } from "@playwright/test";
 import { signIn, waitForHydration } from "../utils/test-helpers";
 
+const SESSION_TITLE = "E2E lifecycle session";
+
+// Clean up the session this run created — plus any orphans an earlier failed
+// run left behind (self-healing, mirrors program-blueprint.spec.ts's
+// afterAll). Uses its own request context so it fires even when the test
+// body failed; the coach sessions DELETE accepts completed sessions.
+test.afterAll(async ({ playwright, baseURL }) => {
+  const ctx = await playwright.request.newContext({ baseURL: baseURL ?? undefined });
+  try {
+    const signin = await ctx.post("/api/auth/signin", {
+      data: { email: "coach@test.aspiresports.com", password: "TestCoach123!" },
+    });
+    if (!signin.ok()) return;
+    const res = await ctx.get("/api/coach/sessions");
+    if (!res.ok()) return;
+    const { sessions } = (await res.json()) as {
+      sessions: { id: string; title: string }[];
+    };
+    for (const s of sessions.filter((s) => s.title === SESSION_TITLE)) {
+      await ctx.delete(`/api/coach/sessions/${s.id}`);
+    }
+  } finally {
+    await ctx.dispose();
+  }
+});
+
 // Full coach journey: setup -> field -> capture -> wrap-up -> completed.
 // Director-side delivery status is covered by the existing
 // tests/api/admin/blueprint-delivery suite (completion is the only input
@@ -14,7 +40,7 @@ test("coach runs a session end to end", async ({ page }) => {
   const created = await page.request.post("/api/coach/sessions", {
     data: {
       teamId,
-      title: "E2E lifecycle session",
+      title: SESSION_TITLE,
       scheduledDate: new Date().toISOString(),
       durationMinutes: 45,
       status: "planned",
@@ -59,8 +85,12 @@ test("coach runs a session end to end", async ({ page }) => {
   await expect(page.getByTestId("wrapup-step-glows")).toBeVisible();
   await page.locator('[data-testid^="capture-promote-"]').first().click();
   await page.getByTestId("wrapup-next").click();
+  await expect(page.getByTestId("wrapup-step-reflection")).toBeVisible();
   await page.getByTestId("finish-session").click();
-  await expect(page.getByTestId("wrapup-done")).toBeVisible();
+  // Finish runs three sequential network calls (glows POST, capture flush,
+  // completed PUT); under parallel-suite load the dev server has shown
+  // 20-30s latencies, so give this step more than the 10s default.
+  await expect(page.getByTestId("wrapup-done")).toBeVisible({ timeout: 60_000 });
 
   // Reload lands in read-only done state.
   await page.goto(`/coach/practices/${sessionId}/live`, { waitUntil: "domcontentloaded" });
