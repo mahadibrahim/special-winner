@@ -163,19 +163,37 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
   );
   expect(walkinRes.ok(), await walkinRes.text()).toBeTruthy();
 
-  // ---- Open the session panel via deep link and assert the held row shows
-  // with the "awaiting payment" chip and resend/cancel actions. ----
-  await page.goto(`/admin/venue?date=${dateStr}&session=${sessionId}`, {
+  // ---- Open the session panel via Find booking (Task 7): land on the board
+  // with no deep link, search for the held walk-in's unique name, and click
+  // the result row through to the same roster panel a deep link would open.
+  // Exercises the FindBookingPanel → onOpenSession → ActivityDetailPanel path
+  // end-to-end instead of just deep-linking around it. ----
+  await page.goto(`/admin/venue?date=${dateStr}`, {
     waitUntil: "domcontentloaded",
   });
   await waitForHydration(page);
 
+  await page.getByRole("button", { name: /find booking/i }).click();
+  const searchSheet = page.getByRole("dialog", { name: /find booking/i });
+  await expect(searchSheet).toBeVisible({ timeout: 10_000 });
+
+  // Search matches firstName OR lastName individually (ilike per-column, not
+  // a concatenated full-name match) — query on the unique last name only.
+  const searchQuery = `Walkin${suffix.slice(-4)}`;
+  await searchSheet.getByPlaceholder(/name or last 4 of phone/i).fill(searchQuery);
+
+  const heldRowName = new RegExp(`Held Walkin${suffix.slice(-4)}`, "i");
+  const resultRow = searchSheet.getByRole("button", { name: heldRowName });
+  await expect(resultRow).toBeVisible({ timeout: 10_000 });
+  await resultRow.click();
+
+  // Search panel closes, session roster panel opens with the same booking.
+  await expect(searchSheet).not.toBeVisible();
   const panel = page.getByRole("dialog");
   await expect(panel).toBeVisible({ timeout: 60_000 });
   await expect(panel.getByText(/awaiting payment/i)).toBeVisible({
     timeout: 15_000,
   });
-  const heldRowName = new RegExp(`Held Walkin${suffix.slice(-4)}`, "i");
   await expect(panel.getByText(heldRowName)).toBeVisible();
   await expect(
     panel.getByRole("button", { name: /resend waiver link/i }),

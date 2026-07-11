@@ -109,6 +109,7 @@ export const GET: APIRoute = async (context) => {
     const dropInRows = await db
       .select({
         bookingId: dropInBookings.id,
+        sessionId: dropInSessions.id,
         checkedInAt: dropInBookings.checkedInAt,
         waiverSigned: dropInBookings.waiverSigned,
         sessionLabel: dropInSessions.sportOrClassLabel,
@@ -168,6 +169,12 @@ export const GET: APIRoute = async (context) => {
     type Result = {
       kind: "drop_in_booking" | "field_rental";
       targetId: string;
+      // The Venue Command Center session id this result's roster panel lives
+      // under — for drop-ins that's the dropInSessions row; for rentals the
+      // "session" IS the rental (see venue-day-data.ts rentalBlocks, which use
+      // fieldRentals.id as the block id). Always non-null today: both kinds
+      // are today-only, so the session is guaranteed to exist on the board.
+      sessionId: string;
       name: string;
       timeLabel: string;
       waiverSigned: boolean;
@@ -183,6 +190,7 @@ export const GET: APIRoute = async (context) => {
       results.push({
         kind: "drop_in_booking",
         targetId: row.bookingId,
+        sessionId: row.sessionId,
         name,
         timeLabel: `${row.sessionLabel} — ${time}`,
         waiverSigned: row.waiverSigned,
@@ -196,6 +204,9 @@ export const GET: APIRoute = async (context) => {
       results.push({
         kind: "field_rental",
         targetId: row.rentalId,
+        // The rental block's session id on the Venue Day board is the rental
+        // id itself (see venue-day-data.ts).
+        sessionId: row.rentalId,
         name: row.renterName,
         timeLabel: `Field ${row.fieldNumber} — ${time}`,
         waiverSigned: row.waiverSigned,

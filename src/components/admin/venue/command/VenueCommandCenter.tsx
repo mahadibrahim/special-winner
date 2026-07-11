@@ -21,6 +21,9 @@
  *   CommandSearchBar → onWalkIn → stub (walk-in requires a session; use the open-slot
  *     rows in ActivityDetailPanel, or open a session first from the calendar).
  *   CommandSearchBar → onFindBooking → opens FindBookingPanel (today's confirmed bookings search).
+ *   FindBookingPanel result row → onOpenSession → closes the search panel and opens that
+ *   booking's session roster panel (ActivityDetailPanel). Guarded: if the session isn't in
+ *   the currently-loaded today payload, shows a toast instead of silently no-op-ing.
  *   Clicking a calendar ActivityBlock / NowStrip card → open ActivityDetailPanel.
  *   Walk-ins are started from the ActivityDetailPanel's roster panel (open-slot
  *   "+ add walk-in" rows), not from a direct calendar cell click.
@@ -34,6 +37,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { Zap } from "lucide-react"
+import { toast } from "sonner"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
 import { attentionActionTarget } from "@/lib/venue/attention-action"
@@ -189,6 +193,23 @@ export function VenueCommandCenter({
   const handleFindBooking = useCallback(() => {
     setFindBookingOpen(true)
   }, [])
+
+  // ── Find-booking result → open its session's roster panel ─────────────────
+  // Booking-search is today-only, so the session should always be on the
+  // board — but guard against a stale/not-yet-loaded today payload (or a
+  // session on a location the board isn't currently showing) rather than
+  // silently closing the panel with nothing happening.
+  const handleOpenSessionFromSearch = useCallback(
+    (sessionId: string) => {
+      if (!data?.sessions.some((s) => s.id === sessionId)) {
+        toast.error("That booking's session isn't on today's board")
+        return
+      }
+      setFindBookingOpen(false)
+      setOpenSessionId(sessionId)
+    },
+    [data],
+  )
 
   // ── Start-pickup-game handler ──────────────────────────────────────────────
   const handleStartPickup = useCallback(() => {
@@ -421,7 +442,10 @@ export function VenueCommandCenter({
 
       {/* ── Find booking panel (sheet) ──────────────────────────────────────── */}
       {findBookingOpen && (
-        <FindBookingPanel onClose={() => setFindBookingOpen(false)} />
+        <FindBookingPanel
+          onClose={() => setFindBookingOpen(false)}
+          onOpenSession={handleOpenSessionFromSearch}
+        />
       )}
 
       {/* ── Start pickup game (sheet) ───────────────────────────────────────── */}

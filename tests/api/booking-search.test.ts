@@ -27,6 +27,7 @@ describe("GET /api/admin/booking-search", () => {
   let adminCookie: string;
   let parentFirstName: string;
   let bookingId: string;
+  let sessionId: string;
 
   beforeAll(async () => {
     adminCookie = await getAdminCookie();
@@ -84,6 +85,7 @@ describe("GET /api/admin/booking-search", () => {
         teamColors: ["blue", "red"],
       })
       .returning();
+    sessionId = session.id;
 
     const [booking] = await db
       .insert(dropInBookings)
@@ -125,6 +127,9 @@ describe("GET /api/admin/booking-search", () => {
     const match = body.results.find((r: { targetId: string }) => r.targetId === bookingId);
     expect(match).toBeDefined();
     expect(match.kind).toBe("drop_in_booking");
+    // sessionId is the Venue Command Center session this booking's roster
+    // panel opens under — the dropInSessions row, not the booking row.
+    expect(match.sessionId).toBe(sessionId);
     expect(typeof match.timeLabel).toBe("string");
     expect(match.timeLabel.length).toBeGreaterThan(0);
     expect(typeof match.waiverSigned).toBe("boolean");
