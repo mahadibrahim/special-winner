@@ -178,7 +178,7 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
   const heldRowName = new RegExp(`Held Walkin${suffix.slice(-4)}`, "i");
   await expect(panel.getByText(heldRowName)).toBeVisible();
   await expect(
-    panel.getByRole("button", { name: /resend link/i }),
+    panel.getByRole("button", { name: /resend waiver link/i }),
   ).toBeVisible();
 
   // ---- Cancel the hold and confirm the row disappears. ----

@@ -195,7 +195,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
         body: JSON.stringify({ kind: "drop_in_booking", targetId: row.targetId, channel: "sms" }),
       });
       if (!res.ok) throw new Error(`Failed (${res.status})`);
-      toast.success(`Pay link re-sent to ${row.name}`);
+      toast.success(`Waiver link re-sent to ${row.name}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not resend link");
     } finally {
@@ -410,7 +410,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                       disabled={rowBusy[row.targetId]}
                       className="text-xs px-2 py-1 rounded border border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e] font-semibold disabled:opacity-40"
                     >
-                      Resend link
+                      Resend waiver link
                     </button>
                     <button
                       type="button"

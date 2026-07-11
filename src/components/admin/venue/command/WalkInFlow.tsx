@@ -268,10 +268,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               {result.sent ? (
                 <>
                   <h3 className="text-lg font-bold text-[#1c1a17]">
-                    Payment link sent
+                    Waiver link sent
                   </h3>
                   <p className="text-sm text-[#4b463e] max-w-xs">
-                    Sent {amtStr} payment link to{" "}
+                    Sent the waiver link to{" "}
                     <strong>
                       {form.firstName} {form.lastName}
                     </strong>{" "}
@@ -291,7 +291,9 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                         : form.phone
                           ? `SMS (${form.phone})`
                           : "SMS"}
-                    . The slot is held for 2 hours.
+                    . The slot is held for 2 hours. Collect{" "}
+                    <strong>{amtStr}</strong> when they arrive (kiosk self-pay
+                    or desk).
                   </p>
                 </>
               ) : (
@@ -300,11 +302,13 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                     Booking created — copy &amp; share the link
                   </h3>
                   <p className="text-sm text-[#4b463e] max-w-xs">
-                    Share this payment link (<strong>{amtStr}</strong>) with{" "}
+                    Share this link with{" "}
                     <strong>
                       {form.firstName} {form.lastName}
-                    </strong>
-                    . The slot is held for 2 hours.
+                    </strong>{" "}
+                    — it covers the waiver. The slot is held for 2 hours.
+                    Collect <strong>{amtStr}</strong> when they arrive (kiosk
+                    self-pay or desk).
                   </p>
                 </>
               )}
@@ -539,8 +543,7 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
           )}
           {waiverMethod === "sms" && (
             <p className="text-[11.5px] text-[#8a8175] mt-2">
-              Waiver + pay link sent to their mobile number after booking is
-              created.
+              Waiver link sent to their mobile after the booking is created.
             </p>
           )}
         </div>
@@ -559,14 +562,16 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                 {
                   method: "link_email" as PayMethod,
                   icon: "📧",
-                  title: "Email a pay link",
-                  subtitle: "They pay on their phone; slot holds 2h until paid",
+                  title: "Email a waiver link",
+                  subtitle:
+                    "They sign on their phone; slot holds 2h — collect payment at the desk or kiosk",
                 },
                 {
                   method: "link_sms" as PayMethod,
                   icon: "📲",
-                  title: "Text a pay link",
-                  subtitle: "They pay on their phone; slot holds 2h until paid",
+                  title: "Text a waiver link",
+                  subtitle:
+                    "They sign on their phone; slot holds 2h — collect payment at the desk or kiosk",
                 },
                 {
                   method: "kiosk" as PayMethod,
@@ -616,8 +621,8 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               : payMethod === "kiosk"
                 ? "Create booking & hand off to kiosk ›"
                 : payMethod === "link_email"
-                  ? "Create booking & email pay link ›"
-                  : "Create booking & text pay link ›"}
+                  ? "Create booking & email waiver link ›"
+                  : "Create booking & text waiver link ›"}
           </button>
           <p className="text-[11.5px] text-[#8a8175] text-center mt-2">
             On success: added to the roster, slot held for payment.
