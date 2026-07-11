@@ -81,3 +81,16 @@ Delete a line to veto it; unchecked survivors are fair game for refine.
       an Aug 1–Jul 31 school-year cycle for 2026-27 — audit program
       age-group logic, registration copy, and curriculum age-band text for
       birth-year-cutoff assumptions before the 2026-27 registration cycle
+- [ ] Fix 19 stale progressionPath references in the 9 original
+      comprehensiveGuide activities (pre-2026-07-11 wave; e.g. shark-attack
+      → "3v3 to Small Goals" which doesn't exist) (found: refine 2026-07-11)
+- [ ] Add a registry test validating comprehensiveGuide cross-references
+      (progressionPath activity names, skillConnections skill names) — they
+      are free text today and break silently on renames (found: refine 2026-07-11)
+- [ ] Disambiguate the two activities both named "World Cup" (world-cup-v2,
+      world-cup-game) — byte-identical display names (found: refine 2026-07-11)
+- [ ] Deepen the remaining 24 thin soccer activities (ranks above the
+      2026-07-11 depth-pass cut; ranking in that wave's report) (found: refine 2026-07-11)
+- [ ] Coach-facing note on US Soccer heading volume limits for ages 11-13
+      (≤30 min/wk) at the curriculum/stage level, not just inside
+      heading-progression (found: refine 2026-07-11)
