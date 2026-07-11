@@ -58,7 +58,7 @@ export default function FieldMode({
             setSegmentIndex((i) => Math.min(i + 1, segments.length - 1));
             setPromptCycle(0);
           }}
-          className="rounded-xl border-2 border-border bg-paper p-6 text-left"
+          className="min-h-11 rounded-xl border-2 border-border bg-paper p-6 text-left"
         >
           <p data-testid="current-segment" className="text-2xl font-semibold text-ink">
             {segment.name}
@@ -77,7 +77,7 @@ export default function FieldMode({
         <button
           data-testid="prompt-card"
           onClick={() => setPromptCycle((c) => c + 1)}
-          className="rounded-xl bg-cream-2 p-4 text-left"
+          className="min-h-11 rounded-xl bg-cream-2 p-4 text-left"
         >
           <p className="text-sm text-ink">{prompt.content}</p>
           <p data-testid="cycle-prompt" className="mt-2 text-xs text-ink-muted">
@@ -160,7 +160,12 @@ function CaptureSheet({
     });
 
   return (
-    <div className="fixed inset-0 z-20 flex items-end bg-ink/60" onClick={onClose}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-20 flex items-end bg-ink/60"
+      onClick={onClose}
+    >
       <div
         className="w-full rounded-t-2xl bg-paper p-4 pb-8"
         onClick={(e) => e.stopPropagation()}
@@ -181,6 +186,7 @@ function CaptureSheet({
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          aria-label="Quick note"
           placeholder="Or a quick note…"
           maxLength={280}
           className="mb-3 min-h-11 w-full rounded-lg border border-border bg-paper px-3 text-ink"
@@ -210,7 +216,12 @@ function AttendanceSheet({
   onDone: () => void;
 }) {
   return (
-    <div data-testid="attendance-sheet" className="fixed inset-0 z-20 overflow-y-auto bg-paper p-4">
+    <div
+      data-testid="attendance-sheet"
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-20 overflow-y-auto bg-paper p-4"
+    >
       <h2 className="mb-1 text-xl font-semibold text-ink">Who's here?</h2>
       <p className="mb-4 text-sm text-ink-muted">Everyone's marked present — tap to flip.</p>
       <ul className="space-y-2">
