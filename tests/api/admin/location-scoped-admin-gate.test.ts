@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getAuthCookie, apiFetch } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { users, userRoles, roles } from "@/lib/db/schema";
-import { organizations, locations } from "@/lib/db/schema/organizations";
+import { organizations, locations, userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { hashPassword } from "@/lib/auth/password";
 import { eq, inArray } from "drizzle-orm";
 
@@ -113,18 +113,15 @@ describe("admin gate: location-scoped location_admin", () => {
 describe("role assignment: redundancy guards", () => {
   const stackSuffix = Math.random().toString(36).slice(2, 10);
   const orgAdminEmail = `stack-orgadmin-${stackSuffix}@test.example`;
+  const memberSuperEmail = `stack-super-${stackSuffix}@test.example`;
   let superCookie: string;
-  let superAdminUserId: string;
+  let memberSuperAdminId: string;
   let orgAdminUserId: string;
   let orgALocationId: string;
 
   beforeAll(async () => {
     const db = getDb();
     superCookie = await getAuthCookie("admin@test.aspiresports.com", "TestAdmin123!");
-
-    const [superUser] = await db.select({ id: users.id }).from(users)
-      .where(eq(users.email, "admin@test.aspiresports.com")).limit(1);
-    superAdminUserId = superUser.id;
 
     const [orgA] = await db.select({ id: organizations.id }).from(organizations)
       .where(eq(organizations.slug, "aspire-sports")).limit(1);
@@ -134,8 +131,26 @@ describe("role assignment: redundancy guards", () => {
 
     const [locAdminRole] = await db.select({ id: roles.id }).from(roles)
       .where(eq(roles.name, "location_admin")).limit(1);
+    const [superRole] = await db.select({ id: roles.id }).from(roles)
+      .where(eq(roles.name, "super_admin")).limit(1);
 
-    // Fixture: an existing Organization Admin (location_admin@organization).
+    // Fixture 1: a super admin who IS an org member (access row). The seeded
+    // super admin has no membership signal on the CI DB, so an org-scoped
+    // assignment to them 404s at the membership gate before the redundancy
+    // guard — deliberately (404-conflation hides super-admin existence from
+    // non-member probes). The guard itself needs a member target to fire.
+    const [su] = await db.insert(users)
+      .values({ email: memberSuperEmail, passwordHash: "x", firstName: "Stack", lastName: "Super" })
+      .returning();
+    memberSuperAdminId = su.id;
+    await db.insert(userRoles).values({
+      userId: su.id, roleId: superRole.id, scopeType: "global",
+    });
+    await db.insert(userOrganizationAccess).values({
+      userId: su.id, organizationId: orgA.id, role: "staff", acceptedAt: new Date(),
+    });
+
+    // Fixture 2: an existing Organization Admin (location_admin@organization).
     const [u] = await db.insert(users)
       .values({ email: orgAdminEmail, passwordHash: "x", firstName: "Stack", lastName: "OrgAdmin" })
       .returning();
@@ -146,7 +161,7 @@ describe("role assignment: redundancy guards", () => {
   });
 
   afterAll(async () => {
-    await getDb().delete(users).where(eq(users.id, orgAdminUserId));
+    await getDb().delete(users).where(inArray(users.id, [memberSuperAdminId, orgAdminUserId]));
   });
 
   /** If the assignment unexpectedly succeeded, remove the row so the shared
@@ -171,7 +186,7 @@ describe("role assignment: redundancy guards", () => {
 
   it("assigning any role to a platform super admin → 409 (redundant)", async () => {
     await expect409({
-      userId: superAdminUserId,
+      userId: memberSuperAdminId,
       roleName: "coach",
       scopeType: "organization",
     });
