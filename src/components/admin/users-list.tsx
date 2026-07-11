@@ -31,6 +31,8 @@ interface UserRole {
   scopeType: string
   scopeId: string | null
   roleName: string
+  /** Present on location-scoped roles: the location's display name. */
+  locationName?: string | null
 }
 
 interface User {
@@ -69,6 +71,18 @@ const roleLabels: Record<string, string> = {
   player: "Player",
 }
 
+// Scope determines meaning for location_admin: org-scoped rows are
+// Organization Admins (all locations), location-scoped rows administer
+// one location and show its name.
+function roleBadgeLabel(role: UserRole): string {
+  if (role.roleName === "location_admin") {
+    if (role.scopeType === "organization") return "Org Admin"
+    if (role.scopeType === "location")
+      return `Location Admin · ${role.locationName ?? "location"}`
+  }
+  return roleLabels[role.roleName] || role.roleName
+}
+
 export function UsersList() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog()
   const [users, setUsers] = useState<User[]>([])
@@ -85,6 +99,8 @@ export function UsersList() {
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [newRole, setNewRole] = useState("parent")
+  const [newRoleLocationId, setNewRoleLocationId] = useState("")
+  const [orgLocations, setOrgLocations] = useState<Array<{ id: string; name: string }>>([])
   const [typeFilter, setTypeFilter] = useState("all")
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [invite, setInvite] = useState({ firstName: "", lastName: "", email: "", roleName: "none" })
@@ -100,6 +116,17 @@ export function UsersList() {
   useEffect(() => {
     fetchUsers(1)
   }, [searchDebounce, typeFilter])
+
+  // Location options for the Location Admin picker — fetched once, only when
+  // a dialog that needs them opens. 403 (location-scoped admin caller) just
+  // leaves the list empty; the picker options require org-wide admin anyway.
+  useEffect(() => {
+    if (!(isRoleDialogOpen || isInviteOpen) || orgLocations.length > 0) return
+    fetch("/api/admin/locations")
+      .then((r) => (r.ok ? r.json() : { locations: [] }))
+      .then((data) => setOrgLocations(data.locations ?? []))
+      .catch(() => setOrgLocations([]))
+  }, [isRoleDialogOpen, isInviteOpen])
 
   async function fetchUsers(page: number) {
     setIsLoading(true)
@@ -125,18 +152,26 @@ export function UsersList() {
     setIsSubmitting(true)
 
     try {
-      // super_admin is a platform-wide role (scopeType=global). All other
-      // roles default to org-scope on the current organization — the API
-      // fills in the scopeId server-side from the request's org context.
-      const scopeType = newRole === "super_admin" ? "global" : "organization"
+      // super_admin is platform-wide (global). "org_admin" is the UI name
+      // for location_admin@organization (all locations); "location_admin"
+      // is location-scoped and requires a picked location. Everything else
+      // defaults to org scope — the API fills in scopeId from org context.
+      const roleName = newRole === "org_admin" ? "location_admin" : newRole
+      const scopeType =
+        newRole === "super_admin"
+          ? "global"
+          : newRole === "location_admin"
+            ? "location"
+            : "organization"
 
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: selectedUser.id,
-          roleName: newRole,
+          roleName,
           scopeType,
+          ...(scopeType === "location" ? { scopeId: newRoleLocationId } : {}),
         }),
       })
 
@@ -210,6 +245,7 @@ export function UsersList() {
   function openRoleDialog(user: User) {
     setSelectedUser(user)
     setNewRole("parent")
+    setNewRoleLocationId("")
     setIsRoleDialogOpen(true)
   }
 
@@ -322,7 +358,7 @@ export function UsersList() {
                               className={`${roleColors[role.roleName] || "bg-gray-100"} flex items-center gap-1`}
                             >
                               <Shield className="h-3 w-3" />
-                              {roleLabels[role.roleName] || role.roleName}
+                              {roleBadgeLabel(role)}
                               <button
                                 onClick={() => handleRemoveRole(role.id)}
                                 className="ml-1 hover:bg-black/10 rounded-full p-0.5"
@@ -472,30 +508,66 @@ export function UsersList() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={newRole} onValueChange={setNewRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                  <SelectItem value="location_admin">Location Admin</SelectItem>
-                  <SelectItem value="coach">Coach</SelectItem>
-                  <SelectItem value="parent">Parent</SelectItem>
-                  <SelectItem value="player">Player</SelectItem>
-                  <SelectItem value="referee">Referee</SelectItem>
-                </SelectContent>
-              </Select>
+          {selectedUser?.roles.some(
+            (r) => r.roleName === "super_admin" && r.scopeType === "global",
+          ) ? (
+            <p className="text-sm text-muted-foreground">
+              This user is a platform super admin — additional roles are
+              redundant.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={newRole} onValueChange={setNewRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="super_admin">Super Admin (platform-wide)</SelectItem>
+                    <SelectItem value="org_admin">Organization Admin (all locations)</SelectItem>
+                    <SelectItem value="location_admin">Location Admin (single location)</SelectItem>
+                    <SelectItem value="coach">Coach</SelectItem>
+                    <SelectItem value="parent">Parent</SelectItem>
+                    <SelectItem value="player">Player</SelectItem>
+                    <SelectItem value="referee">Referee</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newRole === "location_admin" && (
+                <div className="space-y-2">
+                  <Label>Location</Label>
+                  <Select value={newRoleLocationId} onValueChange={setNewRoleLocationId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orgLocations.map((loc) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAssignRole} disabled={isSubmitting}>
+            <Button
+              onClick={handleAssignRole}
+              disabled={
+                isSubmitting ||
+                (newRole === "location_admin" && !newRoleLocationId) ||
+                selectedUser?.roles.some(
+                  (r) => r.roleName === "super_admin" && r.scopeType === "global",
+                )
+              }
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

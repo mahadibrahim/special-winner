@@ -189,10 +189,39 @@ export const GET: APIRoute = async (context) => {
             .where(inArray(userRoles.userId, pageUserIds))
         : [];
 
-    const rolesByUser = new Map<string, Array<Omit<(typeof allRoleRows)[number], "userId">>>();
+    // Location-scoped roles carry the location's name so the directory can
+    // render "Location Admin · Powell" instead of a bare scope id.
+    const locationScopeIds = [
+      ...new Set(
+        allRoleRows
+          .filter((r) => r.scopeType === "location" && r.scopeId !== null)
+          .map((r) => r.scopeId as string),
+      ),
+    ];
+    const locationNames = new Map<string, string>(
+      locationScopeIds.length > 0
+        ? (
+            await getDb()
+              .select({ id: locations.id, name: locations.name })
+              .from(locations)
+              .where(inArray(locations.id, locationScopeIds))
+          ).map((l) => [l.id, l.name])
+        : [],
+    );
+
+    const rolesByUser = new Map<
+      string,
+      Array<Omit<(typeof allRoleRows)[number], "userId"> & { locationName: string | null }>
+    >();
     for (const { userId, ...role } of allRoleRows) {
       const list = rolesByUser.get(userId) ?? [];
-      list.push(role);
+      list.push({
+        ...role,
+        locationName:
+          role.scopeType === "location" && role.scopeId
+            ? (locationNames.get(role.scopeId) ?? null)
+            : null,
+      });
       rolesByUser.set(userId, list);
     }
 
