@@ -53,6 +53,16 @@ const [loc] = await getDb()
 locationName = loc?.name ?? "Venue";
 
 const today = formatStripDate(new Date());
+
+// Deep-link params — shareable /admin/venue?date=&view=&session= URLs.
+// Validate everything; fall back to safe defaults rather than trusting the query string.
+const dateParam = Astro.url.searchParams.get("date");
+const initialDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
+
+const viewParam = Astro.url.searchParams.get("view");
+const initialView = viewParam === "week" ? "week" : "day";
+
+const initialSessionId = Astro.url.searchParams.get("session");
 ---
 
 <BaseLayout
@@ -70,7 +80,9 @@ const today = formatStripDate(new Date());
     <VenueCommandCenter
       client:load
       locationId={locationId}
-      date={today}
+      date={initialDate}
+      initialView={initialView}
+      initialSessionId={initialSessionId}
     />
   </AdminLayout>
 </BaseLayout>

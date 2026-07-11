@@ -32,7 +32,7 @@
  *   ActivityDetailPanel roster row name → opens PersonCard for that person.
  */
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Zap } from "lucide-react"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
@@ -75,15 +75,22 @@ function addWeeks(dateStr: string, delta: number): string {
 interface Props {
   locationId: string
   date: string
+  initialView?: View
+  initialSessionId?: string | null
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
+export function VenueCommandCenter({
+  locationId,
+  date: initialDate,
+  initialView = "day",
+  initialSessionId = null,
+}: Props) {
   useHydrationBeacon()
 
   // ── View / navigation state ────────────────────────────────────────────────
-  const [view, setView]     = useState<View>("day")
+  const [view, setView]     = useState<View>(initialView)
   const [date, setDate]     = useState(initialDate)
 
   const handlePrev = useCallback(() => {
@@ -113,11 +120,24 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
   })
 
   // ── Panel state ────────────────────────────────────────────────────────────
-  const [openSessionId, setOpenSessionId] = useState<string | null>(null)
+  const [openSessionId, setOpenSessionId] = useState<string | null>(initialSessionId)
 
   const openSession: VenueTodaySession | undefined = data?.sessions.find(
     (s) => s.id === openSessionId,
   )
+
+  // ── URL sync — deep-linkable date/view/session state ──────────────────────
+  // replaceState (not push): arrow-key date browsing must not spam history;
+  // Back returns to the previous PAGE with the last-visited state intact in
+  // its own URL.
+  useEffect(() => {
+    const params = new URLSearchParams()
+    params.set("date", date)
+    if (view !== "day") params.set("view", view)
+    if (openSessionId) params.set("session", openSessionId)
+    const url = `${window.location.pathname}?${params.toString()}`
+    window.history.replaceState(null, "", url)
+  }, [date, view, openSessionId])
 
   const handleOpenActivity = useCallback((sessionId: string) => {
     setOpenSessionId(sessionId)

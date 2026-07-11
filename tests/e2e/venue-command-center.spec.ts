@@ -29,6 +29,11 @@ test("venue command center renders and opens an activity roster", async ({
   // Guard with count() so the test passes when the seeded venue has no sessions.
   const block = page.locator("[data-activity-block]").first();
   if ((await block.count()) > 0) {
+    // Playwright's default scrollIntoViewIfNeeded aligns the element to the
+    // nearest viewport edge, which can land it directly under AdminLayout's
+    // sticky top-0 header — the header then intercepts the click. Center the
+    // block in the viewport first so the sticky header can't steal the hit.
+    await block.evaluate((el) => el.scrollIntoView({ block: "center" }));
     await block.click();
 
     // ActivityDetailPanel renders as role="dialog".  The × close button
@@ -47,4 +52,34 @@ test("venue command center renders and opens an activity roster", async ({
       await expect(openSlotRow.first()).toBeVisible();
     }
   }
+});
+
+test("venue command center deep link opens the detail panel on load", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await signInAsAdmin(page);
+
+  // Discover a real, currently-seeded session id — don't hardcode a fixture
+  // id that can drift out from under the test as seed data changes.
+  const today = new Date().toISOString().slice(0, 10);
+  const response = await page.request.get(
+    `/api/admin/venue/today?date=${today}`,
+  );
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as { sessions?: { id: string }[] };
+  const sessionId = payload.sessions?.[0]?.id;
+
+  test.skip(!sessionId, "No seeded sessions today — nothing to deep-link to");
+
+  await page.goto(`/admin/venue?date=${today}&session=${sessionId}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await waitForHydration(page);
+
+  const panel = page.getByRole("dialog");
+  await expect(panel).toBeVisible({ timeout: 60_000 });
+  await expect(
+    panel.getByRole("button", { name: /close/i }),
+  ).toBeVisible();
 });

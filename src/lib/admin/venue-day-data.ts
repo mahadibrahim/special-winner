@@ -182,7 +182,11 @@ export async function getVenueDayData(
       refAssigned: gamesWithRef.has(g.id),
       capacityCurrent: null,
       capacityMax: null,
-      href: `/admin/games/${g.id}`,
+      // Keep game-day links inside venue-manager scope: /admin/games is
+      // super-admin-only, but this activity block is visible to
+      // location_admins on the venue command center. Land back on the same
+      // day with the game's session panel open.
+      href: `/admin/venue?date=${date}&session=${g.id}`,
       resourceName: g.fieldNumber ? `Field ${g.fieldNumber}` : null,
       blockId: null,
     };
