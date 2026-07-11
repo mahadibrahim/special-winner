@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
+import SessionLive from '../../../../components/coach/live/session-live';
+
+export const prerender = false;
+
+// Middleware guarantees user is authenticated for /coach routes.
+const user = Astro.locals.user!;
+
+// Get session ID from params
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/coach/practices');
+}
+---
+
+<BaseLayout title="Live Session — Coach Dashboard — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/practices"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <SessionLive client:load sessionId={id} />
+  </CoachLayout>
+</BaseLayout>

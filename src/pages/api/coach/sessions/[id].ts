@@ -291,9 +291,30 @@ export const PUT: APIRoute = async (context) => {
     if (data.scheduledDate !== undefined) updateData.scheduledDate = new Date(data.scheduledDate);
     if (data.durationMinutes !== undefined) updateData.durationMinutes = data.durationMinutes;
     if (data.status !== undefined) {
-      updateData.status = data.status;
-      if (data.status === "completed") {
-        updateData.completedAt = new Date();
+      // Fetch current timestamps so transitions are retry-safe no-ops —
+      // the field-mode client flushes aggressively offline->online and
+      // must never move startedAt/completedAt on a duplicate request.
+      const [current] = await getDb()
+        .select({
+          startedAt: sessionPlans.startedAt,
+          completedAt: sessionPlans.completedAt,
+        })
+        .from(sessionPlans)
+        .where(eq(sessionPlans.id, id));
+
+      if (data.status === "in_progress" && current?.completedAt) {
+        // A queued offline "start" retry from the live-session client must
+        // never revert a completed session; treat it as a no-op (200,
+        // current state returned) — this matches retry-safe transition
+        // semantics. All other fields in this same request still apply.
+      } else {
+        updateData.status = data.status;
+        if (data.status === "in_progress" && !current?.startedAt) {
+          updateData.startedAt = new Date();
+        }
+        if (data.status === "completed" && !current?.completedAt) {
+          updateData.completedAt = new Date();
+        }
       }
     }
     if (data.segments !== undefined) updateData.segments = data.segments;

@@ -214,7 +214,12 @@ test.describe("Coach Dashboard", () => {
 
       // CoachAssessmentsOverview renders after a client-side fetch (no
       // hydration beacon on this island — wait on real content instead).
-      await expect(page.getByText("Total Players")).toBeVisible({ timeout: 30000 });
+      // 60s budget: measured contention — when coach-session-lifecycle.spec
+      // runs in the same parallel pool, its Finish sequence loads the dev
+      // server enough that this fetch exceeds 30s (timed out 3/3 at 30s,
+      // passes in isolation). Same justification as that spec's wrapup-done
+      // budget.
+      await expect(page.getByText("Total Players")).toBeVisible({ timeout: 60_000 });
       await expect(page.getByRole("heading", { name: "Players" })).toBeVisible({ timeout: 15000 });
       await expect(page.getByRole("heading", { name: "Recent Assessments" })).toBeVisible({ timeout: 15000 });
     });

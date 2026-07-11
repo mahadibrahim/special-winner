@@ -18,9 +18,6 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import {
   sessionPlans,
-  sessionActivityUsage,
-  activities,
-  skills,
   teams,
   rosters,
   registrations,
@@ -28,10 +25,11 @@ import {
   attendance,
   coachNotes,
 } from "@/lib/db/schema";
-import { eq, and, asc, inArray, gte, lte } from "drizzle-orm";
+import { eq, and, asc, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachPortalAccess } from "@/lib/auth";
 import { getSessionChips, UNIVERSAL_GLOWS } from "@/lib/curriculum/reinforcement";
+import { resolveSessionChipSkillSlugs } from "@/lib/sessions/session-chips";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -61,40 +59,13 @@ async function verifyCoachAccess(userId: string, sessionId: string) {
   return session;
 }
 
-// Resolves the session's segment activities -> skillsDeveloped (skill ids)
-// -> skill slugs, then hands them to the pure chip-content module. Shared
-// by GET (bootstrap) and POST (server-side chip-label revalidation).
+// Resolves the session's legal skill slugs (sessionActivityUsage rows ∪
+// segments' activities ∪ focusSkillIds — see session-chips.ts for why all
+// three) and hands them to the pure chip-content module. Shared by GET
+// (bootstrap) and POST (server-side chip-label revalidation) so the two
+// can never offer/accept different chip sets.
 async function resolveSessionChips(sessionId: string) {
-  const db = getDb();
-
-  const usageRows = await db
-    .select({ activityId: sessionActivityUsage.activityId })
-    .from(sessionActivityUsage)
-    .where(eq(sessionActivityUsage.sessionPlanId, sessionId));
-
-  const activityIds = [...new Set(usageRows.map((u) => u.activityId))];
-  let skillSlugs: string[] = [];
-
-  if (activityIds.length > 0) {
-    const activityRows = await db
-      .select({ skillsDeveloped: activities.skillsDeveloped })
-      .from(activities)
-      .where(inArray(activities.id, activityIds));
-
-    const skillIds = [
-      ...new Set(activityRows.flatMap((a) => a.skillsDeveloped ?? [])),
-    ];
-
-    if (skillIds.length > 0) {
-      const skillRows = await db
-        .select({ slug: skills.slug })
-        .from(skills)
-        .where(inArray(skills.id, skillIds))
-        .orderBy(asc(skills.slug));
-      skillSlugs = skillRows.map((s) => s.slug);
-    }
-  }
-
+  const skillSlugs = await resolveSessionChipSkillSlugs(sessionId);
   return getSessionChips({ skillSlugs });
 }
 

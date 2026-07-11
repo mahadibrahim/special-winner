@@ -317,7 +317,7 @@ export default function PracticesOverview() {
           </h2>
           <div className="space-y-2">
             {todaySessions.map((session) => (
-              <SessionCard key={session.id} session={session} highlight />
+              <SessionCard key={session.id} session={session} highlight showLiveLink />
             ))}
           </div>
         </section>
@@ -335,7 +335,7 @@ export default function PracticesOverview() {
               .filter((s) => !isToday(s.scheduledDate))
               .slice(0, 10)
               .map((session) => (
-                <SessionCard key={session.id} session={session} />
+                <SessionCard key={session.id} session={session} showLiveLink />
               ))}
           </div>
         </section>
@@ -378,68 +378,92 @@ export default function PracticesOverview() {
   )
 }
 
-function SessionCard({ session, highlight }: { session: SessionPlan; highlight?: boolean }) {
+function SessionCard({
+  session,
+  highlight,
+  showLiveLink,
+}: {
+  session: SessionPlan
+  highlight?: boolean
+  showLiveLink?: boolean
+}) {
   const statusConfig = STATUS_CONFIG[session.status] || STATUS_CONFIG.draft
   const segmentCount = session.segments?.length || 0
+  const canEnterLive =
+    showLiveLink && (session.status === "planned" || session.status === "in_progress")
 
   return (
-    <a
-      href={`/coach/practices/${session.id}`}
+    <div
       className={cn(
-        "group block p-4 rounded-xl border transition-all",
+        "group rounded-xl border transition-all",
         highlight
           ? "bg-primary/5 border-primary/20 hover:border-primary/30"
           : "bg-paper border-border hover:border-border"
       )}
     >
-      <div className="flex items-center gap-4">
-        {/* Date Badge */}
-        <div className={cn(
-          "w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0",
-          highlight ? "bg-primary/20" : "bg-cream-2"
-        )}>
-          <span className={cn(
-            "text-xs font-medium",
-            highlight ? "text-primary" : "text-ink-muted"
+      <a href={`/coach/practices/${session.id}`} className="block p-4">
+        <div className="flex items-center gap-4">
+          {/* Date Badge */}
+          <div className={cn(
+            "w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0",
+            highlight ? "bg-primary/20" : "bg-cream-2"
           )}>
-            {new Date(session.scheduledDate).toLocaleDateString("en-US", { weekday: "short" })}
-          </span>
-          <span className={cn(
-            "text-xl font-bold",
-            highlight ? "text-primary" : "text-ink"
-          )}>
-            {new Date(session.scheduledDate).getDate()}
-          </span>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium text-ink truncate">{session.title}</h3>
-            <Badge variant="outline" className={cn("text-[10px] shrink-0", statusConfig.color)}>
-              {statusConfig.label}
-            </Badge>
-            <PrescribedBadge prescribed={session.prescribed} className="shrink-0" />
+            <span className={cn(
+              "text-xs font-medium",
+              highlight ? "text-primary" : "text-ink-muted"
+            )}>
+              {new Date(session.scheduledDate).toLocaleDateString("en-US", { weekday: "short" })}
+            </span>
+            <span className={cn(
+              "text-xl font-bold",
+              highlight ? "text-primary" : "text-ink"
+            )}>
+              {new Date(session.scheduledDate).getDate()}
+            </span>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-ink-muted">
-            <span className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              {session.team.name}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatTime(session.scheduledDate)} • {session.durationMinutes}min
-            </span>
-            {segmentCount > 0 && (
-              <span>{segmentCount} {segmentCount === 1 ? "segment" : "segments"}</span>
-            )}
-          </div>
-        </div>
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-medium text-ink truncate">{session.title}</h3>
+              <Badge variant="outline" className={cn("text-[10px] shrink-0", statusConfig.color)}>
+                {statusConfig.label}
+              </Badge>
+              <PrescribedBadge prescribed={session.prescribed} className="shrink-0" />
+            </div>
 
-        {/* Arrow */}
-        <ChevronRight className="w-5 h-5 text-ink-faint group-hover:text-ink-muted transition-colors shrink-0" />
-      </div>
-    </a>
+            <div className="flex items-center gap-4 text-xs text-ink-muted">
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {session.team.name}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {formatTime(session.scheduledDate)} • {session.durationMinutes}min
+              </span>
+              {segmentCount > 0 && (
+                <span>{segmentCount} {segmentCount === 1 ? "segment" : "segments"}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Arrow */}
+          <ChevronRight className="w-5 h-5 text-ink-faint group-hover:text-ink-muted transition-colors shrink-0" />
+        </div>
+      </a>
+
+      {/* Action row */}
+      {canEnterLive && (
+        <div className="flex justify-end px-4 pb-4">
+          <a
+            data-testid="live-session-link"
+            href={`/coach/practices/${session.id}/live`}
+            className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 font-medium text-primary-foreground"
+          >
+            {session.status === "in_progress" ? "Resume session" : "Set up session"}
+          </a>
+        </div>
+      )}
+    </div>
   )
 }

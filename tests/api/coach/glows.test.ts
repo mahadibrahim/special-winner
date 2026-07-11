@@ -11,7 +11,7 @@ import {
   teams,
   users,
 } from "@/lib/db/schema";
-import { getSkillGrow } from "@/lib/curriculum/reinforcement";
+import { getSkillGlow, getSkillGrow, UNIVERSAL_GLOWS } from "@/lib/curriculum/reinforcement";
 import {
   getCoachCookie,
   getParentCookie,
@@ -536,5 +536,124 @@ describe("Coach Glows & Grows API", () => {
     expect(rows[0].content).toContain(noteText);
 
     await db.delete(coachNotes).where(eq(coachNotes.sessionPlanId, growSessionId));
+  });
+
+  it("focusSkillIds-only session (no activities) resolves a matching glow chip in the live payload, and the glows POST accepts it (chip-resolution unification, Fix 1)", async () => {
+    const db = getDb();
+
+    // Prescribed (blueprint-distributed) sessions — and any session never
+    // resaved after creation — carry focusSkillIds but have NO
+    // sessionActivityUsage rows and no activity-bearing segments. That's
+    // exactly the shape that exposed the live/glows chip-resolution drift:
+    // live.ts derived chips from focusSkillIds, glows.ts derived them only
+    // from sessionActivityUsage, so live offered a chip glows then
+    // rejected with 400. Find-or-create "ball-control" (same
+    // self-sufficient pattern as the grow-only fixture above) so a clean
+    // CI DB has a curated glow phrase to resolve against.
+    const BALL_CONTROL_SLUG = "ball-control";
+    const curatedGlowPhrase = getSkillGlow(BALL_CONTROL_SLUG);
+    expect(
+      curatedGlowPhrase,
+      `expected a curated glow phrase for "${BALL_CONTROL_SLUG}" in reinforcement.ts`
+    ).not.toBeNull();
+
+    const [existingBallControlSkill] = await db
+      .select({ id: skills.id })
+      .from(skills)
+      .where(eq(skills.slug, BALL_CONTROL_SLUG))
+      .orderBy(asc(skills.id))
+      .limit(1);
+
+    let ballControlSkillId: string;
+    if (existingBallControlSkill) {
+      ballControlSkillId = existingBallControlSkill.id;
+    } else {
+      const [referenceSkill] = await db
+        .select({
+          sportId: skills.sportId,
+          domainId: skills.domainId,
+          stageId: skills.stageId,
+        })
+        .from(skills)
+        .orderBy(asc(skills.id))
+        .limit(1);
+      expect(
+        referenceSkill,
+        "expected at least one seeded skill row to copy FK reference values from"
+      ).toBeTruthy();
+
+      const [insertedSkill] = await db
+        .insert(skills)
+        .values({
+          sportId: referenceSkill.sportId,
+          domainId: referenceSkill.domainId,
+          stageId: referenceSkill.stageId,
+          name: "Ball Control",
+          slug: BALL_CONTROL_SLUG,
+          active: true,
+        })
+        .returning({ id: skills.id });
+      ballControlSkillId = insertedSkill.id;
+      // Only set (and only torn down) if this run actually inserted it —
+      // the grow-only fixture above shares this exact find-or-create
+      // pattern against the same slug, so whichever test runs first wins
+      // the insert and the other reuses it.
+      fixtureSkillId = ballControlSkillId;
+    }
+
+    // Session with focusSkillIds and NO segments/activities — the
+    // prescribed-session shape that had no sessionActivityUsage rows for
+    // the old glows.ts resolution to find.
+    const createRes = await apiFetch("/api/coach/sessions", {
+      method: "POST",
+      cookie: coachCookie,
+      body: JSON.stringify({
+        teamId,
+        title: "focusSkillIds-only chip resolution test session",
+        scheduledDate: new Date("2026-08-10T17:00:00Z").toISOString(),
+        durationMinutes: 60,
+        status: "planned",
+        focusSkillIds: [ballControlSkillId],
+      }),
+    });
+    const created = await expectJson(createRes, 201);
+    const focusSessionId = created.session.id;
+    createdSessionIds.push(focusSessionId);
+
+    // Live payload should offer the skill-specific glow chip.
+    const liveRes = await apiFetch(`/api/coach/sessions/${focusSessionId}/live`, {
+      method: "GET",
+      cookie: coachCookie,
+    });
+    const live = await expectJson(liveRes, 200);
+    expect(live.glowChips.glows).toContain(curatedGlowPhrase);
+
+    const skillChip = live.glowChips.glows.find((g: string) => !UNIVERSAL_GLOWS.includes(g));
+    expect(
+      skillChip,
+      "expected at least one skill-specific (non-universal) glow chip in the live payload"
+    ).toBeTruthy();
+
+    const bootstrapRes = await apiFetch(`/api/coach/sessions/${focusSessionId}/glows`, {
+      method: "GET",
+      cookie: coachCookie,
+    });
+    const bootstrap = await expectJson(bootstrapRes, 200);
+    const familyMemberId = bootstrap.roster[0].familyMemberId;
+
+    // The glows POST must accept the exact chip the live payload offered.
+    // Pre-fix, this 400s with "Unknown glow chip" because glows.ts's
+    // resolveSessionChips only looked at sessionActivityUsage rows, which
+    // this session has none of.
+    const postRes = await apiFetch(`/api/coach/sessions/${focusSessionId}/glows`, {
+      method: "POST",
+      cookie: coachCookie,
+      body: JSON.stringify({
+        entries: [{ familyMemberId, glows: [skillChip] }],
+      }),
+    });
+    await expectJson(postRes, 201);
+
+    await db.delete(coachNotes).where(eq(coachNotes.sessionPlanId, focusSessionId));
   });
 });
