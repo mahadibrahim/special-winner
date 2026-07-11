@@ -105,3 +105,84 @@ describe("admin gate: location-scoped location_admin", () => {
     expect(res.status).toBe(200);
   });
 });
+
+// ============================================================================
+// Redundant role stacking guards on POST /api/admin/users
+// ============================================================================
+
+describe("role assignment: redundancy guards", () => {
+  const stackSuffix = Math.random().toString(36).slice(2, 10);
+  const orgAdminEmail = `stack-orgadmin-${stackSuffix}@test.example`;
+  let superCookie: string;
+  let superAdminUserId: string;
+  let orgAdminUserId: string;
+  let orgALocationId: string;
+
+  beforeAll(async () => {
+    const db = getDb();
+    superCookie = await getAuthCookie("admin@test.aspiresports.com", "TestAdmin123!");
+
+    const [superUser] = await db.select({ id: users.id }).from(users)
+      .where(eq(users.email, "admin@test.aspiresports.com")).limit(1);
+    superAdminUserId = superUser.id;
+
+    const [orgA] = await db.select({ id: organizations.id }).from(organizations)
+      .where(eq(organizations.slug, "aspire-sports")).limit(1);
+    const [loc] = await db.select({ id: locations.id }).from(locations)
+      .where(eq(locations.organizationId, orgA.id)).limit(1);
+    orgALocationId = loc.id;
+
+    const [locAdminRole] = await db.select({ id: roles.id }).from(roles)
+      .where(eq(roles.name, "location_admin")).limit(1);
+
+    // Fixture: an existing Organization Admin (location_admin@organization).
+    const [u] = await db.insert(users)
+      .values({ email: orgAdminEmail, passwordHash: "x", firstName: "Stack", lastName: "OrgAdmin" })
+      .returning();
+    orgAdminUserId = u.id;
+    await db.insert(userRoles).values({
+      userId: u.id, roleId: locAdminRole.id, scopeType: "organization", scopeId: orgA.id,
+    });
+  });
+
+  afterAll(async () => {
+    await getDb().delete(users).where(eq(users.id, orgAdminUserId));
+  });
+
+  /** If the assignment unexpectedly succeeded, remove the row so the shared
+   *  staging DB stays clean, THEN fail the assertion. */
+  async function expect409(body: Record<string, unknown>) {
+    const res = await apiFetch("/api/admin/users", {
+      method: "POST",
+      cookie: superCookie,
+      body: JSON.stringify(body),
+    });
+    if (res.status === 201) {
+      const json = await res.json();
+      if (json.userRole?.id) {
+        await apiFetch(`/api/admin/users?userRoleId=${json.userRole.id}`, {
+          method: "DELETE",
+          cookie: superCookie,
+        });
+      }
+    }
+    expect(res.status).toBe(409);
+  }
+
+  it("assigning any role to a platform super admin → 409 (redundant)", async () => {
+    await expect409({
+      userId: superAdminUserId,
+      roleName: "coach",
+      scopeType: "organization",
+    });
+  });
+
+  it("assigning location_admin@location to an existing org admin → 409 (org scope covers it)", async () => {
+    await expect409({
+      userId: orgAdminUserId,
+      roleName: "location_admin",
+      scopeType: "location",
+      scopeId: orgALocationId,
+    });
+  });
+});

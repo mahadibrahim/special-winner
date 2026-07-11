@@ -433,6 +433,52 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
+    // Redundancy guards: don't stack roles a broader grant already covers.
+    // (super_admin → super_admin deliberately falls through to the duplicate
+    // check below so the caller gets "already has this role".)
+    const targetRoles = await getDb()
+      .select({
+        name: roles.name,
+        scopeType: userRoles.scopeType,
+        scopeId: userRoles.scopeId,
+      })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, result.data.userId));
+
+    const targetIsSuperAdmin = targetRoles.some(
+      (r) => r.name === "super_admin" && r.scopeType === "global",
+    );
+    if (
+      targetIsSuperAdmin &&
+      !(result.data.roleName === "super_admin" && scopeType === "global")
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: "User is a platform super admin — additional roles are redundant",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (
+      result.data.roleName === "location_admin" &&
+      scopeType === "location" &&
+      targetRoles.some(
+        (r) =>
+          r.name === "location_admin" &&
+          r.scopeType === "organization" &&
+          r.scopeId === auth.organizationId,
+      )
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: "User is already an organization admin for this organization",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     // Find the role by name — explicit orderBy for CI determinism.
     // Roles rows are created lazily on first assignment (there is no
     // roles-table seed migration; newer enum values like "referee" won't
