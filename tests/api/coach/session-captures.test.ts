@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { sessionPlans, attendance } from "@/lib/db/schema";
 import { sessionCaptures } from "@/lib/db/schema/session-lifecycle";
@@ -108,16 +108,73 @@ describe("POST /api/coach/sessions/[id]/captures", () => {
     expect(res.consumed).toBe(1);
   });
 
+  it("replaying consumedClientIds leaves consumedAt unchanged", async () => {
+    const clientId = randomUUID();
+    await expectJson(
+      await apiFetch(`/api/coach/sessions/${sessionId}/captures`, {
+        method: "POST", cookie: coachCookie,
+        body: JSON.stringify({
+          captures: [{ clientId, rosterId, kind: "glow", note: "replay guard" }],
+        }),
+      }), 201);
+    const first = await expectJson(
+      await apiFetch(`/api/coach/sessions/${sessionId}/captures`, {
+        method: "POST", cookie: coachCookie,
+        body: JSON.stringify({ consumedClientIds: [clientId] }),
+      }), 201);
+    expect(first.consumed).toBe(1);
+
+    const [afterFirst] = await getDb()
+      .select({ consumedAt: sessionCaptures.consumedAt })
+      .from(sessionCaptures)
+      .where(and(
+        eq(sessionCaptures.sessionPlanId, sessionId),
+        eq(sessionCaptures.clientId, clientId),
+      ));
+    expect(afterFirst.consumedAt).toBeTruthy();
+
+    const replay = await expectJson(
+      await apiFetch(`/api/coach/sessions/${sessionId}/captures`, {
+        method: "POST", cookie: coachCookie,
+        body: JSON.stringify({ consumedClientIds: [clientId] }),
+      }), 201);
+    // The endpoint reports the full match count on every retry (the client
+    // just needs "yes, this capture is consumed"), but the write is
+    // null-guarded — the original consumedAt timestamp survives the replay.
+    expect(replay.consumed).toBe(1);
+
+    const [afterReplay] = await getDb()
+      .select({ consumedAt: sessionCaptures.consumedAt })
+      .from(sessionCaptures)
+      .where(and(
+        eq(sessionCaptures.sessionPlanId, sessionId),
+        eq(sessionCaptures.clientId, clientId),
+      ));
+    expect(afterReplay.consumedAt!.getTime()).toBe(afterFirst.consumedAt!.getTime());
+  });
+
   it("rejects the whole batch when any roster is off-team (nothing written)", async () => {
+    const offTeamClientId = randomUUID();
+    const onTeamClientId = randomUUID();
     const res = await apiFetch(`/api/coach/sessions/${sessionId}/captures`, {
       method: "POST", cookie: coachCookie,
       body: JSON.stringify({
         captures: [
-          { clientId: randomUUID(), rosterId, kind: "glow" },
-          { clientId: randomUUID(), rosterId: "00000000-0000-4000-8000-000000000000", kind: "glow" },
+          { clientId: onTeamClientId, rosterId, kind: "glow" },
+          { clientId: offTeamClientId, rosterId: "00000000-0000-4000-8000-000000000000", kind: "glow" },
         ],
       }),
     });
     expect(res.status).toBe(400);
+
+    // Whole-batch reject: neither capture row was written — not even the
+    // valid on-team one.
+    const rows = await getDb()
+      .select({ clientId: sessionCaptures.clientId })
+      .from(sessionCaptures)
+      .where(eq(sessionCaptures.sessionPlanId, sessionId));
+    const written = rows.map((r) => r.clientId);
+    expect(written).not.toContain(onTeamClientId);
+    expect(written).not.toContain(offTeamClientId);
   });
 });

@@ -379,6 +379,14 @@ export const attendance = pgTable(
       table.eventDate,
     ),
     index("attendance_roster_idx").on(table.rosterId),
+    // Race-safety for the session-lifecycle flush endpoint: concurrent
+    // flushes of the same envelope must not double-insert an attendance
+    // row for the same (roster, session). Partial — scoped to
+    // session_plan_id IS NOT NULL so standalone-tracker rows (null
+    // sessionPlanId) may still legitimately repeat per roster.
+    uniqueIndex("attendance_roster_session_uniq")
+      .on(table.rosterId, table.sessionPlanId)
+      .where(sql`session_plan_id IS NOT NULL`),
   ],
 );
 

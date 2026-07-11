@@ -10,7 +10,7 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { sessionPlans, teams, rosters, attendance } from "@/lib/db/schema";
 import { sessionCaptures } from "@/lib/db/schema/session-lifecycle";
-import { eq, and, inArray, isNull } from "drizzle-orm";
+import { eq, and, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachPortalAccess } from "@/lib/auth";
 
@@ -135,19 +135,16 @@ export const POST: APIRoute = async (context) => {
         }
       }
 
-      // Attendance: upsert on (rosterId, sessionPlanId) — select-then-write
-      // inside the transaction (no unique constraint on the pair; existing
-      // tracker rows have null sessionPlanId and are untouched).
+      // Attendance: atomic upsert on the partial unique index
+      // attendance_roster_session_uniq (rosterId, sessionPlanId WHERE
+      // session_plan_id IS NOT NULL) — race-safe under concurrent flushes,
+      // unlike select-then-insert. Standalone-tracker rows (null
+      // sessionPlanId) sit outside the index and are untouched.
       let attendanceUpdated = 0;
       for (const a of envelope.attendance) {
-        const [existing] = await tx
-          .select({ id: attendance.id })
-          .from(attendance)
-          .where(and(eq(attendance.rosterId, a.rosterId), eq(attendance.sessionPlanId, id)));
-        if (existing) {
-          await tx.update(attendance).set({ status: a.status }).where(eq(attendance.id, existing.id));
-        } else {
-          await tx.insert(attendance).values({
+        await tx
+          .insert(attendance)
+          .values({
             teamId: access.teamId,
             rosterId: a.rosterId,
             sessionPlanId: id,
@@ -155,8 +152,12 @@ export const POST: APIRoute = async (context) => {
             eventType: "practice",
             status: a.status,
             recordedByUserId: auth.user.id,
+          })
+          .onConflictDoUpdate({
+            target: [attendance.rosterId, attendance.sessionPlanId],
+            targetWhere: sql`session_plan_id IS NOT NULL`,
+            set: { status: a.status },
           });
-        }
         attendanceUpdated += 1;
       }
 
