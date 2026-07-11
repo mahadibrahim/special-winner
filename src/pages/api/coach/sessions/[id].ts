@@ -291,8 +291,22 @@ export const PUT: APIRoute = async (context) => {
     if (data.scheduledDate !== undefined) updateData.scheduledDate = new Date(data.scheduledDate);
     if (data.durationMinutes !== undefined) updateData.durationMinutes = data.durationMinutes;
     if (data.status !== undefined) {
+      // Fetch current timestamps so transitions are retry-safe no-ops —
+      // the field-mode client flushes aggressively offline->online and
+      // must never move startedAt/completedAt on a duplicate request.
+      const [current] = await getDb()
+        .select({
+          startedAt: sessionPlans.startedAt,
+          completedAt: sessionPlans.completedAt,
+        })
+        .from(sessionPlans)
+        .where(eq(sessionPlans.id, id));
+
       updateData.status = data.status;
-      if (data.status === "completed") {
+      if (data.status === "in_progress" && !current?.startedAt) {
+        updateData.startedAt = new Date();
+      }
+      if (data.status === "completed" && !current?.completedAt) {
         updateData.completedAt = new Date();
       }
     }
