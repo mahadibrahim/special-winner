@@ -186,3 +186,102 @@ describe("role assignment: redundancy guards", () => {
     });
   });
 });
+
+// ============================================================================
+// Invite flow: optional location for Location Admin
+// ============================================================================
+
+describe("invite: location-scoped location admin", () => {
+  const invSuffix = Math.random().toString(36).slice(2, 10);
+  const invitedEmails = [
+    `inv-locadmin-${invSuffix}@test.example`,
+    `inv-badloc-${invSuffix}@test.example`,
+    `inv-coachloc-${invSuffix}@test.example`,
+  ];
+  let superCookie: string;
+  let orgALocationId: string;
+  let orgBLocationId: string;
+
+  beforeAll(async () => {
+    const db = getDb();
+    superCookie = await getAuthCookie("admin@test.aspiresports.com", "TestAdmin123!");
+    const [orgA] = await db.select({ id: organizations.id }).from(organizations)
+      .where(eq(organizations.slug, "aspire-sports")).limit(1);
+    const [orgB] = await db.select({ id: organizations.id }).from(organizations)
+      .where(eq(organizations.slug, "orgb")).limit(1);
+    const [locA] = await db.select({ id: locations.id }).from(locations)
+      .where(eq(locations.organizationId, orgA.id)).limit(1);
+    const [locB] = await db.select({ id: locations.id }).from(locations)
+      .where(eq(locations.organizationId, orgB.id)).limit(1);
+    orgALocationId = locA.id;
+    orgBLocationId = locB.id;
+  });
+
+  afterAll(async () => {
+    const db = getDb();
+    const created = await db.select({ id: users.id }).from(users)
+      .where(inArray(users.email, invitedEmails));
+    if (created.length > 0) {
+      await db.delete(users).where(inArray(users.id, created.map((u) => u.id)));
+    }
+  });
+
+  it("invite with roleName=location_admin + in-org locationId → location-scoped role row", async () => {
+    const res = await apiFetch("/api/admin/users/invite", {
+      method: "POST",
+      cookie: superCookie,
+      body: JSON.stringify({
+        firstName: "Inv",
+        lastName: "LocAdmin",
+        email: invitedEmails[0],
+        roleName: "location_admin",
+        locationId: orgALocationId,
+      }),
+    });
+    expect(res.status).toBe(201);
+
+    const db = getDb();
+    const [u] = await db.select({ id: users.id }).from(users)
+      .where(eq(users.email, invitedEmails[0])).limit(1);
+    const roleRows = await db
+      .select({ scopeType: userRoles.scopeType, scopeId: userRoles.scopeId })
+      .from(userRoles)
+      .where(eq(userRoles.userId, u.id));
+    expect(roleRows.length).toBe(1);
+    expect(roleRows[0].scopeType).toBe("location");
+    expect(roleRows[0].scopeId).toBe(orgALocationId);
+  });
+
+  it("invite with a cross-org locationId → 404, no user created", async () => {
+    const res = await apiFetch("/api/admin/users/invite", {
+      method: "POST",
+      cookie: superCookie,
+      body: JSON.stringify({
+        firstName: "Inv",
+        lastName: "BadLoc",
+        email: invitedEmails[1],
+        roleName: "location_admin",
+        locationId: orgBLocationId,
+      }),
+    });
+    expect(res.status).toBe(404);
+    const [u] = await getDb().select({ id: users.id }).from(users)
+      .where(eq(users.email, invitedEmails[1])).limit(1);
+    expect(u).toBeUndefined();
+  });
+
+  it("locationId with a non-location role → 400", async () => {
+    const res = await apiFetch("/api/admin/users/invite", {
+      method: "POST",
+      cookie: superCookie,
+      body: JSON.stringify({
+        firstName: "Inv",
+        lastName: "CoachLoc",
+        email: invitedEmails[2],
+        roleName: "coach",
+        locationId: orgALocationId,
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+});

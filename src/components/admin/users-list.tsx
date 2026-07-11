@@ -103,7 +103,7 @@ export function UsersList() {
   const [orgLocations, setOrgLocations] = useState<Array<{ id: string; name: string }>>([])
   const [typeFilter, setTypeFilter] = useState("all")
   const [isInviteOpen, setIsInviteOpen] = useState(false)
-  const [invite, setInvite] = useState({ firstName: "", lastName: "", email: "", roleName: "none" })
+  const [invite, setInvite] = useState({ firstName: "", lastName: "", email: "", roleName: "none", locationId: "" })
   const [isInviting, setIsInviting] = useState(false)
 
   useEffect(() => {
@@ -226,14 +226,21 @@ export function UsersList() {
           firstName: invite.firstName,
           lastName: invite.lastName,
           email: invite.email,
-          ...(invite.roleName !== "none" ? { roleName: invite.roleName } : {}),
+          // "org_admin" is the UI name for the org-wide location_admin role;
+          // "location_admin" is location-scoped and carries the picked location.
+          ...(invite.roleName !== "none"
+            ? { roleName: invite.roleName === "org_admin" ? "location_admin" : invite.roleName }
+            : {}),
+          ...(invite.roleName === "location_admin" && invite.locationId
+            ? { locationId: invite.locationId }
+            : {}),
         }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to add user")
       toast.success(`Invited ${invite.email} — they'll get a sign-in link by email`)
       setIsInviteOpen(false)
-      setInvite({ firstName: "", lastName: "", email: "", roleName: "none" })
+      setInvite({ firstName: "", lastName: "", email: "", roleName: "none", locationId: "" })
       await fetchUsers(1)
     } catch (err: any) {
       toast.error(err.message ?? "Failed to add user")
@@ -467,7 +474,8 @@ export function UsersList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No role (customer account)</SelectItem>
-                  <SelectItem value="location_admin">Location admin (front desk)</SelectItem>
+                  <SelectItem value="org_admin">Organization admin (front desk, all locations)</SelectItem>
+                  <SelectItem value="location_admin">Location admin (single location)</SelectItem>
                   <SelectItem value="coach">Coach</SelectItem>
                   <SelectItem value="referee">Referee</SelectItem>
                   <SelectItem value="media_staff">Media staff</SelectItem>
@@ -475,6 +483,26 @@ export function UsersList() {
                 </SelectContent>
               </Select>
             </div>
+            {invite.roleName === "location_admin" && (
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Select
+                  value={invite.locationId}
+                  onValueChange={(v) => setInvite((prev) => ({ ...prev, locationId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orgLocations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -483,7 +511,13 @@ export function UsersList() {
             </Button>
             <Button
               onClick={handleInvite}
-              disabled={isInviting || !invite.firstName || !invite.lastName || !invite.email}
+              disabled={
+                isInviting ||
+                !invite.firstName ||
+                !invite.lastName ||
+                !invite.email ||
+                (invite.roleName === "location_admin" && !invite.locationId)
+              }
             >
               {isInviting ? (
                 <>
