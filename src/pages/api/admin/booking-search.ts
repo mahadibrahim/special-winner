@@ -1,13 +1,18 @@
 /**
  * GET /api/admin/booking-search?q=<name|phone>
  *
- * Admin-gated booking search. Returns today's confirmed drop-in bookings +
- * field rentals across all locations the caller can see (org/location-scoped
- * via allowedLocationIds — same pattern as /api/admin/person/[id]).
+ * Admin-gated booking search. Returns today's drop-in bookings (confirmed +
+ * pending_claim pay-link holds) + field rentals across all locations the
+ * caller can see (org/location-scoped via allowedLocationIds — same pattern
+ * as /api/admin/person/[id]).
  *
  * Search matches:
  *  - Drop-in: user's first or last name (ilike) or last-4 of phone.
  *  - Field rental: renterName (ilike) or last-4 of renterPhone.
+ *
+ * Each result carries `status` ("confirmed" | "pending_claim") so the desk
+ * can see a held pay-link booking before it converts. Field rentals are
+ * confirmed-only today, so their status is always "confirmed".
  *
  * Returns at most 20 results. Sub-2-char query → empty results. 401 if
  * unauthenticated or non-admin.
@@ -112,6 +117,7 @@ export const GET: APIRoute = async (context) => {
         firstName: users.firstName,
         lastName: users.lastName,
         phone: users.phone,
+        status: dropInBookings.status,
       })
       .from(dropInBookings)
       .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
@@ -120,7 +126,7 @@ export const GET: APIRoute = async (context) => {
       .where(
         and(
           inArray(venues.locationId, allowedLocationIds),
-          eq(dropInBookings.status, "confirmed"),
+          inArray(dropInBookings.status, ["confirmed", "pending_claim"]),
           gte(dropInSessions.startsAt, todayStart),
           lt(dropInSessions.startsAt, todayEnd),
           or(
@@ -166,6 +172,7 @@ export const GET: APIRoute = async (context) => {
       timeLabel: string;
       waiverSigned: boolean;
       checkedIn: boolean;
+      status: "confirmed" | "pending_claim";
     };
 
     const results: Result[] = [];
@@ -180,6 +187,7 @@ export const GET: APIRoute = async (context) => {
         timeLabel: `${row.sessionLabel} — ${time}`,
         waiverSigned: row.waiverSigned,
         checkedIn: row.checkedInAt !== null,
+        status: row.status as "confirmed" | "pending_claim",
       });
     }
 
@@ -192,6 +200,7 @@ export const GET: APIRoute = async (context) => {
         timeLabel: `Field ${row.fieldNumber} — ${time}`,
         waiverSigned: row.waiverSigned,
         checkedIn: row.checkedInAt !== null,
+        status: "confirmed" as const,
       });
     }
 

@@ -19,12 +19,12 @@
 
 import { getDb } from "@/lib/db";
 import { games, teams, venues, gameOfficials } from "@/lib/db/schema/teams";
-import { dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { venueResources, resourceBlocks } from "@/lib/db/schema/scheduling";
-import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lt } from "drizzle-orm";
 
 export type ActivityType =
   | "league_game"
@@ -219,6 +219,26 @@ export async function getVenueDayData(
       ),
     );
 
+  // Booked-count per session: confirmed + pending_claim (pay-link holds) both
+  // occupy a slot, so both count toward "how full is this block". One
+  // grouped query for every drop-in session in the day window — not
+  // per-session — to keep this a fixed number of queries regardless of how
+  // many sessions the day has.
+  const dropInSessionIds = dropInRows.map((s) => s.id);
+  const bookingCounts = dropInSessionIds.length
+    ? await db
+        .select({ sessionId: dropInBookings.sessionId, n: count() })
+        .from(dropInBookings)
+        .where(
+          and(
+            inArray(dropInBookings.sessionId, dropInSessionIds),
+            inArray(dropInBookings.status, ["confirmed", "pending_claim"]),
+          ),
+        )
+        .groupBy(dropInBookings.sessionId)
+    : [];
+  const countBySession = new Map(bookingCounts.map((r) => [r.sessionId, r.n]));
+
   const dropInBlocks: ActivityBlock[] = dropInRows.map((s) => ({
     id: s.id,
     type: s.kind === "class" ? "class" : "drop_in",
@@ -228,7 +248,7 @@ export async function getVenueDayData(
     subtitle: [s.format, s.venueName].filter(Boolean).join(" · "),
     venueName: s.venueName,
     refAssigned: null,
-    capacityCurrent: null, // TODO: count active bookings; Phase-3 enhancement
+    capacityCurrent: countBySession.get(s.id) ?? 0,
     capacityMax: s.capacity,
     href: `/admin/dropin/sessions/${s.id}`,
     resourceName: s.resourceName ?? null,
