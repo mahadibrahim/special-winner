@@ -67,6 +67,32 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
         body: JSON.stringify(envelope),
       });
       if (!res.ok) throw new Error(String(res.status));
+      // Flushed captures leave the queue, so they must land in the payload's
+      // server-capture list or wrap-up loses them: the payload is fetched
+      // once on mount (load-once), and a capture that synced mid-practice —
+      // the normal online case — would otherwise be in neither list when the
+      // capture-triage step renders. Merge them in with their server ids
+      // (dedupe by clientId; replays return the same id).
+      const flushResult = (await res.json()) as {
+        captures?: Array<{ id: string; clientId: string }>;
+      };
+      const flushedIds = new Map(
+        (flushResult.captures ?? []).map((c) => [c.clientId, c.id]),
+      );
+      if (flushedIds.size > 0) {
+        setPayload((p) => {
+          if (!p) return p;
+          const known = new Set(p.captures.map((c) => c.clientId));
+          const merged = envelope.captures
+            .filter((c) => flushedIds.has(c.clientId) && !known.has(c.clientId))
+            .map((c) => ({
+              ...c,
+              id: flushedIds.get(c.clientId)!,
+              consumedAt: null,
+            }));
+          return merged.length > 0 ? { ...p, captures: [...p.captures, ...merged] } : p;
+        });
+      }
       queueRef.current = markFlushed(queueRef.current, envelope);
       setOffline(false);
       persistQueue();

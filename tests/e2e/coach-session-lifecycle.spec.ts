@@ -74,9 +74,24 @@ test("coach runs a session end to end", async ({ page }) => {
   await page.getByTestId("advance-segment").click();
   await expect(page.getByTestId("current-segment")).toContainText("Small games");
 
-  // Quick capture on the first player.
+  // Quick capture on the first player — and deterministically wait for its
+  // flush to complete BEFORE ending the session. This pins the ordering that
+  // broke on CI (fast server: capture leaves the queue pre-wrap-up, and
+  // wrap-up must surface it from the merged payload instead). Local servers
+  // were slow enough that the promote click always beat the flush, which
+  // masked the bug.
+  const flushDone = page.waitForResponse(
+    (r) =>
+      r.url().includes("/captures") &&
+      r.request().method() === "POST" &&
+      r.ok() &&
+      // Attendance marks flush to the same endpoint — only a flush that
+      // actually carries our capture counts.
+      (r.request().postData() ?? "").includes('"kind":"glow"'),
+  );
   await page.locator('[data-testid^="player-chip-"]').first().click();
   await page.getByTestId("capture-glow").first().click();
+  await flushDone;
 
   // End -> wrap-up.
   await page.getByTestId("end-session").click();
