@@ -1,0 +1,827 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>"></head><body><title>SoccerOne — League Marketing Planner</title>
+<style>
+  :root {
+    --paper: #f7f8f2;
+    --card: #fcfdf9;
+    --ink: #12150c;
+    --ink-2: #4c5142;
+    --ink-3: #83887a;
+    --line: #e2e4d8;
+    --line-soft: #ecede2;
+    --accent-text: #51660a;
+    --accent-fill: #b4e819;
+    --accent-ink: #1c2405;
+    --track: #e7e9dc;
+    --band: rgba(81,102,10,0.14);
+    --s1: #2a78d6; --s2: #1baf7a; --s3: #eda100; --s4: #008300;
+    --s5: #4a3aa7; --s6: #e34948; --s7: #e87ba4; --s8: #eb6834; --s9: #51660a; --s10: #0b81a6;
+    --sgray: #898781;
+    --shadow: 0 1px 2px rgba(18,21,12,0.05), 0 4px 16px rgba(18,21,12,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101208; --card: #191b16; --ink: #f2f4ea; --ink-2: #b9bfab;
+      --ink-3: #83887a; --line: #2b2e24; --line-soft: #22251c;
+      --accent-text: #c5ef45; --accent-fill: #b4e819; --accent-ink: #1c2405;
+      --track: #262a1e; --band: rgba(197,239,69,0.13);
+      --s1: #3987e5; --s2: #199e70; --s3: #c98500; --s4: #008300;
+      --s5: #9085e9; --s6: #e66767; --s7: #d55181; --s8: #d95926; --s9: #87992e; --s10: #2aa3bd;
+      --sgray: #898781; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101208; --card: #191b16; --ink: #f2f4ea; --ink-2: #b9bfab;
+    --ink-3: #83887a; --line: #2b2e24; --line-soft: #22251c;
+    --accent-text: #c5ef45; --accent-fill: #b4e819; --accent-ink: #1c2405;
+    --track: #262a1e; --band: rgba(197,239,69,0.13);
+    --s1: #3987e5; --s2: #199e70; --s3: #c98500; --s4: #008300;
+    --s5: #9085e9; --s6: #e66767; --s7: #d55181; --s8: #d95926; --s9: #87992e; --s10: #2aa3bd;
+    --sgray: #898781; --shadow: none;
+  }
+  :root[data-theme="light"] {
+    --paper: #f7f8f2; --card: #fcfdf9; --ink: #12150c; --ink-2: #4c5142;
+    --ink-3: #83887a; --line: #e2e4d8; --line-soft: #ecede2;
+    --accent-text: #51660a; --accent-fill: #b4e819; --accent-ink: #1c2405;
+    --track: #e7e9dc; --band: rgba(81,102,10,0.14);
+    --s1: #2a78d6; --s2: #1baf7a; --s3: #eda100; --s4: #008300;
+    --s5: #4a3aa7; --s6: #e34948; --s7: #e87ba4; --s8: #eb6834; --s9: #51660a; --s10: #0b81a6;
+    --sgray: #898781;
+    --shadow: 0 1px 2px rgba(18,21,12,0.05), 0 4px 16px rgba(18,21,12,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 20px 64px; }
+
+  .kicker { display: inline-block; background: var(--accent-fill); color: var(--accent-ink);
+    font-weight: 800; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 3px; margin-bottom: 10px; }
+  h1 { margin: 0 0 6px; font-size: clamp(24px, 4vw, 34px); line-height: 1.05;
+    font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; text-wrap: balance; }
+  .sub { color: var(--ink-2); max-width: 66ch; margin: 0; }
+
+  .presets { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0 14px; }
+  .seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .seg button { appearance: none; border: 0; background: transparent; color: var(--ink-2);
+    font: inherit; font-weight: 650; font-size: 13.5px; padding: 7px 16px; border-radius: 6px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent-fill); color: var(--accent-ink); }
+  .seg button:focus-visible, .switch input:focus-visible + .knob,
+  input[type="range"]:focus-visible, .season:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent-text); outline-offset: 2px; }
+  .custom-chip { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-text); border: 1px dashed var(--accent-text); border-radius: 999px;
+    padding: 3px 10px; display: none; }
+  .custom-chip.show { display: inline-block; }
+
+  /* season strip = overview + selector */
+  .seasons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+  .season { appearance: none; font: inherit; text-align: left; cursor: pointer;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+    color: var(--ink); box-shadow: var(--shadow); }
+  .season[aria-pressed="true"] { border-color: var(--accent-text); box-shadow: 0 0 0 1px var(--accent-text); }
+  .season .sn { font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+  .season .sv { font-size: 17px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .season .ss { font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  @media (max-width: 720px) { .seasons { grid-template-columns: repeat(5, minmax(120px, 1fr)); overflow-x: auto; } }
+
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px; align-items: start; }
+  .app[hidden] { display: none; }
+  @media (max-width: 960px) { .app { grid-template-columns: 1fr; } .results { position: static !important; } }
+
+  .channels { display: flex; flex-direction: column; gap: 10px; }
+  details.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow); padding: 0; overflow: hidden; position: relative; }
+  details.card summary { list-style: none; cursor: pointer; padding: 12px 16px; display: block; }
+  .cardwrap { position: relative; }
+  .cardwrap > .switch { position: absolute; top: 12px; right: 38px; z-index: 1; }
+  .cardwrap summary .ch-head { padding-right: 56px; }
+  details.card summary::-webkit-details-marker { display: none; }
+  .ch-head { display: flex; align-items: center; gap: 10px; }
+  .chip { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .ch-name { font-weight: 750; font-size: 14px; flex: none; }
+  .ch-sum { flex: 1 1 auto; text-align: right; font-size: 12.5px; color: var(--ink-2);
+    font-variant-numeric: tabular-nums; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ch-sum b { color: var(--ink); }
+  .caret { flex: none; color: var(--ink-3); font-size: 11px; transition: transform 0.15s; }
+  details[open] .caret { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) { .caret, .switch .knob, .switch .knob::after { transition: none !important; } }
+  .switch { position: relative; display: inline-block; width: 36px; height: 21px; flex: none; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .switch .knob { position: absolute; inset: 0; background: var(--track); border-radius: 999px; transition: background 0.15s; }
+  .switch .knob::after { content: ""; position: absolute; top: 3px; left: 3px; width: 15px; height: 15px;
+    background: var(--card); border-radius: 50%; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  .switch input:checked + .knob { background: var(--accent-fill); }
+  .switch input:checked + .knob::after { transform: translateX(15px); }
+
+  .ch-body { padding: 2px 16px 14px; border-top: 1px solid var(--line-soft);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
+  @media (max-width: 560px) { .ch-body { grid-template-columns: 1fr; } }
+  .ch-meta { grid-column: 1 / -1; font-size: 12px; color: var(--ink-3); padding-top: 8px; }
+  details.card.off { opacity: 0.6; }
+  .slider label { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); gap: 8px; }
+  .slider label b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--accent-text); height: 22px; }
+
+  .results { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .tile .lbl { font-size: 11px; font-weight: 750; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+  .tile .val { font-size: 25px; font-weight: 800; letter-spacing: -0.01em; margin-top: 2px; }
+  .tile .sub2 { font-size: 12px; color: var(--ink-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .panel h2 { margin: 0 0 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; color: var(--ink-3); }
+  .barlist { display: flex; flex-direction: column; gap: 7px; }
+  .brow { display: grid; grid-template-columns: 108px 1fr 78px; align-items: center; gap: 8px; border-radius: 6px; padding: 2px 4px; }
+  .brow:hover, .brow:focus-visible { background: var(--line-soft); outline: none; }
+  .brow .bname { font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .brow .bname span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { height: 14px; background: var(--track); border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+  .bval { font-size: 12px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  table.costs { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  table.costs th { text-align: right; font-size: 10.5px; font-weight: 750; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-3); padding: 0 0 6px; }
+  table.costs th:first-child, table.costs td:first-child { text-align: left; }
+  table.costs td { padding: 3px 0; color: var(--ink-2); text-align: right; }
+  table.costs td:first-child { color: var(--ink-2); display: flex; align-items: center; gap: 7px; }
+  table.costs tr.total td { border-top: 1px solid var(--line); font-weight: 750; color: var(--ink); padding-top: 6px; }
+  .cost-note { font-size: 12px; color: var(--ink-3); margin-top: 8px; }
+
+  .fstage { display: grid; grid-template-columns: 1fr 84px; gap: 8px; align-items: center; }
+  .fstage .fl { font-size: 12.5px; color: var(--ink-2); }
+  .fstage .fv { font-size: 13.5px; font-weight: 750; text-align: right; font-variant-numeric: tabular-nums; }
+  .fconv { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  .meter { height: 18px; background: var(--track); border-radius: 5px; position: relative; overflow: hidden; }
+  .meter .band { position: absolute; top: 0; bottom: 0; background: var(--band); }
+  .meter .fill { position: absolute; top: 3px; bottom: 3px; left: 0; background: var(--accent-fill); border-radius: 0 4px 4px 0; }
+  .meter-notes { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--ink-3); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+  .fm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 820px) { .fm-grid { grid-template-columns: 1fr; } }
+  #funnelView { display: flex; flex-direction: column; gap: 12px; }
+  #funnelView[hidden] { display: none; }
+  .fm-stage { padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+  .fm-stage:last-child { border-bottom: 0; }
+  .fm-big { font-size: 23px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .fm-lbl { font-size: 11px; font-weight: 750; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+  .fm-conv { font-size: 12px; color: var(--ink-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .fm-chips { display: flex; flex-wrap: wrap; gap: 5px 14px; margin: 8px 0 2px; font-size: 12px; color: var(--ink-2); }
+  .fm-chips span { display: inline-flex; align-items: center; gap: 5px; }
+  .fm-note { font-size: 12.5px; color: var(--ink-2); margin-top: 8px; }
+  .fm-merge { display: flex; gap: 24px; flex-wrap: wrap; align-items: baseline; }
+
+  .foot { margin-top: 26px; color: var(--ink-3); font-size: 12.5px; max-width: 78ch; }
+  .foot p { margin: 4px 0; }
+
+  #tip { position: fixed; z-index: 10; pointer-events: none; display: none;
+    background: var(--ink); color: var(--paper); border-radius: 7px; padding: 8px 11px;
+    font-size: 12px; line-height: 1.45; max-width: 250px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    font-variant-numeric: tabular-nums; }
+  #tip b { font-weight: 750; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="kicker">SoccerOne · League Growth</span>
+    <h1>League Marketing Planner</h1>
+    <p class="sub">Pick a season, adjust assumptions, and see where registrations come from — new marketing,
+    renewals from last season, and the email list — plus what each channel costs in money and staff time.
+    $1,050/team · $120/solo — futsal teams (from Winter 1) price lower. Winter converts hotter; awareness compounds
+    but plateaus, and new acquisition saturates as the local player pool gets consumed.</p>
+  </header>
+
+  <div class="presets" role="group" aria-label="Scenario presets">
+    <div class="seg">
+      <button type="button" data-preset="worst" aria-pressed="false">Worst</button>
+      <button type="button" data-preset="likely" aria-pressed="true">Likely</button>
+      <button type="button" data-preset="best" aria-pressed="false">Best</button>
+    </div>
+    <div class="seg" role="group" aria-label="View">
+      <button type="button" data-view="plan" aria-pressed="true">Plan</button>
+      <button type="button" data-view="funnel" aria-pressed="false">Funnel map</button>
+    </div>
+    <span class="custom-chip" id="customChip">Custom — sliders edited</span>
+  </div>
+
+  <div class="seasons" id="seasonStrip" role="group" aria-label="Season selector and year overview"></div>
+
+  <section id="funnelView" hidden aria-label="Funnel map"></section>
+
+  <div class="app" id="plannerView">
+    <section class="channels" id="channels" aria-label="Marketing channels and assumptions"></section>
+
+    <aside class="results" aria-label="Results">
+      <div class="tiles">
+        <div class="tile"><div class="lbl" id="tRevLbl">Season revenue</div><div class="val" id="oRev">–</div><div class="sub2" id="oRevSub"></div></div>
+        <div class="tile"><div class="lbl">Registrations</div><div class="val" id="oRegs">–</div><div class="sub2" id="oRegsSub"></div></div>
+        <div class="tile"><div class="lbl">Cash ROAS</div><div class="val" id="oCashRoas">–</div><div class="sub2">revenue ÷ cash spend</div></div>
+        <div class="tile"><div class="lbl">Loaded ROAS</div><div class="val" id="oLoadRoas">–</div><div class="sub2">incl. forgone value (prizes, field time)</div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Where registrations come from</h2>
+        <div class="barlist" id="sources"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Cost — money and staff time</h2>
+        <table class="costs"><thead><tr><th>Source</th><th>Cash</th><th>Forgone</th><th>Hours</th></tr></thead><tbody id="costBody"></tbody></table>
+        <div class="cost-note" id="costNote"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Acquisition funnel (new marketing only)</h2>
+        <div class="fstage"><span class="fl">Quality impressions</span><span class="fv" id="f1">–</span></div>
+        <div class="fconv" id="fc1"></div>
+        <div class="fstage"><span class="fl">Clicks · scans · entries · convos</span><span class="fv" id="f2">–</span></div>
+        <div class="fconv" id="fc2"></div>
+        <div class="fstage"><span class="fl">Registrations from new marketing</span><span class="fv" id="f3">–</span></div>
+        <div class="fconv" id="fc3">+ renewals and email-list conversions arrive with no new impressions — that's the compounding.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Worthington capacity used</h2>
+        <div class="meter" aria-hidden="true"><div class="band" id="mBand"></div><div class="fill" id="mFill"></div></div>
+        <div class="meter-notes"><span id="mLeft">–</span><span>target fill 40–60%</span><span>~140 weekly soccer slots</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Email &amp; SMS list</h2>
+        <div style="font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums;" id="oList">–</div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <p><strong>Read this before trusting the numbers:</strong> inputs are conservative planning priors, replaced by
+    observed per-channel data (tracked links + discount codes) at two-week checkpoints. Fall 2026 is the cold start;
+    later seasons add renewals, the email list, seasonal demand, and compounding awareness — that is where team counts grow.</p>
+    <p>ROAS counts registration revenue only. Staff hours are estimates. Print costs are planning estimates from
+    typical online bulk pricing (yard signs ~$8–12/unit at qty 50, flyers ~$0.15 at qty 1,000) — get vendor quotes before
+    committing. Giveaway prizes and free field hours appear as <em>forgone value</em>, not cash — capacity that would
+    mostly go unsold. WhatsApp broadcasts go only to explicitly opted-in contacts (WABA requirement), costed at
+    marketing-conversation rates. Paid ads: $2,000/month cap for the first six months of operation, $1,000/month after
+    (decided 2026-07-11), hard-enforced at the payment card, 3:1 scale rule. The Founding Ten giveaway runs in Fall 2026 only.
+    New-audience acquisition is damped by a finite addressable-player pool (the demand ceiling) and awareness plateaus.
+    Futsal pricing is a planning assumption — no futsal offer is priced yet. The capacity meter tracks soccer fields only;
+    futsal teams use the separate court capacity.
+    Leagues operated by Aspire Sports.</p>
+  </footer>
+</div>
+
+<div id="tip" role="status"></div>
+
+<script>
+(function () {
+  "use strict";
+  var fmt$ = function (n) { return "$" + Math.round(n).toLocaleString("en-US"); };
+  var fmtN = function (n) { return Math.round(n).toLocaleString("en-US"); };
+  var fmtK = function (n) { return n >= 1000000 ? (n / 1000000).toFixed(1) + "M" : n >= 100000 ? Math.round(n / 1000) + "k" : n >= 10000 ? (n / 1000).toFixed(1) + "k" : fmtN(n); };
+  var fmtP = function (n, d) { return n.toFixed(d === undefined ? 1 : d) + "%"; };
+  var pct = function (v) { return fmtP(v); };
+  var raw = function (v) { return fmtN(v); };
+  var usd = function (v) { return fmt$(v); };
+  var x = function (v) { return v.toFixed(2) + "×"; };
+
+  var TEAM_PRICE = 1050, SOLO_PRICE = 120, WORTH_SLOTS = 140, ROSTER = 12;
+
+  var SEASONS = [
+    { id: 0, name: "Fall '26" }, { id: 1, name: "Winter 1" }, { id: 2, name: "Winter 2" },
+    { id: 3, name: "Spring '27" }, { id: 4, name: "Summer '27" }
+  ];
+
+  var CHANNELS = [
+    { id: "ch1", name: "Team giveaway", color: "var(--s1)", hours: 4,
+      sliders: [
+        ["imp", "Impressions (club-track reach)", 1000, 15000, 500, fmtK],
+        ["teams", "Teams converted (base)", 0, 8, 1, raw],
+        ["solos", "Solo spillover (base)", 0, 20, 1, raw]
+      ],
+      preset: { worst: { imp: 2000, teams: 0, solos: 2 }, likely: { imp: 5000, teams: 2, solos: 6 }, best: { imp: 10000, teams: 5, solos: 12 } },
+      statics: { worst: { cash: 150, forgone: 100 }, likely: { cash: 150, forgone: 500 }, best: { cash: 150, forgone: 1050 } },
+      compute: function (v, s) {
+        return { teams: v.teams, solos: v.solos, cash: s.cash, forgone: s.forgone, qImp: v.imp, actions: 0, listAdds: 15,
+          meta: "How it works: one team plays the season free ($1,050 value). Entry is free — an organizer submits their crew\u2019s name and contact, so every entry is a team lead even when it doesn\u2019t win. Winner drawn before the early-bird deadline so non-winners get the deadline pitch; an already-registered winner is refunded. The prize is forgone value, not cash — it only costs real revenue if the division would have sold out anyway. Cash is the ~" + fmt$(s.cash) + " promo boost · ~4 staff hrs." };
+      } },
+    { id: "ch1b", name: "Founding Ten", color: "var(--s2)", hours: 8, fallOnly: true,
+      sliders: [
+        ["reach", "Campaign reach", 5000, 60000, 1000, fmtK],
+        ["entry", "Entry rate", 0.5, 5, 0.1, pct],
+        ["conv", "Entrant → registration", 1, 6, 0.1, pct]
+      ],
+      preset: { worst: { reach: 10000, entry: 1.5, conv: 2 }, likely: { reach: 25000, entry: 2.4, conv: 3.3 }, best: { reach: 50000, entry: 3, conv: 4 } },
+      statics: { worst: { cash: 150, forgone: 1500 }, likely: { cash: 250, forgone: 2250 }, best: { cash: 250, forgone: 3000 } },
+      compute: function (v, s) {
+        var entries = v.reach * v.entry / 100;
+        return { teams: 0, solos: entries * v.conv / 100, cash: s.cash, forgone: s.forgone, qImp: v.reach, actions: entries, listAdds: entries,
+          meta: "How it works: 10 winners get a 12-month all-access pass — up to 3 league seasons solo, unlimited pickup, one class or camp for their household (~$800 retail each). Entry is free: join the email/SMS list. The generous prize is the point — the headline travels, and entrants self-select as soccer players, so the " + fmtN(entries) + " list adds are high-intent. Winners announced at the season opener become year-round regulars. Passes mostly fill capacity that would sit unsold — forgone value, not cash. Cash is the ~" + fmt$(s.cash) + " boost · Fall 2026 only · ~8 staff hrs." };
+      } },
+    { id: "ch2", name: "Club outreach", color: "var(--s3)", hours: 25,
+      sliders: [
+        ["contacted", "Organizers contacted", 10, 80, 5, raw],
+        ["resp", "Response rate", 10, 70, 1, pct],
+        ["close", "Conversation → team", 10, 40, 1, pct],
+        ["solos", "Solo spillover (base)", 0, 20, 1, raw]
+      ],
+      preset: { worst: { contacted: 25, resp: 30, close: 25, solos: 3 }, likely: { contacted: 40, resp: 45, close: 28, solos: 8 }, best: { contacted: 60, resp: 60, close: 28, solos: 15 } },
+      statics: { worst: {}, likely: {}, best: {} },
+      compute: function (v) {
+        var convos = v.contacted * v.resp / 100;
+        var teams = convos * v.close / 100;
+        return { teams: teams, solos: v.solos, cash: 0, forgone: Math.round(teams) * 50, qImp: 0, actions: convos, listAdds: 10,
+          meta: fmtN(convos) + " conversations · the closer is a free field hour per registered team (~$50 forgone value, not cash — off-peak hours that would sit empty) · the big time cost: ~25 staff hrs/season." };
+      } },
+    { id: "ch3", name: "Facebook groups", color: "var(--s4)", hours: 6,
+      sliders: [
+        ["views", "Post views (all groups)", 2000, 40000, 500, fmtK],
+        ["ctr", "Click-through", 0.5, 5, 0.1, pct],
+        ["conv", "Click → registration", 1, 6, 0.1, pct]
+      ],
+      preset: { worst: { views: 3600, ctr: 1.5, conv: 2 }, likely: { views: 11200, ctr: 2.7, conv: 3 }, best: { views: 30000, ctr: 4, conv: 3.3 } },
+      statics: { worst: {}, likely: {}, best: {} },
+      compute: function (v) {
+        var clicks = v.views * v.ctr / 100;
+        return { teams: 0, solos: clicks * v.conv / 100, cash: 0, forgone: 0, qImp: v.views, actions: clicks, listAdds: 5,
+          meta: fmtN(clicks) + " clicks · $0 cash — posted personally by the operating team, human voice · ~6 staff hrs." };
+      } },
+    { id: "ch4", name: "Yard signs", color: "var(--s5)", hours: 10,
+      sliders: [
+        ["scans", "QR scans (campaign)", 0, 400, 10, raw],
+        ["conv", "Scan → registration", 3, 15, 0.5, pct]
+      ],
+      preset: { worst: { scans: 30, conv: 7 }, likely: { scans: 120, conv: 8.3 }, best: { scans: 300, conv: 10 } },
+      statics: { worst: { driveby: 300000 }, likely: { driveby: 700000 }, best: { driveby: 1200000 } },
+      compute: function (v, s, si) {
+        return { teams: 0, solos: v.scans * v.conv / 100, cash: si === 0 ? 600 : 300, forgone: 0, qImp: 0, actions: v.scans, listAdds: 0,
+          meta: "50 signs ≈ $8–12 each printed w/ stands (planning estimate — get quotes): ~$600 first season, ~$300/season replacement · ~" + fmtK(s.driveby) + " drive-bys count as awareness, not funnel · ~10 staff hrs." };
+      } },
+    { id: "ch5", name: "Field flyers", color: "var(--s6)", hours: 12,
+      sliders: [
+        ["handed", "Flyers handed", 200, 1200, 50, raw],
+        ["scan", "Scan / visit rate", 1, 8, 0.5, pct],
+        ["conv", "Scan → registration", 5, 20, 0.5, pct]
+      ],
+      preset: { worst: { handed: 500, scan: 2, conv: 10 }, likely: { handed: 800, scan: 4, conv: 12.5 }, best: { handed: 1000, scan: 6, conv: 15 } },
+      statics: { worst: {}, likely: {}, best: {} },
+      compute: function (v) {
+        var scans = v.handed * v.scan / 100;
+        return { teams: 0, solos: scans * v.conv / 100, cash: 150, forgone: 0, qImp: v.handed, actions: scans, listAdds: 30,
+          meta: fmtN(scans) + " scans · print $150 · handed with a 20-second pitch, plus youth-interest emails · ~12 staff hrs." };
+      } },
+    { id: "ch6", name: "Paid ads", color: "var(--s7)", hours: 5,
+      sliders: [
+        ["spend", "Spend per season", 0, 6000, 100, usd],
+        ["cpm", "CPM", 6, 14, 0.5, usd],
+        ["ctr", "Click-through", 0.4, 2.5, 0.1, pct],
+        ["conv", "Click → registration", 0.5, 4, 0.1, pct],
+        ["teams", "Team registrations (base)", 0, 5, 1, raw]
+      ],
+      preset: { worst: { spend: 500, cpm: 9, ctr: 0.8, conv: 1.2, teams: 0 }, likely: { spend: 4000, cpm: 9, ctr: 1.2, conv: 1.75, teams: 2 }, best: { spend: 6000, cpm: 8, ctr: 1.8, conv: 2, teams: 5 } },
+      statics: { worst: {}, likely: {}, best: {} },
+      compute: function (v) {
+        var imp = v.cpm > 0 ? v.spend / v.cpm * 1000 : 0;
+        var clicks = imp * v.ctr / 100;
+        return { teams: v.teams, solos: clicks * v.conv / 100, cash: v.spend, forgone: 0, qImp: imp, actions: clicks, listAdds: 20,
+          meta: fmtK(imp) + " impressions · " + fmtN(clicks) + " clicks · cap $2k/mo for the first six months, then $1k/mo (decision revised 2026-07-11; card limit must match) · 3:1 scale rule · watch local audience saturation · ~5 staff hrs." };
+      } },
+    { id: "ch7", name: "Weekly free pickup", color: "var(--s8)", hours: 15,
+      sliders: [
+        ["att", "Attendees per session", 10, 50, 1, raw],
+        ["uniq", "Unique attendees (share)", 30, 70, 1, pct],
+        ["conv", "Attendee → registration", 5, 25, 0.5, pct],
+        ["teams", "Teams formed from regulars", 0, 3, 1, raw]
+      ],
+      preset: { worst: { att: 15, uniq: 40, conv: 8, teams: 0 }, likely: { att: 25, uniq: 50, conv: 12, teams: 1 }, best: { att: 40, uniq: 60, conv: 18, teams: 2 } },
+      statics: { worst: {}, likely: {}, best: {} },
+      compute: function (v) {
+        var unique = 12 * v.att * v.uniq / 100;
+        return { teams: v.teams, solos: unique * v.conv / 100, cash: 0, forgone: 600, qImp: 0, actions: unique, listAdds: unique,
+          meta: "How it works: one hour of free pickup every Fri/Sat — 12 sessions/season, no charge, no commitment. " + fmtN(unique) + " unique players try the venue, and every attendee checks in (waiver + list capture), so each session doubles as lead capture. The product sells itself. The 12 field-hours (~$600) are forgone value, not cash — hours that would mostly sit empty · ~15 staff hrs." };
+      } }
+  ];
+
+  // growth & season assumptions (a pseudo-channel card at the top of the list)
+  var GROWTH = {
+    sliders: [
+      ["teamRenew", "Team renewal rate (season → season)", 30, 90, 1, pct],
+      ["soloRenew", "Solo renewal rate", 20, 90, 1, pct],
+      ["emailConv", "Email list → registration, per season", 0.5, 8, 0.1, pct],
+      ["waOpt", "WhatsApp opt-in share of list", 10, 50, 1, pct],
+      ["waConv", "WhatsApp broadcast → registration", 1, 10, 0.5, pct],
+      ["tam", "Addressable players (annual, ~12 mi)", 1000, 8000, 250, raw],
+      ["fs", "Futsal share of teams (from Winter 1)", 0, 50, 1, pct],
+      ["fsPrice", "Futsal team price", 400, 900, 25, usd],
+      ["aware", "Awareness lift per season", 0, 30, 1, pct],
+      ["w1", "Winter 1 demand multiplier", 0.8, 1.6, 0.05, x],
+      ["w2", "Winter 2 demand multiplier", 0.8, 1.6, 0.05, x],
+      ["spring", "Spring demand multiplier", 0.6, 1.4, 0.05, x],
+      ["summer", "Summer demand multiplier", 0.6, 1.4, 0.05, x]
+    ],
+    preset: {
+      worst: { teamRenew: 55, soloRenew: 45, emailConv: 1.5, waOpt: 20, waConv: 2, aware: 5, w1: 1.15, w2: 1.1, spring: 0.85, summer: 0.8, tam: 1500, fs: 15, fsPrice: 600 },
+      likely: { teamRenew: 70, soloRenew: 55, emailConv: 3, waOpt: 30, waConv: 4, aware: 12, w1: 1.25, w2: 1.2, spring: 0.9, summer: 0.85, tam: 3000, fs: 25, fsPrice: 650 },
+      best: { teamRenew: 80, soloRenew: 65, emailConv: 5, waOpt: 40, waConv: 6, aware: 20, w1: 1.4, w2: 1.3, spring: 1.0, summer: 0.95, tam: 6000, fs: 35, fsPrice: 700 }
+    }
+  };
+  var OTHER_CONTACTS = { worst: 20, likely: 80, best: 150 }; // pickup nights, walk-ins, GBP — per season
+
+  var state = { preset: "likely", season: 0, view: "plan", vals: {}, statics: {}, on: {}, g: {}, other: 80 };
+
+  function loadPreset(p) {
+    state.preset = p;
+    CHANNELS.forEach(function (c) {
+      state.vals[c.id] = Object.assign({}, c.preset[p]);
+      state.statics[c.id] = Object.assign({}, c.statics[p]);
+      if (state.on[c.id] === undefined) state.on[c.id] = true;
+    });
+    state.g = Object.assign({}, GROWTH.preset[p]);
+    state.other = OTHER_CONTACTS[p];
+  }
+
+  function seasonMult(i) {
+    return [1, state.g.w1, state.g.w2, state.g.spring, state.g.summer][i];
+  }
+
+  // ---------- simulation across the five seasons ----------
+  function simulate() {
+    var out = [];
+    var list = 0, prevTeams = 0, prevSolos = 0, cumNew = 0;
+    for (var i = 0; i < SEASONS.length; i++) {
+      var sm = seasonMult(i);
+      var am = Math.min(Math.pow(1 + state.g.aware / 100, i), 1.6); // awareness plateaus
+      var sat = Math.max(0, 1 - cumNew / state.g.tam); // remaining addressable demand
+      var rows = [];
+      var qImp = 0, actions = 0, newTeams = 0, newSolos = 0, cash = 0, forgone = 0, hours = 0, adds = 0;
+
+      CHANNELS.forEach(function (c) {
+        var active = state.on[c.id] && !(c.fallOnly && i > 0);
+        var base = c.compute(state.vals[c.id], state.statics[c.id], i);
+        var teams = active ? Math.round(base.teams * sm * am * sat) : 0;
+        var solos = active ? Math.round(base.solos * sm * am * sat) : 0;
+        var row = { id: c.id, name: c.name, color: c.color, on: active,
+          teams: teams, solos: solos,
+          cash: active ? base.cash : 0, forgone: active ? base.forgone : 0,
+          hours: active ? c.hours : 0, meta: base.meta,
+          qImp: active ? base.qImp * am : 0, actions: active ? base.actions * am : 0 };
+        rows.push(row);
+        if (active) {
+          qImp += row.qImp; actions += row.actions;
+          newTeams += teams; newSolos += solos;
+          cash += row.cash; forgone += row.forgone; hours += row.hours;
+          adds += (base.listAdds || 0) * am;
+        }
+      });
+
+      // renewals from last season (retention, not marketing)
+      var rTeams = i > 0 ? Math.round(prevTeams * state.g.teamRenew / 100) : 0;
+      var rSolos = i > 0 ? Math.round(prevSolos * state.g.soloRenew / 100) : 0;
+      rows.push({ id: "renew", name: "Renewals", color: "var(--sgray)", on: i > 0,
+        teams: rTeams, solos: rSolos, cash: 0, forgone: 0, hours: i > 0 ? 2 : 0,
+        meta: "Last season's players coming back — the cheapest registration there is. ~2 staff hrs (renewal push)." });
+
+      // email list conversions (list as of season start)
+      var eRegs = i > 0 ? list * state.g.emailConv / 100 * sm * sat : 0;
+      var eTeams = Math.round(eRegs * 0.08), eSolos = Math.round(eRegs * 0.92);
+      rows.push({ id: "email", name: "Email list", color: "var(--s9)", on: i > 0,
+        teams: eTeams, solos: eSolos, cash: 0, forgone: 0, hours: i > 0 ? 3 : 0,
+        meta: "Weekly emails to " + fmtN(list) + " contacts at season start · ~3 staff hrs." });
+
+      // WhatsApp broadcasts to the opted-in share of the list
+      var optedIn = i > 0 ? list * state.g.waOpt / 100 : 0;
+      var wRegs = optedIn * state.g.waConv / 100 * sm * sat;
+      var wTeams = Math.round(wRegs * 0.08), wSolos = Math.round(wRegs * 0.92);
+      var waCash = i > 0 ? Math.round(optedIn * 12 * 0.025) : 0;
+      rows.push({ id: "wa", name: "WhatsApp", color: "var(--s10)", on: i > 0,
+        teams: wTeams, solos: wSolos, cash: waCash, forgone: 0, hours: i > 0 ? 2 : 0,
+        meta: "12 broadcasts/season to " + fmtN(optedIn) + " opted-in contacts. Opt-in only — never the full list (WABA rules). Cash ≈ $0.025 per marketing message-conversation · ~2 staff hrs." });
+
+      var teams = newTeams + rTeams + eTeams + wTeams;
+      var solos = newSolos + rSolos + eSolos + wSolos;
+      cash += waCash;
+      hours += (i > 0 ? 7 : 0); // renewals 2 + email 3 + WhatsApp 2
+
+      // blended pricing: futsal share (from Winter 1) at futsal prices — planning assumption, futsal offer not yet priced
+      var fsShare = i === 0 ? 0 : state.g.fs / 100;
+      var fsSolo = Math.round(state.g.fsPrice * 0.13);
+      var tp = Math.round((1 - fsShare) * TEAM_PRICE + fsShare * state.g.fsPrice);
+      var sp = Math.round((1 - fsShare) * SOLO_PRICE + fsShare * fsSolo);
+
+      // hard capacity clamp: demand beyond the soccer-slot ceiling doesn't book — best case means sellout
+      var soccerEqRaw = (teams + solos / ROSTER) * (1 - fsShare);
+      var capped = soccerEqRaw > WORTH_SLOTS;
+      if (capped) {
+        var capK = WORTH_SLOTS / soccerEqRaw;
+        rows.forEach(function (r) { r.teams = Math.round(r.teams * capK); r.solos = Math.round(r.solos * capK); });
+        teams = 0; solos = 0; newTeams = 0; newSolos = 0;
+        rows.forEach(function (r) {
+          if (!r.on) return;
+          teams += r.teams; solos += r.solos;
+          if (r.id !== "renew" && r.id !== "email" && r.id !== "wa") { newTeams += r.teams; newSolos += r.solos; }
+        });
+      }
+      var eRow = rows[rows.length - 2], wRow = rows[rows.length - 1];
+
+      var revenue = teams * tp + solos * sp;
+      // consume addressable demand: newly-acquired players (not renewals), post-clamp
+      cumNew += (newTeams + eRow.teams + wRow.teams) * ROSTER + (newSolos + eRow.solos + wRow.solos);
+      // list grows: campaign adds + every registrant (rosters) + other capture
+      var listStart = list;
+      list += adds + teams * ROSTER + solos + state.other;
+
+      out.push({ season: SEASONS[i].name, rows: rows,
+        teams: teams, solos: solos, regs: teams + solos, revenue: revenue,
+        newTeams: newTeams, newSolos: newSolos,
+        prevRegs: prevTeams + prevSolos, optedIn: optedIn,
+        tp: tp, sp: sp, fsShare: fsShare, sat: sat, capped: capped,
+        soccerTeamEq: (teams + solos / ROSTER) * (1 - fsShare),
+        cash: cash, forgone: forgone, loaded: cash + forgone, hours: hours,
+        qImp: qImp, actions: actions,
+        listStart: listStart, listEnd: list,
+        teamEq: teams + solos / ROSTER });
+      prevTeams = teams; prevSolos = solos;
+    }
+    return out;
+  }
+
+  // ---------- build input cards ----------
+  var chRoot = document.getElementById("channels");
+  function slidersHtml(owner, sliders) {
+    return sliders.map(function (s) {
+      return '<div class="slider"><label for="in-' + owner + '-' + s[0] + '">' + s[1] +
+        ' <b id="v-' + owner + '-' + s[0] + '"></b></label>' +
+        '<input type="range" id="in-' + owner + '-' + s[0] + '" min="' + s[2] + '" max="' + s[3] + '" step="' + s[4] + '" data-owner="' + owner + '" data-key="' + s[0] + '">';
+    }).join("");
+  }
+
+  var gCard = document.createElement("details");
+  gCard.className = "card"; gCard.id = "card-growth";
+  gCard.innerHTML = '<summary><div class="ch-head"><span class="chip" style="background:var(--accent-fill)"></span>' +
+    '<span class="ch-name">Growth &amp; seasons</span><span class="ch-sum" id="sum-growth"></span><span class="caret">▶</span></div></summary>' +
+    '<div class="ch-body">' + slidersHtml("g", GROWTH.sliders) +
+    '<div class="ch-meta">Winter converts hotter than fall/spring/summer; awareness lifts reach and conversions each season (plateaus at 1.6×); renewals and the email list turn past seasons into future registrations. New acquisition is damped as the addressable-player pool gets consumed — the natural demand ceiling. Futsal teams (from Winter 1) price lower than soccer; futsal pricing is a planning assumption until the offer exists.</div></div>';
+  chRoot.appendChild(gCard);
+
+  CHANNELS.forEach(function (c) {
+    var wrap = document.createElement("div");
+    wrap.className = "cardwrap";
+    wrap.innerHTML = '<details class="card" id="card-' + c.id + '">' +
+      '<summary><div class="ch-head"><span class="chip" style="background:' + c.color + '"></span>' +
+      '<span class="ch-name">' + c.name + '</span><span class="ch-sum" id="sum-' + c.id + '"></span>' +
+      '<span class="caret">▶</span></div></summary>' +
+      '<div class="ch-body">' + slidersHtml(c.id, c.sliders) + '<div class="ch-meta" id="meta-' + c.id + '"></div></div></details>' +
+      '<label class="switch"><input type="checkbox" checked data-toggle="' + c.id + '" aria-label="Include ' + c.name + '"><span class="knob"></span></label>';
+    chRoot.appendChild(wrap);
+  });
+
+  function syncInputs() {
+    CHANNELS.forEach(function (c) {
+      c.sliders.forEach(function (s) {
+        document.getElementById("in-" + c.id + "-" + s[0]).value = state.vals[c.id][s[0]];
+      });
+      document.querySelector('[data-toggle="' + c.id + '"]').checked = state.on[c.id];
+    });
+    GROWTH.sliders.forEach(function (s) {
+      document.getElementById("in-g-" + s[0]).value = state.g[s[0]];
+    });
+  }
+
+  // ---------- rendering ----------
+  // visual funnel: log-scaled trapezoid stack, values inside slabs
+  function funnelSVG(stages, fills) {
+    var W = 340, maxW = 264, minW = 90, slabH = 74, convH = 22;
+    var H = stages.length * slabH + (stages.length - 1) * convH;
+    var vmax = Math.max.apply(null, stages.map(function (st) { return st.val; })) || 1;
+    var wOf = function (v) { return minW + (maxW - minW) * (Math.log10(v + 1) / Math.log10(vmax + 1)); };
+    var widths = stages.map(function (st) { return wOf(st.val); });
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:360px;display:block;margin:8px auto 0" role="img" aria-label="Funnel">';
+    var y = 0;
+    stages.forEach(function (st, k) {
+      var wTop = widths[k];
+      var wBot = k < stages.length - 1 ? (widths[k] + widths[k + 1]) / 2 : widths[k] * 0.82;
+      var x1 = (W - wTop) / 2, x2 = (W + wTop) / 2;
+      var x3 = (W + wBot) / 2, x4 = (W - wBot) / 2;
+      svg += '<polygon points="' + x1 + ',' + y + ' ' + x2 + ',' + y + ' ' + x3 + ',' + (y + slabH) + ' ' + x4 + ',' + (y + slabH) + '" fill="' + fills[k] + '" rx="3"/>';
+      svg += '<text x="' + (W / 2) + '" y="' + (y + 27) + '" text-anchor="middle" fill="#ffffff" opacity="0.85" font-size="9.5" font-weight="750" letter-spacing="1.2" style="text-transform:uppercase">' + st.lbl.toUpperCase() + "</text>";
+      svg += '<text x="' + (W / 2) + '" y="' + (y + 52) + '" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="800">' + st.big + "</text>";
+      if (k < stages.length - 1) {
+        var wNext = widths[k + 1];
+        var cx1 = (W - wBot) / 2, cx2 = (W + wBot) / 2;
+        var cx3 = (W + wNext) / 2, cx4 = (W - wNext) / 2;
+        svg += '<polygon points="' + cx1 + ',' + (y + slabH) + ' ' + cx2 + ',' + (y + slabH) + ' ' + cx3 + ',' + (y + slabH + convH) + ' ' + cx4 + ',' + (y + slabH + convH) + '" fill="' + fills[k] + '" opacity="0.28"/>';
+        svg += '<text x="' + (W - 2) + '" y="' + (y + slabH + convH / 2 + 4) + '" text-anchor="end" fill="var(--ink-3)" font-size="11" font-weight="650">' + st.conv + "</text>";
+      }
+      y += slabH + convH;
+    });
+    return svg + "</svg>";
+  }
+  var FN_BLUE = ["#3987e5", "#256abf", "#184f95"];
+  var FN_GREEN = ["#17936a", "#0f7a55"];
+
+  var simCache = [];
+  function render() {
+    CHANNELS.forEach(function (c) {
+      c.sliders.forEach(function (s) {
+        document.getElementById("v-" + c.id + "-" + s[0]).textContent = s[5](state.vals[c.id][s[0]]);
+      });
+    });
+    GROWTH.sliders.forEach(function (s) {
+      document.getElementById("v-g-" + s[0]).textContent = s[5](state.g[s[0]]);
+    });
+
+    simCache = simulate();
+    var i = state.season, t = simCache[i];
+
+    // view switching
+    document.getElementById("plannerView").hidden = state.view !== "plan";
+    document.getElementById("funnelView").hidden = state.view === "plan";
+
+    // funnel map
+    var newRegs = t.newTeams + t.newSolos;
+    var existRegs = t.regs - newRegs;
+    var chipNew = ["ch1", "ch1b", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7"].map(function (id) {
+      var r = t.rows.find(function (q) { return q.id === id; });
+      return r && r.on ? '<span><span class="chip" style="background:' + r.color + '"></span>' + r.name + "</span>" : "";
+    }).join("");
+    var chipExist = ["renew", "email", "wa"].map(function (id) {
+      var r = t.rows.find(function (q) { return q.id === id; });
+      return '<span><span class="chip" style="background:' + r.color + '"></span>' + r.name + "</span>";
+    }).join("");
+    var newFunnel = funnelSVG([
+      { lbl: "Quality impressions", big: fmtK(t.qImp), val: t.qImp, conv: (t.qImp ? fmtP(t.actions / t.qImp * 100, 2) : "—") + " engage" },
+      { lbl: "Engaged", big: fmtN(t.actions), val: t.actions, conv: (t.actions ? fmtP(newRegs / t.actions * 100) : "—") + " register" },
+      { lbl: "Registrations", big: fmtN(newRegs), val: newRegs }
+    ], FN_BLUE);
+    var existCol = i === 0
+      ? '<div class="fm-stage"><div class="fm-lbl">Owned audience at season start</div><div class="fm-big">0</div>' +
+        '<div class="fm-conv">Fall is the cold start — this side is empty until the list and first players exist.</div></div>' +
+        '<div class="fm-note">Everything fall captures — giveaway entries, pickup check-ins, every registered player — becomes this funnel\u2019s fuel from Winter 1 on.</div>'
+      : funnelSVG([
+          { lbl: "Owned audience", big: fmtN(t.listStart), val: t.listStart, conv: (t.listStart ? fmtP(existRegs / t.listStart * 100) : "—") + " register" },
+          { lbl: "Registrations", big: fmtN(existRegs), val: existRegs }
+        ], FN_GREEN) +
+        '<div class="fm-note">Reached by weekly emails (all ' + fmtN(t.listStart) + '), WhatsApp broadcasts (' + fmtN(t.optedIn) + ' opted-in), and the renewal push (' + fmtN(t.prevRegs) + ' returning players) — no new impressions bought.</div>';
+    document.getElementById("funnelView").innerHTML =
+      '<div class="fm-grid">' +
+      '<div class="panel"><h2>New audiences — paid &amp; earned reach</h2><div class="fm-chips">' + chipNew + "</div>" + newFunnel +
+      '<div class="fm-note">People seeing us for the first time: ads, giveaways, signs, flyers, groups, club outreach, pickup visits. Funnel widths are log-scaled so every stage stays visible.</div></div>' +
+      '<div class="panel"><h2>Existing audiences — owned, nearly free</h2><div class="fm-chips">' + chipExist + "</div>" + existCol + "</div>" +
+      "</div>" +
+      '<div class="panel"><h2>Both funnels land in the same place</h2><div class="fm-merge">' +
+      '<span><span class="fm-lbl">Total registrations</span><div class="fm-big">' + t.teams + " teams + " + t.solos + ' solos</div></span>' +
+      '<span><span class="fm-lbl">Revenue</span><div class="fm-big">' + fmt$(t.revenue) + '</div></span>' +
+      '<span><span class="fm-lbl">Split</span><div class="fm-big">' + (t.regs ? Math.round(newRegs / t.regs * 100) : 0) + '% new · ' + (t.regs ? Math.round(existRegs / t.regs * 100) : 0) + '% owned</div></span>' +
+      "</div>" +
+      '<div class="fm-note"><strong>The flywheel:</strong> every registration, giveaway entry, and pickup check-in grows the owned audience — ' +
+      fmtN(t.listStart) + " → " + fmtN(t.listEnd) + " contacts this season. Next season\u2019s owned funnel starts from that bigger base, " +
+      "which is why the share of nearly-free registrations rises every season and blended cost per registration falls.</div></div>";
+
+    // season strip
+    document.getElementById("seasonStrip").innerHTML = simCache.map(function (s, k) {
+      return '<button type="button" class="season" data-season="' + k + '" aria-pressed="' + (k === i) + '">' +
+        '<div class="sn">' + s.season + (s.capped ? ' · <span style="color:var(--accent-text)">sold out</span>' : "") + '</div><div class="sv">' + fmt$(s.revenue) + '</div>' +
+        '<div class="ss">' + s.teams + ' teams · ' + s.solos + ' solos</div></button>';
+    }).join("");
+
+    document.getElementById("sum-growth").innerHTML =
+      "renew <b>" + fmtP(state.g.teamRenew, 0) + "</b> · market <b>" + fmtN(state.g.tam) + "</b> · futsal <b>" + fmtP(state.g.fs, 0) + "</b> @ <b>" + fmt$(state.g.fsPrice) + "</b>";
+
+    // per-channel summaries for the selected season
+    t.rows.forEach(function (r) {
+      if (r.id === "renew" || r.id === "email" || r.id === "wa") return;
+      var sumEl = document.getElementById("sum-" + r.id);
+      var card = document.getElementById("card-" + r.id);
+      card.classList.toggle("off", !r.on);
+      sumEl.innerHTML = r.on
+        ? "→ <b>" + (r.teams ? r.teams + "t · " : "") + r.solos + "s · " + fmt$(r.teams * t.tp + r.solos * t.sp) + "</b> · " + fmt$(r.cash) + " · " + r.hours + "h"
+        : (CHANNELS.find(function (c) { return c.id === r.id; }).fallOnly && state.season > 0 ? "Fall 2026 only" : "off");
+      var meta = document.getElementById("meta-" + r.id);
+      if (meta) meta.textContent = r.meta;
+    });
+
+    document.getElementById("tRevLbl").textContent = t.season + " revenue";
+    document.getElementById("oRev").textContent = fmt$(t.revenue);
+    document.getElementById("oRevSub").textContent = "cash " + fmt$(t.cash) + " · forgone " + fmt$(t.forgone) + " · " + t.hours + " staff hrs";
+    document.getElementById("oRegs").textContent = t.teams + " + " + t.solos;
+    document.getElementById("oRegsSub").textContent = "teams + solos · " +
+      (t.regs ? "new mktg " + (t.newTeams + t.newSolos) + " · renew/email " + (t.regs - t.newTeams - t.newSolos) : "—");
+    document.getElementById("oCashRoas").textContent = t.cash ? (t.revenue / t.cash).toFixed(1) + "×" : "—";
+    document.getElementById("oLoadRoas").textContent = t.loaded ? (t.revenue / t.loaded).toFixed(1) + "×" : "—";
+
+    // sources bar list (by registrations)
+    var rowsOn = t.rows.filter(function (r) { return r.on && (r.teams + r.solos) > 0; });
+    var maxRegs = Math.max.apply(null, rowsOn.map(function (r) { return r.teams + r.solos; }).concat([1]));
+    document.getElementById("sources").innerHTML = t.rows.filter(function (r) { return r.on || r.id === "renew" || r.id === "email" || r.id === "wa"; })
+      .map(function (r) {
+        var regs = r.teams + r.solos;
+        var w = regs / maxRegs * 100;
+        var lbl = r.on ? (r.teams ? r.teams + "t + " + r.solos + "s" : r.solos + "s") : (state.season === 0 ? "starts W1" : "off");
+        return '<div class="brow" tabindex="0" data-src="' + r.id + '">' +
+          '<span class="bname"><span class="chip" style="background:' + (r.on ? r.color : "var(--track)") + '"></span><span>' + r.name + "</span></span>" +
+          '<span class="bar"><i style="width:' + (r.on ? w : 0) + '%;background:' + r.color + '"></i></span>' +
+          '<span class="bval">' + lbl + "</span></div>";
+      }).join("");
+
+    // cost table
+    var body = t.rows.filter(function (r) { return r.on && (r.cash + r.forgone > 0 || r.hours > 0); });
+    document.getElementById("costBody").innerHTML = body.map(function (r) {
+      return "<tr><td><span class='chip' style='background:" + r.color + "'></span>" + r.name + "</td><td>" +
+        fmt$(r.cash) + "</td><td>" + (r.forgone ? fmt$(r.forgone) : "—") + "</td><td>" + r.hours + "</td></tr>";
+    }).join("") + "<tr class='total'><td>Total</td><td>" + fmt$(t.cash) + "</td><td>" + fmt$(t.forgone) + "</td><td>" + t.hours + "</td></tr>";
+    document.getElementById("costNote").textContent = t.regs
+      ? "≈ " + fmt$(t.cash / t.regs) + " cash per registration (" + fmt$(t.loaded / t.regs) + " incl. forgone) · " + (t.regs / t.hours).toFixed(1) + " registrations per staff hour. Forgone = prizes and free field hours: capacity we likely wouldn't have sold, not money out the door."
+      : "";
+
+    // funnel (new marketing only)
+    document.getElementById("f1").textContent = fmtK(t.qImp);
+    document.getElementById("fc1").textContent = t.qImp ? "↓ " + fmtP(t.actions / t.qImp * 100, 2) + " act" : "";
+    document.getElementById("f2").textContent = fmtN(t.actions);
+    document.getElementById("fc2").textContent = t.actions ? "↓ " + fmtP((t.newTeams + t.newSolos) / t.actions * 100, 1) + " register" : "";
+    document.getElementById("f3").textContent = fmtN(t.newTeams + t.newSolos);
+
+    // capacity
+    var pctUsed = t.soccerTeamEq / WORTH_SLOTS * 100;
+    document.getElementById("mFill").style.width = Math.min(100, pctUsed) + "%";
+    var band = document.getElementById("mBand");
+    band.style.left = "40%"; band.style.width = "20%"; band.style.right = "auto";
+    document.getElementById("mLeft").textContent = t.soccerTeamEq.toFixed(1) + " soccer team-eq = " + pctUsed.toFixed(1) + "% of soccer slots" + (t.fsShare ? " (+" + Math.round(t.fsShare * 100) + "% of teams on futsal courts)" : "");
+
+    document.getElementById("oList").innerHTML = "<b>" + fmtN(t.listStart) + "</b> contacts at season start → <b>" +
+      fmtN(t.listEnd) + "</b> at season end (giveaway entries + every registered player + pickup/walk-in capture). " +
+      "Next season this list converts at " + fmtP(state.g.emailConv) + " via the weekly emails.";
+  }
+
+  // ---------- events ----------
+  document.querySelectorAll("[data-preset]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      loadPreset(b.dataset.preset);
+      document.querySelectorAll("[data-preset]").forEach(function (btn) { btn.setAttribute("aria-pressed", btn === b ? "true" : "false"); });
+      document.getElementById("customChip").classList.remove("show");
+      syncInputs(); render();
+    });
+  });
+  document.querySelectorAll("[data-view]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.view = b.dataset.view;
+      document.querySelectorAll("[data-view]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      render();
+    });
+  });
+  document.getElementById("seasonStrip").addEventListener("click", function (e) {
+    var b = e.target.closest(".season");
+    if (b) { state.season = +b.dataset.season; render(); }
+  });
+  chRoot.addEventListener("input", function (e) {
+    var el = e.target;
+    if (!el.dataset || !el.dataset.owner) return;
+    if (el.dataset.owner === "g") state.g[el.dataset.key] = parseFloat(el.value);
+    else state.vals[el.dataset.owner][el.dataset.key] = parseFloat(el.value);
+    markCustom(); render();
+  });
+  chRoot.addEventListener("change", function (e) {
+    var el = e.target;
+    if (el.dataset && el.dataset.toggle) { state.on[el.dataset.toggle] = el.checked; markCustom(); render(); }
+  });
+  chRoot.addEventListener("click", function (e) {
+    if (e.target.closest(".switch")) e.stopPropagation();
+  });
+  function markCustom() {
+    document.querySelectorAll("[data-preset]").forEach(function (btn) { btn.setAttribute("aria-pressed", "false"); });
+    document.getElementById("customChip").classList.add("show");
+  }
+
+  // tooltip on source rows
+  var tip = document.getElementById("tip");
+  function showTip(row, cx, cy) {
+    var r = simCache[state.season].rows.find(function (q) { return q.id === row.dataset.src; });
+    if (!r) return;
+    tip.innerHTML = "<b>" + r.name + "</b><br>" + r.teams + " teams · " + r.solos + " solos<br>" +
+      "revenue " + fmt$(r.teams * simCache[state.season].tp + r.solos * simCache[state.season].sp) +
+      "<br>cash " + fmt$(r.cash) + (r.forgone ? " · forgone " + fmt$(r.forgone) : "") + " · " + r.hours + " staff hrs" +
+      "<br><span style='opacity:0.8'>" + r.meta + "</span>";
+    tip.style.display = "block";
+    var pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.min(window.innerWidth - w - 8, cx + pad) + "px";
+    tip.style.top = Math.max(8, cy - h - pad) + "px";
+  }
+  var src = document.getElementById("sources");
+  src.addEventListener("mousemove", function (e) {
+    var row = e.target.closest(".brow");
+    if (row) showTip(row, e.clientX, e.clientY); else tip.style.display = "none";
+  });
+  src.addEventListener("mouseleave", function () { tip.style.display = "none"; });
+  src.addEventListener("focusin", function (e) {
+    var row = e.target.closest(".brow");
+    if (row) { var b = row.getBoundingClientRect(); showTip(row, b.left + 120, b.top); }
+  });
+  src.addEventListener("focusout", function () { tip.style.display = "none"; });
+
+  loadPreset("likely");
+  syncInputs();
+  render();
+})();
+</script>
+</body></html>
