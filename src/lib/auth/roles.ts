@@ -1,6 +1,6 @@
 import type { APIContext } from "astro";
 import { getDb } from "@/lib/db";
-import { userRoles, roles, teams, rosters, registrations, organizations } from "@/lib/db/schema";
+import { userRoles, roles, teams, rosters, registrations, organizations, locations } from "@/lib/db/schema";
 import { eq, and, or, inArray, asc } from "drizzle-orm";
 import { validateSession } from "./session";
 
@@ -532,10 +532,11 @@ export async function requireOrganizationContext(context: APIContext): Promise<
  *   - a platform `super_admin` (global scope) administers every org, OR
  *   - a `super_admin`/`location_admin` role scoped to this organization.
  *
- * Admin roles in this codebase are stored at `scopeType: "organization"`
- * (location/media roles use `scopeType: "location"`); see the role seed. A
- * location-scoped admin role is not a pattern used here, so it is intentionally
- * not granted org authority without an explicit location→org resolution.
+ * Org-wide admin roles are stored at `scopeType: "organization"`. A
+ * location-scoped `location_admin` (scopeType "location") is a narrower
+ * admin shape and is deliberately NOT matched here — it requires a
+ * location→org resolution, which `requireOrgAdminAccess` performs as a
+ * fallback path (returning locationScope = the in-org location ids).
  */
 export function isAdminForOrg(
   roles: UserRole[],
@@ -572,6 +573,14 @@ export async function requireOrgAdminAccess(context: APIContext): Promise<
       user: NonNullable<Awaited<ReturnType<typeof validateSession>>["user"]>;
       roles: UserRole[];
       organizationId: string;
+      /**
+       * "all" for org-wide admins (global super_admin, org-scoped
+       * location_admin); the caller's in-org location ids for
+       * location-scoped admins. Phase 2 will thread this into per-endpoint
+       * data filtering; today only org-level endpoints consume it (via
+       * requireOrgWideAdminAccess).
+       */
+      locationScope: "all" | string[];
     }
 > {
   const adminResult = await requireAdminAccess(context);
@@ -583,6 +592,41 @@ export async function requireOrgAdminAccess(context: APIContext): Promise<
   }
 
   if (!isAdminForOrg(adminResult.roles, orgContext.organizationId)) {
+    // Location-scoped admins: scope determines meaning —
+    // location_admin@organization is an org admin (handled above by
+    // isAdminForOrg), location_admin@location administers that one
+    // location. Accept when at least one scoped location belongs to the
+    // resolved org, and record which ones.
+    const scopedLocationIds = adminResult.roles
+      .filter(
+        (r) =>
+          r.name === "location_admin" &&
+          r.scopeType === "location" &&
+          r.scopeId !== null,
+      )
+      .map((r) => r.scopeId as string);
+
+    if (scopedLocationIds.length > 0) {
+      const inOrg = await getDb()
+        .select({ id: locations.id })
+        .from(locations)
+        .where(
+          and(
+            inArray(locations.id, scopedLocationIds),
+            eq(locations.organizationId, orgContext.organizationId),
+          ),
+        );
+      if (inOrg.length > 0) {
+        return {
+          authorized: true,
+          user: adminResult.user,
+          roles: adminResult.roles,
+          organizationId: orgContext.organizationId,
+          locationScope: inOrg.map((l) => l.id),
+        };
+      }
+    }
+
     return {
       authorized: false,
       response: new Response(
@@ -597,5 +641,6 @@ export async function requireOrgAdminAccess(context: APIContext): Promise<
     user: adminResult.user,
     roles: adminResult.roles,
     organizationId: orgContext.organizationId,
+    locationScope: "all",
   };
 }
